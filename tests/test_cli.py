@@ -41,6 +41,33 @@ class CliTests(unittest.TestCase):
             ["examples: 2", "top_discard: 4p", "training_accuracy: 0.5000"],
         )
 
+    def test_train_discard_linear_fixture(self) -> None:
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            exit_code = main(
+                [
+                    "train-discard-linear",
+                    "data/fixtures/tenhou/minimal_4p.xml",
+                    "--epochs",
+                    "5",
+                    "--eval-fraction",
+                    "0.5",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            stdout.getvalue().splitlines(),
+            [
+                "examples: 2",
+                "train_examples: 1",
+                "eval_examples: 1",
+                "train_accuracy: 1.0000",
+                "eval_accuracy: 0.0000",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

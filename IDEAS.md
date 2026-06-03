@@ -495,4 +495,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Extracted shared training reconstruction state so discard, call, and future outcome-example builders use one transition path for draws, discards, and calls.
 - Added call-decision examples for actual chi/pon/kan claims and legal pass decisions, using reconstructed hand counts and visible table context.
 - Added a stable hash-based train/eval splitter so tiny-model experiments are reproducible without depending on Python random state.
-- Next implementation target: expose a tiny trainable discard model before adding heavyweight ML dependencies.
+- Added a tiny dependency-free linear softmax discard model with legal-action masking and deterministic CLI train/eval output.
+- Next implementation target: persist tiny model artifacts, then evaluate on a real locally downloaded Tenhou sample without committing raw logs.
