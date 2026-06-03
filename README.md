@@ -22,6 +22,8 @@ PYTHONPATH=src python3 -m kenjaku train-discard-baseline data/fixtures/tenhou/mi
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/fixtures/tenhou --epochs 5
 PYTHONPATH=src python3 -m kenjaku train-discard-linear \
   data/fixtures/tenhou --report runs/linear-report.json
+PYTHONPATH=src python3 -m kenjaku benchmark-discard \
+  data/fixtures/tenhou --epochs 5 --report runs/discard-benchmark.json
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside

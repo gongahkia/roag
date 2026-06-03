@@ -212,6 +212,64 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["artifacts"]["model_path"], str(output))
         self.assertIn("report_path:", stdout.getvalue())
 
+    def test_benchmark_discard_writes_report_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-benchmark",
+                        "--source-command",
+                        "unit-test",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            stdout.getvalue().splitlines()[:7],
+            [
+                "examples: 4",
+                "train_examples: 3",
+                "eval_examples: 1",
+                "frequency_train_accuracy: 0.6667",
+                "frequency_eval_accuracy: 0.0000",
+                "linear_train_accuracy: 0.6667",
+                "linear_eval_accuracy: 0.0000",
+            ],
+        )
+        self.assertIn("report_path:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-benchmark")
+        self.assertEqual(payload["source"]["command"], "unit-test")
+        self.assertEqual(payload["xml_file_count"], 3)
+        self.assertEqual(payload["rounds"], 3)
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["call_examples"], 1)
+        self.assertEqual(payload["split"]["seed"], "fixed")
+        self.assertEqual(payload["split"]["train_examples"], 3)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(payload["models"]["frequency"]["metrics"]["train_accuracy"], 2 / 3)
+        self.assertEqual(payload["models"]["frequency"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["models"]["linear"]["training"]["epochs"], 1)
+        self.assertEqual(payload["models"]["linear"]["metrics"]["train_accuracy"], 2 / 3)
+        self.assertEqual(payload["models"]["linear"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["discard_shanten"]["examples"], 4)
+        self.assertEqual(payload["parse_failures"]["count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

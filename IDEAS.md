@@ -523,5 +523,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   report metadata for failed file paths, error types, and messages.
 - Added report source metadata flags (`--source-label`, `--source-command`, `--source-date`) so
   local benchmark artifacts can record provenance without storing raw logs.
-- Next implementation target: scale the local Tenhou smoke into a larger reproducible benchmark
-  slice, still without committing raw logs.
+- Added a `benchmark-discard` command and JSON report that score the global frequency baseline and
+  the tiny linear discard model on the same deterministic split, with source metadata,
+  parse-failure accounting, and shanten summaries in one artifact.
+- Ran `benchmark-discard` on the existing ignored 5-log Tenhou smoke slice: 2,262 examples, 1,810
+  train / 452 eval split, frequency baseline at 0.3083 train / 0.2788 eval accuracy, and the
+  3-epoch linear model at 0.4326 train / 0.3009 eval accuracy.
+- Next implementation target: run `benchmark-discard` against a larger ignored Tenhou slice and
+  start tracking benchmark deltas as the feature set moves beyond raw hand/visible tile counts.
