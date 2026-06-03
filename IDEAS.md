@@ -1,17 +1,35 @@
 # kenjaku — Open-Source Riichi Mahjong AI
 
-> An open-source riichi mahjong agent targeting Tenhou's Phoenix room and Mahjong Soul's Celestial rank, with modern architecture, full reproducibility, and a public ladder presence.
+> An open-source riichi mahjong research agent and analysis toolkit, with a reproducible training pipeline, strong local evaluation, interpretable recommendations, and no unauthorized public-ladder automation.
 
 ---
 
 ## 0. tl;dr
 
-- **What**: Train and deploy an open-source riichi mahjong AI that climbs to top-tier ranks on Tenhou (Phoenix room, top ~0.1% of players) and Mahjong Soul (Saint+ / Celestial).
+- **What**: Train and evaluate an open-source riichi mahjong AI that can be reproduced locally, benchmarked against open baselines, and used for replay/decision analysis.
 - **Why now**: Microsoft Suphx is the SOTA closed-source bot (Tenhou 10-dan, 2019). NAGA is closed. The strongest open-source bot (`mortal`) reaches stable 7-8 dan but has a dated architecture (CNN+MLP), limited interpretability, no Sanma support, no live ladder presence.
-- **Differentiation**: Modern transformer architecture + improved RL pipeline + Sanma (3-player) extension + interpretability overlay + always-on public ladder bot with auto-shared replays.
+- **Differentiation**: Reproducible data pipeline + modern sequence/transformer experiments + Sanma (3-player) extension + interpretability overlay + public offline evaluation artifacts.
 - **Hardware**: Mac (M-series MPS) primary; ~$200-500 cloud GPU bursts (Lambda/RunPod) for final RL training passes.
 - **Timeline**: 4-6 months solo part-time to credible launch.
-- **Outputs**: Open-source repo, arxiv preprint, public ladder bot, browser-playable demo, HN/Twitter launch.
+- **Outputs**: Open-source repo, arxiv-style technical report, replay analyzer, browser-playable demo, reproducible benchmark suite, launch posts.
+
+### 0.1 current implementation stance (2026-06-03)
+
+- Start with a narrow Phase 0 scaffold: Python package, tests, tile/action/state primitives, compliant sample data path, and a tiny discard-prediction baseline.
+- Treat Tenhou and Mahjong Soul as data/evaluation ecosystems, not as automation targets unless explicit platform permission exists.
+- Avoid redistributing raw Tenhou logs. Store fixtures only when they are small, legally safe, and documented, or use synthetic fixtures for unit tests.
+- Keep all experiments reproducible: deterministic config files, documented data provenance, seed handling, and benchmark reports checked into the repo.
+- Prefer interoperable formats (`mjai`, Tenhou XML/JSON conversion) over custom one-off state dumps.
+
+### 0.2 research updates that change the original plan
+
+- Tenhou's manual has explicit AI-play guidance: Phoenix-table AI play is prohibited, higher-table AI use requires a dedicated ID, and AI play should publish replay URLs and avoid blind/high-volume behavior. Tenhou also restricts log redistribution and use outside Tenhou-related purposes. Reference: https://cdn.tenhou.net/man/
+- Mahjong Soul's English terms prohibit automated systems, bots, automation software, cheats, and unauthorized third-party software that modifies or interferes with the service. This makes live ranked automation inappropriate without written permission. Reference: https://mahjongsoul.yo-star.com/terms_of_service
+- `MahjongRepository/phoenix-logs` is archived; `Apricot-S/houou-logs` is the current downloader to evaluate, and it documents Tenhou's no-redistribution and one-download-session constraints. Reference: https://github.com/Apricot-S/houou-logs
+- `mortal` remains the main open baseline and provides a Rust emulator, `mjai` interface, and documented duplicate-mahjong evaluation. Reference: https://github.com/Equim-chan/Mortal and https://mortal.ekyu.moe/
+- `mjx` is useful background but currently warns that its build is broken and Apple Silicon is unsupported. Reference: https://github.com/mjx-project/mjx
+- `Mahjax` is a new JAX simulator paper submitted on 2026-05-20, claiming GPU-vectorized rollouts up to 2M steps/sec on 8x A100. It is worth tracking before committing to a custom simulator. Reference: https://arxiv.org/abs/2605.20577
+- Transformer novelty must be claimed carefully. MahjongLM-style tokenized Tenhou datasets/models already exist, so the sharper claim is an open transformer policy agent with reproducible riichi evaluation, not "first transformer mahjong AI." Reference: https://huggingface.co/datasets/mitsutani/mahjonglm-dataset
 
 ---
 
@@ -122,12 +140,11 @@ Single-axis improvements over mortal aren't enough for a credible launch. The di
 - Train a separate Sanma model from the same pipeline
 - This single contribution justifies a separate paper if needed
 
-### 3.5 Live ladder bot
-- Daily automated runs on Mahjong Soul ladder
-- Auto-post replay URLs to a public Twitter/X account
-- Public-facing rank tracker on a website
-- "AI is currently ranked Saint 3" creates continuous engagement
-- Risk: TOS — must be transparent about being a bot, may need MJS approval
+### 3.5 Public evaluation without unauthorized ladder automation
+- Primary public proof should be reproducible offline benchmarks, duplicate-mahjong matches, and replay-analysis pages.
+- If a live ladder account is ever used, it requires explicit platform permission and public disclosure before implementation.
+- Auto-posted replay URLs can still exist for permitted private-room/tournament games or offline replay analysis, not unapproved ranked automation.
+- "AI is currently ranked Saint 3" is a compelling narrative, but it is not a Phase 0 or Phase 1 deliverable because the compliance risk is too high.
 
 ### 3.6 Tooling and dev experience
 - One-command Docker run for the bot
@@ -193,7 +210,7 @@ Estimated parameter count: 10-50M parameters (similar order to small LLMs, fits 
 
 **Phase 4 — Evaluation (weeks 13-14)**
 - Internal: head-to-head against akochan, mortal
-- External: deploy on Tenhou (general room first, then push to Phoenix)
+- External: only permitted live environments, private rooms, or public replay challenges; no Tenhou Phoenix or Mahjong Soul ranked automation without permission
 - Track win rate, average placement, deal-in rate, riichi rate, win value, defense correctness
 
 **Phase 5 — Sanma extension (weeks 15-18)**
@@ -212,7 +229,7 @@ Estimated parameter count: 10-50M parameters (similar order to small LLMs, fits 
 | Logging | wandb (free tier) | Visible runs, sharable |
 | Serving | FastAPI + ONNX export | Cross-platform inference |
 | Frontend | Vite + React + Tailwind | For browser demo |
-| Bot harness | Playwright (Mahjong Soul automation) | Web-based MJS |
+| Bot harness | Deferred | Do not implement live platform automation without explicit permission |
 
 ### 4.5 compute budget estimate
 
@@ -261,8 +278,8 @@ This is well within "side project budget" territory.
 - [ ] Target: match or exceed mortal on Tenhou General room
 
 ### Phase 4 — Deployment infrastructure (weeks 13-14)
-- [ ] Mahjong Soul automation via Playwright
-- [ ] Auto-replay-sharing pipeline (post replay URLs to public site/Twitter)
+- [ ] Permission-aware replay ingestion and review pipeline
+- [ ] Auto-replay-sharing pipeline for permitted games and offline analysis
 - [ ] Live rank tracker website
 - [ ] Browser playable demo (you vs AI)
 - [ ] Interpretability overlay
@@ -348,15 +365,15 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 4. **Sanma extension**: how the same pipeline transfers
 5. **Evaluation**:
    - Head-to-head against akochan, mortal
-   - Tenhou Phoenix room performance
-   - Mahjong Soul Saint+ ranking
+   - Local duplicate-mahjong benchmark performance
+   - Permitted private-room or public replay challenge results, if available
    - Ablations: transformer vs CNN, with vs without aux heads, sanma transfer
 6. **Discussion**: Limitations, ethical considerations (TOS, fairness)
 7. **Conclusion + future work**
 
 ### contribution claims (defensible)
-- First open-source riichi mahjong agent to formally evaluate on Tenhou Phoenix and Mahjong Soul Saint+
-- First transformer-based architecture for riichi mahjong
+- Open-source riichi mahjong agent with reproducible evaluation against open baselines
+- Transformer-based policy architecture evaluated under a published protocol
 - First open Sanma agent
 - Interpretability overlay novel in mahjong AI literature
 - Reproducible training pipeline released
@@ -366,9 +383,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 ## 8. risks and open questions
 
 ### 8.1 TOS and bot policy
-- **Tenhou**: explicitly bans bots in PvP rooms. Past bots (including Suphx) had access rescinded. Likely cannot deploy live on Tenhou.
-- **Mahjong Soul**: less clear. Some Japanese players run bots, MJS has not aggressively pursued. Risk of account bans.
-- **Mitigation**: Build the bot for both, deploy on whichever permits it. Always disclose. Consider reaching out to MJS for permission. Worst case: train on Tenhou logs (offline), evaluate via simulator + manual ladder pushes.
+- **Tenhou**: AI play has explicit restrictions. Phoenix-table AI play is prohibited; higher-table AI play is not open by default and requires a dedicated ID. Log redistribution and non-Tenhou uses are restricted.
+- **Mahjong Soul**: public terms prohibit bots, automation software, and unauthorized third-party software. Treat ranked automation as off-limits unless written permission is obtained.
+- **Mitigation**: Build training, local evaluation, replay analysis, and demos first. Keep live play behind a permission gate. Use private-room/tournament setups only when rules and participants allow it.
 
 ### 8.2 differentiation sufficiency
 - **Risk**: mortal already does most of this. The bundle (transformer + sanma + interpretability + live bot) needs to actually deliver meaningful improvements.
@@ -398,9 +415,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 9. open questions to resolve in phase 0
 
-1. **Tenhou log access**: are Phoenix room logs still publicly downloadable? what's the latest year covered?
+1. **Tenhou log access**: verify sample availability through `houou-logs`, use one download session only, and document non-redistribution constraints.
 2. **mortal architecture details**: read the code, confirm CNN baseline, understand training pipeline
-3. **Mahjong Soul automation legality**: research current state of MJS bot policy, find precedents
+3. **Mahjong Soul automation legality**: currently treat ranked automation as prohibited; only revisit after explicit permission or a clearly permitted API/sandbox exists.
 4. **Cloud GPU cheapest source**: Lambda Labs vs RunPod vs vast.ai pricing for the relevant GPU/duration mix
 5. **Sanma log availability**: where are MJS sanma logs, is there a scraping pipeline
 6. **Name**: confirm "kenjaku" isn't trademarked/registered elsewhere in the mahjong AI space
@@ -421,8 +438,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 ### code references
 - mortal: https://github.com/Equim-chan/Mortal
 - akochan: https://github.com/critter-mj/akochan
-- Tenhou log archive: various community mirrors (verify in phase 0)
-- pymahjong / mjx (Python mahjong simulators): https://github.com/mahjong-py/mjx (verify still maintained)
+- houou-logs: https://github.com/Apricot-S/houou-logs
+- mjx: https://github.com/mjx-project/mjx
+- Mahjax: https://arxiv.org/abs/2605.20577
+- MahjongLM dataset/model direction: https://huggingface.co/datasets/mitsutani/mahjonglm-dataset
 
 ### community
 - /r/Mahjong, /r/Mahjongsoul, /r/Tenhou
@@ -441,10 +460,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps (week 1)
 
-1. Download 100 sample Tenhou Phoenix logs, verify parser works
-2. Clone and build mortal locally, confirm it runs on Mac
-3. Create Mahjong Soul account, play 10 games to relearn the UI
-4. Spin up a Lambda Labs account, do a smoke-test H100 run ($2 budget)
-5. Reserve GitHub repo + domain name + twitter handle for the project
-6. Read Suphx paper end-to-end, extract reusable ideas
-7. Draft README.md skeleton (this file's structure → public README)
+1. Create repo scaffold: Python package, tests, CLI, docs, data policy.
+2. Implement tile/action/state primitives with unit tests.
+3. Validate a tiny Tenhou XML parsing fixture without redistributing raw log archives.
+4. Evaluate `houou-logs` as an external downloader and document exact compliant usage.
+5. Clone and build mortal locally, confirm inference/evaluation hooks on Mac.
+6. Read Suphx and Mahjax end-to-end, extract reusable simulator/evaluation ideas.
+7. Draft README.md skeleton from this file with compliance-aware positioning.
+
+---
+
+## 12. implementation log
+
+### 2026-06-03
+
+- Reframed the project from live ladder automation to a permission-aware research agent and replay-analysis toolkit.
+- Recorded current external constraints: Tenhou AI/log restrictions, Mahjong Soul automation risk, `houou-logs` as the maintained downloader, `mortal` as the baseline, `mjx` caveats, and `Mahjax`/MahjongLM as new areas to track.
+- Next implementation target: create the Phase 0 Python scaffold, then core tile/action/state primitives with tests.
