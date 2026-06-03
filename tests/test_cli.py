@@ -69,7 +69,34 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["call_examples"], 1)
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertIn("average_delta", payload["discard_shanten"])
+        self.assertEqual(payload["parse_failures"]["count"], 0)
         self.assertIn("report_path:", stdout.getvalue())
+
+    def test_inspect_tenhou_can_report_parse_failures(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            broken = Path(directory) / "broken.xml"
+            broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
+            report = Path(directory) / "inspect.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "inspect-tenhou",
+                        "data/fixtures/tenhou/minimal_4p.xml",
+                        str(broken),
+                        "--skip-errors",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("parse_failures: 1", stdout.getvalue())
+        self.assertEqual(payload["rounds"], 1)
+        self.assertEqual(payload["parse_failures"]["count"], 1)
+        self.assertEqual(payload["parse_failures"]["items"][0]["error_type"], "ValueError")
 
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
@@ -169,6 +196,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["train_examples"], 3)
         self.assertEqual(payload["split"]["eval_examples"], 1)
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
+        self.assertEqual(payload["parse_failures"]["count"], 0)
         self.assertEqual(payload["artifacts"]["model_path"], str(output))
         self.assertIn("report_path:", stdout.getvalue())
 

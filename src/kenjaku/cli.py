@@ -9,7 +9,7 @@ from kenjaku.experiments import (
     build_tenhou_inspect_report,
     write_json_report,
 )
-from kenjaku.io import parse_tenhou_xml_paths, tenhou_xml_files
+from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
 from kenjaku.training import (
     deterministic_split,
@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional path for a JSON inspection report artifact",
     )
+    inspect_tenhou.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
 
     train_baseline = subparsers.add_parser(
@@ -53,6 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         type=Path,
         help="Tenhou XML files or directories",
+    )
+    train_baseline.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="skip files that fail Tenhou XML parsing",
     )
     train_baseline.set_defaults(func=_train_discard_baseline)
 
@@ -89,6 +99,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional path for a JSON training report artifact",
     )
+    train_linear.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
     train_linear.set_defaults(func=_train_discard_linear)
     return parser
 
@@ -109,8 +124,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _inspect_tenhou(args: argparse.Namespace) -> int:
-    xml_files = tenhou_xml_files(args.paths)
-    game = parse_tenhou_xml_paths(xml_files)
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
     discards = sum(len(round_.discards) for round_ in game.rounds)
     discard_examples = list(iter_discard_examples(game))
     call_examples = sum(1 for _ in iter_call_examples(game))
@@ -119,14 +134,17 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
     print(f"discards: {discards}")
     print(f"discard_examples: {len(discard_examples)}")
     print(f"call_examples: {call_examples}")
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
     if args.report is not None:
         report = build_tenhou_inspect_report(
             input_paths=args.paths,
-            xml_files=xml_files,
+            xml_files=dataset.files,
             game=game,
             discard_examples=len(discard_examples),
             call_examples=call_examples,
             discard_shanten=summarize_discard_shanten(discard_examples),
+            parse_failures=dataset.failures,
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
@@ -134,7 +152,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
 
 
 def _train_discard_baseline(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_paths(args.paths)
+    game = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors).game
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
@@ -147,8 +165,8 @@ def _train_discard_baseline(args: argparse.Namespace) -> int:
 
 
 def _train_discard_linear(args: argparse.Namespace) -> int:
-    xml_files = tenhou_xml_files(args.paths)
-    game = parse_tenhou_xml_paths(xml_files)
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
@@ -180,7 +198,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
     if args.report is not None:
         report = build_discard_linear_report(
             input_paths=args.paths,
-            xml_files=xml_files,
+            xml_files=dataset.files,
             game=game,
             discard_examples=len(examples),
             call_examples=sum(1 for _ in iter_call_examples(game)),
@@ -193,6 +211,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             train_accuracy=train_accuracy,
             eval_accuracy=eval_accuracy,
             discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=dataset.failures,
             model_path=args.output,
         )
         write_json_report(args.report, report)

@@ -519,5 +519,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   exported XML files, 49 rounds, 2,262 discard examples, 591 call examples, 2,095 shanten-preserved
   discards, and a 3-epoch tiny linear discard model at 0.4227 train / 0.3274 eval accuracy. Raw
   logs, generated reports, and model artifacts stayed in ignored local paths.
+- Added opt-in parser-failure accounting for larger local XML batches via `--skip-errors`, with
+  report metadata for failed file paths, error types, and messages.
 - Next implementation target: scale the local Tenhou smoke into a larger reproducible benchmark
-  slice with parser-failure accounting and date/source metadata, still without committing raw logs.
+  slice with date/source metadata, still without committing raw logs.

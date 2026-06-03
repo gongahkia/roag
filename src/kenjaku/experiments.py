@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from kenjaku.io import TenhouGame
+from kenjaku.io import TenhouGame, TenhouParseFailure
 
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
@@ -19,6 +19,7 @@ def build_tenhou_inspect_report(
     discard_examples: int,
     call_examples: int,
     discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
 ) -> dict[str, Any]:
     return {
         "kind": TENHOU_INSPECT_REPORT_KIND,
@@ -34,6 +35,7 @@ def build_tenhou_inspect_report(
         "discard_examples": discard_examples,
         "call_examples": call_examples,
         "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
     }
 
 
@@ -53,6 +55,7 @@ def build_discard_linear_report(
     train_accuracy: float,
     eval_accuracy: float | None,
     discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
     model_path: Path | None,
 ) -> dict[str, Any]:
     return {
@@ -78,6 +81,7 @@ def build_discard_linear_report(
             "eval_accuracy": eval_accuracy,
         },
         "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
         "artifacts": {
             "model_path": None if model_path is None else str(model_path),
         },
@@ -91,3 +95,17 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _parse_failure_payload(failures: Sequence[TenhouParseFailure]) -> dict[str, Any]:
+    return {
+        "count": len(failures),
+        "items": [
+            {
+                "path": str(failure.path),
+                "error_type": failure.error_type,
+                "message": failure.message,
+            }
+            for failure in failures
+        ],
+    }

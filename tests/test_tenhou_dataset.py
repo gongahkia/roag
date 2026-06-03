@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.io import parse_tenhou_xml_paths, tenhou_xml_files
+from kenjaku.io import parse_tenhou_xml_dataset, parse_tenhou_xml_paths, tenhou_xml_files
 
 
 FIXTURE_DIR = Path("data/fixtures/tenhou")
@@ -25,6 +25,27 @@ class TenhouDatasetTests(unittest.TestCase):
 
         self.assertEqual(len(game.rounds), 2)
         self.assertEqual(sum(len(round_.discards) for round_ in game.rounds), 4)
+
+    def test_records_parse_failures_when_requested(self) -> None:
+        with TemporaryDirectory() as directory:
+            broken = Path(directory) / "broken.xml"
+            broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
+
+            dataset = parse_tenhou_xml_dataset([MINIMAL_FIXTURE, broken], skip_errors=True)
+
+        self.assertEqual(len(dataset.game.rounds), 1)
+        self.assertEqual(len(dataset.files), 2)
+        self.assertEqual(len(dataset.failures), 1)
+        self.assertEqual(dataset.failures[0].path, broken.resolve())
+        self.assertEqual(dataset.failures[0].error_type, "ValueError")
+
+    def test_strict_parse_failures_still_raise(self) -> None:
+        with TemporaryDirectory() as directory:
+            broken = Path(directory) / "broken.xml"
+            broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                parse_tenhou_xml_dataset([broken])
 
     def test_rejects_empty_directories(self) -> None:
         with TemporaryDirectory() as directory:
