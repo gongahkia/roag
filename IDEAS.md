@@ -480,4 +480,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added immutable core domain primitives for tile types, physical red-five tiles, rule presets, player actions, melds, discards, and player-perspective round state.
 - Added standard-library unit tests for tile parsing/counting, action validation, rule presets, visible-state accounting, and unseen tile counts.
 - Added data policy docs that keep raw logs local, permit only synthetic/safe fixtures, and document compliant `houou-logs` usage.
-- Next implementation target: a tiny synthetic Tenhou XML parsing fixture.
+- Added a minimal Tenhou XML parser and synthetic fixture covering starting hands, dora indicators, draws, discards, red fives, and tsumogiri inference.
+- Next implementation target: convert parsed Tenhou events into training examples for discard prediction.
