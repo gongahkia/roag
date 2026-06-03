@@ -558,6 +558,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   pressure alone.
 - Added `docs/session-handoff.md` so an independent agent can resume from the current state without
   relying on chat history.
+- Expanded `docs/session-handoff.md` with the explicit stop state, working rules, hidden
+  assumptions, local-artifact constraints, and the exact files where riichi/opponent-river context
+  work should start.
 - Next implementation target: investigate shanten-worsening decisions and add the first risk/context
   features, starting with riichi state and opponent-river visibility before scaling beyond the
   25-log local slice.
