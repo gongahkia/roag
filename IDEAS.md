@@ -478,4 +478,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Recorded current external constraints: Tenhou AI/log restrictions, Mahjong Soul automation risk, `houou-logs` as the maintained downloader, `mortal` as the baseline, `mjx` caveats, and `Mahjax`/MahjongLM as new areas to track.
 - Added the initial Python package scaffold: `pyproject.toml`, `README.md`, package entrypoints, CLI shell, and project ignore rules.
 - Added immutable core domain primitives for tile types, physical red-five tiles, rule presets, player actions, melds, discards, and player-perspective round state.
-- Next implementation target: unit tests for the core primitives, then compliant data/fixture guidance.
+- Added standard-library unit tests for tile parsing/counting, action validation, rule presets, visible-state accounting, and unseen tile counts.
+- Next implementation target: compliant data/fixture guidance and a tiny Tenhou XML parsing fixture.
