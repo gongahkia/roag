@@ -484,4 +484,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Extended the Tenhou parser to retain ordered draw/discard events, enabling hand reconstruction for supervised discard examples.
 - Added a Phase 0 discard-example builder that reconstructs draw/discard-only hands and emits hand counts, visible counts, metadata, and supervised discard actions.
 - Added a CLI smoke path for parsing a Tenhou XML file and reporting round, discard, and discard-example counts.
-- Next implementation target: fix parser coverage gaps for calls/riichi/wins, then train a tiny discard baseline.
+- Added parser records for riichi declarations, opaque calls, wins, and exhaustive draws using synthetic Tenhou fixtures.
+- Next implementation target: make discard-example generation explicitly skip unsupported called/winning rounds, then train a tiny discard baseline.

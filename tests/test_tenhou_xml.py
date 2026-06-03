@@ -4,10 +4,21 @@ import unittest
 from pathlib import Path
 
 from kenjaku.core import ActionKind, Tile
-from kenjaku.io import TenhouDiscard, TenhouDraw, parse_tenhou_xml_file, tenhou_tile
+from kenjaku.io import (
+    TenhouAgari,
+    TenhouCall,
+    TenhouDiscard,
+    TenhouDraw,
+    TenhouReach,
+    TenhouRyuukyoku,
+    parse_tenhou_xml_file,
+    tenhou_tile,
+)
 
 
 FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
+EVENTS_FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
+RYUUKYOKU_FIXTURE = Path("data/fixtures/tenhou/ryuukyoku_4p.xml")
 
 
 class TenhouXmlTests(unittest.TestCase):
@@ -51,7 +62,42 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertIsInstance(round_.events[1], TenhouDiscard)
         self.assertIsInstance(round_.events[2], TenhouDraw)
         self.assertIsInstance(round_.events[3], TenhouDiscard)
-        self.assertEqual([event.seat for event in round_.events], [0, 0, 1, 1])
+        self.assertEqual([event.seat for event in round_.events[:4]], [0, 0, 1, 1])
+        self.assertIsInstance(round_.events[4], TenhouRyuukyoku)
+
+    def test_parse_reach_call_and_agari_events(self) -> None:
+        game = parse_tenhou_xml_file(EVENTS_FIXTURE)
+        round_ = game.rounds[0]
+
+        self.assertEqual(len(round_.reaches), 2)
+        self.assertEqual(round_.reaches[0], TenhouReach(seat=0, step=1, event_index=0))
+        self.assertEqual(round_.reaches[1].scores, (24000, 25000, 25000, 25000))
+        self.assertEqual(round_.calls, (TenhouCall(seat=1, meld_code=12345, event_index=2),))
+        self.assertEqual(len(round_.agari), 1)
+
+        agari = round_.agari[0]
+        self.assertIsInstance(round_.events[3], TenhouAgari)
+        self.assertEqual(agari.winner, 2)
+        self.assertEqual(agari.from_seat, 1)
+        self.assertEqual(agari.machi, Tile.parse("3m"))
+        self.assertEqual(agari.points, (30, 1000))
+        self.assertEqual(agari.yaku, (1, 1))
+        self.assertEqual(agari.dora_indicators, (Tile.parse("1s"),))
+        self.assertEqual(agari.ura_dora_indicators, (Tile.parse("1s"),))
+
+    def test_parse_ryuukyoku_event(self) -> None:
+        game = parse_tenhou_xml_file(RYUUKYOKU_FIXTURE)
+        round_ = game.rounds[0]
+
+        self.assertEqual(
+            round_.ryuukyoku,
+            TenhouRyuukyoku(
+                event_index=0,
+                reason="yao9",
+                scores=(25000, 25000, 25000, 25000),
+            ),
+        )
+        self.assertIsInstance(round_.events[0], TenhouRyuukyoku)
 
 
 if __name__ == "__main__":

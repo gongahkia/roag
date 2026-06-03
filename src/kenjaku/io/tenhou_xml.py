@@ -33,7 +33,43 @@ class TenhouDiscard:
         return Action.discard(self.tile.type, tsumogiri=self.tsumogiri)
 
 
-TenhouEvent = TenhouDraw | TenhouDiscard
+@dataclass(frozen=True, slots=True)
+class TenhouReach:
+    seat: int
+    step: int
+    event_index: int
+    scores: tuple[int, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TenhouCall:
+    seat: int
+    meld_code: int
+    event_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class TenhouAgari:
+    winner: int
+    from_seat: int
+    event_index: int
+    machi: Tile | None = None
+    points: tuple[int, ...] | None = None
+    yaku: tuple[int, ...] = ()
+    dora_indicators: tuple[Tile, ...] = ()
+    ura_dora_indicators: tuple[Tile, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class TenhouRyuukyoku:
+    event_index: int
+    reason: str | None = None
+    scores: tuple[int, ...] | None = None
+
+
+TenhouEvent = (
+    TenhouDraw | TenhouDiscard | TenhouReach | TenhouCall | TenhouAgari | TenhouRyuukyoku
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +80,10 @@ class TenhouRound:
     dora_indicators: tuple[Tile, ...]
     draws: tuple[TenhouDraw, ...]
     discards: tuple[TenhouDiscard, ...]
+    reaches: tuple[TenhouReach, ...]
+    calls: tuple[TenhouCall, ...]
+    agari: tuple[TenhouAgari, ...]
+    ryuukyoku: TenhouRyuukyoku | None
     events: tuple[TenhouEvent, ...]
 
 
@@ -58,7 +98,7 @@ class _ParsedEvent:
     attrib: dict[str, str]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class _RoundBuilder:
     dealer: int
     scores: tuple[int, ...]
@@ -66,6 +106,10 @@ class _RoundBuilder:
     dora_indicators: list[Tile]
     draws: list[TenhouDraw]
     discards: list[TenhouDiscard]
+    reaches: list[TenhouReach]
+    calls: list[TenhouCall]
+    agari: list[TenhouAgari]
+    ryuukyoku: TenhouRyuukyoku | None
     events: list[TenhouEvent]
     last_draws: dict[int, int]
 
@@ -77,6 +121,10 @@ class _RoundBuilder:
             dora_indicators=tuple(self.dora_indicators),
             draws=tuple(self.draws),
             discards=tuple(self.discards),
+            reaches=tuple(self.reaches),
+            calls=tuple(self.calls),
+            agari=tuple(self.agari),
+            ryuukyoku=self.ryuukyoku,
             events=tuple(self.events),
         )
 
@@ -138,6 +186,53 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
             current.discards.append(discard)
             current.events.append(discard)
             current.last_draws.pop(discard_seat, None)
+            continue
+
+        if tag == "REACH":
+            reach = TenhouReach(
+                seat=_required_int(event, "who"),
+                step=_required_int(event, "step"),
+                event_index=len(current.events),
+                scores=_parse_optional_scores(event.attrib.get("ten")),
+            )
+            current.reaches.append(reach)
+            current.events.append(reach)
+            continue
+
+        if tag == "N":
+            call = TenhouCall(
+                seat=_required_int(event, "who"),
+                meld_code=_required_int(event, "m"),
+                event_index=len(current.events),
+            )
+            current.calls.append(call)
+            current.events.append(call)
+            current.last_draws.pop(call.seat, None)
+            continue
+
+        if tag == "AGARI":
+            agari = TenhouAgari(
+                winner=_required_int(event, "who"),
+                from_seat=_required_int(event, "fromwho"),
+                event_index=len(current.events),
+                machi=_parse_optional_tile(event.attrib.get("machi")),
+                points=_parse_int_tuple(event.attrib.get("ten")),
+                yaku=_parse_int_tuple(event.attrib.get("yaku")) or (),
+                dora_indicators=_parse_tile_tuple(event.attrib.get("dorahai")),
+                ura_dora_indicators=_parse_tile_tuple(event.attrib.get("uradorahai")),
+            )
+            current.agari.append(agari)
+            current.events.append(agari)
+            continue
+
+        if tag == "RYUUKYOKU":
+            ryuukyoku = TenhouRyuukyoku(
+                event_index=len(current.events),
+                reason=event.attrib.get("type"),
+                scores=_parse_optional_scores(event.attrib.get("ten")),
+            )
+            current.ryuukyoku = ryuukyoku
+            current.events.append(ryuukyoku)
 
     if current is not None:
         rounds.append(current.freeze())
@@ -180,6 +275,10 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         dora_indicators=[],
         draws=[],
         discards=[],
+        reaches=[],
+        calls=[],
+        agari=[],
+        ryuukyoku=None,
         events=[],
         last_draws={},
     )
@@ -187,6 +286,30 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
 
 def _parse_scores(raw_scores: str) -> tuple[int, ...]:
     return tuple(int(score) * 100 for score in raw_scores.split(","))
+
+
+def _parse_optional_scores(raw_scores: str | None) -> tuple[int, ...] | None:
+    if raw_scores is None:
+        return None
+    return _parse_scores(raw_scores)
+
+
+def _parse_int_tuple(raw_values: str | None) -> tuple[int, ...] | None:
+    if not raw_values:
+        return None
+    return tuple(int(value) for value in raw_values.split(",") if value)
+
+
+def _parse_optional_tile(raw_tile: str | None) -> Tile | None:
+    if raw_tile is None:
+        return None
+    return tenhou_tile(int(raw_tile))
+
+
+def _parse_tile_tuple(raw_tiles: str | None) -> tuple[Tile, ...]:
+    if not raw_tiles:
+        return ()
+    return tuple(tenhou_tile(int(tile_id)) for tile_id in raw_tiles.split(",") if tile_id)
 
 
 def _parse_hand(raw_tiles: str) -> tuple[Tile, ...]:
