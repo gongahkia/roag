@@ -479,4 +479,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added the initial Python package scaffold: `pyproject.toml`, `README.md`, package entrypoints, CLI shell, and project ignore rules.
 - Added immutable core domain primitives for tile types, physical red-five tiles, rule presets, player actions, melds, discards, and player-perspective round state.
 - Added standard-library unit tests for tile parsing/counting, action validation, rule presets, visible-state accounting, and unseen tile counts.
-- Next implementation target: compliant data/fixture guidance and a tiny Tenhou XML parsing fixture.
+- Added data policy docs that keep raw logs local, permit only synthetic/safe fixtures, and document compliant `houou-logs` usage.
+- Next implementation target: a tiny synthetic Tenhou XML parsing fixture.
