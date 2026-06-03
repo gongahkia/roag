@@ -491,4 +491,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Promoted Tenhou physical tile-id mapping into a shared IO module so the XML parser and meld decoder use the same red-five and logical-tile behavior.
 - Added parser integration and tests for decoded `N` call events using generated synthetic meld codes instead of arbitrary integers.
 - Tightened the synthetic call fixture into a coherent discard-call-discard-win sequence so parser and reconstruction tests exercise realistic event order.
-- Next implementation target: use decoded calls for post-call hand reconstruction, then move from deterministic baselines to a tiny trainable discard model.
+- Extended discard-example reconstruction through decoded calls: consumed tiles leave the caller's concealed hand, claimed tiles leave the river, and open meld tiles become visible context.
+- Next implementation target: add call-decision examples, then move from deterministic baselines to a tiny trainable discard model.

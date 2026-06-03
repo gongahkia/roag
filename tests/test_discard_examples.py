@@ -35,7 +35,7 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(second.visible_counts[TileType.parse("7p").index], 1)
         self.assertEqual(second.visible_counts[TileType.parse("8p").index], 1)
 
-    def test_stops_at_first_call_until_post_call_reconstruction_exists(self) -> None:
+    def test_continues_after_pon_call(self) -> None:
         game = parse_tenhou_xml(
             """
             <mjloggm>
@@ -43,24 +43,29 @@ class DiscardExampleTests(unittest.TestCase):
                 seed="0,0,0,0,0,72"
                 ten="250,250,250,250"
                 oya="0"
-                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
-                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
-                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai0="0,4,8,12,16,20,24,28,32,40,44,48,52"
+                hai1="1,5,9,13,17,21,25,29,33,36,37,41,49"
+                hai2="2,6,10,14,18,22,26,30,34,42,46,50,54"
                 hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
               />
-              <T60 />
-              <D60 />
-              <N who="1" m="14954" />
-              <U64 />
+              <DORA hai="72" />
+              <T38 />
+              <D38 />
+              <N who="1" m="14955" />
               <E49 />
+              <RYUUKYOKU />
             </mjloggm>
             """
         )
 
         examples = list(iter_discard_examples(game))
 
-        self.assertEqual(len(examples), 1)
-        self.assertEqual(examples[0].event_index, 1)
+        self.assertEqual(len(examples), 2)
+        self.assertEqual([example.event_index for example in examples], [1, 3])
+        self.assertEqual(examples[1].seat, 1)
+        self.assertEqual(sum(examples[1].hand_counts), 11)
+        self.assertEqual(examples[1].action.tile, TileType.parse("4p"))
+        self.assertEqual(examples[1].visible_counts[TileType.parse("1p").index], 3)
 
 
 if __name__ == "__main__":
