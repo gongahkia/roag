@@ -536,6 +536,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Re-ran the same ignored 5-log Tenhou benchmark with `discard-linear-v1`: frequency stayed at
   0.3083 train / 0.2788 eval accuracy, while the 3-epoch linear model moved to 0.5414 train /
   0.4270 eval accuracy.
-- Next implementation target: run `benchmark-discard` against a larger ignored Tenhou slice and add
-  a compact feature-ablation report so improvements can be attributed to tile-efficiency features
-  instead of only to extra parameters.
+- Scaled the ignored local Tenhou benchmark slice to 25 current-year four-player hanchan logs:
+  25 XML files, 255 rounds, 11,855 discard examples, 3,185 call examples, zero parse failures,
+  10,992 shanten-preserved discards, and 863 shanten-worsened discards. On a deterministic 9,484 /
+  2,371 train/eval split, frequency scored 0.3046 train / 0.3037 eval accuracy and
+  `discard-linear-v1` scored 0.5150 train / 0.4757 eval accuracy.
+- Next implementation target: add a compact feature-ablation report so the `discard-linear-v1`
+  improvement can be attributed to tile-efficiency features before scaling beyond the 25-log local
+  slice.

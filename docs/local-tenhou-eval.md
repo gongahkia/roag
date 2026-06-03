@@ -45,6 +45,14 @@ SOURCE_COMMAND="houou-logs export data/raw/tenhou/db/2024.db data/raw/tenhou/xml
 
 PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/raw/tenhou/xml/4p-hanchan
 
+PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanchan \
+  --epochs 3 \
+  --eval-fraction 0.2 \
+  --report runs/discard-benchmark-local-report.json \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-hanchan \
   --epochs 5 \
   --eval-fraction 0.2 \
