@@ -505,4 +505,6 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   count, example counts, split settings, metrics, and model artifact path.
 - Added a local Tenhou evaluation runbook that connects `houou-logs`
   import/fetch/download/validate/export commands to Kenjaku's ignored local data paths.
+- Added `inspect-tenhou` JSON reports so local raw-log exports can be audited before any training
+  run starts.
 - Next implementation target: evaluate on a real locally downloaded Tenhou sample without committing raw logs.

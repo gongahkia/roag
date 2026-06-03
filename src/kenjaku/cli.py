@@ -4,7 +4,11 @@ import argparse
 from pathlib import Path
 
 from kenjaku import __version__
-from kenjaku.experiments import build_discard_linear_report, write_json_report
+from kenjaku.experiments import (
+    build_discard_linear_report,
+    build_tenhou_inspect_report,
+    write_json_report,
+)
 from kenjaku.io import parse_tenhou_xml_paths, tenhou_xml_files
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
 from kenjaku.training import deterministic_split, iter_call_examples, iter_discard_examples
@@ -27,6 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         type=Path,
         help="Tenhou XML files or directories",
+    )
+    inspect_tenhou.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON inspection report artifact",
     )
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
 
@@ -95,7 +104,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _inspect_tenhou(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_paths(args.paths)
+    xml_files = tenhou_xml_files(args.paths)
+    game = parse_tenhou_xml_paths(xml_files)
     discards = sum(len(round_.discards) for round_ in game.rounds)
     discard_examples = sum(1 for _ in iter_discard_examples(game))
     call_examples = sum(1 for _ in iter_call_examples(game))
@@ -104,6 +114,16 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
     print(f"discards: {discards}")
     print(f"discard_examples: {discard_examples}")
     print(f"call_examples: {call_examples}")
+    if args.report is not None:
+        report = build_tenhou_inspect_report(
+            input_paths=args.paths,
+            xml_files=xml_files,
+            game=game,
+            discard_examples=discard_examples,
+            call_examples=call_examples,
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
     return 0
 
 

@@ -44,6 +44,31 @@ class CliTests(unittest.TestCase):
             ["rounds: 3", "discards: 4", "discard_examples: 4", "call_examples: 1"],
         )
 
+    def test_inspect_tenhou_writes_report_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "inspect.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "inspect-tenhou",
+                        "data/fixtures/tenhou",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-tenhou-inspect-report-v0")
+        self.assertEqual(payload["xml_file_count"], 3)
+        self.assertEqual(payload["rounds"], 3)
+        self.assertEqual(payload["discards"], 4)
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["call_examples"], 1)
+        self.assertIn("report_path:", stdout.getvalue())
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 

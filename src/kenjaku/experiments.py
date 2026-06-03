@@ -8,6 +8,31 @@ from typing import Any
 from kenjaku.io import TenhouGame
 
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
+TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
+
+
+def build_tenhou_inspect_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+) -> dict[str, Any]:
+    return {
+        "kind": TENHOU_INSPECT_REPORT_KIND,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        "rounds": len(game.rounds),
+        "draws": sum(len(round_.draws) for round_ in game.rounds),
+        "discards": sum(len(round_.discards) for round_ in game.rounds),
+        "reaches": sum(len(round_.reaches) for round_ in game.rounds),
+        "calls": sum(len(round_.calls) for round_ in game.rounds),
+        "wins": sum(len(round_.agari) for round_ in game.rounds),
+        "exhaustive_draws": sum(round_.ryuukyoku is not None for round_ in game.rounds),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+    }
 
 
 def build_discard_linear_report(
