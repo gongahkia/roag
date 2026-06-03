@@ -7,6 +7,7 @@ from kenjaku.training.discard_features import (
     discard_shanten_delta,
     summarize_discard_shanten,
 )
+from kenjaku.training.error_analysis import summarize_discard_predictions
 from kenjaku.training.splits import deterministic_split
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "discard_shanten_delta",
     "iter_call_examples",
     "iter_discard_examples",
+    "summarize_discard_predictions",
     "summarize_discard_shanten",
 ]
