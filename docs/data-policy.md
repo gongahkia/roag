@@ -33,6 +33,11 @@ houou-logs export data/raw/tenhou/2024.db data/raw/tenhou/xml/4p-hanchan \
 Do not commit the resulting database or exported XML files. See `docs/local-tenhou-eval.md` for a
 local evaluation workflow.
 
+Generated reports and model artifacts belong under ignored local paths such as `runs/` and
+`models/`. If aggregate results are useful for project history, record only summary counts,
+metrics, and source commands in `IDEAS.md` or docs; do not copy raw XML, database contents, player
+records, or full generated artifacts into git without a separate redistribution review.
+
 ## Mahjong Soul
 
 Mahjong Soul ranked automation is out of scope unless written permission is obtained. Replay

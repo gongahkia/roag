@@ -21,6 +21,7 @@ from kenjaku.training import (
     deterministic_split,
     iter_call_examples,
     iter_discard_examples,
+    summarize_discard_predictions,
     summarize_discard_shanten,
 )
 
@@ -337,18 +338,36 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             eval_examples=len(eval_examples),
             frequency_train_accuracy=frequency_train_accuracy,
             frequency_eval_accuracy=frequency_eval_accuracy,
+            frequency_eval_analysis=summarize_discard_predictions(
+                eval_examples,
+                lambda example: frequency_model.predict(example.hand_counts),
+            ),
             raw_count_linear_epochs=args.epochs,
             raw_count_linear_learning_rate=args.learning_rate,
             raw_count_linear_model_kind=raw_count_linear_model.kind,
             raw_count_linear_feature_dim=raw_count_linear_model.feature_dim,
             raw_count_linear_train_accuracy=raw_count_linear_train_accuracy,
             raw_count_linear_eval_accuracy=raw_count_linear_eval_accuracy,
+            raw_count_linear_eval_analysis=summarize_discard_predictions(
+                eval_examples,
+                lambda example: raw_count_linear_model.predict(
+                    example.hand_counts,
+                    example.visible_counts,
+                ),
+            ),
             linear_epochs=args.epochs,
             linear_learning_rate=args.learning_rate,
             linear_model_kind=linear_model.kind,
             linear_feature_dim=linear_model.feature_dim,
             linear_train_accuracy=linear_train_accuracy,
             linear_eval_accuracy=linear_eval_accuracy,
+            linear_eval_analysis=summarize_discard_predictions(
+                eval_examples,
+                lambda example: linear_model.predict(
+                    example.hand_counts,
+                    example.visible_counts,
+                ),
+            ),
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
             source=_source_metadata(args),

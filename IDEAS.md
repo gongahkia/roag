@@ -550,6 +550,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Cached prepared linear-model examples inside training/scoring so candidate tile-efficiency
   features are computed once per example per profile instead of once per epoch. The 25-log ablation
   benchmark preserved the same metrics and completed in about 16.6 seconds locally.
-- Next implementation target: add discard error-analysis reports that break accuracy down by
-  shanten-preserving versus shanten-worsening decisions, tile family, and turn position before
-  increasing the local benchmark beyond 25 logs.
+- Added held-out discard error-analysis summaries to benchmark reports. Each model now reports
+  accuracy by actual discard shanten impact, discarded tile family, and rough round event phase.
+- Re-ran the 25-log local benchmark with error analysis. The shanten-aware linear model scored
+  0.5091 on shanten-preserving eval discards but only 0.0414 on shanten-worsening eval discards,
+  suggesting the next modeling work needs risk/context features rather than more tile-efficiency
+  pressure alone.
+- Added `docs/session-handoff.md` so an independent agent can resume from the current state without
+  relying on chat history.
+- Next implementation target: investigate shanten-worsening decisions and add the first risk/context
+  features, starting with riichi state and opponent-river visibility before scaling beyond the
+  25-log local slice.

@@ -269,6 +269,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["eval_examples"], 1)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["models"]["frequency"]["eval_analysis"]["overall"]["examples"], 1)
+        self.assertEqual(payload["models"]["frequency"]["eval_analysis"]["overall"]["correct"], 0)
         self.assertEqual(
             payload["models"]["raw_count_linear"]["kind"],
             "discard-linear-raw-count-v0",
@@ -279,11 +281,19 @@ class CliTests(unittest.TestCase):
             2 / 3,
         )
         self.assertEqual(payload["models"]["raw_count_linear"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(
+            payload["models"]["raw_count_linear"]["eval_analysis"]["overall"]["examples"],
+            1,
+        )
         self.assertEqual(payload["models"]["linear"]["kind"], "discard-linear-v1")
         self.assertEqual(payload["models"]["linear"]["feature_dim"], 76)
         self.assertEqual(payload["models"]["linear"]["training"]["epochs"], 1)
         self.assertEqual(payload["models"]["linear"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["linear"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["models"]["linear"]["eval_analysis"]["overall"]["examples"], 1)
+        self.assertIn("by_shanten_delta", payload["models"]["linear"]["eval_analysis"])
+        self.assertIn("by_tile_family", payload["models"]["linear"]["eval_analysis"])
+        self.assertIn("by_round_event_phase", payload["models"]["linear"]["eval_analysis"])
         self.assertEqual(payload["ablation"]["train_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["ablation"]["eval_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
