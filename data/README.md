@@ -28,3 +28,4 @@ data/
 
 For Tenhou Phoenix/Houou data, use `houou-logs` as an external tool and respect its constraints:
 one download session at a time, no redistribution of downloaded logs, and no public mirror service.
+The local evaluation workflow lives in `docs/local-tenhou-eval.md`.

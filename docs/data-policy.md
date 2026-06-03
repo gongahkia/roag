@@ -24,9 +24,14 @@ houou-logs import data/raw/tenhou/2024.db data/raw/tenhou/scraw2024.zip
 
 # Download a tiny local sample. Do not run concurrent download sessions.
 houou-logs download data/raw/tenhou/2024.db --players 4 --length h --limit 100
+
+# Export downloaded XML into an ignored local directory for Kenjaku CLI runs.
+houou-logs export data/raw/tenhou/2024.db data/raw/tenhou/xml/4p-hanchan \
+  --players 4 --length h --limit 100
 ```
 
-Do not commit the resulting database or exported XML files.
+Do not commit the resulting database or exported XML files. See `docs/local-tenhou-eval.md` for a
+local evaluation workflow.
 
 ## Mahjong Soul
 

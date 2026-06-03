@@ -26,6 +26,9 @@
 - Tenhou's manual has explicit AI-play guidance: Phoenix-table AI play is prohibited, higher-table AI use requires a dedicated ID, and AI play should publish replay URLs and avoid blind/high-volume behavior. Tenhou also restricts log redistribution and use outside Tenhou-related purposes. Reference: https://cdn.tenhou.net/man/
 - Mahjong Soul's English terms prohibit automated systems, bots, automation software, cheats, and unauthorized third-party software that modifies or interferes with the service. This makes live ranked automation inappropriate without written permission. Reference: https://mahjongsoul.yo-star.com/terms_of_service
 - `MahjongRepository/phoenix-logs` is archived; `Apricot-S/houou-logs` is the current downloader to evaluate, and it documents Tenhou's no-redistribution and one-download-session constraints. Reference: https://github.com/Apricot-S/houou-logs
+- `houou-logs` also supports exporting downloaded `mjlog` XML from its local database into a
+  directory, which is the right bridge into Kenjaku's local-only CLI. Reference:
+  https://github.com/Apricot-S/houou-logs
 - Tenhou's `N m="..."` meld code has a documented bit layout for chi, pon, chakan/kakan, and kan in `NegativeMjark/tenhou-log`. Use exact decoding before attempting post-call hand reconstruction. Reference: https://github.com/NegativeMjark/tenhou-log
 - `mortal` remains the main open baseline and provides a Rust emulator, `mjai` interface, and documented duplicate-mahjong evaluation. Reference: https://github.com/Equim-chan/Mortal and https://mortal.ekyu.moe/
 - `mjx` is useful background but currently warns that its build is broken and Apple Silicon is unsupported. Reference: https://github.com/mjx-project/mjx
@@ -500,4 +503,6 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added multi-file/directory Tenhou XML loading so local raw-log samples can be evaluated without copying them into the repository.
 - Added JSON experiment reports for tiny linear-model runs, including input path labels, XML file
   count, example counts, split settings, metrics, and model artifact path.
+- Added a local Tenhou evaluation runbook that connects `houou-logs`
+  import/fetch/download/validate/export commands to Kenjaku's ignored local data paths.
 - Next implementation target: evaluate on a real locally downloaded Tenhou sample without committing raw logs.
