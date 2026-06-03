@@ -43,12 +43,17 @@ class LinearDiscardModelTests(unittest.TestCase):
     def test_round_trips_json_artifact(self) -> None:
         examples = [_example(["1m", "2m"], "1m"), _example(["1m", "2m"], "1m")]
         model = DiscardLinearModel.fit(examples, epochs=3, learning_rate=0.2)
+        payload = model.to_dict()
 
         with TemporaryDirectory() as directory:
             path = Path(directory) / "discard-linear.json"
             model.save(path)
             loaded = DiscardLinearModel.load(path)
 
+        self.assertEqual(payload["kind"], "discard-linear-v1")
+        self.assertEqual(payload["feature_dim"], 76)
+        self.assertEqual(model.kind, "discard-linear-v1")
+        self.assertEqual(model.feature_dim, 76)
         self.assertEqual(loaded.to_dict(), model.to_dict())
         self.assertEqual(loaded.score(examples), model.score(examples))
 

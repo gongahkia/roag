@@ -47,6 +47,8 @@ def build_discard_linear_report(
     eval_fraction: float,
     train_examples: int,
     eval_examples: int,
+    model_kind: str,
+    feature_dim: int,
     epochs: int,
     learning_rate: float,
     train_accuracy: float,
@@ -69,6 +71,10 @@ def build_discard_linear_report(
             "eval_fraction": eval_fraction,
             "train_examples": train_examples,
             "eval_examples": eval_examples,
+        },
+        "model": {
+            "kind": model_kind,
+            "feature_dim": feature_dim,
         },
         "training": {
             "epochs": epochs,
@@ -101,6 +107,8 @@ def build_discard_benchmark_report(
     frequency_eval_accuracy: float | None,
     linear_epochs: int,
     linear_learning_rate: float,
+    linear_model_kind: str,
+    linear_feature_dim: int,
     linear_train_accuracy: float,
     linear_eval_accuracy: float | None,
     discard_shanten: dict[str, int | float | None],
@@ -129,6 +137,8 @@ def build_discard_benchmark_report(
                 },
             },
             "linear": {
+                "kind": linear_model_kind,
+                "feature_dim": linear_feature_dim,
                 "training": {
                     "epochs": linear_epochs,
                     "learning_rate": linear_learning_rate,

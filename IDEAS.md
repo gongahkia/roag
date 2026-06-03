@@ -529,5 +529,13 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Ran `benchmark-discard` on the existing ignored 5-log Tenhou smoke slice: 2,262 examples, 1,810
   train / 452 eval split, frequency baseline at 0.3083 train / 0.2788 eval accuracy, and the
   3-epoch linear model at 0.4326 train / 0.3009 eval accuracy.
-- Next implementation target: run `benchmark-discard` against a larger ignored Tenhou slice and
-  start tracking benchmark deltas as the feature set moves beyond raw hand/visible tile counts.
+- Upgraded the tiny linear discard model to `discard-linear-v1` with candidate-aware tile-efficiency
+  features: per-candidate hand/visible counts, terminal-or-honor flag, before/after shanten,
+  shanten delta, and a shanten-preserved flag. Training and benchmark reports now record model kind
+  and feature dimension.
+- Re-ran the same ignored 5-log Tenhou benchmark with `discard-linear-v1`: frequency stayed at
+  0.3083 train / 0.2788 eval accuracy, while the 3-epoch linear model moved to 0.5414 train /
+  0.4270 eval accuracy.
+- Next implementation target: run `benchmark-discard` against a larger ignored Tenhou slice and add
+  a compact feature-ablation report so improvements can be attributed to tile-efficiency features
+  instead of only to extra parameters.
