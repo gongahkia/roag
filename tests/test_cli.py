@@ -242,15 +242,18 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(
-            stdout.getvalue().splitlines()[:7],
+            stdout.getvalue().splitlines()[:10],
             [
                 "examples: 4",
                 "train_examples: 3",
                 "eval_examples: 1",
                 "frequency_train_accuracy: 0.6667",
                 "frequency_eval_accuracy: 0.0000",
+                "raw_count_linear_train_accuracy: 0.6667",
+                "raw_count_linear_eval_accuracy: 0.0000",
                 "linear_train_accuracy: 0.6667",
                 "linear_eval_accuracy: 0.0000",
+                "linear_eval_lift_over_raw_count: +0.0000",
             ],
         )
         self.assertIn("report_path:", stdout.getvalue())
@@ -266,11 +269,23 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["eval_examples"], 1)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(
+            payload["models"]["raw_count_linear"]["kind"],
+            "discard-linear-raw-count-v0",
+        )
+        self.assertEqual(payload["models"]["raw_count_linear"]["feature_dim"], 69)
+        self.assertEqual(
+            payload["models"]["raw_count_linear"]["metrics"]["train_accuracy"],
+            2 / 3,
+        )
+        self.assertEqual(payload["models"]["raw_count_linear"]["metrics"]["eval_accuracy"], 0.0)
         self.assertEqual(payload["models"]["linear"]["kind"], "discard-linear-v1")
         self.assertEqual(payload["models"]["linear"]["feature_dim"], 76)
         self.assertEqual(payload["models"]["linear"]["training"]["epochs"], 1)
         self.assertEqual(payload["models"]["linear"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["linear"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["ablation"]["train_accuracy_lift_over_raw_count"], 0.0)
+        self.assertEqual(payload["ablation"]["eval_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["parse_failures"]["count"], 0)
 

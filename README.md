@@ -28,7 +28,8 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
 git, then point the CLI at those local paths. Reports and model artifacts belong under ignored
-local directories such as `runs/` and `models/`.
+local directories such as `runs/` and `models/`. `benchmark-discard` reports frequency,
+raw-count linear, and shanten-aware linear baselines on the same deterministic split.
 
 ## Data
 

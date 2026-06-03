@@ -63,5 +63,9 @@ PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-ha
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 ```
 
+The benchmark report scores the frequency baseline, a raw hand/visible-count linear model, and the
+shanten-aware linear model on the same split. The `ablation` block records the shanten-aware lift
+over raw counts.
+
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

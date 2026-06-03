@@ -10,8 +10,40 @@ from typing import Any
 from kenjaku.core import TileType, shanten
 from kenjaku.training import DiscardExample
 
+RAW_COUNT_FEATURE_PROFILE = "raw-count"
+SHANTEN_FEATURE_PROFILE = "shanten"
+RAW_COUNT_FEATURE_DIM = 69
+RAW_COUNT_MODEL_KIND = "discard-linear-raw-count-v0"
 FEATURE_DIM = 76
 MODEL_KIND = "discard-linear-v1"
+
+
+@dataclass(frozen=True, slots=True)
+class _FeatureProfile:
+    name: str
+    model_kind: str
+    feature_dim: int
+    includes_tile_efficiency: bool
+
+
+_FEATURE_PROFILES = {
+    RAW_COUNT_FEATURE_PROFILE: _FeatureProfile(
+        name=RAW_COUNT_FEATURE_PROFILE,
+        model_kind=RAW_COUNT_MODEL_KIND,
+        feature_dim=RAW_COUNT_FEATURE_DIM,
+        includes_tile_efficiency=False,
+    ),
+    SHANTEN_FEATURE_PROFILE: _FeatureProfile(
+        name=SHANTEN_FEATURE_PROFILE,
+        model_kind=MODEL_KIND,
+        feature_dim=FEATURE_DIM,
+        includes_tile_efficiency=True,
+    ),
+}
+_FEATURE_PROFILES_BY_KIND = {
+    profile.model_kind: profile
+    for profile in _FEATURE_PROFILES.values()
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,12 +53,14 @@ class DiscardLinearModel:
     weights: tuple[tuple[float, ...], ...]
     epochs: int
     learning_rate: float
+    feature_profile: str = SHANTEN_FEATURE_PROFILE
 
     def __post_init__(self) -> None:
+        profile = _feature_profile(self.feature_profile)
         if len(self.weights) != 34:
             raise ValueError("discard model must have 34 output rows")
-        if any(len(row) != FEATURE_DIM for row in self.weights):
-            raise ValueError(f"discard model rows must have {FEATURE_DIM} features")
+        if any(len(row) != profile.feature_dim for row in self.weights):
+            raise ValueError(f"discard model rows must have {profile.feature_dim} features")
 
     @classmethod
     def fit(
@@ -36,6 +70,7 @@ class DiscardLinearModel:
         epochs: int = 25,
         learning_rate: float = 0.1,
         l2: float = 0.0,
+        feature_profile: str = SHANTEN_FEATURE_PROFILE,
     ) -> DiscardLinearModel:
         if not examples:
             raise ValueError("cannot train on zero examples")
@@ -46,20 +81,33 @@ class DiscardLinearModel:
         if l2 < 0:
             raise ValueError("l2 must be non-negative")
 
-        weights = [[0.0] * FEATURE_DIM for _ in range(34)]
+        profile = _feature_profile(feature_profile)
+        weights = [[0.0] * profile.feature_dim for _ in range(34)]
         for _ in range(epochs):
             for example in examples:
-                _apply_update(weights, example, learning_rate=learning_rate, l2=l2)
+                _apply_update(
+                    weights,
+                    example,
+                    learning_rate=learning_rate,
+                    l2=l2,
+                    profile=profile,
+                )
 
         return cls(
             weights=tuple(tuple(row) for row in weights),
             epochs=epochs,
             learning_rate=learning_rate,
+            feature_profile=profile.name,
         )
 
     def predict(self, hand_counts: tuple[int, ...], visible_counts: tuple[int, ...]) -> TileType:
         legal_indices = _legal_indices(hand_counts)
-        features_by_tile = _feature_vectors(hand_counts, visible_counts, legal_indices)
+        features_by_tile = _feature_vectors(
+            hand_counts,
+            visible_counts,
+            legal_indices,
+            profile=_feature_profile(self.feature_profile),
+        )
         logits = _logits(self.weights, features_by_tile)
         return TileType(max(logits, key=logits.get))
 
@@ -76,15 +124,16 @@ class DiscardLinearModel:
 
     @property
     def kind(self) -> str:
-        return MODEL_KIND
+        return _feature_profile(self.feature_profile).model_kind
 
     @property
     def feature_dim(self) -> int:
-        return FEATURE_DIM
+        return _feature_profile(self.feature_profile).feature_dim
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "kind": self.kind,
+            "feature_profile": self.feature_profile,
             "feature_dim": self.feature_dim,
             "epochs": self.epochs,
             "learning_rate": self.learning_rate,
@@ -93,10 +142,13 @@ class DiscardLinearModel:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> DiscardLinearModel:
-        if payload.get("kind") != MODEL_KIND:
+        profile = _feature_profile_for_kind(payload.get("kind"))
+        if profile is None:
             raise ValueError("unsupported discard linear model kind")
-        if payload.get("feature_dim") != FEATURE_DIM:
+        if payload.get("feature_dim") != profile.feature_dim:
             raise ValueError("unsupported discard linear model feature dimension")
+        if payload.get("feature_profile", profile.name) != profile.name:
+            raise ValueError("discard linear model kind/profile mismatch")
 
         weights_payload = payload.get("weights")
         if not isinstance(weights_payload, list):
@@ -106,6 +158,7 @@ class DiscardLinearModel:
             weights=weights,
             epochs=int(payload["epochs"]),
             learning_rate=float(payload["learning_rate"]),
+            feature_profile=profile.name,
         )
 
     def save(self, path: str | Path) -> None:
@@ -128,6 +181,7 @@ def _apply_update(
     *,
     learning_rate: float,
     l2: float,
+    profile: _FeatureProfile,
 ) -> None:
     if example.action.tile is None:
         raise ValueError("discard examples must have tile actions")
@@ -140,6 +194,7 @@ def _apply_update(
         example.hand_counts,
         example.visible_counts,
         legal_indices,
+        profile=profile,
     )
     probabilities = _softmax(_logits(weights, features_by_tile))
     for tile_index, probability in probabilities.items():
@@ -155,11 +210,17 @@ def _feature_vectors(
     hand_counts: tuple[int, ...],
     visible_counts: tuple[int, ...],
     legal_indices: tuple[int, ...],
+    *,
+    profile: _FeatureProfile,
 ) -> dict[int, tuple[float, ...]]:
     if len(hand_counts) != 34:
         raise ValueError("hand counts must have length 34")
     if len(visible_counts) != 34:
         raise ValueError("visible counts must have length 34")
+    if not profile.includes_tile_efficiency:
+        features = _raw_features(hand_counts, visible_counts)
+        return {tile_index: features for tile_index in legal_indices}
+
     before_shanten = shanten(hand_counts)
     return {
         tile_index: _features(
@@ -194,6 +255,17 @@ def _features(
         after_shanten / 8.0,
         float(shanten_delta),
         1.0 if shanten_delta <= 0 else 0.0,
+    )
+
+
+def _raw_features(
+    hand_counts: tuple[int, ...],
+    visible_counts: tuple[int, ...],
+) -> tuple[float, ...]:
+    return (
+        1.0,
+        *(count / 4.0 for count in hand_counts),
+        *(count / 4.0 for count in visible_counts),
     )
 
 
@@ -235,3 +307,14 @@ def _parse_weight_row(row: Any) -> tuple[float, ...]:
 
 def _is_terminal_or_honor(tile_index: int) -> bool:
     return tile_index >= 27 or tile_index % 9 in {0, 8}
+
+
+def _feature_profile(name: str) -> _FeatureProfile:
+    try:
+        return _FEATURE_PROFILES[name]
+    except KeyError as exc:
+        raise ValueError(f"unsupported discard linear feature profile: {name}") from exc
+
+
+def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
+    return _FEATURE_PROFILES_BY_KIND.get(kind)

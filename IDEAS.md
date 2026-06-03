@@ -541,6 +541,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   10,992 shanten-preserved discards, and 863 shanten-worsened discards. On a deterministic 9,484 /
   2,371 train/eval split, frequency scored 0.3046 train / 0.3037 eval accuracy and
   `discard-linear-v1` scored 0.5150 train / 0.4757 eval accuracy.
-- Next implementation target: add a compact feature-ablation report so the `discard-linear-v1`
-  improvement can be attributed to tile-efficiency features before scaling beyond the 25-log local
-  slice.
+- Added a feature-profile switch to the tiny linear discard model and extended `benchmark-discard`
+  into a compact ablation report: frequency, raw-count linear, and shanten-aware linear models now
+  train and score on the same deterministic split.
+- Re-ran the 25-log local benchmark with the ablation report. Raw-count linear scored 0.4313 train /
+  0.3830 eval accuracy; shanten-aware `discard-linear-v1` remained at 0.5150 train / 0.4757 eval,
+  giving a +0.0837 train / +0.0928 eval absolute lift over raw counts.
+- Next implementation target: cache or precompute discard candidate tile-efficiency features so the
+  ablation path scales cleanly before increasing the local benchmark beyond 25 logs.

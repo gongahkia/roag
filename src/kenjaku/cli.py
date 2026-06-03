@@ -11,7 +11,12 @@ from kenjaku.experiments import (
     write_json_report,
 )
 from kenjaku.io import parse_tenhou_xml_dataset
-from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
+from kenjaku.models import (
+    RAW_COUNT_FEATURE_PROFILE,
+    SHANTEN_FEATURE_PROFILE,
+    DiscardFrequencyBaseline,
+    DiscardLinearModel,
+)
 from kenjaku.training import (
     deterministic_split,
     iter_call_examples,
@@ -277,23 +282,46 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         seed=args.split_seed,
     )
     frequency_model = DiscardFrequencyBaseline.fit(train_examples)
+    raw_count_linear_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        feature_profile=RAW_COUNT_FEATURE_PROFILE,
+    )
     linear_model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        feature_profile=SHANTEN_FEATURE_PROFILE,
     )
     frequency_train_accuracy = frequency_model.score(train_examples)
     frequency_eval_accuracy = frequency_model.score(eval_examples) if eval_examples else None
+    raw_count_linear_train_accuracy = raw_count_linear_model.score(train_examples)
+    raw_count_linear_eval_accuracy = (
+        raw_count_linear_model.score(eval_examples)
+        if eval_examples
+        else None
+    )
     linear_train_accuracy = linear_model.score(train_examples)
     linear_eval_accuracy = linear_model.score(eval_examples) if eval_examples else None
+    eval_lift_over_raw_count = _optional_delta(
+        linear_eval_accuracy,
+        raw_count_linear_eval_accuracy,
+    )
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
     print(f"frequency_train_accuracy: {frequency_train_accuracy:.4f}")
     print(f"frequency_eval_accuracy: {_format_optional_accuracy(frequency_eval_accuracy)}")
+    print(f"raw_count_linear_train_accuracy: {raw_count_linear_train_accuracy:.4f}")
+    print(
+        "raw_count_linear_eval_accuracy: "
+        f"{_format_optional_accuracy(raw_count_linear_eval_accuracy)}"
+    )
     print(f"linear_train_accuracy: {linear_train_accuracy:.4f}")
     print(f"linear_eval_accuracy: {_format_optional_accuracy(linear_eval_accuracy)}")
+    print(f"linear_eval_lift_over_raw_count: {_format_optional_delta(eval_lift_over_raw_count)}")
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
     if args.report is not None:
@@ -309,6 +337,12 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             eval_examples=len(eval_examples),
             frequency_train_accuracy=frequency_train_accuracy,
             frequency_eval_accuracy=frequency_eval_accuracy,
+            raw_count_linear_epochs=args.epochs,
+            raw_count_linear_learning_rate=args.learning_rate,
+            raw_count_linear_model_kind=raw_count_linear_model.kind,
+            raw_count_linear_feature_dim=raw_count_linear_model.feature_dim,
+            raw_count_linear_train_accuracy=raw_count_linear_train_accuracy,
+            raw_count_linear_eval_accuracy=raw_count_linear_eval_accuracy,
             linear_epochs=args.epochs,
             linear_learning_rate=args.learning_rate,
             linear_model_kind=linear_model.kind,
@@ -349,3 +383,13 @@ def _source_metadata(args: argparse.Namespace) -> dict[str, str | None]:
 
 def _format_optional_accuracy(accuracy: float | None) -> str:
     return "n/a" if accuracy is None else f"{accuracy:.4f}"
+
+
+def _format_optional_delta(delta: float | None) -> str:
+    return "n/a" if delta is None else f"{delta:+.4f}"
+
+
+def _optional_delta(left: float | None, right: float | None) -> float | None:
+    if left is None or right is None:
+        return None
+    return left - right

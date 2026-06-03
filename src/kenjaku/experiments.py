@@ -105,6 +105,12 @@ def build_discard_benchmark_report(
     eval_examples: int,
     frequency_train_accuracy: float,
     frequency_eval_accuracy: float | None,
+    raw_count_linear_epochs: int,
+    raw_count_linear_learning_rate: float,
+    raw_count_linear_model_kind: str,
+    raw_count_linear_feature_dim: int,
+    raw_count_linear_train_accuracy: float,
+    raw_count_linear_eval_accuracy: float | None,
     linear_epochs: int,
     linear_learning_rate: float,
     linear_model_kind: str,
@@ -136,6 +142,18 @@ def build_discard_benchmark_report(
                     "eval_accuracy": frequency_eval_accuracy,
                 },
             },
+            "raw_count_linear": {
+                "kind": raw_count_linear_model_kind,
+                "feature_dim": raw_count_linear_feature_dim,
+                "training": {
+                    "epochs": raw_count_linear_epochs,
+                    "learning_rate": raw_count_linear_learning_rate,
+                },
+                "metrics": {
+                    "train_accuracy": raw_count_linear_train_accuracy,
+                    "eval_accuracy": raw_count_linear_eval_accuracy,
+                },
+            },
             "linear": {
                 "kind": linear_model_kind,
                 "feature_dim": linear_feature_dim,
@@ -148,6 +166,15 @@ def build_discard_benchmark_report(
                     "eval_accuracy": linear_eval_accuracy,
                 },
             },
+        },
+        "ablation": {
+            "train_accuracy_lift_over_raw_count": (
+                linear_train_accuracy - raw_count_linear_train_accuracy
+            ),
+            "eval_accuracy_lift_over_raw_count": _optional_delta(
+                linear_eval_accuracy,
+                raw_count_linear_eval_accuracy,
+            ),
         },
         "discard_shanten": discard_shanten,
         "parse_failures": _parse_failure_payload(parse_failures),
@@ -187,3 +214,9 @@ def _parse_failure_payload(failures: Sequence[TenhouParseFailure]) -> dict[str, 
             for failure in failures
         ],
     }
+
+
+def _optional_delta(left: float | None, right: float | None) -> float | None:
+    if left is None or right is None:
+        return None
+    return left - right
