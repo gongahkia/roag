@@ -6,7 +6,7 @@ from pathlib import Path
 from kenjaku import __version__
 from kenjaku.io import parse_tenhou_xml_file
 from kenjaku.models import DiscardFrequencyBaseline
-from kenjaku.training import iter_discard_examples
+from kenjaku.training import iter_call_examples, iter_discard_examples
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,11 +51,13 @@ def main(argv: list[str] | None = None) -> int:
 def _inspect_tenhou(args: argparse.Namespace) -> int:
     game = parse_tenhou_xml_file(args.path)
     discards = sum(len(round_.discards) for round_ in game.rounds)
-    examples = sum(1 for _ in iter_discard_examples(game))
+    discard_examples = sum(1 for _ in iter_discard_examples(game))
+    call_examples = sum(1 for _ in iter_call_examples(game))
 
     print(f"rounds: {len(game.rounds)}")
     print(f"discards: {discards}")
-    print(f"discard_examples: {examples}")
+    print(f"discard_examples: {discard_examples}")
+    print(f"call_examples: {call_examples}")
     return 0
 
 

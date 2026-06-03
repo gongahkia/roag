@@ -26,7 +26,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(
             stdout.getvalue().splitlines(),
-            ["rounds: 1", "discards: 2", "discard_examples: 2"],
+            ["rounds: 1", "discards: 2", "discard_examples: 2", "call_examples: 0"],
         )
 
     def test_train_discard_baseline_fixture(self) -> None:
