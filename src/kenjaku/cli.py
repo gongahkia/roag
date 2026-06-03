@@ -11,7 +11,12 @@ from kenjaku.experiments import (
 )
 from kenjaku.io import parse_tenhou_xml_paths, tenhou_xml_files
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
-from kenjaku.training import deterministic_split, iter_call_examples, iter_discard_examples
+from kenjaku.training import (
+    deterministic_split,
+    iter_call_examples,
+    iter_discard_examples,
+    summarize_discard_shanten,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,20 +112,21 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
     xml_files = tenhou_xml_files(args.paths)
     game = parse_tenhou_xml_paths(xml_files)
     discards = sum(len(round_.discards) for round_ in game.rounds)
-    discard_examples = sum(1 for _ in iter_discard_examples(game))
+    discard_examples = list(iter_discard_examples(game))
     call_examples = sum(1 for _ in iter_call_examples(game))
 
     print(f"rounds: {len(game.rounds)}")
     print(f"discards: {discards}")
-    print(f"discard_examples: {discard_examples}")
+    print(f"discard_examples: {len(discard_examples)}")
     print(f"call_examples: {call_examples}")
     if args.report is not None:
         report = build_tenhou_inspect_report(
             input_paths=args.paths,
             xml_files=xml_files,
             game=game,
-            discard_examples=discard_examples,
+            discard_examples=len(discard_examples),
             call_examples=call_examples,
+            discard_shanten=summarize_discard_shanten(discard_examples),
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
@@ -186,6 +192,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             learning_rate=args.learning_rate,
             train_accuracy=train_accuracy,
             eval_accuracy=eval_accuracy,
+            discard_shanten=summarize_discard_shanten(examples),
             model_path=args.output,
         )
         write_json_report(args.report, report)

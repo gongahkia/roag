@@ -18,6 +18,7 @@ def build_tenhou_inspect_report(
     game: TenhouGame,
     discard_examples: int,
     call_examples: int,
+    discard_shanten: dict[str, int | float | None],
 ) -> dict[str, Any]:
     return {
         "kind": TENHOU_INSPECT_REPORT_KIND,
@@ -32,6 +33,7 @@ def build_tenhou_inspect_report(
         "exhaustive_draws": sum(round_.ryuukyoku is not None for round_ in game.rounds),
         "discard_examples": discard_examples,
         "call_examples": call_examples,
+        "discard_shanten": discard_shanten,
     }
 
 
@@ -50,6 +52,7 @@ def build_discard_linear_report(
     learning_rate: float,
     train_accuracy: float,
     eval_accuracy: float | None,
+    discard_shanten: dict[str, int | float | None],
     model_path: Path | None,
 ) -> dict[str, Any]:
     return {
@@ -74,6 +77,7 @@ def build_discard_linear_report(
             "train_accuracy": train_accuracy,
             "eval_accuracy": eval_accuracy,
         },
+        "discard_shanten": discard_shanten,
         "artifacts": {
             "model_path": None if model_path is None else str(model_path),
         },

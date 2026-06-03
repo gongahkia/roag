@@ -67,6 +67,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["discards"], 4)
         self.assertEqual(payload["discard_examples"], 4)
         self.assertEqual(payload["call_examples"], 1)
+        self.assertEqual(payload["discard_shanten"]["examples"], 4)
+        self.assertIn("average_delta", payload["discard_shanten"])
         self.assertIn("report_path:", stdout.getvalue())
 
     def test_train_discard_baseline_fixture(self) -> None:
@@ -166,6 +168,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["seed"], "fixed")
         self.assertEqual(payload["split"]["train_examples"], 3)
         self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["artifacts"]["model_path"], str(output))
         self.assertIn("report_path:", stdout.getvalue())
 
