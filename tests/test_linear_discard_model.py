@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kenjaku.core import Action, Tile, TileType, tile_counts
 from kenjaku.models import DiscardLinearModel
@@ -37,6 +39,18 @@ class LinearDiscardModelTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             model.predict(tuple([0] * 34), tuple([0] * 34))
+
+    def test_round_trips_json_artifact(self) -> None:
+        examples = [_example(["1m", "2m"], "1m"), _example(["1m", "2m"], "1m")]
+        model = DiscardLinearModel.fit(examples, epochs=3, learning_rate=0.2)
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "discard-linear.json"
+            model.save(path)
+            loaded = DiscardLinearModel.load(path)
+
+        self.assertEqual(loaded.to_dict(), model.to_dict())
+        self.assertEqual(loaded.score(examples), model.score(examples))
 
 
 def _example(hand: list[str], discard: str) -> DiscardExample:

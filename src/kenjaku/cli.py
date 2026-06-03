@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.2,
         help="fraction of examples reserved for deterministic evaluation",
     )
+    train_linear.add_argument(
+        "--output",
+        type=Path,
+        help="optional path for the trained JSON model artifact",
+    )
     train_linear.set_defaults(func=_train_discard_linear)
     return parser
 
@@ -118,4 +123,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
         print(f"eval_accuracy: {model.score(eval_examples):.4f}")
     else:
         print("eval_accuracy: n/a")
+    if args.output is not None:
+        model.save(args.output)
+        print(f"model_path: {args.output}")
     return 0

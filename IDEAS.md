@@ -496,4 +496,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added call-decision examples for actual chi/pon/kan claims and legal pass decisions, using reconstructed hand counts and visible table context.
 - Added a stable hash-based train/eval splitter so tiny-model experiments are reproducible without depending on Python random state.
 - Added a tiny dependency-free linear softmax discard model with legal-action masking and deterministic CLI train/eval output.
-- Next implementation target: persist tiny model artifacts, then evaluate on a real locally downloaded Tenhou sample without committing raw logs.
+- Added JSON save/load for tiny model artifacts and an optional CLI output path for reproducible local experiments.
+- Next implementation target: evaluate on a real locally downloaded Tenhou sample without committing raw logs.

@@ -3,6 +3,8 @@ from __future__ import annotations
 import contextlib
 import io
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kenjaku.cli import main
 
@@ -67,6 +69,30 @@ class CliTests(unittest.TestCase):
                 "eval_accuracy: 0.0000",
             ],
         )
+
+    def test_train_discard_linear_writes_model_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "model.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "train-discard-linear",
+                        "data/fixtures/tenhou/minimal_4p.xml",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            artifact_exists = output.exists()
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(artifact_exists)
+        self.assertIn("model_path:", stdout.getvalue())
 
 
 if __name__ == "__main__":

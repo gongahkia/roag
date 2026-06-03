@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from math import exp
+from pathlib import Path
+from typing import Any
 
 from kenjaku.core import TileType
 from kenjaku.training import DiscardExample
 
 FEATURE_DIM = 69
+MODEL_KIND = "discard-linear-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +73,45 @@ class DiscardLinearModel:
             prediction = self.predict(example.hand_counts, example.visible_counts)
             correct += prediction == example.action.tile
         return correct / len(examples)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": MODEL_KIND,
+            "feature_dim": FEATURE_DIM,
+            "epochs": self.epochs,
+            "learning_rate": self.learning_rate,
+            "weights": [list(row) for row in self.weights],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> DiscardLinearModel:
+        if payload.get("kind") != MODEL_KIND:
+            raise ValueError("unsupported discard linear model kind")
+        if payload.get("feature_dim") != FEATURE_DIM:
+            raise ValueError("unsupported discard linear model feature dimension")
+
+        weights_payload = payload.get("weights")
+        if not isinstance(weights_payload, list):
+            raise ValueError("model payload missing weights")
+        weights = tuple(_parse_weight_row(row) for row in weights_payload)
+        return cls(
+            weights=weights,
+            epochs=int(payload["epochs"]),
+            learning_rate=float(payload["learning_rate"]),
+        )
+
+    def save(self, path: str | Path) -> None:
+        Path(path).write_text(
+            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> DiscardLinearModel:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("model artifact must contain a JSON object")
+        return cls.from_dict(payload)
 
 
 def _apply_update(
@@ -136,3 +179,9 @@ def _softmax(logits: dict[int, float]) -> dict[int, float]:
         tile_index: value / denominator
         for tile_index, value in exp_values.items()
     }
+
+
+def _parse_weight_row(row: Any) -> tuple[float, ...]:
+    if not isinstance(row, list):
+        raise ValueError("model weight rows must be lists")
+    return tuple(float(value) for value in row)
