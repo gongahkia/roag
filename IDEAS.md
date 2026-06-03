@@ -486,4 +486,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added a CLI smoke path for parsing a Tenhou XML file and reporting round, discard, and discard-example counts.
 - Added parser records for riichi declarations, opaque calls, wins, and exhaustive draws using synthetic Tenhou fixtures.
 - Made discard-example generation stop at the first opaque call or terminal event so unsupported hand reconstruction cannot contaminate supervised examples.
-- Next implementation target: train a tiny discard baseline on the synthetic fixture path, then expand parser coverage for exact meld decoding.
+- Added a deterministic discard-frequency baseline and CLI command for the synthetic Tenhou fixture path.
+- Next implementation target: add exact Tenhou meld-code decoding research and parser support, then move from deterministic baselines to a tiny trainable model.

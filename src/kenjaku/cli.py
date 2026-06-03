@@ -5,6 +5,7 @@ from pathlib import Path
 
 from kenjaku import __version__
 from kenjaku.io import parse_tenhou_xml_file
+from kenjaku.models import DiscardFrequencyBaseline
 from kenjaku.training import iter_discard_examples
 
 
@@ -22,6 +23,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect_tenhou.add_argument("path", type=Path, help="path to a Tenhou XML file")
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
+
+    train_baseline = subparsers.add_parser(
+        "train-discard-baseline",
+        help="fit the deterministic discard frequency baseline on one Tenhou XML file",
+    )
+    train_baseline.add_argument("path", type=Path, help="path to a Tenhou XML file")
+    train_baseline.set_defaults(func=_train_discard_baseline)
     return parser
 
 
@@ -48,4 +56,17 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
     print(f"rounds: {len(game.rounds)}")
     print(f"discards: {discards}")
     print(f"discard_examples: {examples}")
+    return 0
+
+
+def _train_discard_baseline(args: argparse.Namespace) -> int:
+    game = parse_tenhou_xml_file(args.path)
+    examples = list(iter_discard_examples(game))
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    model = DiscardFrequencyBaseline.fit(examples)
+    print(f"examples: {len(examples)}")
+    print(f"top_discard: {model.top_tile.notation}")
+    print(f"training_accuracy: {model.score(examples):.4f}")
     return 0
