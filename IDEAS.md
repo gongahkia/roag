@@ -498,4 +498,6 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added a tiny dependency-free linear softmax discard model with legal-action masking and deterministic CLI train/eval output.
 - Added JSON save/load for tiny model artifacts and an optional CLI output path for reproducible local experiments.
 - Added multi-file/directory Tenhou XML loading so local raw-log samples can be evaluated without copying them into the repository.
+- Added JSON experiment reports for tiny linear-model runs, including input path labels, XML file
+  count, example counts, split settings, metrics, and model artifact path.
 - Next implementation target: evaluate on a real locally downloaded Tenhou sample without committing raw logs.

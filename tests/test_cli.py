@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -105,6 +106,43 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertTrue(artifact_exists)
         self.assertIn("model_path:", stdout.getvalue())
+
+    def test_train_discard_linear_writes_report_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "model.json"
+            report = Path(directory) / "reports" / "linear.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "train-discard-linear",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--output",
+                        str(output),
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-discard-linear-report-v0")
+        self.assertEqual(payload["xml_file_count"], 3)
+        self.assertEqual(payload["rounds"], 3)
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["call_examples"], 1)
+        self.assertEqual(payload["split"]["seed"], "fixed")
+        self.assertEqual(payload["split"]["train_examples"], 3)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(payload["artifacts"]["model_path"], str(output))
+        self.assertIn("report_path:", stdout.getvalue())
 
 
 if __name__ == "__main__":

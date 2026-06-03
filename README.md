@@ -16,10 +16,13 @@ PYTHONPATH=src python3 -m kenjaku --version
 PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou/minimal_4p.xml
 PYTHONPATH=src python3 -m kenjaku train-discard-baseline data/fixtures/tenhou/minimal_4p.xml
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/fixtures/tenhou --epochs 5
+PYTHONPATH=src python3 -m kenjaku train-discard-linear \
+  data/fixtures/tenhou --report runs/linear-report.json
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
-git, then point the CLI at those local paths.
+git, then point the CLI at those local paths. Reports and model artifacts belong under ignored
+local directories such as `runs/` and `models/`.
 
 ## Data
 

@@ -4,7 +4,8 @@ import argparse
 from pathlib import Path
 
 from kenjaku import __version__
-from kenjaku.io import parse_tenhou_xml_paths
+from kenjaku.experiments import build_discard_linear_report, write_json_report
+from kenjaku.io import parse_tenhou_xml_paths, tenhou_xml_files
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
 from kenjaku.training import deterministic_split, iter_call_examples, iter_discard_examples
 
@@ -60,9 +61,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="fraction of examples reserved for deterministic evaluation",
     )
     train_linear.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    train_linear.add_argument(
         "--output",
         type=Path,
         help="optional path for the trained JSON model artifact",
+    )
+    train_linear.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON training report artifact",
     )
     train_linear.set_defaults(func=_train_discard_linear)
     return parser
@@ -110,7 +121,8 @@ def _train_discard_baseline(args: argparse.Namespace) -> int:
 
 
 def _train_discard_linear(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_paths(args.paths)
+    xml_files = tenhou_xml_files(args.paths)
+    game = parse_tenhou_xml_paths(xml_files)
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
@@ -118,22 +130,44 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
     train_examples, eval_examples = deterministic_split(
         examples,
         eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
     )
     model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
     )
+    train_accuracy = model.score(train_examples)
+    eval_accuracy = model.score(eval_examples) if eval_examples else None
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
-    print(f"train_accuracy: {model.score(train_examples):.4f}")
-    if eval_examples:
-        print(f"eval_accuracy: {model.score(eval_examples):.4f}")
+    print(f"train_accuracy: {train_accuracy:.4f}")
+    if eval_accuracy is not None:
+        print(f"eval_accuracy: {eval_accuracy:.4f}")
     else:
         print("eval_accuracy: n/a")
     if args.output is not None:
         model.save(args.output)
         print(f"model_path: {args.output}")
+    if args.report is not None:
+        report = build_discard_linear_report(
+            input_paths=args.paths,
+            xml_files=xml_files,
+            game=game,
+            discard_examples=len(examples),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            train_accuracy=train_accuracy,
+            eval_accuracy=eval_accuracy,
+            model_path=args.output,
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
     return 0
