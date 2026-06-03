@@ -31,6 +31,18 @@ class CliTests(unittest.TestCase):
             ["rounds: 1", "discards: 2", "discard_examples: 2", "call_examples: 0"],
         )
 
+    def test_inspect_tenhou_fixture_directory(self) -> None:
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            exit_code = main(["inspect-tenhou", "data/fixtures/tenhou"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            stdout.getvalue().splitlines(),
+            ["rounds: 3", "discards: 4", "discard_examples: 4", "call_examples: 1"],
+        )
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 

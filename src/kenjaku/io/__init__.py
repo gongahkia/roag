@@ -1,5 +1,6 @@
 """Input/output adapters for external mahjong formats."""
 
+from kenjaku.io.tenhou_dataset import parse_tenhou_xml_paths, tenhou_xml_files
 from kenjaku.io.tenhou_meld import TenhouMeld, decode_tenhou_meld
 from kenjaku.io.tenhou_tiles import tenhou_tile
 from kenjaku.io.tenhou_xml import (
@@ -30,5 +31,7 @@ __all__ = [
     "decode_tenhou_meld",
     "parse_tenhou_xml",
     "parse_tenhou_xml_file",
+    "parse_tenhou_xml_paths",
     "tenhou_tile",
+    "tenhou_xml_files",
 ]

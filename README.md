@@ -15,7 +15,11 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 PYTHONPATH=src python3 -m kenjaku --version
 PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou/minimal_4p.xml
 PYTHONPATH=src python3 -m kenjaku train-discard-baseline data/fixtures/tenhou/minimal_4p.xml
+PYTHONPATH=src python3 -m kenjaku train-discard-linear data/fixtures/tenhou --epochs 5
 ```
+
+CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
+git, then point the CLI at those local paths.
 
 ## Data
 

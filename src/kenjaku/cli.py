@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from kenjaku import __version__
-from kenjaku.io import parse_tenhou_xml_file
+from kenjaku.io import parse_tenhou_xml_paths
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
 from kenjaku.training import deterministic_split, iter_call_examples, iter_discard_examples
 
@@ -21,21 +21,31 @@ def build_parser() -> argparse.ArgumentParser:
         "inspect-tenhou",
         help="parse a Tenhou XML file and print Phase 0 dataset counts",
     )
-    inspect_tenhou.add_argument("path", type=Path, help="path to a Tenhou XML file")
+    inspect_tenhou.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
 
     train_baseline = subparsers.add_parser(
         "train-discard-baseline",
         help="fit the deterministic discard frequency baseline on one Tenhou XML file",
     )
-    train_baseline.add_argument("path", type=Path, help="path to a Tenhou XML file")
+    train_baseline.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
     train_baseline.set_defaults(func=_train_discard_baseline)
 
     train_linear = subparsers.add_parser(
         "train-discard-linear",
         help="fit the tiny dependency-free linear discard model on one Tenhou XML file",
     )
-    train_linear.add_argument("path", type=Path, help="path to a Tenhou XML file")
+    train_linear.add_argument("paths", nargs="+", type=Path, help="Tenhou XML files or directories")
     train_linear.add_argument("--epochs", type=int, default=25, help="training epochs")
     train_linear.add_argument(
         "--learning-rate",
@@ -74,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _inspect_tenhou(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_file(args.path)
+    game = parse_tenhou_xml_paths(args.paths)
     discards = sum(len(round_.discards) for round_ in game.rounds)
     discard_examples = sum(1 for _ in iter_discard_examples(game))
     call_examples = sum(1 for _ in iter_call_examples(game))
@@ -87,7 +97,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
 
 
 def _train_discard_baseline(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_file(args.path)
+    game = parse_tenhou_xml_paths(args.paths)
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
@@ -100,7 +110,7 @@ def _train_discard_baseline(args: argparse.Namespace) -> int:
 
 
 def _train_discard_linear(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_file(args.path)
+    game = parse_tenhou_xml_paths(args.paths)
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
