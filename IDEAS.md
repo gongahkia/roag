@@ -509,5 +509,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   run starts.
 - Added a dependency-free shanten calculator for standard hands, chiitoitsu, and kokushi as the
   first tile-efficiency primitive for discard analysis.
+- Added discard shanten-delta utilities that compare before/after shanten for supervised discard
+  examples and summarize preserved/worsened counts.
 - Next implementation target: surface shanten deltas in discard reports, then evaluate on a real
   locally downloaded Tenhou sample without committing raw logs.
