@@ -10,6 +10,6 @@
   />
   <REACH who="0" step="1" />
   <REACH who="0" step="2" ten="240,250,250,250" />
-  <N who="1" m="12345" />
+  <N who="1" m="14954" />
   <AGARI who="2" fromWho="1" machi="8" ten="30,1000" yaku="1,1" doraHai="72" uraDoraHai="73" />
 </mjloggm>

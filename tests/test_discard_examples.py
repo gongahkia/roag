@@ -35,7 +35,7 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(second.visible_counts[TileType.parse("7p").index], 1)
         self.assertEqual(second.visible_counts[TileType.parse("8p").index], 1)
 
-    def test_stops_at_first_opaque_call(self) -> None:
+    def test_stops_at_first_call_until_post_call_reconstruction_exists(self) -> None:
         game = parse_tenhou_xml(
             """
             <mjloggm>
@@ -50,7 +50,7 @@ class DiscardExampleTests(unittest.TestCase):
               />
               <T60 />
               <D60 />
-              <N who="1" m="12345" />
+              <N who="1" m="14954" />
               <U64 />
               <E49 />
             </mjloggm>

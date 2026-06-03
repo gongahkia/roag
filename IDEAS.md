@@ -26,6 +26,7 @@
 - Tenhou's manual has explicit AI-play guidance: Phoenix-table AI play is prohibited, higher-table AI use requires a dedicated ID, and AI play should publish replay URLs and avoid blind/high-volume behavior. Tenhou also restricts log redistribution and use outside Tenhou-related purposes. Reference: https://cdn.tenhou.net/man/
 - Mahjong Soul's English terms prohibit automated systems, bots, automation software, cheats, and unauthorized third-party software that modifies or interferes with the service. This makes live ranked automation inappropriate without written permission. Reference: https://mahjongsoul.yo-star.com/terms_of_service
 - `MahjongRepository/phoenix-logs` is archived; `Apricot-S/houou-logs` is the current downloader to evaluate, and it documents Tenhou's no-redistribution and one-download-session constraints. Reference: https://github.com/Apricot-S/houou-logs
+- Tenhou's `N m="..."` meld code has a documented bit layout for chi, pon, chakan/kakan, and kan in `NegativeMjark/tenhou-log`. Use exact decoding before attempting post-call hand reconstruction. Reference: https://github.com/NegativeMjark/tenhou-log
 - `mortal` remains the main open baseline and provides a Rust emulator, `mjai` interface, and documented duplicate-mahjong evaluation. Reference: https://github.com/Equim-chan/Mortal and https://mortal.ekyu.moe/
 - `mjx` is useful background but currently warns that its build is broken and Apple Silicon is unsupported. Reference: https://github.com/mjx-project/mjx
 - `Mahjax` is a new JAX simulator paper submitted on 2026-05-20, claiming GPU-vectorized rollouts up to 2M steps/sec on 8x A100. It is worth tracking before committing to a custom simulator. Reference: https://arxiv.org/abs/2605.20577
@@ -460,13 +461,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps (week 1)
 
-1. Create repo scaffold: Python package, tests, CLI, docs, data policy.
-2. Implement tile/action/state primitives with unit tests.
-3. Validate a tiny Tenhou XML parsing fixture without redistributing raw log archives.
-4. Evaluate `houou-logs` as an external downloader and document exact compliant usage.
+1. Use decoded Tenhou calls for post-call hand reconstruction: remove consumed tiles, track open melds, clear claimed discards, and continue supervised-example extraction past `N` events.
+2. Add call-decision examples (`chi`/`pon`/`kan`/`pass`) after the discard-only pipeline is no longer fragile.
+3. Add a tiny trainable discard model and deterministic train/eval split before introducing heavyweight ML dependencies.
+4. Evaluate `houou-logs` as an external downloader and document exact compliant usage without checking raw logs into git.
 5. Clone and build mortal locally, confirm inference/evaluation hooks on Mac.
 6. Read Suphx and Mahjax end-to-end, extract reusable simulator/evaluation ideas.
-7. Draft README.md skeleton from this file with compliance-aware positioning.
 
 ---
 
@@ -487,4 +487,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added parser records for riichi declarations, opaque calls, wins, and exhaustive draws using synthetic Tenhou fixtures.
 - Made discard-example generation stop at the first opaque call or terminal event so unsupported hand reconstruction cannot contaminate supervised examples.
 - Added a deterministic discard-frequency baseline and CLI command for the synthetic Tenhou fixture path.
-- Next implementation target: add exact Tenhou meld-code decoding research and parser support, then move from deterministic baselines to a tiny trainable model.
+- Researched Tenhou's meld-code bit layout from `NegativeMjark/tenhou-log` and replaced opaque call handling with exact decoding for chi, pon, kakan/chakan, open kan, and concealed kan.
+- Promoted Tenhou physical tile-id mapping into a shared IO module so the XML parser and meld decoder use the same red-five and logical-tile behavior.
+- Added parser integration and tests for decoded `N` call events using generated synthetic meld codes instead of arbitrary integers.
+- Next implementation target: use decoded calls for post-call hand reconstruction, then move from deterministic baselines to a tiny trainable discard model.

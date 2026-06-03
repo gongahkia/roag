@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 
-from kenjaku.core import Action, Tile, TileType
+from kenjaku.core import Action, Tile
+from kenjaku.io.tenhou_meld import TenhouMeld, decode_tenhou_meld
+from kenjaku.io.tenhou_tiles import tenhou_tile
 
 DRAW_TAG_TO_SEAT = {"T": 0, "U": 1, "V": 2, "W": 3}
 DISCARD_TAG_TO_SEAT = {"D": 0, "E": 1, "F": 2, "G": 3}
-RED_FIVE_TILE_IDS = {16, 52, 88}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ class TenhouCall:
     seat: int
     meld_code: int
     event_index: int
+    meld: TenhouMeld
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,12 +131,6 @@ class _RoundBuilder:
         )
 
 
-def tenhou_tile(tile_id: int) -> Tile:
-    if not 0 <= tile_id < 136:
-        raise ValueError(f"Tenhou tile id out of range: {tile_id}")
-    return Tile(TileType(tile_id // 4), red=tile_id in RED_FIVE_TILE_IDS)
-
-
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:
     return parse_tenhou_xml(Path(path).read_text(encoding="utf-8"))
 
@@ -200,10 +196,12 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
             continue
 
         if tag == "N":
+            meld_code = _required_int(event, "m")
             call = TenhouCall(
                 seat=_required_int(event, "who"),
-                meld_code=_required_int(event, "m"),
+                meld_code=meld_code,
                 event_index=len(current.events),
+                meld=decode_tenhou_meld(meld_code),
             )
             current.calls.append(call)
             current.events.append(call)

@@ -72,7 +72,12 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(len(round_.reaches), 2)
         self.assertEqual(round_.reaches[0], TenhouReach(seat=0, step=1, event_index=0))
         self.assertEqual(round_.reaches[1].scores, (24000, 25000, 25000, 25000))
-        self.assertEqual(round_.calls, (TenhouCall(seat=1, meld_code=12345, event_index=2),))
+        self.assertEqual(len(round_.calls), 1)
+        self.assertEqual(round_.calls[0].seat, 1)
+        self.assertEqual(round_.calls[0].meld_code, 14954)
+        self.assertEqual(round_.calls[0].event_index, 2)
+        self.assertEqual(round_.calls[0].meld.kind, ActionKind.PON)
+        self.assertEqual(round_.calls[0].meld.tile_ids, (36, 37, 38))
         self.assertEqual(len(round_.agari), 1)
 
         agari = round_.agari[0]
