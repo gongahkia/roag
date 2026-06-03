@@ -490,4 +490,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Researched Tenhou's meld-code bit layout from `NegativeMjark/tenhou-log` and replaced opaque call handling with exact decoding for chi, pon, kakan/chakan, open kan, and concealed kan.
 - Promoted Tenhou physical tile-id mapping into a shared IO module so the XML parser and meld decoder use the same red-five and logical-tile behavior.
 - Added parser integration and tests for decoded `N` call events using generated synthetic meld codes instead of arbitrary integers.
+- Tightened the synthetic call fixture into a coherent discard-call-discard-win sequence so parser and reconstruction tests exercise realistic event order.
 - Next implementation target: use decoded calls for post-call hand reconstruction, then move from deterministic baselines to a tiny trainable discard model.
