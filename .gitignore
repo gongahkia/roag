@@ -16,9 +16,9 @@ dist/
 venv/
 env/
 
-data/raw/
-data/interim/
-data/processed/
-models/
-runs/
-wandb/
+/data/raw/
+/data/interim/
+/data/processed/
+/models/
+/runs/
+/wandb/
