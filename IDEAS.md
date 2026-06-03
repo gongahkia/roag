@@ -507,4 +507,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   import/fetch/download/validate/export commands to Kenjaku's ignored local data paths.
 - Added `inspect-tenhou` JSON reports so local raw-log exports can be audited before any training
   run starts.
-- Next implementation target: evaluate on a real locally downloaded Tenhou sample without committing raw logs.
+- Added a dependency-free shanten calculator for standard hands, chiitoitsu, and kokushi as the
+  first tile-efficiency primitive for discard analysis.
+- Next implementation target: surface shanten deltas in discard reports, then evaluate on a real
+  locally downloaded Tenhou sample without committing raw logs.
