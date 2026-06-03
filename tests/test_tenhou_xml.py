@@ -11,6 +11,7 @@ from kenjaku.io import (
     TenhouDraw,
     TenhouReach,
     TenhouRyuukyoku,
+    parse_tenhou_xml,
     parse_tenhou_xml_file,
     tenhou_tile,
 )
@@ -64,6 +65,37 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertIsInstance(round_.events[3], TenhouDiscard)
         self.assertEqual([event.seat for event in round_.events[:4]], [0, 0, 1, 1])
         self.assertIsInstance(round_.events[4], TenhouRyuukyoku)
+
+    def test_ignores_real_tenhou_metadata_tags_that_start_like_events(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <SHUFFLE seed="mt19937ar-sha512-n288-base64" />
+              <GO type="9" />
+              <UN n0="a" n1="b" n2="c" n3="d" />
+              <TAIKYOKU oya="0" />
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="250,250,250,250"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
+              />
+              <T60 />
+              <D60 />
+              <BYE who="3" />
+              <RYUUKYOKU />
+            </mjloggm>
+            """
+        )
+
+        round_ = game.rounds[0]
+        self.assertEqual(len(round_.draws), 1)
+        self.assertEqual(len(round_.discards), 1)
+        self.assertEqual(round_.draws[0].tile, Tile.parse("7p"))
+        self.assertEqual(round_.discards[0].tile, Tile.parse("7p"))
 
     def test_parse_reach_call_and_agari_events(self) -> None:
         game = parse_tenhou_xml_file(EVENTS_FIXTURE)

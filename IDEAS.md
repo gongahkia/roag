@@ -512,5 +512,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added discard shanten-delta utilities that compare before/after shanten for supervised discard
   examples and summarize preserved/worsened counts.
 - Added discard shanten summaries to inspection and tiny-model training JSON reports.
+- Ran the first real local Tenhou smoke export with `houou-logs` (5 logs under ignored
+  `data/raw/`) and found a parser hardening gap: metadata tags such as `UN` can look like draw
+  tags unless event tags require numeric tile suffixes.
 - Next implementation target: evaluate on a real locally downloaded Tenhou sample without
   committing raw logs.

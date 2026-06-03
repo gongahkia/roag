@@ -326,7 +326,7 @@ def _required_int(event: _ParsedEvent, name: str) -> int:
 
 
 def _seat_from_tag(tag: str, mapping: dict[str, int]) -> int | None:
-    if not tag:
+    if not tag or not tag[1:].isdigit():
         return None
     return mapping.get(tag[0])
 
