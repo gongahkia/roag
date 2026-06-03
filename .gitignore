@@ -1,1 +1,24 @@
+.DS_Store
+.python-version
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
 
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+.venv/
+venv/
+env/
+
+data/raw/
+data/interim/
+data/processed/
+models/
+runs/
+wandb/

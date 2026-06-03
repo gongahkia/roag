@@ -476,4 +476,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 - Reframed the project from live ladder automation to a permission-aware research agent and replay-analysis toolkit.
 - Recorded current external constraints: Tenhou AI/log restrictions, Mahjong Soul automation risk, `houou-logs` as the maintained downloader, `mortal` as the baseline, `mjx` caveats, and `Mahjax`/MahjongLM as new areas to track.
-- Next implementation target: create the Phase 0 Python scaffold, then core tile/action/state primitives with tests.
+- Added the initial Python package scaffold: `pyproject.toml`, `README.md`, package entrypoints, CLI shell, and project ignore rules.
+- Next implementation target: core tile/action/state primitives with tests.
