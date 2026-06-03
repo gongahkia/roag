@@ -25,6 +25,7 @@ class TenhouDiscard:
     tile_id: int
     tile: Tile
     tsumogiri: bool
+    event_index: int
     turn: int
 
     @property
@@ -131,6 +132,7 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
                 tile_id=tile_id,
                 tile=tenhou_tile(tile_id),
                 tsumogiri=current.last_draws.get(discard_seat) == tile_id,
+                event_index=len(current.events),
                 turn=len(current.discards),
             )
             current.discards.append(discard)

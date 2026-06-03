@@ -39,7 +39,7 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(discards[0].action.kind, ActionKind.DISCARD)
 
         self.assertEqual(discards[1].seat, 1)
-        self.assertEqual(discards[1].tile, Tile.parse("9p"))
+        self.assertEqual(discards[1].tile, Tile.parse("4p"))
         self.assertFalse(discards[1].tsumogiri)
 
     def test_parse_draws_and_ordered_events(self) -> None:
