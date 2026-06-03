@@ -41,13 +41,18 @@ houou-logs export data/raw/tenhou/db/2024.db data/raw/tenhou/xml/4p-hanchan \
 ## Run Kenjaku
 
 ```bash
+SOURCE_COMMAND="houou-logs export data/raw/tenhou/db/2024.db data/raw/tenhou/xml/4p-hanchan"
+
 PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/raw/tenhou/xml/4p-hanchan
 
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-hanchan \
   --epochs 5 \
   --eval-fraction 0.2 \
   --output models/discard-linear-local.json \
-  --report runs/discard-linear-local-report.json
+  --report runs/discard-linear-local-report.json \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 ```
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release

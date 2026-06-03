@@ -56,12 +56,18 @@ class CliTests(unittest.TestCase):
                         "data/fixtures/tenhou",
                         "--report",
                         str(report),
+                        "--source-label",
+                        "fixture-dir",
+                        "--source-date",
+                        "synthetic",
                     ]
                 )
             payload = json.loads(report.read_text(encoding="utf-8"))
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-tenhou-inspect-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-dir")
+        self.assertEqual(payload["source"]["date"], "synthetic")
         self.assertEqual(payload["xml_file_count"], 3)
         self.assertEqual(payload["rounds"], 3)
         self.assertEqual(payload["discards"], 4)
@@ -182,12 +188,18 @@ class CliTests(unittest.TestCase):
                         str(output),
                         "--report",
                         str(report),
+                        "--source-label",
+                        "fixture-train",
+                        "--source-command",
+                        "unit-test",
                     ]
                 )
             payload = json.loads(report.read_text(encoding="utf-8"))
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-discard-linear-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-train")
+        self.assertEqual(payload["source"]["command"], "unit-test")
         self.assertEqual(payload["xml_file_count"], 3)
         self.assertEqual(payload["rounds"], 3)
         self.assertEqual(payload["discard_examples"], 4)

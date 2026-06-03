@@ -521,5 +521,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   logs, generated reports, and model artifacts stayed in ignored local paths.
 - Added opt-in parser-failure accounting for larger local XML batches via `--skip-errors`, with
   report metadata for failed file paths, error types, and messages.
+- Added report source metadata flags (`--source-label`, `--source-command`, `--source-date`) so
+  local benchmark artifacts can record provenance without storing raw logs.
 - Next implementation target: scale the local Tenhou smoke into a larger reproducible benchmark
-  slice with date/source metadata, still without committing raw logs.
+  slice, still without committing raw logs.

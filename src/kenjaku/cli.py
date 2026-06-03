@@ -47,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_source_args(inspect_tenhou)
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
 
     train_baseline = subparsers.add_parser(
@@ -104,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_source_args(train_linear)
     train_linear.set_defaults(func=_train_discard_linear)
     return parser
 
@@ -145,6 +147,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
             call_examples=call_examples,
             discard_shanten=summarize_discard_shanten(discard_examples),
             parse_failures=dataset.failures,
+            source=_source_metadata(args),
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
@@ -213,7 +216,31 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
             model_path=args.output,
+            source=_source_metadata(args),
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
+
+
+def _add_source_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-label",
+        help="human-readable source label recorded in JSON reports",
+    )
+    parser.add_argument(
+        "--source-command",
+        help="local data command or manifest reference recorded in JSON reports",
+    )
+    parser.add_argument(
+        "--source-date",
+        help="source date or date range recorded in JSON reports",
+    )
+
+
+def _source_metadata(args: argparse.Namespace) -> dict[str, str | None]:
+    return {
+        "label": args.source_label,
+        "command": args.source_command,
+        "date": args.source_date,
+    }

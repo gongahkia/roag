@@ -20,9 +20,11 @@ def build_tenhou_inspect_report(
     call_examples: int,
     discard_shanten: dict[str, int | float | None],
     parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
 ) -> dict[str, Any]:
     return {
         "kind": TENHOU_INSPECT_REPORT_KIND,
+        "source": source,
         "input_paths": [str(path) for path in input_paths],
         "xml_file_count": len(xml_files),
         "rounds": len(game.rounds),
@@ -57,9 +59,11 @@ def build_discard_linear_report(
     discard_shanten: dict[str, int | float | None],
     parse_failures: Sequence[TenhouParseFailure],
     model_path: Path | None,
+    source: dict[str, str | None],
 ) -> dict[str, Any]:
     return {
         "kind": DISCARD_LINEAR_REPORT_KIND,
+        "source": source,
         "input_paths": [str(path) for path in input_paths],
         "xml_file_count": len(xml_files),
         "rounds": len(game.rounds),
