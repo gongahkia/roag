@@ -13,6 +13,7 @@ See `IDEAS.md` for the research roadmap and implementation log.
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 PYTHONPATH=src python3 -m kenjaku --version
+PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou/minimal_4p.xml
 ```
 
 ## Data
