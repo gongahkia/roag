@@ -12,6 +12,14 @@ RED_FIVE_TILE_IDS = {16, 52, 88}
 
 
 @dataclass(frozen=True, slots=True)
+class TenhouDraw:
+    seat: int
+    tile_id: int
+    tile: Tile
+    event_index: int
+
+
+@dataclass(frozen=True, slots=True)
 class TenhouDiscard:
     seat: int
     tile_id: int
@@ -24,13 +32,18 @@ class TenhouDiscard:
         return Action.discard(self.tile.type, tsumogiri=self.tsumogiri)
 
 
+TenhouEvent = TenhouDraw | TenhouDiscard
+
+
 @dataclass(frozen=True, slots=True)
 class TenhouRound:
     dealer: int
     scores: tuple[int, ...]
     starting_hands: tuple[tuple[Tile, ...], ...]
     dora_indicators: tuple[Tile, ...]
+    draws: tuple[TenhouDraw, ...]
     discards: tuple[TenhouDiscard, ...]
+    events: tuple[TenhouEvent, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +63,9 @@ class _RoundBuilder:
     scores: tuple[int, ...]
     starting_hands: tuple[tuple[Tile, ...], ...]
     dora_indicators: list[Tile]
+    draws: list[TenhouDraw]
     discards: list[TenhouDiscard]
+    events: list[TenhouEvent]
     last_draws: dict[int, int]
 
     def freeze(self) -> TenhouRound:
@@ -59,7 +74,9 @@ class _RoundBuilder:
             scores=self.scores,
             starting_hands=self.starting_hands,
             dora_indicators=tuple(self.dora_indicators),
+            draws=tuple(self.draws),
             discards=tuple(self.discards),
+            events=tuple(self.events),
         )
 
 
@@ -94,21 +111,30 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
 
         draw_seat = _seat_from_tag(tag, DRAW_TAG_TO_SEAT)
         if draw_seat is not None:
-            current.last_draws[draw_seat] = _tile_id_from_tag(tag)
+            tile_id = _tile_id_from_tag(tag)
+            draw = TenhouDraw(
+                seat=draw_seat,
+                tile_id=tile_id,
+                tile=tenhou_tile(tile_id),
+                event_index=len(current.events),
+            )
+            current.draws.append(draw)
+            current.events.append(draw)
+            current.last_draws[draw_seat] = tile_id
             continue
 
         discard_seat = _seat_from_tag(tag, DISCARD_TAG_TO_SEAT)
         if discard_seat is not None:
             tile_id = _tile_id_from_tag(tag)
-            current.discards.append(
-                TenhouDiscard(
-                    seat=discard_seat,
-                    tile_id=tile_id,
-                    tile=tenhou_tile(tile_id),
-                    tsumogiri=current.last_draws.get(discard_seat) == tile_id,
-                    turn=len(current.discards),
-                )
+            discard = TenhouDiscard(
+                seat=discard_seat,
+                tile_id=tile_id,
+                tile=tenhou_tile(tile_id),
+                tsumogiri=current.last_draws.get(discard_seat) == tile_id,
+                turn=len(current.discards),
             )
+            current.discards.append(discard)
+            current.events.append(discard)
             current.last_draws.pop(discard_seat, None)
 
     if current is not None:
@@ -150,7 +176,9 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         scores=_parse_scores(_required_attr(event, "ten")),
         starting_hands=tuple(_parse_hand(_required_attr(event, f"hai{seat}")) for seat in range(4)),
         dora_indicators=[],
+        draws=[],
         discards=[],
+        events=[],
         last_draws={},
     )
 

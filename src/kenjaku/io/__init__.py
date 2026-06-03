@@ -2,6 +2,8 @@
 
 from kenjaku.io.tenhou_xml import (
     TenhouDiscard,
+    TenhouDraw,
+    TenhouEvent,
     TenhouGame,
     TenhouRound,
     parse_tenhou_xml,
@@ -11,6 +13,8 @@ from kenjaku.io.tenhou_xml import (
 
 __all__ = [
     "TenhouDiscard",
+    "TenhouDraw",
+    "TenhouEvent",
     "TenhouGame",
     "TenhouRound",
     "parse_tenhou_xml",

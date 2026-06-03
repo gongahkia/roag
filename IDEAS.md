@@ -481,4 +481,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added standard-library unit tests for tile parsing/counting, action validation, rule presets, visible-state accounting, and unseen tile counts.
 - Added data policy docs that keep raw logs local, permit only synthetic/safe fixtures, and document compliant `houou-logs` usage.
 - Added a minimal Tenhou XML parser and synthetic fixture covering starting hands, dora indicators, draws, discards, red fives, and tsumogiri inference.
+- Extended the Tenhou parser to retain ordered draw/discard events, enabling hand reconstruction for supervised discard examples.
 - Next implementation target: convert parsed Tenhou events into training examples for discard prediction.

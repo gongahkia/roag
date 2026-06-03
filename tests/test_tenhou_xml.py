@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from kenjaku.core import ActionKind, Tile
-from kenjaku.io import parse_tenhou_xml_file, tenhou_tile
+from kenjaku.io import TenhouDiscard, TenhouDraw, parse_tenhou_xml_file, tenhou_tile
 
 
 FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
@@ -41,6 +41,17 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(discards[1].seat, 1)
         self.assertEqual(discards[1].tile, Tile.parse("9p"))
         self.assertFalse(discards[1].tsumogiri)
+
+    def test_parse_draws_and_ordered_events(self) -> None:
+        game = parse_tenhou_xml_file(FIXTURE)
+        round_ = game.rounds[0]
+
+        self.assertEqual([draw.tile for draw in round_.draws], [Tile.parse("7p"), Tile.parse("8p")])
+        self.assertIsInstance(round_.events[0], TenhouDraw)
+        self.assertIsInstance(round_.events[1], TenhouDiscard)
+        self.assertIsInstance(round_.events[2], TenhouDraw)
+        self.assertIsInstance(round_.events[3], TenhouDiscard)
+        self.assertEqual([event.seat for event in round_.events], [0, 0, 1, 1])
 
 
 if __name__ == "__main__":
