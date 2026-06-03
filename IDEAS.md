@@ -515,5 +515,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Ran the first real local Tenhou smoke export with `houou-logs` (5 logs under ignored
   `data/raw/`) and found a parser hardening gap: metadata tags such as `UN` can look like draw
   tags unless event tags require numeric tile suffixes.
-- Next implementation target: evaluate on a real locally downloaded Tenhou sample without
-  committing raw logs.
+- Fixed the metadata-tag parser gap, then completed the first real local Tenhou smoke run: 5
+  exported XML files, 49 rounds, 2,262 discard examples, 591 call examples, 2,095 shanten-preserved
+  discards, and a 3-epoch tiny linear discard model at 0.4227 train / 0.3274 eval accuracy. Raw
+  logs, generated reports, and model artifacts stayed in ignored local paths.
+- Next implementation target: scale the local Tenhou smoke into a larger reproducible benchmark
+  slice with parser-failure accounting and date/source metadata, still without committing raw logs.
