@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from kenjaku.core import Action, Discard, Tile, tile_counts
-from kenjaku.io import TenhouDiscard, TenhouDraw, TenhouGame
+from kenjaku.io import TenhouAgari, TenhouCall, TenhouDiscard, TenhouDraw, TenhouGame, TenhouRyuukyoku
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,8 +25,9 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
     """Yield discard examples from draw/discard-only Tenhou event streams.
 
     This Phase 0 builder intentionally fails if a discard cannot be removed from
-    the reconstructed hand. Calls, kans, riichi declarations, wins, and abortive
-    draws will be added as parser coverage expands.
+    the reconstructed hand. It emits examples until the first opaque call or
+    terminal event, because meld decoding and post-call hand reconstruction are
+    not implemented yet.
     """
 
     for round_index, round_ in enumerate(game.rounds):
@@ -37,6 +38,9 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
             if isinstance(event, TenhouDraw):
                 hands[event.seat].append(event.tile)
                 continue
+
+            if isinstance(event, TenhouCall | TenhouAgari | TenhouRyuukyoku):
+                break
 
             if isinstance(event, TenhouDiscard):
                 past_discards = tuple(
