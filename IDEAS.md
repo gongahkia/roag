@@ -494,4 +494,5 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Extended discard-example reconstruction through decoded calls: consumed tiles leave the caller's concealed hand, claimed tiles leave the river, and open meld tiles become visible context.
 - Extracted shared training reconstruction state so discard, call, and future outcome-example builders use one transition path for draws, discards, and calls.
 - Added call-decision examples for actual chi/pon/kan claims and legal pass decisions, using reconstructed hand counts and visible table context.
-- Next implementation target: expose a tiny trainable discard model with deterministic train/eval splits before adding heavyweight ML dependencies.
+- Added a stable hash-based train/eval splitter so tiny-model experiments are reproducible without depending on Python random state.
+- Next implementation target: expose a tiny trainable discard model before adding heavyweight ML dependencies.
