@@ -547,5 +547,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Re-ran the 25-log local benchmark with the ablation report. Raw-count linear scored 0.4313 train /
   0.3830 eval accuracy; shanten-aware `discard-linear-v1` remained at 0.5150 train / 0.4757 eval,
   giving a +0.0837 train / +0.0928 eval absolute lift over raw counts.
-- Next implementation target: cache or precompute discard candidate tile-efficiency features so the
-  ablation path scales cleanly before increasing the local benchmark beyond 25 logs.
+- Cached prepared linear-model examples inside training/scoring so candidate tile-efficiency
+  features are computed once per example per profile instead of once per epoch. The 25-log ablation
+  benchmark preserved the same metrics and completed in about 16.6 seconds locally.
+- Next implementation target: add discard error-analysis reports that break accuracy down by
+  shanten-preserving versus shanten-worsening decisions, tile family, and turn position before
+  increasing the local benchmark beyond 25 logs.

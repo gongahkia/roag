@@ -26,6 +26,12 @@ class _FeatureProfile:
     includes_tile_efficiency: bool
 
 
+@dataclass(frozen=True, slots=True)
+class _PreparedExample:
+    target: int
+    features_by_tile: dict[int, tuple[float, ...]]
+
+
 _FEATURE_PROFILES = {
     RAW_COUNT_FEATURE_PROFILE: _FeatureProfile(
         name=RAW_COUNT_FEATURE_PROFILE,
@@ -83,14 +89,14 @@ class DiscardLinearModel:
 
         profile = _feature_profile(feature_profile)
         weights = [[0.0] * profile.feature_dim for _ in range(34)]
+        prepared_examples = _prepare_examples(examples, profile=profile)
         for _ in range(epochs):
-            for example in examples:
+            for example in prepared_examples:
                 _apply_update(
                     weights,
                     example,
                     learning_rate=learning_rate,
                     l2=l2,
-                    profile=profile,
                 )
 
         return cls(
@@ -114,12 +120,14 @@ class DiscardLinearModel:
     def score(self, examples: Sequence[DiscardExample]) -> float:
         if not examples:
             raise ValueError("cannot score on zero examples")
+        prepared_examples = _prepare_examples(
+            examples,
+            profile=_feature_profile(self.feature_profile),
+        )
         correct = 0
-        for example in examples:
-            if example.action.tile is None:
-                raise ValueError("discard examples must have tile actions")
-            prediction = self.predict(example.hand_counts, example.visible_counts)
-            correct += prediction == example.action.tile
+        for example in prepared_examples:
+            logits = _logits(self.weights, example.features_by_tile)
+            correct += max(logits, key=logits.get) == example.target
         return correct / len(examples)
 
     @property
@@ -177,33 +185,46 @@ class DiscardLinearModel:
 
 def _apply_update(
     weights: list[list[float]],
-    example: DiscardExample,
+    example: _PreparedExample,
     *,
     learning_rate: float,
     l2: float,
-    profile: _FeatureProfile,
 ) -> None:
-    if example.action.tile is None:
-        raise ValueError("discard examples must have tile actions")
-    legal_indices = _legal_indices(example.hand_counts)
-    target = example.action.tile.index
-    if target not in legal_indices:
-        raise ValueError("discard action must be legal for the example hand")
-
-    features_by_tile = _feature_vectors(
-        example.hand_counts,
-        example.visible_counts,
-        legal_indices,
-        profile=profile,
-    )
-    probabilities = _softmax(_logits(weights, features_by_tile))
+    probabilities = _softmax(_logits(weights, example.features_by_tile))
     for tile_index, probability in probabilities.items():
-        error = probability - (1.0 if tile_index == target else 0.0)
+        error = probability - (1.0 if tile_index == example.target else 0.0)
         row = weights[tile_index]
-        features = features_by_tile[tile_index]
+        features = example.features_by_tile[tile_index]
         for feature_index, feature_value in enumerate(features):
             regularization = l2 * row[feature_index]
             row[feature_index] -= learning_rate * (error * feature_value + regularization)
+
+
+def _prepare_examples(
+    examples: Sequence[DiscardExample],
+    *,
+    profile: _FeatureProfile,
+) -> list[_PreparedExample]:
+    prepared: list[_PreparedExample] = []
+    for example in examples:
+        if example.action.tile is None:
+            raise ValueError("discard examples must have tile actions")
+        legal_indices = _legal_indices(example.hand_counts)
+        target = example.action.tile.index
+        if target not in legal_indices:
+            raise ValueError("discard action must be legal for the example hand")
+        prepared.append(
+            _PreparedExample(
+                target=target,
+                features_by_tile=_feature_vectors(
+                    example.hand_counts,
+                    example.visible_counts,
+                    legal_indices,
+                    profile=profile,
+                ),
+            )
+        )
+    return prepared
 
 
 def _feature_vectors(
