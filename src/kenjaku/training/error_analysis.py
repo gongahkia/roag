@@ -32,6 +32,11 @@ def summarize_discard_predictions(
             "middle": _empty_bucket(),
             "late": _empty_bucket(),
         },
+        "by_seat_turn_phase": {
+            "early": _empty_bucket(),
+            "middle": _empty_bucket(),
+            "late": _empty_bucket(),
+        },
     }
 
     for example in examples:
@@ -42,11 +47,13 @@ def summarize_discard_predictions(
         shanten_bucket = _shanten_bucket(example)
         family_bucket = _tile_family(example.action.tile)
         phase_bucket = _round_event_phase(example.event_index)
+        seat_turn_bucket = _seat_turn_phase(example.seat_turn_index)
 
         _record(buckets["overall"], correct)
         _record(buckets["by_shanten_delta"][shanten_bucket], correct)
         _record(buckets["by_tile_family"][family_bucket], correct)
         _record(buckets["by_round_event_phase"][phase_bucket], correct)
+        _record(buckets["by_seat_turn_phase"][seat_turn_bucket], correct)
 
     return _finalize(buckets)
 
@@ -111,5 +118,13 @@ def _round_event_phase(event_index: int) -> str:
     if event_index < 40:
         return "early"
     if event_index < 100:
+        return "middle"
+    return "late"
+
+
+def _seat_turn_phase(seat_turn_index: int) -> str:
+    if seat_turn_index < 6:
+        return "early"
+    if seat_turn_index < 12:
         return "middle"
     return "late"

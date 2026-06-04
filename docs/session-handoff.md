@@ -1,29 +1,27 @@
 # Session Handoff
 
-Last updated: 2026-06-03.
+Last updated: 2026-06-04.
 
 ## Stop State
 
-- This is a docs-only handoff clarification requested after the last implementation task.
-- Last implementation slice before this clarification: `6e6657e feat: report discard error
-  analysis`.
-- The user explicitly asked to stop after the documentation handoff. Do not continue implementing
-  risk features or larger benchmarks unless the user starts a new work session and asks for it.
-- The attempted resume after the push only produced a planning/status message. It did not run repo
-  commands or edit files.
+- Last implementation slice: first risk-context discard features.
+- Expected tracked worktree after this implementation is committed: clean.
+- Do not continue into larger local benchmarks, defense-feature expansion, or external baseline
+  work unless the user starts a new work session and asks for it.
 
 ## Current State
 
 - Branch: `main`.
-- Expected tracked worktree at handoff: clean after this docs-only update is committed.
 - Raw Tenhou data, generated reports, and model artifacts are local-only and ignored by git.
 - The core Tenhou path parses XML directories, reconstructs through decoded calls, extracts discard
   and call examples, and records parse failures with `--skip-errors`.
-- `benchmark-discard` trains and scores three baselines on one deterministic split:
-  frequency, raw-count linear, and shanten-aware linear.
+- Discard examples now carry active riichi seats, per-seat river count snapshots, and a true
+  seat-relative discard index in addition to flattened visible counts.
+- `benchmark-discard` trains and scores four baselines on one deterministic split: frequency,
+  raw-count linear, shanten-aware linear, and risk-context linear.
 - Benchmark JSON reports include source metadata, split settings, model metadata, shanten summaries,
-  ablation lift over raw counts, and held-out `eval_analysis` by shanten impact, tile family, and
-  rough round event phase.
+  ablation lift over raw counts and risk context, and held-out `eval_analysis` by shanten impact,
+  tile family, rough round event phase, and seat-relative turn phase.
 
 ## Working Rules
 
@@ -49,16 +47,21 @@ Last updated: 2026-06-03.
   learning rate, and data slice are held fixed.
 - `eval_analysis.by_shanten_delta` is based on the actual supervised discard action, not on the
   model's predicted discard.
-- The current rough phase buckets use `DiscardExample.event_index`, not a seat-relative turn count.
-  This is useful for a first pass but should not be treated as a precise turn-position feature.
+- The original rough phase buckets still use `DiscardExample.event_index`. The newer
+  `by_seat_turn_phase` buckets use the discarding player's own discard index: 0-5 early, 6-11
+  middle, and 12+ late.
 - `ReconstructionState.visible_tiles()` currently flattens dora indicators, all visible discards,
-  visible meld tiles, and the perspective player's hand into one count vector. It does not preserve
-  separate opponent rivers, separate meld ownership, or riichi state.
-- `TenhouReach` events are parsed in `src/kenjaku/io/tenhou_xml.py`, but `DiscardExample` does not
-  yet expose active riichi declarations. Confirm Tenhou `REACH step=1` and `step=2` semantics with
-  tests before using them as model features.
-- `DiscardLinearModel` uses explicit feature profiles. Adding risk/context features should use a
-  new profile and model kind rather than silently changing `discard-linear-v1`.
+  visible meld tiles, and the perspective player's hand into one count vector. Per-seat river count
+  snapshots now exist separately, but they do not preserve river order or separate meld ownership.
+- `ReconstructionState.apply_reach()` treats `TenhouReach step=1` as an active riichi declaration.
+  `step=2` is treated as payment/score metadata and does not create a second declaration.
+- `discard-linear-risk-context-v0` is a first coarse risk model. It uses active-riichi flags,
+  candidate counts in active-riichi/opponent/self/all rivers, and an active-riichi unseen-count
+  feature. It does not yet model suji, kabe, one-chance, discard order after riichi, ippatsu, or
+  explicit opponent tenpai estimates.
+- `DiscardLinearModel` uses explicit feature profiles. Keep `discard-linear-raw-count-v0`,
+  `discard-linear-v1`, and `discard-linear-risk-context-v0` stable; add new model kinds rather than
+  silently changing an existing profile.
 
 ## Local Artifacts
 
@@ -97,7 +100,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   --source-date 2026-current-year
 ```
 
-Latest 25-log result:
+Latest documented 25-log result before the risk-context profile:
 
 - Examples: 11,855 total, 9,484 train, 2,371 eval.
 - Frequency eval accuracy: 0.3037.
@@ -106,20 +109,21 @@ Latest 25-log result:
 - Shanten-aware eval lift over raw-count linear: +0.0928.
 - Shanten-aware eval breakdown: 0.5091 on shanten-preserving discards, 0.0414 on
   shanten-worsening discards.
+- The command above now also emits risk-context metrics, but the 25-log risk-context result has not
+  been recorded yet.
 
 ## Next Tasks
 
-1. Investigate shanten-worsening decisions. They are rare but currently poorly predicted by the
-   shanten-aware model, so the model may be over-rewarding efficiency preservation.
-2. Add a first risk-context data slice before changing the model. Start in
-   `src/kenjaku/training/discard_examples.py` and `src/kenjaku/training/reconstruction.py` by
-   carrying active riichi state and opponent river context into `DiscardExample`.
-3. Add targeted synthetic Tenhou fixtures/tests for reach state and opponent-river feature
-   extraction. Current parser tests already cover `TenhouReach`; the missing piece is reconstructed
-   training context.
-4. After context fields are tested, add a new linear feature profile for risk features and keep
-   `raw-count` and `shanten` profiles as ablation anchors.
-5. Add a richer turn-position signal. Current `by_round_event_phase` is based on Tenhou event index;
-   a seat-relative turn counter would be cleaner.
-6. Scale beyond the 25-log local slice only after the error-analysis report remains stable and
-   useful on this slice.
+1. Rerun the 25-log benchmark with the risk-context profile if the ignored local data is present,
+   then record only aggregate metrics and risk-context lift in docs.
+2. Inspect whether risk context improves shanten-worsening and active-riichi-adjacent decisions.
+   If the current report is too coarse, add held-out buckets for active opponent riichi and
+   candidate genbutsu status.
+3. Preserve richer river/riichi chronology in reconstruction: discard order, riichi declaration
+   turn, and whether a candidate was discarded before or after each opponent's riichi.
+4. Add explicit defense features behind a new model kind: suji, kabe, one-chance/two-chance,
+   sotogawa-style outside tiles, and live terminal/honor pressure.
+5. Scale beyond the 25-log local slice only after the risk-context report remains stable and useful
+   on the small slice.
+6. Revisit external baselines after the local supervised benchmark is less fragile: build `mortal`
+   locally and decide how to compare offline without live ladder automation.

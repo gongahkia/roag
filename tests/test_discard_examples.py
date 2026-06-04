@@ -67,6 +67,48 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(examples[1].action.tile, TileType.parse("4p"))
         self.assertEqual(examples[1].visible_counts[TileType.parse("1p").index], 3)
 
+    def test_tracks_riichi_rivers_and_seat_turns(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="250,250,250,250"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
+              />
+              <DORA hai="72" />
+              <T60 />
+              <REACH who="0" step="1" />
+              <D60 />
+              <REACH who="0" step="2" ten="240,250,250,250" />
+              <U64 />
+              <E64 />
+              <T61 />
+              <D61 />
+              <RYUUKYOKU />
+            </mjloggm>
+            """
+        )
+
+        examples = list(iter_discard_examples(game))
+
+        self.assertEqual(len(examples), 3)
+        self.assertEqual(examples[0].active_riichi_seats, (True, False, False, False))
+        self.assertEqual(examples[1].active_riichi_seats, (True, False, False, False))
+        self.assertEqual(examples[0].seat_turn_index, 0)
+        self.assertEqual(examples[1].seat_turn_index, 0)
+        self.assertEqual(examples[2].seat_turn_index, 1)
+        seven_pin = TileType.parse("7p").index
+        eight_pin = TileType.parse("8p").index
+        self.assertEqual(examples[0].river_counts_by_seat[0][seven_pin], 0)
+        self.assertEqual(examples[1].river_counts_by_seat[0][seven_pin], 1)
+        self.assertEqual(examples[1].river_counts_by_seat[1][eight_pin], 0)
+        self.assertEqual(examples[2].river_counts_by_seat[1][eight_pin], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

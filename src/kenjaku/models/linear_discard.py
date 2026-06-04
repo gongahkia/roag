@@ -12,10 +12,13 @@ from kenjaku.training import DiscardExample
 
 RAW_COUNT_FEATURE_PROFILE = "raw-count"
 SHANTEN_FEATURE_PROFILE = "shanten"
+RISK_CONTEXT_FEATURE_PROFILE = "risk-context"
 RAW_COUNT_FEATURE_DIM = 69
 RAW_COUNT_MODEL_KIND = "discard-linear-raw-count-v0"
 FEATURE_DIM = 76
 MODEL_KIND = "discard-linear-v1"
+RISK_CONTEXT_FEATURE_DIM = 86
+RISK_CONTEXT_MODEL_KIND = "discard-linear-risk-context-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +27,7 @@ class _FeatureProfile:
     model_kind: str
     feature_dim: int
     includes_tile_efficiency: bool
+    includes_risk_context: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +42,21 @@ _FEATURE_PROFILES = {
         model_kind=RAW_COUNT_MODEL_KIND,
         feature_dim=RAW_COUNT_FEATURE_DIM,
         includes_tile_efficiency=False,
+        includes_risk_context=False,
     ),
     SHANTEN_FEATURE_PROFILE: _FeatureProfile(
         name=SHANTEN_FEATURE_PROFILE,
         model_kind=MODEL_KIND,
         feature_dim=FEATURE_DIM,
         includes_tile_efficiency=True,
+        includes_risk_context=False,
+    ),
+    RISK_CONTEXT_FEATURE_PROFILE: _FeatureProfile(
+        name=RISK_CONTEXT_FEATURE_PROFILE,
+        model_kind=RISK_CONTEXT_MODEL_KIND,
+        feature_dim=RISK_CONTEXT_FEATURE_DIM,
+        includes_tile_efficiency=True,
+        includes_risk_context=True,
     ),
 }
 _FEATURE_PROFILES_BY_KIND = {
@@ -106,13 +119,24 @@ class DiscardLinearModel:
             feature_profile=profile.name,
         )
 
-    def predict(self, hand_counts: tuple[int, ...], visible_counts: tuple[int, ...]) -> TileType:
+    def predict(
+        self,
+        hand_counts: tuple[int, ...],
+        visible_counts: tuple[int, ...],
+        *,
+        seat: int = 0,
+        active_riichi_seats: tuple[bool, ...] = (),
+        river_counts_by_seat: tuple[tuple[int, ...], ...] = (),
+    ) -> TileType:
         legal_indices = _legal_indices(hand_counts)
         features_by_tile = _feature_vectors(
             hand_counts,
             visible_counts,
             legal_indices,
             profile=_feature_profile(self.feature_profile),
+            seat=seat,
+            active_riichi_seats=active_riichi_seats,
+            river_counts_by_seat=river_counts_by_seat,
         )
         logits = _logits(self.weights, features_by_tile)
         return TileType(max(logits, key=logits.get))
@@ -221,6 +245,9 @@ def _prepare_examples(
                     example.visible_counts,
                     legal_indices,
                     profile=profile,
+                    seat=example.seat,
+                    active_riichi_seats=example.active_riichi_seats,
+                    river_counts_by_seat=example.river_counts_by_seat,
                 ),
             )
         )
@@ -233,6 +260,9 @@ def _feature_vectors(
     legal_indices: tuple[int, ...],
     *,
     profile: _FeatureProfile,
+    seat: int = 0,
+    active_riichi_seats: tuple[bool, ...] = (),
+    river_counts_by_seat: tuple[tuple[int, ...], ...] = (),
 ) -> dict[int, tuple[float, ...]]:
     if len(hand_counts) != 34:
         raise ValueError("hand counts must have length 34")
@@ -249,6 +279,10 @@ def _feature_vectors(
             visible_counts,
             tile_index=tile_index,
             before_shanten=before_shanten,
+            profile=profile,
+            seat=seat,
+            active_riichi_seats=active_riichi_seats,
+            river_counts_by_seat=river_counts_by_seat,
         )
         for tile_index in legal_indices
     }
@@ -260,12 +294,16 @@ def _features(
     *,
     tile_index: int,
     before_shanten: int,
+    profile: _FeatureProfile,
+    seat: int,
+    active_riichi_seats: tuple[bool, ...],
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
 ) -> tuple[float, ...]:
     after_counts = list(hand_counts)
     after_counts[tile_index] -= 1
     after_shanten = shanten(tuple(after_counts))
     shanten_delta = after_shanten - before_shanten
-    return (
+    features = (
         1.0,
         *(count / 4.0 for count in hand_counts),
         *(count / 4.0 for count in visible_counts),
@@ -277,6 +315,18 @@ def _features(
         float(shanten_delta),
         1.0 if shanten_delta <= 0 else 0.0,
     )
+    if not profile.includes_risk_context:
+        return features
+    return (
+        *features,
+        *_risk_context_features(
+            visible_counts,
+            tile_index=tile_index,
+            seat=seat,
+            active_riichi_seats=active_riichi_seats,
+            river_counts_by_seat=river_counts_by_seat,
+        ),
+    )
 
 
 def _raw_features(
@@ -287,6 +337,48 @@ def _raw_features(
         1.0,
         *(count / 4.0 for count in hand_counts),
         *(count / 4.0 for count in visible_counts),
+    )
+
+
+def _risk_context_features(
+    visible_counts: tuple[int, ...],
+    *,
+    tile_index: int,
+    seat: int,
+    active_riichi_seats: tuple[bool, ...],
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+) -> tuple[float, ...]:
+    players = _context_player_count(seat, active_riichi_seats, river_counts_by_seat)
+    active_opponents = tuple(
+        candidate_seat
+        for candidate_seat in range(players)
+        if candidate_seat != seat and _active_riichi_at(active_riichi_seats, candidate_seat)
+    )
+    opponent_seats = tuple(
+        candidate_seat for candidate_seat in range(players) if candidate_seat != seat
+    )
+    active_riichi_river_count = _sum_river_count(
+        river_counts_by_seat,
+        active_opponents,
+        tile_index,
+    )
+    opponent_river_count = _sum_river_count(river_counts_by_seat, opponent_seats, tile_index)
+    self_river_count = _river_count(river_counts_by_seat, seat, tile_index)
+    all_river_count = _sum_river_count(river_counts_by_seat, range(players), tile_index)
+    unseen_count = max(0, 4 - visible_counts[tile_index])
+    opponent_denominator = max(1, players - 1)
+
+    return (
+        1.0 if _active_riichi_at(active_riichi_seats, seat) else 0.0,
+        len(active_opponents) / opponent_denominator,
+        1.0 if active_opponents else 0.0,
+        active_riichi_river_count / 4.0,
+        1.0 if active_riichi_river_count > 0 else 0.0,
+        opponent_river_count / 4.0,
+        1.0 if opponent_river_count > 0 else 0.0,
+        self_river_count / 4.0,
+        all_river_count / 4.0,
+        unseen_count / 4.0 if active_opponents else 0.0,
     )
 
 
@@ -328,6 +420,39 @@ def _parse_weight_row(row: Any) -> tuple[float, ...]:
 
 def _is_terminal_or_honor(tile_index: int) -> bool:
     return tile_index >= 27 or tile_index % 9 in {0, 8}
+
+
+def _context_player_count(
+    seat: int,
+    active_riichi_seats: tuple[bool, ...],
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+) -> int:
+    return max(4, seat + 1, len(active_riichi_seats), len(river_counts_by_seat))
+
+
+def _active_riichi_at(active_riichi_seats: tuple[bool, ...], seat: int) -> bool:
+    return seat < len(active_riichi_seats) and active_riichi_seats[seat]
+
+
+def _sum_river_count(
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+    seats: Sequence[int],
+    tile_index: int,
+) -> int:
+    return sum(_river_count(river_counts_by_seat, seat, tile_index) for seat in seats)
+
+
+def _river_count(
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+    seat: int,
+    tile_index: int,
+) -> int:
+    if seat >= len(river_counts_by_seat):
+        return 0
+    counts = river_counts_by_seat[seat]
+    if len(counts) != 34:
+        raise ValueError("river count rows must have length 34")
+    return counts[tile_index]
 
 
 def _feature_profile(name: str) -> _FeatureProfile:

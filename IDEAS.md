@@ -462,13 +462,18 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ---
 
-## 11. immediate next steps (week 1)
+## 11. immediate next steps
 
-1. Use decoded Tenhou calls for post-call hand reconstruction: remove consumed tiles, track open melds, clear claimed discards, and continue supervised-example extraction past `N` events.
-2. Add call-decision examples (`chi`/`pon`/`kan`/`pass`) after the discard-only pipeline is no longer fragile.
-3. Add a tiny trainable discard model and deterministic train/eval split before introducing heavyweight ML dependencies.
-4. Evaluate `houou-logs` as an external downloader and document exact compliant usage without checking raw logs into git.
-5. Clone and build mortal locally, confirm inference/evaluation hooks on Mac.
+1. Rerun the 25-log local benchmark with the new risk-context profile and record aggregate-only
+   metrics in docs.
+2. Inspect risk-context failures, especially shanten-worsening discards and decisions near active
+   opponent riichi.
+3. Add richer defense context behind a new model kind: river chronology, suji, kabe, one-chance,
+   sotogawa-style outside tiles, and live terminal/honor pressure.
+4. Scale the local Tenhou slice only after the risk-context report is stable and useful on the
+   25-log slice.
+5. Clone and build mortal locally, then define an offline comparison path that does not depend on
+   live ladder automation.
 6. Read Suphx and Mahjax end-to-end, extract reusable simulator/evaluation ideas.
 
 ---
@@ -564,3 +569,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Next implementation target: investigate shanten-worsening decisions and add the first risk/context
   features, starting with riichi state and opponent-river visibility before scaling beyond the
   25-log local slice.
+
+### 2026-06-04
+
+- Added first risk-context discard-example fields: active riichi seats, per-seat river count
+  snapshots, and seat-relative discard index.
+- Added `discard-linear-risk-context-v0`, preserving the raw-count and shanten-aware model kinds as
+  ablation anchors.
+- Extended `benchmark-discard` to report frequency, raw-count linear, shanten-aware linear, and
+  risk-context linear models on one deterministic split.
+- Added held-out `by_seat_turn_phase` error-analysis buckets alongside the existing rough event
+  phase buckets.
+- Updated tests and handoff docs for the new context fields, benchmark report shape, and next
+  implementation targets.

@@ -29,8 +29,9 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
 git, then point the CLI at those local paths. Reports and model artifacts belong under ignored
 local directories such as `runs/` and `models/`. `benchmark-discard` reports frequency,
-raw-count linear, and shanten-aware linear baselines on the same deterministic split, including
-held-out error analysis by shanten impact, tile family, and rough round phase.
+raw-count linear, shanten-aware linear, and risk-context linear baselines on the same deterministic
+split, including held-out error analysis by shanten impact, tile family, rough round event phase,
+and seat-relative turn phase.
 
 For continuation context, see `docs/session-handoff.md`.
 

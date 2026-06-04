@@ -10,6 +10,7 @@ from kenjaku.io import (
     TenhouDiscard,
     TenhouDraw,
     TenhouGame,
+    TenhouReach,
     TenhouRyuukyoku,
 )
 from kenjaku.training.reconstruction import (
@@ -77,6 +78,10 @@ def iter_call_examples(game: TenhouGame) -> Iterator[CallExample]:
 
             if isinstance(event, TenhouAgari | TenhouRyuukyoku):
                 break
+
+            if isinstance(event, TenhouReach):
+                state.apply_reach(event)
+                continue
 
             if isinstance(event, TenhouDiscard):
                 state.apply_discard(event)

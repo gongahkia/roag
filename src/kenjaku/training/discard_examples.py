@@ -10,6 +10,7 @@ from kenjaku.io import (
     TenhouDiscard,
     TenhouDraw,
     TenhouGame,
+    TenhouReach,
     TenhouRyuukyoku,
 )
 from kenjaku.training.reconstruction import ReconstructionState
@@ -27,6 +28,9 @@ class DiscardExample:
     hand_counts: tuple[int, ...]
     visible_counts: tuple[int, ...]
     action: Action
+    active_riichi_seats: tuple[bool, ...] = ()
+    river_counts_by_seat: tuple[tuple[int, ...], ...] = ()
+    seat_turn_index: int = 0
 
 
 def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
@@ -48,6 +52,10 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
             if isinstance(event, TenhouAgari | TenhouRyuukyoku):
                 break
 
+            if isinstance(event, TenhouReach):
+                state.apply_reach(event)
+                continue
+
             if isinstance(event, TenhouCall):
                 state.apply_call(event)
                 continue
@@ -63,5 +71,8 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
                     hand_counts=tile_counts(state.hands[event.seat]),
                     visible_counts=tile_counts(visible_tiles),
                     action=event.action,
+                    active_riichi_seats=tuple(state.active_riichi),
+                    river_counts_by_seat=state.river_counts_by_seat(),
+                    seat_turn_index=state.discard_counts_by_seat[event.seat],
                 )
                 state.apply_discard(event)

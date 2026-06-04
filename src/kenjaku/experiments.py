@@ -120,6 +120,13 @@ def build_discard_benchmark_report(
     linear_train_accuracy: float,
     linear_eval_accuracy: float | None,
     linear_eval_analysis: dict[str, Any],
+    risk_context_linear_epochs: int,
+    risk_context_linear_learning_rate: float,
+    risk_context_linear_model_kind: str,
+    risk_context_linear_feature_dim: int,
+    risk_context_linear_train_accuracy: float,
+    risk_context_linear_eval_accuracy: float | None,
+    risk_context_linear_eval_analysis: dict[str, Any],
     discard_shanten: dict[str, int | float | None],
     parse_failures: Sequence[TenhouParseFailure],
     source: dict[str, str | None],
@@ -172,6 +179,19 @@ def build_discard_benchmark_report(
                 },
                 "eval_analysis": linear_eval_analysis,
             },
+            "risk_context_linear": {
+                "kind": risk_context_linear_model_kind,
+                "feature_dim": risk_context_linear_feature_dim,
+                "training": {
+                    "epochs": risk_context_linear_epochs,
+                    "learning_rate": risk_context_linear_learning_rate,
+                },
+                "metrics": {
+                    "train_accuracy": risk_context_linear_train_accuracy,
+                    "eval_accuracy": risk_context_linear_eval_accuracy,
+                },
+                "eval_analysis": risk_context_linear_eval_analysis,
+            },
         },
         "ablation": {
             "train_accuracy_lift_over_raw_count": (
@@ -180,6 +200,13 @@ def build_discard_benchmark_report(
             "eval_accuracy_lift_over_raw_count": _optional_delta(
                 linear_eval_accuracy,
                 raw_count_linear_eval_accuracy,
+            ),
+            "risk_context_train_accuracy_lift_over_linear": (
+                risk_context_linear_train_accuracy - linear_train_accuracy
+            ),
+            "risk_context_eval_accuracy_lift_over_linear": _optional_delta(
+                risk_context_linear_eval_accuracy,
+                linear_eval_accuracy,
             ),
         },
         "discard_shanten": discard_shanten,

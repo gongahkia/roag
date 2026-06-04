@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from kenjaku.core import ActionKind, Discard, Tile
-from kenjaku.io import TenhouCall, TenhouDiscard, TenhouDraw, TenhouMeld
+from kenjaku.core import ActionKind, Discard, Tile, tile_counts
+from kenjaku.io import TenhouCall, TenhouDiscard, TenhouDraw, TenhouMeld, TenhouReach
 
 OPEN_CLAIM_KINDS = {ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN}
 
@@ -13,6 +13,8 @@ class ReconstructionState:
     hands: list[list[Tile]]
     discards_by_seat: list[list[Discard]]
     melds_by_seat: list[list[TenhouMeld]]
+    active_riichi: list[bool]
+    discard_counts_by_seat: list[int]
 
     @classmethod
     def from_starting_hands(
@@ -23,6 +25,8 @@ class ReconstructionState:
             hands=[list(hand) for hand in starting_hands],
             discards_by_seat=[[] for _ in starting_hands],
             melds_by_seat=[[] for _ in starting_hands],
+            active_riichi=[False for _ in starting_hands],
+            discard_counts_by_seat=[0 for _ in starting_hands],
         )
 
     def visible_tiles(
@@ -47,6 +51,12 @@ class ReconstructionState:
             tile for seat_melds in self.melds_by_seat for meld in seat_melds for tile in meld.tiles
         )
 
+    def river_counts_by_seat(self) -> tuple[tuple[int, ...], ...]:
+        return tuple(
+            tile_counts(discard.tile for discard in seat_discards)
+            for seat_discards in self.discards_by_seat
+        )
+
     def apply_draw(self, event: TenhouDraw) -> None:
         self.hands[event.seat].append(event.tile)
 
@@ -55,6 +65,11 @@ class ReconstructionState:
         self.discards_by_seat[event.seat].append(
             Discard(tile=event.tile, tsumogiri=event.tsumogiri)
         )
+        self.discard_counts_by_seat[event.seat] += 1
+
+    def apply_reach(self, event: TenhouReach) -> None:
+        if event.step == 1:
+            self.active_riichi[event.seat] = True
 
     def apply_call(self, event: TenhouCall) -> None:
         for tile in consumed_tiles(event.meld):

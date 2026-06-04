@@ -32,6 +32,9 @@ class DiscardErrorAnalysisTests(unittest.TestCase):
         self.assertEqual(summary["by_round_event_phase"]["early"]["correct"], 1)
         self.assertEqual(summary["by_round_event_phase"]["middle"]["correct"], 0)
         self.assertEqual(summary["by_round_event_phase"]["late"]["correct"], 1)
+        self.assertEqual(summary["by_seat_turn_phase"]["early"]["correct"], 1)
+        self.assertEqual(summary["by_seat_turn_phase"]["middle"]["correct"], 0)
+        self.assertEqual(summary["by_seat_turn_phase"]["late"]["correct"], 1)
         self.assertEqual(
             sum(bucket["examples"] for bucket in summary["by_shanten_delta"].values()),
             3,
@@ -45,6 +48,7 @@ class DiscardErrorAnalysisTests(unittest.TestCase):
         self.assertEqual(summary["by_shanten_delta"]["preserved"]["examples"], 0)
         self.assertEqual(summary["by_tile_family"]["sou"]["examples"], 0)
         self.assertEqual(summary["by_round_event_phase"]["late"]["examples"], 0)
+        self.assertEqual(summary["by_seat_turn_phase"]["late"]["examples"], 0)
 
 
 def _example(hand: list[str], discard: str, *, event_index: int) -> DiscardExample:
@@ -58,6 +62,7 @@ def _example(hand: list[str], discard: str, *, event_index: int) -> DiscardExamp
         hand_counts=tile_counts(tiles),
         visible_counts=tile_counts(tiles),
         action=Action.discard(discard),
+        seat_turn_index=event_index // 8,
     )
 
 
