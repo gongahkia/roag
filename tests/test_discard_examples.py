@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from kenjaku.core import TileType
+from kenjaku.core import Tile, TileType
 from kenjaku.io import parse_tenhou_xml, parse_tenhou_xml_file
 from kenjaku.training import iter_discard_examples
 
@@ -102,12 +102,19 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(examples[0].seat_turn_index, 0)
         self.assertEqual(examples[1].seat_turn_index, 0)
         self.assertEqual(examples[2].seat_turn_index, 1)
+        self.assertEqual(examples[0].riichi_declared_turns, (0, None, None, None))
+        self.assertEqual(examples[0].riichi_declared_event_indices, (1, None, None, None))
+        self.assertEqual(examples[1].riichi_declared_turns, (0, None, None, None))
+        self.assertEqual(examples[1].riichi_declared_event_indices, (1, None, None, None))
         seven_pin = TileType.parse("7p").index
         eight_pin = TileType.parse("8p").index
         self.assertEqual(examples[0].river_counts_by_seat[0][seven_pin], 0)
         self.assertEqual(examples[1].river_counts_by_seat[0][seven_pin], 1)
         self.assertEqual(examples[1].river_counts_by_seat[1][eight_pin], 0)
         self.assertEqual(examples[2].river_counts_by_seat[1][eight_pin], 1)
+        self.assertEqual(examples[0].rivers_by_seat[0], ())
+        self.assertEqual(examples[1].rivers_by_seat[0], (Tile.parse("7p"),))
+        self.assertEqual(examples[2].rivers_by_seat[1], (Tile.parse("8p"),))
 
 
 if __name__ == "__main__":

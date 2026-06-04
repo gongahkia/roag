@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from kenjaku.core import Action, Tile, TileType, tile_counts
 from kenjaku.models import (
+    DEFENSE_CONTEXT_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
     RISK_CONTEXT_FEATURE_PROFILE,
     DiscardLinearModel,
@@ -125,6 +126,54 @@ class LinearDiscardModelTests(unittest.TestCase):
         self.assertEqual(prediction, TileType.parse("1m"))
         self.assertEqual(loaded.score(examples), model.score(examples))
 
+    def test_defense_context_profile_round_trips_json_artifact(self) -> None:
+        examples = [
+            _example(
+                ["1m", "2m"],
+                "1m",
+                active_riichi_seats=(False, True, False, False),
+                opponent_river=["4m", "1m"],
+                riichi_turn=1,
+            ),
+            _example(
+                ["1m", "2m"],
+                "1m",
+                active_riichi_seats=(False, True, False, False),
+                opponent_river=["4m", "1m"],
+                riichi_turn=1,
+            ),
+        ]
+        model = DiscardLinearModel.fit(
+            examples,
+            epochs=3,
+            learning_rate=0.2,
+            feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
+        )
+        payload = model.to_dict()
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "discard-linear-defense-context.json"
+            model.save(path)
+            loaded = DiscardLinearModel.load(path)
+
+        prediction = model.predict(
+            examples[0].hand_counts,
+            examples[0].visible_counts,
+            seat=examples[0].seat,
+            active_riichi_seats=examples[0].active_riichi_seats,
+            river_counts_by_seat=examples[0].river_counts_by_seat,
+            rivers_by_seat=examples[0].rivers_by_seat,
+            riichi_declared_turns=examples[0].riichi_declared_turns,
+            riichi_declared_event_indices=examples[0].riichi_declared_event_indices,
+        )
+
+        self.assertEqual(payload["kind"], "discard-linear-defense-context-v0")
+        self.assertEqual(payload["feature_profile"], "defense-context")
+        self.assertEqual(payload["feature_dim"], 98)
+        self.assertEqual(loaded.to_dict(), model.to_dict())
+        self.assertEqual(prediction, TileType.parse("1m"))
+        self.assertEqual(loaded.score(examples), model.score(examples))
+
 
 def _example(
     hand: list[str],
@@ -132,9 +181,16 @@ def _example(
     *,
     active_riichi_seats: tuple[bool, ...] = (),
     opponent_river: list[str] | None = None,
+    riichi_turn: int | None = None,
 ) -> DiscardExample:
     tiles = tuple(Tile.parse(tile) for tile in hand)
     opponent_river_tiles = tuple(Tile.parse(tile) for tile in opponent_river or [])
+    rivers_by_seat = (
+        (),
+        opponent_river_tiles,
+        (),
+        (),
+    )
     river_counts_by_seat = (
         tuple([0] * 34),
         tile_counts(opponent_river_tiles),
@@ -148,10 +204,13 @@ def _example(
         dealer=0,
         scores=(25000, 25000, 25000, 25000),
         hand_counts=tile_counts(tiles),
-        visible_counts=tile_counts(tiles),
+        visible_counts=tile_counts((*tiles, *opponent_river_tiles)),
         action=Action.discard(discard),
         active_riichi_seats=active_riichi_seats,
         river_counts_by_seat=river_counts_by_seat,
+        rivers_by_seat=rivers_by_seat,
+        riichi_declared_turns=(None, riichi_turn, None, None),
+        riichi_declared_event_indices=(None, 0 if riichi_turn is not None else None, None, None),
     )
 
 

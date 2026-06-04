@@ -15,6 +15,8 @@ class ReconstructionState:
     melds_by_seat: list[list[TenhouMeld]]
     active_riichi: list[bool]
     discard_counts_by_seat: list[int]
+    riichi_declared_turns: list[int | None]
+    riichi_declared_event_indices: list[int | None]
 
     @classmethod
     def from_starting_hands(
@@ -27,6 +29,8 @@ class ReconstructionState:
             melds_by_seat=[[] for _ in starting_hands],
             active_riichi=[False for _ in starting_hands],
             discard_counts_by_seat=[0 for _ in starting_hands],
+            riichi_declared_turns=[None for _ in starting_hands],
+            riichi_declared_event_indices=[None for _ in starting_hands],
         )
 
     def visible_tiles(
@@ -57,6 +61,12 @@ class ReconstructionState:
             for seat_discards in self.discards_by_seat
         )
 
+    def rivers_by_seat(self) -> tuple[tuple[Tile, ...], ...]:
+        return tuple(
+            tuple(discard.tile for discard in seat_discards)
+            for seat_discards in self.discards_by_seat
+        )
+
     def apply_draw(self, event: TenhouDraw) -> None:
         self.hands[event.seat].append(event.tile)
 
@@ -68,8 +78,10 @@ class ReconstructionState:
         self.discard_counts_by_seat[event.seat] += 1
 
     def apply_reach(self, event: TenhouReach) -> None:
-        if event.step == 1:
+        if event.step == 1 and not self.active_riichi[event.seat]:
             self.active_riichi[event.seat] = True
+            self.riichi_declared_turns[event.seat] = self.discard_counts_by_seat[event.seat]
+            self.riichi_declared_event_indices[event.seat] = event.event_index
 
     def apply_call(self, event: TenhouCall) -> None:
         for tile in consumed_tiles(event.meld):

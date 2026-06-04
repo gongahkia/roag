@@ -4,6 +4,10 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from kenjaku.core import TileType
+from kenjaku.training.defense_features import (
+    actual_discard_is_genbutsu,
+    has_active_riichi_opponent,
+)
 from kenjaku.training.discard_examples import DiscardExample
 from kenjaku.training.discard_features import discard_shanten_delta
 
@@ -37,6 +41,14 @@ def summarize_discard_predictions(
             "middle": _empty_bucket(),
             "late": _empty_bucket(),
         },
+        "by_active_opponent_riichi": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
+        "by_actual_discard_genbutsu": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
     }
 
     for example in examples:
@@ -48,12 +60,16 @@ def summarize_discard_predictions(
         family_bucket = _tile_family(example.action.tile)
         phase_bucket = _round_event_phase(example.event_index)
         seat_turn_bucket = _seat_turn_phase(example.seat_turn_index)
+        active_riichi_bucket = "yes" if has_active_riichi_opponent(example) else "no"
+        genbutsu_bucket = "yes" if actual_discard_is_genbutsu(example) else "no"
 
         _record(buckets["overall"], correct)
         _record(buckets["by_shanten_delta"][shanten_bucket], correct)
         _record(buckets["by_tile_family"][family_bucket], correct)
         _record(buckets["by_round_event_phase"][phase_bucket], correct)
         _record(buckets["by_seat_turn_phase"][seat_turn_bucket], correct)
+        _record(buckets["by_active_opponent_riichi"][active_riichi_bucket], correct)
+        _record(buckets["by_actual_discard_genbutsu"][genbutsu_bucket], correct)
 
     return _finalize(buckets)
 

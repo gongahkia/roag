@@ -64,11 +64,12 @@ PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-ha
 ```
 
 The benchmark report scores the frequency baseline, a raw hand/visible-count linear model, the
-shanten-aware linear model, and the risk-context linear model on the same split. The `ablation`
-block records the shanten-aware lift over raw counts and the risk-context lift over the
-shanten-aware model. Each model also includes `eval_analysis`, which breaks held-out accuracy down
-by actual discard shanten impact, discarded tile family, rough round event phase, and seat-relative
-turn phase.
+shanten-aware linear model, the risk-context linear model, and the defense-context linear model on
+the same split. The `ablation` block records the shanten-aware lift over raw counts, the
+risk-context lift over the shanten-aware model, and the defense-context lift over risk context. Each
+model also includes `eval_analysis`, which breaks held-out accuracy down by actual discard shanten
+impact, discarded tile family, rough round event phase, seat-relative turn phase, active opponent
+riichi, and actual-discard genbutsu status.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

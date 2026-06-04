@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from kenjaku.core import Action, tile_counts
+from kenjaku.core import Action, Tile, tile_counts
 from kenjaku.io import (
     TenhouAgari,
     TenhouCall,
@@ -31,6 +31,9 @@ class DiscardExample:
     active_riichi_seats: tuple[bool, ...] = ()
     river_counts_by_seat: tuple[tuple[int, ...], ...] = ()
     seat_turn_index: int = 0
+    rivers_by_seat: tuple[tuple[Tile, ...], ...] = ()
+    riichi_declared_turns: tuple[int | None, ...] = ()
+    riichi_declared_event_indices: tuple[int | None, ...] = ()
 
 
 def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
@@ -74,5 +77,8 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
                     active_riichi_seats=tuple(state.active_riichi),
                     river_counts_by_seat=state.river_counts_by_seat(),
                     seat_turn_index=state.discard_counts_by_seat[event.seat],
+                    rivers_by_seat=state.rivers_by_seat(),
+                    riichi_declared_turns=tuple(state.riichi_declared_turns),
+                    riichi_declared_event_indices=tuple(state.riichi_declared_event_indices),
                 )
                 state.apply_discard(event)

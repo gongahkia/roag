@@ -7,18 +7,32 @@ from math import exp
 from pathlib import Path
 from typing import Any
 
-from kenjaku.core import TileType, shanten
+from kenjaku.core import Action, Tile, TileType, shanten
 from kenjaku.training import DiscardExample
+from kenjaku.training.defense_features import (
+    candidate_has_kabe,
+    candidate_has_one_chance,
+    candidate_has_suji,
+    candidate_is_genbutsu,
+    candidate_seen_after_riichi,
+    candidate_seen_before_riichi,
+    has_active_riichi_opponent,
+    max_active_riichi_discards_elapsed,
+    min_active_riichi_discards_elapsed,
+)
 
 RAW_COUNT_FEATURE_PROFILE = "raw-count"
 SHANTEN_FEATURE_PROFILE = "shanten"
 RISK_CONTEXT_FEATURE_PROFILE = "risk-context"
+DEFENSE_CONTEXT_FEATURE_PROFILE = "defense-context"
 RAW_COUNT_FEATURE_DIM = 69
 RAW_COUNT_MODEL_KIND = "discard-linear-raw-count-v0"
 FEATURE_DIM = 76
 MODEL_KIND = "discard-linear-v1"
 RISK_CONTEXT_FEATURE_DIM = 86
 RISK_CONTEXT_MODEL_KIND = "discard-linear-risk-context-v0"
+DEFENSE_CONTEXT_FEATURE_DIM = 98
+DEFENSE_CONTEXT_MODEL_KIND = "discard-linear-defense-context-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +42,7 @@ class _FeatureProfile:
     feature_dim: int
     includes_tile_efficiency: bool
     includes_risk_context: bool
+    includes_defense_context: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +58,7 @@ _FEATURE_PROFILES = {
         feature_dim=RAW_COUNT_FEATURE_DIM,
         includes_tile_efficiency=False,
         includes_risk_context=False,
+        includes_defense_context=False,
     ),
     SHANTEN_FEATURE_PROFILE: _FeatureProfile(
         name=SHANTEN_FEATURE_PROFILE,
@@ -50,6 +66,7 @@ _FEATURE_PROFILES = {
         feature_dim=FEATURE_DIM,
         includes_tile_efficiency=True,
         includes_risk_context=False,
+        includes_defense_context=False,
     ),
     RISK_CONTEXT_FEATURE_PROFILE: _FeatureProfile(
         name=RISK_CONTEXT_FEATURE_PROFILE,
@@ -57,6 +74,15 @@ _FEATURE_PROFILES = {
         feature_dim=RISK_CONTEXT_FEATURE_DIM,
         includes_tile_efficiency=True,
         includes_risk_context=True,
+        includes_defense_context=False,
+    ),
+    DEFENSE_CONTEXT_FEATURE_PROFILE: _FeatureProfile(
+        name=DEFENSE_CONTEXT_FEATURE_PROFILE,
+        model_kind=DEFENSE_CONTEXT_MODEL_KIND,
+        feature_dim=DEFENSE_CONTEXT_FEATURE_DIM,
+        includes_tile_efficiency=True,
+        includes_risk_context=True,
+        includes_defense_context=True,
     ),
 }
 _FEATURE_PROFILES_BY_KIND = {
@@ -127,6 +153,9 @@ class DiscardLinearModel:
         seat: int = 0,
         active_riichi_seats: tuple[bool, ...] = (),
         river_counts_by_seat: tuple[tuple[int, ...], ...] = (),
+        rivers_by_seat: tuple[tuple[Tile, ...], ...] = (),
+        riichi_declared_turns: tuple[int | None, ...] = (),
+        riichi_declared_event_indices: tuple[int | None, ...] = (),
     ) -> TileType:
         legal_indices = _legal_indices(hand_counts)
         features_by_tile = _feature_vectors(
@@ -137,6 +166,9 @@ class DiscardLinearModel:
             seat=seat,
             active_riichi_seats=active_riichi_seats,
             river_counts_by_seat=river_counts_by_seat,
+            rivers_by_seat=rivers_by_seat,
+            riichi_declared_turns=riichi_declared_turns,
+            riichi_declared_event_indices=riichi_declared_event_indices,
         )
         logits = _logits(self.weights, features_by_tile)
         return TileType(max(logits, key=logits.get))
@@ -248,6 +280,9 @@ def _prepare_examples(
                     seat=example.seat,
                     active_riichi_seats=example.active_riichi_seats,
                     river_counts_by_seat=example.river_counts_by_seat,
+                    rivers_by_seat=example.rivers_by_seat,
+                    riichi_declared_turns=example.riichi_declared_turns,
+                    riichi_declared_event_indices=example.riichi_declared_event_indices,
                 ),
             )
         )
@@ -263,6 +298,9 @@ def _feature_vectors(
     seat: int = 0,
     active_riichi_seats: tuple[bool, ...] = (),
     river_counts_by_seat: tuple[tuple[int, ...], ...] = (),
+    rivers_by_seat: tuple[tuple[Tile, ...], ...] = (),
+    riichi_declared_turns: tuple[int | None, ...] = (),
+    riichi_declared_event_indices: tuple[int | None, ...] = (),
 ) -> dict[int, tuple[float, ...]]:
     if len(hand_counts) != 34:
         raise ValueError("hand counts must have length 34")
@@ -283,6 +321,9 @@ def _feature_vectors(
             seat=seat,
             active_riichi_seats=active_riichi_seats,
             river_counts_by_seat=river_counts_by_seat,
+            rivers_by_seat=rivers_by_seat,
+            riichi_declared_turns=riichi_declared_turns,
+            riichi_declared_event_indices=riichi_declared_event_indices,
         )
         for tile_index in legal_indices
     }
@@ -298,6 +339,9 @@ def _features(
     seat: int,
     active_riichi_seats: tuple[bool, ...],
     river_counts_by_seat: tuple[tuple[int, ...], ...],
+    rivers_by_seat: tuple[tuple[Tile, ...], ...],
+    riichi_declared_turns: tuple[int | None, ...],
+    riichi_declared_event_indices: tuple[int | None, ...],
 ) -> tuple[float, ...]:
     after_counts = list(hand_counts)
     after_counts[tile_index] -= 1
@@ -315,17 +359,112 @@ def _features(
         float(shanten_delta),
         1.0 if shanten_delta <= 0 else 0.0,
     )
-    if not profile.includes_risk_context:
-        return features
+    if profile.includes_risk_context:
+        features = (
+            *features,
+            *_risk_context_features(
+                visible_counts,
+                tile_index=tile_index,
+                seat=seat,
+                active_riichi_seats=active_riichi_seats,
+                river_counts_by_seat=river_counts_by_seat,
+            ),
+        )
+    if profile.includes_defense_context:
+        features = (
+            *features,
+            *_defense_context_features(
+                hand_counts,
+                visible_counts,
+                tile_index=tile_index,
+                seat=seat,
+                active_riichi_seats=active_riichi_seats,
+                river_counts_by_seat=river_counts_by_seat,
+                rivers_by_seat=rivers_by_seat,
+                riichi_declared_turns=riichi_declared_turns,
+                riichi_declared_event_indices=riichi_declared_event_indices,
+            ),
+        )
+    return features
+
+
+def _example_for_candidate_context(
+    hand_counts: tuple[int, ...],
+    visible_counts: tuple[int, ...],
+    *,
+    tile_index: int,
+    seat: int,
+    active_riichi_seats: tuple[bool, ...],
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+    rivers_by_seat: tuple[tuple[Tile, ...], ...],
+    riichi_declared_turns: tuple[int | None, ...],
+    riichi_declared_event_indices: tuple[int | None, ...],
+) -> DiscardExample:
+    return DiscardExample(
+        round_index=0,
+        event_index=0,
+        seat=seat,
+        dealer=0,
+        scores=(),
+        hand_counts=hand_counts,
+        visible_counts=visible_counts,
+        action=Action.discard(TileType(tile_index)),
+        active_riichi_seats=active_riichi_seats,
+        river_counts_by_seat=river_counts_by_seat,
+        rivers_by_seat=rivers_by_seat,
+        riichi_declared_turns=riichi_declared_turns,
+        riichi_declared_event_indices=riichi_declared_event_indices,
+    )
+
+
+def _defense_context_features(
+    hand_counts: tuple[int, ...],
+    visible_counts: tuple[int, ...],
+    *,
+    tile_index: int,
+    seat: int,
+    active_riichi_seats: tuple[bool, ...],
+    river_counts_by_seat: tuple[tuple[int, ...], ...],
+    rivers_by_seat: tuple[tuple[Tile, ...], ...],
+    riichi_declared_turns: tuple[int | None, ...],
+    riichi_declared_event_indices: tuple[int | None, ...],
+) -> tuple[float, ...]:
+    example = _example_for_candidate_context(
+        hand_counts,
+        visible_counts,
+        tile_index=tile_index,
+        seat=seat,
+        active_riichi_seats=active_riichi_seats,
+        river_counts_by_seat=river_counts_by_seat,
+        rivers_by_seat=rivers_by_seat,
+        riichi_declared_turns=riichi_declared_turns,
+        riichi_declared_event_indices=riichi_declared_event_indices,
+    )
+    has_riichi = has_active_riichi_opponent(example)
+    genbutsu = candidate_is_genbutsu(example, tile_index)
+    suji = candidate_has_suji(example, tile_index)
+    kabe = candidate_has_kabe(example, tile_index)
+    one_chance = candidate_has_one_chance(example, tile_index)
+    seen_after_riichi = candidate_seen_after_riichi(example, tile_index)
+    seen_before_riichi = candidate_seen_before_riichi(example, tile_index)
+    max_elapsed = max_active_riichi_discards_elapsed(example)
+    min_elapsed = min_active_riichi_discards_elapsed(example)
+    unseen_count = max(0, 4 - visible_counts[tile_index])
+    tile_type = TileType(tile_index)
+
     return (
-        *features,
-        *_risk_context_features(
-            visible_counts,
-            tile_index=tile_index,
-            seat=seat,
-            active_riichi_seats=active_riichi_seats,
-            river_counts_by_seat=river_counts_by_seat,
-        ),
+        1.0 if genbutsu else 0.0,
+        1.0 if suji else 0.0,
+        1.0 if kabe else 0.0,
+        1.0 if one_chance else 0.0,
+        1.0 if seen_after_riichi else 0.0,
+        1.0 if seen_before_riichi else 0.0,
+        max_elapsed / 18.0,
+        min_elapsed / 18.0,
+        1.0 if genbutsu or suji or kabe else 0.0,
+        unseen_count / 4.0 if has_riichi and not (genbutsu or suji or kabe) else 0.0,
+        1.0 if tile_type.is_honor else 0.0,
+        1.0 if tile_type.is_terminal else 0.0,
     )
 
 

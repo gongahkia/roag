@@ -242,7 +242,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(
-            stdout.getvalue().splitlines()[:13],
+            stdout.getvalue().splitlines()[:16],
             [
                 "examples: 4",
                 "train_examples: 3",
@@ -257,6 +257,9 @@ class CliTests(unittest.TestCase):
                 "risk_context_linear_train_accuracy: 0.6667",
                 "risk_context_linear_eval_accuracy: 0.0000",
                 "risk_context_linear_eval_lift_over_linear: +0.0000",
+                "defense_context_linear_train_accuracy: 0.6667",
+                "defense_context_linear_eval_accuracy: 0.0000",
+                "defense_context_linear_eval_lift_over_risk_context: +0.0000",
             ],
         )
         self.assertIn("report_path:", stdout.getvalue())
@@ -320,10 +323,44 @@ class CliTests(unittest.TestCase):
             "by_seat_turn_phase",
             payload["models"]["risk_context_linear"]["eval_analysis"],
         )
+        self.assertEqual(
+            payload["models"]["defense_context_linear"]["kind"],
+            "discard-linear-defense-context-v0",
+        )
+        self.assertEqual(payload["models"]["defense_context_linear"]["feature_dim"], 98)
+        self.assertEqual(payload["models"]["defense_context_linear"]["training"]["epochs"], 1)
+        self.assertEqual(
+            payload["models"]["defense_context_linear"]["metrics"]["train_accuracy"],
+            2 / 3,
+        )
+        self.assertEqual(
+            payload["models"]["defense_context_linear"]["metrics"]["eval_accuracy"],
+            0.0,
+        )
+        self.assertEqual(
+            payload["models"]["defense_context_linear"]["eval_analysis"]["overall"]["examples"],
+            1,
+        )
+        self.assertIn(
+            "by_active_opponent_riichi",
+            payload["models"]["defense_context_linear"]["eval_analysis"],
+        )
+        self.assertIn(
+            "by_actual_discard_genbutsu",
+            payload["models"]["defense_context_linear"]["eval_analysis"],
+        )
         self.assertEqual(payload["ablation"]["train_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["ablation"]["eval_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["ablation"]["risk_context_train_accuracy_lift_over_linear"], 0.0)
         self.assertEqual(payload["ablation"]["risk_context_eval_accuracy_lift_over_linear"], 0.0)
+        self.assertEqual(
+            payload["ablation"]["defense_context_train_accuracy_lift_over_risk_context"],
+            0.0,
+        )
+        self.assertEqual(
+            payload["ablation"]["defense_context_eval_accuracy_lift_over_risk_context"],
+            0.0,
+        )
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["parse_failures"]["count"], 0)
 

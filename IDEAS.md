@@ -464,17 +464,18 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Rerun the 25-log local benchmark with the new risk-context profile and record aggregate-only
-   metrics in docs.
-2. Inspect risk-context failures, especially shanten-worsening discards and decisions near active
-   opponent riichi.
-3. Add richer defense context behind a new model kind: river chronology, suji, kabe, one-chance,
+1. Recreate or restore the ignored 25-log local Tenhou slice, rerun `benchmark-discard`, and record
+   aggregate-only defense-context metrics in docs.
+2. Inspect defense-context failures, especially active-riichi decisions, actual-discard genbutsu
+   buckets, and shanten-worsening discards.
+3. Refine deterministic defense features behind a new model kind: improved suji/kabe definitions,
    sotogawa-style outside tiles, and live terminal/honor pressure.
-4. Scale the local Tenhou slice only after the risk-context report is stable and useful on the
+4. Add richer table context once the defense buckets are useful: opponent meld ownership, dora
+   pressure, score/placement pressure, ippatsu timing, and tsumogiri after riichi.
+5. Scale the local Tenhou slice only after the defense-context report is stable and useful on the
    25-log slice.
-5. Clone and build mortal locally, then define an offline comparison path that does not depend on
+6. Clone and build mortal locally, then define an offline comparison path that does not depend on
    live ladder automation.
-6. Read Suphx and Mahjax end-to-end, extract reusable simulator/evaluation ideas.
 
 ---
 
@@ -582,3 +583,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   phase buckets.
 - Updated tests and handoff docs for the new context fields, benchmark report shape, and next
   implementation targets.
+- Added ordered river snapshots and riichi declaration chronology to discard examples so defensive
+  features can distinguish pre-riichi and post-riichi river evidence.
+- Added dependency-free defense feature helpers for active opponent riichi, genbutsu, basic suji,
+  basic kabe, one-chance, and candidate visibility before/after riichi.
+- Added `discard-linear-defense-context-v0`, preserving the existing raw-count, shanten-aware, and
+  risk-context model kinds as ablation anchors.
+- Extended `benchmark-discard` to report the defense-context model and its lift over risk context.
+- Added held-out `by_active_opponent_riichi` and `by_actual_discard_genbutsu` error-analysis
+  buckets.
+- Did not record new 25-log metrics because the ignored local Tenhou slice was absent in this
+  workspace.
