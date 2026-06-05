@@ -17,6 +17,7 @@ class ReconstructionState:
     discard_counts_by_seat: list[int]
     riichi_declared_turns: list[int | None]
     riichi_declared_event_indices: list[int | None]
+    ippatsu_active: list[bool]
 
     @classmethod
     def from_starting_hands(
@@ -31,6 +32,7 @@ class ReconstructionState:
             discard_counts_by_seat=[0 for _ in starting_hands],
             riichi_declared_turns=[None for _ in starting_hands],
             riichi_declared_event_indices=[None for _ in starting_hands],
+            ippatsu_active=[False for _ in starting_hands],
         )
 
     def visible_tiles(
@@ -55,6 +57,18 @@ class ReconstructionState:
             tile for seat_melds in self.melds_by_seat for meld in seat_melds for tile in meld.tiles
         )
 
+    def meld_counts_by_seat(self) -> tuple[tuple[int, ...], ...]:
+        return tuple(
+            tile_counts(tile for meld in seat_melds for tile in meld.tiles)
+            for seat_melds in self.melds_by_seat
+        )
+
+    def meld_tiles_by_seat(self) -> tuple[tuple[Tile, ...], ...]:
+        return tuple(
+            tuple(tile for meld in seat_melds for tile in meld.tiles)
+            for seat_melds in self.melds_by_seat
+        )
+
     def river_counts_by_seat(self) -> tuple[tuple[int, ...], ...]:
         return tuple(
             tile_counts(discard.tile for discard in seat_discards)
@@ -67,8 +81,15 @@ class ReconstructionState:
             for seat_discards in self.discards_by_seat
         )
 
+    def last_discard_tsumogiri_by_seat(self) -> tuple[bool | None, ...]:
+        return tuple(
+            None if not seat_discards else seat_discards[-1].tsumogiri
+            for seat_discards in self.discards_by_seat
+        )
+
     def apply_draw(self, event: TenhouDraw) -> None:
         self.hands[event.seat].append(event.tile)
+        self._clear_elapsed_ippatsu(event.seat)
 
     def apply_discard(self, event: TenhouDiscard) -> None:
         remove_tile(self.hands[event.seat], event.tile)
@@ -80,10 +101,12 @@ class ReconstructionState:
     def apply_reach(self, event: TenhouReach) -> None:
         if event.step == 1 and not self.active_riichi[event.seat]:
             self.active_riichi[event.seat] = True
+            self.ippatsu_active[event.seat] = True
             self.riichi_declared_turns[event.seat] = self.discard_counts_by_seat[event.seat]
             self.riichi_declared_event_indices[event.seat] = event.event_index
 
     def apply_call(self, event: TenhouCall) -> None:
+        self.ippatsu_active = [False for _ in self.ippatsu_active]
         for tile in consumed_tiles(event.meld):
             remove_tile(self.hands[event.seat], tile)
 
@@ -98,6 +121,15 @@ class ReconstructionState:
             return
 
         self.melds_by_seat[event.seat].append(event.meld)
+
+    def _clear_elapsed_ippatsu(self, seat: int) -> None:
+        riichi_turn = self.riichi_declared_turns[seat]
+        if (
+            riichi_turn is not None
+            and self.ippatsu_active[seat]
+            and self.discard_counts_by_seat[seat] > riichi_turn
+        ):
+            self.ippatsu_active[seat] = False
 
 
 def call_from_seat(event: TenhouCall, players: int) -> int:

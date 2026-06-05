@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from kenjaku.core import Action, Tile, TileType, tile_counts
 from kenjaku.models import (
     DEFENSE_CONTEXT_FEATURE_PROFILE,
+    DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
     RISK_CONTEXT_FEATURE_PROFILE,
     DiscardLinearModel,
@@ -174,6 +175,64 @@ class LinearDiscardModelTests(unittest.TestCase):
         self.assertEqual(prediction, TileType.parse("1m"))
         self.assertEqual(loaded.score(examples), model.score(examples))
 
+    def test_defense_context_v1_profile_round_trips_json_artifact(self) -> None:
+        examples = [
+            _example(
+                ["1m", "2m"],
+                "1m",
+                active_riichi_seats=(False, True, False, False),
+                opponent_river=["4m", "1m"],
+                riichi_turn=1,
+                dora_indicators=["9m"],
+                last_tsumogiri=(None, True, None, None),
+                ippatsu_active=(False, True, False, False),
+            ),
+            _example(
+                ["1m", "2m"],
+                "1m",
+                active_riichi_seats=(False, True, False, False),
+                opponent_river=["4m", "1m"],
+                riichi_turn=1,
+                dora_indicators=["9m"],
+                last_tsumogiri=(None, True, None, None),
+                ippatsu_active=(False, True, False, False),
+            ),
+        ]
+        model = DiscardLinearModel.fit(
+            examples,
+            epochs=3,
+            learning_rate=0.2,
+            feature_profile=DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
+        )
+        payload = model.to_dict()
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "discard-linear-defense-context-v1.json"
+            model.save(path)
+            loaded = DiscardLinearModel.load(path)
+
+        prediction = model.predict(
+            examples[0].hand_counts,
+            examples[0].visible_counts,
+            seat=examples[0].seat,
+            active_riichi_seats=examples[0].active_riichi_seats,
+            river_counts_by_seat=examples[0].river_counts_by_seat,
+            rivers_by_seat=examples[0].rivers_by_seat,
+            riichi_declared_turns=examples[0].riichi_declared_turns,
+            riichi_declared_event_indices=examples[0].riichi_declared_event_indices,
+            meld_counts_by_seat=examples[0].meld_counts_by_seat,
+            dora_indicators=examples[0].dora_indicators,
+            last_discard_tsumogiri_by_seat=examples[0].last_discard_tsumogiri_by_seat,
+            ippatsu_active_seats=examples[0].ippatsu_active_seats,
+        )
+
+        self.assertEqual(payload["kind"], "discard-linear-defense-context-v1")
+        self.assertEqual(payload["feature_profile"], "defense-context-v1")
+        self.assertEqual(payload["feature_dim"], 112)
+        self.assertEqual(loaded.to_dict(), model.to_dict())
+        self.assertEqual(prediction, TileType.parse("1m"))
+        self.assertEqual(loaded.score(examples), model.score(examples))
+
 
 def _example(
     hand: list[str],
@@ -182,6 +241,9 @@ def _example(
     active_riichi_seats: tuple[bool, ...] = (),
     opponent_river: list[str] | None = None,
     riichi_turn: int | None = None,
+    dora_indicators: list[str] | None = None,
+    last_tsumogiri: tuple[bool | None, ...] = (),
+    ippatsu_active: tuple[bool, ...] = (),
 ) -> DiscardExample:
     tiles = tuple(Tile.parse(tile) for tile in hand)
     opponent_river_tiles = tuple(Tile.parse(tile) for tile in opponent_river or [])
@@ -211,6 +273,10 @@ def _example(
         rivers_by_seat=rivers_by_seat,
         riichi_declared_turns=(None, riichi_turn, None, None),
         riichi_declared_event_indices=(None, 0 if riichi_turn is not None else None, None, None),
+        meld_counts_by_seat=tuple(tuple([0] * 34) for _ in range(4)),
+        dora_indicators=tuple(Tile.parse(tile) for tile in dora_indicators or []),
+        last_discard_tsumogiri_by_seat=last_tsumogiri,
+        ippatsu_active_seats=ippatsu_active,
     )
 
 

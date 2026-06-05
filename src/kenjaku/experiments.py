@@ -134,6 +134,13 @@ def build_discard_benchmark_report(
     defense_context_linear_train_accuracy: float,
     defense_context_linear_eval_accuracy: float | None,
     defense_context_linear_eval_analysis: dict[str, Any],
+    defense_context_v1_linear_epochs: int,
+    defense_context_v1_linear_learning_rate: float,
+    defense_context_v1_linear_model_kind: str,
+    defense_context_v1_linear_feature_dim: int,
+    defense_context_v1_linear_train_accuracy: float,
+    defense_context_v1_linear_eval_accuracy: float | None,
+    defense_context_v1_linear_eval_analysis: dict[str, Any],
     discard_shanten: dict[str, int | float | None],
     parse_failures: Sequence[TenhouParseFailure],
     source: dict[str, str | None],
@@ -212,6 +219,19 @@ def build_discard_benchmark_report(
                 },
                 "eval_analysis": defense_context_linear_eval_analysis,
             },
+            "defense_context_v1_linear": {
+                "kind": defense_context_v1_linear_model_kind,
+                "feature_dim": defense_context_v1_linear_feature_dim,
+                "training": {
+                    "epochs": defense_context_v1_linear_epochs,
+                    "learning_rate": defense_context_v1_linear_learning_rate,
+                },
+                "metrics": {
+                    "train_accuracy": defense_context_v1_linear_train_accuracy,
+                    "eval_accuracy": defense_context_v1_linear_eval_accuracy,
+                },
+                "eval_analysis": defense_context_v1_linear_eval_analysis,
+            },
         },
         "ablation": {
             "train_accuracy_lift_over_raw_count": (
@@ -234,6 +254,13 @@ def build_discard_benchmark_report(
             "defense_context_eval_accuracy_lift_over_risk_context": _optional_delta(
                 defense_context_linear_eval_accuracy,
                 risk_context_linear_eval_accuracy,
+            ),
+            "defense_context_v1_train_accuracy_lift_over_defense_context": (
+                defense_context_v1_linear_train_accuracy - defense_context_linear_train_accuracy
+            ),
+            "defense_context_v1_eval_accuracy_lift_over_defense_context": _optional_delta(
+                defense_context_v1_linear_eval_accuracy,
+                defense_context_linear_eval_accuracy,
             ),
         },
         "discard_shanten": discard_shanten,

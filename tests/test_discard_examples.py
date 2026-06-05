@@ -66,6 +66,9 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(sum(examples[1].hand_counts), 11)
         self.assertEqual(examples[1].action.tile, TileType.parse("4p"))
         self.assertEqual(examples[1].visible_counts[TileType.parse("1p").index], 3)
+        self.assertEqual(examples[1].meld_counts_by_seat[1][TileType.parse("1p").index], 3)
+        self.assertEqual(examples[1].meld_tiles_by_seat[1], (Tile.parse("1p"),) * 3)
+        self.assertEqual(examples[1].dora_indicators, (Tile.parse("1s"),))
 
     def test_tracks_riichi_rivers_and_seat_turns(self) -> None:
         game = parse_tenhou_xml(
@@ -102,6 +105,12 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(examples[0].seat_turn_index, 0)
         self.assertEqual(examples[1].seat_turn_index, 0)
         self.assertEqual(examples[2].seat_turn_index, 1)
+        self.assertEqual(examples[0].ippatsu_active_seats, (True, False, False, False))
+        self.assertEqual(examples[1].ippatsu_active_seats, (True, False, False, False))
+        self.assertEqual(examples[2].ippatsu_active_seats, (False, False, False, False))
+        self.assertEqual(examples[0].last_discard_tsumogiri_by_seat, (None, None, None, None))
+        self.assertEqual(examples[1].last_discard_tsumogiri_by_seat, (True, None, None, None))
+        self.assertEqual(examples[2].last_discard_tsumogiri_by_seat, (True, True, None, None))
         self.assertEqual(examples[0].riichi_declared_turns, (0, None, None, None))
         self.assertEqual(examples[0].riichi_declared_event_indices, (1, None, None, None))
         self.assertEqual(examples[1].riichi_declared_turns, (0, None, None, None))

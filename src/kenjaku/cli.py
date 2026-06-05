@@ -13,6 +13,7 @@ from kenjaku.experiments import (
 from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.models import (
     DEFENSE_CONTEXT_FEATURE_PROFILE,
+    DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
     RISK_CONTEXT_FEATURE_PROFILE,
     SHANTEN_FEATURE_PROFILE,
@@ -309,6 +310,12 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         learning_rate=args.learning_rate,
         feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
     )
+    defense_context_v1_linear_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        feature_profile=DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
+    )
     frequency_train_accuracy = frequency_model.score(train_examples)
     frequency_eval_accuracy = frequency_model.score(eval_examples) if eval_examples else None
     raw_count_linear_train_accuracy = raw_count_linear_model.score(train_examples)
@@ -331,6 +338,14 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         if eval_examples
         else None
     )
+    defense_context_v1_linear_train_accuracy = defense_context_v1_linear_model.score(
+        train_examples
+    )
+    defense_context_v1_linear_eval_accuracy = (
+        defense_context_v1_linear_model.score(eval_examples)
+        if eval_examples
+        else None
+    )
     eval_lift_over_raw_count = _optional_delta(
         linear_eval_accuracy,
         raw_count_linear_eval_accuracy,
@@ -342,6 +357,10 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
     defense_context_eval_lift_over_risk_context = _optional_delta(
         defense_context_linear_eval_accuracy,
         risk_context_linear_eval_accuracy,
+    )
+    defense_context_v1_eval_lift_over_defense_context = _optional_delta(
+        defense_context_v1_linear_eval_accuracy,
+        defense_context_linear_eval_accuracy,
     )
 
     print(f"examples: {len(examples)}")
@@ -374,6 +393,15 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
     print(
         "defense_context_linear_eval_lift_over_risk_context: "
         f"{_format_optional_delta(defense_context_eval_lift_over_risk_context)}"
+    )
+    print(f"defense_context_v1_linear_train_accuracy: {defense_context_v1_linear_train_accuracy:.4f}")
+    print(
+        "defense_context_v1_linear_eval_accuracy: "
+        f"{_format_optional_accuracy(defense_context_v1_linear_eval_accuracy)}"
+    )
+    print(
+        "defense_context_v1_linear_eval_lift_over_defense_context: "
+        f"{_format_optional_delta(defense_context_v1_eval_lift_over_defense_context)}"
     )
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
@@ -453,6 +481,29 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
                     rivers_by_seat=example.rivers_by_seat,
                     riichi_declared_turns=example.riichi_declared_turns,
                     riichi_declared_event_indices=example.riichi_declared_event_indices,
+                ),
+            ),
+            defense_context_v1_linear_epochs=args.epochs,
+            defense_context_v1_linear_learning_rate=args.learning_rate,
+            defense_context_v1_linear_model_kind=defense_context_v1_linear_model.kind,
+            defense_context_v1_linear_feature_dim=defense_context_v1_linear_model.feature_dim,
+            defense_context_v1_linear_train_accuracy=defense_context_v1_linear_train_accuracy,
+            defense_context_v1_linear_eval_accuracy=defense_context_v1_linear_eval_accuracy,
+            defense_context_v1_linear_eval_analysis=summarize_discard_predictions(
+                eval_examples,
+                lambda example: defense_context_v1_linear_model.predict(
+                    example.hand_counts,
+                    example.visible_counts,
+                    seat=example.seat,
+                    active_riichi_seats=example.active_riichi_seats,
+                    river_counts_by_seat=example.river_counts_by_seat,
+                    rivers_by_seat=example.rivers_by_seat,
+                    riichi_declared_turns=example.riichi_declared_turns,
+                    riichi_declared_event_indices=example.riichi_declared_event_indices,
+                    meld_counts_by_seat=example.meld_counts_by_seat,
+                    dora_indicators=example.dora_indicators,
+                    last_discard_tsumogiri_by_seat=example.last_discard_tsumogiri_by_seat,
+                    ippatsu_active_seats=example.ippatsu_active_seats,
                 ),
             ),
             discard_shanten=summarize_discard_shanten(examples),

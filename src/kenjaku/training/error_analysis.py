@@ -5,7 +5,12 @@ from typing import Any
 
 from kenjaku.core import TileType
 from kenjaku.training.defense_features import (
+    actual_discard_has_kabe,
+    actual_discard_has_one_chance,
+    actual_discard_has_suji,
     actual_discard_is_genbutsu,
+    actual_discard_seen_after_riichi,
+    actual_discard_seen_before_riichi,
     has_active_riichi_opponent,
 )
 from kenjaku.training.discard_examples import DiscardExample
@@ -49,6 +54,26 @@ def summarize_discard_predictions(
             "yes": _empty_bucket(),
             "no": _empty_bucket(),
         },
+        "by_actual_discard_suji": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
+        "by_actual_discard_kabe": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
+        "by_actual_discard_one_chance": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
+        "by_actual_discard_seen_before_riichi": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
+        "by_actual_discard_seen_after_riichi": {
+            "yes": _empty_bucket(),
+            "no": _empty_bucket(),
+        },
     }
 
     for example in examples:
@@ -62,6 +87,15 @@ def summarize_discard_predictions(
         seat_turn_bucket = _seat_turn_phase(example.seat_turn_index)
         active_riichi_bucket = "yes" if has_active_riichi_opponent(example) else "no"
         genbutsu_bucket = "yes" if actual_discard_is_genbutsu(example) else "no"
+        suji_bucket = "yes" if actual_discard_has_suji(example) else "no"
+        kabe_bucket = "yes" if actual_discard_has_kabe(example) else "no"
+        one_chance_bucket = "yes" if actual_discard_has_one_chance(example) else "no"
+        seen_before_riichi_bucket = (
+            "yes" if actual_discard_seen_before_riichi(example) else "no"
+        )
+        seen_after_riichi_bucket = (
+            "yes" if actual_discard_seen_after_riichi(example) else "no"
+        )
 
         _record(buckets["overall"], correct)
         _record(buckets["by_shanten_delta"][shanten_bucket], correct)
@@ -70,6 +104,17 @@ def summarize_discard_predictions(
         _record(buckets["by_seat_turn_phase"][seat_turn_bucket], correct)
         _record(buckets["by_active_opponent_riichi"][active_riichi_bucket], correct)
         _record(buckets["by_actual_discard_genbutsu"][genbutsu_bucket], correct)
+        _record(buckets["by_actual_discard_suji"][suji_bucket], correct)
+        _record(buckets["by_actual_discard_kabe"][kabe_bucket], correct)
+        _record(buckets["by_actual_discard_one_chance"][one_chance_bucket], correct)
+        _record(
+            buckets["by_actual_discard_seen_before_riichi"][seen_before_riichi_bucket],
+            correct,
+        )
+        _record(
+            buckets["by_actual_discard_seen_after_riichi"][seen_after_riichi_bucket],
+            correct,
+        )
 
     return _finalize(buckets)
 

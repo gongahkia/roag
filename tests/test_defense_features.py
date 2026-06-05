@@ -9,6 +9,7 @@ from kenjaku.training import (
     candidate_has_kabe,
     candidate_has_one_chance,
     candidate_has_suji,
+    candidate_has_sotogawa,
     candidate_is_genbutsu,
     candidate_seen_after_riichi,
     candidate_seen_before_riichi,
@@ -53,6 +54,14 @@ class DefenseFeatureTests(unittest.TestCase):
         self.assertTrue(candidate_seen_after_riichi(example, TileType.parse("4m")))
         self.assertEqual(min_active_riichi_discards_elapsed(example), 2)
         self.assertEqual(max_active_riichi_discards_elapsed(example), 2)
+
+    def test_sotogawa_uses_before_riichi_outer_tiles(self) -> None:
+        example = _example(opponent_river=["5m", "6p"], riichi_turn=2)
+
+        self.assertTrue(candidate_has_sotogawa(example, TileType.parse("1m")))
+        self.assertTrue(candidate_has_sotogawa(example, TileType.parse("9p")))
+        self.assertFalse(candidate_has_sotogawa(example, TileType.parse("4m")))
+        self.assertFalse(candidate_has_sotogawa(example, TileType.parse("E")))
 
 
 def _example(

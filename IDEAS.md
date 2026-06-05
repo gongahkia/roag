@@ -255,8 +255,8 @@ This is well within "side project budget" territory.
 ## 5. roadmap
 
 ### Phase 0 — Scoping and validation (week 1)
-- [ ] Validate Tenhou Phoenix log availability (download a sample, verify parser works)
-- [ ] Fork mortal, get it running locally on Mac (baseline reproduction)
+- [x] Validate Tenhou Phoenix log availability (download a sample, verify parser works)
+- [x] Fork mortal, get it running locally on Mac (baseline reproduction)
 - [ ] Spin up a Mahjong Soul account, verify replay sharing works
 - [ ] Confirm cloud GPU rental pipeline (Lambda or RunPod test run)
 - [ ] Lock in project name and create the GitHub repo (private until launch)
@@ -464,18 +464,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Recreate or restore the ignored 25-log local Tenhou slice, rerun `benchmark-discard`, and record
-   aggregate-only defense-context metrics in docs.
-2. Inspect defense-context failures, especially active-riichi decisions, actual-discard genbutsu
-   buckets, and shanten-worsening discards.
-3. Refine deterministic defense features behind a new model kind: improved suji/kabe definitions,
-   sotogawa-style outside tiles, and live terminal/honor pressure.
-4. Add richer table context once the defense buckets are useful: opponent meld ownership, dora
-   pressure, score/placement pressure, ippatsu timing, and tsumogiri after riichi.
-5. Scale the local Tenhou slice only after the defense-context report is stable and useful on the
-   25-log slice.
-6. Clone and build mortal locally, then define an offline comparison path that does not depend on
-   live ladder automation.
+1. Stabilize defense modeling on the 100-log local Tenhou slice: inspect v0/v1 weight behavior,
+   feature activation rates, and examples where both defense profiles lose to risk-context.
+2. Expose and benchmark safer training controls for larger linear profiles, especially the existing
+   L2 fit parameter, feature normalization, learning-rate sweeps, and epoch sweeps, while keeping
+   existing model kinds stable.
+3. Add a small benchmark-report summary CLI so ignored JSON reports can be turned into comparable
+   aggregate and bucket notes without ad hoc scripts.
+4. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
+   exporter, then compare through a subprocess or neutral data layer when weights are available and
+   legally usable.
+5. Add first supervised call/riichi decision baselines from existing reconstruction examples after
+   discard risk/defense diagnostics stop moving.
+6. Scale to larger local slices, such as 500 logs, only after the 100-log defense regression is
+   understood.
 
 ---
 
@@ -611,3 +613,28 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Updated `docs/session-handoff.md` with the benchmark findings and next target: add finer
   held-out defense diagnostics for actual discard suji, kabe, one-chance, and pre/post-riichi
   visibility before creating a new defense model kind.
+- Added finer held-out defense diagnostics for actual discard suji, kabe, one-chance, and whether
+  the actual discard was visible before or after an opponent's riichi declaration.
+- Enriched discard examples with opponent meld ownership, dora indicators, last-discard tsumogiri
+  snapshots, and ippatsu-active flags.
+- Added `discard-linear-defense-context-v1` as a new stable model kind rather than mutating
+  `discard-linear-defense-context-v0`. The v1 profile adds active-opponent defense fractions,
+  sotogawa-style outside tiles, live terminal/honor pressure, dora/indicator flags, ippatsu timing,
+  last-tsumogiri-after-riichi context, and opponent meld-tile pressure.
+- Re-ran the fixed 25-log benchmark with the new diagnostics and v1 profile: v1 scored 0.5415
+  train / 0.4884 eval, improving +0.0059 eval over defense-context v0 and about +0.0055 over
+  risk-context. Targeted eval buckets also improved, including active-riichi 0.4734 -> 0.4911 ->
+  0.5038 and actual-genbutsu 0.5030 -> 0.5636 -> 0.5818 for risk -> defense -> v1.
+- Downloaded enough current-year Tenhou logs to export an ignored 100-log four-player hanchan
+  slice, then ran inspect and benchmark reports: 100 XML files, 1,039 rounds, 50,276 discard
+  examples, 13,435 call examples, and zero parse failures.
+- The 100-log benchmark changed the interpretation: risk-context linear remained best at 0.4919
+  eval, defense-context v0 fell to 0.4881, and defense-context v1 fell further to 0.4840. Defense
+  features still helped some targeted buckets, such as actual-suji and shanten-worsening discards,
+  but the aggregate regression means the next work should diagnose/regularize before scaling.
+- Cloned Mortal into ignored `data/raw/external/mortal` at
+  `0cff2b52982be5b1163aa9a62fb01f03ce91e0d2`, built `libriichi` locally, ran the Rust workspace
+  tests, and verified Python can import the built module after copying
+  `target/release/libriichi.dylib` to `mortal/libriichi.so`.
+- Added `docs/external-baselines.md` with Mortal build results, AGPL boundary notes, and an offline
+  comparison path based on `mjai` decision snapshots rather than live ladder automation.

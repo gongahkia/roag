@@ -39,6 +39,11 @@ class DiscardErrorAnalysisTests(unittest.TestCase):
         self.assertEqual(summary["by_active_opponent_riichi"]["yes"]["examples"], 0)
         self.assertEqual(summary["by_actual_discard_genbutsu"]["no"]["examples"], 3)
         self.assertEqual(summary["by_actual_discard_genbutsu"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_suji"]["no"]["examples"], 3)
+        self.assertEqual(summary["by_actual_discard_kabe"]["no"]["examples"], 3)
+        self.assertEqual(summary["by_actual_discard_one_chance"]["no"]["examples"], 3)
+        self.assertEqual(summary["by_actual_discard_seen_before_riichi"]["no"]["examples"], 3)
+        self.assertEqual(summary["by_actual_discard_seen_after_riichi"]["no"]["examples"], 3)
         self.assertEqual(
             sum(bucket["examples"] for bucket in summary["by_shanten_delta"].values()),
             3,
@@ -55,6 +60,11 @@ class DiscardErrorAnalysisTests(unittest.TestCase):
         self.assertEqual(summary["by_seat_turn_phase"]["late"]["examples"], 0)
         self.assertEqual(summary["by_active_opponent_riichi"]["yes"]["examples"], 0)
         self.assertEqual(summary["by_actual_discard_genbutsu"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_suji"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_kabe"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_one_chance"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_seen_before_riichi"]["yes"]["examples"], 0)
+        self.assertEqual(summary["by_actual_discard_seen_after_riichi"]["yes"]["examples"], 0)
 
 
 def _example(hand: list[str], discard: str, *, event_index: int) -> DiscardExample:

@@ -34,6 +34,11 @@ class DiscardExample:
     rivers_by_seat: tuple[tuple[Tile, ...], ...] = ()
     riichi_declared_turns: tuple[int | None, ...] = ()
     riichi_declared_event_indices: tuple[int | None, ...] = ()
+    meld_counts_by_seat: tuple[tuple[int, ...], ...] = ()
+    meld_tiles_by_seat: tuple[tuple[Tile, ...], ...] = ()
+    dora_indicators: tuple[Tile, ...] = ()
+    last_discard_tsumogiri_by_seat: tuple[bool | None, ...] = ()
+    ippatsu_active_seats: tuple[bool, ...] = ()
 
 
 def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
@@ -80,5 +85,10 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
                     rivers_by_seat=state.rivers_by_seat(),
                     riichi_declared_turns=tuple(state.riichi_declared_turns),
                     riichi_declared_event_indices=tuple(state.riichi_declared_event_indices),
+                    meld_counts_by_seat=state.meld_counts_by_seat(),
+                    meld_tiles_by_seat=state.meld_tiles_by_seat(),
+                    dora_indicators=round_.dora_indicators,
+                    last_discard_tsumogiri_by_seat=state.last_discard_tsumogiri_by_seat(),
+                    ippatsu_active_seats=tuple(state.ippatsu_active),
                 )
                 state.apply_discard(event)

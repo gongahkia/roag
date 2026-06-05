@@ -242,7 +242,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(
-            stdout.getvalue().splitlines()[:16],
+            stdout.getvalue().splitlines()[:19],
             [
                 "examples: 4",
                 "train_examples: 3",
@@ -260,6 +260,9 @@ class CliTests(unittest.TestCase):
                 "defense_context_linear_train_accuracy: 0.6667",
                 "defense_context_linear_eval_accuracy: 0.0000",
                 "defense_context_linear_eval_lift_over_risk_context: +0.0000",
+                "defense_context_v1_linear_train_accuracy: 0.6667",
+                "defense_context_v1_linear_eval_accuracy: 0.0000",
+                "defense_context_v1_linear_eval_lift_over_defense_context: +0.0000",
             ],
         )
         self.assertIn("report_path:", stdout.getvalue())
@@ -349,6 +352,28 @@ class CliTests(unittest.TestCase):
             "by_actual_discard_genbutsu",
             payload["models"]["defense_context_linear"]["eval_analysis"],
         )
+        self.assertIn(
+            "by_actual_discard_suji",
+            payload["models"]["defense_context_linear"]["eval_analysis"],
+        )
+        self.assertEqual(
+            payload["models"]["defense_context_v1_linear"]["kind"],
+            "discard-linear-defense-context-v1",
+        )
+        self.assertEqual(payload["models"]["defense_context_v1_linear"]["feature_dim"], 112)
+        self.assertEqual(payload["models"]["defense_context_v1_linear"]["training"]["epochs"], 1)
+        self.assertEqual(
+            payload["models"]["defense_context_v1_linear"]["metrics"]["train_accuracy"],
+            2 / 3,
+        )
+        self.assertEqual(
+            payload["models"]["defense_context_v1_linear"]["metrics"]["eval_accuracy"],
+            0.0,
+        )
+        self.assertIn(
+            "by_actual_discard_seen_after_riichi",
+            payload["models"]["defense_context_v1_linear"]["eval_analysis"],
+        )
         self.assertEqual(payload["ablation"]["train_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["ablation"]["eval_accuracy_lift_over_raw_count"], 0.0)
         self.assertEqual(payload["ablation"]["risk_context_train_accuracy_lift_over_linear"], 0.0)
@@ -359,6 +384,14 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(
             payload["ablation"]["defense_context_eval_accuracy_lift_over_risk_context"],
+            0.0,
+        )
+        self.assertEqual(
+            payload["ablation"]["defense_context_v1_train_accuracy_lift_over_defense_context"],
+            0.0,
+        )
+        self.assertEqual(
+            payload["ablation"]["defense_context_v1_eval_accuracy_lift_over_defense_context"],
             0.0,
         )
         self.assertEqual(payload["discard_shanten"]["examples"], 4)

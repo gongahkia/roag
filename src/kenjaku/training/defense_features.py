@@ -50,6 +50,30 @@ def actual_discard_has_kabe(example: DiscardExample) -> bool:
     return candidate_has_kabe(example, example.action.tile)
 
 
+def actual_discard_has_one_chance(example: DiscardExample) -> bool:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    return candidate_has_one_chance(example, example.action.tile)
+
+
+def actual_discard_seen_after_riichi(example: DiscardExample) -> bool:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    return candidate_seen_after_riichi(example, example.action.tile)
+
+
+def actual_discard_seen_before_riichi(example: DiscardExample) -> bool:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    return candidate_seen_before_riichi(example, example.action.tile)
+
+
+def actual_discard_has_sotogawa(example: DiscardExample) -> bool:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    return candidate_has_sotogawa(example, example.action.tile)
+
+
 def candidate_is_genbutsu(example: DiscardExample, tile: TileType | int) -> bool:
     tile_index = _tile_index(tile)
     return any(
@@ -88,6 +112,25 @@ def candidate_has_one_chance(example: DiscardExample, tile: TileType | int) -> b
         example.visible_counts[adjacent_index] == 3
         for adjacent_index in _adjacent_suited_indices(tile_type)
     )
+
+
+def candidate_has_sotogawa(example: DiscardExample, tile: TileType | int) -> bool:
+    tile_type = _tile_type(tile)
+    if tile_type.is_honor:
+        return False
+
+    rank = tile_type.rank
+    assert rank is not None
+    if 4 <= rank <= 6:
+        return False
+
+    for seat in active_riichi_opponents(example):
+        riichi_turn = _riichi_turn(example, seat)
+        if riichi_turn is None or seat >= len(example.rivers_by_seat):
+            continue
+        if _river_has_sotogawa_anchor(example.rivers_by_seat[seat][:riichi_turn], tile_type):
+            return True
+    return False
 
 
 def candidate_seen_after_riichi(example: DiscardExample, tile: TileType | int) -> bool:
@@ -171,6 +214,21 @@ def _river_has_tile_before_turn(
     if seat >= len(rivers_by_seat):
         return False
     return any(tile.type.index == tile_index for tile in rivers_by_seat[seat][:turn])
+
+
+def _river_has_sotogawa_anchor(river: tuple[Tile, ...], tile_type: TileType) -> bool:
+    rank = tile_type.rank
+    assert rank is not None
+    for discarded in river:
+        discarded_type = discarded.type
+        discarded_rank = discarded_type.rank
+        if discarded_type.suit != tile_type.suit or discarded_rank is None:
+            continue
+        if rank <= 3 and discarded_rank >= rank + 3:
+            return True
+        if rank >= 7 and discarded_rank <= rank - 3:
+            return True
+    return False
 
 
 def _suji_safe_indices(tile_type: TileType) -> tuple[int, ...]:
