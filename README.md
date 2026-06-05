@@ -28,9 +28,12 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
 PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 5 --models fast --report runs/discard-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/discard-benchmark.json
-PYTHONPATH=src python3 -m kenjaku disagreement-report-summary runs/discard-disagreements.json
+PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
+  runs/discard-disagreements.json --examples 2
 PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --report runs/call-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
+  data/fixtures/tenhou --report runs/riichi-benchmark.json
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
@@ -43,9 +46,10 @@ riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi
 Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
 disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
 `benchmark-report-summary` to compare ignored benchmark reports, and
-`disagreement-report-summary` to aggregate capped disagreement examples. `benchmark-call` provides
-the first supervised call/pass baselines on existing call examples, including imbalance-aware
-accuracy and recall metrics.
+`disagreement-report-summary` to aggregate and render capped disagreement examples. `benchmark-call`
+provides supervised call/pass baselines on existing call examples, including a selective
+`call-linear-v0` model and imbalance-aware accuracy and recall metrics. `benchmark-riichi`
+provides the first conservative supervised riichi/pass report.
 
 For continuation context, see `docs/session-handoff.md`.
 

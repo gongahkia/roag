@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import unittest
+
+from kenjaku.core import Action, ActionKind, Tile, TileType
+from kenjaku.models import CALL_LINEAR_FEATURE_DIM, CallLinearModel
+from kenjaku.training import CallExample
+
+
+class CallLinearModelTests(unittest.TestCase):
+    def test_fit_predicts_selective_pass_and_call(self) -> None:
+        examples = [
+            *[
+                _example(
+                    discarded="1m",
+                    legal_call_kinds=(ActionKind.PON,),
+                    action=Action(ActionKind.PON, TileType.parse("1m")),
+                )
+                for _ in range(6)
+            ],
+            *[
+                _example(
+                    discarded="2m",
+                    legal_call_kinds=(ActionKind.PON,),
+                    action=Action.pass_(),
+                )
+                for _ in range(6)
+            ],
+        ]
+
+        model = CallLinearModel.fit(examples, epochs=30, learning_rate=0.2)
+
+        self.assertEqual(model.kind, "call-linear-v0")
+        self.assertEqual(model.feature_dim, CALL_LINEAR_FEATURE_DIM)
+        self.assertEqual(
+            model.predict(_example(discarded="1m", legal_call_kinds=(ActionKind.PON,))),
+            ActionKind.PON,
+        )
+        self.assertEqual(
+            model.predict(_example(discarded="2m", legal_call_kinds=(ActionKind.PON,))),
+            ActionKind.PASS,
+        )
+
+    def test_prediction_is_masked_to_legal_call_kinds(self) -> None:
+        model = CallLinearModel.fit(
+            [
+                _example(
+                    discarded="1m",
+                    legal_call_kinds=(ActionKind.PON,),
+                    action=Action(ActionKind.PON, TileType.parse("1m")),
+                )
+                for _ in range(3)
+            ],
+            epochs=10,
+            learning_rate=0.2,
+        )
+
+        prediction = model.predict(_example(discarded="3m", legal_call_kinds=(ActionKind.CHI,)))
+
+        self.assertIn(prediction, {ActionKind.PASS, ActionKind.CHI})
+
+
+def _example(
+    *,
+    discarded: str,
+    legal_call_kinds: tuple[ActionKind, ...],
+    action: Action | None = None,
+) -> CallExample:
+    discarded_tile = Tile.parse(discarded)
+    counts = [0] * 34
+    counts[discarded_tile.type.index] = 2
+    counts[TileType.parse("4p").index] = 1
+    counts[TileType.parse("5p").index] = 1
+    counts[TileType.parse("6p").index] = 1
+    counts[TileType.parse("7s").index] = 1
+    counts[TileType.parse("8s").index] = 1
+    counts[TileType.parse("9s").index] = 1
+    counts[TileType.parse("E").index] = 2
+    counts[TileType.parse("S").index] = 2
+    visible = [0] * 34
+    visible[discarded_tile.type.index] = 1
+    return CallExample(
+        round_index=0,
+        event_index=0,
+        call_event_index=None,
+        seat=1,
+        from_seat=0,
+        dealer=0,
+        scores=(25000, 25000, 25000, 25000),
+        discarded_tile=discarded_tile,
+        legal_call_kinds=legal_call_kinds,
+        hand_counts=tuple(counts),
+        visible_counts=tuple(visible),
+        action=action or Action.pass_(),
+    )
+
+
+if __name__ == "__main__":
+    unittest.main()

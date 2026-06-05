@@ -595,6 +595,12 @@ class CliTests(unittest.TestCase):
             with contextlib.redirect_stdout(text_stdout):
                 text_exit_code = main(["disagreement-report-summary", str(report)])
 
+            examples_stdout = io.StringIO()
+            with contextlib.redirect_stdout(examples_stdout):
+                examples_exit_code = main(
+                    ["disagreement-report-summary", str(report), "--examples", "1"]
+                )
+
             json_stdout = io.StringIO()
             with contextlib.redirect_stdout(json_stdout):
                 json_exit_code = main(["disagreement-report-summary", str(report), "--json"])
@@ -603,6 +609,10 @@ class CliTests(unittest.TestCase):
         category = summary["reports"][0]["categories"]["risk_correct_defense_wrong"]
         self.assertEqual(text_exit_code, 0)
         self.assertIn("risk_correct_defense_wrong: count=1 stored=1", text_stdout.getvalue())
+        self.assertEqual(examples_exit_code, 0)
+        self.assertIn("examples:", examples_stdout.getvalue())
+        self.assertIn("actual=5m", examples_stdout.getvalue())
+        self.assertIn("logits:", examples_stdout.getvalue())
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(summary["kind"], "kenjaku-discard-disagreement-summary-v0")
         self.assertEqual(category["defense_buckets"]["genbutsu"]["true"], 1)
@@ -641,10 +651,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["call_examples"], 1)
         self.assertEqual(
             set(payload["models"]),
-            {"call_frequency", "call_legal_frequency"},
+            {"call_frequency", "call_legal_frequency", "call_linear"},
         )
         frequency = payload["models"]["call_frequency"]
         legal_frequency = payload["models"]["call_legal_frequency"]
+        call_linear = payload["models"]["call_linear"]
         self.assertEqual(frequency["kind"], "call-frequency-v0")
         self.assertEqual(frequency["counts"]["pon"], 1)
         self.assertEqual(frequency["metrics"]["train_accuracy"], 1.0)
@@ -658,8 +669,44 @@ class CliTests(unittest.TestCase):
         self.assertEqual(legal_frequency["kind"], "call-legal-frequency-v0")
         self.assertEqual(legal_frequency["counts"]["pon"], 1)
         self.assertEqual(legal_frequency["metrics"]["train_action_recall"]["pon"], 1.0)
+        self.assertEqual(call_linear["kind"], "call-linear-v0")
+        self.assertEqual(call_linear["feature_dim"], 120)
+        self.assertEqual(call_linear["training"]["epochs"], 25)
+        self.assertEqual(call_linear["metrics"]["train_action_recall"]["pon"], 1.0)
         self.assertIn("call_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("call_legal_frequency_eval_call_recall:", stdout.getvalue())
+        self.assertIn("call_linear_eval_call_recall:", stdout.getvalue())
+        self.assertIn("report_path:", stdout.getvalue())
+
+    def test_benchmark_riichi_writes_report_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "riichi-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-riichi",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-riichi-benchmark-report-v0")
+        self.assertEqual(payload["riichi_examples"], 1)
+        self.assertEqual(set(payload["models"]), {"riichi_frequency"})
+        model = payload["models"]["riichi_frequency"]
+        self.assertEqual(model["kind"], "riichi-frequency-v0")
+        self.assertEqual(model["counts"]["riichi"], 1)
+        self.assertEqual(model["metrics"]["train_riichi_recall"], 1.0)
+        self.assertIn("riichi_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
 

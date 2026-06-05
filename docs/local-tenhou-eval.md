@@ -70,11 +70,18 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanch
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/discard-disagreements-local.json
+  runs/discard-disagreements-local.json --examples 2
 
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan \
   --eval-fraction 0.2 \
   --report runs/call-benchmark-local-report.json \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
+PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/raw/tenhou/xml/4p-hanchan \
+  --eval-fraction 0.2 \
+  --report runs/riichi-benchmark-local-report.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
@@ -104,10 +111,12 @@ examples where risk/defense model predictions differ, including legal-candidate 
 debugging; it requires the risk, defense, and defense-v1 models.
 
 Use `benchmark-report-summary` to compare multiple ignored benchmark JSON reports without copying
-raw logs or full report artifacts into git. Use `disagreement-report-summary` to compare capped
-disagreement artifacts. `benchmark-call` scores both a pass-allowed frequency baseline and a
-legal-call-only frequency baseline, and reports overall accuracy, balanced accuracy, pass recall,
-call recall, and per-action recall so pass/call imbalance is visible.
+raw logs or full report artifacts into git. Use `disagreement-report-summary --examples N` to
+compare capped disagreement artifacts and print representative stored examples. `benchmark-call`
+scores pass-allowed frequency, legal-call-only frequency, and `call-linear-v0` baselines, and
+reports overall accuracy, balanced accuracy, pass recall, call recall, and per-action recall so
+pass/call imbalance is visible. `benchmark-riichi` builds a conservative riichi/pass dataset and
+scores the first frequency baseline for that decision surface.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

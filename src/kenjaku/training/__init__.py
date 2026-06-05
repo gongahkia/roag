@@ -28,6 +28,7 @@ from kenjaku.training.defense_features import (
     min_active_riichi_discards_elapsed,
 )
 from kenjaku.training.error_analysis import summarize_discard_predictions
+from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 from kenjaku.training.splits import deterministic_split
 
 __all__ = [
@@ -54,8 +55,10 @@ __all__ = [
     "has_active_riichi_opponent",
     "iter_call_examples",
     "iter_discard_examples",
+    "iter_riichi_examples",
     "max_active_riichi_discards_elapsed",
     "min_active_riichi_discards_elapsed",
+    "RiichiExample",
     "summarize_discard_predictions",
     "summarize_discard_shanten",
 ]

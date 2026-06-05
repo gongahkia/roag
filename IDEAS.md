@@ -464,19 +464,21 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Inspect representative `lr=0.05`, `l2=0.0` disagreement examples before changing defense
-   features again; the summary data does not point to one obvious deterministic feature.
-2. Build a first selective call/pass model, likely a tiny linear classifier over discarded tile,
-   legal call kind, hand counts, visible counts, and simple shanten-after-call features.
-3. Add a first supervised riichi decision baseline after the selective call/pass model has stable
-   reporting and a clear floor.
-4. Add feature normalization behind a new discard model kind only if disagreement inspection still
-   points to linear scale instability; do not mutate existing feature profiles.
+1. Improve `call-linear-v0` with better open-call features before scaling: exact chi-shape feature
+   variants, open-meld-aware shanten/ukeire proxies, and possibly class weighting or thresholded
+   call/pass calibration.
+2. Build `riichi-linear-v0` using the conservative riichi/pass examples; the current frequency
+   floor has 0.0000 riichi recall on the 100-log local split.
+3. Do not change discard defense features yet. If continuing discard work, first tag a larger sample
+   of rendered disagreement examples into defense-like, efficiency-like, and close-logit/noisy
+   groups.
+4. Add feature normalization behind a new discard model kind only if rendered disagreement examples
+   or weight summaries point to linear scale instability; do not mutate existing feature profiles.
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-6. Scale to larger local slices, such as 500 logs, only after the 100-log defense diagnostics and
-   first selective call/pass model are stable.
+6. Scale to larger local slices, such as 500 logs, only after call-linear and riichi-linear have
+   stable diagnostics on the 100-log slice.
 
 ---
 
@@ -676,3 +678,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   Counts were risk-correct/defense-wrong 203, risk-correct/v1-wrong 268,
   defense-correct/risk-wrong 203, and v1-correct/risk-wrong 246; capped samples showed mixed
   safety signals rather than one obvious feature gap.
+- Added `disagreement-report-summary --examples N` to render representative stored disagreement
+  examples with actual/predicted tiles, defense buckets, and top model logits.
+- Added `call-linear-v0`, a dependency-free masked softmax call/pass model over pass plus legal
+  chi/pon/minkan candidates, using discarded-tile, legal-kind, hand/visible-count, relative-seat,
+  and concealed-remainder shanten-proxy features.
+- Re-ran the 100-log call benchmark. `call-linear-v0` scored 0.8288 eval accuracy, 0.7294 balanced
+  eval accuracy, 0.8729 pass recall, and 0.5860 call recall, a useful balanced floor compared with
+  the two frequency extremes.
+- Added conservative riichi/pass examples from explicit Tenhou reach events plus closed-tenpai
+  no-riichi discard decisions, then added `benchmark-riichi` and `riichi-frequency-v0`.
+- Ran the first 100-log riichi benchmark: 2,039 riichi/pass examples with `riichi-frequency-v0` at
+  0.6618 eval accuracy, 0.5000 balanced eval accuracy, 1.0000 pass recall, and 0.0000 riichi
+  recall.

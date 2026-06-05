@@ -14,6 +14,7 @@ DISCARD_BENCHMARK_SUMMARY_KIND = "kenjaku-discard-benchmark-summary-v0"
 DISCARD_DISAGREEMENT_REPORT_KIND = "kenjaku-discard-disagreements-v0"
 DISCARD_DISAGREEMENT_SUMMARY_KIND = "kenjaku-discard-disagreement-summary-v0"
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
+RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -369,6 +370,42 @@ def build_call_benchmark_report(
         **_game_counts(game),
         "discard_examples": discard_examples,
         "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "models": models,
+        "parse_failures": _parse_failure_payload(parse_failures),
+    }
+
+
+def build_riichi_benchmark_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    riichi_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    models: dict[str, dict[str, Any]],
+    parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    return {
+        "kind": RIICHI_BENCHMARK_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "riichi_examples": riichi_examples,
         "split": {
             "seed": split_seed,
             "eval_fraction": eval_fraction,

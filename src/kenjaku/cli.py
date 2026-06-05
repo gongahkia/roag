@@ -14,6 +14,7 @@ from kenjaku.experiments import (
     build_discard_benchmark_summary,
     build_discard_disagreement_summary,
     build_discard_linear_report,
+    build_riichi_benchmark_report,
     build_tenhou_inspect_report,
     format_discard_benchmark_summary,
     format_discard_disagreement_summary,
@@ -25,12 +26,15 @@ from kenjaku.models import (
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
+    RIICHI_DECISION_KINDS,
     RISK_CONTEXT_FEATURE_PROFILE,
     SHANTEN_FEATURE_PROFILE,
     CallFrequencyBaseline,
     CallLegalFrequencyBaseline,
+    CallLinearModel,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
+    RiichiFrequencyBaseline,
 )
 from kenjaku.training import (
     actual_discard_has_kabe,
@@ -46,6 +50,8 @@ from kenjaku.training import (
     has_active_riichi_opponent,
     iter_call_examples,
     iter_discard_examples,
+    iter_riichi_examples,
+    RiichiExample,
     summarize_discard_predictions,
     summarize_discard_shanten,
 )
@@ -272,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="emit the summary as JSON instead of text",
     )
+    disagreement_summary.add_argument(
+        "--examples",
+        type=int,
+        default=0,
+        help="append this many stored representative examples per category in text mode",
+    )
     disagreement_summary.set_defaults(func=_disagreement_report_summary)
 
     benchmark_call = subparsers.add_parser(
@@ -295,6 +307,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="kenjaku-v0",
         help="stable seed for deterministic train/eval split",
     )
+    benchmark_call.add_argument("--epochs", type=int, default=25, help="call linear model epochs")
+    benchmark_call.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="call linear model SGD learning rate",
+    )
+    benchmark_call.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="call linear model L2 regularization strength",
+    )
     benchmark_call.add_argument(
         "--report",
         type=Path,
@@ -307,6 +332,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(benchmark_call)
     benchmark_call.set_defaults(func=_benchmark_call)
+
+    benchmark_riichi = subparsers.add_parser(
+        "benchmark-riichi",
+        help="compare deterministic riichi/pass baselines on one train/eval split",
+    )
+    benchmark_riichi.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    benchmark_riichi.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    benchmark_riichi.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    benchmark_riichi.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON riichi benchmark report artifact",
+    )
+    benchmark_riichi.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(benchmark_riichi)
+    benchmark_riichi.set_defaults(func=_benchmark_riichi)
     return parser
 
 
@@ -698,12 +757,117 @@ def _benchmark_report_summary(args: argparse.Namespace) -> int:
 
 
 def _disagreement_report_summary(args: argparse.Namespace) -> int:
+    if args.examples < 0:
+        raise SystemExit("--examples must be non-negative")
     summary = build_discard_disagreement_summary(args.reports)
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
         print(format_discard_disagreement_summary(summary))
+        if args.examples:
+            print()
+            print(_format_disagreement_examples(args.reports, args.examples))
     return 0
+
+
+def _format_disagreement_examples(paths: Sequence[Path], examples_per_category: int) -> str:
+    lines: list[str] = ["examples:"]
+    for path in paths:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        lines.append(f"report: {path}")
+        categories = payload.get("categories", {})
+        if not isinstance(categories, dict):
+            continue
+        for category_name, category in categories.items():
+            if not isinstance(category, dict):
+                continue
+            correct_model, wrong_model = _disagreement_category_models(category_name)
+            items = category.get("items", [])
+            if not isinstance(items, list) or not items:
+                continue
+            lines.append(f"{category_name}:")
+            for index, item in enumerate(items[:examples_per_category], start=1):
+                if not isinstance(item, dict):
+                    continue
+                lines.extend(
+                    _format_disagreement_item(
+                        item,
+                        index=index,
+                        correct_model=correct_model,
+                        wrong_model=wrong_model,
+                    )
+                )
+    return "\n".join(lines)
+
+
+def _format_disagreement_item(
+    item: dict[str, Any],
+    *,
+    index: int,
+    correct_model: str,
+    wrong_model: str,
+) -> list[str]:
+    predictions = item.get("predictions", {})
+    if not isinstance(predictions, dict):
+        predictions = {}
+    actual = item.get("actual_discard", "unknown")
+    lines = [
+        (
+            f"  {index}. round={item.get('round_index', 'n/a')} "
+            f"event={item.get('event_index', 'n/a')} seat={item.get('seat', 'n/a')} "
+            f"actual={actual} "
+            f"correct={correct_model}:{predictions.get(correct_model, 'n/a')} "
+            f"wrong={wrong_model}:{predictions.get(wrong_model, 'n/a')}"
+        )
+    ]
+    buckets = item.get("defense_buckets", {})
+    if isinstance(buckets, dict) and buckets:
+        bucket_parts = [
+            f"{name}={'yes' if enabled else 'no'}"
+            for name, enabled in sorted(buckets.items())
+        ]
+        lines.append("     buckets: " + ", ".join(bucket_parts))
+    logit_parts = [
+        _format_top_logits(item, model_name)
+        for model_name in (correct_model, wrong_model)
+    ]
+    logit_parts = [part for part in logit_parts if part]
+    if logit_parts:
+        lines.append("     logits: " + "; ".join(logit_parts))
+    return lines
+
+
+def _format_top_logits(item: dict[str, Any], model_name: str) -> str:
+    candidate_logits = item.get("candidate_logits", {})
+    if not isinstance(candidate_logits, dict):
+        return ""
+    entries = candidate_logits.get(model_name, [])
+    if not isinstance(entries, list):
+        return ""
+    parsed = [
+        (str(entry["tile"]), float(entry["logit"]))
+        for entry in entries
+        if isinstance(entry, dict) and "tile" in entry and "logit" in entry
+    ]
+    if not parsed:
+        return ""
+    top = sorted(parsed, key=lambda value: (-value[1], value[0]))[:3]
+    return f"{model_name} " + " ".join(
+        f"{tile}={logit:.4f}"
+        for tile, logit in top
+    )
+
+
+def _disagreement_category_models(category_name: str) -> tuple[str, str]:
+    if category_name == "risk_correct_defense_wrong":
+        return "risk_context_linear", "defense_context_linear"
+    if category_name == "risk_correct_defense_v1_wrong":
+        return "risk_context_linear", "defense_context_v1_linear"
+    if category_name == "defense_correct_risk_wrong":
+        return "defense_context_linear", "risk_context_linear"
+    if category_name == "defense_v1_correct_risk_wrong":
+        return "defense_context_v1_linear", "risk_context_linear"
+    return "correct_model", "wrong_model"
 
 
 def _benchmark_call(args: argparse.Namespace) -> int:
@@ -721,12 +885,21 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     call_models = {
         "call_frequency": CallFrequencyBaseline.fit(train_examples),
         "call_legal_frequency": CallLegalFrequencyBaseline.fit(train_examples),
+        "call_linear": CallLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+        ),
     }
     model_payloads = {
         model_name: _call_model_payload(
             model,
             train_examples=train_examples,
             eval_examples=eval_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
         )
         for model_name, model in call_models.items()
     }
@@ -762,18 +935,20 @@ CallPredictor = Callable[[CallExample], ActionKind]
 
 
 def _call_model_payload(
-    model: CallFrequencyBaseline | CallLegalFrequencyBaseline,
+    model: CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
     *,
     train_examples: list[CallExample],
     eval_examples: list[CallExample],
+    epochs: int,
+    learning_rate: float,
+    l2: float,
 ) -> dict[str, Any]:
     train_analysis = _summarize_call_predictions(train_examples, model.predict)
     eval_analysis = _summarize_call_predictions(eval_examples, model.predict)
     train_metrics = _call_metrics(train_analysis)
     eval_metrics = _call_metrics(eval_analysis)
-    return {
+    payload: dict[str, Any] = {
         "kind": model.kind,
-        "counts": model.count_by_kind(),
         "metrics": {
             "train_accuracy": train_metrics["accuracy"],
             "eval_accuracy": eval_metrics["accuracy"],
@@ -791,6 +966,16 @@ def _call_model_payload(
         "train_analysis": train_analysis,
         "eval_analysis": eval_analysis,
     }
+    if isinstance(model, CallLinearModel):
+        payload["feature_dim"] = model.feature_dim
+        payload["training"] = {
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "l2": l2,
+        }
+    else:
+        payload["counts"] = model.count_by_kind()
+    return payload
 
 
 def _print_call_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:
@@ -876,6 +1061,154 @@ def _mean_defined(values: Iterable[float | None]) -> float | None:
     if not defined:
         return None
     return sum(defined) / len(defined)
+
+
+def _benchmark_riichi(args: argparse.Namespace) -> int:
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_riichi_examples(game))
+    if not examples:
+        raise SystemExit("no riichi examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    model = RiichiFrequencyBaseline.fit(train_examples)
+    model_payloads = {
+        "riichi_frequency": _riichi_model_payload(
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+        )
+    }
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_riichi_benchmark_metrics(model_payloads)
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.report is not None:
+        discard_examples = list(iter_discard_examples(game))
+        call_examples = list(iter_call_examples(game))
+        report = build_riichi_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(discard_examples),
+            call_examples=len(call_examples),
+            riichi_examples=len(examples),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            parse_failures=dataset.failures,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+RiichiPredictor = Callable[[RiichiExample], ActionKind]
+
+
+def _riichi_model_payload(
+    model: RiichiFrequencyBaseline,
+    *,
+    train_examples: list[RiichiExample],
+    eval_examples: list[RiichiExample],
+) -> dict[str, Any]:
+    train_analysis = _summarize_riichi_predictions(train_examples, model.predict)
+    eval_analysis = _summarize_riichi_predictions(eval_examples, model.predict)
+    train_metrics = _riichi_metrics(train_analysis)
+    eval_metrics = _riichi_metrics(eval_analysis)
+    return {
+        "kind": model.kind,
+        "counts": model.count_by_kind(),
+        "metrics": {
+            "train_accuracy": train_metrics["accuracy"],
+            "eval_accuracy": eval_metrics["accuracy"],
+            "train_balanced_accuracy": train_metrics["balanced_accuracy"],
+            "eval_balanced_accuracy": eval_metrics["balanced_accuracy"],
+            "train_pass_recall": train_metrics["pass_recall"],
+            "eval_pass_recall": eval_metrics["pass_recall"],
+            "train_riichi_recall": train_metrics["riichi_recall"],
+            "eval_riichi_recall": eval_metrics["riichi_recall"],
+            "train_action_recall": train_metrics["action_recall"],
+            "eval_action_recall": eval_metrics["action_recall"],
+        },
+        "train_analysis": train_analysis,
+        "eval_analysis": eval_analysis,
+    }
+
+
+def _print_riichi_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:
+    for model_name, payload in model_payloads.items():
+        metrics = payload["metrics"]
+        print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(metrics['eval_accuracy'])}")
+        print(
+            f"{model_name}_eval_balanced_accuracy: "
+            f"{_format_optional_accuracy(metrics['eval_balanced_accuracy'])}"
+        )
+        print(
+            f"{model_name}_eval_pass_recall: "
+            f"{_format_optional_accuracy(metrics['eval_pass_recall'])}"
+        )
+        print(
+            f"{model_name}_eval_riichi_recall: "
+            f"{_format_optional_accuracy(metrics['eval_riichi_recall'])}"
+        )
+
+
+def _summarize_riichi_predictions(
+    examples: Sequence[RiichiExample],
+    predict: RiichiPredictor,
+) -> dict[str, Any]:
+    buckets: dict[str, Any] = {
+        "overall": _empty_call_bucket(),
+        "by_actual_action": {
+            kind.value: _empty_call_bucket()
+            for kind in RIICHI_DECISION_KINDS
+        },
+    }
+    action_distribution = {
+        kind.value: 0
+        for kind in RIICHI_DECISION_KINDS
+    }
+
+    for example in examples:
+        actual = example.action.kind
+        prediction = predict(example)
+        correct = prediction == actual
+        action_distribution[actual.value] += 1
+        _record_call_bucket(buckets["overall"], correct)
+        _record_call_bucket(buckets["by_actual_action"][actual.value], correct)
+
+    return {
+        "action_distribution": action_distribution,
+        **_finalize_call_buckets(buckets),
+    }
+
+
+def _riichi_metrics(analysis: dict[str, Any]) -> dict[str, Any]:
+    action_recall = {
+        kind.value: analysis["by_actual_action"][kind.value]["accuracy"]
+        for kind in RIICHI_DECISION_KINDS
+    }
+    pass_recall = action_recall[ActionKind.PASS.value]
+    riichi_recall = action_recall[ActionKind.RIICHI.value]
+    return {
+        "accuracy": analysis["overall"]["accuracy"],
+        "balanced_accuracy": _mean_defined((pass_recall, riichi_recall)),
+        "pass_recall": pass_recall,
+        "riichi_recall": riichi_recall,
+        "action_recall": action_recall,
+    }
 
 
 def _legal_call_key(example: CallExample) -> str:
