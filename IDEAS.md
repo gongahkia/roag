@@ -464,20 +464,19 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Regenerate and summarize disagreement exports at the current best `lr=0.05`, `l2=0.0` setting,
-   then inspect representative stored examples before changing defense features again.
-2. Use `lr=0.05` for local discard benchmark experiments unless a later compatibility pass changes
-   the CLI default; `lr=0.1` was too aggressive on the 100-log slice and L2 did not help.
-3. Add call benchmark quality metrics that make pass/call imbalance explicit, then build a first
-   non-pass-only call model.
-4. Add feature normalization behind a new discard model kind only if disagreement summaries still
-   point to linear scale instability; do not mutate existing feature profiles.
+1. Inspect representative `lr=0.05`, `l2=0.0` disagreement examples before changing defense
+   features again; the summary data does not point to one obvious deterministic feature.
+2. Build a first selective call/pass model, likely a tiny linear classifier over discarded tile,
+   legal call kind, hand counts, visible counts, and simple shanten-after-call features.
+3. Add a first supervised riichi decision baseline after the selective call/pass model has stable
+   reporting and a clear floor.
+4. Add feature normalization behind a new discard model kind only if disagreement inspection still
+   points to linear scale instability; do not mutate existing feature profiles.
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-6. Add a first supervised riichi decision baseline after call reporting has imbalance-aware metrics.
-7. Scale to larger local slices, such as 500 logs, only after the 100-log defense and call baselines
-   have stable diagnostics.
+6. Scale to larger local slices, such as 500 logs, only after the 100-log defense diagnostics and
+   first selective call/pass model are stable.
 
 ---
 
@@ -664,3 +663,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Ran the first 100-log call benchmark: `call-frequency-v0` scored 0.8524 train / 0.8463 eval, but
   the result is pass-dominant with 1.0000 eval pass accuracy and 0.0000 eval call accuracy on 413
   actual call examples.
+- Added `call-legal-frequency-v0`, a diagnostic opposite-side call baseline that ignores pass
+  counts, predicts the most frequent legal non-pass action, and falls back to pass only when no
+  legal call is available.
+- Expanded `benchmark-call` reports into a `models` map with both call baselines and
+  imbalance-aware metrics: balanced accuracy, macro recall, pass/call recall, and per-action
+  recall.
+- Re-ran the 100-log call benchmark. `call-frequency-v0` scored 0.8463 eval accuracy, 0.5000
+  balanced eval accuracy, and 0.0000 call recall; `call-legal-frequency-v0` scored 0.1515 eval
+  accuracy, 0.4927 balanced eval accuracy, 0.0000 pass recall, and 0.9855 call recall.
+- Refreshed disagreement diagnostics at the current best discard settings, `lr=0.05`, `l2=0.0`.
+  Counts were risk-correct/defense-wrong 203, risk-correct/v1-wrong 268,
+  defense-correct/risk-wrong 203, and v1-correct/risk-wrong 246; capped samples showed mixed
+  safety signals rather than one obvious feature gap.

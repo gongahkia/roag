@@ -105,7 +105,9 @@ debugging; it requires the risk, defense, and defense-v1 models.
 
 Use `benchmark-report-summary` to compare multiple ignored benchmark JSON reports without copying
 raw logs or full report artifacts into git. Use `disagreement-report-summary` to compare capped
-disagreement artifacts, and `benchmark-call` to score the first supervised call/pass baseline.
+disagreement artifacts. `benchmark-call` scores both a pass-allowed frequency baseline and a
+legal-call-only frequency baseline, and reports overall accuracy, balanced accuracy, pass recall,
+call recall, and per-action recall so pass/call imbalance is visible.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

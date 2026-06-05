@@ -4,8 +4,8 @@ Last updated: 2026-06-05.
 
 ## Stop State
 
-- Last work slice: added sparse discard benchmark model selection, disagreement-report summaries,
-  and the first call/pass frequency benchmark, then ran 100-log fast discard and call benchmarks.
+- Last work slice: added imbalance-aware call benchmark metrics, added the legal-call frequency
+  baseline, and refreshed 100-log disagreement diagnostics at `lr=0.05`, `l2=0.0`.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -30,8 +30,9 @@ Last updated: 2026-06-05.
   ablation deltas, and selected defense buckets; `--json` emits a machine-readable summary.
 - `disagreement-report-summary` reads ignored disagreement exports and summarizes category counts,
   defense bucket rates, common actual/predicted tile pairs, and logit margins.
-- `benchmark-call` scores the first supervised call/pass baseline from existing `CallExample`
-  reconstruction data. The current baseline is intentionally simple and pass-heavy.
+- `benchmark-call` scores two supervised call/pass baselines from existing `CallExample`
+  reconstruction data: `call-frequency-v0` and `call-legal-frequency-v0`. Reports include overall
+  accuracy, balanced accuracy, macro recall, pass/call recall, and per-action recall.
 - Local Mortal checkout/build reconnaissance is recorded in `docs/external-baselines.md`.
 
 ## Working Rules
@@ -93,7 +94,10 @@ runs/discard-benchmark-tenhou-100-fast-lr0.05-l2-0-report.json
 runs/discard-benchmark-tenhou-100-lr0.05-l2-0.0001-report.json
 runs/discard-disagreements-tenhou-100-lr0.1-l2-0.json
 runs/discard-disagreements-tenhou-100-lr0.1-l2-0-summary.json
+runs/discard-disagreements-tenhou-100-lr0.05-l2-0.json
+runs/discard-disagreements-tenhou-100-lr0.05-l2-0-summary.json
 runs/call-benchmark-tenhou-100-report.json
+runs/call-benchmark-tenhou-100-v1-report.json
 runs/inspect-tenhou-25-report.json
 runs/inspect-tenhou-100-report.json
 runs/
@@ -141,7 +145,22 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   --eval-fraction 0.2 \
   --split-seed tenhou-100-v0 \
   --skip-errors \
-  --report runs/call-benchmark-tenhou-100-report.json \
+  --report runs/call-benchmark-tenhou-100-v1-report.json \
+  --source-label tenhou-4p-hanchan-100 \
+  --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
+  --source-date 2026-current-year
+
+PYTHONPATH=src python3 -m kenjaku benchmark-discard \
+  data/raw/tenhou/xml/4p-hanchan-100 \
+  --epochs 3 \
+  --learning-rate 0.05 \
+  --l2 0.0 \
+  --eval-fraction 0.2 \
+  --split-seed tenhou-100-v0 \
+  --models risk_context_linear,defense_context_linear,defense_context_v1_linear \
+  --skip-errors \
+  --disagreements runs/discard-disagreements-tenhou-100-lr0.05-l2-0.json \
+  --max-disagreements 100 \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
@@ -193,6 +212,15 @@ Diagnostics from ignored artifacts:
 - Mean stored logit margins are modest but nontrivial: risk-correct/defense-wrong has risk actual
   margin 0.3002 and defense wrong-over-actual margin 0.3169; defense-correct/risk-wrong has defense
   actual margin 0.2538 and risk wrong-over-actual margin 0.3062.
+- Current-best disagreement counts at `lr=0.05`, `l2=0.0`: risk-correct/defense-wrong 203,
+  risk-correct/v1-wrong 268, defense-correct/risk-wrong 203, v1-correct/risk-wrong 246.
+- The capped `lr=0.05`, `l2=0.0` stored examples have active-riichi rates around 28-36%,
+  genbutsu 10-16%, suji 4-14%, and seen-after-riichi 1-10%. Defense-correct samples have more
+  active-riichi and safety-signal mass than risk-correct samples, but neither side is dominated by
+  obvious safe-tile examples.
+- Mean stored logit margins at `lr=0.05`, `l2=0.0`: risk-correct/defense-wrong has risk actual
+  margin 0.2660 and defense wrong-over-actual margin 0.2449; defense-correct/risk-wrong has defense
+  actual margin 0.2312 and risk wrong-over-actual margin 0.2142.
 - At `lr=0.05`, `l2=0.0`, selected v1-only feature activation rates on eval candidates:
   sotogawa 0.0462, dora 0.0033, active ippatsu fraction 0.0369, active tsumogiri fraction 0.1244,
   opponent meld tile fraction 0.4234.
@@ -202,10 +230,12 @@ Diagnostics from ignored artifacts:
 Call benchmark, 100-log local slice, split `tenhou-100-v0`:
 
 - Dataset: 13,435 call/pass examples; 10,748 train / 2,687 eval.
-- `call-frequency-v0` scored 0.8524 train / 0.8463 eval accuracy.
-- The baseline is pass-dominant: eval pass accuracy is 1.0000 on 2,274 pass examples, while eval
-  call accuracy is 0.0000 on 413 actual call examples. Use this as a floor, not a useful call
-  policy.
+- `call-frequency-v0` scored 0.8524 train / 0.8463 eval accuracy, but only 0.5000 balanced eval
+  accuracy and 0.0000 call recall. It predicts pass too often.
+- `call-legal-frequency-v0` scored 0.1515 eval accuracy, 0.4927 balanced eval accuracy, 0.0000
+  pass recall, and 0.9855 call recall. It predicts legal calls too often.
+- These two baselines bracket the imbalance problem; the next call model needs selective call/pass
+  discrimination rather than another global frequency rule.
 
 Mortal local baseline reconnaissance:
 
@@ -219,16 +249,16 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Regenerate and summarize disagreement exports at the current best `lr=0.05`, `l2=0.0` setting,
-   then inspect representative stored examples before changing defense features again.
-2. Add call benchmark quality metrics that make the pass/call imbalance impossible to miss, such as
-   balanced accuracy and call recall, then build a first non-pass-only call model.
+1. Inspect representative `lr=0.05`, `l2=0.0` disagreement examples before changing defense
+   features again; the summary alone does not point to one obvious deterministic feature.
+2. Build a first selective call/pass model, likely a tiny linear classifier over discarded tile,
+   legal call kind, hand counts, visible counts, and simple shanten-after-call features.
 3. Add feature normalization behind a new discard model kind only if the disagreement summaries
    still point to linear scale instability; do not mutate existing feature profiles.
 4. Define an offline Mortal comparison boundary: start with a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare Kenjaku decisions to a Mortal-compatible inference path only when weights
    are available and legally usable.
-5. Add a first supervised riichi decision baseline after the call benchmark has imbalance-aware
-   reporting.
-6. Scale to larger local slices, such as 500 logs, only after the 100-log defense and call baselines
-   have stable diagnostics.
+5. Add a first supervised riichi decision baseline after the selective call/pass model has stable
+   reporting and a clear floor.
+6. Scale to larger local slices, such as 500 logs, only after the 100-log defense diagnostics and
+   first selective call/pass model are stable.

@@ -44,7 +44,8 @@ Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write l
 disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
 `benchmark-report-summary` to compare ignored benchmark reports, and
 `disagreement-report-summary` to aggregate capped disagreement examples. `benchmark-call` provides
-the first supervised call/pass baseline on existing call examples.
+the first supervised call/pass baselines on existing call examples, including imbalance-aware
+accuracy and recall metrics.
 
 For continuation context, see `docs/session-handoff.md`.
 
