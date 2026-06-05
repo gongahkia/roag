@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from kenjaku.io import TenhouGame, TenhouParseFailure
 
+CALL_BENCHMARK_REPORT_KIND = "kenjaku-call-benchmark-report-v0"
 DISCARD_BENCHMARK_REPORT_KIND = "kenjaku-discard-benchmark-report-v0"
 DISCARD_BENCHMARK_SUMMARY_KIND = "kenjaku-discard-benchmark-summary-v0"
+DISCARD_DISAGREEMENT_REPORT_KIND = "kenjaku-discard-disagreements-v0"
+DISCARD_DISAGREEMENT_SUMMARY_KIND = "kenjaku-discard-disagreement-summary-v0"
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_BENCHMARK_MODEL_ORDER = (
@@ -305,6 +309,91 @@ def build_discard_benchmark_report(
     return report
 
 
+def build_discard_benchmark_report_from_models(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    models: dict[str, dict[str, Any]],
+    discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    return {
+        "kind": DISCARD_BENCHMARK_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "models": models,
+        "ablation": _discard_ablation(models),
+        "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
+    }
+
+
+def build_call_benchmark_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    model_kind: str,
+    model_counts: dict[str, int],
+    train_accuracy: float,
+    eval_accuracy: float | None,
+    train_analysis: dict[str, Any],
+    eval_analysis: dict[str, Any],
+    parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    return {
+        "kind": CALL_BENCHMARK_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "model": {
+            "kind": model_kind,
+            "counts": model_counts,
+        },
+        "metrics": {
+            "train_accuracy": train_accuracy,
+            "eval_accuracy": eval_accuracy,
+        },
+        "train_analysis": train_analysis,
+        "eval_analysis": eval_analysis,
+        "parse_failures": _parse_failure_payload(parse_failures),
+    }
+
+
 def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
     report_path = Path(path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -346,6 +435,8 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
         )
         lines.append("models:")
         for model_name in DISCARD_BENCHMARK_MODEL_ORDER:
+            if model_name not in report["models"]:
+                continue
             model = report["models"][model_name]
             train = _format_optional_float(model["train_accuracy"])
             eval_ = _format_optional_float(model["eval_accuracy"])
@@ -357,10 +448,68 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
         for bucket_name, model_stats in report["buckets"].items():
             parts = []
             for model_name in DISCARD_BENCHMARK_BUCKET_MODELS:
+                if model_name not in model_stats:
+                    continue
                 stats = model_stats[model_name]
                 accuracy = _format_optional_float(stats["accuracy"])
                 parts.append(f"{model_name}={accuracy}/{stats['examples']}")
-            lines.append(f"  {bucket_name}: " + ", ".join(parts))
+            if parts:
+                lines.append(f"  {bucket_name}: " + ", ".join(parts))
+    return "\n".join(lines)
+
+
+def build_discard_disagreement_summary(paths: Sequence[Path]) -> dict[str, Any]:
+    return {
+        "kind": DISCARD_DISAGREEMENT_SUMMARY_KIND,
+        "reports": [
+            _summarize_discard_disagreement_report(path, _read_json_report(path))
+            for path in paths
+        ],
+    }
+
+
+def format_discard_disagreement_summary(summary: dict[str, Any]) -> str:
+    if summary.get("kind") != DISCARD_DISAGREEMENT_SUMMARY_KIND:
+        raise ValueError("not a discard disagreement summary")
+
+    lines: list[str] = []
+    for report in summary["reports"]:
+        if lines:
+            lines.append("")
+        lines.append(f"report: {report['path']}")
+        lines.append(
+            f"examples: {report['examples']} eval, "
+            f"max_per_category={report['max_per_category']}"
+        )
+        for category_name, category in report["categories"].items():
+            lines.append(
+                f"{category_name}: count={category['count']} "
+                f"stored={category['stored_items']}"
+            )
+            bucket_parts = [
+                f"{name}={stats['true']}/{stats['examples']}"
+                for name, stats in category["defense_buckets"].items()
+                if stats["true"]
+            ]
+            if bucket_parts:
+                lines.append("  defense_buckets: " + ", ".join(bucket_parts))
+            pair_parts = [
+                (
+                    f"actual={pair['actual']} correct={pair['correct_prediction']} "
+                    f"wrong={pair['wrong_prediction']} ({pair['examples']})"
+                )
+                for pair in category["actual_prediction_pairs"][:3]
+            ]
+            if pair_parts:
+                lines.append("  common_pairs: " + "; ".join(pair_parts))
+            margins = category["logit_margins"]
+            correct_margin = _summary_mean(margins["correct_model_actual_margin"])
+            wrong_margin = _summary_mean(margins["wrong_model_error_margin"])
+            lines.append(
+                "  margins: "
+                f"correct_model_actual={_format_optional_float(correct_margin)} "
+                f"wrong_model_error={_format_optional_float(wrong_margin)}"
+            )
     return "\n".join(lines)
 
 
@@ -409,6 +558,84 @@ def _summarize_discard_benchmark_report(path: Path, payload: dict[str, Any]) -> 
     }
 
 
+def _summarize_discard_disagreement_report(
+    path: Path,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if payload.get("kind") != DISCARD_DISAGREEMENT_REPORT_KIND:
+        raise ValueError(f"not a discard disagreement report: {path}")
+    return {
+        "path": str(path),
+        "examples": payload["examples"],
+        "max_per_category": payload["max_per_category"],
+        "categories": {
+            category_name: _summarize_disagreement_category(category_name, category)
+            for category_name, category in payload["categories"].items()
+        },
+    }
+
+
+def _summarize_disagreement_category(
+    category_name: str,
+    category: dict[str, Any],
+) -> dict[str, Any]:
+    correct_model, wrong_model = _disagreement_category_models(category_name)
+    items = category.get("items", [])
+    if not isinstance(items, list):
+        raise ValueError(f"disagreement category items must be a list: {category_name}")
+
+    bucket_counts: dict[str, dict[str, int | float | None]] = {}
+    pair_counts: Counter[tuple[str, str, str]] = Counter()
+    correct_margins: list[float] = []
+    wrong_margins: list[float] = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        for bucket_name, enabled in item.get("defense_buckets", {}).items():
+            stats = bucket_counts.setdefault(bucket_name, {"true": 0, "false": 0})
+            stats["true" if enabled else "false"] += 1
+        actual = str(item.get("actual_discard"))
+        predictions = item.get("predictions", {})
+        if isinstance(predictions, dict):
+            correct_prediction = str(predictions.get(correct_model))
+            wrong_prediction = str(predictions.get(wrong_model))
+            pair_counts[(actual, correct_prediction, wrong_prediction)] += 1
+            correct_margin = _correct_model_margin(item, correct_model, actual)
+            wrong_margin = _wrong_model_margin(item, wrong_model, actual, wrong_prediction)
+            if correct_margin is not None:
+                correct_margins.append(correct_margin)
+            if wrong_margin is not None:
+                wrong_margins.append(wrong_margin)
+
+    return {
+        "count": category["count"],
+        "stored_items": len(items),
+        "correct_model": correct_model,
+        "wrong_model": wrong_model,
+        "defense_buckets": {
+            bucket_name: _boolean_bucket_summary(stats)
+            for bucket_name, stats in sorted(bucket_counts.items())
+        },
+        "actual_prediction_pairs": [
+            {
+                "actual": actual,
+                "correct_prediction": correct_prediction,
+                "wrong_prediction": wrong_prediction,
+                "examples": count,
+            }
+            for (actual, correct_prediction, wrong_prediction), count in sorted(
+                pair_counts.items(),
+                key=lambda pair: (-pair[1], pair[0]),
+            )
+        ],
+        "logit_margins": {
+            "correct_model_actual_margin": _numeric_summary(correct_margins),
+            "wrong_model_error_margin": _numeric_summary(wrong_margins),
+        },
+    }
+
+
 def _summary_buckets(models: dict[str, Any]) -> dict[str, Any]:
     return {
         bucket_label: {
@@ -418,6 +645,7 @@ def _summary_buckets(models: dict[str, Any]) -> dict[str, Any]:
                 bucket=bucket,
             )
             for model_name in DISCARD_BENCHMARK_BUCKET_MODELS
+            if model_name in models
         }
         for bucket_label, (analysis_key, bucket) in DISCARD_BENCHMARK_BUCKETS.items()
     }
@@ -437,6 +665,136 @@ def _bucket_stats(
         "correct": stats["correct"],
         "examples": stats["examples"],
     }
+
+
+def _discard_ablation(models: dict[str, Any]) -> dict[str, float | None]:
+    return {
+        "train_accuracy_lift_over_raw_count": _optional_delta(
+            _model_metric(models, "linear", "train_accuracy"),
+            _model_metric(models, "raw_count_linear", "train_accuracy"),
+        ),
+        "eval_accuracy_lift_over_raw_count": _optional_delta(
+            _model_metric(models, "linear", "eval_accuracy"),
+            _model_metric(models, "raw_count_linear", "eval_accuracy"),
+        ),
+        "risk_context_train_accuracy_lift_over_linear": _optional_delta(
+            _model_metric(models, "risk_context_linear", "train_accuracy"),
+            _model_metric(models, "linear", "train_accuracy"),
+        ),
+        "risk_context_eval_accuracy_lift_over_linear": _optional_delta(
+            _model_metric(models, "risk_context_linear", "eval_accuracy"),
+            _model_metric(models, "linear", "eval_accuracy"),
+        ),
+        "defense_context_train_accuracy_lift_over_risk_context": _optional_delta(
+            _model_metric(models, "defense_context_linear", "train_accuracy"),
+            _model_metric(models, "risk_context_linear", "train_accuracy"),
+        ),
+        "defense_context_eval_accuracy_lift_over_risk_context": _optional_delta(
+            _model_metric(models, "defense_context_linear", "eval_accuracy"),
+            _model_metric(models, "risk_context_linear", "eval_accuracy"),
+        ),
+        "defense_context_v1_train_accuracy_lift_over_defense_context": _optional_delta(
+            _model_metric(models, "defense_context_v1_linear", "train_accuracy"),
+            _model_metric(models, "defense_context_linear", "train_accuracy"),
+        ),
+        "defense_context_v1_eval_accuracy_lift_over_defense_context": _optional_delta(
+            _model_metric(models, "defense_context_v1_linear", "eval_accuracy"),
+            _model_metric(models, "defense_context_linear", "eval_accuracy"),
+        ),
+    }
+
+
+def _model_metric(
+    models: dict[str, Any],
+    model_name: str,
+    metric_name: str,
+) -> float | None:
+    model = models.get(model_name)
+    if model is None:
+        return None
+    return model.get("metrics", {}).get(metric_name)
+
+
+def _disagreement_category_models(category_name: str) -> tuple[str, str]:
+    if category_name == "risk_correct_defense_wrong":
+        return "risk_context_linear", "defense_context_linear"
+    if category_name == "risk_correct_defense_v1_wrong":
+        return "risk_context_linear", "defense_context_v1_linear"
+    if category_name == "defense_correct_risk_wrong":
+        return "defense_context_linear", "risk_context_linear"
+    if category_name == "defense_v1_correct_risk_wrong":
+        return "defense_context_v1_linear", "risk_context_linear"
+    raise ValueError(f"unsupported disagreement category: {category_name}")
+
+
+def _boolean_bucket_summary(stats: dict[str, int | float | None]) -> dict[str, int | float | None]:
+    true_count = int(stats.get("true", 0) or 0)
+    false_count = int(stats.get("false", 0) or 0)
+    examples = true_count + false_count
+    return {
+        "true": true_count,
+        "false": false_count,
+        "examples": examples,
+        "true_rate": None if examples == 0 else true_count / examples,
+    }
+
+
+def _correct_model_margin(
+    item: dict[str, Any],
+    model_name: str,
+    actual: str,
+) -> float | None:
+    logits = _item_logits(item, model_name)
+    if actual not in logits or len(logits) < 2:
+        return None
+    best_other = max(
+        logit
+        for tile, logit in logits.items()
+        if tile != actual
+    )
+    return logits[actual] - best_other
+
+
+def _wrong_model_margin(
+    item: dict[str, Any],
+    model_name: str,
+    actual: str,
+    wrong_prediction: str,
+) -> float | None:
+    logits = _item_logits(item, model_name)
+    if actual not in logits or wrong_prediction not in logits:
+        return None
+    return logits[wrong_prediction] - logits[actual]
+
+
+def _item_logits(item: dict[str, Any], model_name: str) -> dict[str, float]:
+    candidate_logits = item.get("candidate_logits", {})
+    if not isinstance(candidate_logits, dict):
+        return {}
+    model_logits = candidate_logits.get(model_name, [])
+    if not isinstance(model_logits, list):
+        return {}
+    parsed: dict[str, float] = {}
+    for entry in model_logits:
+        if isinstance(entry, dict) and "tile" in entry and "logit" in entry:
+            parsed[str(entry["tile"])] = float(entry["logit"])
+    return parsed
+
+
+def _numeric_summary(values: Sequence[float]) -> dict[str, float | int | None]:
+    if not values:
+        return {"count": 0, "min": None, "max": None, "mean": None}
+    return {
+        "count": len(values),
+        "min": min(values),
+        "max": max(values),
+        "mean": sum(values) / len(values),
+    }
+
+
+def _summary_mean(summary: dict[str, Any]) -> float | None:
+    mean = summary.get("mean")
+    return None if mean is None else float(mean)
 
 
 def _parse_failure_payload(failures: Sequence[TenhouParseFailure]) -> dict[str, Any]:
