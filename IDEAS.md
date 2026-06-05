@@ -464,21 +464,23 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Improve `call-linear-v0` with better open-call features before scaling: exact chi-shape feature
-   variants, open-meld-aware shanten/ukeire proxies, and possibly class weighting or thresholded
-   call/pass calibration.
-2. Build `riichi-linear-v0` using the conservative riichi/pass examples; the current frequency
-   floor has 0.0000 riichi recall on the 100-log local split.
-3. Do not change discard defense features yet. If continuing discard work, first tag a larger sample
-   of rendered disagreement examples into defense-like, efficiency-like, and close-logit/noisy
-   groups.
-4. Add feature normalization behind a new discard model kind only if rendered disagreement examples
-   or weight summaries point to linear scale instability; do not mutate existing feature profiles.
+1. Calibrate the new `call-linear-v1` tradeoff before scaling: it improves balanced accuracy and
+   call recall on the 100-log slice, but lowers aggregate/pass recall versus `call-linear-v0`.
+   Next knobs should be class weighting, thresholded call/pass selection, or a report-only
+   precision/recall curve rather than mutating the v1 feature profile.
+2. Calibrate `riichi-linear-v0`: it fixes the frequency floor's 0.0000 riichi recall, but currently
+   overcalls riichi enough to lower aggregate accuracy. Add class weighting or threshold sweeps and
+   report riichi precision/recall before adding more features.
+3. Use the new disagreement tags before changing discard features. The latest capped 100-log sample
+   is dominated by efficiency-preserving and close-logit cases, so do not add another defense
+   profile until a tag-specific sample points to a concrete feature gap.
+4. Add feature normalization behind a new discard model kind only if tagged examples or weight
+   summaries point to linear scale instability; do not mutate existing feature profiles.
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-6. Scale to larger local slices, such as 500 logs, only after call-linear and riichi-linear have
-   stable diagnostics on the 100-log slice.
+6. Scale to larger local slices, such as 500 logs, only after call and riichi calibration reports are
+   stable on the 100-log slice.
 
 ---
 
@@ -691,3 +693,28 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Ran the first 100-log riichi benchmark: 2,039 riichi/pass examples with `riichi-frequency-v0` at
   0.6618 eval accuracy, 0.5000 balanced eval accuracy, 1.0000 pass recall, and 0.0000 riichi
   recall.
+
+### 2026-06-06
+
+- Added `call-linear-v1` as an additive call feature profile rather than mutating
+  `call-linear-v0`. V1 appends exact chi-position flags, consumed-tile/open-call proxies,
+  shanten-improvement indicators, cached ukeire proxies, discarded-tile visibility, and
+  terminal/honor flags while keeping the v0 kind and 120-feature prefix stable.
+- Extended `benchmark-call` to report `call_linear_v1` beside the existing call baselines.
+- Added `riichi-linear-v0`, a dependency-free masked softmax model over conservative riichi/pass
+  examples with hand/visible counts, score, dealer, turn, active-riichi, river-count, shanten, and
+  hand-shape features.
+- Extended `benchmark-riichi` with linear training knobs and a `riichi_linear` report payload.
+- Added `disagreement-report-summary --tags`, which derives deterministic stored-example tags:
+  `defense_signal`, `efficiency_like`, `close_logit`, `active_riichi`, `safe_tile_candidate`, and
+  `no_obvious_signal`.
+- Re-ran fixture smoke benchmarks and the 100-log local call/riichi benchmarks. On the 100-log call
+  split, `call-linear-v1` scored 0.8359 eval accuracy, 0.7103 balanced eval accuracy, 0.8848 pass
+  recall, and 0.5358 call recall versus v0 at 0.8448 / 0.6822 / 0.9082 / 0.4562.
+- On the 100-log riichi split, `riichi-linear-v0` scored 0.5270 eval accuracy, 0.5945 balanced eval
+  accuracy, 0.3189 pass recall, and 0.8701 riichi recall, while `riichi-frequency-v0` remained the
+  pass-only floor at 0.6225 eval accuracy, 0.5000 balanced accuracy, 1.0000 pass recall, and 0.0000
+  riichi recall.
+- The tagged current-best discard disagreement sample (`lr=0.05`, `l2=0.0`) has 400 stored
+  examples: 373 efficiency-like, 336 close-logit, 130 active-riichi, 130 safe-tile-candidate, and
+  82 defense-signal tags. No stored item fell into `no_obvious_signal` under the current rules.

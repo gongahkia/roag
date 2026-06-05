@@ -29,7 +29,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 5 --models fast --report runs/discard-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/discard-benchmark.json
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/discard-disagreements.json --examples 2
+  runs/discard-disagreements.json --examples 2 --tags
 PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --report runs/call-benchmark.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
@@ -46,10 +46,11 @@ riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi
 Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
 disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
 `benchmark-report-summary` to compare ignored benchmark reports, and
-`disagreement-report-summary` to aggregate and render capped disagreement examples. `benchmark-call`
-provides supervised call/pass baselines on existing call examples, including a selective
-`call-linear-v0` model and imbalance-aware accuracy and recall metrics. `benchmark-riichi`
-provides the first conservative supervised riichi/pass report.
+`disagreement-report-summary` to aggregate, tag, and render capped disagreement examples.
+`benchmark-call` provides supervised call/pass baselines on existing call examples, including
+selective `call-linear-v0` and richer additive `call-linear-v1` models plus imbalance-aware
+accuracy and recall metrics. `benchmark-riichi` provides conservative supervised riichi/pass
+reports for both the frequency floor and `riichi-linear-v0`.
 
 For continuation context, see `docs/session-handoff.md`.
 

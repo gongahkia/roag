@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from math import exp
 
 from kenjaku.core import ActionKind, TileType, all_tile_types, shanten
 from kenjaku.models.call_frequency import CALL_DECISION_KINDS
 from kenjaku.training import CallExample
 
+CALL_LINEAR_V0_FEATURE_PROFILE = "v0"
+CALL_LINEAR_V1_FEATURE_PROFILE = "v1"
 CALL_LINEAR_MODEL_KIND = "call-linear-v0"
+CALL_LINEAR_V1_MODEL_KIND = "call-linear-v1"
 
 _NON_PASS_CALL_KINDS = (ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN)
 _TILE_FEATURE_NAMES = tuple(tile_type.notation for tile_type in all_tile_types())
-CALL_LINEAR_FEATURE_NAMES = (
+_CALL_LINEAR_V0_FEATURE_NAMES = (
     "bias",
     *(f"candidate_{kind.value}" for kind in CALL_DECISION_KINDS),
     *(f"discarded_{name}" for name in _TILE_FEATURE_NAMES),
@@ -29,13 +33,70 @@ CALL_LINEAR_FEATURE_NAMES = (
     "after_shanten_proxy",
     "shanten_delta_proxy",
 )
+CALL_LINEAR_FEATURE_NAMES = _CALL_LINEAR_V0_FEATURE_NAMES
 CALL_LINEAR_FEATURE_DIM = len(CALL_LINEAR_FEATURE_NAMES)
+_CALL_LINEAR_V1_EXTRA_FEATURE_NAMES = (
+    "candidate_non_pass",
+    "candidate_chi_left",
+    "candidate_chi_middle",
+    "candidate_chi_right",
+    "candidate_consumed_fraction",
+    "after_call_tile_count",
+    "shanten_improved_proxy",
+    "shanten_same_proxy",
+    "shanten_worsened_proxy",
+    "before_ukeire_proxy",
+    "after_ukeire_proxy",
+    "ukeire_delta_proxy",
+    "discarded_visible_count",
+    "discarded_unseen_count",
+    "discarded_is_honor",
+    "discarded_is_terminal",
+    "discarded_is_terminal_or_honor",
+)
+CALL_LINEAR_V1_FEATURE_NAMES = (
+    *_CALL_LINEAR_V0_FEATURE_NAMES,
+    *_CALL_LINEAR_V1_EXTRA_FEATURE_NAMES,
+)
+CALL_LINEAR_V1_FEATURE_DIM = len(CALL_LINEAR_V1_FEATURE_NAMES)
+
+
+@dataclass(frozen=True, slots=True)
+class _FeatureProfile:
+    name: str
+    model_kind: str
+    feature_names: tuple[str, ...]
+
+    @property
+    def feature_dim(self) -> int:
+        return len(self.feature_names)
+
+
+_FEATURE_PROFILES = {
+    CALL_LINEAR_V0_FEATURE_PROFILE: _FeatureProfile(
+        name=CALL_LINEAR_V0_FEATURE_PROFILE,
+        model_kind=CALL_LINEAR_MODEL_KIND,
+        feature_names=CALL_LINEAR_FEATURE_NAMES,
+    ),
+    CALL_LINEAR_V1_FEATURE_PROFILE: _FeatureProfile(
+        name=CALL_LINEAR_V1_FEATURE_PROFILE,
+        model_kind=CALL_LINEAR_V1_MODEL_KIND,
+        feature_names=CALL_LINEAR_V1_FEATURE_NAMES,
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
 class _PreparedCallExample:
     target: ActionKind
     features_by_kind: dict[ActionKind, tuple[float, ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidateProxy:
+    after_counts: tuple[int, ...]
+    consumed_count: int
+    chi_shape: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,12 +107,14 @@ class CallLinearModel:
     epochs: int
     learning_rate: float
     l2: float = 0.0
+    feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE
 
     def __post_init__(self) -> None:
+        profile = _feature_profile(self.feature_profile)
         if len(self.weights) != len(CALL_DECISION_KINDS):
             raise ValueError("call linear model has unsupported output rows")
-        if any(len(row) != CALL_LINEAR_FEATURE_DIM for row in self.weights):
-            raise ValueError(f"call linear model rows must have {CALL_LINEAR_FEATURE_DIM} features")
+        if any(len(row) != profile.feature_dim for row in self.weights):
+            raise ValueError(f"call linear model rows must have {profile.feature_dim} features")
         if self.epochs <= 0:
             raise ValueError("epochs must be positive")
         if self.learning_rate <= 0:
@@ -67,6 +130,7 @@ class CallLinearModel:
         epochs: int = 25,
         learning_rate: float = 0.1,
         l2: float = 0.0,
+        feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE,
     ) -> CallLinearModel:
         if not examples:
             raise ValueError("cannot train on zero examples")
@@ -77,8 +141,9 @@ class CallLinearModel:
         if l2 < 0:
             raise ValueError("l2 must be non-negative")
 
-        weights = [[0.0] * CALL_LINEAR_FEATURE_DIM for _ in CALL_DECISION_KINDS]
-        prepared_examples = [_prepare_example(example) for example in examples]
+        profile = _feature_profile(feature_profile)
+        weights = [[0.0] * profile.feature_dim for _ in CALL_DECISION_KINDS]
+        prepared_examples = [_prepare_example(example, profile=profile) for example in examples]
         for _ in range(epochs):
             for example in prepared_examples:
                 _apply_update(
@@ -93,18 +158,27 @@ class CallLinearModel:
             epochs=epochs,
             learning_rate=learning_rate,
             l2=l2,
+            feature_profile=profile.name,
         )
 
     @property
     def kind(self) -> str:
-        return CALL_LINEAR_MODEL_KIND
+        return _feature_profile(self.feature_profile).model_kind
 
     @property
     def feature_dim(self) -> int:
-        return CALL_LINEAR_FEATURE_DIM
+        return _feature_profile(self.feature_profile).feature_dim
+
+    @property
+    def feature_names(self) -> tuple[str, ...]:
+        return _feature_profile(self.feature_profile).feature_names
+
+    @staticmethod
+    def feature_names_for_profile(feature_profile: str) -> tuple[str, ...]:
+        return _feature_profile(feature_profile).feature_names
 
     def predict(self, example: CallExample) -> ActionKind:
-        prepared = _prepare_example(example)
+        prepared = _prepare_example(example, profile=_feature_profile(self.feature_profile))
         logits = {
             kind: _dot(self.weights[_kind_index(kind)], features)
             for kind, features in prepared.features_by_kind.items()
@@ -118,7 +192,7 @@ class CallLinearModel:
         return correct / len(examples)
 
 
-def _prepare_example(example: CallExample) -> _PreparedCallExample:
+def _prepare_example(example: CallExample, *, profile: _FeatureProfile) -> _PreparedCallExample:
     if example.action.kind not in CALL_DECISION_KINDS:
         raise ValueError(f"unsupported call action kind: {example.action.kind.value}")
     candidates = _candidate_kinds(example)
@@ -127,7 +201,7 @@ def _prepare_example(example: CallExample) -> _PreparedCallExample:
     return _PreparedCallExample(
         target=example.action.kind,
         features_by_kind={
-            kind: _features_for_candidate(example, kind)
+            kind: _features_for_candidate(example, kind, profile=profile)
             for kind in candidates
         },
     )
@@ -141,12 +215,23 @@ def _candidate_kinds(example: CallExample) -> tuple[ActionKind, ...]:
     return tuple(candidates)
 
 
-def _features_for_candidate(example: CallExample, kind: ActionKind) -> tuple[float, ...]:
+def _features_for_candidate(
+    example: CallExample,
+    kind: ActionKind,
+    *,
+    profile: _FeatureProfile,
+) -> tuple[float, ...]:
     discarded_index = example.discarded_tile.type.index
     before_shanten = _safe_shanten(example.hand_counts)
-    after_shanten = _after_shanten_proxy(example, kind, before_shanten)
+    proxy = _candidate_proxy(
+        example,
+        kind,
+        prefer_ukeire_tiebreaker=profile.name == CALL_LINEAR_V1_FEATURE_PROFILE,
+    )
+    after_shanten = _safe_shanten(proxy.after_counts)
     players = max(4, len(example.scores), example.seat + 1, example.from_seat + 1)
     from_offset = (example.from_seat - example.seat) % players
+    discarded_type = example.discarded_tile.type
 
     features: list[float] = [1.0]
     features.extend(1.0 if kind == candidate else 0.0 for candidate in CALL_DECISION_KINDS)
@@ -163,36 +248,131 @@ def _features_for_candidate(example: CallExample, kind: ActionKind) -> tuple[flo
     features.append(after_shanten / 8.0)
     features.append((after_shanten - before_shanten) / 8.0)
 
-    if len(features) != CALL_LINEAR_FEATURE_DIM:
+    if profile.name == CALL_LINEAR_V1_FEATURE_PROFILE:
+        before_ukeire = _ukeire_proxy(example.hand_counts)
+        after_ukeire = _ukeire_proxy(proxy.after_counts)
+        shanten_delta = after_shanten - before_shanten
+        features.extend(
+            (
+                1.0 if kind != ActionKind.PASS else 0.0,
+                1.0 if proxy.chi_shape == "left" else 0.0,
+                1.0 if proxy.chi_shape == "middle" else 0.0,
+                1.0 if proxy.chi_shape == "right" else 0.0,
+                proxy.consumed_count / 3.0,
+                sum(proxy.after_counts) / 14.0,
+                1.0 if shanten_delta < 0 else 0.0,
+                1.0 if shanten_delta == 0 else 0.0,
+                1.0 if shanten_delta > 0 else 0.0,
+                before_ukeire / 34.0,
+                after_ukeire / 34.0,
+                (after_ukeire - before_ukeire) / 34.0,
+                example.visible_counts[discarded_index] / 4.0,
+                max(0, 4 - example.visible_counts[discarded_index]) / 4.0,
+                1.0 if discarded_type.is_honor else 0.0,
+                1.0 if discarded_type.is_terminal else 0.0,
+                1.0 if discarded_type.is_terminal_or_honor else 0.0,
+            )
+        )
+
+    if len(features) != profile.feature_dim:
         raise ValueError("call linear feature construction drifted from feature names")
     return tuple(features)
 
 
 def _after_shanten_proxy(example: CallExample, kind: ActionKind, before_shanten: int) -> int:
+    return _safe_shanten(
+        _candidate_proxy(
+            example,
+            kind,
+            prefer_ukeire_tiebreaker=False,
+        ).after_counts
+    )
+
+
+def _candidate_proxy(
+    example: CallExample,
+    kind: ActionKind,
+    *,
+    prefer_ukeire_tiebreaker: bool,
+) -> _CandidateProxy:
     if kind == ActionKind.PASS:
-        return before_shanten
-    remainder_options = _candidate_remainder_counts(example, kind)
-    if not remainder_options:
-        return before_shanten
-    return min(_safe_shanten(counts) for counts in remainder_options)
+        return _CandidateProxy(
+            after_counts=example.hand_counts,
+            consumed_count=0,
+            chi_shape=None,
+        )
+    options = _candidate_remainder_options(example, kind)
+    if not options:
+        return _CandidateProxy(
+            after_counts=example.hand_counts,
+            consumed_count=0,
+            chi_shape=None,
+        )
+
+    def key(proxy: _CandidateProxy) -> tuple[int, int, int]:
+        ukeire = _ukeire_proxy(proxy.after_counts) if prefer_ukeire_tiebreaker else 0
+        return (
+            _safe_shanten(proxy.after_counts),
+            -ukeire,
+            _chi_shape_index(proxy.chi_shape),
+        )
+
+    return min(options, key=key)
 
 
 def _candidate_remainder_counts(
     example: CallExample,
     kind: ActionKind,
 ) -> tuple[tuple[int, ...], ...]:
+    return tuple(proxy.after_counts for proxy in _candidate_remainder_options(example, kind))
+
+
+def _candidate_remainder_options(
+    example: CallExample,
+    kind: ActionKind,
+) -> tuple[_CandidateProxy, ...]:
     discarded_index = example.discarded_tile.type.index
     if kind == ActionKind.PON:
-        return _remove_counts(example.hand_counts, ((discarded_index, 2),))
+        return _call_proxy_options(
+            example.hand_counts,
+            ((discarded_index, 2),),
+            chi_shape=None,
+        )
     if kind == ActionKind.MINKAN:
-        return _remove_counts(example.hand_counts, ((discarded_index, 3),))
+        return _call_proxy_options(
+            example.hand_counts,
+            ((discarded_index, 3),),
+            chi_shape=None,
+        )
     if kind == ActionKind.CHI:
         return tuple(
-            counts
+            proxy
             for removals in _chi_removals(example.discarded_tile.type, example.hand_counts)
-            for counts in _remove_counts(example.hand_counts, removals)
+            for proxy in _call_proxy_options(
+                example.hand_counts,
+                removals,
+                chi_shape=_chi_shape(example.discarded_tile.type, removals),
+            )
         )
     return ()
+
+
+def _call_proxy_options(
+    counts: tuple[int, ...],
+    removals: tuple[tuple[int, int], ...],
+    *,
+    chi_shape: str | None,
+) -> tuple[_CandidateProxy, ...]:
+    remainder_options = _remove_counts(counts, removals)
+    consumed_count = sum(amount for _, amount in removals)
+    return tuple(
+        _CandidateProxy(
+            after_counts=after_counts,
+            consumed_count=consumed_count,
+            chi_shape=chi_shape,
+        )
+        for after_counts in remainder_options
+    )
 
 
 def _chi_removals(
@@ -226,6 +406,46 @@ def _remove_counts(
             return ()
         next_counts[tile_index] -= amount
     return (tuple(next_counts),)
+
+
+def _chi_shape(
+    discarded_type: TileType,
+    removals: tuple[tuple[int, int], ...],
+) -> str | None:
+    if discarded_type.is_honor:
+        return None
+    removed_indices = tuple(index for index, _ in removals)
+    if len(removed_indices) != 2:
+        return None
+    sequence_indices = sorted((*removed_indices, discarded_type.index))
+    if sequence_indices != list(range(sequence_indices[0], sequence_indices[0] + 3)):
+        return None
+    position = sequence_indices.index(discarded_type.index)
+    return ("left", "middle", "right")[position]
+
+
+def _chi_shape_index(chi_shape: str | None) -> int:
+    if chi_shape == "left":
+        return 0
+    if chi_shape == "middle":
+        return 1
+    if chi_shape == "right":
+        return 2
+    return 3
+
+
+@cache
+def _ukeire_proxy(counts: tuple[int, ...]) -> int:
+    before_shanten = _safe_shanten(counts)
+    total = 0
+    for index, count in enumerate(counts):
+        if count >= 4:
+            continue
+        next_counts = list(counts)
+        next_counts[index] += 1
+        if _safe_shanten(tuple(next_counts)) < before_shanten:
+            total += 1
+    return total
 
 
 def _safe_shanten(counts: tuple[int, ...]) -> int:
@@ -276,3 +496,10 @@ def _kind_index(kind: ActionKind) -> int:
     if kind not in CALL_DECISION_KINDS:
         raise ValueError(f"unsupported call decision kind: {kind.value}")
     return CALL_DECISION_KINDS.index(kind)
+
+
+def _feature_profile(name: str) -> _FeatureProfile:
+    try:
+        return _FEATURE_PROFILES[name]
+    except KeyError as exc:
+        raise ValueError(f"unsupported call linear feature profile: {name}") from exc

@@ -70,7 +70,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanch
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/discard-disagreements-local.json --examples 2
+  runs/discard-disagreements-local.json --examples 2 --tags
 
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan \
   --eval-fraction 0.2 \
@@ -112,11 +112,13 @@ debugging; it requires the risk, defense, and defense-v1 models.
 
 Use `benchmark-report-summary` to compare multiple ignored benchmark JSON reports without copying
 raw logs or full report artifacts into git. Use `disagreement-report-summary --examples N` to
-compare capped disagreement artifacts and print representative stored examples. `benchmark-call`
-scores pass-allowed frequency, legal-call-only frequency, and `call-linear-v0` baselines, and
-reports overall accuracy, balanced accuracy, pass recall, call recall, and per-action recall so
-pass/call imbalance is visible. `benchmark-riichi` builds a conservative riichi/pass dataset and
-scores the first frequency baseline for that decision surface.
+compare capped disagreement artifacts and print representative stored examples; add `--tags` to
+also count deterministic `defense_signal`, `efficiency_like`, `close_logit`, active-riichi, and
+safe-tile labels. `benchmark-call` scores pass-allowed frequency, legal-call-only frequency,
+`call-linear-v0`, and additive `call-linear-v1` baselines, and reports overall accuracy, balanced
+accuracy, pass recall, call recall, and per-action recall so pass/call imbalance is visible.
+`benchmark-riichi` builds a conservative riichi/pass dataset and scores both the frequency floor
+and `riichi-linear-v0` for that decision surface.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

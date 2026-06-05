@@ -23,6 +23,7 @@ from kenjaku.experiments import (
 from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.models import (
     CALL_DECISION_KINDS,
+    CALL_LINEAR_V1_FEATURE_PROFILE,
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
@@ -35,6 +36,7 @@ from kenjaku.models import (
     DiscardFrequencyBaseline,
     DiscardLinearModel,
     RiichiFrequencyBaseline,
+    RiichiLinearModel,
 )
 from kenjaku.training import (
     actual_discard_has_kabe,
@@ -82,6 +84,22 @@ DISAGREEMENT_REQUIRED_MODELS = (
     "defense_context_linear",
     "defense_context_v1_linear",
 )
+DISAGREEMENT_TAGS = (
+    "defense_signal",
+    "efficiency_like",
+    "close_logit",
+    "active_riichi",
+    "safe_tile_candidate",
+    "no_obvious_signal",
+)
+DISAGREEMENT_SAFE_TILE_BUCKETS = (
+    "genbutsu",
+    "suji",
+    "kabe",
+    "one_chance",
+    "seen_after_riichi",
+)
+DISAGREEMENT_CLOSE_LOGIT_MARGIN = 0.25
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -284,6 +302,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="append this many stored representative examples per category in text mode",
     )
+    disagreement_summary.add_argument(
+        "--tags",
+        action="store_true",
+        help="append deterministic disagreement tag counts from stored examples",
+    )
     disagreement_summary.set_defaults(func=_disagreement_report_summary)
 
     benchmark_call = subparsers.add_parser(
@@ -353,6 +376,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--split-seed",
         default="kenjaku-v0",
         help="stable seed for deterministic train/eval split",
+    )
+    benchmark_riichi.add_argument("--epochs", type=int, default=25, help="riichi linear model epochs")
+    benchmark_riichi.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="riichi linear model SGD learning rate",
+    )
+    benchmark_riichi.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="riichi linear model L2 regularization strength",
     )
     benchmark_riichi.add_argument(
         "--report",
@@ -760,17 +796,34 @@ def _disagreement_report_summary(args: argparse.Namespace) -> int:
     if args.examples < 0:
         raise SystemExit("--examples must be non-negative")
     summary = build_discard_disagreement_summary(args.reports)
+    tag_summary = _build_disagreement_tag_summary(args.reports) if args.tags else None
+    if tag_summary is not None:
+        summary["tags"] = tag_summary
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
         print(format_discard_disagreement_summary(summary))
+        if tag_summary is not None:
+            print()
+            print(_format_disagreement_tag_summary(tag_summary))
         if args.examples:
             print()
-            print(_format_disagreement_examples(args.reports, args.examples))
+            print(
+                _format_disagreement_examples(
+                    args.reports,
+                    args.examples,
+                    include_tags=args.tags,
+                )
+            )
     return 0
 
 
-def _format_disagreement_examples(paths: Sequence[Path], examples_per_category: int) -> str:
+def _format_disagreement_examples(
+    paths: Sequence[Path],
+    examples_per_category: int,
+    *,
+    include_tags: bool = False,
+) -> str:
     lines: list[str] = ["examples:"]
     for path in paths:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -795,6 +848,7 @@ def _format_disagreement_examples(paths: Sequence[Path], examples_per_category: 
                         index=index,
                         correct_model=correct_model,
                         wrong_model=wrong_model,
+                        include_tags=include_tags,
                     )
                 )
     return "\n".join(lines)
@@ -806,6 +860,7 @@ def _format_disagreement_item(
     index: int,
     correct_model: str,
     wrong_model: str,
+    include_tags: bool = False,
 ) -> list[str]:
     predictions = item.get("predictions", {})
     if not isinstance(predictions, dict):
@@ -827,6 +882,9 @@ def _format_disagreement_item(
             for name, enabled in sorted(buckets.items())
         ]
         lines.append("     buckets: " + ", ".join(bucket_parts))
+    if include_tags:
+        tags = _disagreement_item_tags(item, correct_model=correct_model, wrong_model=wrong_model)
+        lines.append("     tags: " + ", ".join(tags))
     logit_parts = [
         _format_top_logits(item, model_name)
         for model_name in (correct_model, wrong_model)
@@ -835,6 +893,193 @@ def _format_disagreement_item(
     if logit_parts:
         lines.append("     logits: " + "; ".join(logit_parts))
     return lines
+
+
+def _build_disagreement_tag_summary(paths: Sequence[Path]) -> dict[str, Any]:
+    reports: list[dict[str, Any]] = []
+    for path in paths:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        report_overall = _empty_disagreement_tag_counts()
+        report_categories: dict[str, dict[str, int]] = {}
+        categories = payload.get("categories", {})
+        if isinstance(categories, dict):
+            for category_name, category in categories.items():
+                if not isinstance(category, dict):
+                    continue
+                counts = _empty_disagreement_tag_counts()
+                correct_model, wrong_model = _disagreement_category_models(category_name)
+                items = category.get("items", [])
+                if isinstance(items, list):
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        tags = _disagreement_item_tags(
+                            item,
+                            correct_model=correct_model,
+                            wrong_model=wrong_model,
+                        )
+                        _record_disagreement_tags(counts, tags)
+                        _record_disagreement_tags(report_overall, tags)
+                report_categories[category_name] = counts
+        reports.append(
+            {
+                "path": str(path),
+                "categories": report_categories,
+                "overall": report_overall,
+            }
+        )
+    return {
+        "kind": "kenjaku-discard-disagreement-tags-v0",
+        "reports": reports,
+    }
+
+
+def _format_disagreement_tag_summary(summary: dict[str, Any]) -> str:
+    lines = ["tags:"]
+    for report in summary.get("reports", []):
+        if not isinstance(report, dict):
+            continue
+        lines.append(f"report: {report.get('path', 'unknown')}")
+        categories = report.get("categories", {})
+        if isinstance(categories, dict):
+            for category_name, counts in categories.items():
+                if isinstance(counts, dict):
+                    lines.append(f"{category_name}: {_format_disagreement_tag_counts(counts)}")
+        overall = report.get("overall", {})
+        if isinstance(overall, dict):
+            lines.append(f"overall: {_format_disagreement_tag_counts(overall)}")
+    return "\n".join(lines)
+
+
+def _format_disagreement_tag_counts(counts: dict[str, Any]) -> str:
+    keys = ("stored", *DISAGREEMENT_TAGS)
+    return " ".join(f"{key}={int(counts.get(key, 0))}" for key in keys)
+
+
+def _empty_disagreement_tag_counts() -> dict[str, int]:
+    return {
+        "stored": 0,
+        **{tag: 0 for tag in DISAGREEMENT_TAGS},
+    }
+
+
+def _record_disagreement_tags(counts: dict[str, int], tags: tuple[str, ...]) -> None:
+    counts["stored"] += 1
+    for tag in tags:
+        counts[tag] += 1
+
+
+def _disagreement_item_tags(
+    item: dict[str, Any],
+    *,
+    correct_model: str,
+    wrong_model: str,
+) -> tuple[str, ...]:
+    buckets = item.get("defense_buckets", {})
+    if not isinstance(buckets, dict):
+        buckets = {}
+    active_riichi = bool(buckets.get("active_riichi_opponent"))
+    safe_tile_candidate = any(bool(buckets.get(name)) for name in DISAGREEMENT_SAFE_TILE_BUCKETS)
+    defense_signal = active_riichi and safe_tile_candidate
+    efficiency_like = _disagreement_preserves_efficiency(item)
+    close_logit = _disagreement_close_logit(
+        item,
+        correct_model=correct_model,
+        wrong_model=wrong_model,
+    )
+
+    tags: list[str] = []
+    if defense_signal:
+        tags.append("defense_signal")
+    if efficiency_like:
+        tags.append("efficiency_like")
+    if close_logit:
+        tags.append("close_logit")
+    if active_riichi:
+        tags.append("active_riichi")
+    if safe_tile_candidate:
+        tags.append("safe_tile_candidate")
+    if not tags:
+        tags.append("no_obvious_signal")
+    return tuple(tags)
+
+
+def _disagreement_preserves_efficiency(item: dict[str, Any]) -> bool:
+    shanten_delta = item.get("shanten_delta", {})
+    if not isinstance(shanten_delta, dict):
+        return False
+    try:
+        return float(shanten_delta.get("delta", 1.0)) <= 0.0
+    except (TypeError, ValueError):
+        return False
+
+
+def _disagreement_close_logit(
+    item: dict[str, Any],
+    *,
+    correct_model: str,
+    wrong_model: str,
+) -> bool:
+    actual = item.get("actual_discard")
+    if not isinstance(actual, str):
+        return False
+    predictions = item.get("predictions", {})
+    if not isinstance(predictions, dict):
+        predictions = {}
+    return (
+        _model_actual_margin_is_close(item, correct_model, actual)
+        or _model_error_margin_is_close(
+            item,
+            wrong_model,
+            actual,
+            prediction=predictions.get(wrong_model),
+        )
+    )
+
+
+def _model_actual_margin_is_close(
+    item: dict[str, Any],
+    model_name: str,
+    actual: str,
+) -> bool:
+    logits = _logits_by_tile(item, model_name)
+    if actual not in logits or len(logits) < 2:
+        return False
+    best_other = max(logit for tile, logit in logits.items() if tile != actual)
+    return abs(logits[actual] - best_other) <= DISAGREEMENT_CLOSE_LOGIT_MARGIN
+
+
+def _model_error_margin_is_close(
+    item: dict[str, Any],
+    model_name: str,
+    actual: str,
+    *,
+    prediction: Any,
+) -> bool:
+    if not isinstance(prediction, str):
+        return False
+    logits = _logits_by_tile(item, model_name)
+    if actual not in logits or prediction not in logits:
+        return False
+    return abs(logits[prediction] - logits[actual]) <= DISAGREEMENT_CLOSE_LOGIT_MARGIN
+
+
+def _logits_by_tile(item: dict[str, Any], model_name: str) -> dict[str, float]:
+    candidate_logits = item.get("candidate_logits", {})
+    if not isinstance(candidate_logits, dict):
+        return {}
+    entries = candidate_logits.get(model_name, [])
+    if not isinstance(entries, list):
+        return {}
+    parsed: dict[str, float] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or "tile" not in entry or "logit" not in entry:
+            continue
+        try:
+            parsed[str(entry["tile"])] = float(entry["logit"])
+        except (TypeError, ValueError):
+            continue
+    return parsed
 
 
 def _format_top_logits(item: dict[str, Any], model_name: str) -> str:
@@ -890,6 +1135,13 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
+        ),
+        "call_linear_v1": CallLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
         ),
     }
     model_payloads = {
@@ -968,6 +1220,7 @@ def _call_model_payload(
     }
     if isinstance(model, CallLinearModel):
         payload["feature_dim"] = model.feature_dim
+        payload["feature_profile"] = model.feature_profile
         payload["training"] = {
             "epochs": epochs,
             "learning_rate": learning_rate,
@@ -1075,13 +1328,25 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
         eval_fraction=args.eval_fraction,
         seed=args.split_seed,
     )
-    model = RiichiFrequencyBaseline.fit(train_examples)
+    riichi_models = {
+        "riichi_frequency": RiichiFrequencyBaseline.fit(train_examples),
+        "riichi_linear": RiichiLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+        ),
+    }
     model_payloads = {
-        "riichi_frequency": _riichi_model_payload(
+        model_name: _riichi_model_payload(
             model,
             train_examples=train_examples,
             eval_examples=eval_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
         )
+        for model_name, model in riichi_models.items()
     }
 
     print(f"examples: {len(examples)}")
@@ -1117,18 +1382,20 @@ RiichiPredictor = Callable[[RiichiExample], ActionKind]
 
 
 def _riichi_model_payload(
-    model: RiichiFrequencyBaseline,
+    model: RiichiFrequencyBaseline | RiichiLinearModel,
     *,
     train_examples: list[RiichiExample],
     eval_examples: list[RiichiExample],
+    epochs: int,
+    learning_rate: float,
+    l2: float,
 ) -> dict[str, Any]:
     train_analysis = _summarize_riichi_predictions(train_examples, model.predict)
     eval_analysis = _summarize_riichi_predictions(eval_examples, model.predict)
     train_metrics = _riichi_metrics(train_analysis)
     eval_metrics = _riichi_metrics(eval_analysis)
-    return {
+    payload: dict[str, Any] = {
         "kind": model.kind,
-        "counts": model.count_by_kind(),
         "metrics": {
             "train_accuracy": train_metrics["accuracy"],
             "eval_accuracy": eval_metrics["accuracy"],
@@ -1144,6 +1411,16 @@ def _riichi_model_payload(
         "train_analysis": train_analysis,
         "eval_analysis": eval_analysis,
     }
+    if isinstance(model, RiichiLinearModel):
+        payload["feature_dim"] = model.feature_dim
+        payload["training"] = {
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "l2": l2,
+        }
+    else:
+        payload["counts"] = model.count_by_kind()
+    return payload
 
 
 def _print_riichi_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:

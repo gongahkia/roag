@@ -568,8 +568,14 @@ class CliTests(unittest.TestCase):
                                 "defense_context_linear": "8m",
                             },
                             "defense_buckets": {
+                                "active_riichi_opponent": True,
                                 "genbutsu": True,
                                 "suji": False,
+                            },
+                            "shanten_delta": {
+                                "before": 2,
+                                "after": 2,
+                                "delta": 0,
                             },
                             "candidate_logits": {
                                 "risk_context_linear": [
@@ -601,21 +607,41 @@ class CliTests(unittest.TestCase):
                     ["disagreement-report-summary", str(report), "--examples", "1"]
                 )
 
+            tags_stdout = io.StringIO()
+            with contextlib.redirect_stdout(tags_stdout):
+                tags_exit_code = main(
+                    ["disagreement-report-summary", str(report), "--examples", "1", "--tags"]
+                )
+
             json_stdout = io.StringIO()
             with contextlib.redirect_stdout(json_stdout):
-                json_exit_code = main(["disagreement-report-summary", str(report), "--json"])
+                json_exit_code = main(
+                    ["disagreement-report-summary", str(report), "--json", "--tags"]
+                )
             summary = json.loads(json_stdout.getvalue())
 
         category = summary["reports"][0]["categories"]["risk_correct_defense_wrong"]
+        tags = summary["tags"]["reports"][0]["categories"]["risk_correct_defense_wrong"]
         self.assertEqual(text_exit_code, 0)
         self.assertIn("risk_correct_defense_wrong: count=1 stored=1", text_stdout.getvalue())
         self.assertEqual(examples_exit_code, 0)
         self.assertIn("examples:", examples_stdout.getvalue())
         self.assertIn("actual=5m", examples_stdout.getvalue())
         self.assertIn("logits:", examples_stdout.getvalue())
+        self.assertEqual(tags_exit_code, 0)
+        self.assertIn("tags:", tags_stdout.getvalue())
+        self.assertIn("defense_signal=1", tags_stdout.getvalue())
+        self.assertIn(
+            "tags: defense_signal, efficiency_like, active_riichi, safe_tile_candidate",
+            tags_stdout.getvalue(),
+        )
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(summary["kind"], "kenjaku-discard-disagreement-summary-v0")
         self.assertEqual(category["defense_buckets"]["genbutsu"]["true"], 1)
+        self.assertEqual(tags["stored"], 1)
+        self.assertEqual(tags["defense_signal"], 1)
+        self.assertEqual(tags["efficiency_like"], 1)
+        self.assertEqual(tags["close_logit"], 0)
         self.assertEqual(category["actual_prediction_pairs"][0]["wrong_prediction"], "8m")
         self.assertEqual(
             category["logit_margins"]["correct_model_actual_margin"]["mean"],
@@ -651,11 +677,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["call_examples"], 1)
         self.assertEqual(
             set(payload["models"]),
-            {"call_frequency", "call_legal_frequency", "call_linear"},
+            {"call_frequency", "call_legal_frequency", "call_linear", "call_linear_v1"},
         )
         frequency = payload["models"]["call_frequency"]
         legal_frequency = payload["models"]["call_legal_frequency"]
         call_linear = payload["models"]["call_linear"]
+        call_linear_v1 = payload["models"]["call_linear_v1"]
         self.assertEqual(frequency["kind"], "call-frequency-v0")
         self.assertEqual(frequency["counts"]["pon"], 1)
         self.assertEqual(frequency["metrics"]["train_accuracy"], 1.0)
@@ -671,11 +698,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(legal_frequency["metrics"]["train_action_recall"]["pon"], 1.0)
         self.assertEqual(call_linear["kind"], "call-linear-v0")
         self.assertEqual(call_linear["feature_dim"], 120)
+        self.assertEqual(call_linear["feature_profile"], "v0")
         self.assertEqual(call_linear["training"]["epochs"], 25)
         self.assertEqual(call_linear["metrics"]["train_action_recall"]["pon"], 1.0)
+        self.assertEqual(call_linear_v1["kind"], "call-linear-v1")
+        self.assertGreater(call_linear_v1["feature_dim"], call_linear["feature_dim"])
+        self.assertEqual(call_linear_v1["feature_profile"], "v1")
+        self.assertEqual(call_linear_v1["training"]["epochs"], 25)
         self.assertIn("call_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("call_legal_frequency_eval_call_recall:", stdout.getvalue())
         self.assertIn("call_linear_eval_call_recall:", stdout.getvalue())
+        self.assertIn("call_linear_v1_eval_call_recall:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
     def test_benchmark_riichi_writes_report_artifact(self) -> None:
@@ -701,12 +734,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-riichi-benchmark-report-v0")
         self.assertEqual(payload["riichi_examples"], 1)
-        self.assertEqual(set(payload["models"]), {"riichi_frequency"})
+        self.assertEqual(set(payload["models"]), {"riichi_frequency", "riichi_linear"})
         model = payload["models"]["riichi_frequency"]
+        linear = payload["models"]["riichi_linear"]
         self.assertEqual(model["kind"], "riichi-frequency-v0")
         self.assertEqual(model["counts"]["riichi"], 1)
         self.assertEqual(model["metrics"]["train_riichi_recall"], 1.0)
+        self.assertEqual(linear["kind"], "riichi-linear-v0")
+        self.assertGreater(linear["feature_dim"], 0)
+        self.assertEqual(linear["training"]["epochs"], 25)
+        self.assertEqual(linear["metrics"]["train_riichi_recall"], 1.0)
         self.assertIn("riichi_frequency_eval_balanced_accuracy:", stdout.getvalue())
+        self.assertIn("riichi_linear_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
 
