@@ -594,3 +594,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   buckets.
 - Did not record new 25-log metrics because the ignored local Tenhou slice was absent in this
   workspace.
+
+### 2026-06-05
+
+- Installed `houou-logs` locally as an isolated `uv` tool, fetched the current-year Tenhou index,
+  downloaded 25 four-player hanchan logs, validated them, and exported XML under ignored
+  `data/raw/`.
+- Re-ran the 25-log `benchmark-discard` slice with the fixed `tenhou-25-v0` split: 11,855
+  examples, 9,484 train, 2,371 eval, and zero parse failures.
+- Recorded risk-context and defense-context metrics: risk-context linear scored 0.5314 train /
+  0.4829 eval, while defense-context linear scored 0.5357 train / 0.4825 eval, giving a +0.0043
+  train lift but -0.0004 eval lift over risk context.
+- Defense context improved targeted buckets despite the aggregate miss: active opponent riichi
+  improved from 0.4734 to 0.4911, actual-discard genbutsu improved from 0.5030 to 0.5636, and
+  shanten-worsening discards improved from 0.0769 to 0.1183.
+- Updated `docs/session-handoff.md` with the benchmark findings and next target: add finer
+  held-out defense diagnostics for actual discard suji, kabe, one-chance, and pre/post-riichi
+  visibility before creating a new defense model kind.

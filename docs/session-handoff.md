@@ -1,10 +1,11 @@
 # Session Handoff
 
-Last updated: 2026-06-04.
+Last updated: 2026-06-05.
 
 ## Stop State
 
-- Last implementation slice: first explicit defense-context discard features.
+- Last work slice: recreated the ignored 25-log Tenhou slice, reran `benchmark-discard`, and
+  recorded defense-context benchmark findings.
 - Expected tracked worktree after this implementation is committed: clean.
 - Do not continue into larger local benchmarks, deeper defense-feature expansion, or external
   baseline work unless the user starts a new work session and asks for it.
@@ -24,6 +25,9 @@ Last updated: 2026-06-04.
   ablation lift over raw counts, risk context, and defense context, plus held-out `eval_analysis` by
   shanten impact, tile family, rough round event phase, seat-relative turn phase, active opponent
   riichi, and actual-discard genbutsu status.
+- Latest local 25-log benchmark shows `discard-linear-defense-context-v0` helps active-riichi,
+  genbutsu, and shanten-worsening buckets but does not yet improve aggregate eval accuracy over
+  `discard-linear-risk-context-v0`.
 
 ## Working Rules
 
@@ -77,6 +81,8 @@ Expected ignored local paths when local Tenhou data is available:
 data/raw/tenhou/db/current-year.db
 data/raw/tenhou/xml/4p-hanchan-smoke
 data/raw/tenhou/xml/4p-hanchan-25
+runs/discard-benchmark-tenhou-25-report.json
+runs/inspect-tenhou-25-report.json
 runs/
 models/
 ```
@@ -106,30 +112,38 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   --source-date 2026-current-year
 ```
 
-Latest documented 25-log result before the risk-context and defense-context profiles:
+Latest documented 25-log result with risk-context and defense-context profiles:
 
 - Examples: 11,855 total, 9,484 train, 2,371 eval.
+- Parse failures: 0.
 - Frequency eval accuracy: 0.3037.
 - Raw-count linear eval accuracy: 0.3830.
 - Shanten-aware linear eval accuracy: 0.4757.
 - Shanten-aware eval lift over raw-count linear: +0.0928.
-- Shanten-aware eval breakdown: 0.5091 on shanten-preserving discards, 0.0414 on
-  shanten-worsening discards.
-- The command above now also emits risk-context and defense-context metrics, but this workspace did
-  not have the ignored 25-log data at handoff, so those local metrics have not been recorded yet.
+- Risk-context linear eval accuracy: 0.4829.
+- Risk-context eval lift over shanten-aware linear: +0.0072.
+- Defense-context linear eval accuracy: 0.4825.
+- Defense-context eval lift over risk-context linear: -0.0004.
+- Defense-context train lift over risk-context linear: +0.0043.
+- Risk-context vs defense-context active-riichi bucket: 0.4734 -> 0.4911 on 395 eval examples.
+- Risk-context vs defense-context actual-genbutsu bucket: 0.5030 -> 0.5636 on 165 eval examples.
+- Risk-context vs defense-context shanten-worsening bucket: 0.0769 -> 0.1183 on 169 eval
+  examples.
+- Defense context regressed no-active-riichi examples from 0.4848 to 0.4808 and non-genbutsu
+  examples from 0.4814 to 0.4764, which erased the targeted defense gains in aggregate accuracy.
 
 ## Next Tasks
 
-1. Recreate or restore the ignored 25-log local Tenhou slice, rerun `benchmark-discard`, and record
-   only aggregate defense-context metrics and lift in docs.
-2. Inspect whether defense context improves active-riichi and genbutsu buckets. If not, split
-   reports further by suji, kabe, one-chance, and whether the actual discard was before/after
-   opponent riichi.
-3. Refine the deterministic defense features behind a new model kind instead of changing
+1. Add finer held-out defense diagnostics before changing model features: split reports by actual
+   discard suji, kabe, one-chance, and whether the actual discard was visible before or after an
+   opponent riichi declaration.
+2. Rerun the same 25-log benchmark with the same split seed and record only aggregate and bucketed
+   metrics in docs; verify which non-riichi or non-genbutsu cases are dragging aggregate accuracy.
+3. Refine deterministic defense features behind a new model kind instead of changing
    `discard-linear-defense-context-v0`: improve suji/kabe definitions, add sotogawa-style outside
    tiles, and include live terminal/honor pressure.
-4. Add richer table context once defense buckets are useful: opponent meld ownership, dora pressure,
-   score/placement pressure, ippatsu timing, and tsumogiri after riichi.
+4. Add richer table context once fine-grained defense buckets are useful: opponent meld ownership,
+   dora pressure, score/placement pressure, ippatsu timing, and tsumogiri after riichi.
 5. Scale beyond the 25-log local slice only after the defense-context report remains stable and
    useful on the small slice.
 6. Revisit external baselines after the local supervised benchmark is less fragile: build `mortal`
