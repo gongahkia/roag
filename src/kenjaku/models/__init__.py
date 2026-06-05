@@ -3,7 +3,9 @@
 from kenjaku.models.call_frequency import (
     CALL_DECISION_KINDS,
     CALL_FREQUENCY_MODEL_KIND,
+    CALL_LEGAL_FREQUENCY_MODEL_KIND,
     CallFrequencyBaseline,
+    CallLegalFrequencyBaseline,
 )
 from kenjaku.models.frequency import DiscardFrequencyBaseline
 from kenjaku.models.linear_discard import (
@@ -18,7 +20,9 @@ from kenjaku.models.linear_discard import (
 __all__ = [
     "CALL_DECISION_KINDS",
     "CALL_FREQUENCY_MODEL_KIND",
+    "CALL_LEGAL_FREQUENCY_MODEL_KIND",
     "CallFrequencyBaseline",
+    "CallLegalFrequencyBaseline",
     "DiscardFrequencyBaseline",
     "DiscardLinearModel",
     "DEFENSE_CONTEXT_FEATURE_PROFILE",

@@ -639,12 +639,27 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-call-benchmark-report-v0")
         self.assertEqual(payload["call_examples"], 1)
-        self.assertEqual(payload["model"]["kind"], "call-frequency-v0")
-        self.assertEqual(payload["model"]["counts"]["pon"], 1)
-        self.assertEqual(payload["metrics"]["train_accuracy"], 1.0)
-        self.assertIsNone(payload["metrics"]["eval_accuracy"])
-        self.assertEqual(payload["train_analysis"]["by_call_or_pass"]["call"]["examples"], 1)
-        self.assertEqual(payload["train_analysis"]["by_legal_call_kinds"]["pon"]["correct"], 1)
+        self.assertEqual(
+            set(payload["models"]),
+            {"call_frequency", "call_legal_frequency"},
+        )
+        frequency = payload["models"]["call_frequency"]
+        legal_frequency = payload["models"]["call_legal_frequency"]
+        self.assertEqual(frequency["kind"], "call-frequency-v0")
+        self.assertEqual(frequency["counts"]["pon"], 1)
+        self.assertEqual(frequency["metrics"]["train_accuracy"], 1.0)
+        self.assertEqual(frequency["metrics"]["train_balanced_accuracy"], 1.0)
+        self.assertEqual(frequency["metrics"]["train_call_recall"], 1.0)
+        self.assertIsNone(frequency["metrics"]["train_pass_recall"])
+        self.assertIsNone(frequency["metrics"]["eval_accuracy"])
+        self.assertIsNone(frequency["metrics"]["eval_balanced_accuracy"])
+        self.assertEqual(frequency["train_analysis"]["by_call_or_pass"]["call"]["examples"], 1)
+        self.assertEqual(frequency["train_analysis"]["by_legal_call_kinds"]["pon"]["correct"], 1)
+        self.assertEqual(legal_frequency["kind"], "call-legal-frequency-v0")
+        self.assertEqual(legal_frequency["counts"]["pon"], 1)
+        self.assertEqual(legal_frequency["metrics"]["train_action_recall"]["pon"], 1.0)
+        self.assertIn("call_frequency_eval_balanced_accuracy:", stdout.getvalue())
+        self.assertIn("call_legal_frequency_eval_call_recall:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
 

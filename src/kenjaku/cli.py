@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,7 @@ from kenjaku.models import (
     RISK_CONTEXT_FEATURE_PROFILE,
     SHANTEN_FEATURE_PROFILE,
     CallFrequencyBaseline,
+    CallLegalFrequencyBaseline,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
 )
@@ -717,15 +718,23 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         eval_fraction=args.eval_fraction,
         seed=args.split_seed,
     )
-    model = CallFrequencyBaseline.fit(train_examples)
-    train_accuracy = model.score(train_examples)
-    eval_accuracy = model.score(eval_examples) if eval_examples else None
+    call_models = {
+        "call_frequency": CallFrequencyBaseline.fit(train_examples),
+        "call_legal_frequency": CallLegalFrequencyBaseline.fit(train_examples),
+    }
+    model_payloads = {
+        model_name: _call_model_payload(
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+        )
+        for model_name, model in call_models.items()
+    }
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
-    print(f"train_accuracy: {train_accuracy:.4f}")
-    print(f"eval_accuracy: {_format_optional_accuracy(eval_accuracy)}")
+    _print_call_benchmark_metrics(model_payloads)
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
     if args.report is not None:
@@ -740,12 +749,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             eval_fraction=args.eval_fraction,
             train_examples=len(train_examples),
             eval_examples=len(eval_examples),
-            model_kind=model.kind,
-            model_counts=model.count_by_kind(),
-            train_accuracy=train_accuracy,
-            eval_accuracy=eval_accuracy,
-            train_analysis=_summarize_call_predictions(train_examples, model.predict),
-            eval_analysis=_summarize_call_predictions(eval_examples, model.predict),
+            models=model_payloads,
             parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
@@ -755,6 +759,57 @@ def _benchmark_call(args: argparse.Namespace) -> int:
 
 
 CallPredictor = Callable[[CallExample], ActionKind]
+
+
+def _call_model_payload(
+    model: CallFrequencyBaseline | CallLegalFrequencyBaseline,
+    *,
+    train_examples: list[CallExample],
+    eval_examples: list[CallExample],
+) -> dict[str, Any]:
+    train_analysis = _summarize_call_predictions(train_examples, model.predict)
+    eval_analysis = _summarize_call_predictions(eval_examples, model.predict)
+    train_metrics = _call_metrics(train_analysis)
+    eval_metrics = _call_metrics(eval_analysis)
+    return {
+        "kind": model.kind,
+        "counts": model.count_by_kind(),
+        "metrics": {
+            "train_accuracy": train_metrics["accuracy"],
+            "eval_accuracy": eval_metrics["accuracy"],
+            "train_balanced_accuracy": train_metrics["balanced_accuracy"],
+            "eval_balanced_accuracy": eval_metrics["balanced_accuracy"],
+            "train_macro_recall": train_metrics["macro_recall"],
+            "eval_macro_recall": eval_metrics["macro_recall"],
+            "train_pass_recall": train_metrics["pass_recall"],
+            "eval_pass_recall": eval_metrics["pass_recall"],
+            "train_call_recall": train_metrics["call_recall"],
+            "eval_call_recall": eval_metrics["call_recall"],
+            "train_action_recall": train_metrics["action_recall"],
+            "eval_action_recall": eval_metrics["action_recall"],
+        },
+        "train_analysis": train_analysis,
+        "eval_analysis": eval_analysis,
+    }
+
+
+def _print_call_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:
+    for model_name, payload in model_payloads.items():
+        metrics = payload["metrics"]
+        print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(metrics['eval_accuracy'])}")
+        print(
+            f"{model_name}_eval_balanced_accuracy: "
+            f"{_format_optional_accuracy(metrics['eval_balanced_accuracy'])}"
+        )
+        print(
+            f"{model_name}_eval_pass_recall: "
+            f"{_format_optional_accuracy(metrics['eval_pass_recall'])}"
+        )
+        print(
+            f"{model_name}_eval_call_recall: "
+            f"{_format_optional_accuracy(metrics['eval_call_recall'])}"
+        )
 
 
 def _summarize_call_predictions(
@@ -797,6 +852,30 @@ def _summarize_call_predictions(
         "action_distribution": action_distribution,
         **_finalize_call_buckets(buckets),
     }
+
+
+def _call_metrics(analysis: dict[str, Any]) -> dict[str, Any]:
+    action_recall = {
+        kind.value: analysis["by_actual_action"][kind.value]["accuracy"]
+        for kind in CALL_DECISION_KINDS
+    }
+    pass_recall = analysis["by_call_or_pass"]["pass"]["accuracy"]
+    call_recall = analysis["by_call_or_pass"]["call"]["accuracy"]
+    return {
+        "accuracy": analysis["overall"]["accuracy"],
+        "balanced_accuracy": _mean_defined((pass_recall, call_recall)),
+        "macro_recall": _mean_defined(action_recall.values()),
+        "pass_recall": pass_recall,
+        "call_recall": call_recall,
+        "action_recall": action_recall,
+    }
+
+
+def _mean_defined(values: Iterable[float | None]) -> float | None:
+    defined = [value for value in values if value is not None]
+    if not defined:
+        return None
+    return sum(defined) / len(defined)
 
 
 def _legal_call_key(example: CallExample) -> str:

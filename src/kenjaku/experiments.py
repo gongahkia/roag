@@ -357,12 +357,7 @@ def build_call_benchmark_report(
     eval_fraction: float,
     train_examples: int,
     eval_examples: int,
-    model_kind: str,
-    model_counts: dict[str, int],
-    train_accuracy: float,
-    eval_accuracy: float | None,
-    train_analysis: dict[str, Any],
-    eval_analysis: dict[str, Any],
+    models: dict[str, dict[str, Any]],
     parse_failures: Sequence[TenhouParseFailure],
     source: dict[str, str | None],
 ) -> dict[str, Any]:
@@ -380,16 +375,7 @@ def build_call_benchmark_report(
             "train_examples": train_examples,
             "eval_examples": eval_examples,
         },
-        "model": {
-            "kind": model_kind,
-            "counts": model_counts,
-        },
-        "metrics": {
-            "train_accuracy": train_accuracy,
-            "eval_accuracy": eval_accuracy,
-        },
-        "train_analysis": train_analysis,
-        "eval_analysis": eval_analysis,
+        "models": models,
         "parse_failures": _parse_failure_payload(parse_failures),
     }
 
