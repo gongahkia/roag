@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from kenjaku import __version__
+from kenjaku.core import Tile, TileType
 from kenjaku.experiments import (
     build_discard_benchmark_report,
+    build_discard_benchmark_summary,
     build_discard_linear_report,
     build_tenhou_inspect_report,
+    format_discard_benchmark_summary,
     write_json_report,
 )
 from kenjaku.io import parse_tenhou_xml_dataset
@@ -21,7 +26,16 @@ from kenjaku.models import (
     DiscardLinearModel,
 )
 from kenjaku.training import (
+    actual_discard_has_kabe,
+    actual_discard_has_one_chance,
+    actual_discard_has_suji,
+    actual_discard_is_genbutsu,
+    actual_discard_seen_after_riichi,
+    actual_discard_seen_before_riichi,
     deterministic_split,
+    discard_shanten_delta,
+    DiscardExample,
+    has_active_riichi_opponent,
     iter_call_examples,
     iter_discard_examples,
     summarize_discard_predictions,
@@ -90,6 +104,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="SGD learning rate",
     )
     train_linear.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="L2 regularization strength",
+    )
+    train_linear.add_argument(
         "--eval-fraction",
         type=float,
         default=0.2,
@@ -136,6 +156,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="linear model SGD learning rate",
     )
     benchmark_discard.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="linear model L2 regularization strength",
+    )
+    benchmark_discard.add_argument(
         "--eval-fraction",
         type=float,
         default=0.2,
@@ -152,12 +178,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional path for a JSON benchmark report artifact",
     )
     benchmark_discard.add_argument(
+        "--disagreements",
+        type=Path,
+        help="optional path for a JSON model-disagreement diagnostic artifact",
+    )
+    benchmark_discard.add_argument(
+        "--max-disagreements",
+        type=int,
+        default=100,
+        help="maximum stored examples per disagreement category",
+    )
+    benchmark_discard.add_argument(
         "--skip-errors",
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
     _add_source_args(benchmark_discard)
     benchmark_discard.set_defaults(func=_benchmark_discard)
+
+    benchmark_summary = subparsers.add_parser(
+        "benchmark-report-summary",
+        help="summarize one or more discard benchmark JSON reports",
+    )
+    benchmark_summary.add_argument(
+        "reports",
+        nargs="+",
+        type=Path,
+        help="discard benchmark report JSON files",
+    )
+    benchmark_summary.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the summary as JSON instead of text",
+    )
+    benchmark_summary.set_defaults(func=_benchmark_report_summary)
     return parser
 
 
@@ -234,6 +288,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
     )
     train_accuracy = model.score(train_examples)
     eval_accuracy = model.score(eval_examples) if eval_examples else None
@@ -261,6 +316,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             feature_dim=model.feature_dim,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
+            l2=args.l2,
             train_accuracy=train_accuracy,
             eval_accuracy=eval_accuracy,
             discard_shanten=summarize_discard_shanten(examples),
@@ -274,6 +330,8 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
 
 
 def _benchmark_discard(args: argparse.Namespace) -> int:
+    if args.max_disagreements < 0:
+        raise SystemExit("--max-disagreements must be non-negative")
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
     examples = list(iter_discard_examples(game))
@@ -290,30 +348,35 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
         feature_profile=RAW_COUNT_FEATURE_PROFILE,
     )
     linear_model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
         feature_profile=SHANTEN_FEATURE_PROFILE,
     )
     risk_context_linear_model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
         feature_profile=RISK_CONTEXT_FEATURE_PROFILE,
     )
     defense_context_linear_model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
         feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
     )
     defense_context_v1_linear_model = DiscardLinearModel.fit(
         train_examples,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        l2=args.l2,
         feature_profile=DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     )
     frequency_train_accuracy = frequency_model.score(train_examples)
@@ -405,7 +468,21 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
     )
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
+    linear_models = {
+        "raw_count_linear": raw_count_linear_model,
+        "linear": linear_model,
+        "risk_context_linear": risk_context_linear_model,
+        "defense_context_linear": defense_context_linear_model,
+        "defense_context_v1_linear": defense_context_v1_linear_model,
+    }
     if args.report is not None:
+        model_diagnostics = {
+            model_name: {
+                "weight_summary": model.weight_summary(),
+                "feature_summary": model.feature_summary(eval_examples),
+            }
+            for model_name, model in linear_models.items()
+        }
         report = build_discard_benchmark_report(
             input_paths=args.paths,
             xml_files=dataset.files,
@@ -506,13 +583,194 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
                     ippatsu_active_seats=example.ippatsu_active_seats,
                 ),
             ),
+            linear_l2=args.l2,
+            model_diagnostics=model_diagnostics,
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
+    if args.disagreements is not None:
+        disagreement_report = _build_disagreement_report(
+            eval_examples,
+            linear_models=linear_models,
+            max_per_category=args.max_disagreements,
+        )
+        write_json_report(args.disagreements, disagreement_report)
+        print(f"disagreements_path: {args.disagreements}")
     return 0
+
+
+def _benchmark_report_summary(args: argparse.Namespace) -> int:
+    summary = build_discard_benchmark_summary(args.reports)
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(format_discard_benchmark_summary(summary))
+    return 0
+
+
+def _build_disagreement_report(
+    examples: Sequence[DiscardExample],
+    *,
+    linear_models: dict[str, DiscardLinearModel],
+    max_per_category: int,
+) -> dict[str, object]:
+    categories: dict[str, dict[str, object]] = {
+        "risk_correct_defense_wrong": {"count": 0, "items": []},
+        "risk_correct_defense_v1_wrong": {"count": 0, "items": []},
+        "defense_correct_risk_wrong": {"count": 0, "items": []},
+        "defense_v1_correct_risk_wrong": {"count": 0, "items": []},
+    }
+    model_names = (
+        "risk_context_linear",
+        "defense_context_linear",
+        "defense_context_v1_linear",
+    )
+
+    for example in examples:
+        if example.action.tile is None:
+            raise ValueError("discard examples must have tile actions")
+        logits_by_model = {
+            model_name: linear_models[model_name].logits_for_example(example)
+            for model_name in model_names
+        }
+        predictions = {
+            model_name: max(logits, key=logits.get)
+            for model_name, logits in logits_by_model.items()
+        }
+        correct = {
+            model_name: prediction == example.action.tile
+            for model_name, prediction in predictions.items()
+        }
+        record: dict[str, object] | None = None
+        category_matches = {
+            "risk_correct_defense_wrong": (
+                correct["risk_context_linear"]
+                and not correct["defense_context_linear"]
+            ),
+            "risk_correct_defense_v1_wrong": (
+                correct["risk_context_linear"]
+                and not correct["defense_context_v1_linear"]
+            ),
+            "defense_correct_risk_wrong": (
+                correct["defense_context_linear"]
+                and not correct["risk_context_linear"]
+            ),
+            "defense_v1_correct_risk_wrong": (
+                correct["defense_context_v1_linear"]
+                and not correct["risk_context_linear"]
+            ),
+        }
+        for category, matches in category_matches.items():
+            if not matches:
+                continue
+            payload = categories[category]
+            payload["count"] = int(payload["count"]) + 1
+            items = payload["items"]
+            assert isinstance(items, list)
+            if len(items) < max_per_category:
+                if record is None:
+                    record = _disagreement_record(
+                        example,
+                        predictions=predictions,
+                        correct=correct,
+                        logits_by_model=logits_by_model,
+                    )
+                items.append(record)
+
+    return {
+        "kind": "kenjaku-discard-disagreements-v0",
+        "examples": len(examples),
+        "max_per_category": max_per_category,
+        "categories": categories,
+    }
+
+
+def _disagreement_record(
+    example: DiscardExample,
+    *,
+    predictions: dict[str, TileType],
+    correct: dict[str, bool],
+    logits_by_model: dict[str, dict[TileType, float]],
+) -> dict[str, object]:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    shanten_delta = discard_shanten_delta(example)
+    return {
+        "round_index": example.round_index,
+        "event_index": example.event_index,
+        "seat": example.seat,
+        "dealer": example.dealer,
+        "scores": list(example.scores),
+        "actual_discard": example.action.tile.notation,
+        "predictions": {
+            model_name: tile_type.notation
+            for model_name, tile_type in predictions.items()
+        },
+        "correct": correct,
+        "shanten_delta": {
+            "before": shanten_delta.before,
+            "after": shanten_delta.after,
+            "delta": shanten_delta.delta,
+        },
+        "defense_buckets": _actual_discard_defense_buckets(example),
+        "hand_counts": _tile_count_payload(example.hand_counts),
+        "visible_counts": _tile_count_payload(example.visible_counts),
+        "active_riichi_seats": list(example.active_riichi_seats),
+        "riichi_declared_turns": list(example.riichi_declared_turns),
+        "rivers_by_seat": _tiles_by_seat_payload(example.rivers_by_seat),
+        "meld_tiles_by_seat": _tiles_by_seat_payload(example.meld_tiles_by_seat),
+        "dora_indicators": _tile_payload(example.dora_indicators),
+        "last_discard_tsumogiri_by_seat": list(example.last_discard_tsumogiri_by_seat),
+        "ippatsu_active_seats": list(example.ippatsu_active_seats),
+        "candidate_logits": {
+            model_name: _logits_payload(logits)
+            for model_name, logits in logits_by_model.items()
+        },
+    }
+
+
+def _actual_discard_defense_buckets(example: DiscardExample) -> dict[str, bool]:
+    return {
+        "active_riichi_opponent": has_active_riichi_opponent(example),
+        "genbutsu": actual_discard_is_genbutsu(example),
+        "suji": actual_discard_has_suji(example),
+        "kabe": actual_discard_has_kabe(example),
+        "one_chance": actual_discard_has_one_chance(example),
+        "seen_before_riichi": actual_discard_seen_before_riichi(example),
+        "seen_after_riichi": actual_discard_seen_after_riichi(example),
+    }
+
+
+def _tile_count_payload(counts: tuple[int, ...]) -> list[dict[str, int | str]]:
+    return [
+        {
+            "tile": TileType(index).notation,
+            "count": count,
+        }
+        for index, count in enumerate(counts)
+        if count
+    ]
+
+
+def _tiles_by_seat_payload(rivers_by_seat: tuple[tuple[Tile, ...], ...]) -> list[list[str]]:
+    return [_tile_payload(tiles) for tiles in rivers_by_seat]
+
+
+def _tile_payload(tiles: tuple[Tile, ...]) -> list[str]:
+    return [tile.notation for tile in tiles]
+
+
+def _logits_payload(logits: dict[TileType, float]) -> list[dict[str, float | str]]:
+    return [
+        {
+            "tile": tile_type.notation,
+            "logit": logits[tile_type],
+        }
+        for tile_type in sorted(logits)
+    ]
 
 
 def _add_source_args(parser: argparse.ArgumentParser) -> None:

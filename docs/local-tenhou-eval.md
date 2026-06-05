@@ -47,11 +47,17 @@ PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/raw/tenhou/xml/4p-hanchan
 
 PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanchan \
   --epochs 3 \
+  --learning-rate 0.05 \
+  --l2 0.0 \
   --eval-fraction 0.2 \
   --report runs/discard-benchmark-local-report.json \
+  --disagreements runs/discard-disagreements-local.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
+PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
+  runs/discard-benchmark-local-report.json
 
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-hanchan \
   --epochs 5 \
@@ -71,7 +77,12 @@ over risk context, and the defense-context-v1 lift over defense context. Each mo
 `eval_analysis`, which breaks held-out accuracy down by actual discard shanten impact, discarded
 tile family, rough round event phase, seat-relative turn phase, active opponent riichi,
 actual-discard genbutsu/suji/kabe/one-chance status, and whether the actual discard was visible
-before or after an opponent riichi declaration.
+before or after an opponent riichi declaration. Linear model reports also include weight and feature
+activation summaries. `--disagreements` writes capped local examples where risk/defense model
+predictions differ, including legal-candidate logits for debugging.
+
+Use `benchmark-report-summary` to compare multiple ignored benchmark JSON reports without copying
+raw logs or full report artifacts into git.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

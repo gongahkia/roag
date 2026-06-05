@@ -466,18 +466,19 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 1. Stabilize defense modeling on the 100-log local Tenhou slice: inspect v0/v1 weight behavior,
    feature activation rates, and examples where both defense profiles lose to risk-context.
-2. Expose and benchmark safer training controls for larger linear profiles, especially the existing
-   L2 fit parameter, feature normalization, learning-rate sweeps, and epoch sweeps, while keeping
-   existing model kinds stable.
-3. Add a small benchmark-report summary CLI so ignored JSON reports can be turned into comparable
-   aggregate and bucket notes without ad hoc scripts.
-4. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
+2. Use `lr=0.05` for local discard benchmark experiments unless a later compatibility pass changes
+   the CLI default; `lr=0.1` was too aggressive on the 100-log slice and L2 did not help.
+3. Inspect the captured disagreement examples before adding features: v1 helps some defense buckets
+   but still trails v0/risk in aggregate.
+4. Add feature normalization behind a new model kind if linear-model stability remains the next
+   focus; do not mutate existing feature profiles.
+5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-5. Add first supervised call/riichi decision baselines from existing reconstruction examples after
+6. Add first supervised call/riichi decision baselines from existing reconstruction examples after
    discard risk/defense diagnostics stop moving.
-6. Scale to larger local slices, such as 500 logs, only after the 100-log defense regression is
-   understood.
+7. Scale to larger local slices, such as 500 logs, only after the 100-log defense behavior is
+   stable under the chosen training settings.
 
 ---
 
@@ -638,3 +639,18 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   `target/release/libriichi.dylib` to `mortal/libriichi.so`.
 - Added `docs/external-baselines.md` with Mortal build results, AGPL boundary notes, and an offline
   comparison path based on `mjai` decision snapshots rather than live ladder automation.
+- Added `benchmark-report-summary` so ignored benchmark JSON reports can be compared without ad hoc
+  extraction scripts.
+- Wired the existing linear-model L2 parameter through `train-discard-linear` and
+  `benchmark-discard`, and recorded `l2` in JSON training blocks.
+- Added linear-model feature names, feature activation summaries, and weight summaries to
+  benchmark reports for every linear profile.
+- Added `benchmark-discard --disagreements` to write local-only capped examples where risk-context
+  and defense-context models disagree, including defense buckets and legal-candidate logits.
+- Ran controlled 100-log sweeps. Lowering learning rate to `0.05` was the clear improvement:
+  risk-context and defense-context v0 both reached 0.5124 eval accuracy, while v1 reached 0.5102.
+  L2 hurt aggregate accuracy at both `0.1` and `0.05`.
+- The best 100-log `lr=0.05`, `l2=0.0` run preserved targeted defense gains despite tying risk in
+  aggregate: actual-suji improved 0.3686 -> 0.4278 -> 0.4227, seen-after-riichi improved 0.5401 ->
+  0.5875 -> 0.5935, and shanten-worsening improved 0.0977 -> 0.1015 -> 0.1157 for risk ->
+  defense -> v1.

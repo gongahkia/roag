@@ -184,6 +184,8 @@ class CliTests(unittest.TestCase):
                         "0.25",
                         "--split-seed",
                         "fixed",
+                        "--l2",
+                        "0.001",
                         "--output",
                         str(output),
                         "--report",
@@ -209,6 +211,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["eval_examples"], 1)
         self.assertEqual(payload["model"]["kind"], "discard-linear-v1")
         self.assertEqual(payload["model"]["feature_dim"], 76)
+        self.assertEqual(payload["training"]["l2"], 0.001)
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["parse_failures"]["count"], 0)
         self.assertEqual(payload["artifacts"]["model_path"], str(output))
@@ -285,9 +288,16 @@ class CliTests(unittest.TestCase):
             "discard-linear-raw-count-v0",
         )
         self.assertEqual(payload["models"]["raw_count_linear"]["feature_dim"], 69)
+        self.assertEqual(payload["models"]["raw_count_linear"]["training"]["l2"], 0.0)
         self.assertEqual(
             payload["models"]["raw_count_linear"]["metrics"]["train_accuracy"],
             2 / 3,
+        )
+        self.assertIn("weight_summary", payload["models"]["raw_count_linear"])
+        self.assertIn("feature_summary", payload["models"]["raw_count_linear"])
+        self.assertEqual(
+            payload["models"]["raw_count_linear"]["feature_summary"]["feature_count"],
+            69,
         )
         self.assertEqual(payload["models"]["raw_count_linear"]["metrics"]["eval_accuracy"], 0.0)
         self.assertEqual(
@@ -297,6 +307,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["models"]["linear"]["kind"], "discard-linear-v1")
         self.assertEqual(payload["models"]["linear"]["feature_dim"], 76)
         self.assertEqual(payload["models"]["linear"]["training"]["epochs"], 1)
+        self.assertEqual(payload["models"]["linear"]["training"]["l2"], 0.0)
         self.assertEqual(payload["models"]["linear"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["linear"]["metrics"]["eval_accuracy"], 0.0)
         self.assertEqual(payload["models"]["linear"]["eval_analysis"]["overall"]["examples"], 1)
@@ -310,6 +321,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(payload["models"]["risk_context_linear"]["feature_dim"], 86)
         self.assertEqual(payload["models"]["risk_context_linear"]["training"]["epochs"], 1)
+        self.assertEqual(payload["models"]["risk_context_linear"]["training"]["l2"], 0.0)
         self.assertEqual(
             payload["models"]["risk_context_linear"]["metrics"]["train_accuracy"],
             2 / 3,
@@ -332,6 +344,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(payload["models"]["defense_context_linear"]["feature_dim"], 98)
         self.assertEqual(payload["models"]["defense_context_linear"]["training"]["epochs"], 1)
+        self.assertEqual(payload["models"]["defense_context_linear"]["training"]["l2"], 0.0)
         self.assertEqual(
             payload["models"]["defense_context_linear"]["metrics"]["train_accuracy"],
             2 / 3,
@@ -362,6 +375,11 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(payload["models"]["defense_context_v1_linear"]["feature_dim"], 112)
         self.assertEqual(payload["models"]["defense_context_v1_linear"]["training"]["epochs"], 1)
+        self.assertEqual(payload["models"]["defense_context_v1_linear"]["training"]["l2"], 0.0)
+        self.assertEqual(
+            payload["models"]["defense_context_v1_linear"]["feature_summary"]["feature_count"],
+            112,
+        )
         self.assertEqual(
             payload["models"]["defense_context_v1_linear"]["metrics"]["train_accuracy"],
             2 / 3,
@@ -396,6 +414,73 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["parse_failures"]["count"], 0)
+
+    def test_benchmark_report_summary_outputs_text_and_json(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(report),
+                    ]
+                )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("selected_buckets:", text_stdout.getvalue())
+        self.assertIn("risk_context_linear", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
+        self.assertEqual(payload["reports"][0]["models"]["linear"]["feature_dim"], 76)
+
+    def test_benchmark_discard_writes_disagreement_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            disagreements = Path(directory) / "disagreements.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--disagreements",
+                        str(disagreements),
+                        "--max-disagreements",
+                        "2",
+                    ]
+                )
+            payload = json.loads(disagreements.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("disagreements_path:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-disagreements-v0")
+        self.assertEqual(payload["max_per_category"], 2)
+        self.assertIn("risk_correct_defense_wrong", payload["categories"])
+        for category in payload["categories"].values():
+            self.assertLessEqual(len(category["items"]), 2)
 
 
 if __name__ == "__main__":

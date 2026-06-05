@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from math import exp
 from pathlib import Path
 from typing import Any
 
-from kenjaku.core import Action, Tile, TileType, shanten
+from kenjaku.core import Action, Tile, TileType, all_tile_types, shanten
 from kenjaku.training import DiscardExample
 from kenjaku.training.defense_features import (
     candidate_has_kabe,
@@ -107,6 +107,64 @@ _FEATURE_PROFILES_BY_KIND = {
     profile.model_kind: profile
     for profile in _FEATURE_PROFILES.values()
 }
+_TILE_FEATURE_NAMES = tuple(tile_type.notation for tile_type in all_tile_types())
+_RAW_FEATURE_NAMES = (
+    "bias",
+    *(f"hand_count_{name}" for name in _TILE_FEATURE_NAMES),
+    *(f"visible_count_{name}" for name in _TILE_FEATURE_NAMES),
+)
+_TILE_EFFICIENCY_FEATURE_NAMES = (
+    *_RAW_FEATURE_NAMES,
+    "candidate_hand_count",
+    "candidate_visible_count",
+    "candidate_terminal_or_honor",
+    "before_shanten",
+    "after_shanten",
+    "shanten_delta",
+    "shanten_preserved_or_improved",
+)
+_RISK_CONTEXT_FEATURE_NAMES = (
+    "self_riichi_active",
+    "active_riichi_opponent_fraction",
+    "has_active_riichi_opponent",
+    "candidate_active_riichi_river_count",
+    "candidate_seen_by_active_riichi",
+    "candidate_opponent_river_count",
+    "candidate_seen_by_any_opponent",
+    "candidate_self_river_count",
+    "candidate_all_river_count",
+    "candidate_unseen_under_active_riichi",
+)
+_DEFENSE_CONTEXT_FEATURE_NAMES = (
+    "candidate_genbutsu",
+    "candidate_suji",
+    "candidate_kabe",
+    "candidate_one_chance",
+    "candidate_seen_after_riichi",
+    "candidate_seen_before_riichi",
+    "active_riichi_max_elapsed_fraction",
+    "active_riichi_min_elapsed_fraction",
+    "candidate_basic_safe",
+    "candidate_unseen_unsafe_under_riichi",
+    "candidate_honor",
+    "candidate_terminal",
+)
+_DEFENSE_CONTEXT_V1_FEATURE_NAMES = (
+    "candidate_genbutsu_active_fraction",
+    "candidate_suji_active_fraction",
+    "candidate_seen_after_active_fraction",
+    "candidate_seen_before_active_fraction",
+    "candidate_kabe_adjacent_wall_fraction",
+    "candidate_one_chance_adjacent_fraction",
+    "candidate_sotogawa",
+    "candidate_terminal_honor_unseen_under_active_riichi",
+    "candidate_unseen_non_safe_under_active_riichi",
+    "candidate_dora",
+    "candidate_visible_dora_indicator",
+    "active_ippatsu_fraction",
+    "active_tsumogiri_fraction",
+    "opponent_meld_tile_fraction",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +175,7 @@ class DiscardLinearModel:
     epochs: int
     learning_rate: float
     feature_profile: str = SHANTEN_FEATURE_PROFILE
+    l2: float = 0.0
 
     def __post_init__(self) -> None:
         profile = _feature_profile(self.feature_profile)
@@ -124,6 +183,8 @@ class DiscardLinearModel:
             raise ValueError("discard model must have 34 output rows")
         if any(len(row) != profile.feature_dim for row in self.weights):
             raise ValueError(f"discard model rows must have {profile.feature_dim} features")
+        if self.l2 < 0:
+            raise ValueError("l2 must be non-negative")
 
     @classmethod
     def fit(
@@ -160,6 +221,7 @@ class DiscardLinearModel:
             weights=tuple(tuple(row) for row in weights),
             epochs=epochs,
             learning_rate=learning_rate,
+            l2=l2,
             feature_profile=profile.name,
         )
 
@@ -199,6 +261,60 @@ class DiscardLinearModel:
         logits = _logits(self.weights, features_by_tile)
         return TileType(max(logits, key=logits.get))
 
+    def logits(
+        self,
+        hand_counts: tuple[int, ...],
+        visible_counts: tuple[int, ...],
+        *,
+        seat: int = 0,
+        active_riichi_seats: tuple[bool, ...] = (),
+        river_counts_by_seat: tuple[tuple[int, ...], ...] = (),
+        rivers_by_seat: tuple[tuple[Tile, ...], ...] = (),
+        riichi_declared_turns: tuple[int | None, ...] = (),
+        riichi_declared_event_indices: tuple[int | None, ...] = (),
+        meld_counts_by_seat: tuple[tuple[int, ...], ...] = (),
+        dora_indicators: tuple[Tile, ...] = (),
+        last_discard_tsumogiri_by_seat: tuple[bool | None, ...] = (),
+        ippatsu_active_seats: tuple[bool, ...] = (),
+    ) -> dict[TileType, float]:
+        legal_indices = _legal_indices(hand_counts)
+        features_by_tile = _feature_vectors(
+            hand_counts,
+            visible_counts,
+            legal_indices,
+            profile=_feature_profile(self.feature_profile),
+            seat=seat,
+            active_riichi_seats=active_riichi_seats,
+            river_counts_by_seat=river_counts_by_seat,
+            rivers_by_seat=rivers_by_seat,
+            riichi_declared_turns=riichi_declared_turns,
+            riichi_declared_event_indices=riichi_declared_event_indices,
+            meld_counts_by_seat=meld_counts_by_seat,
+            dora_indicators=dora_indicators,
+            last_discard_tsumogiri_by_seat=last_discard_tsumogiri_by_seat,
+            ippatsu_active_seats=ippatsu_active_seats,
+        )
+        return {
+            TileType(tile_index): logit
+            for tile_index, logit in _logits(self.weights, features_by_tile).items()
+        }
+
+    def logits_for_example(self, example: DiscardExample) -> dict[TileType, float]:
+        return self.logits(
+            example.hand_counts,
+            example.visible_counts,
+            seat=example.seat,
+            active_riichi_seats=example.active_riichi_seats,
+            river_counts_by_seat=example.river_counts_by_seat,
+            rivers_by_seat=example.rivers_by_seat,
+            riichi_declared_turns=example.riichi_declared_turns,
+            riichi_declared_event_indices=example.riichi_declared_event_indices,
+            meld_counts_by_seat=example.meld_counts_by_seat,
+            dora_indicators=example.dora_indicators,
+            last_discard_tsumogiri_by_seat=example.last_discard_tsumogiri_by_seat,
+            ippatsu_active_seats=example.ippatsu_active_seats,
+        )
+
     def score(self, examples: Sequence[DiscardExample]) -> float:
         if not examples:
             raise ValueError("cannot score on zero examples")
@@ -220,6 +336,80 @@ class DiscardLinearModel:
     def feature_dim(self) -> int:
         return _feature_profile(self.feature_profile).feature_dim
 
+    @property
+    def feature_names(self) -> tuple[str, ...]:
+        return _feature_names(_feature_profile(self.feature_profile))
+
+    @staticmethod
+    def feature_names_for_profile(feature_profile: str) -> tuple[str, ...]:
+        return _feature_names(_feature_profile(feature_profile))
+
+    def weight_summary(self) -> dict[str, Any]:
+        return {
+            "feature_count": self.feature_dim,
+            "overall": _numeric_summary(
+                weight
+                for row in self.weights
+                for weight in row
+            ),
+            "outputs": [
+                {
+                    "index": tile_type.index,
+                    "tile": tile_type.notation,
+                    **_numeric_summary(self.weights[tile_type.index]),
+                }
+                for tile_type in all_tile_types()
+            ],
+        }
+
+    def feature_summary(self, examples: Sequence[DiscardExample]) -> dict[str, Any]:
+        profile = _feature_profile(self.feature_profile)
+        prepared_examples = _prepare_examples(examples, profile=profile)
+        names = _feature_names(profile)
+        sums = [0.0] * profile.feature_dim
+        sum_abs = [0.0] * profile.feature_dim
+        max_abs = [0.0] * profile.feature_dim
+        nonzero = [0] * profile.feature_dim
+        vector_count = 0
+        for example in prepared_examples:
+            for features in example.features_by_tile.values():
+                vector_count += 1
+                for index, value in enumerate(features):
+                    sums[index] += value
+                    abs_value = abs(value)
+                    sum_abs[index] += abs_value
+                    max_abs[index] = max(max_abs[index], abs_value)
+                    if value != 0:
+                        nonzero[index] += 1
+
+        return {
+            "examples": len(examples),
+            "candidate_vectors": vector_count,
+            "feature_count": profile.feature_dim,
+            "features": [
+                {
+                    "index": index,
+                    "name": name,
+                    "nonzero": nonzero[index],
+                    "nonzero_rate": (
+                        None if vector_count == 0 else nonzero[index] / vector_count
+                    ),
+                    "mean": None if vector_count == 0 else sums[index] / vector_count,
+                    "mean_abs": None if vector_count == 0 else sum_abs[index] / vector_count,
+                    "max_abs": None if vector_count == 0 else max_abs[index],
+                }
+                for index, name in enumerate(names)
+            ],
+            "overall": _feature_overall_summary(
+                sums=sums,
+                sum_abs=sum_abs,
+                max_abs=max_abs,
+                nonzero=nonzero,
+                vector_count=vector_count,
+                feature_count=profile.feature_dim,
+            ),
+        }
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "kind": self.kind,
@@ -227,6 +417,7 @@ class DiscardLinearModel:
             "feature_dim": self.feature_dim,
             "epochs": self.epochs,
             "learning_rate": self.learning_rate,
+            "l2": self.l2,
             "weights": [list(row) for row in self.weights],
         }
 
@@ -248,6 +439,7 @@ class DiscardLinearModel:
             weights=weights,
             epochs=int(payload["epochs"]),
             learning_rate=float(payload["learning_rate"]),
+            l2=float(payload.get("l2", 0.0)),
             feature_profile=profile.name,
         )
 
@@ -959,3 +1151,69 @@ def _feature_profile(name: str) -> _FeatureProfile:
 
 def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
     return _FEATURE_PROFILES_BY_KIND.get(kind)
+
+
+def _feature_names(profile: _FeatureProfile) -> tuple[str, ...]:
+    if profile.name == RAW_COUNT_FEATURE_PROFILE:
+        names = _RAW_FEATURE_NAMES
+    else:
+        names = _TILE_EFFICIENCY_FEATURE_NAMES
+        if profile.includes_risk_context:
+            names = (*names, *_RISK_CONTEXT_FEATURE_NAMES)
+        if profile.includes_defense_context:
+            names = (*names, *_DEFENSE_CONTEXT_FEATURE_NAMES)
+        if profile.includes_defense_context_v1:
+            names = (*names, *_DEFENSE_CONTEXT_V1_FEATURE_NAMES)
+    if len(names) != profile.feature_dim:
+        raise ValueError("feature names must match feature dimension")
+    return names
+
+
+def _numeric_summary(values: Iterable[float]) -> dict[str, float | int]:
+    value_list = list(values)
+    if not value_list:
+        return {
+            "count": 0,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "mean_abs": 0.0,
+            "max_abs": 0.0,
+        }
+    return {
+        "count": len(value_list),
+        "min": min(value_list),
+        "max": max(value_list),
+        "mean": sum(value_list) / len(value_list),
+        "mean_abs": sum(abs(value) for value in value_list) / len(value_list),
+        "max_abs": max(abs(value) for value in value_list),
+    }
+
+
+def _feature_overall_summary(
+    *,
+    sums: Sequence[float],
+    sum_abs: Sequence[float],
+    max_abs: Sequence[float],
+    nonzero: Sequence[int],
+    vector_count: int,
+    feature_count: int,
+) -> dict[str, float | int | None]:
+    value_count = vector_count * feature_count
+    if value_count == 0:
+        return {
+            "count": 0,
+            "nonzero": 0,
+            "nonzero_rate": None,
+            "mean": None,
+            "mean_abs": None,
+            "max_abs": None,
+        }
+    return {
+        "count": value_count,
+        "nonzero": sum(nonzero),
+        "nonzero_rate": sum(nonzero) / value_count,
+        "mean": sum(sums) / value_count,
+        "mean_abs": sum(sum_abs) / value_count,
+        "max_abs": max(max_abs, default=0.0),
+    }

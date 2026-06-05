@@ -10,6 +10,7 @@ from kenjaku.models import (
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
     RISK_CONTEXT_FEATURE_PROFILE,
+    SHANTEN_FEATURE_PROFILE,
     DiscardLinearModel,
 )
 from kenjaku.training import DiscardExample
@@ -62,6 +63,36 @@ class LinearDiscardModelTests(unittest.TestCase):
         self.assertEqual(model.feature_dim, 76)
         self.assertEqual(loaded.to_dict(), model.to_dict())
         self.assertEqual(loaded.score(examples), model.score(examples))
+
+    def test_l2_round_trips_json_artifact(self) -> None:
+        examples = [_example(["1m", "2m"], "1m"), _example(["1m", "2m"], "1m")]
+        model = DiscardLinearModel.fit(examples, epochs=3, learning_rate=0.2, l2=0.001)
+        payload = model.to_dict()
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "discard-linear-l2.json"
+            model.save(path)
+            loaded = DiscardLinearModel.load(path)
+
+        self.assertEqual(payload["l2"], 0.001)
+        self.assertEqual(loaded.l2, 0.001)
+        self.assertEqual(loaded.to_dict(), model.to_dict())
+
+    def test_feature_names_match_profile_dimensions(self) -> None:
+        profiles = {
+            RAW_COUNT_FEATURE_PROFILE: 69,
+            SHANTEN_FEATURE_PROFILE: 76,
+            RISK_CONTEXT_FEATURE_PROFILE: 86,
+            DEFENSE_CONTEXT_FEATURE_PROFILE: 98,
+            DEFENSE_CONTEXT_V1_FEATURE_PROFILE: 112,
+        }
+
+        for profile, expected_count in profiles.items():
+            with self.subTest(profile=profile):
+                self.assertEqual(
+                    len(DiscardLinearModel.feature_names_for_profile(profile)),
+                    expected_count,
+                )
 
     def test_raw_count_profile_round_trips_json_artifact(self) -> None:
         examples = [_example(["1m", "2m"], "1m"), _example(["1m", "2m"], "1m")]

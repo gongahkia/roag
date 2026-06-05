@@ -24,6 +24,7 @@ PYTHONPATH=src python3 -m kenjaku train-discard-linear \
   data/fixtures/tenhou --report runs/linear-report.json
 PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 5 --report runs/discard-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/discard-benchmark.json
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
@@ -33,6 +34,8 @@ raw-count linear, shanten-aware linear, risk-context linear, defense-context lin
 defense-context-v1 linear baselines on the same deterministic split, including held-out error
 analysis by shanten impact, tile family, round phase, seat-relative turn phase, active opponent
 riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi visibility.
+Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
+disagreement diagnostics, and `benchmark-report-summary` to compare ignored benchmark reports.
 
 For continuation context, see `docs/session-handoff.md`.
 
