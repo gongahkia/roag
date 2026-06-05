@@ -464,21 +464,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Stabilize defense modeling on the 100-log local Tenhou slice: inspect v0/v1 weight behavior,
-   feature activation rates, and examples where both defense profiles lose to risk-context.
+1. Regenerate and summarize disagreement exports at the current best `lr=0.05`, `l2=0.0` setting,
+   then inspect representative stored examples before changing defense features again.
 2. Use `lr=0.05` for local discard benchmark experiments unless a later compatibility pass changes
    the CLI default; `lr=0.1` was too aggressive on the 100-log slice and L2 did not help.
-3. Inspect the captured disagreement examples before adding features: v1 helps some defense buckets
-   but still trails v0/risk in aggregate.
-4. Add feature normalization behind a new model kind if linear-model stability remains the next
-   focus; do not mutate existing feature profiles.
+3. Add call benchmark quality metrics that make pass/call imbalance explicit, then build a first
+   non-pass-only call model.
+4. Add feature normalization behind a new discard model kind only if disagreement summaries still
+   point to linear scale instability; do not mutate existing feature profiles.
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-6. Add first supervised call/riichi decision baselines from existing reconstruction examples after
-   discard risk/defense diagnostics stop moving.
-7. Scale to larger local slices, such as 500 logs, only after the 100-log defense behavior is
-   stable under the chosen training settings.
+6. Add a first supervised riichi decision baseline after call reporting has imbalance-aware metrics.
+7. Scale to larger local slices, such as 500 logs, only after the 100-log defense and call baselines
+   have stable diagnostics.
 
 ---
 
@@ -654,3 +653,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   aggregate: actual-suji improved 0.3686 -> 0.4278 -> 0.4227, seen-after-riichi improved 0.5401 ->
   0.5875 -> 0.5935, and shanten-worsening improved 0.0977 -> 0.1015 -> 0.1157 for risk ->
   defense -> v1.
+- Added sparse discard benchmark selection with `benchmark-discard --models all|fast|...`; `fast`
+  keeps frequency, shanten-aware, risk-context, and defense-context while skipping raw-count and v1.
+- Added `disagreement-report-summary` for capped disagreement artifacts, including defense bucket
+  rates, common actual/predicted tile pairs, and correct/wrong model logit-margin summaries.
+- Added `call-frequency-v0` and `benchmark-call` as the first supervised call/pass baseline using
+  existing `CallExample` reconstruction data.
+- Ran the 100-log fast discard benchmark at the best known settings (`lr=0.05`, `l2=0.0`): frequency
+  0.2985 eval, shanten-aware 0.5012, risk-context 0.5124, and defense-context 0.5124.
+- Ran the first 100-log call benchmark: `call-frequency-v0` scored 0.8524 train / 0.8463 eval, but
+  the result is pass-dominant with 1.0000 eval pass accuracy and 0.0000 eval call accuracy on 413
+  actual call examples.

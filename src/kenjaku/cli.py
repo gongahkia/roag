@@ -2,26 +2,32 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 from kenjaku import __version__
-from kenjaku.core import Tile, TileType
+from kenjaku.core import ActionKind, Tile, TileType
 from kenjaku.experiments import (
-    build_discard_benchmark_report,
+    build_call_benchmark_report,
+    build_discard_benchmark_report_from_models,
     build_discard_benchmark_summary,
+    build_discard_disagreement_summary,
     build_discard_linear_report,
     build_tenhou_inspect_report,
     format_discard_benchmark_summary,
+    format_discard_disagreement_summary,
     write_json_report,
 )
 from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.models import (
+    CALL_DECISION_KINDS,
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
     RISK_CONTEXT_FEATURE_PROFILE,
     SHANTEN_FEATURE_PROFILE,
+    CallFrequencyBaseline,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
 )
@@ -32,6 +38,7 @@ from kenjaku.training import (
     actual_discard_is_genbutsu,
     actual_discard_seen_after_riichi,
     actual_discard_seen_before_riichi,
+    CallExample,
     deterministic_split,
     discard_shanten_delta,
     DiscardExample,
@@ -40,6 +47,33 @@ from kenjaku.training import (
     iter_discard_examples,
     summarize_discard_predictions,
     summarize_discard_shanten,
+)
+
+DISCARD_BENCHMARK_MODEL_ORDER = (
+    "frequency",
+    "raw_count_linear",
+    "linear",
+    "risk_context_linear",
+    "defense_context_linear",
+    "defense_context_v1_linear",
+)
+DISCARD_BENCHMARK_FAST_MODELS = (
+    "frequency",
+    "linear",
+    "risk_context_linear",
+    "defense_context_linear",
+)
+DISCARD_LINEAR_FEATURE_PROFILES = {
+    "raw_count_linear": RAW_COUNT_FEATURE_PROFILE,
+    "linear": SHANTEN_FEATURE_PROFILE,
+    "risk_context_linear": RISK_CONTEXT_FEATURE_PROFILE,
+    "defense_context_linear": DEFENSE_CONTEXT_FEATURE_PROFILE,
+    "defense_context_v1_linear": DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
+}
+DISAGREEMENT_REQUIRED_MODELS = (
+    "risk_context_linear",
+    "defense_context_linear",
+    "defense_context_v1_linear",
 )
 
 
@@ -162,6 +196,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="linear model L2 regularization strength",
     )
     benchmark_discard.add_argument(
+        "--models",
+        default="all",
+        help=(
+            "discard benchmark models: all, fast, or comma-separated model names "
+            "(frequency, raw_count_linear, linear, risk_context_linear, "
+            "defense_context_linear, defense_context_v1_linear)"
+        ),
+    )
+    benchmark_discard.add_argument(
         "--eval-fraction",
         type=float,
         default=0.2,
@@ -212,6 +255,57 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the summary as JSON instead of text",
     )
     benchmark_summary.set_defaults(func=_benchmark_report_summary)
+
+    disagreement_summary = subparsers.add_parser(
+        "disagreement-report-summary",
+        help="summarize one or more discard disagreement JSON reports",
+    )
+    disagreement_summary.add_argument(
+        "reports",
+        nargs="+",
+        type=Path,
+        help="discard disagreement report JSON files",
+    )
+    disagreement_summary.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the summary as JSON instead of text",
+    )
+    disagreement_summary.set_defaults(func=_disagreement_report_summary)
+
+    benchmark_call = subparsers.add_parser(
+        "benchmark-call",
+        help="compare deterministic call/pass baselines on one train/eval split",
+    )
+    benchmark_call.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    benchmark_call.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    benchmark_call.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    benchmark_call.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON call benchmark report artifact",
+    )
+    benchmark_call.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(benchmark_call)
+    benchmark_call.set_defaults(func=_benchmark_call)
     return parser
 
 
@@ -332,6 +426,17 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
 def _benchmark_discard(args: argparse.Namespace) -> int:
     if args.max_disagreements < 0:
         raise SystemExit("--max-disagreements must be non-negative")
+    selected_model_names = _parse_discard_benchmark_models(args.models)
+    if args.disagreements is not None:
+        missing = [
+            model_name
+            for model_name in DISAGREEMENT_REQUIRED_MODELS
+            if model_name not in selected_model_names
+        ]
+        if missing:
+            raise SystemExit(
+                "--disagreements requires selected models: " + ", ".join(missing)
+            )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
     examples = list(iter_discard_examples(game))
@@ -343,147 +448,48 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         eval_fraction=args.eval_fraction,
         seed=args.split_seed,
     )
-    frequency_model = DiscardFrequencyBaseline.fit(train_examples)
-    raw_count_linear_model = DiscardLinearModel.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        l2=args.l2,
-        feature_profile=RAW_COUNT_FEATURE_PROFILE,
-    )
-    linear_model = DiscardLinearModel.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        l2=args.l2,
-        feature_profile=SHANTEN_FEATURE_PROFILE,
-    )
-    risk_context_linear_model = DiscardLinearModel.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        l2=args.l2,
-        feature_profile=RISK_CONTEXT_FEATURE_PROFILE,
-    )
-    defense_context_linear_model = DiscardLinearModel.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        l2=args.l2,
-        feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
-    )
-    defense_context_v1_linear_model = DiscardLinearModel.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        l2=args.l2,
-        feature_profile=DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
-    )
-    frequency_train_accuracy = frequency_model.score(train_examples)
-    frequency_eval_accuracy = frequency_model.score(eval_examples) if eval_examples else None
-    raw_count_linear_train_accuracy = raw_count_linear_model.score(train_examples)
-    raw_count_linear_eval_accuracy = (
-        raw_count_linear_model.score(eval_examples)
-        if eval_examples
-        else None
-    )
-    linear_train_accuracy = linear_model.score(train_examples)
-    linear_eval_accuracy = linear_model.score(eval_examples) if eval_examples else None
-    risk_context_linear_train_accuracy = risk_context_linear_model.score(train_examples)
-    risk_context_linear_eval_accuracy = (
-        risk_context_linear_model.score(eval_examples)
-        if eval_examples
-        else None
-    )
-    defense_context_linear_train_accuracy = defense_context_linear_model.score(train_examples)
-    defense_context_linear_eval_accuracy = (
-        defense_context_linear_model.score(eval_examples)
-        if eval_examples
-        else None
-    )
-    defense_context_v1_linear_train_accuracy = defense_context_v1_linear_model.score(
-        train_examples
-    )
-    defense_context_v1_linear_eval_accuracy = (
-        defense_context_v1_linear_model.score(eval_examples)
-        if eval_examples
-        else None
-    )
-    eval_lift_over_raw_count = _optional_delta(
-        linear_eval_accuracy,
-        raw_count_linear_eval_accuracy,
-    )
-    risk_context_eval_lift_over_linear = _optional_delta(
-        risk_context_linear_eval_accuracy,
-        linear_eval_accuracy,
-    )
-    defense_context_eval_lift_over_risk_context = _optional_delta(
-        defense_context_linear_eval_accuracy,
-        risk_context_linear_eval_accuracy,
-    )
-    defense_context_v1_eval_lift_over_defense_context = _optional_delta(
-        defense_context_v1_linear_eval_accuracy,
-        defense_context_linear_eval_accuracy,
-    )
+    model_payloads: dict[str, dict[str, Any]] = {}
+    linear_models: dict[str, DiscardLinearModel] = {}
+
+    if "frequency" in selected_model_names:
+        frequency_model = DiscardFrequencyBaseline.fit(train_examples)
+        model_payloads["frequency"] = _discard_frequency_payload(
+            frequency_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            include_analysis=args.report is not None,
+        )
+
+    for model_name in selected_model_names:
+        if model_name not in DISCARD_LINEAR_FEATURE_PROFILES:
+            continue
+        model = DiscardLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile=DISCARD_LINEAR_FEATURE_PROFILES[model_name],
+        )
+        linear_models[model_name] = model
+        model_payloads[model_name] = _discard_linear_payload(
+            model_name,
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            include_analysis=args.report is not None,
+        )
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
-    print(f"frequency_train_accuracy: {frequency_train_accuracy:.4f}")
-    print(f"frequency_eval_accuracy: {_format_optional_accuracy(frequency_eval_accuracy)}")
-    print(f"raw_count_linear_train_accuracy: {raw_count_linear_train_accuracy:.4f}")
-    print(
-        "raw_count_linear_eval_accuracy: "
-        f"{_format_optional_accuracy(raw_count_linear_eval_accuracy)}"
-    )
-    print(f"linear_train_accuracy: {linear_train_accuracy:.4f}")
-    print(f"linear_eval_accuracy: {_format_optional_accuracy(linear_eval_accuracy)}")
-    print(f"linear_eval_lift_over_raw_count: {_format_optional_delta(eval_lift_over_raw_count)}")
-    print(f"risk_context_linear_train_accuracy: {risk_context_linear_train_accuracy:.4f}")
-    print(
-        "risk_context_linear_eval_accuracy: "
-        f"{_format_optional_accuracy(risk_context_linear_eval_accuracy)}"
-    )
-    print(
-        "risk_context_linear_eval_lift_over_linear: "
-        f"{_format_optional_delta(risk_context_eval_lift_over_linear)}"
-    )
-    print(f"defense_context_linear_train_accuracy: {defense_context_linear_train_accuracy:.4f}")
-    print(
-        "defense_context_linear_eval_accuracy: "
-        f"{_format_optional_accuracy(defense_context_linear_eval_accuracy)}"
-    )
-    print(
-        "defense_context_linear_eval_lift_over_risk_context: "
-        f"{_format_optional_delta(defense_context_eval_lift_over_risk_context)}"
-    )
-    print(f"defense_context_v1_linear_train_accuracy: {defense_context_v1_linear_train_accuracy:.4f}")
-    print(
-        "defense_context_v1_linear_eval_accuracy: "
-        f"{_format_optional_accuracy(defense_context_v1_linear_eval_accuracy)}"
-    )
-    print(
-        "defense_context_v1_linear_eval_lift_over_defense_context: "
-        f"{_format_optional_delta(defense_context_v1_eval_lift_over_defense_context)}"
-    )
+    _print_discard_benchmark_metrics(model_payloads)
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
-    linear_models = {
-        "raw_count_linear": raw_count_linear_model,
-        "linear": linear_model,
-        "risk_context_linear": risk_context_linear_model,
-        "defense_context_linear": defense_context_linear_model,
-        "defense_context_v1_linear": defense_context_v1_linear_model,
-    }
     if args.report is not None:
-        model_diagnostics = {
-            model_name: {
-                "weight_summary": model.weight_summary(),
-                "feature_summary": model.feature_summary(eval_examples),
-            }
-            for model_name, model in linear_models.items()
-        }
-        report = build_discard_benchmark_report(
+        report = build_discard_benchmark_report_from_models(
             input_paths=args.paths,
             xml_files=dataset.files,
             game=game,
@@ -493,98 +499,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             eval_fraction=args.eval_fraction,
             train_examples=len(train_examples),
             eval_examples=len(eval_examples),
-            frequency_train_accuracy=frequency_train_accuracy,
-            frequency_eval_accuracy=frequency_eval_accuracy,
-            frequency_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: frequency_model.predict(example.hand_counts),
-            ),
-            raw_count_linear_epochs=args.epochs,
-            raw_count_linear_learning_rate=args.learning_rate,
-            raw_count_linear_model_kind=raw_count_linear_model.kind,
-            raw_count_linear_feature_dim=raw_count_linear_model.feature_dim,
-            raw_count_linear_train_accuracy=raw_count_linear_train_accuracy,
-            raw_count_linear_eval_accuracy=raw_count_linear_eval_accuracy,
-            raw_count_linear_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: raw_count_linear_model.predict(
-                    example.hand_counts,
-                    example.visible_counts,
-                ),
-            ),
-            linear_epochs=args.epochs,
-            linear_learning_rate=args.learning_rate,
-            linear_model_kind=linear_model.kind,
-            linear_feature_dim=linear_model.feature_dim,
-            linear_train_accuracy=linear_train_accuracy,
-            linear_eval_accuracy=linear_eval_accuracy,
-            linear_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: linear_model.predict(
-                    example.hand_counts,
-                    example.visible_counts,
-                ),
-            ),
-            risk_context_linear_epochs=args.epochs,
-            risk_context_linear_learning_rate=args.learning_rate,
-            risk_context_linear_model_kind=risk_context_linear_model.kind,
-            risk_context_linear_feature_dim=risk_context_linear_model.feature_dim,
-            risk_context_linear_train_accuracy=risk_context_linear_train_accuracy,
-            risk_context_linear_eval_accuracy=risk_context_linear_eval_accuracy,
-            risk_context_linear_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: risk_context_linear_model.predict(
-                    example.hand_counts,
-                    example.visible_counts,
-                    seat=example.seat,
-                    active_riichi_seats=example.active_riichi_seats,
-                    river_counts_by_seat=example.river_counts_by_seat,
-                ),
-            ),
-            defense_context_linear_epochs=args.epochs,
-            defense_context_linear_learning_rate=args.learning_rate,
-            defense_context_linear_model_kind=defense_context_linear_model.kind,
-            defense_context_linear_feature_dim=defense_context_linear_model.feature_dim,
-            defense_context_linear_train_accuracy=defense_context_linear_train_accuracy,
-            defense_context_linear_eval_accuracy=defense_context_linear_eval_accuracy,
-            defense_context_linear_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: defense_context_linear_model.predict(
-                    example.hand_counts,
-                    example.visible_counts,
-                    seat=example.seat,
-                    active_riichi_seats=example.active_riichi_seats,
-                    river_counts_by_seat=example.river_counts_by_seat,
-                    rivers_by_seat=example.rivers_by_seat,
-                    riichi_declared_turns=example.riichi_declared_turns,
-                    riichi_declared_event_indices=example.riichi_declared_event_indices,
-                ),
-            ),
-            defense_context_v1_linear_epochs=args.epochs,
-            defense_context_v1_linear_learning_rate=args.learning_rate,
-            defense_context_v1_linear_model_kind=defense_context_v1_linear_model.kind,
-            defense_context_v1_linear_feature_dim=defense_context_v1_linear_model.feature_dim,
-            defense_context_v1_linear_train_accuracy=defense_context_v1_linear_train_accuracy,
-            defense_context_v1_linear_eval_accuracy=defense_context_v1_linear_eval_accuracy,
-            defense_context_v1_linear_eval_analysis=summarize_discard_predictions(
-                eval_examples,
-                lambda example: defense_context_v1_linear_model.predict(
-                    example.hand_counts,
-                    example.visible_counts,
-                    seat=example.seat,
-                    active_riichi_seats=example.active_riichi_seats,
-                    river_counts_by_seat=example.river_counts_by_seat,
-                    rivers_by_seat=example.rivers_by_seat,
-                    riichi_declared_turns=example.riichi_declared_turns,
-                    riichi_declared_event_indices=example.riichi_declared_event_indices,
-                    meld_counts_by_seat=example.meld_counts_by_seat,
-                    dora_indicators=example.dora_indicators,
-                    last_discard_tsumogiri_by_seat=example.last_discard_tsumogiri_by_seat,
-                    ippatsu_active_seats=example.ippatsu_active_seats,
-                ),
-            ),
-            linear_l2=args.l2,
-            model_diagnostics=model_diagnostics,
+            models=model_payloads,
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
             source=_source_metadata(args),
@@ -602,6 +517,176 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_discard_benchmark_models(value: str) -> tuple[str, ...]:
+    if value == "all":
+        return DISCARD_BENCHMARK_MODEL_ORDER
+    if value == "fast":
+        return DISCARD_BENCHMARK_FAST_MODELS
+
+    selected: list[str] = []
+    for raw_name in value.split(","):
+        model_name = raw_name.strip()
+        if not model_name:
+            continue
+        if model_name not in DISCARD_BENCHMARK_MODEL_ORDER:
+            raise SystemExit(f"unsupported discard benchmark model: {model_name}")
+        if model_name not in selected:
+            selected.append(model_name)
+    if not selected:
+        raise SystemExit("--models must select at least one model")
+    return tuple(selected)
+
+
+def _discard_frequency_payload(
+    model: DiscardFrequencyBaseline,
+    *,
+    train_examples: list[DiscardExample],
+    eval_examples: list[DiscardExample],
+    include_analysis: bool,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "metrics": {
+            "train_accuracy": model.score(train_examples),
+            "eval_accuracy": model.score(eval_examples) if eval_examples else None,
+        },
+    }
+    if include_analysis:
+        payload["eval_analysis"] = summarize_discard_predictions(
+            eval_examples,
+            lambda example: model.predict(example.hand_counts),
+        )
+    return payload
+
+
+def _discard_linear_payload(
+    model_name: str,
+    model: DiscardLinearModel,
+    *,
+    train_examples: list[DiscardExample],
+    eval_examples: list[DiscardExample],
+    epochs: int,
+    learning_rate: float,
+    l2: float,
+    include_analysis: bool,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "kind": model.kind,
+        "feature_dim": model.feature_dim,
+        "training": {
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "l2": l2,
+        },
+        "metrics": {
+            "train_accuracy": model.score(train_examples),
+            "eval_accuracy": model.score(eval_examples) if eval_examples else None,
+        },
+    }
+    if include_analysis:
+        payload["eval_analysis"] = summarize_discard_predictions(
+            eval_examples,
+            lambda example: _predict_discard_model(model_name, model, example),
+        )
+        payload["weight_summary"] = model.weight_summary()
+        payload["feature_summary"] = model.feature_summary(eval_examples)
+    return payload
+
+
+def _predict_discard_model(
+    model_name: str,
+    model: DiscardLinearModel,
+    example: DiscardExample,
+) -> TileType:
+    if model_name in {"raw_count_linear", "linear"}:
+        return model.predict(example.hand_counts, example.visible_counts)
+    if model_name == "risk_context_linear":
+        return model.predict(
+            example.hand_counts,
+            example.visible_counts,
+            seat=example.seat,
+            active_riichi_seats=example.active_riichi_seats,
+            river_counts_by_seat=example.river_counts_by_seat,
+        )
+    if model_name == "defense_context_linear":
+        return model.predict(
+            example.hand_counts,
+            example.visible_counts,
+            seat=example.seat,
+            active_riichi_seats=example.active_riichi_seats,
+            river_counts_by_seat=example.river_counts_by_seat,
+            rivers_by_seat=example.rivers_by_seat,
+            riichi_declared_turns=example.riichi_declared_turns,
+            riichi_declared_event_indices=example.riichi_declared_event_indices,
+        )
+    if model_name == "defense_context_v1_linear":
+        return model.predict(
+            example.hand_counts,
+            example.visible_counts,
+            seat=example.seat,
+            active_riichi_seats=example.active_riichi_seats,
+            river_counts_by_seat=example.river_counts_by_seat,
+            rivers_by_seat=example.rivers_by_seat,
+            riichi_declared_turns=example.riichi_declared_turns,
+            riichi_declared_event_indices=example.riichi_declared_event_indices,
+            meld_counts_by_seat=example.meld_counts_by_seat,
+            dora_indicators=example.dora_indicators,
+            last_discard_tsumogiri_by_seat=example.last_discard_tsumogiri_by_seat,
+            ippatsu_active_seats=example.ippatsu_active_seats,
+        )
+    raise ValueError(f"unsupported discard linear model: {model_name}")
+
+
+def _print_discard_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:
+    for model_name in DISCARD_BENCHMARK_MODEL_ORDER:
+        if model_name not in model_payloads:
+            continue
+        metrics = model_payloads[model_name]["metrics"]
+        train_accuracy = metrics["train_accuracy"]
+        eval_accuracy = metrics["eval_accuracy"]
+        print(f"{model_name}_train_accuracy: {train_accuracy:.4f}")
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(eval_accuracy)}")
+        if model_name == "linear":
+            delta = _optional_delta(
+                eval_accuracy,
+                _model_eval_accuracy(model_payloads, "raw_count_linear"),
+            )
+            print(f"linear_eval_lift_over_raw_count: {_format_optional_delta(delta)}")
+        elif model_name == "risk_context_linear":
+            delta = _optional_delta(
+                eval_accuracy,
+                _model_eval_accuracy(model_payloads, "linear"),
+            )
+            print(f"risk_context_linear_eval_lift_over_linear: {_format_optional_delta(delta)}")
+        elif model_name == "defense_context_linear":
+            delta = _optional_delta(
+                eval_accuracy,
+                _model_eval_accuracy(model_payloads, "risk_context_linear"),
+            )
+            print(
+                "defense_context_linear_eval_lift_over_risk_context: "
+                f"{_format_optional_delta(delta)}"
+            )
+        elif model_name == "defense_context_v1_linear":
+            delta = _optional_delta(
+                eval_accuracy,
+                _model_eval_accuracy(model_payloads, "defense_context_linear"),
+            )
+            print(
+                "defense_context_v1_linear_eval_lift_over_defense_context: "
+                f"{_format_optional_delta(delta)}"
+            )
+
+
+def _model_eval_accuracy(
+    model_payloads: dict[str, dict[str, Any]],
+    model_name: str,
+) -> float | None:
+    model = model_payloads.get(model_name)
+    if model is None:
+        return None
+    return model["metrics"]["eval_accuracy"]
+
+
 def _benchmark_report_summary(args: argparse.Namespace) -> int:
     summary = build_discard_benchmark_summary(args.reports)
     if args.json:
@@ -609,6 +694,152 @@ def _benchmark_report_summary(args: argparse.Namespace) -> int:
     else:
         print(format_discard_benchmark_summary(summary))
     return 0
+
+
+def _disagreement_report_summary(args: argparse.Namespace) -> int:
+    summary = build_discard_disagreement_summary(args.reports)
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(format_discard_disagreement_summary(summary))
+    return 0
+
+
+def _benchmark_call(args: argparse.Namespace) -> int:
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_call_examples(game))
+    if not examples:
+        raise SystemExit("no call examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    model = CallFrequencyBaseline.fit(train_examples)
+    train_accuracy = model.score(train_examples)
+    eval_accuracy = model.score(eval_examples) if eval_examples else None
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    print(f"train_accuracy: {train_accuracy:.4f}")
+    print(f"eval_accuracy: {_format_optional_accuracy(eval_accuracy)}")
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.report is not None:
+        discard_examples = list(iter_discard_examples(game))
+        report = build_call_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(discard_examples),
+            call_examples=len(examples),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            model_kind=model.kind,
+            model_counts=model.count_by_kind(),
+            train_accuracy=train_accuracy,
+            eval_accuracy=eval_accuracy,
+            train_analysis=_summarize_call_predictions(train_examples, model.predict),
+            eval_analysis=_summarize_call_predictions(eval_examples, model.predict),
+            parse_failures=dataset.failures,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+CallPredictor = Callable[[CallExample], ActionKind]
+
+
+def _summarize_call_predictions(
+    examples: Sequence[CallExample],
+    predict: CallPredictor,
+) -> dict[str, Any]:
+    buckets: dict[str, Any] = {
+        "overall": _empty_call_bucket(),
+        "by_call_or_pass": {
+            "pass": _empty_call_bucket(),
+            "call": _empty_call_bucket(),
+        },
+        "by_actual_action": {
+            kind.value: _empty_call_bucket()
+            for kind in CALL_DECISION_KINDS
+        },
+        "by_legal_call_kinds": {},
+    }
+    action_distribution = {
+        kind.value: 0
+        for kind in CALL_DECISION_KINDS
+    }
+
+    for example in examples:
+        actual = example.action.kind
+        prediction = predict(example)
+        correct = prediction == actual
+        action_distribution[actual.value] += 1
+        call_or_pass = "pass" if actual == ActionKind.PASS else "call"
+        legal_key = _legal_call_key(example)
+        legal_buckets = buckets["by_legal_call_kinds"]
+        legal_buckets.setdefault(legal_key, _empty_call_bucket())
+
+        _record_call_bucket(buckets["overall"], correct)
+        _record_call_bucket(buckets["by_call_or_pass"][call_or_pass], correct)
+        _record_call_bucket(buckets["by_actual_action"][actual.value], correct)
+        _record_call_bucket(legal_buckets[legal_key], correct)
+
+    return {
+        "action_distribution": action_distribution,
+        **_finalize_call_buckets(buckets),
+    }
+
+
+def _legal_call_key(example: CallExample) -> str:
+    if not example.legal_call_kinds:
+        return "none"
+    return ",".join(kind.value for kind in example.legal_call_kinds)
+
+
+def _empty_call_bucket() -> dict[str, int | float | None]:
+    return {
+        "examples": 0,
+        "correct": 0,
+        "accuracy": None,
+    }
+
+
+def _record_call_bucket(bucket: dict[str, int | float | None], correct: bool) -> None:
+    bucket["examples"] = int(bucket["examples"] or 0) + 1
+    bucket["correct"] = int(bucket["correct"] or 0) + int(correct)
+
+
+def _finalize_call_buckets(value: Any) -> Any:
+    if _is_call_bucket(value):
+        examples = int(value["examples"])
+        correct = int(value["correct"])
+        return {
+            "examples": examples,
+            "correct": correct,
+            "accuracy": None if examples == 0 else correct / examples,
+        }
+    if isinstance(value, dict):
+        return {
+            key: _finalize_call_buckets(child)
+            for key, child in value.items()
+        }
+    return value
+
+
+def _is_call_bucket(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"examples", "correct", "accuracy"}
+    )
 
 
 def _build_disagreement_report(

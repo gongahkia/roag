@@ -450,6 +450,76 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
         self.assertEqual(payload["reports"][0]["models"]["linear"]["feature_dim"], 76)
 
+    def test_benchmark_discard_models_fast_writes_sparse_report(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark-fast.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("raw_count_linear_train_accuracy", stdout.getvalue())
+        self.assertNotIn("defense_context_v1_linear_train_accuracy", stdout.getvalue())
+        self.assertEqual(
+            set(payload["models"]),
+            {"frequency", "linear", "risk_context_linear", "defense_context_linear"},
+        )
+        self.assertIsNone(payload["ablation"]["eval_accuracy_lift_over_raw_count"])
+        self.assertEqual(
+            payload["ablation"]["defense_context_eval_accuracy_lift_over_risk_context"],
+            0.0,
+        )
+
+    def test_benchmark_discard_explicit_models(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark-explicit.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "risk_context_linear,defense_context_linear",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("frequency_train_accuracy", stdout.getvalue())
+        self.assertEqual(set(payload["models"]), {"risk_context_linear", "defense_context_linear"})
+        self.assertIsNone(payload["ablation"]["risk_context_eval_accuracy_lift_over_linear"])
+        self.assertEqual(
+            payload["ablation"]["defense_context_eval_accuracy_lift_over_risk_context"],
+            0.0,
+        )
+
     def test_benchmark_discard_writes_disagreement_artifact(self) -> None:
         stdout = io.StringIO()
 
@@ -481,6 +551,101 @@ class CliTests(unittest.TestCase):
         self.assertIn("risk_correct_defense_wrong", payload["categories"])
         for category in payload["categories"].values():
             self.assertLessEqual(len(category["items"]), 2)
+
+    def test_disagreement_report_summary_outputs_text_and_json(self) -> None:
+        payload = {
+            "kind": "kenjaku-discard-disagreements-v0",
+            "examples": 5,
+            "max_per_category": 10,
+            "categories": {
+                "risk_correct_defense_wrong": {
+                    "count": 1,
+                    "items": [
+                        {
+                            "actual_discard": "5m",
+                            "predictions": {
+                                "risk_context_linear": "5m",
+                                "defense_context_linear": "8m",
+                            },
+                            "defense_buckets": {
+                                "genbutsu": True,
+                                "suji": False,
+                            },
+                            "candidate_logits": {
+                                "risk_context_linear": [
+                                    {"tile": "5m", "logit": 3.0},
+                                    {"tile": "8m", "logit": 1.0},
+                                ],
+                                "defense_context_linear": [
+                                    {"tile": "5m", "logit": 0.5},
+                                    {"tile": "8m", "logit": 2.0},
+                                ],
+                            },
+                        }
+                    ],
+                }
+            },
+        }
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "disagreements.json"
+            report.write_text(json.dumps(payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["disagreement-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["disagreement-report-summary", str(report), "--json"])
+            summary = json.loads(json_stdout.getvalue())
+
+        category = summary["reports"][0]["categories"]["risk_correct_defense_wrong"]
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("risk_correct_defense_wrong: count=1 stored=1", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(summary["kind"], "kenjaku-discard-disagreement-summary-v0")
+        self.assertEqual(category["defense_buckets"]["genbutsu"]["true"], 1)
+        self.assertEqual(category["actual_prediction_pairs"][0]["wrong_prediction"], "8m")
+        self.assertEqual(
+            category["logit_margins"]["correct_model_actual_margin"]["mean"],
+            2.0,
+        )
+        self.assertEqual(
+            category["logit_margins"]["wrong_model_error_margin"]["mean"],
+            1.5,
+        )
+
+    def test_benchmark_call_writes_report_artifact(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-call-benchmark-report-v0")
+        self.assertEqual(payload["call_examples"], 1)
+        self.assertEqual(payload["model"]["kind"], "call-frequency-v0")
+        self.assertEqual(payload["model"]["counts"]["pon"], 1)
+        self.assertEqual(payload["metrics"]["train_accuracy"], 1.0)
+        self.assertIsNone(payload["metrics"]["eval_accuracy"])
+        self.assertEqual(payload["train_analysis"]["by_call_or_pass"]["call"]["examples"], 1)
+        self.assertEqual(payload["train_analysis"]["by_legal_call_kinds"]["pon"]["correct"], 1)
+        self.assertIn("report_path:", stdout.getvalue())
 
 
 if __name__ == "__main__":

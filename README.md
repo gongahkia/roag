@@ -23,8 +23,14 @@ PYTHONPATH=src python3 -m kenjaku train-discard-linear data/fixtures/tenhou --ep
 PYTHONPATH=src python3 -m kenjaku train-discard-linear \
   data/fixtures/tenhou --report runs/linear-report.json
 PYTHONPATH=src python3 -m kenjaku benchmark-discard \
-  data/fixtures/tenhou --epochs 5 --report runs/discard-benchmark.json
+  data/fixtures/tenhou --epochs 5 --report runs/discard-benchmark.json \
+  --disagreements runs/discard-disagreements.json
+PYTHONPATH=src python3 -m kenjaku benchmark-discard \
+  data/fixtures/tenhou --epochs 5 --models fast --report runs/discard-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/discard-benchmark.json
+PYTHONPATH=src python3 -m kenjaku disagreement-report-summary runs/discard-disagreements.json
+PYTHONPATH=src python3 -m kenjaku benchmark-call \
+  data/fixtures/tenhou --report runs/call-benchmark.json
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
@@ -35,7 +41,10 @@ defense-context-v1 linear baselines on the same deterministic split, including h
 analysis by shanten impact, tile family, round phase, seat-relative turn phase, active opponent
 riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi visibility.
 Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
-disagreement diagnostics, and `benchmark-report-summary` to compare ignored benchmark reports.
+disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
+`benchmark-report-summary` to compare ignored benchmark reports, and
+`disagreement-report-summary` to aggregate capped disagreement examples. `benchmark-call` provides
+the first supervised call/pass baseline on existing call examples.
 
 For continuation context, see `docs/session-handoff.md`.
 
