@@ -36,6 +36,8 @@ houou-logs download data/raw/tenhou/db/2024.db --players 4 --length h --limit 10
 houou-logs validate data/raw/tenhou/db/2024.db
 houou-logs export data/raw/tenhou/db/2024.db data/raw/tenhou/xml/4p-hanchan \
   --players 4 --length h --limit 100
+houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-500 \
+  --players 4 --length h --limit 500
 ```
 
 ## Run Kenjaku
@@ -90,6 +92,18 @@ PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/raw/tenhou/xml/4p-hancha
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 
+PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
+  runs/call-benchmark-local-report.json \
+  runs/riichi-benchmark-local-report.json
+
+PYTHONPATH=src python3 -m kenjaku export-decision-snapshots data/raw/tenhou/xml/4p-hanchan \
+  --decision-types discard,call,riichi \
+  --limit 1000 \
+  --output runs/decision-snapshots-local.jsonl \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-hanchan \
   --epochs 5 \
   --eval-fraction 0.2 \
@@ -114,8 +128,9 @@ shanten-aware, risk-context, and defense-context results. `--disagreements` writ
 examples where risk/defense model predictions differ, including legal-candidate logits for
 debugging; it requires the risk, defense, and defense-v1 models.
 
-Use `benchmark-report-summary` to compare multiple ignored benchmark JSON reports without copying
-raw logs or full report artifacts into git. Use `disagreement-report-summary --examples N` to
+Use `benchmark-report-summary` to compare multiple ignored discard, call, and riichi benchmark JSON
+reports without copying raw logs or full report artifacts into git. Use
+`disagreement-report-summary --examples N` to
 compare capped disagreement artifacts and print representative stored examples; add `--tags` to
 also count deterministic `defense_signal`, `efficiency_like`, `close_logit`, active-riichi, and
 safe-tile labels; add `--tag TAG` to render only matching stored examples. `benchmark-call` scores
@@ -127,6 +142,10 @@ threshold policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a 
 riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`, including the
 fixed-threshold `riichi_linear_calibrated` policy variant, optional `riichi_linear_weighted`, and
 report-only riichi/pass threshold calibration.
+
+Use `export-decision-snapshots` to write local-only JSONL rows for discard/call/riichi decisions.
+Rows include Kenjaku reconstruction fields, legal actions, the observed action, and a minimal
+`mjai_events` prefix; this is the neutral handoff format for future offline Mortal comparison.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

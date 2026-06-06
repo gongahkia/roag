@@ -40,6 +40,10 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --include-weighted --report runs/call-benchmark-weighted.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   data/fixtures/tenhou --include-weighted --report runs/riichi-benchmark-weighted.json
+PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
+  runs/call-benchmark-weighted.json runs/riichi-benchmark-weighted.json
+PYTHONPATH=src python3 -m kenjaku export-decision-snapshots \
+  data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
@@ -51,7 +55,7 @@ analysis by shanten impact, tile family, round phase, seat-relative turn phase, 
 riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi visibility.
 Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
 disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
-`benchmark-report-summary` to compare ignored benchmark reports, and
+`benchmark-report-summary` to compare ignored discard, call, and riichi benchmark reports, and
 `disagreement-report-summary` to aggregate, tag, filter, and render capped disagreement examples.
 `benchmark-call` provides supervised call/pass baselines on existing call examples, including
 selective `call-linear-v0` and richer additive `call-linear-v1` models plus imbalance-aware
@@ -59,6 +63,8 @@ accuracy and recall metrics. Call and riichi reports include fixed-threshold cal
 variants, report-only threshold sweeps, and optional positive class-weighted comparison variants via
 `--include-weighted`; default `predict()` behavior is unchanged. `benchmark-riichi` provides
 conservative supervised riichi/pass reports for both the frequency floor and `riichi-linear-v0`.
+`export-decision-snapshots` writes ignored neutral JSONL rows for discard/call/riichi decision
+points, including a minimal mjai-style event prefix for future offline baseline comparison.
 
 For continuation context, see `docs/session-handoff.md`.
 

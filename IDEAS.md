@@ -464,20 +464,21 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Scale the explicit calibrated call/riichi policy variants to a larger local slice, ideally 500
-   logs, before adding more call or riichi features. The 100-log weighted comparison favored fixed
-   threshold policies over simple positive class weighting on balanced accuracy.
-2. If the larger run confirms the 100-log result, treat `call_linear_v1_calibrated` and
-   `riichi_linear_calibrated` as the preferred report policy baselines while leaving default
-   `predict()` behavior unchanged.
+1. Make 500-log call calibration practical before using it as a gating benchmark. The full
+   `benchmark-call --include-weighted` run on 500 logs was still CPU-active after more than an hour
+   and was stopped, so the next call task is benchmark runtime reduction or a bounded comparison
+   mode.
+2. Revisit riichi calibration on the 500-log slice before adding riichi features. The fixed 0.95
+   threshold from 100 logs did not transfer; the 500-log sweep preferred much lower thresholds and
+   simple positive weighting was closer to the best balanced-accuracy region.
 3. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
 4. Add feature normalization behind a new discard model kind only if tagged examples or weight
    summaries point to linear scale instability; do not mutate existing feature profiles.
-5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
-   exporter, then compare through a subprocess or neutral data layer when weights are available and
-   legally usable.
+5. Build the next Mortal-boundary step on top of `export-decision-snapshots`: add a consumer or
+   comparator through a subprocess or neutral data layer only when weights are available and legally
+   usable.
 
 ---
 
@@ -745,3 +746,19 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   eval accuracy, 0.7889 pass recall, and 0.5000 riichi recall. The positive-weight 2.0 comparison
   scored 0.3603 eval accuracy, 0.5114 balanced eval accuracy, 0.0444 pass recall, and 0.9783 riichi
   recall; its own threshold sweep picked 0.95 with binary balanced accuracy 0.5713.
+- Added `export-decision-snapshots`, a neutral local JSONL exporter for discard/call/riichi
+  decision points. Rows include Kenjaku reconstruction fields, legal actions, observed action, and a
+  minimal `mjai_events` prefix for future offline baseline comparison without copying Mortal code.
+- Extended `benchmark-report-summary` to summarize call and riichi benchmark reports as well as
+  discard reports, including balanced accuracy, pass/target recall, policy threshold, and positive
+  class weight.
+- Downloaded/exported an ignored 500-log four-player hanchan slice under
+  `data/raw/tenhou/xml/4p-hanchan-500`. The riichi benchmark completed: 10,249 examples, 8,199
+  train / 2,050 eval. `riichi_linear` scored 0.6712 eval accuracy, 0.6337 balanced accuracy,
+  0.7660 pass recall, and 0.5014 riichi recall. Fixed-threshold `riichi_linear_calibrated` at 0.95
+  fell to 0.5143 balanced accuracy, while `riichi_linear_weighted` at weight 2.0 scored 0.6412
+  balanced accuracy. The unweighted sweep preferred threshold 0.20 with 0.6606 binary balanced
+  accuracy.
+- The equivalent 500-log call benchmark with `--include-weighted` was stopped after more than an
+  hour while still CPU-active, before producing a report. Treat large-slice call benchmarking as a
+  runtime problem before using it to choose policies.
