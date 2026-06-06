@@ -178,12 +178,18 @@ class CallLinearModel:
         return _feature_profile(feature_profile).feature_names
 
     def predict(self, example: CallExample) -> ActionKind:
+        logits = self.logits_for_example(example)
+        return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
+
+    def logits_for_example(self, example: CallExample) -> dict[ActionKind, float]:
         prepared = _prepare_example(example, profile=_feature_profile(self.feature_profile))
-        logits = {
+        return {
             kind: _dot(self.weights[_kind_index(kind)], features)
             for kind, features in prepared.features_by_kind.items()
         }
-        return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
+
+    def probabilities_for_example(self, example: CallExample) -> dict[ActionKind, float]:
+        return _softmax(self.logits_for_example(example))
 
     def score(self, examples: list[CallExample]) -> float:
         if not examples:

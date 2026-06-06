@@ -93,6 +93,29 @@ class CallLinearModelTests(unittest.TestCase):
 
         self.assertIn(prediction, {ActionKind.PASS, ActionKind.CHI})
 
+    def test_probabilities_are_masked_to_legal_call_kinds(self) -> None:
+        model = CallLinearModel.fit(
+            [
+                _example(
+                    discarded="1m",
+                    legal_call_kinds=(ActionKind.PON,),
+                    action=Action(ActionKind.PON, TileType.parse("1m")),
+                )
+                for _ in range(3)
+            ],
+            epochs=10,
+            learning_rate=0.2,
+        )
+
+        probabilities = model.probabilities_for_example(
+            _example(discarded="3m", legal_call_kinds=(ActionKind.CHI,))
+        )
+        logits = model.logits_for_example(_example(discarded="3m", legal_call_kinds=(ActionKind.CHI,)))
+
+        self.assertEqual(set(probabilities), {ActionKind.PASS, ActionKind.CHI})
+        self.assertEqual(set(logits), {ActionKind.PASS, ActionKind.CHI})
+        self.assertAlmostEqual(sum(probabilities.values()), 1.0)
+
     def test_v1_prediction_is_masked_to_legal_call_kinds(self) -> None:
         model = CallLinearModel.fit(
             [

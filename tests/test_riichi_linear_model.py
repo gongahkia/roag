@@ -27,6 +27,21 @@ class RiichiLinearModelTests(unittest.TestCase):
             ActionKind.RIICHI,
         )
 
+    def test_probabilities_cover_pass_and_riichi(self) -> None:
+        model = RiichiLinearModel.fit(
+            [_example(Action.pass_(), seat_turn_index=1), _example(Action(ActionKind.RIICHI), seat_turn_index=12)],
+            epochs=5,
+            learning_rate=0.2,
+        )
+
+        example = _example(Action.pass_(), seat_turn_index=1)
+        probabilities = model.probabilities_for_example(example)
+        logits = model.logits_for_example(example)
+
+        self.assertEqual(set(probabilities), {ActionKind.PASS, ActionKind.RIICHI})
+        self.assertEqual(set(logits), {ActionKind.PASS, ActionKind.RIICHI})
+        self.assertAlmostEqual(sum(probabilities.values()), 1.0)
+
 
 def _example(action: Action, *, seat_turn_index: int) -> RiichiExample:
     counts = [0] * 34

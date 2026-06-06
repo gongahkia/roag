@@ -613,6 +613,19 @@ class CliTests(unittest.TestCase):
                     ["disagreement-report-summary", str(report), "--examples", "1", "--tags"]
                 )
 
+            filtered_stdout = io.StringIO()
+            with contextlib.redirect_stdout(filtered_stdout):
+                filtered_exit_code = main(
+                    [
+                        "disagreement-report-summary",
+                        str(report),
+                        "--examples",
+                        "1",
+                        "--tag",
+                        "defense_signal",
+                    ]
+                )
+
             json_stdout = io.StringIO()
             with contextlib.redirect_stdout(json_stdout):
                 json_exit_code = main(
@@ -635,6 +648,9 @@ class CliTests(unittest.TestCase):
             "tags: defense_signal, efficiency_like, active_riichi, safe_tile_candidate",
             tags_stdout.getvalue(),
         )
+        self.assertEqual(filtered_exit_code, 0)
+        self.assertIn("actual=5m", filtered_stdout.getvalue())
+        self.assertIn("tags: defense_signal", filtered_stdout.getvalue())
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(summary["kind"], "kenjaku-discard-disagreement-summary-v0")
         self.assertEqual(category["defense_buckets"]["genbutsu"]["true"], 1)
@@ -701,14 +717,25 @@ class CliTests(unittest.TestCase):
         self.assertEqual(call_linear["feature_profile"], "v0")
         self.assertEqual(call_linear["training"]["epochs"], 25)
         self.assertEqual(call_linear["metrics"]["train_action_recall"]["pon"], 1.0)
+        self.assertEqual(call_linear["calibration"]["target"], "call")
+        self.assertEqual(len(call_linear["calibration"]["thresholds"]), 21)
+        self.assertIsNotNone(call_linear["calibration"]["train"]["best"])
+        self.assertIsNone(call_linear["calibration"]["eval"]["best"])
         self.assertEqual(call_linear_v1["kind"], "call-linear-v1")
         self.assertGreater(call_linear_v1["feature_dim"], call_linear["feature_dim"])
         self.assertEqual(call_linear_v1["feature_profile"], "v1")
         self.assertEqual(call_linear_v1["training"]["epochs"], 25)
+        self.assertEqual(call_linear_v1["calibration"]["target"], "call")
+        self.assertEqual(
+            call_linear_v1["calibration"]["train"]["best"]["call_recall"],
+            1.0,
+        )
         self.assertIn("call_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("call_legal_frequency_eval_call_recall:", stdout.getvalue())
         self.assertIn("call_linear_eval_call_recall:", stdout.getvalue())
+        self.assertIn("call_linear_eval_best_threshold:", stdout.getvalue())
         self.assertIn("call_linear_v1_eval_call_recall:", stdout.getvalue())
+        self.assertIn("call_linear_v1_eval_best_threshold:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
     def test_benchmark_riichi_writes_report_artifact(self) -> None:
@@ -744,8 +771,14 @@ class CliTests(unittest.TestCase):
         self.assertGreater(linear["feature_dim"], 0)
         self.assertEqual(linear["training"]["epochs"], 25)
         self.assertEqual(linear["metrics"]["train_riichi_recall"], 1.0)
+        self.assertEqual(linear["calibration"]["target"], "riichi")
+        self.assertEqual(len(linear["calibration"]["thresholds"]), 21)
+        self.assertIsNotNone(linear["calibration"]["train"]["best"])
+        self.assertIsNone(linear["calibration"]["eval"]["best"])
+        self.assertEqual(linear["calibration"]["train"]["best"]["riichi_recall"], 1.0)
         self.assertIn("riichi_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("riichi_linear_eval_balanced_accuracy:", stdout.getvalue())
+        self.assertIn("riichi_linear_eval_best_threshold:", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
 

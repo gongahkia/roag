@@ -100,6 +100,7 @@ DISAGREEMENT_SAFE_TILE_BUCKETS = (
     "seen_after_riichi",
 )
 DISAGREEMENT_CLOSE_LOGIT_MARGIN = 0.25
+CALIBRATION_THRESHOLDS = tuple(round(index * 0.05, 2) for index in range(21))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -306,6 +307,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--tags",
         action="store_true",
         help="append deterministic disagreement tag counts from stored examples",
+    )
+    disagreement_summary.add_argument(
+        "--tag",
+        choices=DISAGREEMENT_TAGS,
+        help="when rendering examples, include only stored items with this deterministic tag",
     )
     disagreement_summary.set_defaults(func=_disagreement_report_summary)
 
@@ -795,6 +801,8 @@ def _benchmark_report_summary(args: argparse.Namespace) -> int:
 def _disagreement_report_summary(args: argparse.Namespace) -> int:
     if args.examples < 0:
         raise SystemExit("--examples must be non-negative")
+    if args.tag is not None and args.examples == 0:
+        raise SystemExit("--tag requires --examples")
     summary = build_discard_disagreement_summary(args.reports)
     tag_summary = _build_disagreement_tag_summary(args.reports) if args.tags else None
     if tag_summary is not None:
@@ -812,7 +820,8 @@ def _disagreement_report_summary(args: argparse.Namespace) -> int:
                 _format_disagreement_examples(
                     args.reports,
                     args.examples,
-                    include_tags=args.tags,
+                    include_tags=args.tags or args.tag is not None,
+                    tag_filter=args.tag,
                 )
             )
     return 0
@@ -823,6 +832,7 @@ def _format_disagreement_examples(
     examples_per_category: int,
     *,
     include_tags: bool = False,
+    tag_filter: str | None = None,
 ) -> str:
     lines: list[str] = ["examples:"]
     for path in paths:
@@ -838,19 +848,33 @@ def _format_disagreement_examples(
             items = category.get("items", [])
             if not isinstance(items, list) or not items:
                 continue
-            lines.append(f"{category_name}:")
-            for index, item in enumerate(items[:examples_per_category], start=1):
+            category_lines: list[str] = []
+            rendered = 0
+            for item in items:
                 if not isinstance(item, dict):
                     continue
-                lines.extend(
+                tags = _disagreement_item_tags(
+                    item,
+                    correct_model=correct_model,
+                    wrong_model=wrong_model,
+                )
+                if tag_filter is not None and tag_filter not in tags:
+                    continue
+                rendered += 1
+                category_lines.extend(
                     _format_disagreement_item(
                         item,
-                        index=index,
+                        index=rendered,
                         correct_model=correct_model,
                         wrong_model=wrong_model,
                         include_tags=include_tags,
                     )
                 )
+                if rendered >= examples_per_category:
+                    break
+            if category_lines:
+                lines.append(f"{category_name}:")
+                lines.extend(category_lines)
     return "\n".join(lines)
 
 
@@ -1226,6 +1250,12 @@ def _call_model_payload(
             "learning_rate": learning_rate,
             "l2": l2,
         }
+        payload["calibration"] = {
+            "target": "call",
+            "thresholds": list(CALIBRATION_THRESHOLDS),
+            "train": _call_threshold_sweep(model, train_examples),
+            "eval": _call_threshold_sweep(model, eval_examples),
+        }
     else:
         payload["counts"] = model.count_by_kind()
     return payload
@@ -1248,6 +1278,13 @@ def _print_call_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> 
             f"{model_name}_eval_call_recall: "
             f"{_format_optional_accuracy(metrics['eval_call_recall'])}"
         )
+        calibration = payload.get("calibration")
+        if isinstance(calibration, dict):
+            best = _calibration_best(calibration, "eval")
+            print(
+                f"{model_name}_eval_best_threshold: "
+                f"{_format_calibration_best(best, target_name='call')}"
+            )
 
 
 def _summarize_call_predictions(
@@ -1307,6 +1344,129 @@ def _call_metrics(analysis: dict[str, Any]) -> dict[str, Any]:
         "call_recall": call_recall,
         "action_recall": action_recall,
     }
+
+
+def _call_threshold_sweep(
+    model: CallLinearModel,
+    examples: Sequence[CallExample],
+) -> dict[str, Any]:
+    records = []
+    for example in examples:
+        probabilities = model.probabilities_for_example(example)
+        non_pass_probabilities = {
+            kind: probability
+            for kind, probability in probabilities.items()
+            if kind != ActionKind.PASS
+        }
+        score = sum(non_pass_probabilities.values()) if non_pass_probabilities else -1.0
+        records.append(
+            {
+                "score": score,
+                "actual_positive": example.action.kind != ActionKind.PASS,
+            }
+        )
+    return _binary_threshold_sweep(records, target_name="call")
+
+
+def _binary_threshold_sweep(
+    records: Sequence[dict[str, float | bool]],
+    *,
+    target_name: str,
+) -> dict[str, Any]:
+    thresholds = [
+        _binary_threshold_entry(records, threshold=threshold, target_name=target_name)
+        for threshold in CALIBRATION_THRESHOLDS
+    ]
+    if not records:
+        best = None
+    else:
+        best = max(
+            thresholds,
+            key=lambda entry: (
+                _metric_sort_value(entry["balanced_accuracy"]),
+                _metric_sort_value(entry[f"{target_name}_recall"]),
+                -float(entry["threshold"]),
+            ),
+        )
+    return {
+        "examples": len(records),
+        "thresholds": thresholds,
+        "best": best,
+    }
+
+
+def _binary_threshold_entry(
+    records: Sequence[dict[str, float | bool]],
+    *,
+    threshold: float,
+    target_name: str,
+) -> dict[str, Any]:
+    true_positive = 0
+    false_positive = 0
+    true_negative = 0
+    false_negative = 0
+    for record in records:
+        score = float(record["score"])
+        actual_positive = bool(record["actual_positive"])
+        predicted_positive = score >= threshold
+        if actual_positive and predicted_positive:
+            true_positive += 1
+        elif actual_positive:
+            false_negative += 1
+        elif predicted_positive:
+            false_positive += 1
+        else:
+            true_negative += 1
+
+    examples = len(records)
+    target_predictions = true_positive + false_positive
+    actual_target = true_positive + false_negative
+    actual_pass = true_negative + false_positive
+    target_recall = _safe_ratio(true_positive, actual_target)
+    pass_recall = _safe_ratio(true_negative, actual_pass)
+    return {
+        "threshold": threshold,
+        "examples": examples,
+        "correct": true_positive + true_negative,
+        "binary_accuracy": _safe_ratio(true_positive + true_negative, examples),
+        "balanced_accuracy": _mean_defined((target_recall, pass_recall)),
+        f"{target_name}_precision": _safe_ratio(true_positive, target_predictions),
+        f"{target_name}_recall": target_recall,
+        "pass_recall": pass_recall,
+        f"predicted_{target_name}_examples": target_predictions,
+        f"actual_{target_name}_examples": actual_target,
+        "actual_pass_examples": actual_pass,
+    }
+
+
+def _safe_ratio(numerator: int, denominator: int) -> float | None:
+    return None if denominator == 0 else numerator / denominator
+
+
+def _metric_sort_value(value: Any) -> float:
+    return -1.0 if value is None else float(value)
+
+
+def _calibration_best(calibration: dict[str, Any], split: str) -> dict[str, Any] | None:
+    split_payload = calibration.get(split)
+    if not isinstance(split_payload, dict):
+        return None
+    best = split_payload.get("best")
+    return best if isinstance(best, dict) else None
+
+
+def _format_calibration_best(best: dict[str, Any] | None, *, target_name: str) -> str:
+    if best is None:
+        return "n/a"
+    threshold = float(best["threshold"])
+    return (
+        f"{threshold:.2f} "
+        f"balanced={_format_optional_accuracy(best['balanced_accuracy'])} "
+        f"{target_name}_precision="
+        f"{_format_optional_accuracy(best[f'{target_name}_precision'])} "
+        f"{target_name}_recall={_format_optional_accuracy(best[f'{target_name}_recall'])} "
+        f"pass_recall={_format_optional_accuracy(best['pass_recall'])}"
+    )
 
 
 def _mean_defined(values: Iterable[float | None]) -> float | None:
@@ -1418,6 +1578,12 @@ def _riichi_model_payload(
             "learning_rate": learning_rate,
             "l2": l2,
         }
+        payload["calibration"] = {
+            "target": "riichi",
+            "thresholds": list(CALIBRATION_THRESHOLDS),
+            "train": _riichi_threshold_sweep(model, train_examples),
+            "eval": _riichi_threshold_sweep(model, eval_examples),
+        }
     else:
         payload["counts"] = model.count_by_kind()
     return payload
@@ -1440,6 +1606,13 @@ def _print_riichi_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -
             f"{model_name}_eval_riichi_recall: "
             f"{_format_optional_accuracy(metrics['eval_riichi_recall'])}"
         )
+        calibration = payload.get("calibration")
+        if isinstance(calibration, dict):
+            best = _calibration_best(calibration, "eval")
+            print(
+                f"{model_name}_eval_best_threshold: "
+                f"{_format_calibration_best(best, target_name='riichi')}"
+            )
 
 
 def _summarize_riichi_predictions(
@@ -1486,6 +1659,22 @@ def _riichi_metrics(analysis: dict[str, Any]) -> dict[str, Any]:
         "riichi_recall": riichi_recall,
         "action_recall": action_recall,
     }
+
+
+def _riichi_threshold_sweep(
+    model: RiichiLinearModel,
+    examples: Sequence[RiichiExample],
+) -> dict[str, Any]:
+    records = []
+    for example in examples:
+        probabilities = model.probabilities_for_example(example)
+        records.append(
+            {
+                "score": probabilities.get(ActionKind.RIICHI, 0.0),
+                "actual_positive": example.action.kind == ActionKind.RIICHI,
+            }
+        )
+    return _binary_threshold_sweep(records, target_name="riichi")
 
 
 def _legal_call_key(example: CallExample) -> str:

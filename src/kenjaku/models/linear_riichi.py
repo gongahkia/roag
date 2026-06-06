@@ -116,12 +116,18 @@ class RiichiLinearModel:
         return RIICHI_LINEAR_FEATURE_NAMES
 
     def predict(self, example: RiichiExample) -> ActionKind:
+        logits = self.logits_for_example(example)
+        return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
+
+    def logits_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
         prepared = _prepare_example(example)
-        logits = {
+        return {
             kind: _dot(self.weights[_kind_index(kind)], features)
             for kind, features in prepared.features_by_kind.items()
         }
-        return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
+
+    def probabilities_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
+        return _softmax(self.logits_for_example(example))
 
     def score(self, examples: list[RiichiExample]) -> float:
         if not examples:

@@ -114,11 +114,12 @@ Use `benchmark-report-summary` to compare multiple ignored benchmark JSON report
 raw logs or full report artifacts into git. Use `disagreement-report-summary --examples N` to
 compare capped disagreement artifacts and print representative stored examples; add `--tags` to
 also count deterministic `defense_signal`, `efficiency_like`, `close_logit`, active-riichi, and
-safe-tile labels. `benchmark-call` scores pass-allowed frequency, legal-call-only frequency,
-`call-linear-v0`, and additive `call-linear-v1` baselines, and reports overall accuracy, balanced
-accuracy, pass recall, call recall, and per-action recall so pass/call imbalance is visible.
-`benchmark-riichi` builds a conservative riichi/pass dataset and scores both the frequency floor
-and `riichi-linear-v0` for that decision surface.
+safe-tile labels; add `--tag TAG` to render only matching stored examples. `benchmark-call` scores
+pass-allowed frequency, legal-call-only frequency, `call-linear-v0`, and additive
+`call-linear-v1` baselines, and reports overall accuracy, balanced accuracy, pass recall, call
+recall, per-action recall, and report-only call/pass threshold calibration. `benchmark-riichi`
+builds a conservative riichi/pass dataset and scores both the frequency floor and
+`riichi-linear-v0`, including report-only riichi/pass threshold calibration.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

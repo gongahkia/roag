@@ -464,16 +464,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Calibrate the new `call-linear-v1` tradeoff before scaling: it improves balanced accuracy and
-   call recall on the 100-log slice, but lowers aggregate/pass recall versus `call-linear-v0`.
-   Next knobs should be class weighting, thresholded call/pass selection, or a report-only
-   precision/recall curve rather than mutating the v1 feature profile.
-2. Calibrate `riichi-linear-v0`: it fixes the frequency floor's 0.0000 riichi recall, but currently
-   overcalls riichi enough to lower aggregate accuracy. Add class weighting or threshold sweeps and
-   report riichi precision/recall before adding more features.
-3. Use the new disagreement tags before changing discard features. The latest capped 100-log sample
-   is dominated by efficiency-preserving and close-logit cases, so do not add another defense
-   profile until a tag-specific sample points to a concrete feature gap.
+1. Turn calibration evidence into explicit optional policy variants, without changing existing
+   model kinds or default `predict()` behavior. Candidate report keys: calibrated
+   `call-linear-v1` at threshold 0.40 and calibrated `riichi-linear-v0` at threshold 0.95.
+2. Compare threshold calibration against class-weighted training before adding more call or riichi
+   features. The current report-only thresholds improved balanced accuracy on the 100-log split.
+3. Use disagreement tag filters before changing discard features. The capped 100-log sample is
+   dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
+   until a tag-specific sample points to a concrete feature gap.
 4. Add feature normalization behind a new discard model kind only if tagged examples or weight
    summaries point to linear scale instability; do not mutate existing feature profiles.
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
@@ -719,3 +717,17 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - The tagged current-best discard disagreement sample (`lr=0.05`, `l2=0.0`) has 400 stored
   examples: 373 efficiency-like, 336 close-logit, 130 active-riichi, 130 safe-tile-candidate, and
   82 defense-signal tags. No stored item fell into `no_obvious_signal` under the current rules.
+- Added report-only threshold calibration to linear call and riichi benchmark payloads without
+  changing default model predictions. Each linear payload now records the 0.00-1.00 grid, train/eval
+  sweep rows, and a deterministic best threshold.
+- Added masked `logits_for_example` and `probabilities_for_example` helpers for `CallLinearModel`
+  and `RiichiLinearModel`.
+- Added `disagreement-report-summary --tag TAG` to render stored examples matching one deterministic
+  tag while still showing the aggregate tag counts.
+- On the 100-log `tenhou-100-v0` split, calibrated `call-linear-v1` at threshold 0.40 raised binary
+  balanced accuracy to 0.7762 with call precision 0.4393, call recall 0.7191, and pass recall
+  0.8333. The unthresholded exact-action v1 report remained 0.8377 eval accuracy, 0.7496 balanced
+  accuracy, 0.8769 pass recall, and 0.6223 call recall.
+- On the same split, calibrated `riichi-linear-v0` at threshold 0.95 raised binary balanced accuracy
+  to 0.6444 with riichi precision 0.5476, riichi recall 0.5000, and pass recall 0.7889. The
+  unthresholded model remains useful mainly as a riichi-recall probe because it overcalls.
