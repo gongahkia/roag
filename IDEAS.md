@@ -708,13 +708,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added `disagreement-report-summary --tags`, which derives deterministic stored-example tags:
   `defense_signal`, `efficiency_like`, `close_logit`, `active_riichi`, `safe_tile_candidate`, and
   `no_obvious_signal`.
-- Re-ran fixture smoke benchmarks and the 100-log local call/riichi benchmarks. On the 100-log call
-  split, `call-linear-v1` scored 0.8359 eval accuracy, 0.7103 balanced eval accuracy, 0.8848 pass
-  recall, and 0.5358 call recall versus v0 at 0.8448 / 0.6822 / 0.9082 / 0.4562.
-- On the 100-log riichi split, `riichi-linear-v0` scored 0.5270 eval accuracy, 0.5945 balanced eval
-  accuracy, 0.3189 pass recall, and 0.8701 riichi recall, while `riichi-frequency-v0` remained the
-  pass-only floor at 0.6225 eval accuracy, 0.5000 balanced accuracy, 1.0000 pass recall, and 0.0000
-  riichi recall.
+- Re-ran fixture smoke benchmarks and the 100-log local call/riichi benchmarks on the
+  `tenhou-100-v0` split. `call-linear-v1` scored 0.8377 eval accuracy, 0.7496 balanced eval
+  accuracy, 0.8769 pass recall, and 0.6223 call recall versus v0 at 0.8288 / 0.7294 / 0.8729 /
+  0.5860.
+- On the same 100-log riichi split, `riichi-linear-v0` scored 0.4510 eval accuracy, 0.5639 balanced
+  eval accuracy, 0.2148 pass recall, and 0.9130 riichi recall, while `riichi-frequency-v0` remained
+  the pass-only floor at 0.6618 eval accuracy, 0.5000 balanced accuracy, 1.0000 pass recall, and
+  0.0000 riichi recall.
 - The tagged current-best discard disagreement sample (`lr=0.05`, `l2=0.0`) has 400 stored
   examples: 373 efficiency-like, 336 close-logit, 130 active-riichi, 130 safe-tile-candidate, and
   82 defense-signal tags. No stored item fell into `no_obvious_signal` under the current rules.

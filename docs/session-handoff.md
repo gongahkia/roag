@@ -1,11 +1,11 @@
 # Session Handoff
 
-Last updated: 2026-06-05.
+Last updated: 2026-06-06.
 
 ## Stop State
 
-- Last work slice: added representative disagreement rendering, `call-linear-v0`, conservative
-  riichi/pass examples, and the first `benchmark-riichi` report.
+- Last work slice: added additive `call-linear-v1`, `riichi-linear-v0`, deterministic
+  disagreement tags, updated benchmarks, and current handoff notes.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -30,14 +30,17 @@ Last updated: 2026-06-05.
   ablation deltas, and selected defense buckets; `--json` emits a machine-readable summary.
 - `disagreement-report-summary` reads ignored disagreement exports and summarizes category counts,
   defense bucket rates, common actual/predicted tile pairs, and logit margins. Use `--examples N`
-  to append representative stored examples with defense flags and top logits.
-- `benchmark-call` scores three supervised call/pass baselines from existing `CallExample`
-  reconstruction data: `call-frequency-v0`, `call-legal-frequency-v0`, and `call-linear-v0`.
+  to append representative stored examples with defense flags and top logits. Use `--tags` to add
+  deterministic stored-example tags for defense signals, efficiency-like cases, close logits,
+  active riichi, and safe-tile candidates.
+- `benchmark-call` scores four supervised call/pass baselines from existing `CallExample`
+  reconstruction data: `call-frequency-v0`, `call-legal-frequency-v0`, `call-linear-v0`, and
+  additive `call-linear-v1`.
   Reports include overall accuracy, balanced accuracy, macro recall, pass/call recall, and
   per-action recall.
 - `benchmark-riichi` scores the first conservative riichi/pass dataset from explicit Tenhou reach
-  events plus closed tenpai no-riichi discard decisions. The current baseline is
-  `riichi-frequency-v0`.
+  events plus closed tenpai no-riichi discard decisions. It now reports `riichi-frequency-v0` and
+  `riichi-linear-v0`.
 - Local Mortal checkout/build reconnaissance is recorded in `docs/external-baselines.md`.
 
 ## Working Rules
@@ -81,8 +84,13 @@ Last updated: 2026-06-05.
 - `call-linear-v0` uses a concealed-remainder shanten proxy for calls. It does not model full
   open-hand shanten or exact chi shape selection beyond choosing the best simple consumed-tile
   proxy.
+- `call-linear-v1` is additive and keeps the v0 120-feature prefix stable. It appends exact
+  chi-position flags, consumed-tile/open-call proxies, shanten-improvement flags, cached ukeire
+  proxies, discarded-tile visibility, and terminal/honor flags.
 - Riichi examples are conservative supervised decision points, not complete riichi legality. Negative
   examples require closed tenpai by the existing closed-hand shanten proxy and sufficient score.
+- `riichi-linear-v0` fixes riichi recall but overcalls riichi on the current 100-log split. Treat
+  calibration as the next riichi task before adding more features.
 - Mortal is AGPL-3.0-or-later. Keep any future comparison behind a neutral data/subprocess boundary
   unless the project intentionally accepts that license boundary.
 
@@ -109,7 +117,11 @@ runs/discard-disagreements-tenhou-100-lr0.05-l2-0-summary.json
 runs/call-benchmark-tenhou-100-report.json
 runs/call-benchmark-tenhou-100-v1-report.json
 runs/call-benchmark-tenhou-100-v2-report.json
+runs/call-benchmark-tenhou-100-v3-report.json
+runs/call-benchmark-tenhou-100-v4-report.json
 runs/riichi-benchmark-tenhou-100-v0-report.json
+runs/riichi-benchmark-tenhou-100-v1-report.json
+runs/riichi-benchmark-tenhou-100-v2-report.json
 runs/inspect-tenhou-25-report.json
 runs/inspect-tenhou-100-report.json
 runs/
@@ -129,7 +141,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard data/fixtures/tenhou \
   --disagreements runs/fixture-disagreements.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/fixture-benchmark-diagnostics.json
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/fixture-disagreements.json --examples 1
+  runs/fixture-disagreements.json --examples 1 --tags
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --report runs/fixture-call-benchmark.json
@@ -161,7 +173,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   --eval-fraction 0.2 \
   --split-seed tenhou-100-v0 \
   --skip-errors \
-  --report runs/call-benchmark-tenhou-100-v2-report.json \
+  --report runs/call-benchmark-tenhou-100-v4-report.json \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
@@ -171,7 +183,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   --eval-fraction 0.2 \
   --split-seed tenhou-100-v0 \
   --skip-errors \
-  --report runs/riichi-benchmark-tenhou-100-v0-report.json \
+  --report runs/riichi-benchmark-tenhou-100-v2-report.json \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
@@ -190,6 +202,11 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
+
+PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
+  runs/discard-disagreements-tenhou-100-lr0.05-l2-0.json \
+  --examples 2 \
+  --tags
 ```
 
 ## Latest Benchmarks
@@ -247,6 +264,10 @@ Diagnostics from ignored artifacts:
 - `disagreement-report-summary --examples 2` confirms the stored examples are mixed: some
   defense-correct cases are active-riichi/suji or genbutsu-adjacent, while several risk-correct
   cases are no-riichi close-logit choices rather than obvious defense misses.
+- `disagreement-report-summary --examples 2 --tags` on the current-best capped artifact tags 400
+  stored examples as 373 efficiency-like, 336 close-logit, 130 active-riichi, 130 safe-tile
+  candidates, and 82 defense-signal cases. No stored item falls into `no_obvious_signal` under the
+  current deterministic rules.
 - Mean stored logit margins at `lr=0.05`, `l2=0.0`: risk-correct/defense-wrong has risk actual
   margin 0.2660 and defense wrong-over-actual margin 0.2449; defense-correct/risk-wrong has defense
   actual margin 0.2312 and risk wrong-over-actual margin 0.2142.
@@ -266,8 +287,12 @@ Call benchmark, 100-log local slice, split `tenhou-100-v0`:
 - `call-linear-v0` scored 0.8306 train / 0.8288 eval accuracy, 0.7294 balanced eval accuracy,
   0.8729 pass recall, and 0.5860 call recall. Per-action eval recall: chi 0.4045, minkan 1.0000,
   pass 0.8729, pon 0.7210.
-- `call-linear-v0` is the first useful selective call/pass floor. It sacrifices some pass-heavy raw
-  accuracy for much better call recall and balanced accuracy.
+- `call-linear-v1` scored 0.8410 train / 0.8377 eval accuracy, 0.7496 balanced eval accuracy,
+  0.8769 pass recall, and 0.6223 call recall. Per-action eval recall: chi 0.4663, minkan 0.5000,
+  pass 0.8769, pon 0.7425.
+- `call-linear-v1` is now the strongest call/pass floor on this split. It improves aggregate,
+  balanced accuracy, pass recall, and call recall versus v0, but still needs calibration before
+  scaling.
 
 Riichi benchmark, 100-log local slice, split `tenhou-100-v0`:
 
@@ -275,6 +300,10 @@ Riichi benchmark, 100-log local slice, split `tenhou-100-v0`:
 - `riichi-frequency-v0` scored 0.6272 train / 0.6618 eval accuracy, 0.5000 balanced eval accuracy,
   1.0000 pass recall, and 0.0000 riichi recall. It is a pass-dominant floor, not a useful riichi
   policy.
+- `riichi-linear-v0` scored 0.5254 train / 0.4510 eval accuracy, 0.5639 balanced eval accuracy,
+  0.2148 pass recall, and 0.9130 riichi recall.
+- `riichi-linear-v0` proves the feature stream can identify riichi opportunities, but it overcalls
+  riichi badly. Calibrate thresholds/class weighting before adding feature complexity.
 
 Mortal local baseline reconnaissance:
 
@@ -288,18 +317,17 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Improve `call-linear-v0` with better open-call features before scaling: exact chi-shape feature
-   variants, open-meld-aware shanten/ukeire proxies, and possibly class weighting or thresholded
-   call/pass calibration.
-2. Build `riichi-linear-v0` using the conservative riichi examples; the frequency floor has 0.0000
-   riichi recall and only proves the report path works.
-3. Do not change discard defense features yet. If continuing discard work, first tag a larger sample
-   of rendered disagreement examples into defense-like, efficiency-like, and close-logit/noisy
-   groups.
-4. Add feature normalization behind a new discard model kind only if rendered examples or weight
-   summaries still point to linear scale instability; do not mutate existing feature profiles.
+1. Calibrate `call-linear-v1` before scaling. It is the best call model on the 100-log split, but
+   the next work should add class weighting, thresholded call/pass selection, or a report-only
+   precision/recall curve rather than changing the v1 feature profile.
+2. Calibrate `riichi-linear-v0`. It recovers riichi recall but overcalls heavily, so add threshold
+   or class-weight sweeps and report riichi precision/recall before adding more riichi features.
+3. Use disagreement tags to guide discard work. The current sample is mostly efficiency-like and
+   close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
+4. Add feature normalization only behind a new discard model kind if tagged examples or weight
+   summaries point to scale instability; do not mutate existing feature profiles.
 5. Define an offline Mortal comparison boundary: start with a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare Kenjaku decisions to a Mortal-compatible inference path only when weights
    are available and legally usable.
-6. Scale to larger local slices, such as 500 logs, only after call-linear and riichi-linear have
-   stable diagnostics on the 100-log slice.
+6. Scale to larger local slices, such as 500 logs, only after call and riichi calibration reports
+   are stable on the 100-log slice.
