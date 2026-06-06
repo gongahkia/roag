@@ -117,8 +117,8 @@ class CallLinearModel:
             raise ValueError("call linear model has unsupported output rows")
         if any(len(row) != profile.feature_dim for row in self.weights):
             raise ValueError(f"call linear model rows must have {profile.feature_dim} features")
-        if self.epochs <= 0:
-            raise ValueError("epochs must be positive")
+        if self.epochs < 0:
+            raise ValueError("epochs must be non-negative")
         if self.learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
         if self.l2 < 0:
@@ -139,8 +139,8 @@ class CallLinearModel:
     ) -> CallLinearModel:
         if not examples:
             raise ValueError("cannot train on zero examples")
-        if epochs <= 0:
-            raise ValueError("epochs must be positive")
+        if epochs < 0:
+            raise ValueError("epochs must be non-negative")
         if learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
         if l2 < 0:
@@ -174,8 +174,8 @@ class CallLinearModel:
     ) -> CallLinearModel:
         if not prepared_examples:
             raise ValueError("cannot train on zero examples")
-        if epochs <= 0:
-            raise ValueError("epochs must be positive")
+        if epochs < 0:
+            raise ValueError("epochs must be non-negative")
         if learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
         if l2 < 0:
@@ -232,6 +232,52 @@ class CallLinearModel:
     ) -> tuple[_PreparedCallExample, ...]:
         profile = _feature_profile(feature_profile)
         return tuple(_prepare_example(example, profile=profile) for example in examples)
+
+    @staticmethod
+    def prepared_examples_to_payload(
+        prepared_examples: Sequence[_PreparedCallExample],
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "target": example.target.value,
+                "features_by_kind": {
+                    kind.value: list(features)
+                    for kind, features in example.features_by_kind.items()
+                },
+            }
+            for example in prepared_examples
+        ]
+
+    @staticmethod
+    def prepared_examples_from_payload(
+        payload: object,
+    ) -> tuple[_PreparedCallExample, ...]:
+        if not isinstance(payload, list):
+            raise ValueError("prepared examples payload must be a list")
+        prepared: list[_PreparedCallExample] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                raise ValueError("prepared example payload items must be objects")
+            target = ActionKind(str(item.get("target")))
+            features_payload = item.get("features_by_kind")
+            if not isinstance(features_payload, dict):
+                raise ValueError("prepared example features_by_kind must be an object")
+            features_by_kind = {
+                ActionKind(str(kind)): tuple(float(value) for value in features)
+                for kind, features in features_payload.items()
+                if isinstance(features, list)
+            }
+            if target not in CALL_DECISION_KINDS:
+                raise ValueError(f"unsupported prepared call target: {target.value}")
+            if not features_by_kind:
+                raise ValueError("prepared example must have candidate features")
+            prepared.append(
+                _PreparedCallExample(
+                    target=target,
+                    features_by_kind=features_by_kind,
+                )
+            )
+        return tuple(prepared)
 
     def predict(self, example: CallExample) -> ActionKind:
         logits = self.logits_for_example(example)

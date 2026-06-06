@@ -5,6 +5,7 @@ import json
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from time import perf_counter
 from typing import Any, TypeVar
 
 from kenjaku import __version__
@@ -134,6 +135,9 @@ THRESHOLD_SOURCE_FIXED = "fixed"
 THRESHOLD_SOURCE_TRAIN_BEST = "train-best"
 THRESHOLD_SOURCE_CHOICES = (THRESHOLD_SOURCE_FIXED, THRESHOLD_SOURCE_TRAIN_BEST)
 FIXED_THRESHOLD_SOURCE_LABEL = "tenhou-100-v0-eval-sweep"
+CALL_EXAMPLE_LIMIT_STRATEGIES = ("prefix", "balanced")
+CALL_FEATURE_CACHE_KIND = "kenjaku-call-feature-cache-v0"
+DECISION_SNAPSHOT_COMPARISON_KIND = "kenjaku-decision-snapshot-comparison-v0"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -217,6 +221,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the summary as JSON instead of text",
     )
     snapshot_summary.set_defaults(func=_decision_snapshot_summary)
+
+    snapshot_compare = subparsers.add_parser(
+        "decision-snapshot-compare",
+        help="compare decision snapshots against neutral JSONL predictions",
+    )
+    snapshot_compare.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file",
+    )
+    snapshot_compare.add_argument(
+        "predictions",
+        type=Path,
+        help="prediction JSONL file with row_id and predicted_action",
+    )
+    snapshot_compare.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the comparison as JSON instead of text",
+    )
+    snapshot_compare.set_defaults(func=_decision_snapshot_compare)
 
     train_baseline = subparsers.add_parser(
         "train-discard-baseline",
@@ -458,6 +483,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--example-limit",
         type=int,
         help="maximum call examples to keep after deterministic reconstruction order",
+    )
+    benchmark_call.add_argument(
+        "--example-limit-strategy",
+        choices=CALL_EXAMPLE_LIMIT_STRATEGIES,
+        default="prefix",
+        help="call example limiting strategy",
+    )
+    benchmark_call.add_argument(
+        "--profile-stages",
+        action="store_true",
+        help="print and record call benchmark stage timings",
+    )
+    benchmark_call.add_argument(
+        "--feature-cache",
+        type=Path,
+        help="optional ignored JSON feature cache for prepared call examples",
     )
     benchmark_call.add_argument(
         "--include-weighted",
