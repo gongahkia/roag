@@ -1494,6 +1494,8 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
 def _benchmark_call(args: argparse.Namespace) -> int:
     if args.example_limit is not None and args.example_limit < 0:
         raise SystemExit("--example-limit must be non-negative")
+    if args.epochs < 0:
+        raise SystemExit("--epochs must be non-negative")
     call_threshold = _validated_probability(args.call_threshold, "--call-threshold")
     call_positive_weight = _validated_positive_float(
         args.call_positive_weight,
@@ -1503,76 +1505,229 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         args.models,
         include_weighted=args.include_weighted,
     )
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    timings: dict[str, float] | None = {} if args.profile_stages else None
+    source_metadata = _source_metadata(args)
+    dataset = _timed_stage(
+        timings,
+        "parse",
+        lambda: parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors),
+    )
     game = dataset.game
-    all_examples = list(iter_call_examples(game))
-    examples = _limit_examples(all_examples, args.example_limit)
+    all_examples = _timed_stage(
+        timings,
+        "call_examples",
+        lambda: list(iter_call_examples(game)),
+    )
+    examples = _limit_call_examples(
+        all_examples,
+        args.example_limit,
+        strategy=args.example_limit_strategy,
+    )
     if not examples:
         raise SystemExit("no call examples found")
 
-    train_examples, eval_examples = deterministic_split(
-        examples,
-        eval_fraction=args.eval_fraction,
-        seed=args.split_seed,
+    train_examples, eval_examples = _timed_stage(
+        timings,
+        "split",
+        lambda: deterministic_split(
+            examples,
+            eval_fraction=args.eval_fraction,
+            seed=args.split_seed,
+        ),
     )
+    feature_cache_payload = _timed_stage(
+        timings,
+        "feature_cache_load",
+        lambda: _read_call_feature_cache(args.feature_cache),
+    )
+    feature_cache_key = _call_feature_cache_key(
+        args=args,
+        dataset_files=dataset.files,
+        source=source_metadata,
+        all_examples=len(all_examples),
+        examples=len(examples),
+        train_examples=len(train_examples),
+        eval_examples=len(eval_examples),
+    )
+    feature_cache_report = _empty_call_feature_cache_report(args.feature_cache)
     call_models: dict[
         str,
         CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
     ] = {}
     prepared_splits_by_profile: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
+    prepared_splits_to_cache: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
 
     def prepared_split(feature_profile: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
         prepared = prepared_splits_by_profile.get(feature_profile)
         if prepared is None:
-            prepared = (
-                CallLinearModel.prepare_examples_for_profile(
-                    train_examples,
-                    feature_profile=feature_profile,
-                ),
-                CallLinearModel.prepare_examples_for_profile(
-                    eval_examples,
-                    feature_profile=feature_profile,
-                ),
+            cached = _call_feature_cache_entry(
+                feature_cache_payload,
+                cache_key=feature_cache_key,
+                feature_profile=feature_profile,
             )
+            if cached is not None:
+                feature_cache_report["hits"].append(feature_profile)
+                prepared = cached
+            else:
+                feature_cache_report["misses"].append(feature_profile)
+                prepared = _timed_stage(
+                    timings,
+                    f"feature_prepare_{feature_profile}",
+                    lambda: (
+                        CallLinearModel.prepare_examples_for_profile(
+                            train_examples,
+                            feature_profile=feature_profile,
+                        ),
+                        CallLinearModel.prepare_examples_for_profile(
+                            eval_examples,
+                            feature_profile=feature_profile,
+                        ),
+                    ),
+                )
+                if args.feature_cache is not None:
+                    prepared_splits_to_cache[feature_profile] = prepared
             prepared_splits_by_profile[feature_profile] = prepared
         return prepared
 
     if "call_frequency" in selected_model_names:
-        call_models["call_frequency"] = CallFrequencyBaseline.fit(train_examples)
+        call_models["call_frequency"] = _timed_stage(
+            timings,
+            "train_call_frequency",
+            lambda: CallFrequencyBaseline.fit(train_examples),
+        )
     if "call_legal_frequency" in selected_model_names:
-        call_models["call_legal_frequency"] = CallLegalFrequencyBaseline.fit(train_examples)
+        call_models["call_legal_frequency"] = _timed_stage(
+            timings,
+            "train_call_legal_frequency",
+            lambda: CallLegalFrequencyBaseline.fit(train_examples),
+        )
     if "call_linear" in selected_model_names:
         train_prepared, _ = prepared_split("v0")
-        call_models["call_linear"] = CallLinearModel.fit_prepared(
-            train_prepared,
-            epochs=args.epochs,
-            learning_rate=args.learning_rate,
-            l2=args.l2,
-            feature_profile="v0",
+        call_models["call_linear"] = _timed_stage(
+            timings,
+            "train_call_linear",
+            lambda: CallLinearModel.fit_prepared(
+                train_prepared,
+                epochs=args.epochs,
+                learning_rate=args.learning_rate,
+                l2=args.l2,
+                feature_profile="v0",
+            ),
         )
     if (
         "call_linear_v1" in selected_model_names
         or "call_linear_v1_calibrated" in selected_model_names
     ):
         train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
-        call_models["call_linear_v1"] = CallLinearModel.fit_prepared(
-            train_prepared,
-            epochs=args.epochs,
-            learning_rate=args.learning_rate,
-            l2=args.l2,
-            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+        call_models["call_linear_v1"] = _timed_stage(
+            timings,
+            "train_call_linear_v1",
+            lambda: CallLinearModel.fit_prepared(
+                train_prepared,
+                epochs=args.epochs,
+                learning_rate=args.learning_rate,
+                l2=args.l2,
+                feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+            ),
         )
     if CALL_BENCHMARK_WEIGHTED_MODEL in selected_model_names:
         train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
-        call_models["call_linear_v1_weighted"] = CallLinearModel.fit_prepared(
-            train_prepared,
-            epochs=args.epochs,
-            learning_rate=args.learning_rate,
-            l2=args.l2,
-            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
-            positive_class_weight=call_positive_weight,
+        call_models["call_linear_v1_weighted"] = _timed_stage(
+            timings,
+            "train_call_linear_v1_weighted",
+            lambda: CallLinearModel.fit_prepared(
+                train_prepared,
+                epochs=args.epochs,
+                learning_rate=args.learning_rate,
+                l2=args.l2,
+                feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+                positive_class_weight=call_positive_weight,
+            ),
         )
 
+    if args.feature_cache is not None and prepared_splits_to_cache:
+        _timed_stage(
+            timings,
+            "feature_cache_write",
+            lambda: _write_call_feature_cache(
+                args.feature_cache,
+                existing=feature_cache_payload,
+                cache_key=feature_cache_key,
+                profiles=prepared_splits_to_cache,
+                report=feature_cache_report,
+            ),
+        )
+
+    model_payloads: dict[str, dict[str, Any]] = _timed_stage(
+        timings,
+        "payloads",
+        lambda: _call_model_payloads(
+            selected_model_names=selected_model_names,
+            call_models=call_models,
+            prepared_split=prepared_split,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            threshold_source=args.call_threshold_source,
+            fixed_threshold=call_threshold,
+        ),
+    )
+
+    if timings is not None:
+        for stage_name, seconds in timings.items():
+            print(f"stage_{stage_name}_seconds: {seconds:.4f}")
+    if args.feature_cache is not None:
+        print(f"feature_cache_path: {args.feature_cache}")
+        print(f"feature_cache_hits: {','.join(feature_cache_report['hits']) or 'none'}")
+        print(f"feature_cache_misses: {','.join(feature_cache_report['misses']) or 'none'}")
+
+    print(f"examples: {len(examples)}")
+    if len(examples) != len(all_examples):
+        print(f"source_examples: {len(all_examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_call_benchmark_metrics(model_payloads)
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.report is not None:
+        discard_examples = _timed_stage(
+            timings,
+            "discard_examples_for_report",
+            lambda: list(iter_discard_examples(game)),
+        )
+        report = build_call_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(discard_examples),
+            call_examples=len(examples),
+            call_examples_total=len(all_examples),
+            example_limit=args.example_limit,
+            example_limit_strategy=args.example_limit_strategy,
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            parse_failures=dataset.failures,
+            source=source_metadata,
+            timing=timings,
+            feature_cache=feature_cache_report if args.feature_cache is not None else None,
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _call_model_payloads(
+    *,
+    selected_model_names: Sequence[str],
+    call_models: dict[str, CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel],
+    prepared_split: Callable[[str], tuple[tuple[Any, ...], tuple[Any, ...]]],
+    train_examples: list[CallExample],
+    eval_examples: list[CallExample],
+    threshold_source: str,
+    fixed_threshold: float,
+) -> dict[str, dict[str, Any]]:
     model_payloads: dict[str, dict[str, Any]] = {}
     prepared_examples: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
     for model_name, model in call_models.items():
@@ -1592,8 +1747,8 @@ def _benchmark_call(args: argparse.Namespace) -> int:
                     eval_prepared=eval_prepared,
                 )
             threshold, threshold_source = _selected_policy_threshold(
-                source=args.call_threshold_source,
-                fixed_threshold=call_threshold,
+                source=threshold_source,
+                fixed_threshold=fixed_threshold,
                 calibration=base_payload.get("calibration", {}),
             )
             train_prepared, eval_prepared = prepared_examples["call_linear_v1"]
@@ -1627,36 +1782,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             train_prepared=train_prepared,
             eval_prepared=eval_prepared,
         )
-
-    print(f"examples: {len(examples)}")
-    if len(examples) != len(all_examples):
-        print(f"source_examples: {len(all_examples)}")
-    print(f"train_examples: {len(train_examples)}")
-    print(f"eval_examples: {len(eval_examples)}")
-    _print_call_benchmark_metrics(model_payloads)
-    if dataset.failures:
-        print(f"parse_failures: {len(dataset.failures)}")
-    if args.report is not None:
-        discard_examples = list(iter_discard_examples(game))
-        report = build_call_benchmark_report(
-            input_paths=args.paths,
-            xml_files=dataset.files,
-            game=game,
-            discard_examples=len(discard_examples),
-            call_examples=len(examples),
-            call_examples_total=len(all_examples),
-            example_limit=args.example_limit,
-            split_seed=args.split_seed,
-            eval_fraction=args.eval_fraction,
-            train_examples=len(train_examples),
-            eval_examples=len(eval_examples),
-            models=model_payloads,
-            parse_failures=dataset.failures,
-            source=_source_metadata(args),
-        )
-        write_json_report(args.report, report)
-        print(f"report_path: {args.report}")
-    return 0
+    return model_payloads
 
 
 def _parse_call_benchmark_models(value: str, *, include_weighted: bool) -> tuple[str, ...]:
