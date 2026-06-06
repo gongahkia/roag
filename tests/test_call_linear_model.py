@@ -93,6 +93,31 @@ class CallLinearModelTests(unittest.TestCase):
 
         self.assertIn(prediction, {ActionKind.PASS, ActionKind.CHI})
 
+    def test_positive_class_weight_is_recorded_and_validated(self) -> None:
+        examples = [
+            _example(
+                discarded="1m",
+                legal_call_kinds=(ActionKind.PON,),
+                action=Action(ActionKind.PON, TileType.parse("1m")),
+            )
+        ]
+
+        model = CallLinearModel.fit(
+            examples,
+            epochs=5,
+            learning_rate=0.2,
+            positive_class_weight=3.0,
+        )
+
+        self.assertEqual(model.positive_class_weight, 3.0)
+        with self.assertRaisesRegex(ValueError, "positive_class_weight must be positive"):
+            CallLinearModel.fit(
+                examples,
+                epochs=5,
+                learning_rate=0.2,
+                positive_class_weight=0.0,
+            )
+
     def test_probabilities_are_masked_to_legal_call_kinds(self) -> None:
         model = CallLinearModel.fit(
             [

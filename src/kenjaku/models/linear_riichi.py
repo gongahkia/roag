@@ -52,6 +52,7 @@ class RiichiLinearModel:
     epochs: int
     learning_rate: float
     l2: float = 0.0
+    positive_class_weight: float = 1.0
 
     def __post_init__(self) -> None:
         if len(self.weights) != len(RIICHI_DECISION_KINDS):
@@ -66,6 +67,8 @@ class RiichiLinearModel:
             raise ValueError("learning_rate must be positive")
         if self.l2 < 0:
             raise ValueError("l2 must be non-negative")
+        if self.positive_class_weight <= 0:
+            raise ValueError("positive_class_weight must be positive")
 
     @classmethod
     def fit(
@@ -75,6 +78,7 @@ class RiichiLinearModel:
         epochs: int = 25,
         learning_rate: float = 0.1,
         l2: float = 0.0,
+        positive_class_weight: float = 1.0,
     ) -> RiichiLinearModel:
         if not examples:
             raise ValueError("cannot train on zero examples")
@@ -84,6 +88,8 @@ class RiichiLinearModel:
             raise ValueError("learning_rate must be positive")
         if l2 < 0:
             raise ValueError("l2 must be non-negative")
+        if positive_class_weight <= 0:
+            raise ValueError("positive_class_weight must be positive")
 
         weights = [[0.0] * RIICHI_LINEAR_FEATURE_DIM for _ in RIICHI_DECISION_KINDS]
         prepared_examples = [_prepare_example(example) for example in examples]
@@ -94,6 +100,11 @@ class RiichiLinearModel:
                     example,
                     learning_rate=learning_rate,
                     l2=l2,
+                    example_weight=(
+                        positive_class_weight
+                        if example.target == ActionKind.RIICHI
+                        else 1.0
+                    ),
                 )
 
         return cls(
@@ -101,6 +112,7 @@ class RiichiLinearModel:
             epochs=epochs,
             learning_rate=learning_rate,
             l2=l2,
+            positive_class_weight=positive_class_weight,
         )
 
     @property
@@ -243,6 +255,7 @@ def _apply_update(
     *,
     learning_rate: float,
     l2: float,
+    example_weight: float,
 ) -> None:
     logits = {
         kind: _dot(weights[_kind_index(kind)], features)
@@ -254,7 +267,7 @@ def _apply_update(
         target = 1.0 if kind == example.target else 0.0
         error = probabilities[kind] - target
         for index, value in enumerate(features):
-            row[index] -= learning_rate * (error * value + l2 * row[index])
+            row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
 
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:

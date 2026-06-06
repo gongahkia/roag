@@ -693,12 +693,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["call_examples"], 1)
         self.assertEqual(
             set(payload["models"]),
-            {"call_frequency", "call_legal_frequency", "call_linear", "call_linear_v1"},
+            {
+                "call_frequency",
+                "call_legal_frequency",
+                "call_linear",
+                "call_linear_v1",
+                "call_linear_v1_calibrated",
+            },
         )
         frequency = payload["models"]["call_frequency"]
         legal_frequency = payload["models"]["call_legal_frequency"]
         call_linear = payload["models"]["call_linear"]
         call_linear_v1 = payload["models"]["call_linear_v1"]
+        call_linear_v1_calibrated = payload["models"]["call_linear_v1_calibrated"]
         self.assertEqual(frequency["kind"], "call-frequency-v0")
         self.assertEqual(frequency["counts"]["pon"], 1)
         self.assertEqual(frequency["metrics"]["train_accuracy"], 1.0)
@@ -716,6 +723,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(call_linear["feature_dim"], 120)
         self.assertEqual(call_linear["feature_profile"], "v0")
         self.assertEqual(call_linear["training"]["epochs"], 25)
+        self.assertEqual(call_linear["training"]["positive_class_weight"], 1.0)
         self.assertEqual(call_linear["metrics"]["train_action_recall"]["pon"], 1.0)
         self.assertEqual(call_linear["calibration"]["target"], "call")
         self.assertEqual(len(call_linear["calibration"]["thresholds"]), 21)
@@ -725,18 +733,65 @@ class CliTests(unittest.TestCase):
         self.assertGreater(call_linear_v1["feature_dim"], call_linear["feature_dim"])
         self.assertEqual(call_linear_v1["feature_profile"], "v1")
         self.assertEqual(call_linear_v1["training"]["epochs"], 25)
+        self.assertEqual(call_linear_v1["training"]["positive_class_weight"], 1.0)
         self.assertEqual(call_linear_v1["calibration"]["target"], "call")
         self.assertEqual(
             call_linear_v1["calibration"]["train"]["best"]["call_recall"],
             1.0,
         )
+        self.assertEqual(call_linear_v1_calibrated["kind"], "call-linear-v1")
+        self.assertEqual(call_linear_v1_calibrated["feature_profile"], "v1")
+        self.assertEqual(
+            call_linear_v1_calibrated["policy"],
+            {
+                "kind": "threshold-calibrated-v0",
+                "target": "call",
+                "base_model": "call_linear_v1",
+                "threshold": 0.4,
+                "threshold_source": "tenhou-100-v0-eval-sweep",
+            },
+        )
+        self.assertEqual(call_linear_v1_calibrated["training"]["positive_class_weight"], 1.0)
         self.assertIn("call_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("call_legal_frequency_eval_call_recall:", stdout.getvalue())
         self.assertIn("call_linear_eval_call_recall:", stdout.getvalue())
         self.assertIn("call_linear_eval_best_threshold:", stdout.getvalue())
         self.assertIn("call_linear_v1_eval_call_recall:", stdout.getvalue())
         self.assertIn("call_linear_v1_eval_best_threshold:", stdout.getvalue())
+        self.assertIn("call_linear_v1_calibrated_policy_threshold: 0.40", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
+
+    def test_benchmark_call_can_include_weighted_variant(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--include-weighted",
+                        "--call-positive-weight",
+                        "3.0",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("call_linear_v1_weighted", payload["models"])
+        weighted = payload["models"]["call_linear_v1_weighted"]
+        self.assertEqual(weighted["kind"], "call-linear-v1")
+        self.assertEqual(weighted["feature_profile"], "v1")
+        self.assertEqual(weighted["training"]["positive_class_weight"], 3.0)
+        self.assertNotIn("policy", weighted)
+        self.assertIn("call_linear_v1_weighted_eval_call_recall:", stdout.getvalue())
 
     def test_benchmark_riichi_writes_report_artifact(self) -> None:
         stdout = io.StringIO()
@@ -761,25 +816,74 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-riichi-benchmark-report-v0")
         self.assertEqual(payload["riichi_examples"], 1)
-        self.assertEqual(set(payload["models"]), {"riichi_frequency", "riichi_linear"})
+        self.assertEqual(
+            set(payload["models"]),
+            {"riichi_frequency", "riichi_linear", "riichi_linear_calibrated"},
+        )
         model = payload["models"]["riichi_frequency"]
         linear = payload["models"]["riichi_linear"]
+        calibrated = payload["models"]["riichi_linear_calibrated"]
         self.assertEqual(model["kind"], "riichi-frequency-v0")
         self.assertEqual(model["counts"]["riichi"], 1)
         self.assertEqual(model["metrics"]["train_riichi_recall"], 1.0)
         self.assertEqual(linear["kind"], "riichi-linear-v0")
         self.assertGreater(linear["feature_dim"], 0)
         self.assertEqual(linear["training"]["epochs"], 25)
+        self.assertEqual(linear["training"]["positive_class_weight"], 1.0)
         self.assertEqual(linear["metrics"]["train_riichi_recall"], 1.0)
         self.assertEqual(linear["calibration"]["target"], "riichi")
         self.assertEqual(len(linear["calibration"]["thresholds"]), 21)
         self.assertIsNotNone(linear["calibration"]["train"]["best"])
         self.assertIsNone(linear["calibration"]["eval"]["best"])
         self.assertEqual(linear["calibration"]["train"]["best"]["riichi_recall"], 1.0)
+        self.assertEqual(calibrated["kind"], "riichi-linear-v0")
+        self.assertEqual(
+            calibrated["policy"],
+            {
+                "kind": "threshold-calibrated-v0",
+                "target": "riichi",
+                "base_model": "riichi_linear",
+                "threshold": 0.95,
+                "threshold_source": "tenhou-100-v0-eval-sweep",
+            },
+        )
+        self.assertEqual(calibrated["training"]["positive_class_weight"], 1.0)
         self.assertIn("riichi_frequency_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("riichi_linear_eval_balanced_accuracy:", stdout.getvalue())
         self.assertIn("riichi_linear_eval_best_threshold:", stdout.getvalue())
+        self.assertIn("riichi_linear_calibrated_policy_threshold: 0.95", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
+
+    def test_benchmark_riichi_can_include_weighted_variant(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "riichi-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-riichi",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--include-weighted",
+                        "--riichi-positive-weight",
+                        "3.0",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("riichi_linear_weighted", payload["models"])
+        weighted = payload["models"]["riichi_linear_weighted"]
+        self.assertEqual(weighted["kind"], "riichi-linear-v0")
+        self.assertEqual(weighted["training"]["positive_class_weight"], 3.0)
+        self.assertNotIn("policy", weighted)
+        self.assertIn("riichi_linear_weighted_eval_riichi_recall:", stdout.getvalue())
 
 
 if __name__ == "__main__":

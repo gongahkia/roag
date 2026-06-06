@@ -4,9 +4,9 @@ Last updated: 2026-06-06.
 
 ## Stop State
 
-- Last work slice: added report-only threshold calibration for linear call/riichi models,
-  probability helpers, deterministic disagreement tag filtering, updated benchmarks, and current
-  handoff notes.
+- Last work slice: added explicit calibrated call/riichi report variants, optional positive
+  class-weighted comparison variants, updated docs/tests, and reran the 100-log call/riichi
+  comparison reports.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -39,12 +39,16 @@ Last updated: 2026-06-06.
   reconstruction data: `call-frequency-v0`, `call-legal-frequency-v0`, `call-linear-v0`, and
   additive `call-linear-v1`.
   Reports include overall accuracy, balanced accuracy, macro recall, pass/call recall, and
-  per-action recall. Linear call payloads also include report-only call/pass threshold calibration
-  sweeps; default `predict()` behavior is unchanged.
+  per-action recall. Reports now also include `call_linear_v1_calibrated`, a fixed-threshold
+  policy variant over `call-linear-v1` at non-pass threshold 0.40. Linear call payloads include
+  report-only call/pass threshold calibration sweeps, and `--include-weighted` adds
+  `call_linear_v1_weighted` trained with `--call-positive-weight`.
 - `benchmark-riichi` scores the first conservative riichi/pass dataset from explicit Tenhou reach
   events plus closed tenpai no-riichi discard decisions. It now reports `riichi-frequency-v0` and
-  `riichi-linear-v0`. Linear riichi payloads also include report-only riichi/pass threshold
-  calibration sweeps; default `predict()` behavior is unchanged.
+  `riichi-linear-v0`. Reports now also include `riichi_linear_calibrated`, a fixed-threshold policy
+  variant over `riichi-linear-v0` at riichi threshold 0.95. Linear riichi payloads include
+  report-only riichi/pass threshold calibration sweeps, and `--include-weighted` adds
+  `riichi_linear_weighted` trained with `--riichi-positive-weight`.
 - Local Mortal checkout/build reconnaissance is recorded in `docs/external-baselines.md`.
 
 ## Working Rules
@@ -95,8 +99,10 @@ Last updated: 2026-06-06.
   examples require closed tenpai by the existing closed-hand shanten proxy and sufficient score.
 - `riichi-linear-v0` fixes riichi recall but overcalls riichi on the current 100-log split. Treat
   calibration as the next riichi task before adding more features.
-- Calibration reports are diagnostic only. They use thresholds 0.00 through 1.00 in 0.05 steps and
-  choose the best threshold by balanced accuracy, then target recall, then lower threshold.
+- Threshold sweeps are diagnostic only. They use thresholds 0.00 through 1.00 in 0.05 steps and
+  choose the best threshold by balanced accuracy, then target recall, then lower threshold. The
+  calibrated report variants use fixed policy thresholds from the 100-log `tenhou-100-v0` sweep and
+  do not change default model `predict()` behavior.
 - Mortal is AGPL-3.0-or-later. Keep any future comparison behind a neutral data/subprocess boundary
   unless the project intentionally accepts that license boundary.
 
@@ -126,6 +132,7 @@ runs/call-benchmark-tenhou-100-v2-report.json
 runs/call-benchmark-tenhou-100-v3-report.json
 runs/call-benchmark-tenhou-100-v4-report.json
 runs/call-benchmark-tenhou-100-v5-report.json
+runs/call-benchmark-tenhou-100-v6-report.json
 runs/riichi-benchmark-tenhou-100-v0-report.json
 runs/riichi-benchmark-tenhou-100-v1-report.json
 runs/riichi-benchmark-tenhou-100-v2-report.json
@@ -154,9 +161,11 @@ PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/fixture-disagreements.json --examples 1 --tags --tag close_logit
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
+  --include-weighted \
   --report runs/fixture-call-benchmark.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
+  --include-weighted \
   --report runs/fixture-riichi-benchmark.json
 git diff --check
 ```
@@ -183,7 +192,9 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   --eval-fraction 0.2 \
   --split-seed tenhou-100-v0 \
   --skip-errors \
-  --report runs/call-benchmark-tenhou-100-v5-report.json \
+  --include-weighted \
+  --call-positive-weight 2.0 \
+  --report runs/call-benchmark-tenhou-100-v6-report.json \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
@@ -193,7 +204,9 @@ PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   --eval-fraction 0.2 \
   --split-seed tenhou-100-v0 \
   --skip-errors \
-  --report runs/riichi-benchmark-tenhou-100-v3-report.json \
+  --include-weighted \
+  --riichi-positive-weight 2.0 \
+  --report runs/riichi-benchmark-tenhou-100-v2-report.json \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
@@ -304,9 +317,16 @@ Call benchmark, 100-log local slice, split `tenhou-100-v0`:
 - Report-only threshold calibration for `call-linear-v1` picked threshold 0.40 on eval, with binary
   balanced accuracy 0.7762, call precision 0.4393, call recall 0.7191, and pass recall 0.8333.
   For comparison, `call-linear-v0` picked threshold 0.35 with binary balanced accuracy 0.7531.
+- The explicit `call_linear_v1_calibrated` policy variant at threshold 0.40 scored 0.8154 eval
+  accuracy, 0.7750 exact-action balanced eval accuracy, 0.8333 pass recall, and 0.7167 exact-call
+  recall.
+- The opt-in `call_linear_v1_weighted` comparison at positive class weight 2.0 scored 0.6729 eval
+  accuracy, 0.7522 balanced eval accuracy, 0.6376 pass recall, and 0.8668 call recall. Its own
+  report-only threshold sweep picked 0.80 with binary balanced accuracy 0.7669.
 - `call-linear-v1` is now the strongest call/pass floor on this split. It improves aggregate,
-  balanced accuracy, pass recall, and call recall versus v0, and thresholding improves binary
-  call/pass balance further without changing default predictions.
+  balanced accuracy, pass recall, and call recall versus v0. The calibrated v1 policy beats the
+  simple weighted training comparison on balanced accuracy, while weighted training mostly trades
+  pass recall for call recall.
 
 Riichi benchmark, 100-log local slice, split `tenhou-100-v0`:
 
@@ -319,9 +339,14 @@ Riichi benchmark, 100-log local slice, split `tenhou-100-v0`:
 - Report-only threshold calibration for `riichi-linear-v0` picked threshold 0.95 on eval, with
   binary balanced accuracy 0.6444, riichi precision 0.5476, riichi recall 0.5000, and pass recall
   0.7889.
+- The explicit `riichi_linear_calibrated` policy variant at threshold 0.95 scored 0.6912 eval
+  accuracy, 0.6444 balanced eval accuracy, 0.7889 pass recall, and 0.5000 riichi recall.
+- The opt-in `riichi_linear_weighted` comparison at positive class weight 2.0 scored 0.3603 eval
+  accuracy, 0.5114 balanced eval accuracy, 0.0444 pass recall, and 0.9783 riichi recall. Its own
+  report-only threshold sweep picked 0.95 with binary balanced accuracy 0.5713.
 - `riichi-linear-v0` proves the feature stream can identify riichi opportunities, and thresholding
-  gives a much healthier tradeoff than raw argmax prediction. Compare this against class-weighted
-  training before adding feature complexity.
+  gives a much healthier tradeoff than raw argmax prediction or simple positive weighting. Do not
+  add riichi features before confirming this calibrated policy on a larger local slice.
 
 Mortal local baseline reconnaissance:
 
@@ -335,17 +360,15 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Add optional calibrated policy report variants without changing default model kinds or
-   `predict()` behavior. Start with `call-linear-v1` threshold 0.40 and `riichi-linear-v0`
-   threshold 0.95 from the 100-log eval sweep.
-2. Compare those calibrated variants against class-weighted training for call and riichi before
-   adding more features.
-3. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
-   and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
-4. Add feature normalization only behind a new discard model kind if tagged examples or weight
-   summaries point to scale instability; do not mutate existing feature profiles.
-5. Define an offline Mortal comparison boundary: start with a Tenhou XML to `mjai` decision-snapshot
+1. Scale the calibrated call/riichi comparison to a larger local slice, ideally 500 logs, using the
+   same fixed thresholds and opt-in weight 2.0 variants. Check whether calibrated v1 still beats
+   simple positive weighting on balanced accuracy.
+2. If the 500-log result confirms the 100-log result, keep call/riichi feature work frozen and
+   document calibrated variants as the preferred report policy baselines.
+3. Define an offline Mortal comparison boundary: start with a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare Kenjaku decisions to a Mortal-compatible inference path only when weights
    are available and legally usable.
-6. Scale to larger local slices, such as 500 logs, only after call and riichi calibration reports
-   are stable on the 100-log slice.
+4. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
+   and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
+5. Add feature normalization only behind a new discard model kind if tagged examples or weight
+   summaries point to scale instability; do not mutate existing feature profiles.

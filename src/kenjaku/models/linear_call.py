@@ -108,6 +108,7 @@ class CallLinearModel:
     learning_rate: float
     l2: float = 0.0
     feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE
+    positive_class_weight: float = 1.0
 
     def __post_init__(self) -> None:
         profile = _feature_profile(self.feature_profile)
@@ -121,6 +122,8 @@ class CallLinearModel:
             raise ValueError("learning_rate must be positive")
         if self.l2 < 0:
             raise ValueError("l2 must be non-negative")
+        if self.positive_class_weight <= 0:
+            raise ValueError("positive_class_weight must be positive")
 
     @classmethod
     def fit(
@@ -131,6 +134,7 @@ class CallLinearModel:
         learning_rate: float = 0.1,
         l2: float = 0.0,
         feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE,
+        positive_class_weight: float = 1.0,
     ) -> CallLinearModel:
         if not examples:
             raise ValueError("cannot train on zero examples")
@@ -140,6 +144,8 @@ class CallLinearModel:
             raise ValueError("learning_rate must be positive")
         if l2 < 0:
             raise ValueError("l2 must be non-negative")
+        if positive_class_weight <= 0:
+            raise ValueError("positive_class_weight must be positive")
 
         profile = _feature_profile(feature_profile)
         weights = [[0.0] * profile.feature_dim for _ in CALL_DECISION_KINDS]
@@ -151,6 +157,11 @@ class CallLinearModel:
                     example,
                     learning_rate=learning_rate,
                     l2=l2,
+                    example_weight=(
+                        positive_class_weight
+                        if example.target != ActionKind.PASS
+                        else 1.0
+                    ),
                 )
 
         return cls(
@@ -159,6 +170,7 @@ class CallLinearModel:
             learning_rate=learning_rate,
             l2=l2,
             feature_profile=profile.name,
+            positive_class_weight=positive_class_weight,
         )
 
     @property
@@ -467,6 +479,7 @@ def _apply_update(
     *,
     learning_rate: float,
     l2: float,
+    example_weight: float,
 ) -> None:
     logits = {
         kind: _dot(weights[_kind_index(kind)], features)
@@ -478,7 +491,7 @@ def _apply_update(
         target = 1.0 if kind == example.target else 0.0
         error = probabilities[kind] - target
         for index, value in enumerate(features):
-            row[index] -= learning_rate * (error * value + l2 * row[index])
+            row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
 
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:

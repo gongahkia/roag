@@ -42,6 +42,28 @@ class RiichiLinearModelTests(unittest.TestCase):
         self.assertEqual(set(logits), {ActionKind.PASS, ActionKind.RIICHI})
         self.assertAlmostEqual(sum(probabilities.values()), 1.0)
 
+    def test_positive_class_weight_is_recorded_and_validated(self) -> None:
+        examples = [
+            _example(Action.pass_(), seat_turn_index=1),
+            _example(Action(ActionKind.RIICHI), seat_turn_index=12),
+        ]
+
+        model = RiichiLinearModel.fit(
+            examples,
+            epochs=5,
+            learning_rate=0.2,
+            positive_class_weight=3.0,
+        )
+
+        self.assertEqual(model.positive_class_weight, 3.0)
+        with self.assertRaisesRegex(ValueError, "positive_class_weight must be positive"):
+            RiichiLinearModel.fit(
+                examples,
+                epochs=5,
+                learning_rate=0.2,
+                positive_class_weight=0.0,
+            )
+
 
 def _example(action: Action, *, seat_turn_index: int) -> RiichiExample:
     counts = [0] * 34

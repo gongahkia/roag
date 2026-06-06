@@ -74,6 +74,8 @@ PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
 
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan \
   --eval-fraction 0.2 \
+  --include-weighted \
+  --call-positive-weight 2.0 \
   --report runs/call-benchmark-local-report.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
@@ -81,6 +83,8 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan 
 
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/raw/tenhou/xml/4p-hanchan \
   --eval-fraction 0.2 \
+  --include-weighted \
+  --riichi-positive-weight 2.0 \
   --report runs/riichi-benchmark-local-report.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
@@ -117,9 +121,12 @@ also count deterministic `defense_signal`, `efficiency_like`, `close_logit`, act
 safe-tile labels; add `--tag TAG` to render only matching stored examples. `benchmark-call` scores
 pass-allowed frequency, legal-call-only frequency, `call-linear-v0`, and additive
 `call-linear-v1` baselines, and reports overall accuracy, balanced accuracy, pass recall, call
-recall, per-action recall, and report-only call/pass threshold calibration. `benchmark-riichi`
-builds a conservative riichi/pass dataset and scores both the frequency floor and
-`riichi-linear-v0`, including report-only riichi/pass threshold calibration.
+recall, per-action recall, a fixed-threshold `call_linear_v1_calibrated` policy variant, and
+report-only call/pass threshold calibration. Add `--include-weighted` to compare the default
+threshold policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a conservative
+riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`, including the
+fixed-threshold `riichi_linear_calibrated` policy variant, optional `riichi_linear_weighted`, and
+report-only riichi/pass threshold calibration.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

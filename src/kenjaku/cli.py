@@ -101,6 +101,9 @@ DISAGREEMENT_SAFE_TILE_BUCKETS = (
 )
 DISAGREEMENT_CLOSE_LOGIT_MARGIN = 0.25
 CALIBRATION_THRESHOLDS = tuple(round(index * 0.05, 2) for index in range(21))
+CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
+RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
+DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -350,6 +353,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="call linear model L2 regularization strength",
     )
     benchmark_call.add_argument(
+        "--call-threshold",
+        type=float,
+        default=CALL_LINEAR_V1_CALIBRATED_THRESHOLD,
+        help="non-pass probability threshold for call_linear_v1_calibrated",
+    )
+    benchmark_call.add_argument(
+        "--include-weighted",
+        action="store_true",
+        help="include positive class-weighted call linear v1 comparison variants",
+    )
+    benchmark_call.add_argument(
+        "--call-positive-weight",
+        type=float,
+        default=DEFAULT_POSITIVE_CLASS_WEIGHT,
+        help="positive example weight for --include-weighted call linear training",
+    )
+    benchmark_call.add_argument(
         "--report",
         type=Path,
         help="optional path for a JSON call benchmark report artifact",
@@ -395,6 +415,23 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="riichi linear model L2 regularization strength",
+    )
+    benchmark_riichi.add_argument(
+        "--riichi-threshold",
+        type=float,
+        default=RIICHI_LINEAR_CALIBRATED_THRESHOLD,
+        help="riichi probability threshold for riichi_linear_calibrated",
+    )
+    benchmark_riichi.add_argument(
+        "--include-weighted",
+        action="store_true",
+        help="include positive class-weighted riichi linear comparison variants",
+    )
+    benchmark_riichi.add_argument(
+        "--riichi-positive-weight",
+        type=float,
+        default=DEFAULT_POSITIVE_CLASS_WEIGHT,
+        help="positive example weight for --include-weighted riichi linear training",
     )
     benchmark_riichi.add_argument(
         "--report",
@@ -1140,6 +1177,11 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
 
 
 def _benchmark_call(args: argparse.Namespace) -> int:
+    call_threshold = _validated_probability(args.call_threshold, "--call-threshold")
+    call_positive_weight = _validated_positive_float(
+        args.call_positive_weight,
+        "--call-positive-weight",
+    )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
     examples = list(iter_call_examples(game))
@@ -1168,17 +1210,35 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
         ),
     }
-    model_payloads = {
-        model_name: _call_model_payload(
-            model,
-            train_examples=train_examples,
-            eval_examples=eval_examples,
+    if args.include_weighted:
+        call_models["call_linear_v1_weighted"] = CallLinearModel.fit(
+            train_examples,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
+            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+            positive_class_weight=call_positive_weight,
         )
-        for model_name, model in call_models.items()
-    }
+
+    model_payloads: dict[str, dict[str, Any]] = {}
+    for model_name, model in call_models.items():
+        model_payloads[model_name] = _call_model_payload(
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+        )
+        if model_name == "call_linear_v1":
+            model_payloads["call_linear_v1_calibrated"] = _call_model_payload(
+                model,
+                train_examples=train_examples,
+                eval_examples=eval_examples,
+                predict=_call_threshold_predictor(model, call_threshold),
+                policy=_threshold_policy_metadata(
+                    target="call",
+                    base_model=model_name,
+                    threshold=call_threshold,
+                ),
+            )
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
@@ -1210,17 +1270,42 @@ def _benchmark_call(args: argparse.Namespace) -> int:
 CallPredictor = Callable[[CallExample], ActionKind]
 
 
+def _call_threshold_predictor(
+    model: CallLinearModel,
+    threshold: float,
+) -> CallPredictor:
+    def predict(example: CallExample) -> ActionKind:
+        probabilities = model.probabilities_for_example(example)
+        non_pass_probabilities = {
+            kind: probability
+            for kind, probability in probabilities.items()
+            if kind != ActionKind.PASS
+        }
+        score = sum(non_pass_probabilities.values()) if non_pass_probabilities else -1.0
+        if score < threshold:
+            return ActionKind.PASS
+        return max(
+            non_pass_probabilities,
+            key=lambda kind: (
+                non_pass_probabilities[kind],
+                -CALL_DECISION_KINDS.index(kind),
+            ),
+        )
+
+    return predict
+
+
 def _call_model_payload(
     model: CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
     *,
     train_examples: list[CallExample],
     eval_examples: list[CallExample],
-    epochs: int,
-    learning_rate: float,
-    l2: float,
+    predict: CallPredictor | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    train_analysis = _summarize_call_predictions(train_examples, model.predict)
-    eval_analysis = _summarize_call_predictions(eval_examples, model.predict)
+    predictor = model.predict if predict is None else predict
+    train_analysis = _summarize_call_predictions(train_examples, predictor)
+    eval_analysis = _summarize_call_predictions(eval_examples, predictor)
     train_metrics = _call_metrics(train_analysis)
     eval_metrics = _call_metrics(eval_analysis)
     payload: dict[str, Any] = {
@@ -1242,13 +1327,16 @@ def _call_model_payload(
         "train_analysis": train_analysis,
         "eval_analysis": eval_analysis,
     }
+    if policy is not None:
+        payload["policy"] = policy
     if isinstance(model, CallLinearModel):
         payload["feature_dim"] = model.feature_dim
         payload["feature_profile"] = model.feature_profile
         payload["training"] = {
-            "epochs": epochs,
-            "learning_rate": learning_rate,
-            "l2": l2,
+            "epochs": model.epochs,
+            "learning_rate": model.learning_rate,
+            "l2": model.l2,
+            "positive_class_weight": model.positive_class_weight,
         }
         payload["calibration"] = {
             "target": "call",
@@ -1285,6 +1373,9 @@ def _print_call_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> 
                 f"{model_name}_eval_best_threshold: "
                 f"{_format_calibration_best(best, target_name='call')}"
             )
+        policy = payload.get("policy")
+        if isinstance(policy, dict) and policy.get("kind") == "threshold-calibrated-v0":
+            print(f"{model_name}_policy_threshold: {float(policy['threshold']):.2f}")
 
 
 def _summarize_call_predictions(
@@ -1469,6 +1560,21 @@ def _format_calibration_best(best: dict[str, Any] | None, *, target_name: str) -
     )
 
 
+def _threshold_policy_metadata(
+    *,
+    target: str,
+    base_model: str,
+    threshold: float,
+) -> dict[str, Any]:
+    return {
+        "kind": "threshold-calibrated-v0",
+        "target": target,
+        "base_model": base_model,
+        "threshold": threshold,
+        "threshold_source": "tenhou-100-v0-eval-sweep",
+    }
+
+
 def _mean_defined(values: Iterable[float | None]) -> float | None:
     defined = [value for value in values if value is not None]
     if not defined:
@@ -1477,6 +1583,11 @@ def _mean_defined(values: Iterable[float | None]) -> float | None:
 
 
 def _benchmark_riichi(args: argparse.Namespace) -> int:
+    riichi_threshold = _validated_probability(args.riichi_threshold, "--riichi-threshold")
+    riichi_positive_weight = _validated_positive_float(
+        args.riichi_positive_weight,
+        "--riichi-positive-weight",
+    )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
     examples = list(iter_riichi_examples(game))
@@ -1497,17 +1608,34 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
             l2=args.l2,
         ),
     }
-    model_payloads = {
-        model_name: _riichi_model_payload(
-            model,
-            train_examples=train_examples,
-            eval_examples=eval_examples,
+    if args.include_weighted:
+        riichi_models["riichi_linear_weighted"] = RiichiLinearModel.fit(
+            train_examples,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
+            positive_class_weight=riichi_positive_weight,
         )
-        for model_name, model in riichi_models.items()
-    }
+
+    model_payloads: dict[str, dict[str, Any]] = {}
+    for model_name, model in riichi_models.items():
+        model_payloads[model_name] = _riichi_model_payload(
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+        )
+        if model_name == "riichi_linear":
+            model_payloads["riichi_linear_calibrated"] = _riichi_model_payload(
+                model,
+                train_examples=train_examples,
+                eval_examples=eval_examples,
+                predict=_riichi_threshold_predictor(model, riichi_threshold),
+                policy=_threshold_policy_metadata(
+                    target="riichi",
+                    base_model=model_name,
+                    threshold=riichi_threshold,
+                ),
+            )
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
@@ -1541,17 +1669,31 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
 RiichiPredictor = Callable[[RiichiExample], ActionKind]
 
 
+def _riichi_threshold_predictor(
+    model: RiichiLinearModel,
+    threshold: float,
+) -> RiichiPredictor:
+    def predict(example: RiichiExample) -> ActionKind:
+        probabilities = model.probabilities_for_example(example)
+        score = probabilities.get(ActionKind.RIICHI, -1.0)
+        if score >= threshold:
+            return ActionKind.RIICHI
+        return ActionKind.PASS
+
+    return predict
+
+
 def _riichi_model_payload(
     model: RiichiFrequencyBaseline | RiichiLinearModel,
     *,
     train_examples: list[RiichiExample],
     eval_examples: list[RiichiExample],
-    epochs: int,
-    learning_rate: float,
-    l2: float,
+    predict: RiichiPredictor | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    train_analysis = _summarize_riichi_predictions(train_examples, model.predict)
-    eval_analysis = _summarize_riichi_predictions(eval_examples, model.predict)
+    predictor = model.predict if predict is None else predict
+    train_analysis = _summarize_riichi_predictions(train_examples, predictor)
+    eval_analysis = _summarize_riichi_predictions(eval_examples, predictor)
     train_metrics = _riichi_metrics(train_analysis)
     eval_metrics = _riichi_metrics(eval_analysis)
     payload: dict[str, Any] = {
@@ -1571,12 +1713,15 @@ def _riichi_model_payload(
         "train_analysis": train_analysis,
         "eval_analysis": eval_analysis,
     }
+    if policy is not None:
+        payload["policy"] = policy
     if isinstance(model, RiichiLinearModel):
         payload["feature_dim"] = model.feature_dim
         payload["training"] = {
-            "epochs": epochs,
-            "learning_rate": learning_rate,
-            "l2": l2,
+            "epochs": model.epochs,
+            "learning_rate": model.learning_rate,
+            "l2": model.l2,
+            "positive_class_weight": model.positive_class_weight,
         }
         payload["calibration"] = {
             "target": "riichi",
@@ -1613,6 +1758,9 @@ def _print_riichi_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -
                 f"{model_name}_eval_best_threshold: "
                 f"{_format_calibration_best(best, target_name='riichi')}"
             )
+        policy = payload.get("policy")
+        if isinstance(policy, dict) and policy.get("kind") == "threshold-calibrated-v0":
+            print(f"{model_name}_policy_threshold: {float(policy['threshold']):.2f}")
 
 
 def _summarize_riichi_predictions(
@@ -1903,6 +2051,18 @@ def _source_metadata(args: argparse.Namespace) -> dict[str, str | None]:
         "command": args.source_command,
         "date": args.source_date,
     }
+
+
+def _validated_probability(value: float, option: str) -> float:
+    if value < 0.0 or value > 1.0:
+        raise SystemExit(f"{option} must be between 0.0 and 1.0")
+    return value
+
+
+def _validated_positive_float(value: float, option: str) -> float:
+    if value <= 0.0:
+        raise SystemExit(f"{option} must be positive")
+    return value
 
 
 def _format_optional_accuracy(accuracy: float | None) -> str:

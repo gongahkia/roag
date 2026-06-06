@@ -464,11 +464,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Turn calibration evidence into explicit optional policy variants, without changing existing
-   model kinds or default `predict()` behavior. Candidate report keys: calibrated
-   `call-linear-v1` at threshold 0.40 and calibrated `riichi-linear-v0` at threshold 0.95.
-2. Compare threshold calibration against class-weighted training before adding more call or riichi
-   features. The current report-only thresholds improved balanced accuracy on the 100-log split.
+1. Scale the explicit calibrated call/riichi policy variants to a larger local slice, ideally 500
+   logs, before adding more call or riichi features. The 100-log weighted comparison favored fixed
+   threshold policies over simple positive class weighting on balanced accuracy.
+2. If the larger run confirms the 100-log result, treat `call_linear_v1_calibrated` and
+   `riichi_linear_calibrated` as the preferred report policy baselines while leaving default
+   `predict()` behavior unchanged.
 3. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
@@ -477,8 +478,6 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 5. Define the offline Mortal comparison boundary: build a Tenhou XML to `mjai` decision-snapshot
    exporter, then compare through a subprocess or neutral data layer when weights are available and
    legally usable.
-6. Scale to larger local slices, such as 500 logs, only after call and riichi calibration reports are
-   stable on the 100-log slice.
 
 ---
 
@@ -731,3 +730,18 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - On the same split, calibrated `riichi-linear-v0` at threshold 0.95 raised binary balanced accuracy
   to 0.6444 with riichi precision 0.5476, riichi recall 0.5000, and pass recall 0.7889. The
   unthresholded model remains useful mainly as a riichi-recall probe because it overcalls.
+- Added explicit calibrated benchmark policy variants without changing model kinds or default
+  `predict()` behavior: `call_linear_v1_calibrated` at non-pass threshold 0.40 and
+  `riichi_linear_calibrated` at riichi threshold 0.95.
+- Added opt-in positive class-weight comparison variants via `--include-weighted`,
+  `--call-positive-weight`, and `--riichi-positive-weight`. The linear model training metadata now
+  records `positive_class_weight`.
+- On the 100-log `tenhou-100-v0` call split, `call_linear_v1_calibrated` scored 0.8154 eval
+  accuracy, 0.7750 exact-action balanced eval accuracy, 0.8333 pass recall, and 0.7167 exact-call
+  recall. The positive-weight 2.0 comparison scored 0.6729 eval accuracy, 0.7522 balanced eval
+  accuracy, 0.6376 pass recall, and 0.8668 call recall; its own threshold sweep picked 0.80 with
+  binary balanced accuracy 0.7669.
+- On the same riichi split, `riichi_linear_calibrated` scored 0.6912 eval accuracy, 0.6444 balanced
+  eval accuracy, 0.7889 pass recall, and 0.5000 riichi recall. The positive-weight 2.0 comparison
+  scored 0.3603 eval accuracy, 0.5114 balanced eval accuracy, 0.0444 pass recall, and 0.9783 riichi
+  recall; its own threshold sweep picked 0.95 with binary balanced accuracy 0.5713.
