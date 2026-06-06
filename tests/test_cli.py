@@ -1074,6 +1074,133 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["call_examples_total"], 1)
         self.assertIn("call_linear_v1_eval_best_threshold:", stdout.getvalue())
 
+    def test_benchmark_call_supports_zero_epochs(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call-benchmark-zero-epochs.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--epochs",
+                        "0",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["models"]["call_linear_v1"]["training"]["epochs"], 0)
+        self.assertEqual(
+            payload["models"]["call_linear_v1_calibrated"]["training"]["epochs"],
+            0,
+        )
+
+    def test_benchmark_call_profiles_and_reuses_feature_cache(self) -> None:
+        with TemporaryDirectory() as directory:
+            cache = Path(directory) / "feature-cache.json"
+            first_report = Path(directory) / "call-first.json"
+            second_report = Path(directory) / "call-second.json"
+
+            first_stdout = io.StringIO()
+            with contextlib.redirect_stdout(first_stdout):
+                first_exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-limit",
+                        "1",
+                        "--profile-stages",
+                        "--feature-cache",
+                        str(cache),
+                        "--report",
+                        str(first_report),
+                    ]
+                )
+            first_payload = json.loads(first_report.read_text(encoding="utf-8"))
+
+            second_stdout = io.StringIO()
+            with contextlib.redirect_stdout(second_stdout):
+                second_exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-limit",
+                        "1",
+                        "--profile-stages",
+                        "--feature-cache",
+                        str(cache),
+                        "--report",
+                        str(second_report),
+                    ]
+                )
+            second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+            cache_exists = cache.exists()
+
+        self.assertEqual(first_exit_code, 0)
+        self.assertTrue(cache_exists)
+        self.assertIn("stage_parse_seconds:", first_stdout.getvalue())
+        self.assertIn("feature_cache_misses: v1", first_stdout.getvalue())
+        self.assertEqual(first_payload["feature_cache"]["misses"], ["v1"])
+        self.assertEqual(first_payload["feature_cache"]["writes"], ["v1"])
+        self.assertIn("parse", first_payload["timing"])
+        self.assertEqual(second_exit_code, 0)
+        self.assertIn("feature_cache_hits: v1", second_stdout.getvalue())
+        self.assertEqual(second_payload["feature_cache"]["hits"], ["v1"])
+        self.assertEqual(second_payload["feature_cache"]["misses"], [])
+
+    def test_balanced_call_example_limit_keeps_non_pass_examples_first(self) -> None:
+        tile = Tile.parse("1p")
+
+        def example(index: int, action: Action) -> CallExample:
+            return CallExample(
+                round_index=0,
+                event_index=index,
+                call_event_index=index if action.kind != ActionKind.PASS else None,
+                seat=1,
+                from_seat=0,
+                dealer=0,
+                scores=(25000, 25000, 25000, 25000),
+                discarded_tile=tile,
+                legal_call_kinds=(ActionKind.PON,),
+                hand_counts=(0,) * 34,
+                visible_counts=(0,) * 34,
+                action=action,
+            )
+
+        examples = [
+            example(0, Action.pass_()),
+            example(1, Action(ActionKind.PON, tile.type)),
+            example(2, Action.pass_()),
+            example(3, Action(ActionKind.PON, tile.type)),
+        ]
+
+        selected = _limit_call_examples(examples, 3, strategy="balanced")
+
+        self.assertEqual(
+            [example.action.kind for example in selected],
+            [ActionKind.PON, ActionKind.PON, ActionKind.PASS],
+        )
+
     def test_benchmark_call_models_rejects_unknown_name(self) -> None:
         with self.assertRaises(SystemExit) as context:
             main(
