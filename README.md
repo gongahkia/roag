@@ -36,6 +36,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --report runs/call-benchmark.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --models fast --example-limit 1000 --call-threshold-source train-best \
+  --example-limit-strategy balanced --profile-stages --feature-cache runs/call-feature-cache.json \
   --report runs/call-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   data/fixtures/tenhou --report runs/riichi-benchmark.json
@@ -64,15 +65,19 @@ disagreement diagnostics, `--models fast` to skip slower ablation anchors during
 `benchmark-call` provides supervised call/pass baselines on existing call examples, including
 selective `call-linear-v0` and richer additive `call-linear-v1` models plus imbalance-aware
 accuracy and recall metrics. `benchmark-call --models fast --example-limit N` runs a bounded call
-comparison path for larger local slices. Call and riichi reports include fixed-threshold calibrated
-policy variants, optional
+comparison path for larger local slices; use `--example-limit-strategy balanced` to keep a roughly
+even call/pass cap, `--profile-stages` to record stage timings, `--feature-cache PATH` to reuse
+prepared call features across repeated runs, and `--epochs 0` for report-only zero-update model
+smokes. Call and riichi reports include fixed-threshold calibrated policy variants, optional
 `--*-threshold-source train-best` calibrated variants, report-only threshold sweeps, and optional
 positive class-weighted comparison variants via `--include-weighted`; default `predict()` behavior
 is unchanged. `benchmark-riichi` provides conservative supervised riichi/pass reports for both the
 frequency floor and `riichi-linear-v0`.
 `export-decision-snapshots` writes ignored neutral JSONL rows for discard/call/riichi decision
-points, including a minimal mjai-style event prefix for future offline baseline comparison.
-`decision-snapshot-summary` validates and counts those local JSONL snapshots.
+points, including stable `row_id` values and a minimal mjai-style event prefix for future offline
+baseline comparison. `decision-snapshot-summary` validates and counts those local JSONL snapshots.
+`decision-snapshot-compare` compares snapshot rows with prediction JSONL rows containing `row_id`
+and `predicted_action`.
 
 For continuation context, see `docs/session-handoff.md`.
 

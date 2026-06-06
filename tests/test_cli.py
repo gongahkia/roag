@@ -1154,6 +1154,7 @@ class CliTests(unittest.TestCase):
                     ]
                 )
             second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+            cache_payload = json.loads(cache.read_text(encoding="utf-8"))
             cache_exists = cache.exists()
 
         self.assertEqual(first_exit_code, 0)
@@ -1167,6 +1168,9 @@ class CliTests(unittest.TestCase):
         self.assertIn("feature_cache_hits: v1", second_stdout.getvalue())
         self.assertEqual(second_payload["feature_cache"]["hits"], ["v1"])
         self.assertEqual(second_payload["feature_cache"]["misses"], [])
+        self.assertIn("example_signature", cache_payload["cache_key"])
+        self.assertIn("train_signature", cache_payload["cache_key"])
+        self.assertIn("eval_signature", cache_payload["cache_key"])
 
     def test_balanced_call_example_limit_keeps_non_pass_examples_first(self) -> None:
         tile = Tile.parse("1p")
@@ -1192,13 +1196,17 @@ class CliTests(unittest.TestCase):
             example(1, Action(ActionKind.PON, tile.type)),
             example(2, Action.pass_()),
             example(3, Action(ActionKind.PON, tile.type)),
+            example(4, Action(ActionKind.PON, tile.type)),
+            example(5, Action.pass_()),
+            example(6, Action(ActionKind.PON, tile.type)),
+            example(7, Action.pass_()),
         ]
 
-        selected = _limit_call_examples(examples, 3, strategy="balanced")
+        selected = _limit_call_examples(examples, 4, strategy="balanced")
 
         self.assertEqual(
             [example.action.kind for example in selected],
-            [ActionKind.PON, ActionKind.PON, ActionKind.PASS],
+            [ActionKind.PON, ActionKind.PON, ActionKind.PASS, ActionKind.PASS],
         )
 
     def test_benchmark_call_models_rejects_unknown_name(self) -> None:

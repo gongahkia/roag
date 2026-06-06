@@ -4,6 +4,7 @@ import argparse
 import json
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
+from hashlib import blake2b
 from pathlib import Path
 from time import perf_counter
 from typing import Any, TypeVar
@@ -1787,10 +1788,10 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         args=args,
         dataset_files=dataset.files,
         source=source_metadata,
-        all_examples=len(all_examples),
-        examples=len(examples),
-        train_examples=len(train_examples),
-        eval_examples=len(eval_examples),
+        all_examples_count=len(all_examples),
+        examples=examples,
+        train_examples=train_examples,
+        eval_examples=eval_examples,
     )
     feature_cache_report = _empty_call_feature_cache_report(args.feature_cache)
     call_models: dict[
@@ -2080,9 +2081,16 @@ def _limit_call_examples(
     if strategy == "balanced":
         calls = [example for example in examples if example.action.kind != ActionKind.PASS]
         passes = [example for example in examples if example.action.kind == ActionKind.PASS]
-        if len(calls) >= limit:
-            return calls[:limit]
-        return [*calls, *passes[: limit - len(calls)]]
+        call_count = min(len(calls), (limit + 1) // 2)
+        pass_count = min(len(passes), limit - call_count)
+        remaining = limit - call_count - pass_count
+        if remaining and call_count < len(calls):
+            extra_calls = min(len(calls) - call_count, remaining)
+            call_count += extra_calls
+            remaining -= extra_calls
+        if remaining and pass_count < len(passes):
+            pass_count += min(len(passes) - pass_count, remaining)
+        return [*calls[:call_count], *passes[:pass_count]]
     raise ValueError(f"unsupported call example limit strategy: {strategy}")
 
 
@@ -2100,10 +2108,10 @@ def _call_feature_cache_key(
     args: argparse.Namespace,
     dataset_files: Sequence[Path],
     source: dict[str, str | None],
-    all_examples: int,
-    examples: int,
-    train_examples: int,
-    eval_examples: int,
+    all_examples_count: int,
+    examples: Sequence[CallExample],
+    train_examples: Sequence[CallExample],
+    eval_examples: Sequence[CallExample],
 ) -> dict[str, Any]:
     return {
         "input_paths": [str(path) for path in args.paths],
@@ -2113,11 +2121,36 @@ def _call_feature_cache_key(
         "eval_fraction": args.eval_fraction,
         "example_limit": args.example_limit,
         "example_limit_strategy": args.example_limit_strategy,
-        "all_examples": all_examples,
-        "examples": examples,
-        "train_examples": train_examples,
-        "eval_examples": eval_examples,
+        "all_examples": all_examples_count,
+        "examples": len(examples),
+        "train_examples": len(train_examples),
+        "eval_examples": len(eval_examples),
+        "example_signature": _call_examples_signature(examples),
+        "train_signature": _call_examples_signature(train_examples),
+        "eval_signature": _call_examples_signature(eval_examples),
     }
+
+
+def _call_examples_signature(examples: Sequence[CallExample]) -> str:
+    digest = blake2b(digest_size=16)
+    for example in examples:
+        action_tile = None if example.action.tile is None else example.action.tile.notation
+        digest.update(
+            json.dumps(
+                [
+                    example.round_index,
+                    example.event_index,
+                    example.call_event_index,
+                    example.seat,
+                    example.from_seat,
+                    example.discarded_tile.notation,
+                    example.action.kind.value,
+                    action_tile,
+                ],
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+    return digest.hexdigest()
 
 
 def _empty_call_feature_cache_report(path: Path | None) -> dict[str, Any]:

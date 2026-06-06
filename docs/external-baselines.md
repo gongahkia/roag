@@ -39,9 +39,9 @@ Practical comparison path:
 1. Keep Mortal as an external, ignored baseline until Kenjaku has a policy that can act through a
    common interface.
 2. Prefer a neutral decision/export layer over copying AGPL simulator code into Kenjaku.
-3. Use `export-decision-snapshots` to produce local JSONL decision rows with minimal `mjai_events`
-   prefixes, validate the export with `decision-snapshot-summary`, then compare Kenjaku decisions
-   against a Mortal-compatible inference path only when model weights are available and legally
-   usable.
+3. Use `export-decision-snapshots` to produce local JSONL decision rows with stable `row_id` values
+   and minimal `mjai_events` prefixes. Validate the export with `decision-snapshot-summary`, then
+   compare Kenjaku rows against prediction JSONL via `decision-snapshot-compare` only when a
+   Mortal-compatible inference path and legally usable weights are available.
 4. For head-to-head evaluation, target duplicate-mahjong offline runs through a common simulator or
    a subprocess boundary; do not add live ladder automation.

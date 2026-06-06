@@ -464,21 +464,24 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Profile and cache the full call-v1 feature/training path before using uncapped 500-log call
-   calibration as a gate. A bounded 500-log command with `--models fast`, `--example-limit 5000`,
-   `--epochs 5`, and `--call-threshold-source train-best` now finishes and gives an iteration
-   signal, but the uncapped 25-epoch run remains too expensive.
-2. Treat train-selected riichi thresholds as the next riichi policy baseline to validate. On the
-   500-log slice, `--riichi-threshold-source train-best` selected threshold 0.25 and raised
-   `riichi_linear_calibrated` balanced eval accuracy to 0.6534 versus 0.5143 for the fixed 0.95
-   threshold.
-3. Build the next Mortal-boundary step on top of `export-decision-snapshots` and
-   `decision-snapshot-summary`: add a neutral consumer or comparator through a subprocess or data
-   layer only when weights are available and legally usable.
-4. Use disagreement tag filters before changing discard features. The capped 100-log sample is
+1. Fix call-v1 training/calibration on balanced call/pass caps. The corrected 500-log balanced
+   10k diagnostic now runs quickly with feature caching, but the 5-epoch v1 model collapses to
+   pass-only on that roughly even slice. Try higher epochs, learning-rate sweeps, and/or positive
+   weighting on the cached balanced cap before treating larger call policy metrics as meaningful.
+2. Use the call feature cache for larger call experiments. The first balanced 10k run spent about
+   37.8s in v1 feature preparation and 77.9s wall-clock total; the cache-hit repeat dropped to
+   about 10.6s. The remaining uncapped challenge is full-example memory/runtime and training
+   quality, not just repeated feature prep.
+3. Treat train-selected riichi threshold 0.25 as the current riichi policy baseline to harden. On
+   500-log splits `tenhou-500-v0` and `tenhou-500-v1`, train-best selected 0.25 and
+   `riichi_linear_calibrated` scored 0.6534 and 0.6495 balanced eval accuracy respectively.
+4. Build an actual external-baseline prediction producer for `decision-snapshot-compare` through a
+   subprocess/data-layer boundary only when weights are available and legally usable. The neutral
+   row format and comparator exist; the missing piece is external inference.
+5. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-5. Add feature normalization behind a new discard model kind only if tagged examples or weight
+6. Add feature normalization behind a new discard model kind only if tagged examples or weight
    summaries point to linear scale instability; do not mutate existing feature profiles.
 
 ---
@@ -785,3 +788,24 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   selected threshold 0.25; `riichi_linear_calibrated` scored 0.6293 eval accuracy, 0.6534 balanced
   eval accuracy, 0.5684 pass recall, and 0.7384 riichi recall. The raw linear and weighted metrics
   matched the previous 500-log run, and the eval diagnostic best remained threshold 0.20.
+- Added stable `row_id` values to decision snapshot rows and `decision-snapshot-compare` for neutral
+  snapshot/prediction JSONL comparison. The comparator reports exact-action accuracy by decision
+  type plus binary call/riichi metrics, and counts missing, malformed, and duplicate prediction
+  rows.
+- Extended `benchmark-call` with `--profile-stages`, `--feature-cache PATH`,
+  `--example-limit-strategy prefix|balanced`, and `--epochs 0`. The feature cache stores prepared
+  call examples behind a key that includes selected/train/eval example signatures so stale
+  equivalent-count slices cannot be reused silently.
+- Corrected the balanced call limiter to reserve roughly half the cap for non-pass calls and half
+  for pass examples, filling from the other class only when one side runs out.
+- Ran the corrected 500-log balanced call diagnostic on 10,000 of 69,013 call examples. The first
+  run spent 37.8s in v1 feature preparation and 77.9s wall-clock total; the cache-hit repeat
+  recorded `feature_cache_hits: v1` and finished in 10.6s. On this roughly even cap, 5-epoch
+  `call_linear_v1` collapsed to pass-only: 0.5125 eval accuracy, 0.5000 balanced eval accuracy,
+  1.0000 pass recall, and 0.0000 call recall. Treat the next call step as training/calibration
+  quality on cached balanced caps, not just runtime.
+- Re-ran the 500-log riichi benchmark on split `tenhou-500-v1` with train-best calibration. The
+  train sweep again selected threshold 0.25; `riichi_linear_calibrated` scored 0.6420 eval
+  accuracy, 0.6495 balanced eval accuracy, 0.6204 pass recall, and 0.6785 riichi recall. This
+  supports using 0.25 train-best as the current riichi policy baseline while broader validation
+  continues.

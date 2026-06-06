@@ -88,9 +88,12 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan-
   --split-seed tenhou-500-v0 \
   --epochs 5 \
   --models fast \
-  --example-limit 5000 \
+  --example-limit 10000 \
+  --example-limit-strategy balanced \
   --call-threshold-source train-best \
-  --report runs/call-benchmark-tenhou-500-fast-limit5000-epochs5-train-best-v0-report.json \
+  --profile-stages \
+  --feature-cache runs/call-features-tenhou-500-fast-balanced-limit10000-v0.json \
+  --report runs/call-benchmark-tenhou-500-fast-balanced-limit10000-epochs5-train-best-v0-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 500"
@@ -130,6 +133,11 @@ PYTHONPATH=src python3 -m kenjaku export-decision-snapshots data/raw/tenhou/xml/
 PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary \
   runs/decision-snapshots-local.jsonl
 
+# Prediction JSONL rows for comparison must contain row_id and predicted_action.
+PYTHONPATH=src python3 -m kenjaku decision-snapshot-compare \
+  runs/decision-snapshots-local.jsonl \
+  runs/decision-predictions-local.jsonl
+
 PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-hanchan \
   --epochs 5 \
   --eval-fraction 0.2 \
@@ -164,18 +172,22 @@ pass-allowed frequency, legal-call-only frequency, `call-linear-v0`, and additiv
 `call-linear-v1` baselines, and reports overall accuracy, balanced accuracy, pass recall, call
 recall, per-action recall, a fixed-threshold `call_linear_v1_calibrated` policy variant, and
 report-only call/pass threshold calibration. Use `--models fast --example-limit N` for bounded call
-comparisons on larger slices and `--call-threshold-source train-best` to evaluate a train-selected
-calibrated threshold without using eval-selected diagnostics as policy. Add `--include-weighted` to
-compare the default threshold policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a
+comparisons on larger slices, `--example-limit-strategy balanced` to keep a roughly even call/pass
+cap, `--profile-stages` to record stage timings, and `--feature-cache PATH` to reuse prepared call
+features across repeated runs. `--epochs 0` is accepted for report-only zero-update model smokes.
+Use `--call-threshold-source train-best` to evaluate a train-selected calibrated threshold without
+using eval-selected diagnostics as policy. Add `--include-weighted` to compare the default threshold
+policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a
 conservative riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`,
 including the fixed-threshold or train-selected `riichi_linear_calibrated` policy variant, optional
 `riichi_linear_weighted`, and report-only riichi/pass threshold calibration.
 
 Use `export-decision-snapshots` to write local-only JSONL rows for discard/call/riichi decisions.
-Rows include Kenjaku reconstruction fields, legal actions, the observed action, and a minimal
-`mjai_events` prefix; this is the neutral handoff format for future offline Mortal comparison. Use
-`decision-snapshot-summary` to validate snapshot JSONL counts before handing the file to a future
-external baseline comparator.
+Rows include stable `row_id` values, Kenjaku reconstruction fields, legal actions, the observed
+action, and a minimal `mjai_events` prefix; this is the neutral handoff format for future offline
+Mortal comparison. Use `decision-snapshot-summary` to validate snapshot JSONL counts before handing
+the file to a future external baseline comparator. Use `decision-snapshot-compare` when that
+comparator emits prediction JSONL rows with `row_id` and `predicted_action`.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.
