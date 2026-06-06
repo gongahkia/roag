@@ -362,6 +362,8 @@ def build_call_benchmark_report(
     models: dict[str, dict[str, Any]],
     parse_failures: Sequence[TenhouParseFailure],
     source: dict[str, str | None],
+    call_examples_total: int | None = None,
+    example_limit: int | None = None,
 ) -> dict[str, Any]:
     return {
         "kind": CALL_BENCHMARK_REPORT_KIND,
@@ -371,6 +373,8 @@ def build_call_benchmark_report(
         **_game_counts(game),
         "discard_examples": discard_examples,
         "call_examples": call_examples,
+        "call_examples_total": call_examples if call_examples_total is None else call_examples_total,
+        "example_limit": example_limit,
         "split": {
             "seed": split_seed,
             "eval_fraction": eval_fraction,
@@ -622,6 +626,8 @@ def _summarize_binary_benchmark_report(
         "xml_file_count": payload["xml_file_count"],
         "rounds": payload["rounds"],
         "examples": payload[examples_key],
+        "examples_total": payload.get(f"{target}_examples_total"),
+        "example_limit": payload.get("example_limit"),
         "split": payload["split"],
         "models": models,
     }
@@ -668,6 +674,11 @@ def _append_binary_benchmark_summary_lines(lines: list[str], report: dict[str, A
         f"{split['train_examples']} train, "
         f"{split['eval_examples']} eval"
     )
+    if report.get("example_limit") is not None:
+        lines.append(
+            "example_limit: "
+            f"{report['example_limit']} of {report.get('examples_total', report['examples'])}"
+        )
     lines.append("models:")
     recall_key = f"eval_{target}_recall"
     for model_name, model in report["models"].items():

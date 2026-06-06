@@ -989,6 +989,8 @@ class CliTests(unittest.TestCase):
                         "fixed",
                         "--models",
                         "fast",
+                        "--example-limit",
+                        "1",
                         "--report",
                         str(report),
                     ]
@@ -1006,6 +1008,8 @@ class CliTests(unittest.TestCase):
             },
         )
         self.assertNotIn("call_linear", payload["models"])
+        self.assertEqual(payload["example_limit"], 1)
+        self.assertEqual(payload["call_examples_total"], 1)
         self.assertIn("call_linear_v1_eval_best_threshold:", stdout.getvalue())
 
     def test_benchmark_call_models_rejects_unknown_name(self) -> None:

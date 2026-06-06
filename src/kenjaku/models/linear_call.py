@@ -148,12 +148,43 @@ class CallLinearModel:
         if positive_class_weight <= 0:
             raise ValueError("positive_class_weight must be positive")
 
+        prepared_examples = cls.prepare_examples_for_profile(
+            examples,
+            feature_profile=feature_profile,
+        )
+        return cls.fit_prepared(
+            prepared_examples,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            l2=l2,
+            feature_profile=feature_profile,
+            positive_class_weight=positive_class_weight,
+        )
+
+    @classmethod
+    def fit_prepared(
+        cls,
+        prepared_examples: Sequence[_PreparedCallExample],
+        *,
+        epochs: int = 25,
+        learning_rate: float = 0.1,
+        l2: float = 0.0,
+        feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE,
+        positive_class_weight: float = 1.0,
+    ) -> CallLinearModel:
+        if not prepared_examples:
+            raise ValueError("cannot train on zero examples")
+        if epochs <= 0:
+            raise ValueError("epochs must be positive")
+        if learning_rate <= 0:
+            raise ValueError("learning_rate must be positive")
+        if l2 < 0:
+            raise ValueError("l2 must be non-negative")
+        if positive_class_weight <= 0:
+            raise ValueError("positive_class_weight must be positive")
+
         profile = _feature_profile(feature_profile)
         weights = [[0.0] * profile.feature_dim for _ in CALL_DECISION_KINDS]
-        prepared_examples = tuple(
-            _prepare_example(example, profile=profile)
-            for example in examples
-        )
         for _ in range(epochs):
             for example in prepared_examples:
                 _apply_update(
@@ -193,6 +224,15 @@ class CallLinearModel:
     def feature_names_for_profile(feature_profile: str) -> tuple[str, ...]:
         return _feature_profile(feature_profile).feature_names
 
+    @staticmethod
+    def prepare_examples_for_profile(
+        examples: Sequence[CallExample],
+        *,
+        feature_profile: str = CALL_LINEAR_V0_FEATURE_PROFILE,
+    ) -> tuple[_PreparedCallExample, ...]:
+        profile = _feature_profile(feature_profile)
+        return tuple(_prepare_example(example, profile=profile) for example in examples)
+
     def predict(self, example: CallExample) -> ActionKind:
         logits = self.logits_for_example(example)
         return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
@@ -208,8 +248,10 @@ class CallLinearModel:
         self,
         examples: Sequence[CallExample],
     ) -> tuple[_PreparedCallExample, ...]:
-        profile = _feature_profile(self.feature_profile)
-        return tuple(_prepare_example(example, profile=profile) for example in examples)
+        return self.prepare_examples_for_profile(
+            examples,
+            feature_profile=self.feature_profile,
+        )
 
     def predict_prepared(self, prepared: _PreparedCallExample) -> ActionKind:
         logits = self.logits_for_prepared(prepared)
@@ -494,6 +536,7 @@ def _ukeire_proxy(counts: tuple[int, ...]) -> int:
     return total
 
 
+@cache
 def _safe_shanten(counts: tuple[int, ...]) -> int:
     try:
         return shanten(counts)
@@ -518,8 +561,14 @@ def _apply_update(
         row = weights[_kind_index(kind)]
         target = 1.0 if kind == example.target else 0.0
         error = probabilities[kind] - target
-        for index, value in enumerate(features):
-            row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
+        scaled_error = learning_rate * example_weight * error
+        if l2 == 0:
+            for index, value in enumerate(features):
+                if value:
+                    row[index] -= scaled_error * value
+        else:
+            for index, value in enumerate(features):
+                row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
 
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
@@ -536,7 +585,11 @@ def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
 
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
-    return sum(weight * feature for weight, feature in zip(weights, features))
+    total = 0.0
+    for weight, feature in zip(weights, features):
+        if feature:
+            total += weight * feature
+    return total
 
 
 def _kind_index(kind: ActionKind) -> int:

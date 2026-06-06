@@ -464,9 +464,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Profile and cache the call-v1 feature path before using 500-log call calibration as a gate. The
-   bounded `benchmark-call --models fast --call-threshold-source train-best` run on 500 logs was
-   still CPU-active after about five minutes and was stopped before writing a report.
+1. Profile and cache the full call-v1 feature/training path before using uncapped 500-log call
+   calibration as a gate. A bounded 500-log command with `--models fast`, `--example-limit 5000`,
+   `--epochs 5`, and `--call-threshold-source train-best` now finishes and gives an iteration
+   signal, but the uncapped 25-epoch run remains too expensive.
 2. Treat train-selected riichi thresholds as the next riichi policy baseline to validate. On the
    500-log slice, `--riichi-threshold-source train-best` selected threshold 0.25 and raised
    `riichi_linear_calibrated` balanced eval accuracy to 0.6534 versus 0.5143 for the fixed 0.95
@@ -765,18 +766,21 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added prepared-example prediction helpers for call and riichi linear models so benchmark scoring
   and threshold sweeps can reuse prepared feature vectors instead of rebuilding features for every
   prediction path.
-- Added `benchmark-call --models all|fast|...`; `fast` runs the bounded call comparison path with
-  frequency, legal-frequency, `call_linear_v1`, and `call_linear_v1_calibrated`.
+- Added `benchmark-call --models all|fast|...` and `--example-limit`. `fast` runs the bounded call
+  comparison path with frequency, legal-frequency, `call_linear_v1`, and
+  `call_linear_v1_calibrated`.
 - Added `--call-threshold-source fixed|train-best` and
   `--riichi-threshold-source fixed|train-best`. Defaults preserve the prior fixed thresholds, while
   train-best uses the train split sweep winner and records that source in report policy metadata.
 - Added `decision-snapshot-summary`, a neutral local JSONL summary/validator for decision snapshot
   exports. Fixture summary smoke counted five snapshots, zero malformed rows, and present
   `mjai_events` for all five rows.
-- The bounded 500-log call fast run with train-best calibration was still CPU-active after about
-  five minutes and was stopped before producing
-  `runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json`. This narrows the remaining
-  blocker to profiling/caching call-v1 feature preparation and training rather than report breadth.
+- The uncapped 500-log call fast run with train-best calibration was still CPU-active after about
+  five minutes and was stopped before producing a report. A bounded run using 5,000 of 69,013 call
+  examples, 5 epochs, `--models fast`, and train-best calibration completed: `call_linear_v1` scored
+  0.8760 eval accuracy and 0.5468 balanced eval accuracy; `call_linear_v1_calibrated` selected
+  threshold 0.05 and scored 0.7910 eval accuracy, 0.6428 balanced eval accuracy, 0.8453 pass recall,
+  and 0.4403 call recall.
 - Re-ran the 500-log riichi benchmark with `--riichi-threshold-source train-best`. The train sweep
   selected threshold 0.25; `riichi_linear_calibrated` scored 0.6293 eval accuracy, 0.6534 balanced
   eval accuracy, 0.5684 pass recall, and 0.7384 riichi recall. The raw linear and weighted metrics

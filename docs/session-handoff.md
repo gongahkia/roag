@@ -6,8 +6,8 @@ Last updated: 2026-06-06.
 
 - Last work slice: added call fast model selection, prepared-example reuse for call/riichi
   benchmark scoring and calibration sweeps, train-selected calibrated threshold policies,
-  `decision-snapshot-summary`, and a fresh 500-log riichi train-best calibration run. The bounded
-  500-log call fast run still did not finish quickly enough and remains the main runtime blocker.
+  `decision-snapshot-summary`, a bounded 500-log call diagnostic, and a fresh 500-log riichi
+  train-best calibration run. Uncapped 500-log call training remains the main runtime blocker.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -47,8 +47,9 @@ Last updated: 2026-06-06.
   report-only call/pass threshold calibration sweeps, and `--include-weighted` adds
   `call_linear_v1_weighted` trained with `--call-positive-weight`. `benchmark-call --models`
   accepts `all`, `fast`, or comma-separated names; `fast` runs frequency, legal-frequency,
-  `call_linear_v1`, and `call_linear_v1_calibrated`. `--call-threshold-source train-best` uses the
-  train split threshold sweep winner for the calibrated policy variant.
+  `call_linear_v1`, and `call_linear_v1_calibrated`. `--example-limit N` keeps a deterministic
+  prefix of call examples for bounded large-slice iteration. `--call-threshold-source train-best`
+  uses the train split threshold sweep winner for the calibrated policy variant.
 - `benchmark-riichi` scores the first conservative riichi/pass dataset from explicit Tenhou reach
   events plus closed tenpai no-riichi discard decisions. It now reports `riichi-frequency-v0` and
   `riichi-linear-v0`. Reports now also include `riichi_linear_calibrated`, a fixed-threshold policy
@@ -149,6 +150,7 @@ runs/call-benchmark-tenhou-100-v3-report.json
 runs/call-benchmark-tenhou-100-v4-report.json
 runs/call-benchmark-tenhou-100-v5-report.json
 runs/call-benchmark-tenhou-100-v6-report.json
+runs/call-benchmark-tenhou-500-fast-limit5000-epochs5-train-best-v0-report.json
 runs/riichi-benchmark-tenhou-100-v0-report.json
 runs/riichi-benchmark-tenhou-100-v1-report.json
 runs/riichi-benchmark-tenhou-100-v2-report.json
@@ -190,6 +192,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --models fast \
+  --example-limit 1 \
   --call-threshold-source train-best \
   --report runs/fixture-call-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/fixtures/tenhou \
@@ -238,10 +241,12 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/raw/tenhou/xml/4p-hanchan-500 \
   --eval-fraction 0.2 \
   --split-seed tenhou-500-v0 \
+  --epochs 5 \
   --skip-errors \
   --models fast \
+  --example-limit 5000 \
   --call-threshold-source train-best \
-  --report runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json \
+  --report runs/call-benchmark-tenhou-500-fast-limit5000-epochs5-train-best-v0-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-500 --players 4 --length h --limit 500" \
   --source-date 2026-current-year
@@ -442,12 +447,17 @@ Call benchmark, 500-log local slice:
 - `data/raw/tenhou/xml/4p-hanchan-500` was exported successfully, but
   `benchmark-call --include-weighted` was still CPU-active after more than an hour and was stopped
   before writing `runs/call-benchmark-tenhou-500-v0-report.json`.
-- The bounded fast run,
+- The uncapped fast run,
   `benchmark-call --models fast --call-threshold-source train-best`, was still CPU-active after
   about five minutes and was stopped before writing
   `runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json`.
-- Treat large-slice call calibration as a benchmark performance problem first. Do not use missing
-  500-log call results to make a policy choice.
+- A bounded run with `--example-limit 5000` and `--epochs 5` completed on 5,000 of 69,013 call
+  examples. `call_linear_v1` scored 0.8760 eval accuracy, 0.5468 balanced eval accuracy, 0.9965
+  pass recall, and 0.0970 call recall. Train-best `call_linear_v1_calibrated` selected threshold
+  0.05 and scored 0.7910 eval accuracy, 0.6428 balanced eval accuracy, 0.8453 pass recall, and
+  0.4403 call recall.
+- Treat uncapped large-slice call calibration as a benchmark performance problem first. Use bounded
+  reports as iteration diagnostics, not final policy gates.
 
 Mortal local baseline reconnaissance:
 
@@ -461,9 +471,9 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Profile and cache the call-v1 feature path. `--models fast` reduces report breadth, but the
-   500-log run still did not finish within about five minutes, so the next call task is deeper
-   shanten/ukeire/proxy caching or a lower-cost training/report mode.
+1. Profile and cache the uncapped call-v1 feature/training path. `--models fast --example-limit`
+   now gives a practical bounded 500-log diagnostic, but the full 25-epoch/full-example call run is
+   still too expensive for a policy gate.
 2. Validate train-best riichi thresholds across another split or larger slice before adding riichi
    features. On `tenhou-500-v0`, train-best threshold 0.25 is now the best current policy report.
 3. Build the next Mortal-boundary step on top of `export-decision-snapshots` and

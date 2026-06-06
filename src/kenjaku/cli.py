@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from kenjaku import __version__
 from kenjaku.core import ActionKind, Tile, TileType
@@ -111,6 +111,7 @@ CALIBRATION_THRESHOLDS = tuple(round(index * 0.05, 2) for index in range(21))
 CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
+T = TypeVar("T")
 CALL_BENCHMARK_DEFAULT_MODELS = (
     "call_frequency",
     "call_legal_frequency",
@@ -452,6 +453,11 @@ def build_parser() -> argparse.ArgumentParser:
             "(call_frequency, call_legal_frequency, call_linear, call_linear_v1, "
             "call_linear_v1_calibrated, call_linear_v1_weighted)"
         ),
+    )
+    benchmark_call.add_argument(
+        "--example-limit",
+        type=int,
+        help="maximum call examples to keep after deterministic reconstruction order",
     )
     benchmark_call.add_argument(
         "--include-weighted",
@@ -1445,6 +1451,8 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
 
 
 def _benchmark_call(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
     call_threshold = _validated_probability(args.call_threshold, "--call-threshold")
     call_positive_weight = _validated_positive_float(
         args.call_positive_weight,
@@ -1456,7 +1464,8 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
-    examples = list(iter_call_examples(game))
+    all_examples = list(iter_call_examples(game))
+    examples = _limit_examples(all_examples, args.example_limit)
     if not examples:
         raise SystemExit("no call examples found")
 
@@ -1469,31 +1478,53 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         str,
         CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
     ] = {}
+    prepared_splits_by_profile: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
+
+    def prepared_split(feature_profile: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+        prepared = prepared_splits_by_profile.get(feature_profile)
+        if prepared is None:
+            prepared = (
+                CallLinearModel.prepare_examples_for_profile(
+                    train_examples,
+                    feature_profile=feature_profile,
+                ),
+                CallLinearModel.prepare_examples_for_profile(
+                    eval_examples,
+                    feature_profile=feature_profile,
+                ),
+            )
+            prepared_splits_by_profile[feature_profile] = prepared
+        return prepared
+
     if "call_frequency" in selected_model_names:
         call_models["call_frequency"] = CallFrequencyBaseline.fit(train_examples)
     if "call_legal_frequency" in selected_model_names:
         call_models["call_legal_frequency"] = CallLegalFrequencyBaseline.fit(train_examples)
     if "call_linear" in selected_model_names:
-        call_models["call_linear"] = CallLinearModel.fit(
-            train_examples,
+        train_prepared, _ = prepared_split("v0")
+        call_models["call_linear"] = CallLinearModel.fit_prepared(
+            train_prepared,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
+            feature_profile="v0",
         )
     if (
         "call_linear_v1" in selected_model_names
         or "call_linear_v1_calibrated" in selected_model_names
     ):
-        call_models["call_linear_v1"] = CallLinearModel.fit(
-            train_examples,
+        train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
+        call_models["call_linear_v1"] = CallLinearModel.fit_prepared(
+            train_prepared,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
             feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
         )
     if CALL_BENCHMARK_WEIGHTED_MODEL in selected_model_names:
-        call_models["call_linear_v1_weighted"] = CallLinearModel.fit(
-            train_examples,
+        train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
+        call_models["call_linear_v1_weighted"] = CallLinearModel.fit_prepared(
+            train_prepared,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
@@ -1505,10 +1536,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     prepared_examples: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
     for model_name, model in call_models.items():
         if isinstance(model, CallLinearModel):
-            prepared_examples[model_name] = (
-                model.prepare_examples(train_examples),
-                model.prepare_examples(eval_examples),
-            )
+            prepared_examples[model_name] = prepared_split(model.feature_profile)
     for model_name in selected_model_names:
         if model_name == "call_linear_v1_calibrated":
             model = call_models["call_linear_v1"]
@@ -1560,6 +1588,8 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         )
 
     print(f"examples: {len(examples)}")
+    if len(examples) != len(all_examples):
+        print(f"source_examples: {len(all_examples)}")
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
     _print_call_benchmark_metrics(model_payloads)
@@ -1573,6 +1603,8 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             game=game,
             discard_examples=len(discard_examples),
             call_examples=len(examples),
+            call_examples_total=len(all_examples),
+            example_limit=args.example_limit,
             split_seed=args.split_seed,
             eval_fraction=args.eval_fraction,
             train_examples=len(train_examples),
@@ -1609,6 +1641,12 @@ def _parse_call_benchmark_models(value: str, *, include_weighted: bool) -> tuple
     if not selected:
         raise SystemExit("--models must select at least one model")
     return tuple(selected)
+
+
+def _limit_examples(examples: Sequence[T], limit: int | None) -> list[T]:
+    if limit is None or len(examples) <= limit:
+        return list(examples)
+    return list(examples[:limit])
 
 
 def _selected_policy_threshold(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from math import exp
 
 from kenjaku.core import ActionKind, all_tile_types, shanten
@@ -269,6 +270,7 @@ def _river_count(example: RiichiExample, seat: int) -> int:
     return sum(example.river_counts_by_seat[seat])
 
 
+@cache
 def _safe_shanten(counts: tuple[int, ...]) -> int:
     try:
         return shanten(counts)
@@ -293,8 +295,14 @@ def _apply_update(
         row = weights[_kind_index(kind)]
         target = 1.0 if kind == example.target else 0.0
         error = probabilities[kind] - target
-        for index, value in enumerate(features):
-            row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
+        scaled_error = learning_rate * example_weight * error
+        if l2 == 0:
+            for index, value in enumerate(features):
+                if value:
+                    row[index] -= scaled_error * value
+        else:
+            for index, value in enumerate(features):
+                row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
 
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
@@ -311,7 +319,11 @@ def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
 
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
-    return sum(weight * feature for weight, feature in zip(weights, features))
+    total = 0.0
+    for weight, feature in zip(weights, features):
+        if feature:
+            total += weight * feature
+    return total
 
 
 def _kind_index(kind: ActionKind) -> int:

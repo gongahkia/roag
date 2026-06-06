@@ -86,9 +86,11 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan 
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan-500 \
   --eval-fraction 0.2 \
   --split-seed tenhou-500-v0 \
+  --epochs 5 \
   --models fast \
+  --example-limit 5000 \
   --call-threshold-source train-best \
-  --report runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json \
+  --report runs/call-benchmark-tenhou-500-fast-limit5000-epochs5-train-best-v0-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 500"
@@ -161,13 +163,13 @@ safe-tile labels; add `--tag TAG` to render only matching stored examples. `benc
 pass-allowed frequency, legal-call-only frequency, `call-linear-v0`, and additive
 `call-linear-v1` baselines, and reports overall accuracy, balanced accuracy, pass recall, call
 recall, per-action recall, a fixed-threshold `call_linear_v1_calibrated` policy variant, and
-report-only call/pass threshold calibration. Use `--models fast` for bounded call comparisons and
-`--call-threshold-source train-best` to evaluate a train-selected calibrated threshold without
-using eval-selected diagnostics as policy. Add `--include-weighted` to compare the default threshold
-policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a conservative riichi/pass
-dataset and scores both the frequency floor and `riichi-linear-v0`, including the fixed-threshold
-or train-selected `riichi_linear_calibrated` policy variant, optional `riichi_linear_weighted`, and
-report-only riichi/pass threshold calibration.
+report-only call/pass threshold calibration. Use `--models fast --example-limit N` for bounded call
+comparisons on larger slices and `--call-threshold-source train-best` to evaluate a train-selected
+calibrated threshold without using eval-selected diagnostics as policy. Add `--include-weighted` to
+compare the default threshold policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a
+conservative riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`,
+including the fixed-threshold or train-selected `riichi_linear_calibrated` policy variant, optional
+`riichi_linear_weighted`, and report-only riichi/pass threshold calibration.
 
 Use `export-decision-snapshots` to write local-only JSONL rows for discard/call/riichi decisions.
 Rows include Kenjaku reconstruction fields, legal actions, the observed action, and a minimal
