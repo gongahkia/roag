@@ -9,6 +9,7 @@ from typing import Any
 from kenjaku.io import TenhouGame, TenhouParseFailure
 
 CALL_BENCHMARK_REPORT_KIND = "kenjaku-call-benchmark-report-v0"
+BENCHMARK_SUMMARY_KIND = "kenjaku-benchmark-summary-v0"
 DISCARD_BENCHMARK_REPORT_KIND = "kenjaku-discard-benchmark-report-v0"
 DISCARD_BENCHMARK_SUMMARY_KIND = "kenjaku-discard-benchmark-summary-v0"
 DISCARD_DISAGREEMENT_REPORT_KIND = "kenjaku-discard-disagreements-v0"
@@ -427,18 +428,24 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
 
 
 def build_discard_benchmark_summary(paths: Sequence[Path]) -> dict[str, Any]:
+    reports = [
+        _summarize_benchmark_report(path, _read_json_report(path))
+        for path in paths
+    ]
+    summary_kind = (
+        DISCARD_BENCHMARK_SUMMARY_KIND
+        if all(report["target"] == "discard" for report in reports)
+        else BENCHMARK_SUMMARY_KIND
+    )
     return {
-        "kind": DISCARD_BENCHMARK_SUMMARY_KIND,
-        "reports": [
-            _summarize_discard_benchmark_report(path, _read_json_report(path))
-            for path in paths
-        ],
+        "kind": summary_kind,
+        "reports": reports,
     }
 
 
 def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
-    if summary.get("kind") != DISCARD_BENCHMARK_SUMMARY_KIND:
-        raise ValueError("not a discard benchmark summary")
+    if summary.get("kind") not in {DISCARD_BENCHMARK_SUMMARY_KIND, BENCHMARK_SUMMARY_KIND}:
+        raise ValueError("not a benchmark summary")
 
     lines: list[str] = []
     for report in summary["reports"]:
@@ -449,35 +456,12 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
         source_label = source.get("label") or "unknown"
         source_date = source.get("date") or "unknown"
         lines.append(f"source: {source_label} ({source_date})")
-        split = report["split"]
-        lines.append(
-            "examples: "
-            f"{report['discard_examples']} total, "
-            f"{split['train_examples']} train, "
-            f"{split['eval_examples']} eval"
-        )
-        lines.append("models:")
-        for model_name in DISCARD_BENCHMARK_MODEL_ORDER:
-            if model_name not in report["models"]:
-                continue
-            model = report["models"][model_name]
-            train = _format_optional_float(model["train_accuracy"])
-            eval_ = _format_optional_float(model["eval_accuracy"])
-            lines.append(f"  {model_name}: train={train} eval={eval_}")
-        lines.append("ablation:")
-        for name, value in report["ablation"].items():
-            lines.append(f"  {name}: {_format_optional_delta(value)}")
-        lines.append("selected_buckets:")
-        for bucket_name, model_stats in report["buckets"].items():
-            parts = []
-            for model_name in DISCARD_BENCHMARK_BUCKET_MODELS:
-                if model_name not in model_stats:
-                    continue
-                stats = model_stats[model_name]
-                accuracy = _format_optional_float(stats["accuracy"])
-                parts.append(f"{model_name}={accuracy}/{stats['examples']}")
-            if parts:
-                lines.append(f"  {bucket_name}: " + ", ".join(parts))
+        if report["target"] == "discard":
+            _append_discard_benchmark_summary_lines(lines, report)
+        elif report["target"] in {"call", "riichi"}:
+            _append_binary_benchmark_summary_lines(lines, report)
+        else:
+            raise ValueError(f"unsupported benchmark summary target: {report['target']}")
     return "\n".join(lines)
 
 
@@ -555,6 +539,17 @@ def _read_json_report(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _summarize_benchmark_report(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    kind = payload.get("kind")
+    if kind == DISCARD_BENCHMARK_REPORT_KIND:
+        return _summarize_discard_benchmark_report(path, payload)
+    if kind == CALL_BENCHMARK_REPORT_KIND:
+        return _summarize_binary_benchmark_report(path, payload, target="call")
+    if kind == RIICHI_BENCHMARK_REPORT_KIND:
+        return _summarize_binary_benchmark_report(path, payload, target="riichi")
+    raise ValueError(f"not a benchmark report: {path}")
+
+
 def _summarize_discard_benchmark_report(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("kind") != DISCARD_BENCHMARK_REPORT_KIND:
         raise ValueError(f"not a discard benchmark report: {path}")
@@ -569,6 +564,8 @@ def _summarize_discard_benchmark_report(path: Path, payload: dict[str, Any]) -> 
     }
     return {
         "path": str(path),
+        "target": "discard",
+        "report_kind": DISCARD_BENCHMARK_REPORT_KIND,
         "source": payload["source"],
         "xml_file_count": payload["xml_file_count"],
         "rounds": payload["rounds"],
@@ -579,6 +576,104 @@ def _summarize_discard_benchmark_report(path: Path, payload: dict[str, Any]) -> 
         "ablation": payload["ablation"],
         "buckets": _summary_buckets(payload["models"]),
     }
+
+
+def _summarize_binary_benchmark_report(
+    path: Path,
+    payload: dict[str, Any],
+    *,
+    target: str,
+) -> dict[str, Any]:
+    recall_key = f"eval_{target}_recall"
+    examples_key = f"{target}_examples"
+    models = {}
+    for model_name, model_payload in payload["models"].items():
+        metrics = model_payload["metrics"]
+        policy = model_payload.get("policy")
+        training = model_payload.get("training", {})
+        models[model_name] = {
+            "kind": model_payload.get("kind"),
+            "feature_dim": model_payload.get("feature_dim"),
+            "train_accuracy": metrics["train_accuracy"],
+            "eval_accuracy": metrics["eval_accuracy"],
+            "eval_balanced_accuracy": metrics.get("eval_balanced_accuracy"),
+            "eval_pass_recall": metrics.get("eval_pass_recall"),
+            recall_key: metrics.get(recall_key),
+            "policy_threshold": (
+                policy.get("threshold")
+                if isinstance(policy, dict)
+                else None
+            ),
+            "positive_class_weight": training.get("positive_class_weight"),
+        }
+    return {
+        "path": str(path),
+        "target": target,
+        "report_kind": payload["kind"],
+        "source": payload["source"],
+        "xml_file_count": payload["xml_file_count"],
+        "rounds": payload["rounds"],
+        "examples": payload[examples_key],
+        "split": payload["split"],
+        "models": models,
+    }
+
+
+def _append_discard_benchmark_summary_lines(lines: list[str], report: dict[str, Any]) -> None:
+    split = report["split"]
+    lines.append(
+        "examples: "
+        f"{report['discard_examples']} total, "
+        f"{split['train_examples']} train, "
+        f"{split['eval_examples']} eval"
+    )
+    lines.append("models:")
+    for model_name in DISCARD_BENCHMARK_MODEL_ORDER:
+        if model_name not in report["models"]:
+            continue
+        model = report["models"][model_name]
+        train = _format_optional_float(model["train_accuracy"])
+        eval_ = _format_optional_float(model["eval_accuracy"])
+        lines.append(f"  {model_name}: train={train} eval={eval_}")
+    lines.append("ablation:")
+    for name, value in report["ablation"].items():
+        lines.append(f"  {name}: {_format_optional_delta(value)}")
+    lines.append("selected_buckets:")
+    for bucket_name, model_stats in report["buckets"].items():
+        parts = []
+        for model_name in DISCARD_BENCHMARK_BUCKET_MODELS:
+            if model_name not in model_stats:
+                continue
+            stats = model_stats[model_name]
+            accuracy = _format_optional_float(stats["accuracy"])
+            parts.append(f"{model_name}={accuracy}/{stats['examples']}")
+        if parts:
+            lines.append(f"  {bucket_name}: " + ", ".join(parts))
+
+
+def _append_binary_benchmark_summary_lines(lines: list[str], report: dict[str, Any]) -> None:
+    target = report["target"]
+    split = report["split"]
+    lines.append(
+        "examples: "
+        f"{report['examples']} {target}, "
+        f"{split['train_examples']} train, "
+        f"{split['eval_examples']} eval"
+    )
+    lines.append("models:")
+    recall_key = f"eval_{target}_recall"
+    for model_name, model in report["models"].items():
+        parts = [
+            f"eval={_format_optional_float(model['eval_accuracy'])}",
+            f"balanced={_format_optional_float(model['eval_balanced_accuracy'])}",
+            f"pass_recall={_format_optional_float(model['eval_pass_recall'])}",
+            f"{target}_recall={_format_optional_float(model[recall_key])}",
+        ]
+        if model["policy_threshold"] is not None:
+            parts.append(f"threshold={float(model['policy_threshold']):.2f}")
+        if model["positive_class_weight"] is not None:
+            parts.append(f"weight={float(model['positive_class_weight']):.2f}")
+        lines.append(f"  {model_name}: " + " ".join(parts))
 
 
 def _summarize_discard_disagreement_report(

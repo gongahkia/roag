@@ -104,6 +104,100 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["parse_failures"]["count"], 1)
         self.assertEqual(payload["parse_failures"]["items"][0]["error_type"], "ValueError")
 
+    def test_export_decision_snapshots_writes_jsonl(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "snapshots.jsonl"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(output),
+                        "--limit",
+                        "5",
+                        "--source-label",
+                        "fixture-snapshots",
+                    ]
+                )
+            rows = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(rows), 5)
+        self.assertIn("snapshots: 5", stdout.getvalue())
+        self.assertEqual(rows[0]["kind"], "kenjaku-decision-snapshot-v0")
+        self.assertEqual(rows[0]["source"]["label"], "fixture-snapshots")
+        self.assertEqual(rows[0]["xml_file_count"], 3)
+        self.assertEqual(rows[0]["mjai_events"][0]["type"], "start_kyoku")
+        self.assertIn(rows[0]["decision_type"], {"discard", "call", "riichi"})
+        self.assertIn("actual_action", rows[0])
+        self.assertIn("legal_actions", rows[0])
+
+    def test_export_decision_snapshots_filters_types(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "call-snapshots.jsonl"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--decision-types",
+                        "call",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["decision_type"], "call")
+        self.assertEqual(rows[0]["actual_action"]["kind"], "pon")
+        self.assertEqual(rows[0]["discarded_tile"], "1p")
+        self.assertIn({"kind": "pass"}, rows[0]["legal_actions"])
+        self.assertIn("decision_types: call", stdout.getvalue())
+
+    def test_export_decision_snapshots_exports_riichi_type(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "riichi-snapshots.jsonl"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--decision-types",
+                        "riichi",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertGreaterEqual(len(rows), 1)
+        self.assertTrue(all(row["decision_type"] == "riichi" for row in rows))
+        self.assertTrue(
+            all(
+                {"kind": "riichi"} in row["legal_actions"]
+                for row in rows
+            )
+        )
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 
@@ -449,6 +543,74 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
         self.assertEqual(payload["reports"][0]["models"]["linear"]["feature_dim"], 76)
+
+    def test_benchmark_report_summary_supports_call_and_riichi_reports(self) -> None:
+        with TemporaryDirectory() as directory:
+            call_report = Path(directory) / "call.json"
+            riichi_report = Path(directory) / "riichi.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--include-weighted",
+                        "--report",
+                        str(call_report),
+                    ]
+                )
+                main(
+                    [
+                        "benchmark-riichi",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--include-weighted",
+                        "--report",
+                        str(riichi_report),
+                    ]
+                )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    ["benchmark-report-summary", str(call_report), str(riichi_report)]
+                )
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "benchmark-report-summary",
+                        str(call_report),
+                        str(riichi_report),
+                        "--json",
+                    ]
+                )
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("call_linear_v1_calibrated", text_stdout.getvalue())
+        self.assertIn("threshold=0.40", text_stdout.getvalue())
+        self.assertIn("riichi_linear_calibrated", text_stdout.getvalue())
+        self.assertIn("threshold=0.95", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-benchmark-summary-v0")
+        self.assertEqual(payload["reports"][0]["target"], "call")
+        self.assertEqual(payload["reports"][1]["target"], "riichi")
+        self.assertEqual(
+            payload["reports"][0]["models"]["call_linear_v1_calibrated"]["policy_threshold"],
+            0.4,
+        )
+        self.assertEqual(
+            payload["reports"][1]["models"]["riichi_linear_weighted"]["positive_class_weight"],
+            2.0,
+        )
 
     def test_benchmark_discard_models_fast_writes_sparse_report(self) -> None:
         stdout = io.StringIO()

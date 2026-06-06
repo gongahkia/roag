@@ -57,6 +57,11 @@ from kenjaku.training import (
     summarize_discard_predictions,
     summarize_discard_shanten,
 )
+from kenjaku.training.decision_snapshots import (
+    DECISION_SNAPSHOT_TYPES,
+    build_decision_snapshots,
+    write_decision_snapshots_jsonl,
+)
 
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -136,6 +141,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(inspect_tenhou)
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
+
+    export_snapshots = subparsers.add_parser(
+        "export-decision-snapshots",
+        help="export neutral JSONL decision snapshots from Tenhou XML",
+    )
+    export_snapshots.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    export_snapshots.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="JSONL path for exported decision snapshots",
+    )
+    export_snapshots.add_argument(
+        "--decision-types",
+        default=",".join(DECISION_SNAPSHOT_TYPES),
+        help="comma-separated snapshot types: discard,call,riichi",
+    )
+    export_snapshots.add_argument(
+        "--limit",
+        type=int,
+        help="maximum snapshots to write after deterministic ordering",
+    )
+    export_snapshots.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(export_snapshots)
+    export_snapshots.set_defaults(func=_export_decision_snapshots)
 
     train_baseline = subparsers.add_parser(
         "train-discard-baseline",
@@ -270,13 +309,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     benchmark_summary = subparsers.add_parser(
         "benchmark-report-summary",
-        help="summarize one or more discard benchmark JSON reports",
+        help="summarize one or more benchmark JSON reports",
     )
     benchmark_summary.add_argument(
         "reports",
         nargs="+",
         type=Path,
-        help="discard benchmark report JSON files",
+        help="benchmark report JSON files",
     )
     benchmark_summary.add_argument(
         "--json",
@@ -490,6 +529,43 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
+
+
+def _export_decision_snapshots(args: argparse.Namespace) -> int:
+    if args.limit is not None and args.limit < 0:
+        raise SystemExit("--limit must be non-negative")
+    decision_types = _parse_decision_snapshot_types(args.decision_types)
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    snapshots = build_decision_snapshots(
+        dataset.game,
+        decision_types=decision_types,
+        limit=args.limit,
+        source=_source_metadata(args),
+        input_paths=args.paths,
+        xml_file_count=len(dataset.files),
+    )
+    count = write_decision_snapshots_jsonl(args.output, snapshots)
+    print(f"snapshots: {count}")
+    print(f"decision_types: {','.join(decision_types)}")
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _parse_decision_snapshot_types(value: str) -> tuple[str, ...]:
+    selected: list[str] = []
+    for raw_decision_type in value.split(","):
+        decision_type = raw_decision_type.strip()
+        if not decision_type:
+            continue
+        if decision_type not in DECISION_SNAPSHOT_TYPES:
+            raise SystemExit(f"unsupported decision type: {decision_type}")
+        if decision_type not in selected:
+            selected.append(decision_type)
+    if not selected:
+        raise SystemExit("--decision-types must select at least one type")
+    return tuple(selected)
 
 
 def _train_discard_baseline(args: argparse.Namespace) -> int:
