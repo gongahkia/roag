@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import exp
 
@@ -92,7 +93,7 @@ class RiichiLinearModel:
             raise ValueError("positive_class_weight must be positive")
 
         weights = [[0.0] * RIICHI_LINEAR_FEATURE_DIM for _ in RIICHI_DECISION_KINDS]
-        prepared_examples = [_prepare_example(example) for example in examples]
+        prepared_examples = tuple(_prepare_example(example) for example in examples)
         for _ in range(epochs):
             for example in prepared_examples:
                 _apply_update(
@@ -133,18 +134,44 @@ class RiichiLinearModel:
 
     def logits_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
         prepared = _prepare_example(example)
+        return self.logits_for_prepared(prepared)
+
+    def probabilities_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
+        return _softmax(self.logits_for_example(example))
+
+    def prepare_examples(
+        self,
+        examples: Sequence[RiichiExample],
+    ) -> tuple[_PreparedRiichiExample, ...]:
+        return tuple(_prepare_example(example) for example in examples)
+
+    def predict_prepared(self, prepared: _PreparedRiichiExample) -> ActionKind:
+        logits = self.logits_for_prepared(prepared)
+        return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
+
+    def logits_for_prepared(
+        self,
+        prepared: _PreparedRiichiExample,
+    ) -> dict[ActionKind, float]:
         return {
             kind: _dot(self.weights[_kind_index(kind)], features)
             for kind, features in prepared.features_by_kind.items()
         }
 
-    def probabilities_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
-        return _softmax(self.logits_for_example(example))
+    def probabilities_for_prepared(
+        self,
+        prepared: _PreparedRiichiExample,
+    ) -> dict[ActionKind, float]:
+        return _softmax(self.logits_for_prepared(prepared))
 
     def score(self, examples: list[RiichiExample]) -> float:
         if not examples:
             raise ValueError("cannot score on zero examples")
-        correct = sum(self.predict(example) == example.action.kind for example in examples)
+        prepared_examples = self.prepare_examples(examples)
+        correct = sum(
+            self.predict_prepared(prepared) == example.action.kind
+            for example, prepared in zip(examples, prepared_examples)
+        )
         return correct / len(examples)
 
 

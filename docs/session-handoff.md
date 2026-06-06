@@ -4,9 +4,10 @@ Last updated: 2026-06-06.
 
 ## Stop State
 
-- Last work slice: added neutral decision snapshot export, extended benchmark summaries to call and
-  riichi reports, exported a local 500-log slice, completed the 500-log riichi calibration check,
-  and identified the 500-log weighted call benchmark as a runtime blocker.
+- Last work slice: added call fast model selection, prepared-example reuse for call/riichi
+  benchmark scoring and calibration sweeps, train-selected calibrated threshold policies,
+  `decision-snapshot-summary`, and a fresh 500-log riichi train-best calibration run. The bounded
+  500-log call fast run still did not finish quickly enough and remains the main runtime blocker.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -29,8 +30,8 @@ Last updated: 2026-06-06.
   defense-context predictions disagree, including defense buckets and legal-candidate logits.
 - `benchmark-report-summary` reads ignored discard, call, and riichi benchmark reports. Discard
   summaries include ablation deltas and selected defense buckets; call/riichi summaries include
-  eval accuracy, balanced accuracy, pass/target recall, policy threshold, and positive class weight.
-  `--json` emits a machine-readable summary.
+  eval accuracy, balanced accuracy, pass/target recall, policy threshold/source, train/eval best
+  threshold diagnostics, and positive class weight. `--json` emits a machine-readable summary.
 - `disagreement-report-summary` reads ignored disagreement exports and summarizes category counts,
   defense bucket rates, common actual/predicted tile pairs, and logit margins. Use `--examples N`
   to append representative stored examples with defense flags and top logits. Use `--tags` to add
@@ -44,17 +45,24 @@ Last updated: 2026-06-06.
   per-action recall. Reports now also include `call_linear_v1_calibrated`, a fixed-threshold
   policy variant over `call-linear-v1` at non-pass threshold 0.40. Linear call payloads include
   report-only call/pass threshold calibration sweeps, and `--include-weighted` adds
-  `call_linear_v1_weighted` trained with `--call-positive-weight`.
+  `call_linear_v1_weighted` trained with `--call-positive-weight`. `benchmark-call --models`
+  accepts `all`, `fast`, or comma-separated names; `fast` runs frequency, legal-frequency,
+  `call_linear_v1`, and `call_linear_v1_calibrated`. `--call-threshold-source train-best` uses the
+  train split threshold sweep winner for the calibrated policy variant.
 - `benchmark-riichi` scores the first conservative riichi/pass dataset from explicit Tenhou reach
   events plus closed tenpai no-riichi discard decisions. It now reports `riichi-frequency-v0` and
   `riichi-linear-v0`. Reports now also include `riichi_linear_calibrated`, a fixed-threshold policy
   variant over `riichi-linear-v0` at riichi threshold 0.95. Linear riichi payloads include
-  report-only riichi/pass threshold calibration sweeps, and `--include-weighted` adds
-  `riichi_linear_weighted` trained with `--riichi-positive-weight`.
+  report-only riichi/pass threshold calibration sweeps, `--include-weighted` adds
+  `riichi_linear_weighted` trained with `--riichi-positive-weight`, and
+  `--riichi-threshold-source train-best` uses the train split threshold sweep winner for the
+  calibrated policy variant.
 - Local Mortal checkout/build reconnaissance is recorded in `docs/external-baselines.md`.
 - `export-decision-snapshots` writes local-only JSONL decision rows for discard/call/riichi
   examples. Rows include Kenjaku reconstruction fields, legal actions, observed action, and a
   minimal `mjai_events` prefix for future offline comparison through a neutral boundary.
+- `decision-snapshot-summary` reads local snapshot JSONL files and reports valid/malformed row
+  counts, decision type counts, action counts, source labels, and `mjai_events` presence.
 
 ## Working Rules
 
@@ -104,10 +112,12 @@ Last updated: 2026-06-06.
   examples require closed tenpai by the existing closed-hand shanten proxy and sufficient score.
 - `riichi-linear-v0` fixes riichi recall but overcalls riichi on the current 100-log split. Treat
   calibration as the next riichi task before adding more features.
-- Threshold sweeps are diagnostic only. They use thresholds 0.00 through 1.00 in 0.05 steps and
-  choose the best threshold by balanced accuracy, then target recall, then lower threshold. The
-  calibrated report variants use fixed policy thresholds from the 100-log `tenhou-100-v0` sweep and
-  do not change default model `predict()` behavior.
+- Threshold sweeps use thresholds 0.00 through 1.00 in 0.05 steps and choose the best threshold by
+  balanced accuracy, then target recall, then lower threshold. Calibrated report variants default
+  to fixed policy thresholds from the 100-log `tenhou-100-v0` sweep, but
+  `--call-threshold-source train-best` and `--riichi-threshold-source train-best` can use the train
+  split winner instead. Eval best thresholds remain diagnostics only. None of these options changes
+  default model `predict()` behavior.
 - Mortal is AGPL-3.0-or-later. Keep any future comparison behind a neutral data/subprocess boundary
   unless the project intentionally accepts that license boundary.
 
@@ -144,6 +154,7 @@ runs/riichi-benchmark-tenhou-100-v1-report.json
 runs/riichi-benchmark-tenhou-100-v2-report.json
 runs/riichi-benchmark-tenhou-100-v3-report.json
 runs/riichi-benchmark-tenhou-500-v0-report.json
+runs/riichi-benchmark-tenhou-500-train-best-v0-report.json
 runs/fixture-decision-snapshots.jsonl
 runs/decision-snapshots-local.jsonl
 runs/inspect-tenhou-25-report.json
@@ -170,14 +181,25 @@ PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/fixture-disagreements.json --examples 1 --tags --tag close_logit
 PYTHONPATH=src python3 -m kenjaku export-decision-snapshots data/fixtures/tenhou \
   --output runs/fixture-decision-snapshots.jsonl --limit 5
+PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary \
+  runs/fixture-decision-snapshots.jsonl
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
   --report runs/fixture-call-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
+  --eval-fraction 0.25 --split-seed fixed --skip-errors \
+  --models fast \
+  --call-threshold-source train-best \
+  --report runs/fixture-call-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
   --report runs/fixture-riichi-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-riichi data/fixtures/tenhou \
+  --eval-fraction 0.25 --split-seed fixed --skip-errors \
+  --riichi-threshold-source train-best \
+  --report runs/fixture-riichi-benchmark-train-best.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
   runs/fixture-call-benchmark.json runs/fixture-riichi-benchmark.json
 git diff --check
@@ -212,6 +234,18 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
 
+PYTHONPATH=src python3 -m kenjaku benchmark-call \
+  data/raw/tenhou/xml/4p-hanchan-500 \
+  --eval-fraction 0.2 \
+  --split-seed tenhou-500-v0 \
+  --skip-errors \
+  --models fast \
+  --call-threshold-source train-best \
+  --report runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json \
+  --source-label tenhou-4p-hanchan-500 \
+  --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-500 --players 4 --length h --limit 500" \
+  --source-date 2026-current-year
+
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   data/raw/tenhou/xml/4p-hanchan-100 \
   --eval-fraction 0.2 \
@@ -231,7 +265,8 @@ PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   --skip-errors \
   --include-weighted \
   --riichi-positive-weight 2.0 \
-  --report runs/riichi-benchmark-tenhou-500-v0-report.json \
+  --riichi-threshold-source train-best \
+  --report runs/riichi-benchmark-tenhou-500-train-best-v0-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-500 --players 4 --length h --limit 500" \
   --source-date 2026-current-year
@@ -265,6 +300,9 @@ PYTHONPATH=src python3 -m kenjaku export-decision-snapshots \
   --source-label tenhou-4p-hanchan-100 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-100 --players 4 --length h --limit 100" \
   --source-date 2026-current-year
+
+PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary \
+  runs/decision-snapshots-tenhou-100-v0.jsonl
 ```
 
 ## Latest Benchmarks
@@ -391,6 +429,9 @@ Riichi benchmark, 500-log local slice, split `tenhou-500-v0`:
   recall, and 0.5014 riichi recall.
 - Fixed-threshold `riichi_linear_calibrated` at 0.95 did not transfer: 0.6502 eval accuracy,
   0.5143 balanced eval accuracy, 0.9932 pass recall, and only 0.0354 riichi recall.
+- Train-selected `riichi_linear_calibrated` chose threshold 0.25 and scored 0.6293 eval accuracy,
+  0.6534 balanced eval accuracy, 0.5684 pass recall, and 0.7384 riichi recall. This is the best
+  current report-policy tradeoff on the 500-log slice.
 - `riichi_linear_weighted` at positive class weight 2.0 scored 0.6434 eval accuracy, 0.6412
   balanced eval accuracy, 0.6489 pass recall, and 0.6335 riichi recall.
 - The unweighted riichi threshold sweep picked 0.20 on eval with binary balanced accuracy 0.6606,
@@ -401,6 +442,10 @@ Call benchmark, 500-log local slice:
 - `data/raw/tenhou/xml/4p-hanchan-500` was exported successfully, but
   `benchmark-call --include-weighted` was still CPU-active after more than an hour and was stopped
   before writing `runs/call-benchmark-tenhou-500-v0-report.json`.
+- The bounded fast run,
+  `benchmark-call --models fast --call-threshold-source train-best`, was still CPU-active after
+  about five minutes and was stopped before writing
+  `runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json`.
 - Treat large-slice call calibration as a benchmark performance problem first. Do not use missing
   500-log call results to make a policy choice.
 
@@ -416,15 +461,14 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Make large-slice call benchmarking practical. Add caching, report-only fast modes, or a bounded
-   comparison mode so `benchmark-call --include-weighted` can finish on 500 logs before using it as
-   a policy gate.
-2. Recalibrate riichi on larger slices. The fixed 0.95 policy from 100 logs over-suppressed riichi
-   at 500 logs; compare train-selected thresholds, eval-selected diagnostics, and positive weighting
-   before adding riichi features.
-3. Build the next Mortal-boundary step on top of `export-decision-snapshots`: add a neutral consumer
-   or comparator through a subprocess/data-layer boundary only when weights are available and legally
-   usable.
+1. Profile and cache the call-v1 feature path. `--models fast` reduces report breadth, but the
+   500-log run still did not finish within about five minutes, so the next call task is deeper
+   shanten/ukeire/proxy caching or a lower-cost training/report mode.
+2. Validate train-best riichi thresholds across another split or larger slice before adding riichi
+   features. On `tenhou-500-v0`, train-best threshold 0.25 is now the best current policy report.
+3. Build the next Mortal-boundary step on top of `export-decision-snapshots` and
+   `decision-snapshot-summary`: add a neutral consumer or comparator through a subprocess/data-layer
+   boundary only when weights are available and legally usable.
 4. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
    and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
 5. Add feature normalization only behind a new discard model kind if tagged examples or weight

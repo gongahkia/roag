@@ -464,21 +464,21 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Make 500-log call calibration practical before using it as a gating benchmark. The full
-   `benchmark-call --include-weighted` run on 500 logs was still CPU-active after more than an hour
-   and was stopped, so the next call task is benchmark runtime reduction or a bounded comparison
-   mode.
-2. Revisit riichi calibration on the 500-log slice before adding riichi features. The fixed 0.95
-   threshold from 100 logs did not transfer; the 500-log sweep preferred much lower thresholds and
-   simple positive weighting was closer to the best balanced-accuracy region.
-3. Use disagreement tag filters before changing discard features. The capped 100-log sample is
+1. Profile and cache the call-v1 feature path before using 500-log call calibration as a gate. The
+   bounded `benchmark-call --models fast --call-threshold-source train-best` run on 500 logs was
+   still CPU-active after about five minutes and was stopped before writing a report.
+2. Treat train-selected riichi thresholds as the next riichi policy baseline to validate. On the
+   500-log slice, `--riichi-threshold-source train-best` selected threshold 0.25 and raised
+   `riichi_linear_calibrated` balanced eval accuracy to 0.6534 versus 0.5143 for the fixed 0.95
+   threshold.
+3. Build the next Mortal-boundary step on top of `export-decision-snapshots` and
+   `decision-snapshot-summary`: add a neutral consumer or comparator through a subprocess or data
+   layer only when weights are available and legally usable.
+4. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-4. Add feature normalization behind a new discard model kind only if tagged examples or weight
+5. Add feature normalization behind a new discard model kind only if tagged examples or weight
    summaries point to linear scale instability; do not mutate existing feature profiles.
-5. Build the next Mortal-boundary step on top of `export-decision-snapshots`: add a consumer or
-   comparator through a subprocess or neutral data layer only when weights are available and legally
-   usable.
 
 ---
 
@@ -762,3 +762,22 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - The equivalent 500-log call benchmark with `--include-weighted` was stopped after more than an
   hour while still CPU-active, before producing a report. Treat large-slice call benchmarking as a
   runtime problem before using it to choose policies.
+- Added prepared-example prediction helpers for call and riichi linear models so benchmark scoring
+  and threshold sweeps can reuse prepared feature vectors instead of rebuilding features for every
+  prediction path.
+- Added `benchmark-call --models all|fast|...`; `fast` runs the bounded call comparison path with
+  frequency, legal-frequency, `call_linear_v1`, and `call_linear_v1_calibrated`.
+- Added `--call-threshold-source fixed|train-best` and
+  `--riichi-threshold-source fixed|train-best`. Defaults preserve the prior fixed thresholds, while
+  train-best uses the train split sweep winner and records that source in report policy metadata.
+- Added `decision-snapshot-summary`, a neutral local JSONL summary/validator for decision snapshot
+  exports. Fixture summary smoke counted five snapshots, zero malformed rows, and present
+  `mjai_events` for all five rows.
+- The bounded 500-log call fast run with train-best calibration was still CPU-active after about
+  five minutes and was stopped before producing
+  `runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json`. This narrows the remaining
+  blocker to profiling/caching call-v1 feature preparation and training rather than report breadth.
+- Re-ran the 500-log riichi benchmark with `--riichi-threshold-source train-best`. The train sweep
+  selected threshold 0.25; `riichi_linear_calibrated` scored 0.6293 eval accuracy, 0.6534 balanced
+  eval accuracy, 0.5684 pass recall, and 0.7384 riichi recall. The raw linear and weighted metrics
+  matched the previous 500-log run, and the eval diagnostic best remained threshold 0.20.

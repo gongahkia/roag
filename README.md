@@ -34,6 +34,9 @@ PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/discard-disagreements.json --examples 2 --tags --tag close_logit
 PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/fixtures/tenhou --report runs/call-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-call \
+  data/fixtures/tenhou --models fast --call-threshold-source train-best \
+  --report runs/call-benchmark-fast.json
 PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
   data/fixtures/tenhou --report runs/riichi-benchmark.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call \
@@ -44,6 +47,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
   runs/call-benchmark-weighted.json runs/riichi-benchmark-weighted.json
 PYTHONPATH=src python3 -m kenjaku export-decision-snapshots \
   data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
+PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary runs/decision-snapshots.jsonl
 ```
 
 CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
@@ -59,12 +63,15 @@ disagreement diagnostics, `--models fast` to skip slower ablation anchors during
 `disagreement-report-summary` to aggregate, tag, filter, and render capped disagreement examples.
 `benchmark-call` provides supervised call/pass baselines on existing call examples, including
 selective `call-linear-v0` and richer additive `call-linear-v1` models plus imbalance-aware
-accuracy and recall metrics. Call and riichi reports include fixed-threshold calibrated policy
-variants, report-only threshold sweeps, and optional positive class-weighted comparison variants via
-`--include-weighted`; default `predict()` behavior is unchanged. `benchmark-riichi` provides
-conservative supervised riichi/pass reports for both the frequency floor and `riichi-linear-v0`.
+accuracy and recall metrics. `benchmark-call --models fast` runs the bounded call comparison path.
+Call and riichi reports include fixed-threshold calibrated policy variants, optional
+`--*-threshold-source train-best` calibrated variants, report-only threshold sweeps, and optional
+positive class-weighted comparison variants via `--include-weighted`; default `predict()` behavior
+is unchanged. `benchmark-riichi` provides conservative supervised riichi/pass reports for both the
+frequency floor and `riichi-linear-v0`.
 `export-decision-snapshots` writes ignored neutral JSONL rows for discard/call/riichi decision
 points, including a minimal mjai-style event prefix for future offline baseline comparison.
+`decision-snapshot-summary` validates and counts those local JSONL snapshots.
 
 For continuation context, see `docs/session-handoff.md`.
 

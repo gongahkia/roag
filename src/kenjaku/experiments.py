@@ -590,6 +590,7 @@ def _summarize_binary_benchmark_report(
     for model_name, model_payload in payload["models"].items():
         metrics = model_payload["metrics"]
         policy = model_payload.get("policy")
+        calibration = model_payload.get("calibration")
         training = model_payload.get("training", {})
         models[model_name] = {
             "kind": model_payload.get("kind"),
@@ -604,6 +605,13 @@ def _summarize_binary_benchmark_report(
                 if isinstance(policy, dict)
                 else None
             ),
+            "policy_threshold_source": (
+                policy.get("threshold_source")
+                if isinstance(policy, dict)
+                else None
+            ),
+            "train_best_threshold": _calibration_best_threshold(calibration, "train"),
+            "eval_best_threshold": _calibration_best_threshold(calibration, "eval"),
             "positive_class_weight": training.get("positive_class_weight"),
         }
     return {
@@ -671,9 +679,27 @@ def _append_binary_benchmark_summary_lines(lines: list[str], report: dict[str, A
         ]
         if model["policy_threshold"] is not None:
             parts.append(f"threshold={float(model['policy_threshold']):.2f}")
+        if model["policy_threshold_source"] is not None:
+            parts.append(f"source={model['policy_threshold_source']}")
+        if model["train_best_threshold"] is not None:
+            parts.append(f"train_best={float(model['train_best_threshold']):.2f}")
+        if model["eval_best_threshold"] is not None:
+            parts.append(f"eval_best={float(model['eval_best_threshold']):.2f}")
         if model["positive_class_weight"] is not None:
             parts.append(f"weight={float(model['positive_class_weight']):.2f}")
         lines.append(f"  {model_name}: " + " ".join(parts))
+
+
+def _calibration_best_threshold(calibration: Any, split: str) -> float | None:
+    if not isinstance(calibration, dict):
+        return None
+    split_payload = calibration.get(split)
+    if not isinstance(split_payload, dict):
+        return None
+    best = split_payload.get("best")
+    if not isinstance(best, dict) or best.get("threshold") is None:
+        return None
+    return float(best["threshold"])
 
 
 def _summarize_discard_disagreement_report(

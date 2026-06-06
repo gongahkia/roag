@@ -198,6 +198,45 @@ class CliTests(unittest.TestCase):
             )
         )
 
+    def test_decision_snapshot_summary_reports_counts_and_malformed_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "snapshots.jsonl"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(output),
+                        "--limit",
+                        "5",
+                        "--source-label",
+                        "fixture-snapshots",
+                    ]
+                )
+            with output.open("a", encoding="utf-8") as handle:
+                handle.write("not-json\n")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["decision-snapshot-summary", str(output)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["decision-snapshot-summary", str(output), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("snapshots: 5", text_stdout.getvalue())
+        self.assertIn("malformed_rows: 1", text_stdout.getvalue())
+        self.assertIn("fixture-snapshots", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-decision-snapshot-summary-v0")
+        self.assertEqual(payload["snapshots"], 5)
+        self.assertEqual(payload["malformed_rows"], 1)
+        self.assertEqual(payload["sources"]["fixture-snapshots"], 5)
+        self.assertGreaterEqual(payload["mjai_events"]["present"], 1)
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 
@@ -597,6 +636,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(text_exit_code, 0)
         self.assertIn("call_linear_v1_calibrated", text_stdout.getvalue())
         self.assertIn("threshold=0.40", text_stdout.getvalue())
+        self.assertIn("source=tenhou-100-v0-eval-sweep", text_stdout.getvalue())
+        self.assertIn("train_best=", text_stdout.getvalue())
         self.assertIn("riichi_linear_calibrated", text_stdout.getvalue())
         self.assertIn("threshold=0.95", text_stdout.getvalue())
         self.assertEqual(json_exit_code, 0)
@@ -606,6 +647,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             payload["reports"][0]["models"]["call_linear_v1_calibrated"]["policy_threshold"],
             0.4,
+        )
+        self.assertEqual(
+            payload["reports"][0]["models"]["call_linear_v1_calibrated"][
+                "policy_threshold_source"
+            ],
+            "tenhou-100-v0-eval-sweep",
+        )
+        self.assertIsNotNone(
+            payload["reports"][0]["models"]["call_linear_v1"]["train_best_threshold"]
         )
         self.assertEqual(
             payload["reports"][1]["models"]["riichi_linear_weighted"]["positive_class_weight"],
@@ -923,6 +973,54 @@ class CliTests(unittest.TestCase):
         self.assertIn("call_linear_v1_calibrated_policy_threshold: 0.40", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
 
+    def test_benchmark_call_models_fast_writes_sparse_report(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call-benchmark-fast.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            set(payload["models"]),
+            {
+                "call_frequency",
+                "call_legal_frequency",
+                "call_linear_v1",
+                "call_linear_v1_calibrated",
+            },
+        )
+        self.assertNotIn("call_linear", payload["models"])
+        self.assertIn("call_linear_v1_eval_best_threshold:", stdout.getvalue())
+
+    def test_benchmark_call_models_rejects_unknown_name(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            main(
+                [
+                    "benchmark-call",
+                    "data/fixtures/tenhou",
+                    "--models",
+                    "call_linear_v9",
+                ]
+            )
+
+        self.assertIn("unsupported call benchmark model", str(context.exception))
+
     def test_benchmark_call_can_include_weighted_variant(self) -> None:
         stdout = io.StringIO()
 
@@ -954,6 +1052,35 @@ class CliTests(unittest.TestCase):
         self.assertEqual(weighted["training"]["positive_class_weight"], 3.0)
         self.assertNotIn("policy", weighted)
         self.assertIn("call_linear_v1_weighted_eval_call_recall:", stdout.getvalue())
+
+    def test_benchmark_call_can_use_train_best_threshold_source(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call-benchmark.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--call-threshold-source",
+                        "train-best",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        base = payload["models"]["call_linear_v1"]
+        calibrated = payload["models"]["call_linear_v1_calibrated"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calibrated["policy"]["threshold_source"], "train-best")
+        self.assertEqual(
+            calibrated["policy"]["threshold"],
+            base["calibration"]["train"]["best"]["threshold"],
+        )
 
     def test_benchmark_riichi_writes_report_artifact(self) -> None:
         stdout = io.StringIO()
@@ -1015,6 +1142,35 @@ class CliTests(unittest.TestCase):
         self.assertIn("riichi_linear_eval_best_threshold:", stdout.getvalue())
         self.assertIn("riichi_linear_calibrated_policy_threshold: 0.95", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
+
+    def test_benchmark_riichi_can_use_train_best_threshold_source(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "riichi-benchmark.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "benchmark-riichi",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--riichi-threshold-source",
+                        "train-best",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        base = payload["models"]["riichi_linear"]
+        calibrated = payload["models"]["riichi_linear_calibrated"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calibrated["policy"]["threshold_source"], "train-best")
+        self.assertEqual(
+            calibrated["policy"]["threshold"],
+            base["calibration"]["train"]["best"]["threshold"],
+        )
 
     def test_benchmark_riichi_can_include_weighted_variant(self) -> None:
         stdout = io.StringIO()

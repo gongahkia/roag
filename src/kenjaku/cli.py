@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,7 @@ from kenjaku.training import (
     summarize_discard_shanten,
 )
 from kenjaku.training.decision_snapshots import (
+    DECISION_SNAPSHOT_KIND,
     DECISION_SNAPSHOT_TYPES,
     build_decision_snapshots,
     write_decision_snapshots_jsonl,
@@ -109,6 +111,28 @@ CALIBRATION_THRESHOLDS = tuple(round(index * 0.05, 2) for index in range(21))
 CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
+CALL_BENCHMARK_DEFAULT_MODELS = (
+    "call_frequency",
+    "call_legal_frequency",
+    "call_linear",
+    "call_linear_v1",
+    "call_linear_v1_calibrated",
+)
+CALL_BENCHMARK_FAST_MODELS = (
+    "call_frequency",
+    "call_legal_frequency",
+    "call_linear_v1",
+    "call_linear_v1_calibrated",
+)
+CALL_BENCHMARK_WEIGHTED_MODEL = "call_linear_v1_weighted"
+CALL_BENCHMARK_MODEL_ORDER = (
+    *CALL_BENCHMARK_DEFAULT_MODELS,
+    CALL_BENCHMARK_WEIGHTED_MODEL,
+)
+THRESHOLD_SOURCE_FIXED = "fixed"
+THRESHOLD_SOURCE_TRAIN_BEST = "train-best"
+THRESHOLD_SOURCE_CHOICES = (THRESHOLD_SOURCE_FIXED, THRESHOLD_SOURCE_TRAIN_BEST)
+FIXED_THRESHOLD_SOURCE_LABEL = "tenhou-100-v0-eval-sweep"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -175,6 +199,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(export_snapshots)
     export_snapshots.set_defaults(func=_export_decision_snapshots)
+
+    snapshot_summary = subparsers.add_parser(
+        "decision-snapshot-summary",
+        help="summarize neutral JSONL decision snapshot exports",
+    )
+    snapshot_summary.add_argument(
+        "snapshots",
+        nargs="+",
+        type=Path,
+        help="decision snapshot JSONL files",
+    )
+    snapshot_summary.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the summary as JSON instead of text",
+    )
+    snapshot_summary.set_defaults(func=_decision_snapshot_summary)
 
     train_baseline = subparsers.add_parser(
         "train-discard-baseline",
@@ -398,6 +439,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="non-pass probability threshold for call_linear_v1_calibrated",
     )
     benchmark_call.add_argument(
+        "--call-threshold-source",
+        choices=THRESHOLD_SOURCE_CHOICES,
+        default=THRESHOLD_SOURCE_FIXED,
+        help="threshold source for call_linear_v1_calibrated",
+    )
+    benchmark_call.add_argument(
+        "--models",
+        default="all",
+        help=(
+            "call benchmark models: all, fast, or comma-separated model names "
+            "(call_frequency, call_legal_frequency, call_linear, call_linear_v1, "
+            "call_linear_v1_calibrated, call_linear_v1_weighted)"
+        ),
+    )
+    benchmark_call.add_argument(
         "--include-weighted",
         action="store_true",
         help="include positive class-weighted call linear v1 comparison variants",
@@ -460,6 +516,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=RIICHI_LINEAR_CALIBRATED_THRESHOLD,
         help="riichi probability threshold for riichi_linear_calibrated",
+    )
+    benchmark_riichi.add_argument(
+        "--riichi-threshold-source",
+        choices=THRESHOLD_SOURCE_CHOICES,
+        default=THRESHOLD_SOURCE_FIXED,
+        help="threshold source for riichi_linear_calibrated",
     )
     benchmark_riichi.add_argument(
         "--include-weighted",
@@ -566,6 +628,136 @@ def _parse_decision_snapshot_types(value: str) -> tuple[str, ...]:
     if not selected:
         raise SystemExit("--decision-types must select at least one type")
     return tuple(selected)
+
+
+def _decision_snapshot_summary(args: argparse.Namespace) -> int:
+    summary = _build_decision_snapshot_summary(args.snapshots)
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(_format_decision_snapshot_summary(summary))
+    return 0
+
+
+def _build_decision_snapshot_summary(paths: Sequence[Path]) -> dict[str, Any]:
+    decision_types: Counter[str] = Counter()
+    actions_by_decision_type: dict[str, Counter[str]] = {}
+    sources: Counter[str] = Counter()
+    path_summaries: list[dict[str, Any]] = []
+    rows = 0
+    snapshots = 0
+    malformed_rows = 0
+    mjai_present = 0
+    mjai_missing = 0
+
+    for path in paths:
+        path_rows = 0
+        path_snapshots = 0
+        path_malformed = 0
+        for line in path.read_text(encoding="utf-8").splitlines():
+            rows += 1
+            path_rows += 1
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                malformed_rows += 1
+                path_malformed += 1
+                continue
+            if not _is_decision_snapshot_payload(payload):
+                malformed_rows += 1
+                path_malformed += 1
+                continue
+
+            snapshots += 1
+            path_snapshots += 1
+            decision_type = payload["decision_type"]
+            decision_types[decision_type] += 1
+            action = _snapshot_action_kind(payload)
+            actions_by_decision_type.setdefault(decision_type, Counter())[action] += 1
+            sources[_snapshot_source_label(payload)] += 1
+            if _snapshot_has_mjai_events(payload):
+                mjai_present += 1
+            else:
+                mjai_missing += 1
+
+        path_summaries.append(
+            {
+                "path": str(path),
+                "rows": path_rows,
+                "snapshots": path_snapshots,
+                "malformed_rows": path_malformed,
+            }
+        )
+
+    return {
+        "kind": "kenjaku-decision-snapshot-summary-v0",
+        "paths": path_summaries,
+        "rows": rows,
+        "snapshots": snapshots,
+        "malformed_rows": malformed_rows,
+        "decision_types": dict(sorted(decision_types.items())),
+        "actions_by_decision_type": {
+            decision_type: dict(sorted(actions.items()))
+            for decision_type, actions in sorted(actions_by_decision_type.items())
+        },
+        "sources": dict(sorted(sources.items())),
+        "mjai_events": {
+            "present": mjai_present,
+            "missing": mjai_missing,
+        },
+    }
+
+
+def _is_decision_snapshot_payload(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("kind") == DECISION_SNAPSHOT_KIND
+        and isinstance(value.get("decision_type"), str)
+    )
+
+
+def _snapshot_action_kind(payload: dict[str, Any]) -> str:
+    action = payload.get("actual_action")
+    if isinstance(action, dict) and isinstance(action.get("kind"), str):
+        return action["kind"]
+    return "unknown"
+
+
+def _snapshot_source_label(payload: dict[str, Any]) -> str:
+    source = payload.get("source")
+    if isinstance(source, dict) and isinstance(source.get("label"), str):
+        return source["label"]
+    return "unknown"
+
+
+def _snapshot_has_mjai_events(payload: dict[str, Any]) -> bool:
+    events = payload.get("mjai_events")
+    return isinstance(events, list) and bool(events)
+
+
+def _format_decision_snapshot_summary(summary: dict[str, Any]) -> str:
+    lines = [
+        f"snapshots: {summary['snapshots']}",
+        f"rows: {summary['rows']}",
+        f"malformed_rows: {summary['malformed_rows']}",
+        "decision_types:",
+    ]
+    for decision_type, count in summary["decision_types"].items():
+        lines.append(f"  {decision_type}: {count}")
+    lines.append("actions:")
+    for decision_type, actions in summary["actions_by_decision_type"].items():
+        parts = [f"{action}={count}" for action, count in actions.items()]
+        lines.append(f"  {decision_type}: " + " ".join(parts))
+    lines.append("sources:")
+    for source, count in summary["sources"].items():
+        lines.append(f"  {source}: {count}")
+    mjai_events = summary["mjai_events"]
+    lines.append(
+        "mjai_events: "
+        f"present={mjai_events['present']} "
+        f"missing={mjai_events['missing']}"
+    )
+    return "\n".join(lines)
 
 
 def _train_discard_baseline(args: argparse.Namespace) -> int:
@@ -1258,6 +1450,10 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         args.call_positive_weight,
         "--call-positive-weight",
     )
+    selected_model_names = _parse_call_benchmark_models(
+        args.models,
+        include_weighted=args.include_weighted,
+    )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
     examples = list(iter_call_examples(game))
@@ -1269,24 +1465,33 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         eval_fraction=args.eval_fraction,
         seed=args.split_seed,
     )
-    call_models = {
-        "call_frequency": CallFrequencyBaseline.fit(train_examples),
-        "call_legal_frequency": CallLegalFrequencyBaseline.fit(train_examples),
-        "call_linear": CallLinearModel.fit(
+    call_models: dict[
+        str,
+        CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
+    ] = {}
+    if "call_frequency" in selected_model_names:
+        call_models["call_frequency"] = CallFrequencyBaseline.fit(train_examples)
+    if "call_legal_frequency" in selected_model_names:
+        call_models["call_legal_frequency"] = CallLegalFrequencyBaseline.fit(train_examples)
+    if "call_linear" in selected_model_names:
+        call_models["call_linear"] = CallLinearModel.fit(
             train_examples,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
-        ),
-        "call_linear_v1": CallLinearModel.fit(
+        )
+    if (
+        "call_linear_v1" in selected_model_names
+        or "call_linear_v1_calibrated" in selected_model_names
+    ):
+        call_models["call_linear_v1"] = CallLinearModel.fit(
             train_examples,
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             l2=args.l2,
             feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
-        ),
-    }
-    if args.include_weighted:
+        )
+    if CALL_BENCHMARK_WEIGHTED_MODEL in selected_model_names:
         call_models["call_linear_v1_weighted"] = CallLinearModel.fit(
             train_examples,
             epochs=args.epochs,
@@ -1297,24 +1502,62 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         )
 
     model_payloads: dict[str, dict[str, Any]] = {}
+    prepared_examples: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
     for model_name, model in call_models.items():
+        if isinstance(model, CallLinearModel):
+            prepared_examples[model_name] = (
+                model.prepare_examples(train_examples),
+                model.prepare_examples(eval_examples),
+            )
+    for model_name in selected_model_names:
+        if model_name == "call_linear_v1_calibrated":
+            model = call_models["call_linear_v1"]
+            base_payload = model_payloads.get("call_linear_v1")
+            if base_payload is None:
+                train_prepared, eval_prepared = prepared_examples["call_linear_v1"]
+                base_payload = _call_model_payload(
+                    model,
+                    train_examples=train_examples,
+                    eval_examples=eval_examples,
+                    train_prepared=train_prepared,
+                    eval_prepared=eval_prepared,
+                )
+            threshold, threshold_source = _selected_policy_threshold(
+                source=args.call_threshold_source,
+                fixed_threshold=call_threshold,
+                calibration=base_payload.get("calibration", {}),
+            )
+            train_prepared, eval_prepared = prepared_examples["call_linear_v1"]
+            model_payloads[model_name] = _call_model_payload(
+                model,
+                train_examples=train_examples,
+                eval_examples=eval_examples,
+                prepared_predict=_call_threshold_prepared_predictor(model, threshold),
+                policy=_threshold_policy_metadata(
+                    target="call",
+                    base_model="call_linear_v1",
+                    threshold=threshold,
+                    threshold_source=threshold_source,
+                ),
+                train_prepared=train_prepared,
+                eval_prepared=eval_prepared,
+            )
+            continue
+
+        model = call_models.get(model_name)
+        if model is None:
+            continue
+        train_prepared = None
+        eval_prepared = None
+        if isinstance(model, CallLinearModel):
+            train_prepared, eval_prepared = prepared_examples[model_name]
         model_payloads[model_name] = _call_model_payload(
             model,
             train_examples=train_examples,
             eval_examples=eval_examples,
+            train_prepared=train_prepared,
+            eval_prepared=eval_prepared,
         )
-        if model_name == "call_linear_v1":
-            model_payloads["call_linear_v1_calibrated"] = _call_model_payload(
-                model,
-                train_examples=train_examples,
-                eval_examples=eval_examples,
-                predict=_call_threshold_predictor(model, call_threshold),
-                policy=_threshold_policy_metadata(
-                    target="call",
-                    base_model=model_name,
-                    threshold=call_threshold,
-                ),
-            )
 
     print(f"examples: {len(examples)}")
     print(f"train_examples: {len(train_examples)}")
@@ -1343,7 +1586,49 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_call_benchmark_models(value: str, *, include_weighted: bool) -> tuple[str, ...]:
+    if value == "all":
+        selected = list(CALL_BENCHMARK_DEFAULT_MODELS)
+        if include_weighted:
+            selected.append(CALL_BENCHMARK_WEIGHTED_MODEL)
+        return tuple(selected)
+    if value == "fast":
+        return CALL_BENCHMARK_FAST_MODELS
+
+    selected: list[str] = []
+    for raw_name in value.split(","):
+        model_name = raw_name.strip()
+        if not model_name:
+            continue
+        if model_name not in CALL_BENCHMARK_MODEL_ORDER:
+            raise SystemExit(f"unsupported call benchmark model: {model_name}")
+        if model_name == CALL_BENCHMARK_WEIGHTED_MODEL and not include_weighted:
+            raise SystemExit("call_linear_v1_weighted requires --include-weighted")
+        if model_name not in selected:
+            selected.append(model_name)
+    if not selected:
+        raise SystemExit("--models must select at least one model")
+    return tuple(selected)
+
+
+def _selected_policy_threshold(
+    *,
+    source: str,
+    fixed_threshold: float,
+    calibration: dict[str, Any],
+) -> tuple[float, str]:
+    if source == THRESHOLD_SOURCE_FIXED:
+        return fixed_threshold, FIXED_THRESHOLD_SOURCE_LABEL
+    if source == THRESHOLD_SOURCE_TRAIN_BEST:
+        best = _calibration_best(calibration, "train")
+        if isinstance(best, dict) and best.get("threshold") is not None:
+            return float(best["threshold"]), THRESHOLD_SOURCE_TRAIN_BEST
+        return fixed_threshold, f"{THRESHOLD_SOURCE_TRAIN_BEST}-fallback-fixed"
+    raise ValueError(f"unsupported threshold source: {source}")
+
+
 CallPredictor = Callable[[CallExample], ActionKind]
+PreparedCallPredictor = Callable[[Any], ActionKind]
 
 
 def _call_threshold_predictor(
@@ -1371,17 +1656,69 @@ def _call_threshold_predictor(
     return predict
 
 
+def _call_threshold_prepared_predictor(
+    model: CallLinearModel,
+    threshold: float,
+) -> PreparedCallPredictor:
+    def predict(prepared: Any) -> ActionKind:
+        probabilities = model.probabilities_for_prepared(prepared)
+        non_pass_probabilities = {
+            kind: probability
+            for kind, probability in probabilities.items()
+            if kind != ActionKind.PASS
+        }
+        score = sum(non_pass_probabilities.values()) if non_pass_probabilities else -1.0
+        if score < threshold:
+            return ActionKind.PASS
+        return max(
+            non_pass_probabilities,
+            key=lambda kind: (
+                non_pass_probabilities[kind],
+                -CALL_DECISION_KINDS.index(kind),
+            ),
+        )
+
+    return predict
+
+
 def _call_model_payload(
     model: CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
     *,
     train_examples: list[CallExample],
     eval_examples: list[CallExample],
     predict: CallPredictor | None = None,
+    prepared_predict: PreparedCallPredictor | None = None,
     policy: dict[str, Any] | None = None,
+    train_prepared: tuple[Any, ...] | None = None,
+    eval_prepared: tuple[Any, ...] | None = None,
 ) -> dict[str, Any]:
-    predictor = model.predict if predict is None else predict
-    train_analysis = _summarize_call_predictions(train_examples, predictor)
-    eval_analysis = _summarize_call_predictions(eval_examples, predictor)
+    if isinstance(model, CallLinearModel):
+        train_prepared = (
+            model.prepare_examples(train_examples)
+            if train_prepared is None
+            else train_prepared
+        )
+        eval_prepared = (
+            model.prepare_examples(eval_examples)
+            if eval_prepared is None
+            else eval_prepared
+        )
+        train_analysis = _summarize_call_predictions_from_prepared(
+            train_examples,
+            train_prepared,
+            model=model,
+            prepared_predict=prepared_predict,
+        )
+        eval_analysis = _summarize_call_predictions_from_prepared(
+            eval_examples,
+            eval_prepared,
+            model=model,
+            prepared_predict=prepared_predict,
+        )
+    else:
+        predictor = model.predict if predict is None else predict
+        train_analysis = _summarize_call_predictions(train_examples, predictor)
+        eval_analysis = _summarize_call_predictions(eval_examples, predictor)
     train_metrics = _call_metrics(train_analysis)
     eval_metrics = _call_metrics(eval_analysis)
     payload: dict[str, Any] = {
@@ -1417,8 +1754,8 @@ def _call_model_payload(
         payload["calibration"] = {
             "target": "call",
             "thresholds": list(CALIBRATION_THRESHOLDS),
-            "train": _call_threshold_sweep(model, train_examples),
-            "eval": _call_threshold_sweep(model, eval_examples),
+            "train": _call_threshold_sweep_prepared(model, train_prepared),
+            "eval": _call_threshold_sweep_prepared(model, eval_prepared),
         }
     else:
         payload["counts"] = model.count_by_kind()
@@ -1458,6 +1795,30 @@ def _summarize_call_predictions(
     examples: Sequence[CallExample],
     predict: CallPredictor,
 ) -> dict[str, Any]:
+    return _summarize_call_prediction_results(
+        examples,
+        (predict(example) for example in examples),
+    )
+
+
+def _summarize_call_predictions_from_prepared(
+    examples: Sequence[CallExample],
+    prepared_examples: Sequence[Any],
+    *,
+    model: CallLinearModel,
+    prepared_predict: PreparedCallPredictor | None,
+) -> dict[str, Any]:
+    if prepared_predict is None:
+        predictions = (model.predict_prepared(prepared) for prepared in prepared_examples)
+    else:
+        predictions = (prepared_predict(prepared) for prepared in prepared_examples)
+    return _summarize_call_prediction_results(examples, predictions)
+
+
+def _summarize_call_prediction_results(
+    examples: Sequence[CallExample],
+    predictions: Iterable[ActionKind],
+) -> dict[str, Any]:
     buckets: dict[str, Any] = {
         "overall": _empty_call_bucket(),
         "by_call_or_pass": {
@@ -1475,9 +1836,8 @@ def _summarize_call_predictions(
         for kind in CALL_DECISION_KINDS
     }
 
-    for example in examples:
+    for example, prediction in zip(examples, predictions):
         actual = example.action.kind
-        prediction = predict(example)
         correct = prediction == actual
         action_distribution[actual.value] += 1
         call_or_pass = "pass" if actual == ActionKind.PASS else "call"
@@ -1517,9 +1877,16 @@ def _call_threshold_sweep(
     model: CallLinearModel,
     examples: Sequence[CallExample],
 ) -> dict[str, Any]:
+    return _call_threshold_sweep_prepared(model, model.prepare_examples(examples))
+
+
+def _call_threshold_sweep_prepared(
+    model: CallLinearModel,
+    prepared_examples: Sequence[Any],
+) -> dict[str, Any]:
     records = []
-    for example in examples:
-        probabilities = model.probabilities_for_example(example)
+    for prepared in prepared_examples:
+        probabilities = model.probabilities_for_prepared(prepared)
         non_pass_probabilities = {
             kind: probability
             for kind, probability in probabilities.items()
@@ -1529,7 +1896,7 @@ def _call_threshold_sweep(
         records.append(
             {
                 "score": score,
-                "actual_positive": example.action.kind != ActionKind.PASS,
+                "actual_positive": prepared.target != ActionKind.PASS,
             }
         )
     return _binary_threshold_sweep(records, target_name="call")
@@ -1641,13 +2008,14 @@ def _threshold_policy_metadata(
     target: str,
     base_model: str,
     threshold: float,
+    threshold_source: str,
 ) -> dict[str, Any]:
     return {
         "kind": "threshold-calibrated-v0",
         "target": target,
         "base_model": base_model,
         "threshold": threshold,
-        "threshold_source": "tenhou-100-v0-eval-sweep",
+        "threshold_source": threshold_source,
     }
 
 
@@ -1694,23 +2062,45 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
         )
 
     model_payloads: dict[str, dict[str, Any]] = {}
+    prepared_examples: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
     for model_name, model in riichi_models.items():
+        if isinstance(model, RiichiLinearModel):
+            prepared_examples[model_name] = (
+                model.prepare_examples(train_examples),
+                model.prepare_examples(eval_examples),
+            )
+    for model_name, model in riichi_models.items():
+        train_prepared = None
+        eval_prepared = None
+        if isinstance(model, RiichiLinearModel):
+            train_prepared, eval_prepared = prepared_examples[model_name]
         model_payloads[model_name] = _riichi_model_payload(
             model,
             train_examples=train_examples,
             eval_examples=eval_examples,
+            train_prepared=train_prepared,
+            eval_prepared=eval_prepared,
         )
         if model_name == "riichi_linear":
+            threshold, threshold_source = _selected_policy_threshold(
+                source=args.riichi_threshold_source,
+                fixed_threshold=riichi_threshold,
+                calibration=model_payloads[model_name].get("calibration", {}),
+            )
+            train_prepared, eval_prepared = prepared_examples[model_name]
             model_payloads["riichi_linear_calibrated"] = _riichi_model_payload(
                 model,
                 train_examples=train_examples,
                 eval_examples=eval_examples,
-                predict=_riichi_threshold_predictor(model, riichi_threshold),
+                prepared_predict=_riichi_threshold_prepared_predictor(model, threshold),
                 policy=_threshold_policy_metadata(
                     target="riichi",
                     base_model=model_name,
-                    threshold=riichi_threshold,
+                    threshold=threshold,
+                    threshold_source=threshold_source,
                 ),
+                train_prepared=train_prepared,
+                eval_prepared=eval_prepared,
             )
 
     print(f"examples: {len(examples)}")
@@ -1743,6 +2133,7 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
 
 
 RiichiPredictor = Callable[[RiichiExample], ActionKind]
+PreparedRiichiPredictor = Callable[[Any], ActionKind]
 
 
 def _riichi_threshold_predictor(
@@ -1759,17 +2150,58 @@ def _riichi_threshold_predictor(
     return predict
 
 
+def _riichi_threshold_prepared_predictor(
+    model: RiichiLinearModel,
+    threshold: float,
+) -> PreparedRiichiPredictor:
+    def predict(prepared: Any) -> ActionKind:
+        probabilities = model.probabilities_for_prepared(prepared)
+        score = probabilities.get(ActionKind.RIICHI, -1.0)
+        if score >= threshold:
+            return ActionKind.RIICHI
+        return ActionKind.PASS
+
+    return predict
+
+
 def _riichi_model_payload(
     model: RiichiFrequencyBaseline | RiichiLinearModel,
     *,
     train_examples: list[RiichiExample],
     eval_examples: list[RiichiExample],
     predict: RiichiPredictor | None = None,
+    prepared_predict: PreparedRiichiPredictor | None = None,
     policy: dict[str, Any] | None = None,
+    train_prepared: tuple[Any, ...] | None = None,
+    eval_prepared: tuple[Any, ...] | None = None,
 ) -> dict[str, Any]:
-    predictor = model.predict if predict is None else predict
-    train_analysis = _summarize_riichi_predictions(train_examples, predictor)
-    eval_analysis = _summarize_riichi_predictions(eval_examples, predictor)
+    if isinstance(model, RiichiLinearModel):
+        train_prepared = (
+            model.prepare_examples(train_examples)
+            if train_prepared is None
+            else train_prepared
+        )
+        eval_prepared = (
+            model.prepare_examples(eval_examples)
+            if eval_prepared is None
+            else eval_prepared
+        )
+        train_analysis = _summarize_riichi_predictions_from_prepared(
+            train_examples,
+            train_prepared,
+            model=model,
+            prepared_predict=prepared_predict,
+        )
+        eval_analysis = _summarize_riichi_predictions_from_prepared(
+            eval_examples,
+            eval_prepared,
+            model=model,
+            prepared_predict=prepared_predict,
+        )
+    else:
+        predictor = model.predict if predict is None else predict
+        train_analysis = _summarize_riichi_predictions(train_examples, predictor)
+        eval_analysis = _summarize_riichi_predictions(eval_examples, predictor)
     train_metrics = _riichi_metrics(train_analysis)
     eval_metrics = _riichi_metrics(eval_analysis)
     payload: dict[str, Any] = {
@@ -1802,8 +2234,8 @@ def _riichi_model_payload(
         payload["calibration"] = {
             "target": "riichi",
             "thresholds": list(CALIBRATION_THRESHOLDS),
-            "train": _riichi_threshold_sweep(model, train_examples),
-            "eval": _riichi_threshold_sweep(model, eval_examples),
+            "train": _riichi_threshold_sweep_prepared(model, train_prepared),
+            "eval": _riichi_threshold_sweep_prepared(model, eval_prepared),
         }
     else:
         payload["counts"] = model.count_by_kind()
@@ -1843,6 +2275,30 @@ def _summarize_riichi_predictions(
     examples: Sequence[RiichiExample],
     predict: RiichiPredictor,
 ) -> dict[str, Any]:
+    return _summarize_riichi_prediction_results(
+        examples,
+        (predict(example) for example in examples),
+    )
+
+
+def _summarize_riichi_predictions_from_prepared(
+    examples: Sequence[RiichiExample],
+    prepared_examples: Sequence[Any],
+    *,
+    model: RiichiLinearModel,
+    prepared_predict: PreparedRiichiPredictor | None,
+) -> dict[str, Any]:
+    if prepared_predict is None:
+        predictions = (model.predict_prepared(prepared) for prepared in prepared_examples)
+    else:
+        predictions = (prepared_predict(prepared) for prepared in prepared_examples)
+    return _summarize_riichi_prediction_results(examples, predictions)
+
+
+def _summarize_riichi_prediction_results(
+    examples: Sequence[RiichiExample],
+    predictions: Iterable[ActionKind],
+) -> dict[str, Any]:
     buckets: dict[str, Any] = {
         "overall": _empty_call_bucket(),
         "by_actual_action": {
@@ -1855,9 +2311,8 @@ def _summarize_riichi_predictions(
         for kind in RIICHI_DECISION_KINDS
     }
 
-    for example in examples:
+    for example, prediction in zip(examples, predictions):
         actual = example.action.kind
-        prediction = predict(example)
         correct = prediction == actual
         action_distribution[actual.value] += 1
         _record_call_bucket(buckets["overall"], correct)
@@ -1889,13 +2344,20 @@ def _riichi_threshold_sweep(
     model: RiichiLinearModel,
     examples: Sequence[RiichiExample],
 ) -> dict[str, Any]:
+    return _riichi_threshold_sweep_prepared(model, model.prepare_examples(examples))
+
+
+def _riichi_threshold_sweep_prepared(
+    model: RiichiLinearModel,
+    prepared_examples: Sequence[Any],
+) -> dict[str, Any]:
     records = []
-    for example in examples:
-        probabilities = model.probabilities_for_example(example)
+    for prepared in prepared_examples:
+        probabilities = model.probabilities_for_prepared(prepared)
         records.append(
             {
                 "score": probabilities.get(ActionKind.RIICHI, 0.0),
-                "actual_positive": example.action.kind == ActionKind.RIICHI,
+                "actual_positive": prepared.target == ActionKind.RIICHI,
             }
         )
     return _binary_threshold_sweep(records, target_name="riichi")
