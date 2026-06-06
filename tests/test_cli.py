@@ -7,7 +7,9 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.cli import main
+from kenjaku.cli import _limit_call_examples, main
+from kenjaku.core import Action, ActionKind, Tile
+from kenjaku.training import CallExample
 
 
 class CliTests(unittest.TestCase):
@@ -236,6 +238,66 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["malformed_rows"], 1)
         self.assertEqual(payload["sources"]["fixture-snapshots"], 5)
         self.assertGreaterEqual(payload["mjai_events"]["present"], 1)
+
+    def test_decision_snapshots_include_row_id_and_compare_predictions(self) -> None:
+        with TemporaryDirectory() as directory:
+            snapshots = Path(directory) / "snapshots.jsonl"
+            predictions = Path(directory) / "predictions.jsonl"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(snapshots),
+                        "--limit",
+                        "5",
+                    ]
+                )
+            rows = [
+                json.loads(line)
+                for line in snapshots.read_text(encoding="utf-8").splitlines()
+            ]
+            prediction_rows = [
+                {
+                    "row_id": row["row_id"],
+                    "predicted_action": row["actual_action"],
+                }
+                for row in rows[:-1]
+            ]
+            predictions.write_text(
+                "\n".join(json.dumps(row) for row in prediction_rows) + "\nnot-json\n",
+                encoding="utf-8",
+            )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    ["decision-snapshot-compare", str(snapshots), str(predictions)]
+                )
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "decision-snapshot-compare",
+                        str(snapshots),
+                        str(predictions),
+                        "--json",
+                    ]
+                )
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertTrue(all(isinstance(row["row_id"], str) for row in rows))
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("missing_predictions: 1", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-decision-snapshot-comparison-v0")
+        self.assertEqual(payload["snapshots"], 5)
+        self.assertEqual(payload["predictions"], 4)
+        self.assertEqual(payload["missing_predictions"], 1)
+        self.assertEqual(payload["malformed_prediction_rows"], 1)
+        self.assertEqual(payload["overall"]["correct"], 4)
 
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()

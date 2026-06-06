@@ -113,6 +113,7 @@ CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
 T = TypeVar("T")
+TResult = TypeVar("TResult")
 CALL_BENCHMARK_DEFAULT_MODELS = (
     "call_frequency",
     "call_legal_frequency",
@@ -804,6 +805,248 @@ def _format_decision_snapshot_summary(summary: dict[str, Any]) -> str:
         f"present={mjai_events['present']} "
         f"missing={mjai_events['missing']}"
     )
+    return "\n".join(lines)
+
+
+def _decision_snapshot_compare(args: argparse.Namespace) -> int:
+    comparison = _build_decision_snapshot_comparison(args.snapshots, args.predictions)
+    if args.json:
+        print(json.dumps(comparison, indent=2, sort_keys=True))
+    else:
+        print(_format_decision_snapshot_comparison(comparison))
+    return 0
+
+
+def _build_decision_snapshot_comparison(
+    snapshots_path: Path,
+    predictions_path: Path,
+) -> dict[str, Any]:
+    predictions, prediction_stats = _read_decision_predictions(predictions_path)
+    snapshots = 0
+    malformed_snapshot_rows = 0
+    missing_predictions = 0
+    overall = _empty_comparison_bucket()
+    by_decision_type: dict[str, dict[str, int | float | None]] = {}
+    binary_records = {
+        "call": _empty_binary_comparison_bucket(),
+        "riichi": _empty_binary_comparison_bucket(),
+    }
+
+    for line in snapshots_path.read_text(encoding="utf-8").splitlines():
+        try:
+            snapshot = json.loads(line)
+        except json.JSONDecodeError:
+            malformed_snapshot_rows += 1
+            continue
+        if not _is_decision_snapshot_payload(snapshot):
+            malformed_snapshot_rows += 1
+            continue
+        row_id = snapshot.get("row_id")
+        if not isinstance(row_id, str):
+            malformed_snapshot_rows += 1
+            continue
+        actual_action = snapshot.get("actual_action")
+        if not isinstance(actual_action, dict):
+            malformed_snapshot_rows += 1
+            continue
+
+        snapshots += 1
+        decision_type = snapshot["decision_type"]
+        by_decision_type.setdefault(decision_type, _empty_comparison_bucket())
+        predicted_action = predictions.get(row_id)
+        if predicted_action is None:
+            missing_predictions += 1
+
+        correct = _actions_match(actual_action, predicted_action)
+        _record_comparison_bucket(overall, correct)
+        _record_comparison_bucket(by_decision_type[decision_type], correct)
+        if decision_type in binary_records:
+            _record_binary_comparison(
+                binary_records[decision_type],
+                target=decision_type,
+                actual_action=actual_action,
+                predicted_action=predicted_action,
+            )
+
+    return {
+        "kind": DECISION_SNAPSHOT_COMPARISON_KIND,
+        "snapshots_path": str(snapshots_path),
+        "predictions_path": str(predictions_path),
+        "snapshots": snapshots,
+        "predictions": prediction_stats["valid_predictions"],
+        "malformed_snapshot_rows": malformed_snapshot_rows,
+        "malformed_prediction_rows": prediction_stats["malformed_prediction_rows"],
+        "duplicate_prediction_rows": prediction_stats["duplicate_prediction_rows"],
+        "missing_predictions": missing_predictions,
+        "overall": _finalize_comparison_bucket(overall),
+        "by_decision_type": {
+            decision_type: _finalize_comparison_bucket(bucket)
+            for decision_type, bucket in sorted(by_decision_type.items())
+        },
+        "binary": {
+            decision_type: _finalize_binary_comparison(bucket, target=decision_type)
+            for decision_type, bucket in binary_records.items()
+            if bucket["examples"]
+        },
+    }
+
+
+def _read_decision_predictions(path: Path) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
+    predictions: dict[str, dict[str, Any]] = {}
+    malformed = 0
+    duplicates = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            malformed += 1
+            continue
+        if not isinstance(payload, dict):
+            malformed += 1
+            continue
+        row_id = payload.get("row_id")
+        action = payload.get("predicted_action")
+        if not isinstance(row_id, str) or not isinstance(action, dict):
+            malformed += 1
+            continue
+        if row_id in predictions:
+            duplicates += 1
+            continue
+        predictions[row_id] = action
+    return predictions, {
+        "valid_predictions": len(predictions),
+        "malformed_prediction_rows": malformed,
+        "duplicate_prediction_rows": duplicates,
+    }
+
+
+def _actions_match(
+    actual_action: dict[str, Any],
+    predicted_action: dict[str, Any] | None,
+) -> bool:
+    return (
+        predicted_action is not None
+        and _normalized_action(actual_action) == _normalized_action(predicted_action)
+    )
+
+
+def _normalized_action(action: dict[str, Any]) -> dict[str, Any]:
+    normalized = {"kind": action.get("kind")}
+    if "tile" in action:
+        normalized["tile"] = action.get("tile")
+    if "tsumogiri" in action:
+        normalized["tsumogiri"] = bool(action.get("tsumogiri"))
+    if "consumed" in action and isinstance(action["consumed"], list):
+        normalized["consumed"] = list(action["consumed"])
+    return normalized
+
+
+def _empty_comparison_bucket() -> dict[str, int]:
+    return {"examples": 0, "correct": 0}
+
+
+def _record_comparison_bucket(bucket: dict[str, int | float | None], correct: bool) -> None:
+    bucket["examples"] = int(bucket["examples"] or 0) + 1
+    bucket["correct"] = int(bucket["correct"] or 0) + int(correct)
+
+
+def _finalize_comparison_bucket(
+    bucket: dict[str, int | float | None],
+) -> dict[str, int | float | None]:
+    examples = int(bucket["examples"] or 0)
+    correct = int(bucket["correct"] or 0)
+    return {
+        "examples": examples,
+        "correct": correct,
+        "accuracy": None if examples == 0 else correct / examples,
+    }
+
+
+def _empty_binary_comparison_bucket() -> dict[str, int]:
+    return {
+        "examples": 0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "true_negative": 0,
+        "false_negative": 0,
+    }
+
+
+def _record_binary_comparison(
+    bucket: dict[str, int],
+    *,
+    target: str,
+    actual_action: dict[str, Any],
+    predicted_action: dict[str, Any] | None,
+) -> None:
+    actual_positive = _action_is_positive(actual_action, target=target)
+    predicted_positive = (
+        predicted_action is not None
+        and _action_is_positive(predicted_action, target=target)
+    )
+    bucket["examples"] += 1
+    if actual_positive and predicted_positive:
+        bucket["true_positive"] += 1
+    elif actual_positive:
+        bucket["false_negative"] += 1
+    elif predicted_positive:
+        bucket["false_positive"] += 1
+    else:
+        bucket["true_negative"] += 1
+
+
+def _action_is_positive(action: dict[str, Any], *, target: str) -> bool:
+    kind = action.get("kind")
+    if target == "call":
+        return kind != ActionKind.PASS.value
+    if target == "riichi":
+        return kind == ActionKind.RIICHI.value
+    return False
+
+
+def _finalize_binary_comparison(bucket: dict[str, int], *, target: str) -> dict[str, Any]:
+    true_positive = bucket["true_positive"]
+    false_positive = bucket["false_positive"]
+    true_negative = bucket["true_negative"]
+    false_negative = bucket["false_negative"]
+    target_examples = true_positive + false_negative
+    pass_examples = true_negative + false_positive
+    return {
+        **bucket,
+        "accuracy": _safe_ratio(true_positive + true_negative, bucket["examples"]),
+        f"{target}_precision": _safe_ratio(true_positive, true_positive + false_positive),
+        f"{target}_recall": _safe_ratio(true_positive, target_examples),
+        "pass_recall": _safe_ratio(true_negative, pass_examples),
+    }
+
+
+def _format_decision_snapshot_comparison(comparison: dict[str, Any]) -> str:
+    lines = [
+        f"snapshots: {comparison['snapshots']}",
+        f"predictions: {comparison['predictions']}",
+        f"missing_predictions: {comparison['missing_predictions']}",
+        f"malformed_snapshot_rows: {comparison['malformed_snapshot_rows']}",
+        f"malformed_prediction_rows: {comparison['malformed_prediction_rows']}",
+        f"duplicate_prediction_rows: {comparison['duplicate_prediction_rows']}",
+        f"overall_accuracy: {_format_optional_accuracy(comparison['overall']['accuracy'])}",
+        "by_decision_type:",
+    ]
+    for decision_type, bucket in comparison["by_decision_type"].items():
+        lines.append(
+            f"  {decision_type}: "
+            f"accuracy={_format_optional_accuracy(bucket['accuracy'])} "
+            f"examples={bucket['examples']}"
+        )
+    if comparison["binary"]:
+        lines.append("binary:")
+        for decision_type, bucket in comparison["binary"].items():
+            lines.append(
+                f"  {decision_type}: "
+                f"accuracy={_format_optional_accuracy(bucket['accuracy'])} "
+                f"pass_recall={_format_optional_accuracy(bucket['pass_recall'])} "
+                f"{decision_type}_recall="
+                f"{_format_optional_accuracy(bucket[f'{decision_type}_recall'])}"
+            )
     return "\n".join(lines)
 
 
@@ -1810,10 +2053,131 @@ def _parse_call_benchmark_models(value: str, *, include_weighted: bool) -> tuple
     return tuple(selected)
 
 
-def _limit_examples(examples: Sequence[T], limit: int | None) -> list[T]:
+def _timed_stage(
+    timings: dict[str, float] | None,
+    name: str,
+    func: Callable[[], TResult],
+) -> TResult:
+    if timings is None:
+        return func()
+    start = perf_counter()
+    try:
+        return func()
+    finally:
+        timings[name] = perf_counter() - start
+
+
+def _limit_call_examples(
+    examples: Sequence[CallExample],
+    limit: int | None,
+    *,
+    strategy: str,
+) -> list[CallExample]:
     if limit is None or len(examples) <= limit:
         return list(examples)
-    return list(examples[:limit])
+    if strategy == "prefix":
+        return list(examples[:limit])
+    if strategy == "balanced":
+        calls = [example for example in examples if example.action.kind != ActionKind.PASS]
+        passes = [example for example in examples if example.action.kind == ActionKind.PASS]
+        if len(calls) >= limit:
+            return calls[:limit]
+        return [*calls, *passes[: limit - len(calls)]]
+    raise ValueError(f"unsupported call example limit strategy: {strategy}")
+
+
+def _read_call_feature_cache(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("kind") != CALL_FEATURE_CACHE_KIND:
+        raise SystemExit(f"not a call feature cache: {path}")
+    return payload
+
+
+def _call_feature_cache_key(
+    *,
+    args: argparse.Namespace,
+    dataset_files: Sequence[Path],
+    source: dict[str, str | None],
+    all_examples: int,
+    examples: int,
+    train_examples: int,
+    eval_examples: int,
+) -> dict[str, Any]:
+    return {
+        "input_paths": [str(path) for path in args.paths],
+        "xml_files": [str(path) for path in dataset_files],
+        "source": source,
+        "split_seed": args.split_seed,
+        "eval_fraction": args.eval_fraction,
+        "example_limit": args.example_limit,
+        "example_limit_strategy": args.example_limit_strategy,
+        "all_examples": all_examples,
+        "examples": examples,
+        "train_examples": train_examples,
+        "eval_examples": eval_examples,
+    }
+
+
+def _empty_call_feature_cache_report(path: Path | None) -> dict[str, Any]:
+    return {
+        "path": None if path is None else str(path),
+        "hits": [],
+        "misses": [],
+        "writes": [],
+    }
+
+
+def _call_feature_cache_entry(
+    payload: dict[str, Any] | None,
+    *,
+    cache_key: dict[str, Any],
+    feature_profile: str,
+) -> tuple[tuple[Any, ...], tuple[Any, ...]] | None:
+    if payload is None or payload.get("cache_key") != cache_key:
+        return None
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict):
+        return None
+    entry = profiles.get(feature_profile)
+    if not isinstance(entry, dict):
+        return None
+    try:
+        return (
+            CallLinearModel.prepared_examples_from_payload(entry.get("train")),
+            CallLinearModel.prepared_examples_from_payload(entry.get("eval")),
+        )
+    except ValueError:
+        return None
+
+
+def _write_call_feature_cache(
+    path: Path,
+    *,
+    existing: dict[str, Any] | None,
+    cache_key: dict[str, Any],
+    profiles: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]],
+    report: dict[str, Any],
+) -> None:
+    existing_profiles: dict[str, Any] = {}
+    if existing is not None and existing.get("cache_key") == cache_key:
+        raw_profiles = existing.get("profiles")
+        if isinstance(raw_profiles, dict):
+            existing_profiles.update(raw_profiles)
+    for feature_profile, (train_prepared, eval_prepared) in profiles.items():
+        existing_profiles[feature_profile] = {
+            "train": CallLinearModel.prepared_examples_to_payload(train_prepared),
+            "eval": CallLinearModel.prepared_examples_to_payload(eval_prepared),
+        }
+        report["writes"].append(feature_profile)
+    payload = {
+        "kind": CALL_FEATURE_CACHE_KIND,
+        "cache_key": cache_key,
+        "profiles": existing_profiles,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _selected_policy_threshold(

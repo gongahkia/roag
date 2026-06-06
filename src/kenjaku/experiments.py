@@ -364,6 +364,9 @@ def build_call_benchmark_report(
     source: dict[str, str | None],
     call_examples_total: int | None = None,
     example_limit: int | None = None,
+    example_limit_strategy: str | None = None,
+    timing: dict[str, float] | None = None,
+    feature_cache: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "kind": CALL_BENCHMARK_REPORT_KIND,
@@ -375,6 +378,7 @@ def build_call_benchmark_report(
         "call_examples": call_examples,
         "call_examples_total": call_examples if call_examples_total is None else call_examples_total,
         "example_limit": example_limit,
+        "example_limit_strategy": example_limit_strategy,
         "split": {
             "seed": split_seed,
             "eval_fraction": eval_fraction,
@@ -382,6 +386,8 @@ def build_call_benchmark_report(
             "eval_examples": eval_examples,
         },
         "models": models,
+        "timing": timing,
+        "feature_cache": feature_cache,
         "parse_failures": _parse_failure_payload(parse_failures),
     }
 
@@ -628,6 +634,7 @@ def _summarize_binary_benchmark_report(
         "examples": payload[examples_key],
         "examples_total": payload.get(f"{target}_examples_total"),
         "example_limit": payload.get("example_limit"),
+        "example_limit_strategy": payload.get("example_limit_strategy"),
         "split": payload["split"],
         "models": models,
     }
@@ -677,7 +684,8 @@ def _append_binary_benchmark_summary_lines(lines: list[str], report: dict[str, A
     if report.get("example_limit") is not None:
         lines.append(
             "example_limit: "
-            f"{report['example_limit']} of {report.get('examples_total', report['examples'])}"
+            f"{report['example_limit']} of {report.get('examples_total', report['examples'])} "
+            f"strategy={report.get('example_limit_strategy', 'unknown')}"
         )
     lines.append("models:")
     recall_key = f"eval_{target}_recall"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Sequence
+from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
@@ -205,6 +206,13 @@ def _base_snapshot(
 ) -> dict[str, Any]:
     return {
         "kind": DECISION_SNAPSHOT_KIND,
+        "row_id": _snapshot_row_id(
+            input_paths=input_paths,
+            round_index=example.round_index,
+            event_index=example.event_index,
+            decision_type=decision_type,
+            seat=example.seat,
+        ),
         "decision_type": decision_type,
         "source": source or {},
         "input_paths": list(input_paths),
@@ -230,6 +238,19 @@ def _base_snapshot(
             cache=prefix_cache,
         ),
     }
+
+
+def _snapshot_row_id(
+    *,
+    input_paths: Sequence[str],
+    round_index: int,
+    event_index: int,
+    decision_type: str,
+    seat: int,
+) -> str:
+    source = json.dumps(list(input_paths), sort_keys=True)
+    source_digest = blake2b(source.encode("utf-8"), digest_size=8).hexdigest()
+    return f"{source_digest}:r{round_index}:e{event_index}:{decision_type}:s{seat}"
 
 
 def _discard_legal_actions(hand_counts: Sequence[int]) -> list[dict[str, Any]]:
