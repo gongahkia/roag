@@ -2,86 +2,125 @@
 
 Open-source riichi mahjong AI research agent and replay-analysis toolkit.
 
-The current milestone is Phase 0: build a small, tested Python core for tile/state/action
-representation, then validate a compliant Tenhou log parsing path before any model training.
+Kenjaku currently focuses on a compliant local Tenhou workflow: parse XML logs, reconstruct
+decision points, train small supervised baselines, export neutral decision snapshots, and compare
+local prediction artifacts. Live ladder automation is intentionally out of scope unless a platform
+grants explicit permission.
 
-Live ladder automation is intentionally out of scope unless a platform grants explicit permission.
-See `IDEAS.md` for the research roadmap and implementation log.
+The repo is not yet a transformer agent, RL system, Sanma implementation, browser demo, or full
+scoring engine. See `IDEAS.md` and `docs/session-handoff.md` for the research roadmap and running
+handoff notes.
 
-## Verify
+## Current State
+
+- Tested tile/action/state primitives, 4-player Tenhou XML parsing, exact Tenhou meld decoding,
+  shanten calculation, and draw/discard/call reconstruction.
+- Supervised discard, call/pass, and riichi/pass example builders over local Tenhou XML.
+- Dependency-free frequency and linear baselines with deterministic train/eval splits, calibration
+  reports, feature summaries, and local-only disagreement diagnostics.
+- Neutral decision snapshot JSONL export plus prediction JSONL comparison.
+- Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
+- A minimal PyTorch discard MLP baseline for validating the next supervised-learning path.
+
+## Quickstart
+
+Use a supported Python version: `>=3.11,<3.14`.
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
-PYTHONPATH=src python3 -m kenjaku --version
-PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou/minimal_4p.xml
-PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou \
-  --report runs/inspect-report.json
-PYTHONPATH=src python3 -m kenjaku inspect-tenhou data/fixtures/tenhou \
-  --skip-errors --report runs/inspect-report.json
-PYTHONPATH=src python3 -m kenjaku train-discard-baseline data/fixtures/tenhou/minimal_4p.xml
-PYTHONPATH=src python3 -m kenjaku train-discard-linear data/fixtures/tenhou --epochs 5
-PYTHONPATH=src python3 -m kenjaku train-discard-linear \
-  data/fixtures/tenhou --report runs/linear-report.json
-PYTHONPATH=src python3 -m kenjaku benchmark-discard \
-  data/fixtures/tenhou --epochs 5 --report runs/discard-benchmark.json \
-  --disagreements runs/discard-disagreements.json
-PYTHONPATH=src python3 -m kenjaku benchmark-discard \
-  data/fixtures/tenhou --epochs 5 --models fast --report runs/discard-benchmark-fast.json
-PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/discard-benchmark.json
-PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/discard-disagreements.json --examples 2 --tags
-PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
-  runs/discard-disagreements.json --examples 2 --tags --tag close_logit
-PYTHONPATH=src python3 -m kenjaku benchmark-call \
-  data/fixtures/tenhou --report runs/call-benchmark.json
-PYTHONPATH=src python3 -m kenjaku benchmark-call \
-  data/fixtures/tenhou --models fast --example-limit 1000 --call-threshold-source train-best \
-  --example-limit-strategy balanced --profile-stages --feature-cache runs/call-feature-cache.json \
-  --report runs/call-benchmark-fast.json
-PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
-  data/fixtures/tenhou --report runs/riichi-benchmark.json
-PYTHONPATH=src python3 -m kenjaku benchmark-call \
-  data/fixtures/tenhou --include-weighted --report runs/call-benchmark-weighted.json
-PYTHONPATH=src python3 -m kenjaku benchmark-riichi \
-  data/fixtures/tenhou --include-weighted --report runs/riichi-benchmark-weighted.json
-PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
-  runs/call-benchmark-weighted.json runs/riichi-benchmark-weighted.json
-PYTHONPATH=src python3 -m kenjaku export-decision-snapshots \
-  data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
-PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary runs/decision-snapshots.jsonl
+python3.13 -m pip install -e ".[dev]"
+PYTHONPATH=src python3.13 -m unittest discover -s tests
+PYTHONPATH=src python3.13 -m compileall -q src tests
+python3.13 -m ruff check .
+PYTHONPATH=src python3.13 -m kenjaku --version
 ```
 
-CLI commands accept one or more Tenhou XML files or directories. Keep real downloaded logs outside
-git, then point the CLI at those local paths. Reports and model artifacts belong under ignored
-local directories such as `runs/` and `models/`. `benchmark-discard` reports frequency,
-raw-count linear, shanten-aware linear, risk-context linear, defense-context linear, and
-defense-context-v1 linear baselines on the same deterministic split, including held-out error
-analysis by shanten impact, tile family, round phase, seat-relative turn phase, active opponent
-riichi, actual-discard genbutsu/suji/kabe/one-chance status, and pre/post-riichi visibility.
-Use `--l2` to apply linear-model L2 regularization, `--disagreements` to write local-only model
-disagreement diagnostics, `--models fast` to skip slower ablation anchors during iteration,
-`benchmark-report-summary` to compare ignored discard, call, and riichi benchmark reports, and
-`disagreement-report-summary` to aggregate, tag, filter, and render capped disagreement examples.
-`benchmark-call` provides supervised call/pass baselines on existing call examples, including
-selective `call-linear-v0` and richer additive `call-linear-v1` models plus imbalance-aware
-accuracy and recall metrics. `benchmark-call --models fast --example-limit N` runs a bounded call
-comparison path for larger local slices; use `--example-limit-strategy balanced` to keep a roughly
-even call/pass cap, `--profile-stages` to record stage timings, `--feature-cache PATH` to reuse
-prepared call features across repeated runs, and `--epochs 0` for report-only zero-update model
-smokes. Call and riichi reports include fixed-threshold calibrated policy variants, optional
-`--*-threshold-source train-best` calibrated variants, report-only threshold sweeps, and optional
-positive class-weighted comparison variants via `--include-weighted`; default `predict()` behavior
-is unchanged. `benchmark-riichi` provides conservative supervised riichi/pass reports for both the
-frequency floor and `riichi-linear-v0`.
-`export-decision-snapshots` writes ignored neutral JSONL rows for discard/call/riichi decision
-points, including stable `row_id` values and a minimal mjai-style event prefix for future offline
-baseline comparison. `decision-snapshot-summary` validates and counts those local JSONL snapshots.
-`decision-snapshot-compare` compares snapshot rows with prediction JSONL rows containing `row_id`
-and `predicted_action`.
+If you are working from this checkout without installing the package, keep `PYTHONPATH=src`.
 
-For continuation context, see `docs/session-handoff.md`.
+## Fixture Smokes
 
-## Data
+```bash
+PYTHONPATH=src python3.13 -m kenjaku inspect-tenhou data/fixtures/tenhou
 
-Raw game logs and derived training datasets are local-only. See `docs/data-policy.md` and
-`data/README.md` before adding fixtures or downloader scripts.
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
+  data/fixtures/tenhou --epochs 3 --models fast \
+  --report runs/fixture-discard-benchmark.json \
+  --disagreements runs/fixture-disagreements.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
+  data/fixtures/tenhou --models fast --example-limit 1 \
+  --example-limit-strategy balanced --profile-stages \
+  --feature-cache runs/fixture-call-feature-cache.json \
+  --call-threshold-source train-best \
+  --report runs/fixture-call-benchmark.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
+  data/fixtures/tenhou --riichi-threshold-source train-best \
+  --report runs/fixture-riichi-benchmark.json
+
+PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp \
+  data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
+  --report runs/fixture-discard-mlp.json
+```
+
+## Decision Snapshots
+
+Decision snapshots are the neutral interchange format for external baselines. They include stable
+`row_id` values, legal actions, observed actions, reconstruction fields, and a minimal mjai-style
+event prefix. Terminal outcome labels are opt-in to avoid leaking future information into inference
+snapshots.
+
+```bash
+PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
+  data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
+
+PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
+  runs/decision-snapshots.jsonl --strategy echo-actual \
+  --output runs/decision-predictions.jsonl
+
+PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-compare \
+  runs/decision-snapshots.jsonl runs/decision-predictions.jsonl
+```
+
+Stub prediction strategies are for protocol tests only. Real Mortal comparison should remain behind
+a subprocess/data boundary and requires legally usable weights.
+
+## Local Tenhou Data
+
+Raw game logs, exported XML, model artifacts, feature caches, and reports are local-only. Keep them
+under ignored paths such as `data/raw/`, `runs/`, and `models/`. Do not commit downloaded Tenhou
+logs or processed datasets that can reconstruct restricted source logs.
+
+The local runbook is in `docs/local-tenhou-eval.md`; data constraints are in `docs/data-policy.md`.
+
+Current useful local commands:
+
+```bash
+PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
+  data/raw/tenhou/xml/4p-hanchan-500 \
+  --eval-fraction 0.2 --split-seed tenhou-500-v0 \
+  --epochs 30 --learning-rate 0.05 \
+  --models call_linear_v1,call_linear_v1_calibrated,call_linear_v1_weighted \
+  --include-weighted --call-positive-weight 1.0 \
+  --example-limit 20000 \
+  --example-limit-strategy balanced --call-threshold-source train-best \
+  --profile-stages \
+  --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
+  --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
+  data/raw/tenhou/xml/4p-hanchan-500 \
+  --eval-fraction 0.2 --split-seed tenhou-500-v2 \
+  --riichi-threshold-source train-best \
+  --report runs/riichi-benchmark-tenhou-500-train-best-v2-report.json
+```
+
+## Prioritized Next Work
+
+1. Keep call/pass work focused on cache-safe scaling beyond the 20k balanced cap and on comparing
+   calibrated versus positive-weight policies.
+2. Keep `riichi_linear_calibrated` with train-best thresholds as the baseline. Fixed threshold
+   `0.25` improves riichi recall but is not the best balanced policy on the current 500-log splits.
+3. Use decision snapshot prediction producers for external-baseline protocol work; do not import
+   or copy AGPL baseline code.
+4. Use discard disagreement tags before adding another feature profile.
+5. Add richer supervised learning only after the PyTorch fixture path stays reproducible.

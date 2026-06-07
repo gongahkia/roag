@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cache
-from typing import Iterable
 
 SUITED_OFFSETS = {"m": 0, "p": 9, "s": 18}
 SUITED_RANGES = {

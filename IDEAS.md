@@ -262,10 +262,10 @@ This is well within "side project budget" territory.
 - [ ] Lock in project name and create the GitHub repo (private until launch)
 
 ### Phase 1 — Data and baseline (weeks 2-3)
-- [ ] Parse Tenhou logs into training format
-- [ ] Implement PyTorch Dataset + DataLoader
-- [ ] Train a simple MLP baseline on discard prediction to validate pipeline
-- [ ] Tile efficiency calculator (shanten counter)
+- [x] Parse Tenhou logs into supervised discard/call/riichi training formats
+- [x] Implement minimal PyTorch discard Dataset + DataLoader
+- [x] Train a simple masked-logit MLP baseline on discard prediction to validate pipeline
+- [x] Tile efficiency calculator (shanten counter)
 - [ ] Defense scorer (deal-in probability estimator)
 
 ### Phase 2 — Architecture (weeks 4-6)
@@ -464,25 +464,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Fix call-v1 training/calibration on balanced call/pass caps. The corrected 500-log balanced
-   10k diagnostic now runs quickly with feature caching, but the 5-epoch v1 model collapses to
-   pass-only on that roughly even slice. Try higher epochs, learning-rate sweeps, and/or positive
-   weighting on the cached balanced cap before treating larger call policy metrics as meaningful.
-2. Use the call feature cache for larger call experiments. The first balanced 10k run spent about
-   37.8s in v1 feature preparation and 77.9s wall-clock total; the cache-hit repeat dropped to
-   about 10.6s. The remaining uncapped challenge is full-example memory/runtime and training
-   quality, not just repeated feature prep.
-3. Treat train-selected riichi threshold 0.25 as the current riichi policy baseline to harden. On
-   500-log splits `tenhou-500-v0` and `tenhou-500-v1`, train-best selected 0.25 and
-   `riichi_linear_calibrated` scored 0.6534 and 0.6495 balanced eval accuracy respectively.
-4. Build an actual external-baseline prediction producer for `decision-snapshot-compare` through a
-   subprocess/data-layer boundary only when weights are available and legally usable. The neutral
-   row format and comparator exist; the missing piece is external inference.
+1. Reduce large-slice call runtime by caching or serializing reconstructed examples before feature
+   preparation. Balanced call training no longer collapses on 10k/20k caps, but parse/reconstruct
+   still repeats every run.
+2. Compare the 10k best weighted call policy against the 20k calibrated policy under the same cap
+   and split before selecting a default call report policy.
+3. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
+   loses pass recall and is not the balanced baseline on the latest 500-log split checks.
+4. Keep external-baseline work at the neutral prediction protocol. Stub producers exist for tests;
+   real Mortal inference still requires legally usable weights and a subprocess/data boundary.
 5. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-6. Add feature normalization behind a new discard model kind only if tagged examples or weight
-   summaries point to linear scale instability; do not mutate existing feature profiles.
+6. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
+   larger discard neural model.
 
 ---
 
@@ -807,5 +802,37 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Re-ran the 500-log riichi benchmark on split `tenhou-500-v1` with train-best calibration. The
   train sweep again selected threshold 0.25; `riichi_linear_calibrated` scored 0.6420 eval
   accuracy, 0.6495 balanced eval accuracy, 0.6204 pass recall, and 0.6785 riichi recall. This
-  supports using 0.25 train-best as the current riichi policy baseline while broader validation
-  continues.
+  initially supported checking 0.25 further, but later 500-log seed validation superseded it in
+  favor of train-best thresholds rather than a fixed 0.25 policy.
+- Refreshed `README.md` to describe the repo as implemented: tested Tenhou parsing,
+  discard/call/riichi supervised baselines, local-only reports, neutral decision snapshots, the
+  PyTorch discard MLP smoke path, and current blockers.
+- Narrowed package support to Python `>=3.11,<3.14`, made `torch` a core dependency, added a `dev`
+  extra with `ruff`, and added GitHub Actions CI for Python 3.11, 3.12, and 3.13 running install,
+  unittest, compileall, and ruff.
+- Changed balanced call limiting from grouped calls-then-passes to deterministic call/pass
+  interleaving and added tests proving exact caps plus cache-signature invalidation when selected
+  order changes.
+- Added `produce-decision-predictions` as a protocol-level stub producer for snapshot JSONL. It
+  supports `pass`, `first-legal`, and `echo-actual` strategies for comparator tests only; real
+  Mortal inference remains blocked on legally usable weights and a subprocess/data boundary.
+- Extended Tenhou terminal parsing for `AGARI` and `RYUUKYOKU` `sc` score-change fields and added
+  outcome helpers exposing per-seat score deltas plus win, deal-in, and draw flags. Decision
+  snapshots remain inference-safe by default; outcome labels require `--include-outcome`.
+- Added `train-discard-mlp`, a minimal PyTorch masked-logit discard baseline over normalized
+  hand-count and visible-count tensors with deterministic seed, CPU/MPS/CUDA/auto device selection,
+  JSON reports, and fixture smoke tests.
+- Reran the real 500-log balanced call grid over epochs `{5,15,30}`, learning rates
+  `{0.1,0.05,0.02}`, and positive weights `{1.0,1.5,2.0}` with explicit weighted reports and v1
+  feature cache hits. Best train-selected calibrated 10k policy: 30 epochs, LR 0.05, threshold
+  0.40, eval balanced accuracy 0.7558, pass recall 0.7404, call recall 0.7713. Best weighted
+  comparison: 30 epochs, LR 0.1, weight 2.0, balanced 0.7601, pass recall 0.7687, call recall
+  0.7515.
+- Scaled the call check to a 20k balanced cap after 10k no longer collapsed. The 20k cache-build
+  run spent 267.5774s in `feature_prepare_v1`; the cache-hit rerun loaded features in 0.7491s.
+  The 20k train-selected calibrated policy selected threshold 0.50 and scored 0.7289 balanced eval
+  accuracy, 0.6979 pass recall, and 0.7598 call recall.
+- Rechecked riichi on 500-log split seeds `tenhou-500-v0` through `tenhou-500-v3`. Train-best
+  thresholds were 0.35, 0.45, 0.35, and 0.40 with balanced eval accuracy 0.6737, 0.6608, 0.6738,
+  and 0.6533. Fixed threshold 0.25 raised riichi recall but hurt pass recall and balanced accuracy
+  on most splits, so it is no longer the current balanced baseline.

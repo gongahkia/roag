@@ -7,7 +7,6 @@ from kenjaku.core import Tile, TileType
 from kenjaku.io import parse_tenhou_xml, parse_tenhou_xml_file
 from kenjaku.training import iter_discard_examples
 
-
 FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
 
 

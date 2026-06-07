@@ -321,7 +321,7 @@ class CallLinearModel:
         prepared_examples = self.prepare_examples(examples)
         correct = sum(
             self.predict_prepared(prepared) == example.action.kind
-            for example, prepared in zip(examples, prepared_examples)
+            for example, prepared in zip(examples, prepared_examples, strict=True)
         )
         return correct / len(examples)
 
@@ -370,7 +370,10 @@ def _features_for_candidate(
     features: list[float] = [1.0]
     features.extend(1.0 if kind == candidate else 0.0 for candidate in CALL_DECISION_KINDS)
     features.extend(1.0 if index == discarded_index else 0.0 for index in range(34))
-    features.extend(1.0 if call_kind in example.legal_call_kinds else 0.0 for call_kind in _NON_PASS_CALL_KINDS)
+    features.extend(
+        1.0 if call_kind in example.legal_call_kinds else 0.0
+        for call_kind in _NON_PASS_CALL_KINDS
+    )
     features.append(len(example.legal_call_kinds) / len(_NON_PASS_CALL_KINDS))
     features.extend(count / 4.0 for count in example.hand_counts)
     features.extend(count / 4.0 for count in example.visible_counts)
@@ -632,7 +635,7 @@ def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
     total = 0.0
-    for weight, feature in zip(weights, features):
+    for weight, feature in zip(weights, features, strict=True):
         if feature:
             total += weight * feature
     return total

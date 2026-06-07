@@ -6,7 +6,6 @@ from pathlib import Path
 from kenjaku.core import ActionKind, Tile
 from kenjaku.io import (
     TenhouAgari,
-    TenhouCall,
     TenhouDiscard,
     TenhouDraw,
     TenhouReach,
@@ -15,7 +14,6 @@ from kenjaku.io import (
     parse_tenhou_xml_file,
     tenhou_tile,
 )
-
 
 FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
 EVENTS_FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
@@ -122,6 +120,26 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(agari.dora_indicators, (Tile.parse("1s"),))
         self.assertEqual(agari.ura_dora_indicators, (Tile.parse("1s"),))
 
+    def test_parse_agari_score_deltas(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="250,250,250,250"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
+              />
+              <AGARI who="2" fromWho="1" sc="250,0,230,-20,270,20,250,0" />
+            </mjloggm>
+            """
+        )
+
+        self.assertEqual(game.rounds[0].agari[0].score_deltas, (0, -2000, 2000, 0))
+
     def test_parse_ryuukyoku_event(self) -> None:
         game = parse_tenhou_xml_file(RYUUKYOKU_FIXTURE)
         round_ = game.rounds[0]
@@ -135,6 +153,26 @@ class TenhouXmlTests(unittest.TestCase):
             ),
         )
         self.assertIsInstance(round_.events[0], TenhouRyuukyoku)
+
+    def test_parse_ryuukyoku_score_deltas(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="250,250,250,250"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
+              />
+              <RYUUKYOKU sc="260,10,240,-10,260,10,240,-10" />
+            </mjloggm>
+            """
+        )
+
+        self.assertEqual(game.rounds[0].ryuukyoku.score_deltas, (1000, -1000, 1000, -1000))
 
 
 if __name__ == "__main__":

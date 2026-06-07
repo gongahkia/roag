@@ -17,7 +17,10 @@ class CallFrequencyModelTests(unittest.TestCase):
         model = CallFrequencyBaseline.fit(examples)
 
         self.assertEqual(model.kind, "call-frequency-v0")
-        self.assertEqual(model.predict(_example((ActionKind.PON,), Action.pass_())), ActionKind.PASS)
+        self.assertEqual(
+            model.predict(_example((ActionKind.PON,), Action.pass_())),
+            ActionKind.PASS,
+        )
 
     def test_legal_frequency_baseline_prefers_legal_non_pass_call(self) -> None:
         examples = [

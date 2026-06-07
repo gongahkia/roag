@@ -6,7 +6,6 @@ from tempfile import TemporaryDirectory
 
 from kenjaku.io import parse_tenhou_xml_dataset, parse_tenhou_xml_paths, tenhou_xml_files
 
-
 FIXTURE_DIR = Path("data/fixtures/tenhou")
 MINIMAL_FIXTURE = FIXTURE_DIR / "minimal_4p.xml"
 EVENTS_FIXTURE = FIXTURE_DIR / "events_4p.xml"
@@ -48,9 +47,8 @@ class TenhouDatasetTests(unittest.TestCase):
                 parse_tenhou_xml_dataset([broken])
 
     def test_rejects_empty_directories(self) -> None:
-        with TemporaryDirectory() as directory:
-            with self.assertRaises(ValueError):
-                parse_tenhou_xml_paths([Path(directory)])
+        with TemporaryDirectory() as directory, self.assertRaises(ValueError):
+            parse_tenhou_xml_paths([Path(directory)])
 
 
 if __name__ == "__main__":

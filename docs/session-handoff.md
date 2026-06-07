@@ -4,11 +4,11 @@ Last updated: 2026-06-06.
 
 ## Stop State
 
-- Last work slice: added call profiling/cache controls, corrected balanced call-example caps,
-  stable decision snapshot `row_id` values, `decision-snapshot-compare`, a corrected 500-log
-  balanced call diagnostic, and a second 500-log riichi train-best split. Uncapped 500-log call
-  training remains expensive, but the sharper blocker is now call-v1 training quality on balanced
-  call/pass caps.
+- Last work slice: refreshed README/docs, narrowed Python support to `>=3.11,<3.14`, added
+  PyTorch as a core dependency, added GitHub Actions CI, fixed balanced call limiting to
+  deterministic call/pass interleaving, added stub decision prediction production, added opt-in
+  outcome labels, added a minimal PyTorch discard MLP, and reran local aggregate call/riichi checks
+  on the ignored 500-log Tenhou slice.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -48,8 +48,10 @@ Last updated: 2026-06-06.
   report-only call/pass threshold calibration sweeps, and `--include-weighted` adds
   `call_linear_v1_weighted` trained with `--call-positive-weight`. `benchmark-call --models`
   accepts `all`, `fast`, or comma-separated names; `fast` runs frequency, legal-frequency,
-  `call_linear_v1`, and `call_linear_v1_calibrated`. `--example-limit N` keeps bounded large-slice
-  iteration practical. `--example-limit-strategy prefix|balanced` selects either a deterministic
+  `call_linear_v1`, and `call_linear_v1_calibrated`. For weighted sweeps, use `all` with
+  `--include-weighted` or explicitly include `call_linear_v1_weighted`; `fast` intentionally omits
+  it. `--example-limit N` keeps bounded large-slice iteration practical.
+  `--example-limit-strategy prefix|balanced` selects either a deterministic
   prefix or a roughly even call/pass cap. `--profile-stages` records stage timings,
   `--feature-cache PATH` reuses prepared call features across repeated runs, `--epochs 0` supports
   zero-update report smokes, and `--call-threshold-source train-best` uses the train split threshold
@@ -72,6 +74,13 @@ Last updated: 2026-06-06.
 - `decision-snapshot-compare` compares snapshot JSONL against prediction JSONL rows containing
   `row_id` and `predicted_action`, reporting exact-action accuracy by decision type plus binary
   call/riichi metrics and missing/malformed/duplicate prediction counts.
+- `produce-decision-predictions` writes protocol-test prediction JSONL with `pass`, `first-legal`,
+  or `echo-actual` stub strategies. It is not real Mortal inference.
+- `export-decision-snapshots --include-outcome` adds terminal score-delta/win/deal-in/draw labels
+  parsed from Tenhou `sc` fields. Default snapshots intentionally omit outcome labels.
+- `train-discard-mlp` trains a small PyTorch masked-logit discard MLP over normalized hand and
+  visible-count tensors. It supports deterministic seeds, CPU/MPS/CUDA/auto device selection, and
+  JSON reports.
 
 ## Working Rules
 
@@ -86,8 +95,8 @@ Last updated: 2026-06-06.
   `runs/`, and `models/`.
 - Live ladder automation remains out of scope unless a platform gives explicit permission. The
   project is a replay-analysis and research toolkit.
-- Prefer simple, tested, dependency-free code until there is a clear reason to add heavier ML
-  dependencies.
+- PyTorch is now a core dependency for the supervised-learning path. Keep non-ML command imports
+  lazy where practical so source checkouts remain usable before installation.
 
 ## Implicit Assumptions
 
@@ -123,10 +132,13 @@ Last updated: 2026-06-06.
 - `--example-limit-strategy balanced` is a deterministic roughly even call/pass cap for diagnostics,
   not a natural distribution sample. Metrics from balanced caps should not be compared directly to
   prefix or uncapped reports.
+- Balanced call limiting now interleaves selected call and pass examples. Cache signatures include
+  selected order, so the v1 cache path must change after any selection-order change.
 - Riichi examples are conservative supervised decision points, not complete riichi legality. Negative
   examples require closed tenpai by the existing closed-hand shanten proxy and sufficient score.
-- `riichi-linear-v0` fixes riichi recall but overcalls riichi on the current 100-log split. Treat
-  calibration as the next riichi task before adding more features.
+- `riichi-linear-v0` fixes riichi recall but needs threshold calibration. On the current 500-log
+  checks, train-best calibrated thresholds beat fixed `0.25` on balanced accuracy; fixed `0.25`
+  is useful as a high-riichi-recall comparison, not as the baseline.
 - Threshold sweeps use thresholds 0.00 through 1.00 in 0.05 steps and choose the best threshold by
   balanced accuracy, then target recall, then lower threshold. Calibrated report variants default
   to fixed policy thresholds from the 100-log `tenhou-100-v0` sweep, but
@@ -168,6 +180,11 @@ runs/call-benchmark-tenhou-500-fast-limit5000-epochs5-train-best-v0-report.json
 runs/call-features-tenhou-500-fast-balanced-limit10000-v0.json
 runs/call-benchmark-tenhou-500-fast-balanced-limit10000-epochs5-train-best-v0-report.json
 runs/call-benchmark-tenhou-500-fast-balanced-limit10000-epochs5-train-best-v0-cachehit-report.json
+runs/call-features-tenhou-500-fast-balanced-limit10000-v1.json
+runs/call-benchmark-tenhou-500-balanced-limit10000-e30-lr0.05-w1.0-weighted-v1-report.json
+runs/call-features-tenhou-500-balanced-limit20000-v1.json
+runs/call-benchmark-tenhou-500-balanced-limit20000-e30-lr0.05-w1.0-weighted-v1-report.json
+runs/call-benchmark-tenhou-500-balanced-limit20000-e30-lr0.05-w1.0-weighted-v1-cachehit-report.json
 runs/riichi-benchmark-tenhou-100-v0-report.json
 runs/riichi-benchmark-tenhou-100-v1-report.json
 runs/riichi-benchmark-tenhou-100-v2-report.json
@@ -175,6 +192,9 @@ runs/riichi-benchmark-tenhou-100-v3-report.json
 runs/riichi-benchmark-tenhou-500-v0-report.json
 runs/riichi-benchmark-tenhou-500-train-best-v0-report.json
 runs/riichi-benchmark-tenhou-500-train-best-v1-report.json
+runs/riichi-benchmark-tenhou-500-train-best-tenhou-500-v*.json
+runs/riichi-benchmark-tenhou-500-fixed025-tenhou-500-v*.json
+runs/fixture-discard-mlp.json
 runs/fixture-decision-snapshots.jsonl
 runs/fixture-decision-predictions.jsonl
 runs/decision-snapshots-local.jsonl
@@ -191,6 +211,7 @@ Do not commit those paths. Record only aggregate counts and metrics in docs.
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 PYTHONPATH=src python3 -m compileall -q src tests
+python3 -m ruff check .
 PYTHONPATH=src python3 -m kenjaku benchmark-discard data/fixtures/tenhou \
   --epochs 1 --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --l2 0.0001 --report runs/fixture-benchmark-diagnostics.json \
@@ -204,19 +225,17 @@ PYTHONPATH=src python3 -m kenjaku export-decision-snapshots data/fixtures/tenhou
   --output runs/fixture-decision-snapshots.jsonl --limit 5
 PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary \
   runs/fixture-decision-snapshots.jsonl
-python3 - <<'PY'
-import json
-from pathlib import Path
-snapshots = Path("runs/fixture-decision-snapshots.jsonl")
-predictions = Path("runs/fixture-decision-predictions.jsonl")
-with snapshots.open(encoding="utf-8") as source, predictions.open("w", encoding="utf-8") as target:
-    for line in source:
-        row = json.loads(line)
-        target.write(json.dumps({"row_id": row["row_id"], "predicted_action": row["actual_action"]}) + "\n")
-PY
+PYTHONPATH=src python3 -m kenjaku produce-decision-predictions \
+  runs/fixture-decision-snapshots.jsonl \
+  --strategy echo-actual \
+  --output runs/fixture-decision-predictions.jsonl
 PYTHONPATH=src python3 -m kenjaku decision-snapshot-compare \
   runs/fixture-decision-snapshots.jsonl \
   runs/fixture-decision-predictions.jsonl
+PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/fixtures/tenhou \
+  --epochs 1 --batch-size 2 --hidden-dim 8 --device cpu \
+  --eval-fraction 0.25 --split-seed fixed --seed 123 \
+  --report runs/fixture-discard-mlp.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
@@ -276,15 +295,18 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   data/raw/tenhou/xml/4p-hanchan-500 \
   --eval-fraction 0.2 \
   --split-seed tenhou-500-v0 \
-  --epochs 5 \
+  --epochs 30 \
+  --learning-rate 0.05 \
   --skip-errors \
-  --models fast \
-  --example-limit 10000 \
+  --models call_linear_v1,call_linear_v1_calibrated,call_linear_v1_weighted \
+  --include-weighted \
+  --call-positive-weight 1.0 \
+  --example-limit 20000 \
   --example-limit-strategy balanced \
   --call-threshold-source train-best \
   --profile-stages \
-  --feature-cache runs/call-features-tenhou-500-fast-balanced-limit10000-v0.json \
-  --report runs/call-benchmark-tenhou-500-fast-balanced-limit10000-epochs5-train-best-v0-report.json \
+  --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
+  --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-command "houou-logs export data/raw/tenhou/db/current-year.db data/raw/tenhou/xml/4p-hanchan-500 --players 4 --length h --limit 500" \
   --source-date 2026-current-year
@@ -463,61 +485,40 @@ Riichi benchmark, 100-log local slice, split `tenhou-100-v0`:
   gives a much healthier tradeoff than raw argmax prediction or simple positive weighting. Do not
   add riichi features before confirming this calibrated policy on a larger local slice.
 
-Riichi benchmark, 500-log local slice, split `tenhou-500-v0`:
+Riichi benchmark, 500-log local slice, split-seed checks:
 
-- Dataset: 10,249 conservative riichi/pass examples; 8,199 train / 2,050 eval.
-- `riichi-frequency-v0` scored 0.6420 eval accuracy, 0.5000 balanced eval accuracy, 1.0000 pass
-  recall, and 0.0000 riichi recall.
-- `riichi-linear-v0` scored 0.6712 eval accuracy, 0.6337 balanced eval accuracy, 0.7660 pass
-  recall, and 0.5014 riichi recall.
-- Fixed-threshold `riichi_linear_calibrated` at 0.95 did not transfer: 0.6502 eval accuracy,
-  0.5143 balanced eval accuracy, 0.9932 pass recall, and only 0.0354 riichi recall.
-- Train-selected `riichi_linear_calibrated` chose threshold 0.25 and scored 0.6293 eval accuracy,
-  0.6534 balanced eval accuracy, 0.5684 pass recall, and 0.7384 riichi recall. This is the best
-  current report-policy tradeoff on the 500-log slice.
-- `riichi_linear_weighted` at positive class weight 2.0 scored 0.6434 eval accuracy, 0.6412
-  balanced eval accuracy, 0.6489 pass recall, and 0.6335 riichi recall.
-- The unweighted riichi threshold sweep picked 0.20 on eval with binary balanced accuracy 0.6606,
-  riichi precision 0.4827, riichi recall 0.7984, and pass recall 0.5228.
-
-Riichi benchmark, 500-log local slice, split `tenhou-500-v1`:
-
-- Dataset shape remained 10,249 conservative riichi/pass examples; 8,199 train / 2,050 eval.
-- `riichi-frequency-v0` scored 0.6298 eval accuracy, 0.5000 balanced eval accuracy, 1.0000 pass
-  recall, and 0.0000 riichi recall.
-- `riichi-linear-v0` scored 0.6727 eval accuracy, 0.6248 balanced eval accuracy, 0.8095 pass
-  recall, and 0.4401 riichi recall.
-- Train-selected `riichi_linear_calibrated` again chose threshold 0.25 and scored 0.6420 eval
-  accuracy, 0.6495 balanced eval accuracy, 0.6204 pass recall, and 0.6785 riichi recall.
-- `riichi_linear_weighted` at positive class weight 2.0 scored 0.6507 eval accuracy, 0.6247
-  balanced eval accuracy, 0.7250 pass recall, and 0.5244 riichi recall.
-- The unweighted eval diagnostic best stayed at threshold 0.20 with binary balanced accuracy
-  0.6508.
+- Dataset shape: 10,249 conservative riichi/pass examples per split; 8,199 train / 2,050 eval.
+- Train-best `riichi_linear_calibrated` thresholds across seeds `tenhou-500-v0` through
+  `tenhou-500-v3`: 0.35, 0.45, 0.35, 0.40.
+- Train-best balanced eval accuracy by seed: 0.6737, 0.6608, 0.6738, 0.6533.
+- Train-best riichi/pass recall by seed: 0.7548/0.5927, 0.6601/0.6615, 0.6970/0.6507,
+  0.7015/0.6051.
+- Fixed threshold 0.25 across the same seeds raised riichi recall but weakened pass recall:
+  balanced eval accuracy 0.6732, 0.6401, 0.6690, 0.6406; riichi recall 0.8624, 0.8379, 0.7997,
+  0.8426; pass recall 0.4840, 0.4423, 0.5383, 0.4387.
+- Conclusion: keep train-best `riichi_linear_calibrated` as the current baseline. Fixed 0.25 is a
+  high-riichi-recall comparison, not the balanced baseline.
 
 Call benchmark, 500-log local slice:
 
-- `data/raw/tenhou/xml/4p-hanchan-500` was exported successfully, but
-  `benchmark-call --include-weighted` was still CPU-active after more than an hour and was stopped
-  before writing `runs/call-benchmark-tenhou-500-v0-report.json`.
-- The uncapped fast run,
-  `benchmark-call --models fast --call-threshold-source train-best`, was still CPU-active after
-  about five minutes and was stopped before writing
-  `runs/call-benchmark-tenhou-500-fast-train-best-v0-report.json`.
-- A bounded run with `--example-limit 5000` and `--epochs 5` completed on 5,000 of 69,013 call
-  examples. `call_linear_v1` scored 0.8760 eval accuracy, 0.5468 balanced eval accuracy, 0.9965
-  pass recall, and 0.0970 call recall. Train-best `call_linear_v1_calibrated` selected threshold
-  0.05 and scored 0.7910 eval accuracy, 0.6428 balanced eval accuracy, 0.8453 pass recall, and
-  0.4403 call recall.
-- After correcting `--example-limit-strategy balanced` to reserve both classes, the 10,000-example
-  balanced cap had 8,000 train / 2,000 eval examples. The first profiled run spent 37.7599s in
-  `feature_prepare_v1` and 77.88s wall-clock total; the cache-hit repeat used
-  `feature_cache_hits: v1`, skipped feature preparation, and finished in 10.63s wall-clock.
-- On that balanced 10,000-example cap, `call_linear_v1` collapsed to pass-only after 5 epochs:
-  0.5125 eval accuracy, 0.5000 balanced eval accuracy, 1.0000 pass recall, and 0.0000 call recall.
-  Train-best `call_linear_v1_calibrated` selected threshold 0.05 but had the same eval behavior.
-- Treat uncapped large-slice call calibration as both a runtime and training-quality problem. Use
-  cached balanced caps for learning-rate/epoch/weight sweeps before trusting larger call policy
-  gates.
+- Source examples: 69,013 call/pass examples.
+- Balanced 10k cap after deterministic call/pass interleaving: 8,000 train / 2,000 eval. Initial
+  v1 cache build spent 377.2313s in `feature_prepare_v1`; weighted-grid cache-hit loads were
+  0.3100-0.3914s.
+- Full 10k grid over epochs `{5,15,30}`, learning rates `{0.1,0.05,0.02}`, and positive weights
+  `{1.0,1.5,2.0}` produced 27 explicit weighted reports.
+- Best train-selected calibrated policy on 10k: 30 epochs, LR 0.05, train-selected threshold 0.40,
+  eval accuracy 0.7560, balanced eval accuracy 0.7558, pass recall 0.7404, call recall 0.7713.
+- Best weighted comparison on 10k: 30 epochs, LR 0.1, positive weight 2.0, eval accuracy 0.7600,
+  balanced eval accuracy 0.7601, pass recall 0.7687, call recall 0.7515.
+- Since 10k no longer collapsed, the next 20k cap was run with 30 epochs / LR 0.05 / weight 1.0.
+  Initial 20k cache build spent 267.5774s in `feature_prepare_v1`; the cache-hit rerun loaded v1
+  features in 0.7491s.
+- 20k calibrated result: 16,000 train / 4,000 eval, train-selected threshold 0.50, eval accuracy
+  0.7290, balanced eval accuracy 0.7289, pass recall 0.6979, call recall 0.7598.
+- Conclusion: balanced call training is no longer pass-only after the interleaving fix and longer
+  training. The next blocker is scaling beyond 20k or uncapped without repeated parse/reconstruct
+  cost, not basic call recall collapse.
 
 Mortal local baseline reconnaissance:
 
@@ -531,20 +532,15 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Fix call-v1 training/calibration on cached balanced caps. The corrected 10k balanced diagnostic
-   runs quickly on cache hits, but 5-epoch v1 collapses to pass-only. Try higher epochs, learning
-   rate sweeps, and positive class weights on
-   `runs/call-features-tenhou-500-fast-balanced-limit10000-v0.json` before using larger call policy
-   gates.
-2. Scale call cache experiments carefully. The first balanced 10k run shows feature prep is still a
-   major one-time cost, while the cache-hit repeat is fast. The next runtime target is uncapped or
-   larger balanced caps without breaking memory or cache correctness.
-3. Harden the riichi train-best policy baseline. Splits `tenhou-500-v0` and `tenhou-500-v1` both
-   selected threshold 0.25 and scored about 0.65 balanced eval accuracy; validate on a larger slice
-   before adding riichi features.
-4. Build an external-baseline prediction producer for `decision-snapshot-compare` through a neutral
-   subprocess/data-layer boundary only when weights are available and legally usable.
+1. Reduce large-slice call runtime by caching or serializing reconstructed examples before feature
+   preparation. The 20k feature cache works, but parse/reconstruct still repeats every run.
+2. Compare the 10k best weighted policy against the 20k calibrated policy with the same cap and
+   seed before selecting a default call report policy.
+3. Keep riichi on train-best calibration for now. Do not add riichi features until a concrete
+   failure mode appears beyond the fixed-0.25 recall/pass-recall tradeoff.
+4. Use the stub prediction producer only for protocol tests. Real Mortal inference still requires
+   legally usable weights and a subprocess/data boundary.
 5. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
    and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
-6. Add feature normalization only behind a new discard model kind if tagged examples or weight
-   summaries point to scale instability; do not mutate existing feature profiles.
+6. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
+   larger discard neural model.

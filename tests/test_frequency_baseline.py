@@ -8,7 +8,6 @@ from kenjaku.io import parse_tenhou_xml_file
 from kenjaku.models import DiscardFrequencyBaseline
 from kenjaku.training import iter_discard_examples
 
-
 FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
 
 

@@ -135,7 +135,9 @@ class CallLinearModelTests(unittest.TestCase):
         probabilities = model.probabilities_for_example(
             _example(discarded="3m", legal_call_kinds=(ActionKind.CHI,))
         )
-        logits = model.logits_for_example(_example(discarded="3m", legal_call_kinds=(ActionKind.CHI,)))
+        logits = model.logits_for_example(
+            _example(discarded="3m", legal_call_kinds=(ActionKind.CHI,))
+        )
 
         self.assertEqual(set(probabilities), {ActionKind.PASS, ActionKind.CHI})
         self.assertEqual(set(logits), {ActionKind.PASS, ActionKind.CHI})

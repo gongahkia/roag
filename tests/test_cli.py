@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import io
 import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.cli import _limit_call_examples, main
+from kenjaku.cli import _call_examples_signature, _limit_call_examples, main
 from kenjaku.core import Action, ActionKind, Tile
 from kenjaku.training import CallExample
 
@@ -139,6 +140,37 @@ class CliTests(unittest.TestCase):
         self.assertIn(rows[0]["decision_type"], {"discard", "call", "riichi"})
         self.assertIn("actual_action", rows[0])
         self.assertIn("legal_actions", rows[0])
+        self.assertNotIn("terminal_outcome", rows[0])
+
+    def test_export_decision_snapshots_can_include_outcome_labels(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "call-snapshots.jsonl"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou/events_4p.xml",
+                        "--decision-types",
+                        "call",
+                        "--include-outcome",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["terminal_outcome"]["kind"], "agari")
+        self.assertEqual(rows[0]["terminal_outcome"]["winner_seats"], [2])
+        self.assertEqual(rows[0]["terminal_outcome"]["from_seats"], [1])
+        self.assertIsNone(rows[0]["terminal_outcome"]["score_deltas"])
+        self.assertIn("snapshots: 1", stdout.getvalue())
 
     def test_export_decision_snapshots_filters_types(self) -> None:
         stdout = io.StringIO()
@@ -299,6 +331,53 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["malformed_prediction_rows"], 1)
         self.assertEqual(payload["overall"]["correct"], 4)
 
+    def test_produce_decision_predictions_echo_actual_round_trips(self) -> None:
+        with TemporaryDirectory() as directory:
+            snapshots = Path(directory) / "snapshots.jsonl"
+            predictions = Path(directory) / "predictions.jsonl"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(snapshots),
+                        "--limit",
+                        "5",
+                    ]
+                )
+
+            producer_stdout = io.StringIO()
+            with contextlib.redirect_stdout(producer_stdout):
+                producer_exit_code = main(
+                    [
+                        "produce-decision-predictions",
+                        str(snapshots),
+                        "--strategy",
+                        "echo-actual",
+                        "--output",
+                        str(predictions),
+                    ]
+                )
+
+            compare_stdout = io.StringIO()
+            with contextlib.redirect_stdout(compare_stdout):
+                compare_exit_code = main(
+                    ["decision-snapshot-compare", str(snapshots), str(predictions)]
+                )
+            prediction_rows = [
+                json.loads(line)
+                for line in predictions.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(producer_exit_code, 0)
+        self.assertIn("strategy: echo-actual", producer_stdout.getvalue())
+        self.assertIn("predictions: 5", producer_stdout.getvalue())
+        self.assertEqual(compare_exit_code, 0)
+        self.assertIn("overall_accuracy: 1.0000", compare_stdout.getvalue())
+        self.assertTrue(all("row_id" in row for row in prediction_rows))
+        self.assertTrue(all("predicted_action" in row for row in prediction_rows))
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 
@@ -411,6 +490,56 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["parse_failures"]["count"], 0)
         self.assertEqual(payload["artifacts"]["model_path"], str(output))
         self.assertIn("report_path:", stdout.getvalue())
+
+    def test_train_discard_mlp_fixture_smoke_writes_report_artifact(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "mlp.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "train-discard-mlp",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--batch-size",
+                        "2",
+                        "--hidden-dim",
+                        "8",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-mlp",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("device: cpu", stdout.getvalue())
+        self.assertIn("report_path:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-mlp-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-mlp")
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["split"]["train_examples"], 3)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(payload["model"]["kind"], "discard-mlp-v0")
+        self.assertEqual(payload["model"]["input_dim"], 68)
+        self.assertEqual(payload["model"]["hidden_dim"], 8)
+        self.assertEqual(payload["training"]["device"], "cpu")
+        self.assertEqual(payload["training"]["seed"], 123)
+        self.assertEqual(payload["metrics"]["train"]["examples"], 3)
+        self.assertEqual(payload["metrics"]["eval"]["examples"], 1)
 
     def test_benchmark_discard_writes_report_artifact(self) -> None:
         stdout = io.StringIO()
@@ -1172,7 +1301,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("train_signature", cache_payload["cache_key"])
         self.assertIn("eval_signature", cache_payload["cache_key"])
 
-    def test_balanced_call_example_limit_keeps_non_pass_examples_first(self) -> None:
+    def test_balanced_call_example_limit_interleaves_non_pass_and_pass_examples(self) -> None:
         tile = Tile.parse("1p")
 
         def example(index: int, action: Action) -> CallExample:
@@ -1206,7 +1335,37 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(
             [example.action.kind for example in selected],
-            [ActionKind.PON, ActionKind.PON, ActionKind.PASS, ActionKind.PASS],
+            [ActionKind.PON, ActionKind.PASS, ActionKind.PON, ActionKind.PASS],
+        )
+
+    def test_call_examples_signature_changes_when_order_changes(self) -> None:
+        tile = Tile.parse("1p")
+
+        def example(index: int, action: Action) -> CallExample:
+            return CallExample(
+                round_index=0,
+                event_index=index,
+                call_event_index=index if action.kind != ActionKind.PASS else None,
+                seat=1,
+                from_seat=0,
+                dealer=0,
+                scores=(25000, 25000, 25000, 25000),
+                discarded_tile=tile,
+                legal_call_kinds=(ActionKind.PON,),
+                hand_counts=(0,) * 34,
+                visible_counts=(0,) * 34,
+                action=action,
+            )
+
+        examples = [
+            example(0, Action(ActionKind.PON, tile.type)),
+            example(1, Action.pass_()),
+            example(2, Action(ActionKind.PON, tile.type)),
+        ]
+
+        self.assertNotEqual(
+            _call_examples_signature(examples),
+            _call_examples_signature(tuple(reversed(examples))),
         )
 
     def test_benchmark_call_models_rejects_unknown_name(self) -> None:

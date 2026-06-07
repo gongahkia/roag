@@ -46,7 +46,24 @@ class ShantenTests(unittest.TestCase):
         self.assertEqual(shanten(complete), -1)
 
     def test_shanten_for_tiles_accepts_tiles(self) -> None:
-        tiles = [Tile.parse(token) for token in "1m 2m 3m 1p 2p 3p E E E 4s 5s 6s 7m".split()]
+        tiles = [
+            Tile.parse(token)
+            for token in [
+                "1m",
+                "2m",
+                "3m",
+                "1p",
+                "2p",
+                "3p",
+                "E",
+                "E",
+                "E",
+                "4s",
+                "5s",
+                "6s",
+                "7m",
+            ]
+        ]
 
         self.assertEqual(shanten_for_tiles(tiles), 0)
 

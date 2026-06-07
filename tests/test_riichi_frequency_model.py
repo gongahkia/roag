@@ -10,7 +10,11 @@ from kenjaku.training import RiichiExample
 class RiichiFrequencyModelTests(unittest.TestCase):
     def test_frequency_baseline_can_choose_pass_or_riichi(self) -> None:
         pass_heavy = RiichiFrequencyBaseline.fit(
-            [_example(Action.pass_()), _example(Action.pass_()), _example(Action(ActionKind.RIICHI))]
+            [
+                _example(Action.pass_()),
+                _example(Action.pass_()),
+                _example(Action(ActionKind.RIICHI)),
+            ]
         )
         riichi_heavy = RiichiFrequencyBaseline.fit(
             [_example(Action(ActionKind.RIICHI)), _example(Action(ActionKind.RIICHI))]

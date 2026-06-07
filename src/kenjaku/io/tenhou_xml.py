@@ -57,6 +57,7 @@ class TenhouAgari:
     event_index: int
     machi: Tile | None = None
     points: tuple[int, ...] | None = None
+    score_deltas: tuple[int, ...] | None = None
     yaku: tuple[int, ...] = ()
     dora_indicators: tuple[Tile, ...] = ()
     ura_dora_indicators: tuple[Tile, ...] = ()
@@ -67,6 +68,7 @@ class TenhouRyuukyoku:
     event_index: int
     reason: str | None = None
     scores: tuple[int, ...] | None = None
+    score_deltas: tuple[int, ...] | None = None
 
 
 TenhouEvent = (
@@ -215,6 +217,7 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
                 event_index=len(current.events),
                 machi=_parse_optional_tile(event.attrib.get("machi")),
                 points=_parse_int_tuple(event.attrib.get("ten")),
+                score_deltas=_parse_score_deltas(event.attrib.get("sc")),
                 yaku=_parse_int_tuple(event.attrib.get("yaku")) or (),
                 dora_indicators=_parse_tile_tuple(event.attrib.get("dorahai")),
                 ura_dora_indicators=_parse_tile_tuple(event.attrib.get("uradorahai")),
@@ -228,6 +231,7 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
                 event_index=len(current.events),
                 reason=event.attrib.get("type"),
                 scores=_parse_optional_scores(event.attrib.get("ten")),
+                score_deltas=_parse_score_deltas(event.attrib.get("sc")),
             )
             current.ryuukyoku = ryuukyoku
             current.events.append(ryuukyoku)
@@ -296,6 +300,15 @@ def _parse_int_tuple(raw_values: str | None) -> tuple[int, ...] | None:
     if not raw_values:
         return None
     return tuple(int(value) for value in raw_values.split(",") if value)
+
+
+def _parse_score_deltas(raw_values: str | None) -> tuple[int, ...] | None:
+    if not raw_values:
+        return None
+    values = tuple(int(value) for value in raw_values.split(",") if value)
+    if len(values) % 2 != 0:
+        raise ValueError("Tenhou sc score-change fields must contain score/delta pairs")
+    return tuple(delta * 100 for delta in values[1::2])
 
 
 def _parse_optional_tile(raw_tile: str | None) -> Tile | None:

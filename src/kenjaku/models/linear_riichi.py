@@ -171,7 +171,7 @@ class RiichiLinearModel:
         prepared_examples = self.prepare_examples(examples)
         correct = sum(
             self.predict_prepared(prepared) == example.action.kind
-            for example, prepared in zip(examples, prepared_examples)
+            for example, prepared in zip(examples, prepared_examples, strict=True)
         )
         return correct / len(examples)
 
@@ -320,7 +320,7 @@ def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
     total = 0.0
-    for weight, feature in zip(weights, features):
+    for weight, feature in zip(weights, features, strict=True):
         if feature:
             total += weight * feature
     return total

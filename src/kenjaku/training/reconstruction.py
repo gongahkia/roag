@@ -142,7 +142,7 @@ def consumed_tiles(meld: TenhouMeld) -> tuple[Tile, ...]:
             raise ValueError(f"{meld.kind.value} call is missing a called tile id")
         return tuple(
             tile
-            for tile_id, tile in zip(meld.tile_ids, meld.tiles)
+            for tile_id, tile in zip(meld.tile_ids, meld.tiles, strict=True)
             if tile_id != meld.called_tile_id
         )
 

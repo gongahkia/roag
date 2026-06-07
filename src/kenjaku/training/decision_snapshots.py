@@ -19,6 +19,7 @@ from kenjaku.io import (
 )
 from kenjaku.training.call_examples import CallExample, iter_call_examples
 from kenjaku.training.discard_examples import DiscardExample, iter_discard_examples
+from kenjaku.training.outcomes import round_outcome_payload
 from kenjaku.training.reconstruction import call_from_seat, consumed_tiles
 from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 
@@ -34,6 +35,7 @@ def build_decision_snapshots(
     source: dict[str, str | None] | None = None,
     input_paths: Sequence[Path] = (),
     xml_file_count: int | None = None,
+    include_outcome: bool = False,
 ) -> list[dict[str, Any]]:
     selected_types = tuple(
         _validate_decision_type(decision_type)
@@ -55,6 +57,7 @@ def build_decision_snapshots(
                 source=source,
                 input_paths=input_path_payload,
                 xml_file_count=xml_file_count,
+                include_outcome=include_outcome,
             )
             for example in iter_discard_examples(game)
         )
@@ -67,6 +70,7 @@ def build_decision_snapshots(
                 source=source,
                 input_paths=input_path_payload,
                 xml_file_count=xml_file_count,
+                include_outcome=include_outcome,
             )
             for example in iter_call_examples(game)
         )
@@ -79,6 +83,7 @@ def build_decision_snapshots(
                 source=source,
                 input_paths=input_path_payload,
                 xml_file_count=xml_file_count,
+                include_outcome=include_outcome,
             )
             for example in iter_riichi_examples(game)
         )
@@ -109,6 +114,7 @@ def _discard_snapshot_item(
     source: dict[str, str | None] | None,
     input_paths: Sequence[str],
     xml_file_count: int | None,
+    include_outcome: bool,
 ) -> tuple[tuple[int, int, int, int], dict[str, Any]]:
     round_ = game.rounds[example.round_index]
     snapshot = _base_snapshot(
@@ -121,6 +127,7 @@ def _discard_snapshot_item(
         source=source,
         input_paths=input_paths,
         xml_file_count=xml_file_count,
+        include_outcome=include_outcome,
     )
     snapshot["legal_actions"] = _discard_legal_actions(example.hand_counts)
     snapshot["actual_action"] = _action_payload(example.action)
@@ -135,6 +142,7 @@ def _call_snapshot_item(
     source: dict[str, str | None] | None,
     input_paths: Sequence[str],
     xml_file_count: int | None,
+    include_outcome: bool,
 ) -> tuple[tuple[int, int, int, int], dict[str, Any]]:
     round_ = game.rounds[example.round_index]
     snapshot = _base_snapshot(
@@ -147,6 +155,7 @@ def _call_snapshot_item(
         source=source,
         input_paths=input_paths,
         xml_file_count=xml_file_count,
+        include_outcome=include_outcome,
     )
     snapshot["from_seat"] = example.from_seat
     snapshot["discarded_tile"] = _tile_payload(example.discarded_tile)
@@ -170,6 +179,7 @@ def _riichi_snapshot_item(
     source: dict[str, str | None] | None,
     input_paths: Sequence[str],
     xml_file_count: int | None,
+    include_outcome: bool,
 ) -> tuple[tuple[int, int, int, int], dict[str, Any]]:
     round_ = game.rounds[example.round_index]
     snapshot = _base_snapshot(
@@ -182,6 +192,7 @@ def _riichi_snapshot_item(
         source=source,
         input_paths=input_paths,
         xml_file_count=xml_file_count,
+        include_outcome=include_outcome,
     )
     snapshot["riichi_event_index"] = example.riichi_event_index
     snapshot["legal_actions"] = [
@@ -203,8 +214,9 @@ def _base_snapshot(
     source: dict[str, str | None] | None,
     input_paths: Sequence[str],
     xml_file_count: int | None,
+    include_outcome: bool,
 ) -> dict[str, Any]:
-    return {
+    snapshot = {
         "kind": DECISION_SNAPSHOT_KIND,
         "row_id": _snapshot_row_id(
             input_paths=input_paths,
@@ -238,6 +250,9 @@ def _base_snapshot(
             cache=prefix_cache,
         ),
     }
+    if include_outcome:
+        snapshot["terminal_outcome"] = round_outcome_payload(round_)
+    return snapshot
 
 
 def _snapshot_row_id(

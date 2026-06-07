@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import Discard, PlayerState, RoundState, TENHOU_3P, TENHOU_4P, Tile
+from kenjaku.core import TENHOU_3P, TENHOU_4P, Discard, PlayerState, RoundState, Tile
 
 
 class StateTests(unittest.TestCase):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from itertools import chain
 
 from kenjaku.core.actions import ActionKind
-from kenjaku.core.rules import RuleSet, TENHOU_4P
+from kenjaku.core.rules import TENHOU_4P, RuleSet
 from kenjaku.core.tiles import Tile
 
 

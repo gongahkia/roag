@@ -7,12 +7,19 @@ name = "kenjaku"
 version = "0.1.0"
 description = "Reproducible riichi mahjong AI research agent and analysis toolkit."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
 authors = [
   { name = "gongahkia" }
 ]
-dependencies = []
+dependencies = [
+  "torch",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+]
 
 [project.scripts]
 kenjaku = "kenjaku.cli:main"

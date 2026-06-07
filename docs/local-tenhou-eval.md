@@ -86,14 +86,17 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan 
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan-500 \
   --eval-fraction 0.2 \
   --split-seed tenhou-500-v0 \
-  --epochs 5 \
-  --models fast \
-  --example-limit 10000 \
+  --epochs 30 \
+  --learning-rate 0.05 \
+  --models call_linear_v1,call_linear_v1_calibrated,call_linear_v1_weighted \
+  --include-weighted \
+  --call-positive-weight 1.0 \
+  --example-limit 20000 \
   --example-limit-strategy balanced \
   --call-threshold-source train-best \
   --profile-stages \
-  --feature-cache runs/call-features-tenhou-500-fast-balanced-limit10000-v0.json \
-  --report runs/call-benchmark-tenhou-500-fast-balanced-limit10000-epochs5-train-best-v0-report.json \
+  --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
+  --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json \
   --source-label tenhou-4p-hanchan-500 \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 500"
@@ -133,7 +136,12 @@ PYTHONPATH=src python3 -m kenjaku export-decision-snapshots data/raw/tenhou/xml/
 PYTHONPATH=src python3 -m kenjaku decision-snapshot-summary \
   runs/decision-snapshots-local.jsonl
 
-# Prediction JSONL rows for comparison must contain row_id and predicted_action.
+PYTHONPATH=src python3 -m kenjaku produce-decision-predictions \
+  runs/decision-snapshots-local.jsonl \
+  --strategy pass \
+  --output runs/decision-predictions-local.jsonl
+
+# Real prediction JSONL rows for comparison must contain row_id and predicted_action.
 PYTHONPATH=src python3 -m kenjaku decision-snapshot-compare \
   runs/decision-snapshots-local.jsonl \
   runs/decision-predictions-local.jsonl
@@ -143,6 +151,16 @@ PYTHONPATH=src python3 -m kenjaku train-discard-linear data/raw/tenhou/xml/4p-ha
   --eval-fraction 0.2 \
   --output models/discard-linear-local.json \
   --report runs/discard-linear-local-report.json \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
+PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/raw/tenhou/xml/4p-hanchan \
+  --epochs 5 \
+  --batch-size 64 \
+  --device auto \
+  --eval-fraction 0.2 \
+  --report runs/discard-mlp-local-report.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
@@ -176,8 +194,10 @@ comparisons on larger slices, `--example-limit-strategy balanced` to keep a roug
 cap, `--profile-stages` to record stage timings, and `--feature-cache PATH` to reuse prepared call
 features across repeated runs. `--epochs 0` is accepted for report-only zero-update model smokes.
 Use `--call-threshold-source train-best` to evaluate a train-selected calibrated threshold without
-using eval-selected diagnostics as policy. Add `--include-weighted` to compare the default threshold
-policy against `call_linear_v1_weighted`. `benchmark-riichi` builds a
+using eval-selected diagnostics as policy. Add `--include-weighted` with `--models all` or an
+explicit model list containing `call_linear_v1_weighted` to compare the default threshold policy
+against weighted training; `--models fast` intentionally omits the weighted model. `benchmark-riichi`
+builds a
 conservative riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`,
 including the fixed-threshold or train-selected `riichi_linear_calibrated` policy variant, optional
 `riichi_linear_weighted`, and report-only riichi/pass threshold calibration.
@@ -185,9 +205,11 @@ including the fixed-threshold or train-selected `riichi_linear_calibrated` polic
 Use `export-decision-snapshots` to write local-only JSONL rows for discard/call/riichi decisions.
 Rows include stable `row_id` values, Kenjaku reconstruction fields, legal actions, the observed
 action, and a minimal `mjai_events` prefix; this is the neutral handoff format for future offline
-Mortal comparison. Use `decision-snapshot-summary` to validate snapshot JSONL counts before handing
-the file to a future external baseline comparator. Use `decision-snapshot-compare` when that
-comparator emits prediction JSONL rows with `row_id` and `predicted_action`.
+Mortal comparison. Terminal outcome labels are available only with `--include-outcome`, so default
+snapshots remain inference-safe. Use `decision-snapshot-summary` to validate snapshot JSONL counts.
+Use `produce-decision-predictions` with stub strategies `pass`, `first-legal`, or `echo-actual` for
+protocol tests only. Use `decision-snapshot-compare` when a real comparator emits prediction JSONL
+rows with `row_id` and `predicted_action`.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

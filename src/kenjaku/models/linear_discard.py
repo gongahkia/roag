@@ -12,8 +12,8 @@ from kenjaku.training import DiscardExample
 from kenjaku.training.defense_features import (
     candidate_has_kabe,
     candidate_has_one_chance,
-    candidate_has_suji,
     candidate_has_sotogawa,
+    candidate_has_suji,
     candidate_is_genbutsu,
     candidate_seen_after_riichi,
     candidate_seen_before_riichi,
@@ -878,7 +878,10 @@ def _genbutsu_active_fraction(
     denominator: int,
 ) -> float:
     return (
-        sum(_river_count(example.river_counts_by_seat, seat, tile_index) > 0 for seat in active_opponents)
+        sum(
+            _river_count(example.river_counts_by_seat, seat, tile_index) > 0
+            for seat in active_opponents
+        )
         / denominator
     )
 
@@ -960,7 +963,10 @@ def _ippatsu_active_fraction(
     denominator: int,
 ) -> float:
     return (
-        sum(seat < len(ippatsu_active_seats) and ippatsu_active_seats[seat] for seat in active_opponents)
+        sum(
+            seat < len(ippatsu_active_seats) and ippatsu_active_seats[seat]
+            for seat in active_opponents
+        )
         / denominator
     )
 
@@ -1081,7 +1087,10 @@ def _logits(
     features_by_tile: dict[int, tuple[float, ...]],
 ) -> dict[int, float]:
     return {
-        tile_index: sum(weight * feature for weight, feature in zip(weights[tile_index], features))
+        tile_index: sum(
+            weight * feature
+            for weight, feature in zip(weights[tile_index], features, strict=True)
+        )
         for tile_index, features in features_by_tile.items()
     }
 

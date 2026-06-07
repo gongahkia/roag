@@ -15,6 +15,7 @@ DISCARD_BENCHMARK_SUMMARY_KIND = "kenjaku-discard-benchmark-summary-v0"
 DISCARD_DISAGREEMENT_REPORT_KIND = "kenjaku-discard-disagreements-v0"
 DISCARD_DISAGREEMENT_SUMMARY_KIND = "kenjaku-discard-disagreement-summary-v0"
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
+DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
 RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_BENCHMARK_MODEL_ORDER = (
@@ -121,6 +122,68 @@ def build_discard_linear_report(
         "artifacts": {
             "model_path": None if model_path is None else str(model_path),
         },
+    }
+
+
+def build_discard_mlp_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    model_kind: str,
+    input_dim: int,
+    hidden_dim: int,
+    output_dim: int,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    device: str,
+    seed: int,
+    train_metrics: dict[str, int | float | None],
+    eval_metrics: dict[str, int | float | None],
+    discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    return {
+        "kind": DISCARD_MLP_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "model": {
+            "kind": model_kind,
+            "input_dim": input_dim,
+            "hidden_dim": hidden_dim,
+            "output_dim": output_dim,
+        },
+        "training": {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "device": device,
+            "seed": seed,
+        },
+        "metrics": {
+            "train": train_metrics,
+            "eval": eval_metrics,
+        },
+        "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
     }
 
 
@@ -376,7 +439,11 @@ def build_call_benchmark_report(
         **_game_counts(game),
         "discard_examples": discard_examples,
         "call_examples": call_examples,
-        "call_examples_total": call_examples if call_examples_total is None else call_examples_total,
+        "call_examples_total": (
+            call_examples
+            if call_examples_total is None
+            else call_examples_total
+        ),
         "example_limit": example_limit,
         "example_limit_strategy": example_limit_strategy,
         "split": {

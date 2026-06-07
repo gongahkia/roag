@@ -29,7 +29,10 @@ class RiichiLinearModelTests(unittest.TestCase):
 
     def test_probabilities_cover_pass_and_riichi(self) -> None:
         model = RiichiLinearModel.fit(
-            [_example(Action.pass_(), seat_turn_index=1), _example(Action(ActionKind.RIICHI), seat_turn_index=12)],
+            [
+                _example(Action.pass_(), seat_turn_index=1),
+                _example(Action(ActionKind.RIICHI), seat_turn_index=12),
+            ],
             epochs=5,
             learning_rate=0.2,
         )

@@ -17,6 +17,7 @@ from kenjaku.experiments import (
     build_discard_benchmark_summary,
     build_discard_disagreement_summary,
     build_discard_linear_report,
+    build_discard_mlp_report,
     build_riichi_benchmark_report,
     build_tenhou_inspect_report,
     format_discard_benchmark_summary,
@@ -42,21 +43,21 @@ from kenjaku.models import (
     RiichiLinearModel,
 )
 from kenjaku.training import (
+    CallExample,
+    DiscardExample,
+    RiichiExample,
     actual_discard_has_kabe,
     actual_discard_has_one_chance,
     actual_discard_has_suji,
     actual_discard_is_genbutsu,
     actual_discard_seen_after_riichi,
     actual_discard_seen_before_riichi,
-    CallExample,
     deterministic_split,
     discard_shanten_delta,
-    DiscardExample,
     has_active_riichi_opponent,
     iter_call_examples,
     iter_discard_examples,
     iter_riichi_examples,
-    RiichiExample,
     summarize_discard_predictions,
     summarize_discard_shanten,
 )
@@ -110,6 +111,7 @@ DISAGREEMENT_SAFE_TILE_BUCKETS = (
 )
 DISAGREEMENT_CLOSE_LOGIT_MARGIN = 0.25
 CALIBRATION_THRESHOLDS = tuple(round(index * 0.05, 2) for index in range(21))
+PREDICTION_STUB_STRATEGIES = ("pass", "first-legal", "echo-actual")
 CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
@@ -204,6 +206,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    export_snapshots.add_argument(
+        "--include-outcome",
+        action="store_true",
+        help="include terminal score-delta labels; opt-in to avoid future outcome leakage",
+    )
     _add_source_args(export_snapshots)
     export_snapshots.set_defaults(func=_export_decision_snapshots)
 
@@ -223,6 +230,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the summary as JSON instead of text",
     )
     snapshot_summary.set_defaults(func=_decision_snapshot_summary)
+
+    produce_predictions = subparsers.add_parser(
+        "produce-decision-predictions",
+        help="write stub prediction JSONL rows for decision snapshot protocol tests",
+    )
+    produce_predictions.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file",
+    )
+    produce_predictions.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="prediction JSONL output path",
+    )
+    produce_predictions.add_argument(
+        "--strategy",
+        choices=PREDICTION_STUB_STRATEGIES,
+        default="pass",
+        help="stub prediction strategy; protocol tests only",
+    )
+    produce_predictions.set_defaults(func=_produce_decision_predictions)
 
     snapshot_compare = subparsers.add_parser(
         "decision-snapshot-compare",
@@ -308,6 +338,66 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(train_linear)
     train_linear.set_defaults(func=_train_discard_linear)
+
+    train_mlp = subparsers.add_parser(
+        "train-discard-mlp",
+        help="fit a small PyTorch masked-logit discard MLP",
+    )
+    train_mlp.add_argument("paths", nargs="+", type=Path, help="Tenhou XML files or directories")
+    train_mlp.add_argument("--epochs", type=int, default=5, help="training epochs")
+    train_mlp.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="mini-batch size",
+    )
+    train_mlp.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="AdamW learning rate",
+    )
+    train_mlp.add_argument(
+        "--hidden-dim",
+        type=int,
+        default=128,
+        help="hidden layer width",
+    )
+    train_mlp.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    train_mlp.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    train_mlp.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="torch and dataloader random seed",
+    )
+    train_mlp.add_argument(
+        "--device",
+        choices=("auto", "cpu", "mps", "cuda"),
+        default="auto",
+        help="training device",
+    )
+    train_mlp.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON training report artifact",
+    )
+    train_mlp.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(train_mlp)
+    train_mlp.set_defaults(func=_train_discard_mlp)
 
     benchmark_discard = subparsers.add_parser(
         "benchmark-discard",
@@ -547,7 +637,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="kenjaku-v0",
         help="stable seed for deterministic train/eval split",
     )
-    benchmark_riichi.add_argument("--epochs", type=int, default=25, help="riichi linear model epochs")
+    benchmark_riichi.add_argument(
+        "--epochs",
+        type=int,
+        default=25,
+        help="riichi linear model epochs",
+    )
     benchmark_riichi.add_argument(
         "--learning-rate",
         type=float,
@@ -654,6 +749,7 @@ def _export_decision_snapshots(args: argparse.Namespace) -> int:
         source=_source_metadata(args),
         input_paths=args.paths,
         xml_file_count=len(dataset.files),
+        include_outcome=args.include_outcome,
     )
     count = write_decision_snapshots_jsonl(args.output, snapshots)
     print(f"snapshots: {count}")
@@ -807,6 +903,98 @@ def _format_decision_snapshot_summary(summary: dict[str, Any]) -> str:
         f"missing={mjai_events['missing']}"
     )
     return "\n".join(lines)
+
+
+def _produce_decision_predictions(args: argparse.Namespace) -> int:
+    stats = _write_stub_decision_predictions(
+        snapshots_path=args.snapshots,
+        output_path=args.output,
+        strategy=args.strategy,
+    )
+    print(f"strategy: {args.strategy}")
+    print(f"predictions: {stats['predictions']}")
+    print(f"malformed_snapshot_rows: {stats['malformed_snapshot_rows']}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _write_stub_decision_predictions(
+    *,
+    snapshots_path: Path,
+    output_path: Path,
+    strategy: str,
+) -> dict[str, int]:
+    if strategy not in PREDICTION_STUB_STRATEGIES:
+        raise ValueError(f"unsupported prediction strategy: {strategy}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    predictions = 0
+    malformed = 0
+    with snapshots_path.open(encoding="utf-8") as source, output_path.open(
+        "w",
+        encoding="utf-8",
+    ) as target:
+        for line in source:
+            try:
+                snapshot = json.loads(line)
+            except json.JSONDecodeError:
+                malformed += 1
+                continue
+            prediction = _stub_prediction_for_snapshot(snapshot, strategy=strategy)
+            if prediction is None:
+                malformed += 1
+                continue
+            target.write(json.dumps(prediction, sort_keys=True) + "\n")
+            predictions += 1
+
+    return {
+        "predictions": predictions,
+        "malformed_snapshot_rows": malformed,
+    }
+
+
+def _stub_prediction_for_snapshot(
+    snapshot: Any,
+    *,
+    strategy: str,
+) -> dict[str, Any] | None:
+    if not _is_decision_snapshot_payload(snapshot):
+        return None
+    row_id = snapshot.get("row_id")
+    if not isinstance(row_id, str):
+        return None
+
+    if strategy == "echo-actual":
+        action = snapshot.get("actual_action")
+        if not isinstance(action, dict):
+            return None
+        return {"row_id": row_id, "predicted_action": _normalized_action(action)}
+
+    legal_actions = snapshot.get("legal_actions")
+    if not isinstance(legal_actions, list):
+        return None
+    legal_action_dicts = [action for action in legal_actions if isinstance(action, dict)]
+    if not legal_action_dicts:
+        return None
+
+    if strategy == "pass":
+        selected = next(
+            (
+                action
+                for action in legal_action_dicts
+                if action.get("kind") == ActionKind.PASS.value
+            ),
+            legal_action_dicts[0],
+        )
+        return {"row_id": row_id, "predicted_action": _normalized_action(selected)}
+
+    if strategy == "first-legal":
+        return {
+            "row_id": row_id,
+            "predicted_action": _normalized_action(legal_action_dicts[0]),
+        }
+
+    raise ValueError(f"unsupported prediction strategy: {strategy}")
 
 
 def _decision_snapshot_compare(args: argparse.Namespace) -> int:
@@ -1114,6 +1302,76 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
             model_path=args.output,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _train_discard_mlp(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.models.torch_discard import train_discard_mlp
+    except ImportError as error:
+        raise SystemExit("PyTorch is required for train-discard-mlp") from error
+
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_discard_examples(game))
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    try:
+        result = train_discard_mlp(
+            train_examples,
+            eval_examples,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            hidden_dim=args.hidden_dim,
+            device=args.device,
+            seed=args.seed,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    print(f"device: {result.device}")
+    print(f"train_accuracy: {_format_optional_accuracy(result.train_metrics['accuracy'])}")
+    print(f"eval_accuracy: {_format_optional_accuracy(result.eval_metrics['accuracy'])}")
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.report is not None:
+        report = build_discard_mlp_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(examples),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            model_kind=result.model.kind,
+            input_dim=result.model.input_dim,
+            hidden_dim=result.model.hidden_dim,
+            output_dim=result.model.output_dim,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            device=result.device,
+            seed=args.seed,
+            train_metrics=result.train_metrics,
+            eval_metrics=result.eval_metrics,
+            discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
         write_json_report(args.report, report)
@@ -2090,7 +2348,13 @@ def _limit_call_examples(
             remaining -= extra_calls
         if remaining and pass_count < len(passes):
             pass_count += min(len(passes) - pass_count, remaining)
-        return [*calls[:call_count], *passes[:pass_count]]
+        selected: list[CallExample] = []
+        for index in range(max(call_count, pass_count)):
+            if index < call_count:
+                selected.append(calls[index])
+            if index < pass_count:
+                selected.append(passes[index])
+        return selected[:limit]
     raise ValueError(f"unsupported call example limit strategy: {strategy}")
 
 
@@ -2438,7 +2702,7 @@ def _summarize_call_prediction_results(
         for kind in CALL_DECISION_KINDS
     }
 
-    for example, prediction in zip(examples, predictions):
+    for example, prediction in zip(examples, predictions, strict=True):
         actual = example.action.kind
         correct = prediction == actual
         action_distribution[actual.value] += 1
@@ -2913,7 +3177,7 @@ def _summarize_riichi_prediction_results(
         for kind in RIICHI_DECISION_KINDS
     }
 
-    for example, prediction in zip(examples, predictions):
+    for example, prediction in zip(examples, predictions, strict=True):
         actual = example.action.kind
         correct = prediction == actual
         action_distribution[actual.value] += 1

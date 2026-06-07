@@ -7,7 +7,6 @@ from kenjaku.core import ActionKind
 from kenjaku.io import parse_tenhou_xml, parse_tenhou_xml_file
 from kenjaku.training import iter_riichi_examples
 
-
 EVENTS_FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
 
 
