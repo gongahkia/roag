@@ -408,6 +408,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional path for a JSON training report artifact",
     )
     train_mlp.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="optional path for the best PyTorch checkpoint artifact",
+    )
+    train_mlp.add_argument(
         "--skip-errors",
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
@@ -1332,7 +1337,10 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
 
 def _train_discard_mlp(args: argparse.Namespace) -> int:
     try:
-        from kenjaku.models.torch_discard import train_discard_mlp
+        from kenjaku.models.torch_discard import (
+            save_discard_mlp_checkpoint,
+            train_discard_mlp,
+        )
     except ImportError as error:
         raise SystemExit("PyTorch is required for train-discard-mlp") from error
 
@@ -1369,6 +1377,18 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
     print(f"eval_accuracy: {_format_optional_accuracy(result.eval_metrics['accuracy'])}")
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
+    if args.checkpoint is not None:
+        save_discard_mlp_checkpoint(
+            result,
+            args.checkpoint,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            eval_fraction=args.eval_fraction,
+            split_seed=args.split_seed,
+            seed=args.seed,
+        )
+        print(f"checkpoint_path: {args.checkpoint}")
     if args.report is not None:
         report = build_discard_mlp_report(
             input_paths=args.paths,
@@ -1391,8 +1411,13 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
             seed=args.seed,
             train_metrics=result.train_metrics,
             eval_metrics=result.eval_metrics,
+            history=result.history,
+            best_epoch=result.best_epoch,
+            selection_split=result.selection_split,
+            best_metrics=result.best_metrics,
             discard_shanten=summarize_discard_shanten(examples),
             parse_failures=dataset.failures,
+            checkpoint_path=args.checkpoint,
             source=_source_metadata(args),
         )
         write_json_report(args.report, report)

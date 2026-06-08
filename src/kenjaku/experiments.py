@@ -147,8 +147,13 @@ def build_discard_mlp_report(
     seed: int,
     train_metrics: dict[str, int | float | None],
     eval_metrics: dict[str, int | float | None],
+    history: list[dict[str, Any]],
+    best_epoch: int,
+    selection_split: str,
+    best_metrics: dict[str, dict[str, int | float | None]],
     discard_shanten: dict[str, int | float | None],
     parse_failures: Sequence[TenhouParseFailure],
+    checkpoint_path: Path | None,
     source: dict[str, str | None],
 ) -> dict[str, Any]:
     return {
@@ -177,13 +182,20 @@ def build_discard_mlp_report(
             "learning_rate": learning_rate,
             "device": device,
             "seed": seed,
+            "history": history,
+            "best_epoch": best_epoch,
+            "selection_split": selection_split,
         },
         "metrics": {
             "train": train_metrics,
             "eval": eval_metrics,
+            "best": best_metrics,
         },
         "discard_shanten": discard_shanten,
         "parse_failures": _parse_failure_payload(parse_failures),
+        "artifacts": {
+            "checkpoint_path": None if checkpoint_path is None else str(checkpoint_path),
+        },
     }
 
 

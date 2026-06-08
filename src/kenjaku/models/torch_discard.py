@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import torch
 from torch import Tensor, nn
@@ -15,6 +17,7 @@ DISCARD_MLP_INPUT_DIM = 68
 DISCARD_MLP_OUTPUT_DIM = 34
 DISCARD_MLP_MODEL_KIND = "discard-mlp-v0"
 DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
+DISCARD_MLP_CHECKPOINT_KIND = "kenjaku-discard-mlp-checkpoint-v0"
 
 
 class DiscardTensorDataset(Dataset):
@@ -71,6 +74,11 @@ class DiscardMlpTrainingResult:
     device: str
     train_metrics: dict[str, int | float | None]
     eval_metrics: dict[str, int | float | None]
+    history: list[dict[str, Any]]
+    best_epoch: int
+    selection_split: str
+    best_metrics: dict[str, dict[str, int | float | None]]
+    best_model_state: dict[str, Tensor]
 
 
 def discard_data_loader(
@@ -127,7 +135,59 @@ def train_discard_mlp(
         shuffle=True,
         seed=seed,
     )
-    for _ in range(epochs):
+    history: list[dict[str, Any]] = []
+    selection_split = "eval" if eval_examples else "train"
+    best_key: tuple[float, float, int] | None = None
+    best_epoch = 0
+    best_metrics: dict[str, dict[str, int | float | None]] = {}
+    best_model_state: dict[str, Tensor] = {}
+    final_train_metrics: dict[str, int | float | None] | None = None
+    final_eval_metrics: dict[str, int | float | None] | None = None
+
+    def record_epoch(epoch: int) -> None:
+        nonlocal best_epoch
+        nonlocal best_key
+        nonlocal best_metrics
+        nonlocal best_model_state
+        nonlocal final_train_metrics
+        nonlocal final_eval_metrics
+
+        train_metrics = evaluate_discard_mlp(
+            model,
+            train_examples,
+            batch_size=batch_size,
+            device=resolved_device,
+        )
+        eval_metrics = evaluate_discard_mlp(
+            model,
+            eval_examples,
+            batch_size=batch_size,
+            device=resolved_device,
+        )
+        row = {
+            "epoch": epoch,
+            "metrics": {
+                "train": train_metrics,
+                "eval": eval_metrics,
+            },
+        }
+        history.append(row)
+        final_train_metrics = train_metrics
+        final_eval_metrics = eval_metrics
+
+        key = _selection_key(row, split=selection_split)
+        if best_key is None or key > best_key:
+            best_key = key
+            best_epoch = epoch
+            best_metrics = {
+                "train": dict(train_metrics),
+                "eval": dict(eval_metrics),
+            }
+            best_model_state = _snapshot_model_state(model)
+
+    if epochs == 0:
+        record_epoch(0)
+    for epoch in range(1, epochs + 1):
         model.train()
         for state, legal_mask, target in train_loader:
             state = state.to(resolved_device)
@@ -137,22 +197,66 @@ def train_discard_mlp(
             loss = F.cross_entropy(model(state, legal_mask), target)
             loss.backward()
             optimizer.step()
+        record_epoch(epoch)
+
+    if final_train_metrics is None or final_eval_metrics is None:
+        raise RuntimeError("discard MLP training did not record final metrics")
 
     return DiscardMlpTrainingResult(
         model=model,
         device=resolved_device.type,
-        train_metrics=evaluate_discard_mlp(
-            model,
-            train_examples,
-            batch_size=batch_size,
-            device=resolved_device,
-        ),
-        eval_metrics=evaluate_discard_mlp(
-            model,
-            eval_examples,
-            batch_size=batch_size,
-            device=resolved_device,
-        ),
+        train_metrics=final_train_metrics,
+        eval_metrics=final_eval_metrics,
+        history=history,
+        best_epoch=best_epoch,
+        selection_split=selection_split,
+        best_metrics=best_metrics,
+        best_model_state=best_model_state,
+    )
+
+
+def save_discard_mlp_checkpoint(
+    result: DiscardMlpTrainingResult,
+    path: str | Path,
+    *,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    eval_fraction: float,
+    split_seed: str,
+    seed: int,
+) -> None:
+    checkpoint_path = Path(path)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "kind": DISCARD_MLP_CHECKPOINT_KIND,
+            "model": {
+                "kind": result.model.kind,
+                "input_dim": result.model.input_dim,
+                "hidden_dim": result.model.hidden_dim,
+                "output_dim": result.model.output_dim,
+            },
+            "training": {
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+                "device": result.device,
+                "seed": seed,
+                "eval_fraction": eval_fraction,
+                "split_seed": split_seed,
+                "history": result.history,
+                "best_epoch": result.best_epoch,
+                "selection_split": result.selection_split,
+            },
+            "metrics": {
+                "train": result.train_metrics,
+                "eval": result.eval_metrics,
+                "best": result.best_metrics,
+            },
+            "model_state_dict": result.best_model_state,
+        },
+        checkpoint_path,
     )
 
 
@@ -228,6 +332,22 @@ def resolve_torch_device(requested: str) -> torch.device:
     if requested == "cpu":
         return torch.device("cpu")
     raise ValueError(f"unsupported torch device: {requested}")
+
+
+def _selection_key(row: dict[str, Any], *, split: str) -> tuple[float, float, int]:
+    metrics = row["metrics"][split]
+    accuracy = metrics["accuracy"]
+    loss = metrics["loss"]
+    accuracy_key = float(accuracy) if accuracy is not None else float("-inf")
+    loss_key = -float(loss) if loss is not None else float("-inf")
+    return (accuracy_key, loss_key, -int(row["epoch"]))
+
+
+def _snapshot_model_state(model: DiscardMlp) -> dict[str, Tensor]:
+    return {
+        name: value.detach().cpu().clone()
+        for name, value in model.state_dict().items()
+    }
 
 
 def _state_tensor(example: DiscardExample) -> Tensor:

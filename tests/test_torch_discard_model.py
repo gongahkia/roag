@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kenjaku.io import parse_tenhou_xml_file
 from kenjaku.training import iter_discard_examples
@@ -10,11 +11,13 @@ try:
     import torch
 
     from kenjaku.models.torch_discard import (
+        DISCARD_MLP_CHECKPOINT_KIND,
         DISCARD_MLP_INPUT_DIM,
         DISCARD_MLP_OUTPUT_DIM,
         DiscardMlp,
         DiscardTensorDataset,
         predict_discard_tiles,
+        save_discard_mlp_checkpoint,
         train_discard_mlp,
     )
 
@@ -75,7 +78,69 @@ class TorchDiscardModelTests(unittest.TestCase):
         self.assertEqual(result.device, "cpu")
         self.assertEqual(result.train_metrics["examples"], 1)
         self.assertEqual(result.eval_metrics["examples"], 1)
+        self.assertEqual([row["epoch"] for row in result.history], [1])
+        self.assertEqual(result.selection_split, "eval")
+        self.assertEqual(result.best_epoch, 1)
+        self.assertEqual(result.best_metrics["eval"]["examples"], 1)
         self.assertEqual(len(predictions), len(examples))
+
+    def test_zero_epoch_training_records_initial_metrics(self) -> None:
+        examples = list(iter_discard_examples(parse_tenhou_xml_file(FIXTURE)))
+
+        result = train_discard_mlp(
+            examples[:2],
+            [],
+            epochs=0,
+            batch_size=1,
+            learning_rate=0.001,
+            hidden_dim=8,
+            device="cpu",
+            seed=123,
+        )
+
+        self.assertEqual(result.device, "cpu")
+        self.assertEqual([row["epoch"] for row in result.history], [0])
+        self.assertEqual(result.selection_split, "train")
+        self.assertEqual(result.best_epoch, 0)
+        self.assertEqual(result.train_metrics["examples"], 2)
+        self.assertEqual(result.eval_metrics["examples"], 0)
+        self.assertEqual(result.best_metrics["train"]["examples"], 2)
+        self.assertEqual(set(result.best_model_state), set(result.model.state_dict()))
+
+    def test_saves_best_checkpoint_payload(self) -> None:
+        examples = list(iter_discard_examples(parse_tenhou_xml_file(FIXTURE)))
+        result = train_discard_mlp(
+            examples[:1],
+            examples[1:],
+            epochs=1,
+            batch_size=1,
+            learning_rate=0.001,
+            hidden_dim=8,
+            device="cpu",
+            seed=123,
+        )
+
+        with TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "discard-mlp.pt"
+            save_discard_mlp_checkpoint(
+                result,
+                checkpoint,
+                epochs=1,
+                batch_size=1,
+                learning_rate=0.001,
+                eval_fraction=0.5,
+                split_seed="fixed",
+                seed=123,
+            )
+            payload = torch.load(checkpoint, map_location="cpu")
+
+        self.assertEqual(payload["kind"], DISCARD_MLP_CHECKPOINT_KIND)
+        self.assertEqual(payload["model"]["kind"], "discard-mlp-v0")
+        self.assertEqual(payload["model"]["hidden_dim"], 8)
+        self.assertEqual(payload["training"]["best_epoch"], result.best_epoch)
+        self.assertEqual(payload["training"]["selection_split"], result.selection_split)
+        self.assertEqual(payload["metrics"]["best"], result.best_metrics)
+        self.assertEqual(set(payload["model_state_dict"]), set(result.best_model_state))
 
 
 if __name__ == "__main__":

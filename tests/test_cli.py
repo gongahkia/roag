@@ -544,8 +544,67 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["model"]["hidden_dim"], 8)
         self.assertEqual(payload["training"]["device"], "cpu")
         self.assertEqual(payload["training"]["seed"], 123)
+        self.assertEqual(payload["training"]["best_epoch"], 1)
+        self.assertEqual(payload["training"]["selection_split"], "eval")
+        self.assertEqual([row["epoch"] for row in payload["training"]["history"]], [1])
         self.assertEqual(payload["metrics"]["train"]["examples"], 3)
         self.assertEqual(payload["metrics"]["eval"]["examples"], 1)
+        self.assertEqual(payload["metrics"]["best"]["eval"]["examples"], 1)
+        self.assertIsNone(payload["artifacts"]["checkpoint_path"])
+
+    def test_train_discard_mlp_checkpoint_writes_best_state(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        torch = __import__("torch")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "mlp.pt"
+            report = Path(directory) / "mlp.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "train-discard-mlp",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--batch-size",
+                        "2",
+                        "--hidden-dim",
+                        "8",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--checkpoint",
+                        str(checkpoint),
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+            checkpoint_payload = torch.load(checkpoint, map_location="cpu")
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("checkpoint_path:", stdout.getvalue())
+        self.assertEqual(report_payload["artifacts"]["checkpoint_path"], str(checkpoint))
+        self.assertEqual(checkpoint_payload["kind"], "kenjaku-discard-mlp-checkpoint-v0")
+        self.assertEqual(checkpoint_payload["model"]["kind"], "discard-mlp-v0")
+        self.assertEqual(checkpoint_payload["model"]["hidden_dim"], 8)
+        self.assertEqual(
+            checkpoint_payload["training"]["best_epoch"],
+            report_payload["training"]["best_epoch"],
+        )
+        self.assertEqual(
+            checkpoint_payload["training"]["selection_split"],
+            report_payload["training"]["selection_split"],
+        )
+        self.assertEqual(checkpoint_payload["metrics"]["best"], report_payload["metrics"]["best"])
+        self.assertIn("net.0.weight", checkpoint_payload["model_state_dict"])
 
     def test_benchmark_discard_writes_report_artifact(self) -> None:
         stdout = io.StringIO()
