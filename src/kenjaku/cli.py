@@ -4,6 +4,8 @@ import argparse
 import json
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from hashlib import blake2b
 from pathlib import Path
 from time import perf_counter
@@ -24,7 +26,12 @@ from kenjaku.experiments import (
     format_discard_disagreement_summary,
     write_json_report,
 )
-from kenjaku.io import parse_tenhou_xml_dataset
+from kenjaku.io import (
+    TenhouGame,
+    TenhouParseFailure,
+    parse_tenhou_xml_dataset,
+    tenhou_xml_files,
+)
 from kenjaku.models import (
     CALL_DECISION_KINDS,
     CALL_LINEAR_V1_FEATURE_PROFILE,
@@ -140,8 +147,17 @@ THRESHOLD_SOURCE_TRAIN_BEST = "train-best"
 THRESHOLD_SOURCE_CHOICES = (THRESHOLD_SOURCE_FIXED, THRESHOLD_SOURCE_TRAIN_BEST)
 FIXED_THRESHOLD_SOURCE_LABEL = "tenhou-100-v0-eval-sweep"
 CALL_EXAMPLE_LIMIT_STRATEGIES = ("prefix", "balanced")
+CALL_EXAMPLE_CACHE_KIND = "kenjaku-call-example-cache-v0"
 CALL_FEATURE_CACHE_KIND = "kenjaku-call-feature-cache-v0"
 DECISION_SNAPSHOT_COMPARISON_KIND = "kenjaku-decision-snapshot-comparison-v0"
+
+
+@dataclass(frozen=True, slots=True)
+class _CachedCallExamples:
+    examples: list[CallExample]
+    parse_failures: tuple[TenhouParseFailure, ...]
+    game_counts: dict[str, int]
+    discard_examples: int
 
 
 def build_parser() -> argparse.ArgumentParser:

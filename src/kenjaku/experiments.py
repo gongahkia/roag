@@ -415,7 +415,7 @@ def build_call_benchmark_report(
     *,
     input_paths: Sequence[Path],
     xml_files: Sequence[Path],
-    game: TenhouGame,
+    game: TenhouGame | None,
     discard_examples: int,
     call_examples: int,
     split_seed: str,
@@ -430,13 +430,15 @@ def build_call_benchmark_report(
     example_limit_strategy: str | None = None,
     timing: dict[str, float] | None = None,
     feature_cache: dict[str, Any] | None = None,
+    example_cache: dict[str, Any] | None = None,
+    game_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     return {
         "kind": CALL_BENCHMARK_REPORT_KIND,
         "source": source,
         "input_paths": [str(path) for path in input_paths],
         "xml_file_count": len(xml_files),
-        **_game_counts(game),
+        **_game_counts_or_cached(game, game_counts),
         "discard_examples": discard_examples,
         "call_examples": call_examples,
         "call_examples_total": (
@@ -455,6 +457,7 @@ def build_call_benchmark_report(
         "models": models,
         "timing": timing,
         "feature_cache": feature_cache,
+        "example_cache": example_cache,
         "parse_failures": _parse_failure_payload(parse_failures),
     }
 
@@ -607,6 +610,26 @@ def _game_counts(game: TenhouGame) -> dict[str, int]:
         "wins": sum(len(round_.agari) for round_ in game.rounds),
         "exhaustive_draws": sum(round_.ryuukyoku is not None for round_ in game.rounds),
     }
+
+
+def _game_counts_or_cached(
+    game: TenhouGame | None,
+    game_counts: dict[str, int] | None,
+) -> dict[str, int]:
+    if game is not None:
+        return _game_counts(game)
+    if game_counts is None:
+        raise ValueError("game_counts are required when game is not available")
+    required = (
+        "rounds",
+        "draws",
+        "discards",
+        "reaches",
+        "calls",
+        "wins",
+        "exhaustive_draws",
+    )
+    return {key: int(game_counts[key]) for key in required}
 
 
 def _read_json_report(path: Path) -> dict[str, Any]:
