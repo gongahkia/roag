@@ -12,7 +12,7 @@ from time import perf_counter
 from typing import Any, TypeVar
 
 from kenjaku import __version__
-from kenjaku.core import ActionKind, Tile, TileType
+from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.experiments import (
     build_call_benchmark_report,
     build_discard_benchmark_report_from_models,
@@ -602,6 +602,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile-stages",
         action="store_true",
         help="print and record call benchmark stage timings",
+    )
+    benchmark_call.add_argument(
+        "--example-cache",
+        type=Path,
+        help="optional ignored JSON cache for reconstructed call examples",
     )
     benchmark_call.add_argument(
         "--feature-cache",
@@ -2025,17 +2030,70 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     )
     timings: dict[str, float] | None = {} if args.profile_stages else None
     source_metadata = _source_metadata(args)
-    dataset = _timed_stage(
+    dataset_files = _timed_stage(
         timings,
-        "parse",
-        lambda: parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors),
+        "xml_files",
+        lambda: tenhou_xml_files(args.paths),
     )
-    game = dataset.game
-    all_examples = _timed_stage(
+    example_cache_key = _call_example_cache_key(args=args, dataset_files=dataset_files)
+    example_cache_payload = _timed_stage(
         timings,
-        "call_examples",
-        lambda: list(iter_call_examples(game)),
+        "example_cache_load",
+        lambda: _read_call_example_cache(args.example_cache),
     )
+    example_cache_report = _empty_call_example_cache_report(
+        args.example_cache,
+        cache_key=example_cache_key,
+    )
+    cached_examples = _call_example_cache_entry(
+        example_cache_payload,
+        cache_key=example_cache_key,
+    )
+    game: TenhouGame | None = None
+    discard_examples_total: int | None = None
+    if cached_examples is not None:
+        all_examples = cached_examples.examples
+        parse_failures = cached_examples.parse_failures
+        game_counts = cached_examples.game_counts
+        discard_examples_total = cached_examples.discard_examples
+        example_cache_report["hit"] = True
+        example_cache_report["examples"] = len(all_examples)
+    else:
+        dataset = _timed_stage(
+            timings,
+            "parse",
+            lambda: parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors),
+        )
+        game = dataset.game
+        dataset_files = dataset.files
+        parse_failures = dataset.failures
+        game_counts = _call_example_cache_game_counts(game)
+        all_examples = _timed_stage(
+            timings,
+            "call_examples",
+            lambda: list(iter_call_examples(game)),
+        )
+        example_cache_report["examples"] = len(all_examples)
+        if args.example_cache is not None:
+            discard_examples_total = _timed_stage(
+                timings,
+                "discard_examples_for_cache",
+                lambda: sum(1 for _ in iter_discard_examples(game)),
+            )
+            _timed_stage(
+                timings,
+                "example_cache_write",
+                lambda: _write_call_example_cache(
+                    args.example_cache,
+                    cache_key=example_cache_key,
+                    dataset_files=dataset_files,
+                    examples=all_examples,
+                    parse_failures=parse_failures,
+                    game_counts=game_counts,
+                    discard_examples=discard_examples_total,
+                    report=example_cache_report,
+                ),
+            )
     examples = _limit_call_examples(
         all_examples,
         args.example_limit,
@@ -2060,7 +2118,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     )
     feature_cache_key = _call_feature_cache_key(
         args=args,
-        dataset_files=dataset.files,
+        dataset_files=dataset_files,
         source=source_metadata,
         all_examples_count=len(all_examples),
         examples=examples,
@@ -2193,6 +2251,10 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     if timings is not None:
         for stage_name, seconds in timings.items():
             print(f"stage_{stage_name}_seconds: {seconds:.4f}")
+    if args.example_cache is not None:
+        print(f"example_cache_path: {args.example_cache}")
+        print(f"example_cache_hit: {'yes' if example_cache_report['hit'] else 'no'}")
+        print(f"example_cache_examples: {example_cache_report['examples']}")
     if args.feature_cache is not None:
         print(f"feature_cache_path: {args.feature_cache}")
         print(f"feature_cache_hits: {','.join(feature_cache_report['hits']) or 'none'}")
@@ -2204,19 +2266,23 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
     _print_call_benchmark_metrics(model_payloads)
-    if dataset.failures:
-        print(f"parse_failures: {len(dataset.failures)}")
+    if parse_failures:
+        print(f"parse_failures: {len(parse_failures)}")
     if args.report is not None:
-        discard_examples = _timed_stage(
-            timings,
-            "discard_examples_for_report",
-            lambda: list(iter_discard_examples(game)),
-        )
+        if discard_examples_total is None:
+            if game is None:
+                raise RuntimeError("cached call examples must include discard example count")
+            discard_examples_total = _timed_stage(
+                timings,
+                "discard_examples_for_report",
+                lambda: sum(1 for _ in iter_discard_examples(game)),
+            )
         report = build_call_benchmark_report(
             input_paths=args.paths,
-            xml_files=dataset.files,
+            xml_files=dataset_files,
             game=game,
-            discard_examples=len(discard_examples),
+            game_counts=game_counts,
+            discard_examples=discard_examples_total,
             call_examples=len(examples),
             call_examples_total=len(all_examples),
             example_limit=args.example_limit,
@@ -2226,10 +2292,11 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             train_examples=len(train_examples),
             eval_examples=len(eval_examples),
             models=model_payloads,
-            parse_failures=dataset.failures,
+            parse_failures=parse_failures,
             source=source_metadata,
             timing=timings,
             feature_cache=feature_cache_report if args.feature_cache is not None else None,
+            example_cache=example_cache_report if args.example_cache is not None else None,
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
@@ -2372,6 +2439,249 @@ def _limit_call_examples(
                 selected.append(passes[index])
         return selected[:limit]
     raise ValueError(f"unsupported call example limit strategy: {strategy}")
+
+
+def _read_call_example_cache(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("kind") != CALL_EXAMPLE_CACHE_KIND:
+        raise SystemExit(f"not a call example cache: {path}")
+    return payload
+
+
+def _call_example_cache_key(
+    *,
+    args: argparse.Namespace,
+    dataset_files: Sequence[Path],
+) -> dict[str, Any]:
+    return {
+        "input_paths": [str(path) for path in args.paths],
+        "xml_files": [
+            _call_example_cache_file_key(path)
+            for path in dataset_files
+        ],
+        "skip_errors": bool(args.skip_errors),
+    }
+
+
+def _call_example_cache_file_key(path: Path) -> dict[str, int | str]:
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
+
+def _empty_call_example_cache_report(
+    path: Path | None,
+    *,
+    cache_key: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "path": None if path is None else str(path),
+        "hit": False,
+        "writes": False,
+        "examples": 0,
+        "cache_key": _call_example_cache_key_summary(cache_key),
+    }
+
+
+def _call_example_cache_key_summary(cache_key: dict[str, Any]) -> dict[str, Any]:
+    xml_files = cache_key.get("xml_files", [])
+    signature = blake2b(
+        json.dumps(cache_key, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        digest_size=16,
+    ).hexdigest()
+    return {
+        "input_paths": list(cache_key.get("input_paths", [])),
+        "xml_file_count": len(xml_files) if isinstance(xml_files, list) else 0,
+        "skip_errors": bool(cache_key.get("skip_errors", False)),
+        "signature": signature,
+    }
+
+
+def _call_example_cache_entry(
+    payload: dict[str, Any] | None,
+    *,
+    cache_key: dict[str, Any],
+) -> _CachedCallExamples | None:
+    if payload is None or payload.get("cache_key") != cache_key:
+        return None
+    try:
+        examples_payload = payload.get("examples")
+        failures_payload = payload.get("parse_failures")
+        game_counts_payload = payload.get("game_counts")
+        discard_examples = int(payload["discard_examples"])
+        if not isinstance(examples_payload, list):
+            raise ValueError("call example cache examples must be a list")
+        if not isinstance(failures_payload, list):
+            raise ValueError("call example cache parse_failures must be a list")
+        if not isinstance(game_counts_payload, dict):
+            raise ValueError("call example cache game_counts must be an object")
+        return _CachedCallExamples(
+            examples=[
+                _call_example_from_payload(item)
+                for item in examples_payload
+            ],
+            parse_failures=tuple(
+                _parse_failure_from_payload(item)
+                for item in failures_payload
+            ),
+            game_counts={
+                key: int(value)
+                for key, value in game_counts_payload.items()
+            },
+            discard_examples=discard_examples,
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _write_call_example_cache(
+    path: Path,
+    *,
+    cache_key: dict[str, Any],
+    dataset_files: Sequence[Path],
+    examples: Sequence[CallExample],
+    parse_failures: Sequence[TenhouParseFailure],
+    game_counts: dict[str, int],
+    discard_examples: int,
+    report: dict[str, Any],
+) -> None:
+    payload = {
+        "kind": CALL_EXAMPLE_CACHE_KIND,
+        "created_at": datetime.now(UTC).isoformat(),
+        "cache_key": cache_key,
+        "xml_files": [str(path) for path in dataset_files],
+        "game_counts": game_counts,
+        "discard_examples": discard_examples,
+        "parse_failures": [_parse_failure_payload_for_cache(failure) for failure in parse_failures],
+        "examples": [_call_example_to_payload(example) for example in examples],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    report["writes"] = True
+
+
+def _call_example_cache_game_counts(game: TenhouGame) -> dict[str, int]:
+    return {
+        "rounds": len(game.rounds),
+        "draws": sum(len(round_.draws) for round_ in game.rounds),
+        "discards": sum(len(round_.discards) for round_ in game.rounds),
+        "reaches": sum(len(round_.reaches) for round_ in game.rounds),
+        "calls": sum(len(round_.calls) for round_ in game.rounds),
+        "wins": sum(len(round_.agari) for round_ in game.rounds),
+        "exhaustive_draws": sum(round_.ryuukyoku is not None for round_ in game.rounds),
+    }
+
+
+def _call_example_to_payload(example: CallExample) -> dict[str, Any]:
+    return {
+        "round_index": example.round_index,
+        "event_index": example.event_index,
+        "call_event_index": example.call_event_index,
+        "seat": example.seat,
+        "from_seat": example.from_seat,
+        "dealer": example.dealer,
+        "scores": list(example.scores),
+        "discarded_tile": example.discarded_tile.notation,
+        "legal_call_kinds": [kind.value for kind in example.legal_call_kinds],
+        "hand_counts": list(example.hand_counts),
+        "visible_counts": list(example.visible_counts),
+        "action": _action_to_call_example_cache_payload(example.action),
+    }
+
+
+def _call_example_from_payload(payload: Any) -> CallExample:
+    if not isinstance(payload, dict):
+        raise ValueError("call example cache rows must be objects")
+    return CallExample(
+        round_index=int(payload["round_index"]),
+        event_index=int(payload["event_index"]),
+        call_event_index=_optional_int(payload.get("call_event_index")),
+        seat=int(payload["seat"]),
+        from_seat=int(payload["from_seat"]),
+        dealer=int(payload["dealer"]),
+        scores=tuple(int(score) for score in _required_list(payload, "scores")),
+        discarded_tile=Tile.parse(str(payload["discarded_tile"])),
+        legal_call_kinds=tuple(
+            ActionKind(str(kind))
+            for kind in _required_list(payload, "legal_call_kinds")
+        ),
+        hand_counts=_tile_counts_from_payload(payload, "hand_counts"),
+        visible_counts=_tile_counts_from_payload(payload, "visible_counts"),
+        action=_action_from_call_example_cache_payload(payload.get("action")),
+    )
+
+
+def _action_to_call_example_cache_payload(action: Action) -> dict[str, Any]:
+    payload: dict[str, Any] = {"kind": action.kind.value}
+    if action.tile is not None:
+        payload["tile"] = action.tile.notation
+    if action.kind == ActionKind.DISCARD:
+        payload["tsumogiri"] = action.tsumogiri
+    if action.consumed:
+        payload["consumed"] = [tile.notation for tile in action.consumed]
+    return payload
+
+
+def _action_from_call_example_cache_payload(payload: Any) -> Action:
+    if not isinstance(payload, dict):
+        raise ValueError("call example cache action must be an object")
+    kind = ActionKind(str(payload["kind"]))
+    tile = None
+    if payload.get("tile") is not None:
+        tile = TileType.parse(str(payload["tile"]))
+    consumed = tuple(
+        Tile.parse(str(tile))
+        for tile in payload.get("consumed", [])
+    )
+    return Action(
+        kind=kind,
+        tile=tile,
+        tsumogiri=bool(payload.get("tsumogiri", False)),
+        consumed=consumed,
+    )
+
+
+def _parse_failure_payload_for_cache(failure: TenhouParseFailure) -> dict[str, str]:
+    return {
+        "path": str(failure.path),
+        "error_type": failure.error_type,
+        "message": failure.message,
+    }
+
+
+def _parse_failure_from_payload(payload: Any) -> TenhouParseFailure:
+    if not isinstance(payload, dict):
+        raise ValueError("call example cache parse failures must be objects")
+    return TenhouParseFailure(
+        path=Path(str(payload["path"])),
+        error_type=str(payload["error_type"]),
+        message=str(payload["message"]),
+    )
+
+
+def _tile_counts_from_payload(payload: dict[str, Any], key: str) -> tuple[int, ...]:
+    counts = tuple(int(count) for count in _required_list(payload, key))
+    if len(counts) != 34:
+        raise ValueError(f"{key} must contain 34 tile counts")
+    return counts
+
+
+def _required_list(payload: dict[str, Any], key: str) -> list[Any]:
+    value = payload.get(key)
+    if not isinstance(value, list):
+        raise ValueError(f"{key} must be a list")
+    return value
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def _read_call_feature_cache(path: Path | None) -> dict[str, Any] | None:
