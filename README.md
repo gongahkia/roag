@@ -49,6 +49,7 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
 PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
   data/fixtures/tenhou --models fast --example-limit 1 \
   --example-limit-strategy balanced --profile-stages \
+  --example-cache runs/fixture-call-example-cache.json \
   --feature-cache runs/fixture-call-feature-cache.json \
   --call-threshold-source train-best \
   --report runs/fixture-call-benchmark.json
@@ -104,6 +105,7 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
   --example-limit 20000 \
   --example-limit-strategy balanced --call-threshold-source train-best \
   --profile-stages \
+  --example-cache runs/call-examples-tenhou-500-v1.json \
   --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
   --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json
 
@@ -116,8 +118,8 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 
 ## Prioritized Next Work
 
-1. Keep call/pass work focused on cache-safe scaling beyond the 20k balanced cap and on comparing
-   calibrated versus positive-weight policies.
+1. Use the call example cache for large-slice call/pass comparisons, then compare calibrated versus
+   positive-weight policies under matching caps and splits.
 2. Keep `riichi_linear_calibrated` with train-best thresholds as the baseline. Fixed threshold
    `0.25` improves riichi recall but is not the best balanced policy on the current 500-log splits.
 3. Use decision snapshot prediction producers for external-baseline protocol work; do not import

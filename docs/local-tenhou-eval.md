@@ -95,6 +95,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/raw/tenhou/xml/4p-hanchan-
   --example-limit-strategy balanced \
   --call-threshold-source train-best \
   --profile-stages \
+  --example-cache runs/call-examples-tenhou-500-v1.json \
   --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
   --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json \
   --source-label tenhou-4p-hanchan-500 \
@@ -191,8 +192,9 @@ pass-allowed frequency, legal-call-only frequency, `call-linear-v0`, and additiv
 recall, per-action recall, a fixed-threshold `call_linear_v1_calibrated` policy variant, and
 report-only call/pass threshold calibration. Use `--models fast --example-limit N` for bounded call
 comparisons on larger slices, `--example-limit-strategy balanced` to keep a roughly even call/pass
-cap, `--profile-stages` to record stage timings, and `--feature-cache PATH` to reuse prepared call
-features across repeated runs. `--epochs 0` is accepted for report-only zero-update model smokes.
+cap, `--profile-stages` to record stage timings, `--example-cache PATH` to reuse reconstructed call
+examples, and `--feature-cache PATH` to reuse prepared call features across repeated runs.
+`--epochs 0` is accepted for report-only zero-update model smokes.
 Use `--call-threshold-source train-best` to evaluate a train-selected calibrated threshold without
 using eval-selected diagnostics as policy. Add `--include-weighted` with `--models all` or an
 explicit model list containing `call_linear_v1_weighted` to compare the default threshold policy

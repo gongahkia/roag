@@ -464,9 +464,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Reduce large-slice call runtime by caching or serializing reconstructed examples before feature
-   preparation. Balanced call training no longer collapses on 10k/20k caps, but parse/reconstruct
-   still repeats every run.
+1. Use `benchmark-call --example-cache` to avoid repeated parse/reconstruct cost on large local
+   call/pass sweeps.
 2. Compare the 10k best weighted call policy against the 20k calibrated policy under the same cap
    and split before selecting a default call report policy.
 3. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
@@ -836,3 +835,15 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   thresholds were 0.35, 0.45, 0.35, and 0.40 with balanced eval accuracy 0.6737, 0.6608, 0.6738,
   and 0.6533. Fixed threshold 0.25 raised riichi recall but hurt pass recall and balanced accuracy
   on most splits, so it is no longer the current balanced baseline.
+
+### 2026-06-08
+
+- Added `benchmark-call --example-cache` for local-only reconstructed `CallExample` JSON caching
+  before feature preparation.
+- The call example cache key uses command input paths, resolved XML file paths, per-file size and
+  `mtime_ns`, and `--skip-errors`. Source metadata is intentionally report-only and does not
+  invalidate cached examples.
+- Call reports now include an additive `example_cache` block with path, hit/write status, loaded
+  example count, and a compact cache-key summary.
+- Added fixture tests for call-example serialization, cache hit reuse without reparsing, applying
+  `--example-limit` after cache load, and invalidation after source XML changes.

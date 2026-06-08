@@ -8,7 +8,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.cli import _call_examples_signature, _limit_call_examples, main
+from kenjaku.cli import (
+    _call_example_from_payload,
+    _call_example_to_payload,
+    _call_examples_signature,
+    _limit_call_examples,
+    main,
+)
 from kenjaku.core import Action, ActionKind, Tile
 from kenjaku.training import CallExample
 
@@ -1367,6 +1373,237 @@ class CliTests(unittest.TestCase):
             _call_examples_signature(examples),
             _call_examples_signature(tuple(reversed(examples))),
         )
+
+    def test_call_example_cache_serialization_round_trips(self) -> None:
+        discarded_tile = Tile.parse("3p")
+        consumed = (Tile.parse("1p"), Tile.parse("2p"))
+        example = CallExample(
+            round_index=2,
+            event_index=10,
+            call_event_index=11,
+            seat=1,
+            from_seat=0,
+            dealer=3,
+            scores=(27000, 24000, 26000, 23000),
+            discarded_tile=discarded_tile,
+            legal_call_kinds=(ActionKind.CHI, ActionKind.PON),
+            hand_counts=(1, 1, 0, *([0] * 31)),
+            visible_counts=(0, 1, 1, *([0] * 31)),
+            action=Action(ActionKind.CHI, discarded_tile.type, consumed=consumed),
+        )
+
+        restored = _call_example_from_payload(_call_example_to_payload(example))
+
+        self.assertEqual(restored.round_index, example.round_index)
+        self.assertEqual(restored.event_index, example.event_index)
+        self.assertEqual(restored.call_event_index, example.call_event_index)
+        self.assertEqual(restored.seat, example.seat)
+        self.assertEqual(restored.from_seat, example.from_seat)
+        self.assertEqual(restored.dealer, example.dealer)
+        self.assertEqual(restored.scores, example.scores)
+        self.assertEqual(restored.discarded_tile, example.discarded_tile)
+        self.assertEqual(restored.legal_call_kinds, example.legal_call_kinds)
+        self.assertEqual(restored.hand_counts, example.hand_counts)
+        self.assertEqual(restored.visible_counts, example.visible_counts)
+        self.assertEqual(restored.action.kind, ActionKind.CHI)
+        self.assertEqual(restored.action.tile, discarded_tile.type)
+        self.assertEqual(restored.action.consumed, consumed)
+
+    def test_benchmark_call_reuses_example_cache(self) -> None:
+        with TemporaryDirectory() as directory:
+            cache = Path(directory) / "call-examples-cache.json"
+            first_report = Path(directory) / "call-first.json"
+            second_report = Path(directory) / "call-second.json"
+
+            first_stdout = io.StringIO()
+            with contextlib.redirect_stdout(first_stdout):
+                first_exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-cache",
+                        str(cache),
+                        "--profile-stages",
+                        "--report",
+                        str(first_report),
+                    ]
+                )
+            first_payload = json.loads(first_report.read_text(encoding="utf-8"))
+
+            second_stdout = io.StringIO()
+            with contextlib.redirect_stdout(second_stdout):
+                second_exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-cache",
+                        str(cache),
+                        "--profile-stages",
+                        "--report",
+                        str(second_report),
+                    ]
+                )
+            second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+            cache_payload = json.loads(cache.read_text(encoding="utf-8"))
+
+        self.assertEqual(first_exit_code, 0)
+        self.assertEqual(second_exit_code, 0)
+        self.assertIn("example_cache_hit: no", first_stdout.getvalue())
+        self.assertIn("stage_parse_seconds:", first_stdout.getvalue())
+        self.assertIn("example_cache_hit: yes", second_stdout.getvalue())
+        self.assertNotIn("stage_parse_seconds:", second_stdout.getvalue())
+        self.assertEqual(first_payload["example_cache"]["hit"], False)
+        self.assertEqual(first_payload["example_cache"]["writes"], True)
+        self.assertEqual(first_payload["example_cache"]["examples"], 1)
+        self.assertEqual(second_payload["example_cache"]["hit"], True)
+        self.assertEqual(second_payload["example_cache"]["writes"], False)
+        self.assertEqual(second_payload["example_cache"]["examples"], 1)
+        self.assertEqual(second_payload["discard_examples"], 4)
+        self.assertEqual(second_payload["rounds"], 3)
+        self.assertEqual(cache_payload["kind"], "kenjaku-call-example-cache-v0")
+        self.assertEqual(len(cache_payload["examples"]), 1)
+        self.assertEqual(cache_payload["game_counts"]["rounds"], 3)
+        self.assertEqual(cache_payload["discard_examples"], 4)
+        self.assertEqual(
+            cache_payload["cache_key"]["xml_files"][0]["path"],
+            str(Path("data/fixtures/tenhou/events_4p.xml").resolve()),
+        )
+
+    def test_benchmark_call_example_limit_is_applied_after_cache_load(self) -> None:
+        with TemporaryDirectory() as directory:
+            fixture_dir = Path(directory) / "fixtures"
+            fixture_dir.mkdir()
+            fixture_text = Path("data/fixtures/tenhou/events_4p.xml").read_text(
+                encoding="utf-8",
+            )
+            (fixture_dir / "a.xml").write_text(fixture_text, encoding="utf-8")
+            (fixture_dir / "b.xml").write_text(fixture_text, encoding="utf-8")
+            cache = Path(directory) / "call-examples-cache.json"
+            first_report = Path(directory) / "call-first.json"
+            second_report = Path(directory) / "call-second.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                first_exit_code = main(
+                    [
+                        "benchmark-call",
+                        str(fixture_dir),
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-cache",
+                        str(cache),
+                        "--report",
+                        str(first_report),
+                    ]
+                )
+
+            second_stdout = io.StringIO()
+            with contextlib.redirect_stdout(second_stdout):
+                second_exit_code = main(
+                    [
+                        "benchmark-call",
+                        str(fixture_dir),
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-limit",
+                        "1",
+                        "--example-cache",
+                        str(cache),
+                        "--report",
+                        str(second_report),
+                    ]
+                )
+            first_payload = json.loads(first_report.read_text(encoding="utf-8"))
+            second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+
+        self.assertEqual(first_exit_code, 0)
+        self.assertEqual(second_exit_code, 0)
+        self.assertEqual(first_payload["call_examples"], 2)
+        self.assertEqual(first_payload["call_examples_total"], 2)
+        self.assertIn("example_cache_hit: yes", second_stdout.getvalue())
+        self.assertEqual(second_payload["call_examples"], 1)
+        self.assertEqual(second_payload["call_examples_total"], 2)
+        self.assertEqual(second_payload["example_cache"]["examples"], 2)
+
+    def test_benchmark_call_example_cache_invalidates_when_file_changes(self) -> None:
+        with TemporaryDirectory() as directory:
+            fixture_dir = Path(directory) / "fixtures"
+            fixture_dir.mkdir()
+            fixture = fixture_dir / "events.xml"
+            fixture.write_text(
+                Path("data/fixtures/tenhou/events_4p.xml").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            cache = Path(directory) / "call-examples-cache.json"
+            first_report = Path(directory) / "call-first.json"
+            second_report = Path(directory) / "call-second.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                first_exit_code = main(
+                    [
+                        "benchmark-call",
+                        str(fixture_dir),
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-cache",
+                        str(cache),
+                        "--report",
+                        str(first_report),
+                    ]
+                )
+
+            fixture.write_text(fixture.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+            second_stdout = io.StringIO()
+            with contextlib.redirect_stdout(second_stdout):
+                second_exit_code = main(
+                    [
+                        "benchmark-call",
+                        str(fixture_dir),
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-cache",
+                        str(cache),
+                        "--profile-stages",
+                        "--report",
+                        str(second_report),
+                    ]
+                )
+            second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+
+        self.assertEqual(first_exit_code, 0)
+        self.assertEqual(second_exit_code, 0)
+        self.assertIn("example_cache_hit: no", second_stdout.getvalue())
+        self.assertIn("stage_parse_seconds:", second_stdout.getvalue())
+        self.assertEqual(second_payload["example_cache"]["hit"], False)
+        self.assertEqual(second_payload["example_cache"]["writes"], True)
 
     def test_benchmark_call_models_rejects_unknown_name(self) -> None:
         with self.assertRaises(SystemExit) as context:

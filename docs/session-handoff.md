@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-06.
+Last updated: 2026-06-08.
 
 ## Stop State
 
@@ -9,6 +9,10 @@ Last updated: 2026-06-06.
   deterministic call/pass interleaving, added stub decision prediction production, added opt-in
   outcome labels, added a minimal PyTorch discard MLP, and reran local aggregate call/riichi checks
   on the ignored 500-log Tenhou slice.
+- Current work slice: added `benchmark-call --example-cache` for local-only reconstructed
+  `CallExample` JSON caching before feature preparation. Cache keys include command input paths,
+  resolved XML files, each file's size/mtime, and `--skip-errors`; source metadata intentionally
+  does not invalidate the cache. Call reports now include an additive `example_cache` block.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -53,6 +57,7 @@ Last updated: 2026-06-06.
   it. `--example-limit N` keeps bounded large-slice iteration practical.
   `--example-limit-strategy prefix|balanced` selects either a deterministic
   prefix or a roughly even call/pass cap. `--profile-stages` records stage timings,
+  `--example-cache PATH` reuses reconstructed call examples before feature preparation,
   `--feature-cache PATH` reuses prepared call features across repeated runs, `--epochs 0` supports
   zero-update report smokes, and `--call-threshold-source train-best` uses the train split threshold
   sweep winner for the calibrated policy variant.
@@ -129,6 +134,9 @@ Last updated: 2026-06-06.
 - Call feature-cache payloads are local-only prepared-example caches. The cache key includes
   selected/train/eval example signatures; do not remove those signatures because equivalent counts
   are not enough to prove feature compatibility.
+- Call example-cache payloads are local-only reconstructed-example caches. They intentionally sit
+  before `--example-limit` and deterministic splitting, so one cache can support multiple caps and
+  split settings as long as the XML file identity/size/mtime and `--skip-errors` match.
 - `--example-limit-strategy balanced` is a deterministic roughly even call/pass cap for diagnostics,
   not a natural distribution sample. Metrics from balanced caps should not be compared directly to
   prefix or uncapped reports.
@@ -246,6 +254,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --example-limit 1 \
   --example-limit-strategy balanced \
   --profile-stages \
+  --example-cache runs/fixture-call-example-cache.json \
   --feature-cache runs/fixture-call-feature-cache.json \
   --call-threshold-source train-best \
   --report runs/fixture-call-benchmark-fast.json
@@ -305,6 +314,7 @@ PYTHONPATH=src python3 -m kenjaku benchmark-call \
   --example-limit-strategy balanced \
   --call-threshold-source train-best \
   --profile-stages \
+  --example-cache runs/call-examples-tenhou-500-v1.json \
   --feature-cache runs/call-features-tenhou-500-balanced-limit20000-v1.json \
   --report runs/call-benchmark-tenhou-500-balanced-limit20000-v1-report.json \
   --source-label tenhou-4p-hanchan-500 \
@@ -532,15 +542,14 @@ Mortal local baseline reconnaissance:
 
 ## Next Tasks
 
-1. Reduce large-slice call runtime by caching or serializing reconstructed examples before feature
-   preparation. The 20k feature cache works, but parse/reconstruct still repeats every run.
-2. Compare the 10k best weighted policy against the 20k calibrated policy with the same cap and
+1. Use `benchmark-call --example-cache` on the 500-log slice, then compare the 10k best weighted
+   policy against the 20k calibrated policy with the same cap and
    seed before selecting a default call report policy.
-3. Keep riichi on train-best calibration for now. Do not add riichi features until a concrete
+2. Keep riichi on train-best calibration for now. Do not add riichi features until a concrete
    failure mode appears beyond the fixed-0.25 recall/pass-recall tradeoff.
-4. Use the stub prediction producer only for protocol tests. Real Mortal inference still requires
+3. Use the stub prediction producer only for protocol tests. Real Mortal inference still requires
    legally usable weights and a subprocess/data boundary.
-5. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
+4. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
    and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
-6. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
+5. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
    larger discard neural model.
