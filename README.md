@@ -63,6 +63,11 @@ PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp \
   data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
   --checkpoint runs/fixture-discard-mlp.pt \
   --report runs/fixture-discard-mlp.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-mlp \
+  data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
+  --linear-epochs 1 \
+  --report runs/fixture-discard-mlp-benchmark.json
 ```
 
 ## Decision Snapshots
@@ -85,7 +90,9 @@ PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-compare \
 ```
 
 Stub prediction strategies are for protocol tests only. Real Mortal comparison should remain behind
-a subprocess/data boundary and requires legally usable weights.
+a subprocess/data boundary and requires legally usable weights. External producers can be tested
+through `run-external-prediction-producer`, which passes `KENJAKU_SNAPSHOTS` and
+`KENJAKU_PREDICTIONS` to a separate process and then reuses the same prediction comparator.
 
 ## Local Tenhou Data
 
@@ -121,11 +128,13 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 ## Prioritized Next Work
 
 1. Use the call example cache for large-slice call/pass comparisons, then compare calibrated versus
-   positive-weight policies under matching caps and splits.
+   positive-weight policies under matching caps and splits. Prefer `call_linear_v1_calibrated`
+   with `--call-threshold-source train-best` unless matching reports show another policy wins on
+   balanced accuracy without an unacceptable pass/call recall tradeoff.
 2. Keep `riichi_linear_calibrated` with train-best thresholds as the baseline. Fixed threshold
    `0.25` improves riichi recall but is not the best balanced policy on the current 500-log splits.
 3. Use decision snapshot prediction producers for external-baseline protocol work; do not import
    or copy AGPL baseline code.
 4. Use discard disagreement tags before adding another feature profile.
-5. Use PyTorch validation histories and checkpoints for small discard MLP comparisons before
-   attempting a larger neural architecture.
+5. Use `benchmark-discard-mlp` and `benchmark-report-summary` for small discard MLP comparisons
+   before attempting a larger neural architecture.

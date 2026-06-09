@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -19,6 +21,7 @@ from kenjaku.experiments import (
     build_discard_benchmark_summary,
     build_discard_disagreement_summary,
     build_discard_linear_report,
+    build_discard_mlp_benchmark_report,
     build_discard_mlp_report,
     build_riichi_benchmark_report,
     build_tenhou_inspect_report,
@@ -291,6 +294,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     snapshot_compare.set_defaults(func=_decision_snapshot_compare)
 
+    external_producer = subparsers.add_parser(
+        "run-external-prediction-producer",
+        help="run a subprocess that converts decision snapshots into prediction JSONL",
+    )
+    external_producer.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file",
+    )
+    external_producer.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="prediction JSONL path the external command must write",
+    )
+    external_producer.add_argument(
+        "--timeout-seconds",
+        type=float,
+        help="optional subprocess timeout",
+    )
+    external_producer.add_argument(
+        "--compare-report",
+        type=Path,
+        help="optional path for a decision-snapshot comparison JSON report",
+    )
+    external_producer.add_argument(
+        "--command",
+        nargs=argparse.REMAINDER,
+        required=True,
+        help=(
+            "external command to run; put this option last. The command receives "
+            "KENJAKU_SNAPSHOTS and KENJAKU_PREDICTIONS in its environment"
+        ),
+    )
+    external_producer.set_defaults(func=_run_external_prediction_producer)
+
     train_baseline = subparsers.add_parser(
         "train-discard-baseline",
         help="fit the deterministic discard frequency baseline on one Tenhou XML file",
@@ -486,6 +525,94 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(benchmark_discard)
     benchmark_discard.set_defaults(func=_benchmark_discard)
+
+    benchmark_mlp = subparsers.add_parser(
+        "benchmark-discard-mlp",
+        help="compare a small PyTorch discard MLP against discard baseline anchors",
+    )
+    benchmark_mlp.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    benchmark_mlp.add_argument("--epochs", type=int, default=5, help="MLP training epochs")
+    benchmark_mlp.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="MLP mini-batch size",
+    )
+    benchmark_mlp.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="MLP AdamW learning rate",
+    )
+    benchmark_mlp.add_argument(
+        "--hidden-dim",
+        type=int,
+        default=128,
+        help="MLP hidden layer width",
+    )
+    benchmark_mlp.add_argument(
+        "--linear-epochs",
+        type=int,
+        default=3,
+        help="linear anchor training epochs",
+    )
+    benchmark_mlp.add_argument(
+        "--linear-learning-rate",
+        type=float,
+        default=0.05,
+        help="linear anchor SGD learning rate",
+    )
+    benchmark_mlp.add_argument(
+        "--linear-l2",
+        type=float,
+        default=0.0,
+        help="linear anchor L2 regularization strength",
+    )
+    benchmark_mlp.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    benchmark_mlp.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    benchmark_mlp.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="torch and dataloader random seed",
+    )
+    benchmark_mlp.add_argument(
+        "--device",
+        choices=("auto", "cpu", "mps", "cuda"),
+        default="auto",
+        help="training device",
+    )
+    benchmark_mlp.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="optional path for the best PyTorch checkpoint artifact",
+    )
+    benchmark_mlp.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON MLP benchmark report artifact",
+    )
+    benchmark_mlp.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(benchmark_mlp)
+    benchmark_mlp.set_defaults(func=_benchmark_discard_mlp)
 
     benchmark_summary = subparsers.add_parser(
         "benchmark-report-summary",
@@ -1032,6 +1159,58 @@ def _decision_snapshot_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_external_prediction_producer(args: argparse.Namespace) -> int:
+    command = _external_producer_command(args.command)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["KENJAKU_SNAPSHOTS"] = str(args.snapshots)
+    env["KENJAKU_PREDICTIONS"] = str(args.output)
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=args.timeout_seconds,
+            env=env,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise SystemExit(
+            f"external prediction producer timed out after {args.timeout_seconds} seconds"
+        ) from error
+    if completed.returncode != 0:
+        stderr = completed.stderr.strip()
+        detail = f": {stderr}" if stderr else ""
+        raise SystemExit(
+            f"external prediction producer failed with code {completed.returncode}{detail}"
+        )
+
+    try:
+        _predictions, prediction_stats = _read_decision_predictions(args.output)
+    except FileNotFoundError as error:
+        raise SystemExit(f"external prediction producer did not write {args.output}") from error
+
+    print(f"command_returncode: {completed.returncode}")
+    print(f"predictions: {prediction_stats['valid_predictions']}")
+    print(f"malformed_prediction_rows: {prediction_stats['malformed_prediction_rows']}")
+    print(f"duplicate_prediction_rows: {prediction_stats['duplicate_prediction_rows']}")
+    print(f"output_path: {args.output}")
+    if args.compare_report is not None:
+        comparison = _build_decision_snapshot_comparison(args.snapshots, args.output)
+        write_json_report(args.compare_report, comparison)
+        print(f"compare_report_path: {args.compare_report}")
+    return 0
+
+
+def _external_producer_command(raw_command: Sequence[str]) -> list[str]:
+    command = list(raw_command)
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        raise SystemExit("--command requires at least one command token")
+    return command
+
+
 def _build_decision_snapshot_comparison(
     snapshots_path: Path,
     predictions_path: Path,
@@ -1517,6 +1696,185 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         write_json_report(args.disagreements, disagreement_report)
         print(f"disagreements_path: {args.disagreements}")
     return 0
+
+
+def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.models.torch_discard import (
+            save_discard_mlp_checkpoint,
+            train_discard_mlp,
+        )
+    except ImportError as error:
+        raise SystemExit("PyTorch is required for benchmark-discard-mlp") from error
+
+    if args.linear_epochs <= 0:
+        raise SystemExit("--linear-epochs must be positive")
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_discard_examples(game))
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    frequency_model = DiscardFrequencyBaseline.fit(train_examples)
+    risk_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.linear_epochs,
+        learning_rate=args.linear_learning_rate,
+        l2=args.linear_l2,
+        feature_profile=RISK_CONTEXT_FEATURE_PROFILE,
+    )
+    defense_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.linear_epochs,
+        learning_rate=args.linear_learning_rate,
+        l2=args.linear_l2,
+        feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
+    )
+    try:
+        mlp_result = train_discard_mlp(
+            train_examples,
+            eval_examples,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            hidden_dim=args.hidden_dim,
+            device=args.device,
+            seed=args.seed,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.checkpoint is not None:
+        save_discard_mlp_checkpoint(
+            mlp_result,
+            args.checkpoint,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            eval_fraction=args.eval_fraction,
+            split_seed=args.split_seed,
+            seed=args.seed,
+        )
+
+    model_payloads = {
+        "frequency": _discard_frequency_payload(
+            frequency_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            include_analysis=False,
+        ),
+        "risk_context_linear": _discard_linear_payload(
+            "risk_context_linear",
+            risk_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.linear_epochs,
+            learning_rate=args.linear_learning_rate,
+            l2=args.linear_l2,
+            include_analysis=False,
+        ),
+        "defense_context_linear": _discard_linear_payload(
+            "defense_context_linear",
+            defense_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.linear_epochs,
+            learning_rate=args.linear_learning_rate,
+            l2=args.linear_l2,
+            include_analysis=False,
+        ),
+        "discard_mlp": _discard_mlp_benchmark_payload(
+            mlp_result,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            seed=args.seed,
+        ),
+    }
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    print(f"device: {mlp_result.device}")
+    for model_name in ("frequency", "risk_context_linear", "defense_context_linear"):
+        metrics = model_payloads[model_name]["metrics"]
+        print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
+        print(
+            f"{model_name}_eval_accuracy: "
+            f"{_format_optional_accuracy(metrics['eval_accuracy'])}"
+        )
+    print(
+        "discard_mlp_train_accuracy: "
+        f"{_format_optional_accuracy(mlp_result.train_metrics['accuracy'])}"
+    )
+    print(
+        "discard_mlp_eval_accuracy: "
+        f"{_format_optional_accuracy(mlp_result.eval_metrics['accuracy'])}"
+    )
+    print(
+        "discard_mlp_best_eval_accuracy: "
+        f"{_format_optional_accuracy(mlp_result.best_metrics['eval']['accuracy'])}"
+    )
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.checkpoint is not None:
+        print(f"checkpoint_path: {args.checkpoint}")
+    if args.report is not None:
+        report = build_discard_mlp_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(examples),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=dataset.failures,
+            checkpoint_path=args.checkpoint,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _discard_mlp_benchmark_payload(
+    result: Any,
+    *,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    seed: int,
+) -> dict[str, Any]:
+    return {
+        "kind": result.model.kind,
+        "input_dim": result.model.input_dim,
+        "hidden_dim": result.model.hidden_dim,
+        "output_dim": result.model.output_dim,
+        "training": {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "device": result.device,
+            "seed": seed,
+            "history": result.history,
+            "best_epoch": result.best_epoch,
+            "selection_split": result.selection_split,
+        },
+        "metrics": {
+            "train": result.train_metrics,
+            "eval": result.eval_metrics,
+            "best": result.best_metrics,
+        },
+    }
 
 
 def _parse_discard_benchmark_models(value: str) -> tuple[str, ...]:

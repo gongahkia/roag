@@ -166,6 +166,20 @@ PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/raw/tenhou/xml/4p-hanch
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \
   --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
+
+PYTHONPATH=src python3 -m kenjaku benchmark-discard-mlp data/raw/tenhou/xml/4p-hanchan \
+  --epochs 5 \
+  --batch-size 64 \
+  --device auto \
+  --linear-epochs 3 \
+  --linear-learning-rate 0.05 \
+  --linear-l2 0.0 \
+  --eval-fraction 0.2 \
+  --checkpoint runs/discard-mlp-benchmark-local-best.pt \
+  --report runs/discard-mlp-benchmark-local-report.json \
+  --source-label tenhou-4p-hanchan-local \
+  --source-date 2026-current-year \
+  --source-command "$SOURCE_COMMAND --players 4 --length h --limit 100"
 ```
 
 The benchmark report scores the frequency baseline, a raw hand/visible-count linear model, the
@@ -182,8 +196,11 @@ shanten-aware, risk-context, and defense-context results. `--disagreements` writ
 examples where risk/defense model predictions differ, including legal-candidate logits for
 debugging; it requires the risk, defense, and defense-v1 models.
 
-Use `benchmark-report-summary` to compare multiple ignored discard, call, and riichi benchmark JSON
-reports without copying raw logs or full report artifacts into git. Use
+Use `benchmark-report-summary` to compare multiple ignored discard, call, riichi, and discard-MLP
+benchmark JSON reports without copying raw logs or full report artifacts into git. Call summaries
+include a report-local `selected_policy` based on eval balanced accuracy, then target recall, pass
+recall, and eval accuracy. Treat it as a comparable-report selector, not proof that a policy is
+universally better. Use
 `disagreement-report-summary --examples N` to
 compare capped disagreement artifacts and print representative stored examples; add `--tags` to
 also count deterministic `defense_signal`, `efficiency_like`, `close_logit`, active-riichi, and
@@ -204,6 +221,9 @@ builds a
 conservative riichi/pass dataset and scores both the frequency floor and `riichi-linear-v0`,
 including the fixed-threshold or train-selected `riichi_linear_calibrated` policy variant, optional
 `riichi_linear_weighted`, and report-only riichi/pass threshold calibration.
+`benchmark-discard-mlp` trains frequency, risk-context linear, defense-context linear, and
+`discard-mlp-v0` on one deterministic split, records per-epoch MLP validation history, and reports
+MLP deltas against the linear anchors.
 
 Use `export-decision-snapshots` to write local-only JSONL rows for discard/call/riichi decisions.
 Rows include stable `row_id` values, Kenjaku reconstruction fields, legal actions, the observed
@@ -213,6 +233,9 @@ snapshots remain inference-safe. Use `decision-snapshot-summary` to validate sna
 Use `produce-decision-predictions` with stub strategies `pass`, `first-legal`, or `echo-actual` for
 protocol tests only. Use `decision-snapshot-compare` when a real comparator emits prediction JSONL
 rows with `row_id` and `predicted_action`.
+Use `run-external-prediction-producer` for subprocess-based producer checks; the child process reads
+`KENJAKU_SNAPSHOTS`, writes `KENJAKU_PREDICTIONS`, and remains outside Kenjaku's dependency/license
+boundary.
 
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

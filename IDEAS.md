@@ -464,19 +464,21 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 
 ## 11. immediate next steps
 
-1. Use `benchmark-call --example-cache` to avoid repeated parse/reconstruct cost on large local
-   call/pass sweeps.
-2. Compare the 10k best weighted call policy against the 20k calibrated policy under the same cap
-   and split before selecting a default call report policy.
+1. Restore or regenerate the ignored local 500-log Tenhou slice, then rerun the documented
+   10k/20k call reports through `benchmark-report-summary` so the report-local `selected_policy`
+   is based on comparable artifacts.
+2. Use `benchmark-discard-mlp` for small MLP checks against frequency, risk-context linear, and
+   defense-context linear anchors before attempting a transformer encoder.
 3. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
    loses pass recall and is not the balanced baseline on the latest 500-log split checks.
-4. Keep external-baseline work at the neutral prediction protocol. Stub producers exist for tests;
-   real Mortal inference still requires legally usable weights and a subprocess/data boundary.
+4. Keep external-baseline work at the neutral prediction protocol. Stub producers and a generic
+   subprocess producer boundary exist for tests; real Mortal inference still requires legally
+   usable weights and must stay outside Kenjaku's dependency boundary.
 5. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-6. Use PyTorch validation histories and checkpoints for small discard MLP comparisons before
-   attempting a larger neural architecture.
+6. Do not promote `discard-linear-defense-context-v1` as a default until a matching split shows an
+   aggregate or targeted gain that survives the existing risk/defense comparison.
 
 ---
 
@@ -851,3 +853,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   selection, and optional best-checkpoint artifacts via `--checkpoint`.
 - Added fixture tests for MLP history, zero-epoch metric recording, checkpoint payloads, and CLI
   report/checkpoint consistency. PyTorch-specific tests are skipped when `torch` is unavailable.
+
+### 2026-06-09
+
+- Added `benchmark-discard-mlp`, which trains a small PyTorch discard MLP and the frequency,
+  risk-context linear, and defense-context linear anchors on the same deterministic split.
+- Added `kenjaku-discard-mlp-benchmark-report-v0` reports with final MLP metrics, best-epoch
+  validation metrics, checkpoint paths, and MLP eval-accuracy deltas against the anchor models.
+- Extended `benchmark-report-summary` to summarize standalone MLP training reports and MLP
+  benchmark reports, including final/best loss and accuracy.
+- Extended call benchmark summaries with a report-local `selected_policy`, ranked by eval balanced
+  accuracy, call recall, pass recall, then eval accuracy. This is a comparable-report selector,
+  not a global performance claim.
+- Added `run-external-prediction-producer`, a generic subprocess boundary that passes
+  `KENJAKU_SNAPSHOTS` and `KENJAKU_PREDICTIONS` to an external producer, then validates prediction
+  JSONL and can write a comparison report.
+- Updated README, local evaluation, external-baseline, and handoff docs. No real 500-log reports
+  were regenerated in this workspace because ignored raw Tenhou data and run artifacts were absent.

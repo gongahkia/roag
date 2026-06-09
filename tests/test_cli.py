@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,6 +17,8 @@ from kenjaku.cli import (
     main,
 )
 from kenjaku.core import Action, ActionKind, Tile
+from kenjaku.experiments import build_discard_mlp_benchmark_report
+from kenjaku.io import parse_tenhou_xml_file
 from kenjaku.training import CallExample
 
 
@@ -384,6 +387,67 @@ class CliTests(unittest.TestCase):
         self.assertTrue(all("row_id" in row for row in prediction_rows))
         self.assertTrue(all("predicted_action" in row for row in prediction_rows))
 
+    def test_external_prediction_producer_round_trips_through_subprocess_boundary(self) -> None:
+        with TemporaryDirectory() as directory:
+            snapshots = Path(directory) / "snapshots.jsonl"
+            predictions = Path(directory) / "predictions.jsonl"
+            compare_report = Path(directory) / "compare.json"
+            producer = Path(directory) / "producer.py"
+            producer.write_text(
+                "\n".join(
+                    [
+                        "import json",
+                        "import os",
+                        "snapshots = os.environ['KENJAKU_SNAPSHOTS']",
+                        "predictions = os.environ['KENJAKU_PREDICTIONS']",
+                        "with open(snapshots, encoding='utf-8') as source, "
+                        "open(predictions, 'w', encoding='utf-8') as target:",
+                        "    for line in source:",
+                        "        row = json.loads(line)",
+                        "        target.write(json.dumps({"
+                        "'row_id': row['row_id'], "
+                        "'predicted_action': row['actual_action']"
+                        "}) + '\\n')",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(snapshots),
+                        "--limit",
+                        "5",
+                    ]
+                )
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "run-external-prediction-producer",
+                        str(snapshots),
+                        "--output",
+                        str(predictions),
+                        "--compare-report",
+                        str(compare_report),
+                        "--command",
+                        sys.executable,
+                        str(producer),
+                    ]
+                )
+            comparison = json.loads(compare_report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("command_returncode: 0", stdout.getvalue())
+        self.assertIn("predictions: 5", stdout.getvalue())
+        self.assertIn("compare_report_path:", stdout.getvalue())
+        self.assertEqual(comparison["kind"], "kenjaku-decision-snapshot-comparison-v0")
+        self.assertEqual(comparison["overall"]["accuracy"], 1.0)
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 
@@ -552,6 +616,160 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["best"]["eval"]["examples"], 1)
         self.assertIsNone(payload["artifacts"]["checkpoint_path"])
 
+    def test_benchmark_report_summary_supports_standalone_mlp_report(self) -> None:
+        report_payload = {
+            "kind": "kenjaku-discard-mlp-report-v0",
+            "source": {"label": "synthetic-mlp", "command": None, "date": None},
+            "input_paths": ["synthetic"],
+            "xml_file_count": 1,
+            "rounds": 1,
+            "draws": 0,
+            "discards": 0,
+            "reaches": 0,
+            "calls": 0,
+            "wins": 0,
+            "exhaustive_draws": 0,
+            "discard_examples": 4,
+            "call_examples": 1,
+            "split": {
+                "seed": "fixed",
+                "eval_fraction": 0.25,
+                "train_examples": 3,
+                "eval_examples": 1,
+            },
+            "model": {
+                "kind": "discard-mlp-v0",
+                "input_dim": 68,
+                "hidden_dim": 8,
+                "output_dim": 34,
+            },
+            "training": {
+                "epochs": 1,
+                "batch_size": 2,
+                "learning_rate": 0.001,
+                "device": "cpu",
+                "seed": 123,
+                "history": [],
+                "best_epoch": 1,
+                "selection_split": "eval",
+            },
+            "metrics": {
+                "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.0},
+                "best": {
+                    "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                    "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.0},
+                },
+            },
+            "discard_shanten": {"examples": 4},
+            "parse_failures": {"count": 0, "items": []},
+            "artifacts": {"checkpoint_path": None},
+        }
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "mlp.json"
+            report.write_text(json.dumps(report_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("model: discard-mlp-v0 hidden_dim=8", text_stdout.getvalue())
+        self.assertIn("best: epoch=1 split=eval", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
+        self.assertEqual(payload["reports"][0]["target"], "discard_mlp")
+        self.assertEqual(payload["reports"][0]["model"]["hidden_dim"], 8)
+
+    def test_benchmark_report_summary_supports_synthetic_mlp_benchmark_report(self) -> None:
+        report_payload = build_discard_mlp_benchmark_report(
+            input_paths=[Path("synthetic")],
+            xml_files=[Path("synthetic.xml")],
+            game=parse_tenhou_xml_file(Path("data/fixtures/tenhou/minimal_4p.xml")),
+            discard_examples=4,
+            call_examples=1,
+            split_seed="fixed",
+            eval_fraction=0.25,
+            train_examples=3,
+            eval_examples=1,
+            models={
+                "frequency": {
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.0},
+                },
+                "risk_context_linear": {
+                    "kind": "discard-linear-risk-context-v0",
+                    "feature_dim": 86,
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.25},
+                },
+                "defense_context_linear": {
+                    "kind": "discard-linear-defense-context-v0",
+                    "feature_dim": 98,
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.5},
+                },
+                "discard_mlp": {
+                    "kind": "discard-mlp-v0",
+                    "input_dim": 68,
+                    "hidden_dim": 8,
+                    "output_dim": 34,
+                    "training": {
+                        "epochs": 1,
+                        "batch_size": 2,
+                        "learning_rate": 0.001,
+                        "device": "cpu",
+                        "seed": 123,
+                        "history": [],
+                        "best_epoch": 1,
+                        "selection_split": "eval",
+                    },
+                    "metrics": {
+                        "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                        "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.75},
+                        "best": {
+                            "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                            "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.75},
+                        },
+                    },
+                },
+            },
+            discard_shanten={"examples": 4},
+            parse_failures=(),
+            checkpoint_path=None,
+            source={"label": "synthetic-mlp-benchmark", "command": None, "date": None},
+        )
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "mlp-benchmark.json"
+            report.write_text(json.dumps(report_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("discard_mlp: eval=0.7500", text_stdout.getvalue())
+        self.assertIn(
+            "mlp_eval_accuracy_lift_over_defense_context: +0.2500",
+            text_stdout.getvalue(),
+        )
+        self.assertEqual(
+            report_payload["deltas"]["mlp_eval_accuracy_lift_over_defense_context"],
+            0.25,
+        )
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["reports"][0]["target"], "discard_mlp_benchmark")
+        self.assertEqual(payload["reports"][0]["models"]["discard_mlp"]["hidden_dim"], 8)
+
     def test_train_discard_mlp_checkpoint_writes_best_state(self) -> None:
         if importlib.util.find_spec("torch") is None:
             self.skipTest("PyTorch is not available")
@@ -605,6 +823,64 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(checkpoint_payload["metrics"]["best"], report_payload["metrics"]["best"])
         self.assertIn("net.0.weight", checkpoint_payload["model_state_dict"])
+
+    def test_benchmark_discard_mlp_fixture_smoke_writes_report_artifact(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "mlp-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard-mlp",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--batch-size",
+                        "2",
+                        "--hidden-dim",
+                        "8",
+                        "--linear-epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-mlp-benchmark",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("discard_mlp_best_eval_accuracy:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-mlp-benchmark-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-mlp-benchmark")
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["split"]["train_examples"], 3)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(
+            set(payload["models"]),
+            {"frequency", "risk_context_linear", "defense_context_linear", "discard_mlp"},
+        )
+        self.assertEqual(payload["models"]["discard_mlp"]["hidden_dim"], 8)
+        self.assertEqual(payload["models"]["discard_mlp"]["training"]["device"], "cpu")
+        self.assertIn("mlp_eval_accuracy_lift_over_defense_context", payload["deltas"])
+
+        summary_stdout = io.StringIO()
+        with contextlib.redirect_stdout(summary_stdout):
+            summary_exit_code = main(["benchmark-report-summary", str(report)])
+        self.assertEqual(summary_exit_code, 0)
+        self.assertIn("discard_mlp: eval=", summary_stdout.getvalue())
+        self.assertIn("deltas:", summary_stdout.getvalue())
 
     def test_benchmark_discard_writes_report_artifact(self) -> None:
         stdout = io.StringIO()
@@ -916,6 +1192,99 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             payload["reports"][1]["models"]["riichi_linear_weighted"]["positive_class_weight"],
             2.0,
+        )
+
+    def test_benchmark_report_summary_selects_call_policy_by_balanced_accuracy(self) -> None:
+        report_payload = {
+            "kind": "kenjaku-call-benchmark-report-v0",
+            "source": {"label": "synthetic-call", "command": None, "date": None},
+            "input_paths": ["synthetic"],
+            "xml_file_count": 1,
+            "rounds": 1,
+            "draws": 0,
+            "discards": 0,
+            "reaches": 0,
+            "calls": 0,
+            "wins": 0,
+            "exhaustive_draws": 0,
+            "discard_examples": 0,
+            "call_examples": 100,
+            "call_examples_total": 200,
+            "example_limit": 100,
+            "example_limit_strategy": "balanced",
+            "split": {
+                "seed": "fixed",
+                "eval_fraction": 0.2,
+                "train_examples": 80,
+                "eval_examples": 20,
+            },
+            "models": {
+                "call_linear_v1_calibrated": {
+                    "kind": "call-linear-v1",
+                    "feature_dim": 137,
+                    "training": {"positive_class_weight": 1.0},
+                    "policy": {
+                        "threshold": 0.4,
+                        "threshold_source": "train-best",
+                    },
+                    "calibration": {
+                        "train": {"best": {"threshold": 0.4}},
+                        "eval": {"best": {"threshold": 0.45}},
+                    },
+                    "metrics": {
+                        "train_accuracy": 0.8,
+                        "eval_accuracy": 0.78,
+                        "eval_balanced_accuracy": 0.74,
+                        "eval_pass_recall": 0.76,
+                        "eval_call_recall": 0.72,
+                    },
+                },
+                "call_linear_v1_weighted": {
+                    "kind": "call-linear-v1",
+                    "feature_dim": 137,
+                    "training": {"positive_class_weight": 2.0},
+                    "calibration": {
+                        "train": {"best": {"threshold": 0.8}},
+                        "eval": {"best": {"threshold": 0.85}},
+                    },
+                    "metrics": {
+                        "train_accuracy": 0.7,
+                        "eval_accuracy": 0.7,
+                        "eval_balanced_accuracy": 0.73,
+                        "eval_pass_recall": 0.60,
+                        "eval_call_recall": 0.86,
+                    },
+                },
+            },
+            "timing": None,
+            "feature_cache": None,
+            "example_cache": None,
+            "parse_failures": {"count": 0, "items": []},
+        }
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "call.json"
+            report.write_text(json.dumps(report_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            summary = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("selected_policy: model=call_linear_v1_calibrated", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(
+            summary["reports"][0]["selected_policy"]["model_name"],
+            "call_linear_v1_calibrated",
+        )
+        self.assertEqual(
+            summary["reports"][0]["selected_policy"]["eval_balanced_accuracy"],
+            0.74,
         )
 
     def test_benchmark_discard_models_fast_writes_sparse_report(self) -> None:

@@ -44,10 +44,22 @@ Practical comparison path:
    use `produce-decision-predictions` only for stub protocol checks (`pass`, `first-legal`, or
    `echo-actual`). Compare Kenjaku rows against real prediction JSONL via
    `decision-snapshot-compare` only when a Mortal-compatible inference path and legally usable
-   weights are available.
+   weights are available. Use `run-external-prediction-producer` for any real producer subprocess:
+   Kenjaku sets `KENJAKU_SNAPSHOTS` and `KENJAKU_PREDICTIONS`, the producer writes prediction
+   JSONL, and Kenjaku performs validation/comparison afterward.
 4. For head-to-head evaluation, target duplicate-mahjong offline runs through a common simulator or
    a subprocess boundary; do not add live ladder automation.
 
 Do not import Mortal code or wire AGPL modules into Kenjaku for prediction. A real external
 producer should be a separate process that reads decision snapshots and writes
 `{"row_id": "...", "predicted_action": {...}}` JSONL.
+
+Generic producer smoke shape:
+
+```bash
+PYTHONPATH=src python3 -m kenjaku run-external-prediction-producer \
+  runs/decision-snapshots-local.jsonl \
+  --output runs/external-predictions-local.jsonl \
+  --compare-report runs/external-predictions-local-compare.json \
+  --command /path/to/producer
+```

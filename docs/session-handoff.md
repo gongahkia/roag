@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-08.
+Last updated: 2026-06-09.
 
 ## Stop State
 
@@ -9,12 +9,11 @@ Last updated: 2026-06-08.
   deterministic call/pass interleaving, added stub decision prediction production, added opt-in
   outcome labels, added a minimal PyTorch discard MLP, and reran local aggregate call/riichi checks
   on the ignored 500-log Tenhou slice.
-- Current work slice: added `benchmark-call --example-cache` for local-only reconstructed
-  `CallExample` JSON caching before feature preparation. Cache keys include command input paths,
-  resolved XML files, each file's size/mtime, and `--skip-errors`; source metadata intentionally
-  does not invalidate the cache. Call reports now include an additive `example_cache` block. Also
-  extended `train-discard-mlp` with per-epoch validation history and optional best-checkpoint
-  artifacts.
+- Current work slice: added `benchmark-discard-mlp` for small PyTorch discard MLP comparisons
+  against frequency, risk-context linear, and defense-context linear anchors on one deterministic
+  split. Extended `benchmark-report-summary` for MLP reports and report-local call policy
+  selection. Added `run-external-prediction-producer` as the generic subprocess boundary for real
+  prediction JSONL producers.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -35,10 +34,12 @@ Last updated: 2026-06-08.
 - Benchmark reports now include `weight_summary` and `feature_summary` for every linear model.
 - `benchmark-discard --disagreements PATH` writes local-only capped examples where risk-context and
   defense-context predictions disagree, including defense buckets and legal-candidate logits.
-- `benchmark-report-summary` reads ignored discard, call, and riichi benchmark reports. Discard
-  summaries include ablation deltas and selected defense buckets; call/riichi summaries include
-  eval accuracy, balanced accuracy, pass/target recall, policy threshold/source, train/eval best
-  threshold diagnostics, and positive class weight. `--json` emits a machine-readable summary.
+- `benchmark-report-summary` reads ignored discard, call, riichi, and discard-MLP benchmark
+  reports. Discard summaries include ablation deltas and selected defense buckets. Call/riichi
+  summaries include eval accuracy, balanced accuracy, pass/target recall, policy threshold/source,
+  train/eval best threshold diagnostics, and positive class weight. Call summaries also include a
+  report-local `selected_policy` ranked by eval balanced accuracy, target recall, pass recall, and
+  eval accuracy. MLP summaries include final/best validation metrics and anchor deltas.
 - `disagreement-report-summary` reads ignored disagreement exports and summarizes category counts,
   defense bucket rates, common actual/predicted tile pairs, and logit margins. Use `--examples N`
   to append representative stored examples with defense flags and top logits. Use `--tags` to add
@@ -83,11 +84,17 @@ Last updated: 2026-06-08.
   call/riichi metrics and missing/malformed/duplicate prediction counts.
 - `produce-decision-predictions` writes protocol-test prediction JSONL with `pass`, `first-legal`,
   or `echo-actual` stub strategies. It is not real Mortal inference.
+- `run-external-prediction-producer` executes a separate prediction producer process with
+  `KENJAKU_SNAPSHOTS` and `KENJAKU_PREDICTIONS` in the environment, then validates the generated
+  JSONL and can write a comparison report. Keep Mortal-specific inference outside Kenjaku behind
+  this boundary unless licensing decisions change.
 - `export-decision-snapshots --include-outcome` adds terminal score-delta/win/deal-in/draw labels
   parsed from Tenhou `sc` fields. Default snapshots intentionally omit outcome labels.
 - `train-discard-mlp` trains a small PyTorch masked-logit discard MLP over normalized hand and
   visible-count tensors. It supports deterministic seeds, CPU/MPS/CUDA/auto device selection, and
   JSON reports with per-epoch history plus optional best-checkpoint artifacts.
+- `benchmark-discard-mlp` trains the same MLP plus frequency/risk/defense anchors on one split and
+  writes `kenjaku-discard-mlp-benchmark-report-v0` artifacts for direct local comparisons.
 
 ## Working Rules
 
@@ -247,6 +254,14 @@ PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --seed 123 \
   --checkpoint runs/fixture-discard-mlp.pt \
   --report runs/fixture-discard-mlp.json
+PYTHONPATH=src python3 -m kenjaku benchmark-discard-mlp data/fixtures/tenhou \
+  --epochs 1 --batch-size 2 --hidden-dim 8 --device cpu \
+  --linear-epochs 1 \
+  --eval-fraction 0.25 --split-seed fixed --seed 123 \
+  --checkpoint runs/fixture-discard-mlp-benchmark.pt \
+  --report runs/fixture-discard-mlp-benchmark.json
+PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
+  runs/fixture-discard-mlp.json runs/fixture-discard-mlp-benchmark.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
