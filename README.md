@@ -20,7 +20,8 @@ handoff notes.
   reports, feature summaries, and local-only disagreement diagnostics.
 - Neutral decision snapshot JSONL export plus prediction JSONL comparison.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
-- A minimal PyTorch discard MLP baseline for validating the next supervised-learning path.
+- A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
+  artifacts for validating the next supervised-learning path.
 
 ## Quickstart
 
@@ -60,6 +61,7 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 
 PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp \
   data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
+  --checkpoint runs/fixture-discard-mlp.pt \
   --report runs/fixture-discard-mlp.json
 ```
 
@@ -125,4 +127,5 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 3. Use decision snapshot prediction producers for external-baseline protocol work; do not import
    or copy AGPL baseline code.
 4. Use discard disagreement tags before adding another feature profile.
-5. Add richer supervised learning only after the PyTorch fixture path stays reproducible.
+5. Use PyTorch validation histories and checkpoints for small discard MLP comparisons before
+   attempting a larger neural architecture.

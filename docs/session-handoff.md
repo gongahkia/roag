@@ -12,7 +12,9 @@ Last updated: 2026-06-08.
 - Current work slice: added `benchmark-call --example-cache` for local-only reconstructed
   `CallExample` JSON caching before feature preparation. Cache keys include command input paths,
   resolved XML files, each file's size/mtime, and `--skip-errors`; source metadata intentionally
-  does not invalidate the cache. Call reports now include an additive `example_cache` block.
+  does not invalidate the cache. Call reports now include an additive `example_cache` block. Also
+  extended `train-discard-mlp` with per-epoch validation history and optional best-checkpoint
+  artifacts.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
   rate fixed the largest aggregate regression, but v1 still trails risk/defense v0 on the 100-log
@@ -85,7 +87,7 @@ Last updated: 2026-06-08.
   parsed from Tenhou `sc` fields. Default snapshots intentionally omit outcome labels.
 - `train-discard-mlp` trains a small PyTorch masked-logit discard MLP over normalized hand and
   visible-count tensors. It supports deterministic seeds, CPU/MPS/CUDA/auto device selection, and
-  JSON reports.
+  JSON reports with per-epoch history plus optional best-checkpoint artifacts.
 
 ## Working Rules
 
@@ -243,6 +245,7 @@ PYTHONPATH=src python3 -m kenjaku decision-snapshot-compare \
 PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/fixtures/tenhou \
   --epochs 1 --batch-size 2 --hidden-dim 8 --device cpu \
   --eval-fraction 0.25 --split-seed fixed --seed 123 \
+  --checkpoint runs/fixture-discard-mlp.pt \
   --report runs/fixture-discard-mlp.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
@@ -551,5 +554,5 @@ Mortal local baseline reconnaissance:
    legally usable weights and a subprocess/data boundary.
 4. Use disagreement tag filters to guide discard work. The current sample is mostly efficiency-like
    and close-logit, so avoid a new defense profile until tag-specific examples reveal a concrete gap.
-5. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
-   larger discard neural model.
+5. Use PyTorch validation histories and checkpoints for small discard MLP comparisons before
+   attempting a larger neural architecture.

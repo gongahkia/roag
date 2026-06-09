@@ -161,6 +161,7 @@ PYTHONPATH=src python3 -m kenjaku train-discard-mlp data/raw/tenhou/xml/4p-hanch
   --batch-size 64 \
   --device auto \
   --eval-fraction 0.2 \
+  --checkpoint runs/discard-mlp-local-best.pt \
   --report runs/discard-mlp-local-report.json \
   --source-label tenhou-4p-hanchan-local \
   --source-date 2026-current-year \

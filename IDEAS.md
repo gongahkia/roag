@@ -475,8 +475,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 5. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-6. Extend the PyTorch path carefully: add validation metrics and checkpointing before attempting a
-   larger discard neural model.
+6. Use PyTorch validation histories and checkpoints for small discard MLP comparisons before
+   attempting a larger neural architecture.
 
 ---
 
@@ -847,3 +847,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   example count, and a compact cache-key summary.
 - Added fixture tests for call-example serialization, cache hit reuse without reparsing, applying
   `--example-limit` after cache load, and invalidation after source XML changes.
+- Extended `train-discard-mlp` reports with per-epoch train/eval metrics, deterministic best-epoch
+  selection, and optional best-checkpoint artifacts via `--checkpoint`.
+- Added fixture tests for MLP history, zero-epoch metric recording, checkpoint payloads, and CLI
+  report/checkpoint consistency. PyTorch-specific tests are skipped when `torch` is unavailable.
