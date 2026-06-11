@@ -497,12 +497,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
     basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
-    legal chi/pon/minkan, basic closed-kan/ankan self-turn actions with simple live-wall replacement
-    draws, basic added-kan/kakan pon promotions with simple live-wall replacement draws, individual
-    reaction passes, ron-priority call gating, a basic chankan ron/pass window before kakan
-    replacement draw, discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and
-    simple terminal reward payloads only; the next simulator step is full call/kan timing,
-    dead-wall, kan-dora, rinshan, complete chankan semantics, complete payment accounting,
+    legal chi/pon/minkan, basic dead-wall replacement draws for minkan/ankan/kakan, basic
+    kan-dora indicator metadata, individual reaction passes, ron-priority call gating, a basic
+    chankan ron/pass window before kakan replacement draw, discard/call/tsumo/ron transitions,
+    basic multi-ron terminal resolution, and simple terminal reward payloads only; the next
+    simulator step is full call/kan timing, complete rinshan draw semantics, complete
+    kan-dora/ura-dora indicator ordering, complete chankan semantics, complete payment accounting,
     post-riichi closed-kan exception handling, yaku validation, scoring, and richer reward
     semantics.
 
@@ -1056,3 +1056,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   live-wall replacement draw; ron in that window terminates with `terminal_reason="chankan"`.
   This is still not full chankan semantics, yaku validation, kokushi-only ankan robbery, kan-dora,
   dead-wall/rinshan handling, scoring, or a learned kan/chankan policy.
+- Added basic sandbox dead-wall replacement draws and kan-dora indicator metadata. Initial sandbox
+  states now reserve a 14-tile `dead_wall`, expose `dead_wall_remaining` and visible
+  `dora_indicators` in state/self-play payloads, draw minkan/ankan/kakan replacement tiles from the
+  dead wall, and reveal the next simple kan-dora indicator when another hidden indicator is
+  available before the replacement draw. This replaces the earlier live-wall shortcut, but remains
+  incomplete: it is not full rinshan handling, complete kan-dora/ura-dora ordering, yaku validation,
+  scoring, post-riichi closed-kan exceptions, or a learned kan/chankan policy.

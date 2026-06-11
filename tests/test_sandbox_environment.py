@@ -47,7 +47,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.current_seat, 0)
         self.assertEqual(first.turn, 0)
         self.assertEqual(first.hand_sizes(), [13, 13, 13, 13])
-        self.assertEqual(len(first.wall), 84)
+        self.assertEqual(len(first.wall), 70)
+        self.assertEqual(len(first.dead_wall), 14)
+        self.assertEqual(first.dora_indicators, first.dead_wall[:1])
         self.assertEqual(first.points, (SANDBOX_INITIAL_POINTS,) * 4)
         self.assertEqual(first.riichi_sticks, 0)
         self.assertEqual(first.honba, 0)
@@ -56,6 +58,11 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["honba"], 0)
+        self.assertEqual(first.to_payload()["dead_wall_remaining"], 14)
+        self.assertEqual(
+            first.to_payload()["dora_indicators"],
+            [first.dora_indicators[0].notation],
+        )
         self.assertEqual(first.to_payload()["ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
@@ -966,7 +973,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"), Tile.parse("8s")),
+            wall=(Tile.parse("8s"),),
+            dead_wall=_tiles("1m 2m 9s"),
+            dora_indicators=(Tile.parse("1m"),),
             hands=(
                 _tiles("3m 1p 1p 2p 3p 4p 5p 6p 7p 8p 9p E S"),
                 _tiles("3m 3m 3m 4m 5m 6p 7p 8p 1s 2s 3s E S"),
@@ -988,6 +997,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertFalse(called.needs_discard)
         self.assertEqual(called.drawn_tile, Tile.parse("9s"))
         self.assertEqual(called.wall, ())
+        self.assertEqual(called.dead_wall, _tiles("1m 2m"))
+        self.assertEqual(called.dora_indicators, _tiles("1m 2m"))
         self.assertEqual(called.hand_sizes()[1], 11)
         self.assertEqual(meld.kind, ActionKind.MINKAN)
         self.assertIn(Action.discard("9s"), legal_discard_actions(called))
@@ -996,7 +1007,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
             hands=(
                 _tiles("3m 3m 3m 1p 2p 3p 4p 5p 6p 7s 8s E S"),
                 (),
@@ -1028,6 +1041,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertFalse(after_kan.needs_discard)
         self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
         self.assertEqual(after_kan.wall, ())
+        self.assertEqual(after_kan.dead_wall, _tiles("1m 2m"))
+        self.assertEqual(after_kan.dora_indicators, _tiles("1m 2m"))
         self.assertEqual(after_kan.hand_sizes()[0], 11)
         self.assertEqual(
             sum(tile.type == TileType.parse("3m") for tile in after_kan.hands[0]),
@@ -1089,7 +1104,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
             hands=(
                 _tiles("3m 3m 3m 1p 2p 3p 4p 5p 6p 7s 8s E S"),
                 (),
@@ -1116,7 +1133,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
             hands=(
                 _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
                 (),
@@ -1144,6 +1163,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertFalse(after_kan.needs_discard)
         self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
         self.assertEqual(after_kan.wall, ())
+        self.assertEqual(after_kan.dead_wall, _tiles("1m 2m"))
+        self.assertEqual(after_kan.dora_indicators, _tiles("1m 2m"))
         self.assertEqual(after_kan.hand_sizes()[0], 11)
         self.assertEqual(
             sum(tile.type == TileType.parse("3m") for tile in after_kan.hands[0]),
@@ -1168,7 +1189,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
             hands=(
                 _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
                 _tiles("1m 1m 1m 2p 3p 4p 5s 6s 7s E E E 3m"),
@@ -1191,7 +1214,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(meld.kind, ActionKind.KAKAN)
         self.assertIsNone(pending.drawn_tile)
         self.assertFalse(pending.needs_discard)
-        self.assertEqual(pending.wall, (Tile.parse("8s"),))
+        self.assertEqual(pending.wall, ())
+        self.assertEqual(pending.dead_wall, _tiles("1m 2m 8s"))
+        self.assertEqual(pending.dora_indicators, _tiles("1m"))
         self.assertEqual(pending.hand_sizes()[0], 10)
         self.assertEqual(pending.pending_chankan_tile, Tile.parse("3m"))
         self.assertEqual(pending.pending_chankan_seat, 0)
@@ -1225,7 +1250,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
             SandboxEnvironmentState(
                 ruleset="tenhou-4p",
                 players=4,
-                wall=(Tile.parse("8s"), Tile.parse("3m")),
+                wall=(Tile.parse("3m"),),
+                dead_wall=_tiles("1m 2m 8s"),
+                dora_indicators=(Tile.parse("1m"),),
                 hands=(
                     _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
                     _tiles("1m 1m 1m 2p 3p 4p 5s 6s 7s E E E 3m"),
@@ -1245,6 +1272,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_pass.temporary_furiten_seats, (1,))
         self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
         self.assertEqual(after_pass.wall, ())
+        self.assertEqual(after_pass.dead_wall, _tiles("1m 2m"))
+        self.assertEqual(after_pass.dora_indicators, _tiles("1m 2m"))
         self.assertEqual(after_pass.hand_sizes()[0], 11)
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_pass))
         with self.assertRaisesRegex(ValueError, "no pending chankan reaction"):
@@ -1329,6 +1358,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
                 ruleset="tenhou-4p",
                 players=4,
                 wall=(Tile.parse("3m"),),
+                dead_wall=(Tile.parse("1m"),),
+                dora_indicators=(Tile.parse("1m"),),
                 hands=(_tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"), (), (), ()),
                 melds=((pon,), (), (), ()),
             )
@@ -1385,12 +1416,16 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = initial_sandbox_environment(ruleset="tenhou-3p", seed="sanma")
         visible = [tile.notation for hand in state.hands for tile in hand]
         wall = [tile.notation for tile in state.wall]
+        dead_wall = [tile.notation for tile in state.dead_wall]
 
         self.assertEqual(state.players, 3)
         self.assertEqual(state.hand_sizes(), [13, 13, 13])
-        self.assertEqual(len(state.wall), 69)
+        self.assertEqual(len(state.wall), 55)
+        self.assertEqual(len(state.dead_wall), 14)
+        self.assertEqual(state.dora_indicators, state.dead_wall[:1])
         self.assertFalse(any(tile in visible for tile in _excluded_sanma_manzu()))
         self.assertFalse(any(tile in wall for tile in _excluded_sanma_manzu()))
+        self.assertFalse(any(tile in dead_wall for tile in _excluded_sanma_manzu()))
 
 
 def _missing_discard_action(state: SandboxEnvironmentState) -> Action:

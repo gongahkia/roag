@@ -25,6 +25,8 @@ SANDBOX_INITIAL_POINTS = 25000
 RIICHI_DEPOSIT_POINTS = 1000
 HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
+SANDBOX_DEAD_WALL_TILES = 14
+SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
@@ -37,6 +39,8 @@ class SandboxEnvironmentState:
     players: int
     wall: tuple[Tile, ...]
     hands: tuple[tuple[Tile, ...], ...]
+    dead_wall: tuple[Tile, ...] = ()
+    dora_indicators: tuple[Tile, ...] = ()
     discards: tuple[tuple[Tile, ...], ...] = ()
     melds: tuple[tuple[Meld, ...], ...] = ()
     points: tuple[int, ...] = ()
@@ -73,6 +77,8 @@ class SandboxEnvironmentState:
             raise ValueError("players must match ruleset")
         if len(self.hands) != self.players:
             raise ValueError("hands must match player count")
+        if len(self.dora_indicators) > len(self.dead_wall):
+            raise ValueError("dora indicators cannot exceed dead wall size")
         if self.discards and len(self.discards) != self.players:
             raise ValueError("discards must match player count")
         if self.melds and len(self.melds) != self.players:
@@ -169,6 +175,8 @@ class SandboxEnvironmentState:
             "turn": self.turn,
             "current_seat": self.current_seat,
             "wall_remaining": len(self.wall),
+            "dead_wall_remaining": len(self.dead_wall),
+            "dora_indicators": [tile.notation for tile in self.dora_indicators],
             "hand_sizes": self.hand_sizes(),
             "points": list(_points_by_seat(self)),
             "riichi_sticks": self.riichi_sticks,
@@ -220,11 +228,14 @@ def initial_sandbox_environment(
         tuple(wall.pop() for _tile in range(13))
         for _seat in range(rules.players)
     )
+    dead_wall = tuple(wall.pop() for _tile in range(SANDBOX_DEAD_WALL_TILES))
     return SandboxEnvironmentState(
         ruleset=rules.name,
         players=rules.players,
         wall=tuple(wall),
         hands=hands,
+        dead_wall=dead_wall,
+        dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
         points=tuple(SANDBOX_INITIAL_POINTS for _seat in range(rules.players)),
@@ -481,15 +492,12 @@ def apply_ankan_action(
         "ippatsu_seats": (),
     }
 
-    if not state.wall:
-        updates["terminal_reason"] = "wall_exhausted"
-        updates["terminal_rewards"] = _neutral_rewards(state.players)
-    else:
-        replacement_draw = state.wall[-1]
-        hands[state.current_seat].append(replacement_draw)
-        updates["wall"] = state.wall[:-1]
-        updates["hands"] = tuple(tuple(hand) for hand in hands)
-        updates["drawn_tile"] = replacement_draw
+    _apply_kan_replacement_draw(
+        state,
+        hands=hands,
+        updates=updates,
+        seat=state.current_seat,
+    )
 
     return _replace_state(state, **updates), meld
 
@@ -540,15 +548,12 @@ def apply_kakan_action(
         updates["pending_reaction_seats"] = chankan_seats
         return _replace_state(state, **updates), promoted_meld
 
-    if not state.wall:
-        updates["terminal_reason"] = "wall_exhausted"
-        updates["terminal_rewards"] = _neutral_rewards(state.players)
-    else:
-        replacement_draw = state.wall[-1]
-        hands[state.current_seat].append(replacement_draw)
-        updates["wall"] = state.wall[:-1]
-        updates["hands"] = tuple(tuple(hand) for hand in hands)
-        updates["drawn_tile"] = replacement_draw
+    _apply_kan_replacement_draw(
+        state,
+        hands=hands,
+        updates=updates,
+        seat=state.current_seat,
+    )
 
     return _replace_state(state, **updates), promoted_meld
 
@@ -747,15 +752,12 @@ def apply_call_action(
     }
 
     if action.kind is ActionKind.MINKAN:
-        if not state.wall:
-            updates["terminal_reason"] = "wall_exhausted"
-            updates["terminal_rewards"] = _neutral_rewards(state.players)
-        else:
-            replacement_draw = state.wall[-1]
-            hands[seat].append(replacement_draw)
-            updates["wall"] = state.wall[:-1]
-            updates["hands"] = tuple(tuple(hand) for hand in hands)
-            updates["drawn_tile"] = replacement_draw
+        _apply_kan_replacement_draw(
+            state,
+            hands=hands,
+            updates=updates,
+            seat=seat,
+        )
 
     return _replace_state(state, **updates), meld
 
@@ -1058,6 +1060,43 @@ def _legal_ron_seats_for_tile(
     )
 
 
+def _apply_kan_replacement_draw(
+    state: SandboxEnvironmentState,
+    *,
+    hands: list[list[Tile]],
+    updates: dict[str, Any],
+    seat: int,
+) -> None:
+    if not 0 <= seat < state.players:
+        raise ValueError("replacement draw seat outside player range")
+    if not _has_dead_wall_replacement_tile(state):
+        updates["terminal_reason"] = "wall_exhausted"
+        updates["terminal_rewards"] = _neutral_rewards(state.players)
+        return
+
+    dora_indicators = state.dora_indicators
+    kan_dora = _next_kan_dora_indicator(state)
+    if kan_dora is not None:
+        dora_indicators = (*dora_indicators, kan_dora)
+
+    replacement_draw = state.dead_wall[-1]
+    hands[seat].append(replacement_draw)
+    updates["dead_wall"] = state.dead_wall[:-1]
+    updates["dora_indicators"] = dora_indicators
+    updates["hands"] = tuple(tuple(hand) for hand in hands)
+    updates["drawn_tile"] = replacement_draw
+
+
+def _has_dead_wall_replacement_tile(state: SandboxEnvironmentState) -> bool:
+    return len(state.dead_wall) > len(state.dora_indicators)
+
+
+def _next_kan_dora_indicator(state: SandboxEnvironmentState) -> Tile | None:
+    if len(state.dead_wall) - len(state.dora_indicators) < 2:
+        return None
+    return state.dead_wall[len(state.dora_indicators)]
+
+
 def _finish_chankan_reaction_window(
     state: SandboxEnvironmentState,
     *,
@@ -1071,25 +1110,14 @@ def _finish_chankan_reaction_window(
         "temporary_furiten_seats": temporary_furiten_seats,
         "riichi_furiten_seats": riichi_furiten_seats,
     }
-    if not state.wall:
-        return _replace_state(
-            state,
-            terminal_reason="wall_exhausted",
-            terminal_rewards=_neutral_rewards(state.players),
-            **updates,
-        )
-
-    replacement_draw = state.wall[-1]
     hands = [list(hand) for hand in state.hands]
-    hands[state.current_seat].append(replacement_draw)
-    return _replace_state(
+    _apply_kan_replacement_draw(
         state,
-        wall=state.wall[:-1],
-        hands=tuple(tuple(hand) for hand in hands),
-        drawn_tile=replacement_draw,
-        needs_discard=False,
-        **updates,
+        hands=hands,
+        updates=updates,
+        seat=state.current_seat,
     )
+    return _replace_state(state, **updates)
 
 
 def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnvironmentState:
@@ -1098,6 +1126,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "players": state.players,
         "wall": state.wall,
         "hands": state.hands,
+        "dead_wall": state.dead_wall,
+        "dora_indicators": state.dora_indicators,
         "discards": state.discards,
         "melds": state.melds,
         "points": state.points,
