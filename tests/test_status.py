@@ -61,6 +61,8 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_action_generation"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
@@ -116,6 +118,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_riichi_deposit_accounting: yes", text)
         self.assertIn("sandbox_honba_bonus_accounting: yes", text)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", text)
+        self.assertIn("sandbox_ankan_action_generation: yes", text)
+        self.assertIn("sandbox_ankan_application: yes", text)
         self.assertIn("sandbox_call_action_generation: yes", text)
         self.assertIn("sandbox_call_application: yes", text)
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)

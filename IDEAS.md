@@ -497,11 +497,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
     basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
-    legal chi/pon/minkan, individual reaction passes, ron-priority call gating,
+    legal chi/pon/minkan, basic closed-kan/ankan self-turn actions with simple live-wall replacement
+    draws, individual reaction passes, ron-priority call gating,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads only; the next simulator step is full call/kan timing, complete payment
-    accounting, closed-kan/ankan exception handling, yaku validation, scoring, and richer reward
-    semantics.
+    reward payloads only; the next simulator step is full call/kan timing, kakan/dead-wall/rinshan
+    semantics, complete payment accounting, post-riichi closed-kan exception handling, yaku
+    validation, scoring, and richer reward semantics.
 
 ---
 
@@ -1035,3 +1036,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   calls clear all active ippatsu windows, the riichi player's next post-declaration discard clears
   their own window, and terminal tsumo/ron records `winning_ippatsu_seats`. This is still not yaku
   validation, ippatsu scoring, closed-kan exception handling after riichi, or full rules timing.
+- Added basic sandbox closed-kan/ankan actions. `legal_ankan_actions` and `apply_ankan_action`
+  allow a non-riichi current seat to declare a self-turn concealed kan after drawing, consume four
+  matching concealed tiles into an `ANKAN` meld, clear active ippatsu windows, and take a simple
+  live-wall replacement draw. This is still not dead-wall, kan-dora, rinshan, kakan, post-riichi
+  closed-kan exception handling, open-hand win validation, yaku validation, or scoring.

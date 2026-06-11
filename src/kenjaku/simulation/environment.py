@@ -254,6 +254,7 @@ def legal_sandbox_actions(
     seat: int | None = None,
     include_tsumo: bool = True,
     include_riichi: bool = True,
+    include_ankan: bool = True,
     include_ron: bool = True,
     include_calls: bool = True,
 ) -> tuple[Action, ...]:
@@ -276,6 +277,8 @@ def legal_sandbox_actions(
         actions.extend(legal_tsumo_actions(state))
     if include_riichi:
         actions.extend(legal_riichi_actions(state))
+    if include_ankan:
+        actions.extend(legal_ankan_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 
@@ -307,6 +310,31 @@ def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     if not _has_riichi_tenpai_discard(state):
         return ()
     return (Action(ActionKind.RIICHI),)
+
+
+def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot closed kan during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before closed kan")
+    if _is_riichi(state, seat=state.current_seat):
+        return ()
+
+    rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
+    hand = state.current_hand()
+    counts = _hand_type_counts(hand)
+    actions: list[Action] = []
+    for tile_type in rules.tile_types:
+        if counts[tile_type.index] >= 4:
+            actions.append(
+                Action(
+                    ActionKind.ANKAN,
+                    tile_type,
+                    consumed=_first_tiles_of_type(hand, tile_type, 4),
+                )
+            )
+    return tuple(actions)
 
 
 def legal_discard_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
@@ -349,6 +377,56 @@ def apply_riichi_action(
         ),
         ippatsu_seats=_with_seat(state.ippatsu_seats, state.current_seat),
     )
+
+
+def apply_ankan_action(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> tuple[SandboxEnvironmentState, Meld]:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot closed kan during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before closed kan")
+    if action.kind is not ActionKind.ANKAN:
+        raise ValueError("sandbox environment only supports closed kan actions here")
+    if action not in legal_ankan_actions(state):
+        raise ValueError("closed kan action is not legal for this state")
+
+    hands = [list(hand) for hand in state.hands]
+    for tile in action.consumed:
+        _remove_tile(hands[state.current_seat], tile)
+
+    meld = Meld(
+        kind=ActionKind.ANKAN,
+        tiles=action.consumed,
+        called_tile=None,
+        from_seat=None,
+    )
+    melds = [list(seat_melds) for seat_melds in _melds_by_seat(state)]
+    melds[state.current_seat].append(meld)
+    updates: dict[str, Any] = {
+        "hands": tuple(tuple(hand) for hand in hands),
+        "melds": tuple(tuple(seat_melds) for seat_melds in melds),
+        "drawn_tile": None,
+        "needs_discard": False,
+        "pending_discard": None,
+        "pending_discard_seat": None,
+        "pending_reaction_seats": (),
+        "ippatsu_seats": (),
+    }
+
+    if not state.wall:
+        updates["terminal_reason"] = "wall_exhausted"
+        updates["terminal_rewards"] = _neutral_rewards(state.players)
+    else:
+        replacement_draw = state.wall[-1]
+        hands[state.current_seat].append(replacement_draw)
+        updates["wall"] = state.wall[:-1]
+        updates["hands"] = tuple(tuple(hand) for hand in hands)
+        updates["drawn_tile"] = replacement_draw
+
+    return _replace_state(state, **updates), meld
 
 
 def apply_discard_action(

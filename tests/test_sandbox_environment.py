@@ -10,6 +10,7 @@ from kenjaku.simulation import (
     SANDBOX_ENVIRONMENT_KIND,
     SANDBOX_INITIAL_POINTS,
     SandboxEnvironmentState,
+    apply_ankan_action,
     apply_call_action,
     apply_discard_action,
     apply_reaction_pass_action,
@@ -19,6 +20,7 @@ from kenjaku.simulation import (
     apply_tsumo_action,
     draw_for_current_seat,
     initial_sandbox_environment,
+    legal_ankan_actions,
     legal_call_actions,
     legal_discard_actions,
     legal_reaction_actions,
@@ -985,6 +987,120 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(called.hand_sizes()[1], 11)
         self.assertEqual(meld.kind, ActionKind.MINKAN)
         self.assertIn(Action.discard("9s"), legal_discard_actions(called))
+
+    def test_ankan_action_uses_simple_replacement_draw(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            hands=(
+                _tiles("3m 3m 3m 1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                (),
+                (),
+                (),
+            ),
+            riichi_seats=(2,),
+            ippatsu_seats=(2,),
+        )
+        drawn = draw_for_current_seat(state)
+        ankan = Action(
+            ActionKind.ANKAN,
+            TileType.parse("3m"),
+            consumed=(
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+            ),
+        )
+
+        self.assertEqual(legal_ankan_actions(drawn), (ankan,))
+        self.assertIn(ankan, legal_sandbox_actions(drawn))
+
+        after_kan, meld = apply_ankan_action(drawn, ankan)
+
+        self.assertEqual(after_kan.current_seat, 0)
+        self.assertEqual(after_kan.turn, 0)
+        self.assertFalse(after_kan.needs_discard)
+        self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+        self.assertEqual(after_kan.wall, ())
+        self.assertEqual(after_kan.hand_sizes()[0], 11)
+        self.assertEqual(
+            sum(tile.type == TileType.parse("3m") for tile in after_kan.hands[0]),
+            0,
+        )
+        self.assertEqual(after_kan.ippatsu_seats, ())
+        self.assertEqual(after_kan.to_payload()["ippatsu_seats"], [])
+        self.assertEqual(meld.kind, ActionKind.ANKAN)
+        self.assertEqual(meld.tiles, ankan.consumed)
+        self.assertIsNone(meld.called_tile)
+        self.assertIsNone(meld.from_seat)
+        self.assertEqual(after_kan.melds[0], (meld,))
+        self.assertIn(Action.discard("8s"), legal_discard_actions(after_kan))
+
+    def test_ankan_rejects_without_draw_or_after_riichi(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("3m"),),
+            hands=(
+                _tiles("3m 3m 3m 1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                (),
+                (),
+                (),
+            ),
+        )
+        ankan = Action(
+            ActionKind.ANKAN,
+            TileType.parse("3m"),
+            consumed=(
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+                Tile.parse("3m"),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "must draw"):
+            legal_ankan_actions(state)
+
+        riichi_drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(Tile.parse("3m"),),
+                hands=state.hands,
+                riichi_seats=(0,),
+                ippatsu_seats=(0,),
+            )
+        )
+
+        self.assertEqual(legal_ankan_actions(riichi_drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_ankan_action(riichi_drawn, ankan)
+        with self.assertRaisesRegex(ValueError, "supports closed kan"):
+            apply_ankan_action(riichi_drawn, Action.pass_())
+
+    def test_ankan_cancels_active_ippatsu_windows(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            hands=(
+                _tiles("3m 3m 3m 1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                (),
+                (),
+                (),
+            ),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
+        )
+        drawn = draw_for_current_seat(state)
+        ankan = legal_ankan_actions(drawn)[0]
+
+        after_kan, _meld = apply_ankan_action(drawn, ankan)
+
+        self.assertEqual(after_kan.ippatsu_seats, ())
 
     def test_rejects_tsumo_without_draw_or_winning_hand(self) -> None:
         state = SandboxEnvironmentState(

@@ -8,6 +8,7 @@ from kenjaku.simulation.environment import (
     SANDBOX_INITIAL_POINTS,
     SANDBOX_RULESETS,
     SandboxEnvironmentState,
+    apply_ankan_action,
     apply_call_action,
     apply_discard_action,
     apply_reaction_pass_action,
@@ -17,6 +18,7 @@ from kenjaku.simulation.environment import (
     apply_tsumo_action,
     draw_for_current_seat,
     initial_sandbox_environment,
+    legal_ankan_actions,
     legal_call_actions,
     legal_discard_actions,
     legal_reaction_actions,
@@ -36,6 +38,7 @@ from kenjaku.simulation.self_play import (
 )
 
 __all__ = [
+    "apply_ankan_action",
     "apply_call_action",
     "apply_discard_action",
     "apply_reaction_pass_action",
@@ -45,6 +48,7 @@ __all__ = [
     "apply_tsumo_action",
     "draw_for_current_seat",
     "initial_sandbox_environment",
+    "legal_ankan_actions",
     "legal_call_actions",
     "legal_discard_actions",
     "legal_riichi_actions",
