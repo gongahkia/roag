@@ -1,7 +1,9 @@
 """Offline simulation harnesses."""
 
 from kenjaku.simulation.environment import (
+    RIICHI_DEPOSIT_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
+    SANDBOX_INITIAL_POINTS,
     SANDBOX_RULESETS,
     SandboxEnvironmentState,
     apply_call_action,
@@ -50,7 +52,9 @@ __all__ = [
     "legal_tsumo_actions",
     "pass_pending_discard_reactions",
     "resolve_sandbox_ruleset",
+    "RIICHI_DEPOSIT_POINTS",
     "SANDBOX_ENVIRONMENT_KIND",
+    "SANDBOX_INITIAL_POINTS",
     "SANDBOX_RULESETS",
     "SandboxEnvironmentState",
     "SELF_PLAY_SANDBOX_POLICIES",

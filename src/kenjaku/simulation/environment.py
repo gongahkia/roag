@@ -21,6 +21,8 @@ from kenjaku.core import (
 
 SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
 SANDBOX_RULESETS = ("tenhou-4p", "tenhou-3p")
+SANDBOX_INITIAL_POINTS = 25000
+RIICHI_DEPOSIT_POINTS = 1000
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
@@ -35,6 +37,8 @@ class SandboxEnvironmentState:
     hands: tuple[tuple[Tile, ...], ...]
     discards: tuple[tuple[Tile, ...], ...] = ()
     melds: tuple[tuple[Meld, ...], ...] = ()
+    points: tuple[int, ...] = ()
+    riichi_sticks: int = 0
     current_seat: int = 0
     turn: int = 0
     drawn_tile: Tile | None = None
@@ -66,6 +70,10 @@ class SandboxEnvironmentState:
             raise ValueError("discards must match player count")
         if self.melds and len(self.melds) != self.players:
             raise ValueError("melds must match player count")
+        if self.points and len(self.points) != self.players:
+            raise ValueError("point count must match player count")
+        if self.riichi_sticks < 0:
+            raise ValueError("riichi sticks cannot be negative")
         if not 0 <= self.current_seat < self.players:
             raise ValueError("current_seat outside player range")
         if self.needs_discard and self.drawn_tile is not None:
@@ -124,6 +132,8 @@ class SandboxEnvironmentState:
             "current_seat": self.current_seat,
             "wall_remaining": len(self.wall),
             "hand_sizes": self.hand_sizes(),
+            "points": list(_points_by_seat(self)),
+            "riichi_sticks": self.riichi_sticks,
             "discards": [
                 [tile.notation for tile in seat_discards]
                 for seat_discards in _discards_by_seat(self)
@@ -172,6 +182,7 @@ def initial_sandbox_environment(
         hands=hands,
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
+        points=tuple(SANDBOX_INITIAL_POINTS for _seat in range(rules.players)),
     )
 
 
@@ -269,6 +280,8 @@ def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
         return ()
     if _melds_by_seat(state)[state.current_seat]:
         return ()
+    if _points_by_seat(state)[state.current_seat] < RIICHI_DEPOSIT_POINTS:
+        return ()
     if not _has_riichi_tenpai_discard(state):
         return ()
     return (Action(ActionKind.RIICHI),)
@@ -301,8 +314,12 @@ def apply_riichi_action(
         raise ValueError("sandbox environment only supports riichi actions here")
     if action not in legal_riichi_actions(state):
         raise ValueError("riichi action is not legal for this state")
+    points = list(_points_by_seat(state))
+    points[state.current_seat] -= RIICHI_DEPOSIT_POINTS
     return _replace_state(
         state,
+        points=tuple(points),
+        riichi_sticks=state.riichi_sticks + 1,
         riichi_seats=_with_seat(state.riichi_seats, state.current_seat),
         riichi_pending_discard_seats=_with_seat(
             state.riichi_pending_discard_seats,
@@ -569,6 +586,10 @@ def apply_ron_actions(
         winner_seats.append(seat)
         winning_shapes_by_seat.append((seat, shapes))
 
+    stick_updates = _riichi_stick_win_updates(
+        state,
+        winner_seats=(winner_seats[0],),
+    )
     return _replace_state(
         state,
         terminal_reason="ron",
@@ -582,6 +603,7 @@ def apply_ron_actions(
             discarder_seat=pending_discard_seat,
             players=state.players,
         ),
+        **stick_updates,
     )
 
 
@@ -620,6 +642,10 @@ def apply_tsumo_action(
     shapes = _winning_shapes_for_complete_tiles(state.current_hand())
     if not shapes:
         raise ValueError("current hand is not a winning tsumo")
+    stick_updates = _riichi_stick_win_updates(
+        state,
+        winner_seats=(state.current_seat,),
+    )
     return _replace_state(
         state,
         terminal_reason="tsumo",
@@ -629,6 +655,7 @@ def apply_tsumo_action(
         winning_shapes=shapes,
         winning_shapes_by_seat=((state.current_seat, shapes),),
         terminal_rewards=_tsumo_rewards(state.current_seat, state.players),
+        **stick_updates,
     )
 
 
@@ -692,6 +719,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "hands": state.hands,
         "discards": state.discards,
         "melds": state.melds,
+        "points": state.points,
+        "riichi_sticks": state.riichi_sticks,
         "current_seat": state.current_seat,
         "turn": state.turn,
         "drawn_tile": state.drawn_tile,
@@ -742,6 +771,27 @@ def _discards_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Tile, ...],
     if state.discards:
         return state.discards
     return tuple(() for _seat in range(state.players))
+
+
+def _points_by_seat(state: SandboxEnvironmentState) -> tuple[int, ...]:
+    if state.points:
+        return state.points
+    return tuple(SANDBOX_INITIAL_POINTS for _seat in range(state.players))
+
+
+def _riichi_stick_win_updates(
+    state: SandboxEnvironmentState,
+    *,
+    winner_seats: tuple[int, ...],
+) -> dict[str, Any]:
+    if not winner_seats or state.riichi_sticks == 0:
+        return {}
+    points = list(_points_by_seat(state))
+    points[winner_seats[0]] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
+    return {
+        "points": tuple(points),
+        "riichi_sticks": 0,
+    }
 
 
 def _meld_payloads(state: SandboxEnvironmentState) -> list[list[dict[str, Any]]]:

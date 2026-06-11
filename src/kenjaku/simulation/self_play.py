@@ -114,6 +114,7 @@ def run_self_play_sandbox(
             "full_riichi_rules": False,
             "riichi_declaration_action": True,
             "post_riichi_action_restrictions": True,
+            "riichi_deposit_accounting": True,
             "calls": False,
             "call_policy": False,
             "ron_policy": False,
@@ -199,6 +200,7 @@ def _simulate_episode(
     else:
         state = _terminal_max_turns(state)
 
+    state_payload = state.to_payload()
     payload: dict[str, Any] = {
         "episode": episode_index,
         "seed": seed,
@@ -213,6 +215,8 @@ def _simulate_episode(
             for seat, shapes in state.winning_shapes_by_seat
         ],
         "terminal_rewards": list(state.terminal_rewards),
+        "final_points": state_payload["points"],
+        "riichi_sticks": state.riichi_sticks,
         "wall_remaining": len(state.wall),
         "seat_decisions": seat_decisions,
         "discard_counts": dict(sorted(discard_counts.items())),
@@ -268,6 +272,8 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         hands=state.hands,
         discards=state.discards,
         melds=state.melds,
+        points=state.points,
+        riichi_sticks=state.riichi_sticks,
         current_seat=state.current_seat,
         turn=state.turn,
         drawn_tile=state.drawn_tile,

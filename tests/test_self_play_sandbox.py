@@ -40,6 +40,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertFalse(first["capabilities"]["full_riichi_rules"])
         self.assertTrue(first["capabilities"]["riichi_declaration_action"])
         self.assertTrue(first["capabilities"]["post_riichi_action_restrictions"])
+        self.assertTrue(first["capabilities"]["riichi_deposit_accounting"])
         self.assertFalse(first["capabilities"]["call_policy"])
         self.assertFalse(first["capabilities"]["ron_policy"])
         self.assertTrue(first["capabilities"]["reaction_windows_auto_passed"])
@@ -48,6 +49,11 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["riichi_furiten_ron_filter"])
         self.assertTrue(first["capabilities"]["terminal_rewards"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(
+            first["episode_summaries"][0]["final_points"],
+            [25000, 25000, 25000, 25000],
+        )
+        self.assertEqual(first["episode_summaries"][0]["riichi_sticks"], 0)
         self.assertIn("trajectory", first["episode_summaries"][0])
 
     def test_sanma_ruleset_uses_three_seats_and_excluded_tiles(self) -> None:
@@ -100,6 +106,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("draw_discard_loop: yes", text)
         self.assertIn("riichi_declaration_action: yes", text)
         self.assertIn("post_riichi_action_restrictions: yes", text)
+        self.assertIn("riichi_deposit_accounting: yes", text)
         self.assertIn("call_policy: no", text)
         self.assertIn("ron_policy: no", text)
         self.assertIn("reaction_windows_auto_passed: yes", text)
@@ -128,7 +135,10 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("winning_shapes", episode)
         self.assertIn("winning_shapes_by_seat", episode)
         self.assertIn("terminal_rewards", episode)
+        self.assertIn("final_points", episode)
+        self.assertIn("riichi_sticks", episode)
         self.assertEqual(len(episode["terminal_rewards"]), report["players"])
+        self.assertEqual(len(episode["final_points"]), report["players"])
         if episode["terminal_reason"] == "tsumo":
             self.assertIsInstance(episode["winner_seat"], int)
             self.assertEqual(episode["winner_seats"], [episode["winner_seat"]])

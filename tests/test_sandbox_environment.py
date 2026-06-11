@@ -4,7 +4,9 @@ import unittest
 
 from kenjaku.core import Action, ActionKind, Meld, Tile, TileType, tile_counts
 from kenjaku.simulation import (
+    RIICHI_DEPOSIT_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
+    SANDBOX_INITIAL_POINTS,
     SandboxEnvironmentState,
     apply_call_action,
     apply_discard_action,
@@ -38,8 +40,12 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.turn, 0)
         self.assertEqual(first.hand_sizes(), [13, 13, 13, 13])
         self.assertEqual(len(first.wall), 84)
+        self.assertEqual(first.points, (SANDBOX_INITIAL_POINTS,) * 4)
+        self.assertEqual(first.riichi_sticks, 0)
         self.assertIsNone(first.drawn_tile)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
+        self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
+        self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
@@ -157,14 +163,82 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIn(Action(ActionKind.RIICHI), turn_actions)
         self.assertEqual(declared.riichi_seats, (0,))
         self.assertEqual(declared.riichi_pending_discard_seats, (0,))
+        self.assertEqual(
+            declared.points,
+            (
+                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS,
+            ),
+        )
+        self.assertEqual(declared.riichi_sticks, 1)
         self.assertEqual(declared.to_payload()["riichi_seats"], [0])
         self.assertEqual(declared.to_payload()["riichi_pending_discard_seats"], [0])
+        self.assertEqual(declared.to_payload()["riichi_sticks"], 1)
         self.assertIn(Action.discard("5m"), legal_discard_actions(declared))
         self.assertEqual(legal_riichi_actions(declared), ())
         self.assertEqual(discard, Tile.parse("9s"))
         self.assertEqual(after_discard.riichi_seats, (0,))
         self.assertEqual(after_discard.riichi_pending_discard_seats, ())
+        self.assertEqual(after_discard.points, declared.points)
+        self.assertEqual(after_discard.riichi_sticks, 1)
         self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
+
+    def test_riichi_declaration_requires_deposit_points(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            points=(RIICHI_DEPOSIT_POINTS - 100, 25000, 25000, 25000),
+        )
+
+        drawn = draw_for_current_seat(state)
+
+        self.assertEqual(legal_riichi_actions(drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+
+    def test_riichi_sticks_transfer_to_ron_winner(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        declared = apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+        reaction_state, _discard = apply_discard_action(declared, Action.discard("9s"))
+        terminal = apply_ron_action(
+            reaction_state,
+            seat=1,
+            action=Action(ActionKind.RON, TileType.parse("9s")),
+        )
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.riichi_sticks, 0)
+        self.assertEqual(
+            terminal.points,
+            (
+                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
+                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS,
+            ),
+        )
+        self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
 
     def test_post_riichi_turn_discards_are_locked_to_drawn_tile(self) -> None:
         state = SandboxEnvironmentState(
