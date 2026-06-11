@@ -14,7 +14,6 @@ from kenjaku.core import (
     RuleSet,
     Tile,
     TileType,
-    all_tile_types,
     shanten_for_tiles,
     winning_hand_shapes_for_tiles,
 )
@@ -386,8 +385,6 @@ def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
         raise ValueError("cannot closed kan during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before closed kan")
-    if _is_riichi(state, seat=state.current_seat):
-        return ()
 
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
     hand = state.current_hand()
@@ -395,6 +392,11 @@ def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     actions: list[Action] = []
     for tile_type in rules.tile_types:
         if counts[tile_type.index] >= 4:
+            if _is_riichi(
+                state,
+                seat=state.current_seat,
+            ) and not _post_riichi_ankan_preserves_waits(state, tile_type=tile_type):
+                continue
             actions.append(
                 Action(
                     ActionKind.ANKAN,
@@ -1054,6 +1056,33 @@ def _remove_tile(hand: list[Tile], tile: Tile) -> None:
     raise ValueError(f"tile is not in current hand: {tile.notation}")
 
 
+def _hand_without_exact_tile(hand: tuple[Tile, ...], tile: Tile) -> tuple[Tile, ...] | None:
+    remaining = list(hand)
+    try:
+        remaining.remove(tile)
+    except ValueError:
+        return None
+    return tuple(remaining)
+
+
+def _hand_without_tiles(
+    hand: tuple[Tile, ...],
+    tiles: tuple[Tile, ...],
+) -> tuple[Tile, ...] | None:
+    remaining = list(hand)
+    for tile in tiles:
+        try:
+            remaining.remove(tile)
+        except ValueError:
+            for index, candidate in enumerate(remaining):
+                if candidate.type == tile.type:
+                    del remaining[index]
+                    break
+            else:
+                return None
+    return tuple(remaining)
+
+
 def _winning_shapes_for_complete_tiles(tiles: tuple[Tile, ...]) -> tuple[str, ...]:
     if len(tiles) != 14:
         return ()
@@ -1069,7 +1098,16 @@ def _winning_shapes_for_state(
     concealed_tiles = state.hands[seat]
     if winning_tile is not None:
         concealed_tiles = (*concealed_tiles, winning_tile)
-    melds = _melds_by_seat(state)[seat]
+    return _winning_shapes_for_concealed_and_melds(
+        concealed_tiles,
+        _melds_by_seat(state)[seat],
+    )
+
+
+def _winning_shapes_for_concealed_and_melds(
+    concealed_tiles: tuple[Tile, ...],
+    melds: tuple[Meld, ...],
+) -> tuple[str, ...]:
     if not melds:
         return _winning_shapes_for_complete_tiles(concealed_tiles)
 
@@ -1095,6 +1133,49 @@ def _has_riichi_tenpai_discard(state: SandboxEnvironmentState) -> bool:
         if shanten_for_tiles(candidate) == 0:
             return True
     return False
+
+
+def _post_riichi_ankan_preserves_waits(
+    state: SandboxEnvironmentState,
+    *,
+    tile_type: TileType,
+) -> bool:
+    seat = state.current_seat
+    if not _is_post_riichi_discard_locked(state, seat=seat):
+        return False
+    if state.drawn_tile is None or state.drawn_tile.type != tile_type:
+        return False
+
+    melds = _melds_by_seat(state)[seat]
+    before_hand = _hand_without_exact_tile(state.current_hand(), state.drawn_tile)
+    if before_hand is None:
+        return False
+    before_waits = _winning_wait_types_for_hand_and_melds(
+        state,
+        hand=before_hand,
+        melds=melds,
+    )
+    if not before_waits:
+        return False
+
+    consumed = _first_tiles_of_type(state.current_hand(), tile_type, 4)
+    after_hand = _hand_without_tiles(state.current_hand(), consumed)
+    if after_hand is None:
+        return False
+    after_waits = _winning_wait_types_for_hand_and_melds(
+        state,
+        hand=after_hand,
+        melds=(
+            *melds,
+            Meld(
+                kind=ActionKind.ANKAN,
+                tiles=consumed,
+                called_tile=None,
+                from_seat=None,
+            ),
+        ),
+    )
+    return set(before_waits) == set(after_waits)
 
 
 def _require_non_terminal(state: SandboxEnvironmentState) -> None:
@@ -1469,17 +1550,27 @@ def _is_riichi_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
 
 def _winning_wait_types(state: SandboxEnvironmentState, *, seat: int) -> tuple[TileType, ...]:
     hand = state.hands[seat]
-    if len(hand) != 13:
+    melds = _melds_by_seat(state)[seat]
+    if len(hand) != 13 - 3 * len(melds):
         return ()
-    counts = _hand_type_counts(hand)
+    return _winning_wait_types_for_hand_and_melds(state, hand=hand, melds=melds)
+
+
+def _winning_wait_types_for_hand_and_melds(
+    state: SandboxEnvironmentState,
+    *,
+    hand: tuple[Tile, ...],
+    melds: tuple[Meld, ...],
+) -> tuple[TileType, ...]:
+    owned_counts = _hand_type_counts(
+        (*hand, *(tile for meld in melds for tile in meld.tiles))
+    )
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
     waits: list[TileType] = []
-    for tile_type in all_tile_types():
-        if tile_type not in rules.tile_types or counts[tile_type.index] >= rules.type_counts[
-            tile_type.index
-        ]:
+    for tile_type in rules.tile_types:
+        if owned_counts[tile_type.index] >= rules.type_counts[tile_type.index]:
             continue
-        if _winning_shapes_for_state(state, seat=seat, winning_tile=Tile(tile_type)):
+        if _winning_shapes_for_concealed_and_melds((*hand, Tile(tile_type)), melds):
             waits.append(tile_type)
     return tuple(waits)
 

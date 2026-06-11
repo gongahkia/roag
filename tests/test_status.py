@@ -53,6 +53,11 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_post_riichi_action_restrictions"]
         )
         self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_post_riichi_closed_kan_exceptions"
+            ]
+        )
+        self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_riichi_deposit_accounting"]
         )
         self.assertTrue(
@@ -132,6 +137,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_riichi_furiten_ron_filter: yes", text)
         self.assertIn("sandbox_riichi_declaration_action: yes", text)
         self.assertIn("sandbox_post_riichi_action_restrictions: yes", text)
+        self.assertIn("sandbox_post_riichi_closed_kan_exceptions: yes", text)
         self.assertIn("sandbox_riichi_deposit_accounting: yes", text)
         self.assertIn("sandbox_honba_bonus_accounting: yes", text)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", text)

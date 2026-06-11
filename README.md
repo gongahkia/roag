@@ -30,19 +30,20 @@ handoff notes.
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
   seeded riichi-furiten filtering, basic closed-tenpai riichi declaration, basic post-riichi
-  discard/call restrictions, a basic riichi deposit/stick ledger, basic honba bonus deltas,
-  basic active/winning ippatsu metadata, basic closed-kan/ankan and added-kan/kakan actions with
-  dead-wall replacement draws, kan-dora indicator metadata, and rinshan draw-source metadata, a
-  basic chankan ron/pass window before kakan replacement draw plus kokushi-only ankan robbery,
-  individual reaction passes, ron-priority call gating, discard/call/tsumo/ron application, basic
-  multi-ron terminal resolution, basic open/kan standard-shape win detection, and simple terminal
-  reward payloads. The self-play sandbox uses this boundary for 4-player and static 3-player
+  discard/call restrictions, basic wait-preserving post-riichi closed-kan exceptions, a basic
+  riichi deposit/stick ledger, basic honba bonus deltas, basic active/winning ippatsu metadata,
+  basic closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora
+  indicator metadata, and rinshan draw-source metadata, a basic chankan ron/pass window before
+  kakan replacement draw plus kokushi-only ankan robbery, individual reaction passes, ron-priority
+  call gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic
+  open/kan standard-shape win detection, and simple terminal reward payloads. The self-play sandbox
+  uses this boundary for 4-player and static 3-player
   tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan policy
   yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
   validator, complete rinshan yaku/scoring implementation, complete robbing-kan/chankan model,
-  post-riichi closed-kan exception model, scoring engine, or RL implementation.
+  complete post-riichi kan timing model, scoring engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.

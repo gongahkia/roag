@@ -496,16 +496,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
-    basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
-    legal chi/pon/minkan, basic dead-wall replacement draws for minkan/ankan/kakan, basic
-    kan-dora indicator metadata, basic rinshan draw-source metadata, individual reaction passes,
-    ron-priority call gating, a basic chankan ron/pass window before kakan replacement draw,
-    kokushi-only ankan robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal
-    resolution, and simple terminal reward payloads, plus basic open/kan standard-shape win
-    detection only; the next simulator step is full call/kan timing, complete yaku/terminal
-    legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator
-    ordering, complete chankan semantics, complete payment accounting, post-riichi closed-kan
-    exception handling, scoring, and richer reward semantics.
+    basic wait-preserving post-riichi closed-kan exceptions, basic riichi deposit accounting, basic
+    honba bonus accounting, basic ippatsu window metadata, legal chi/pon/minkan, basic dead-wall
+    replacement draws for minkan/ankan/kakan, basic kan-dora indicator metadata, basic rinshan
+    draw-source metadata, individual reaction passes, ron-priority call gating, a basic chankan
+    ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
+    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
+    reward payloads, plus basic open/kan standard-shape win detection only; the next simulator step
+    is full call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring
+    semantics, complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
+    payment accounting, complete post-riichi kan timing, scoring, and richer reward semantics.
 
 ---
 
@@ -1078,5 +1078,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added kokushi-only ankan chankan to the sandbox. Pending chankan windows now carry a
   `pending_chankan_kind`, kakan keeps the existing standard-shape chankan behavior, and ankan opens
   a ron/pass window only for seats whose hand wins by kokushi on the concealed-kan tile under the
-  existing furiten filters. This is still not complete robbing-kan/chankan semantics, complete yaku
-  validation, post-riichi closed-kan exception handling, scoring, or a learned kan/chankan policy.
+  existing furiten filters. At that point this was still not complete robbing-kan/chankan
+  semantics, complete yaku validation, post-riichi closed-kan exception handling, scoring, or a
+  learned kan/chankan policy.
+- Added basic wait-preserving post-riichi closed-kan exceptions to the sandbox. A riichi player can
+  now declare an ankan only when the kan uses the just-drawn tile and the winning wait set before
+  the kan exactly matches the wait set after adding the concealed-kan meld. This is still not full
+  riichi/kan timing, yaku validation, scoring, or a learned kan policy.

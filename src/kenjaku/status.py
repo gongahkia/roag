@@ -58,6 +58,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_riichi_furiten_ron_filter": True,
                 "sandbox_riichi_declaration_action": True,
                 "sandbox_post_riichi_action_restrictions": True,
+                "sandbox_post_riichi_closed_kan_exceptions": True,
                 "sandbox_riichi_deposit_accounting": True,
                 "sandbox_honba_bonus_accounting": True,
                 "sandbox_ippatsu_window_tracking": True,

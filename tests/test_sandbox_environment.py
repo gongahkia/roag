@@ -1188,7 +1188,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kan.melds[0], (meld,))
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_kan))
 
-    def test_ankan_rejects_without_draw_or_after_riichi(self) -> None:
+    def test_ankan_rejects_without_draw_or_invalid_post_riichi_exception(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
@@ -1230,6 +1230,83 @@ class SandboxEnvironmentTests(unittest.TestCase):
             apply_ankan_action(riichi_drawn, ankan)
         with self.assertRaisesRegex(ValueError, "supports closed kan"):
             apply_ankan_action(riichi_drawn, Action.pass_())
+
+    def test_post_riichi_ankan_allows_drawn_quad_when_waits_are_preserved(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1m"),),
+            dead_wall=_tiles("2m 3m 8s"),
+            dora_indicators=(Tile.parse("2m"),),
+            hands=(
+                _tiles("1m 1m 1m 2p 3p 4p 2s 3s 4s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            riichi_seats=(0,),
+            ippatsu_seats=(0,),
+        )
+        drawn = draw_for_current_seat(state)
+        ankan = Action(
+            ActionKind.ANKAN,
+            TileType.parse("1m"),
+            consumed=(
+                Tile.parse("1m"),
+                Tile.parse("1m"),
+                Tile.parse("1m"),
+                Tile.parse("1m"),
+            ),
+        )
+
+        self.assertEqual(legal_discard_actions(drawn), (Action.discard("1m", tsumogiri=True),))
+        self.assertEqual(legal_ankan_actions(drawn), (ankan,))
+
+        after_kan, meld = apply_ankan_action(drawn, ankan)
+
+        self.assertEqual(meld.kind, ActionKind.ANKAN)
+        self.assertEqual(after_kan.melds[0], (meld,))
+        self.assertEqual(after_kan.hand_sizes()[0], 11)
+        self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertEqual(after_kan.ippatsu_seats, ())
+        self.assertEqual(
+            legal_discard_actions(after_kan),
+            (Action.discard("8s", tsumogiri=True),),
+        )
+
+    def test_post_riichi_ankan_blocks_drawn_quad_that_changes_waits(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8m"),),
+            dead_wall=_tiles("2m 3m 8s"),
+            dora_indicators=(Tile.parse("2m"),),
+            hands=(
+                _tiles("2m 2m 2m 7m 8m 8m 8m 9m 4p 4p 4p 7s 7s"),
+                (),
+                (),
+                (),
+            ),
+            riichi_seats=(0,),
+            ippatsu_seats=(0,),
+        )
+        drawn = draw_for_current_seat(state)
+        ankan = Action(
+            ActionKind.ANKAN,
+            TileType.parse("8m"),
+            consumed=(
+                Tile.parse("8m"),
+                Tile.parse("8m"),
+                Tile.parse("8m"),
+                Tile.parse("8m"),
+            ),
+        )
+
+        self.assertEqual(legal_discard_actions(drawn), (Action.discard("8m", tsumogiri=True),))
+        self.assertEqual(legal_ankan_actions(drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_ankan_action(drawn, ankan)
 
     def test_ankan_cancels_active_ippatsu_windows(self) -> None:
         state = SandboxEnvironmentState(

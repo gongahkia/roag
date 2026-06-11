@@ -60,6 +60,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_riichi_furiten_ron_filter: yes", output)
         self.assertIn("sandbox_riichi_declaration_action: yes", output)
         self.assertIn("sandbox_post_riichi_action_restrictions: yes", output)
+        self.assertIn("sandbox_post_riichi_closed_kan_exceptions: yes", output)
         self.assertIn("sandbox_riichi_deposit_accounting: yes", output)
         self.assertIn("sandbox_honba_bonus_accounting: yes", output)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", output)
@@ -136,6 +137,11 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_post_riichi_action_restrictions"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_post_riichi_closed_kan_exceptions"
+            ]
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_riichi_deposit_accounting"]
@@ -392,6 +398,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("riichi_furiten_ron_filter: yes", text_stdout.getvalue())
         self.assertIn("riichi_declaration_action: yes", text_stdout.getvalue())
         self.assertIn("post_riichi_action_restrictions: yes", text_stdout.getvalue())
+        self.assertIn("post_riichi_closed_kan_exceptions: yes", text_stdout.getvalue())
         self.assertIn("riichi_deposit_accounting: yes", text_stdout.getvalue())
         self.assertIn("honba_bonus_accounting: yes", text_stdout.getvalue())
         self.assertIn("ippatsu_window_tracking: yes", text_stdout.getvalue())
@@ -414,6 +421,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["riichi_furiten_ron_filter"])
         self.assertTrue(report_payload["capabilities"]["riichi_declaration_action"])
         self.assertTrue(report_payload["capabilities"]["post_riichi_action_restrictions"])
+        self.assertTrue(report_payload["capabilities"]["post_riichi_closed_kan_exceptions"])
         self.assertTrue(report_payload["capabilities"]["riichi_deposit_accounting"])
         self.assertTrue(report_payload["capabilities"]["honba_bonus_accounting"])
         self.assertTrue(report_payload["capabilities"]["ippatsu_window_tracking"])

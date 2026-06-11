@@ -114,6 +114,7 @@ def run_self_play_sandbox(
             "full_riichi_rules": False,
             "riichi_declaration_action": True,
             "post_riichi_action_restrictions": True,
+            "post_riichi_closed_kan_exceptions": True,
             "riichi_deposit_accounting": True,
             "honba_bonus_accounting": True,
             "ippatsu_window_tracking": True,
