@@ -52,6 +52,7 @@ class SandboxEnvironmentState:
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
     riichi_pending_discard_seats: tuple[int, ...] = ()
+    ippatsu_seats: tuple[int, ...] = ()
     riichi_furiten_seats: tuple[int, ...] = ()
     terminal_reason: str | None = None
     winner_seat: int | None = None
@@ -59,6 +60,7 @@ class SandboxEnvironmentState:
     winning_tile: Tile | None = None
     winning_shapes: tuple[str, ...] = ()
     winning_shapes_by_seat: tuple[tuple[int, tuple[str, ...]], ...] = ()
+    winning_ippatsu_seats: tuple[int, ...] = ()
     terminal_rewards: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
@@ -113,12 +115,24 @@ class SandboxEnvironmentState:
             raise ValueError("riichi pending discard seats must be unique")
         if any(seat not in self.riichi_seats for seat in self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seats must also be riichi seats")
+        if any(not 0 <= seat < self.players for seat in self.ippatsu_seats):
+            raise ValueError("ippatsu seat outside player range")
+        if len(set(self.ippatsu_seats)) != len(self.ippatsu_seats):
+            raise ValueError("ippatsu seats must be unique")
+        if any(seat not in self.riichi_seats for seat in self.ippatsu_seats):
+            raise ValueError("ippatsu seats must also be riichi seats")
         if any(not 0 <= seat < self.players for seat in self.riichi_furiten_seats):
             raise ValueError("riichi furiten seat outside player range")
         if len(set(self.riichi_furiten_seats)) != len(self.riichi_furiten_seats):
             raise ValueError("riichi furiten seats must be unique")
         if any(seat not in self.riichi_seats for seat in self.riichi_furiten_seats):
             raise ValueError("riichi furiten seats must also be riichi seats")
+        if any(not 0 <= seat < self.players for seat in self.winning_ippatsu_seats):
+            raise ValueError("winning ippatsu seat outside player range")
+        if len(set(self.winning_ippatsu_seats)) != len(self.winning_ippatsu_seats):
+            raise ValueError("winning ippatsu seats must be unique")
+        if any(seat not in self.winner_seats for seat in self.winning_ippatsu_seats):
+            raise ValueError("winning ippatsu seats must also be winner seats")
         if self.terminal_rewards and len(self.terminal_rewards) != self.players:
             raise ValueError("terminal reward count must match player count")
 
@@ -155,6 +169,7 @@ class SandboxEnvironmentState:
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
             "riichi_pending_discard_seats": list(self.riichi_pending_discard_seats),
+            "ippatsu_seats": list(self.ippatsu_seats),
             "riichi_furiten_seats": list(self.riichi_furiten_seats),
             "terminal_reason": self.terminal_reason,
             "winner_seat": self.winner_seat,
@@ -165,6 +180,7 @@ class SandboxEnvironmentState:
                 {"seat": seat, "shapes": list(shapes)}
                 for seat, shapes in self.winning_shapes_by_seat
             ],
+            "winning_ippatsu_seats": list(self.winning_ippatsu_seats),
             "terminal_rewards": list(self.terminal_rewards),
         }
 
@@ -331,6 +347,7 @@ def apply_riichi_action(
             state.riichi_pending_discard_seats,
             state.current_seat,
         ),
+        ippatsu_seats=_with_seat(state.ippatsu_seats, state.current_seat),
     )
 
 
@@ -356,6 +373,9 @@ def apply_discard_action(
     discards = [list(seat_discards) for seat_discards in _discards_by_seat(state)]
     discards[state.current_seat].append(discard)
     next_seat = (state.current_seat + 1) % state.players
+    ippatsu_seats = state.ippatsu_seats
+    if _is_post_riichi_discard_locked(state, seat=state.current_seat):
+        ippatsu_seats = _without_seat(ippatsu_seats, state.current_seat)
     next_state = _replace_state(
         state,
         hands=tuple(tuple(player_hand) for player_hand in hands),
@@ -373,6 +393,7 @@ def apply_discard_action(
             state.riichi_pending_discard_seats,
             state.current_seat,
         ),
+        ippatsu_seats=ippatsu_seats,
     )
     return next_state, discard
 
@@ -496,6 +517,7 @@ def apply_call_action(
         "pending_discard": None,
         "pending_discard_seat": None,
         "pending_reaction_seats": (),
+        "ippatsu_seats": (),
     }
 
     if action.kind is ActionKind.MINKAN:
@@ -605,6 +627,10 @@ def apply_ron_actions(
         winning_tile=pending_discard,
         winning_shapes=winning_shapes_by_seat[0][1],
         winning_shapes_by_seat=tuple(winning_shapes_by_seat),
+        winning_ippatsu_seats=tuple(
+            seat for seat in winner_seats if seat in state.ippatsu_seats
+        ),
+        ippatsu_seats=(),
         terminal_rewards=_multi_ron_rewards(
             winner_seats=tuple(winner_seats),
             discarder_seat=pending_discard_seat,
@@ -662,6 +688,10 @@ def apply_tsumo_action(
         winning_tile=state.drawn_tile,
         winning_shapes=shapes,
         winning_shapes_by_seat=((state.current_seat, shapes),),
+        winning_ippatsu_seats=(
+            (state.current_seat,) if state.current_seat in state.ippatsu_seats else ()
+        ),
+        ippatsu_seats=(),
         terminal_rewards=_tsumo_rewards(state.current_seat, state.players),
         **point_updates,
     )
@@ -740,6 +770,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
         "riichi_pending_discard_seats": state.riichi_pending_discard_seats,
+        "ippatsu_seats": state.ippatsu_seats,
         "riichi_furiten_seats": state.riichi_furiten_seats,
         "terminal_reason": state.terminal_reason,
         "winner_seat": state.winner_seat,
@@ -747,6 +778,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "winning_tile": state.winning_tile,
         "winning_shapes": state.winning_shapes,
         "winning_shapes_by_seat": state.winning_shapes_by_seat,
+        "winning_ippatsu_seats": state.winning_ippatsu_seats,
         "terminal_rewards": state.terminal_rewards,
     }
     payload.update(updates)

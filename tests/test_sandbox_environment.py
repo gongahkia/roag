@@ -50,6 +50,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["honba"], 0)
+        self.assertEqual(first.to_payload()["ippatsu_seats"], [])
+        self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
@@ -167,6 +169,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIn(Action(ActionKind.RIICHI), turn_actions)
         self.assertEqual(declared.riichi_seats, (0,))
         self.assertEqual(declared.riichi_pending_discard_seats, (0,))
+        self.assertEqual(declared.ippatsu_seats, (0,))
         self.assertEqual(
             declared.points,
             (
@@ -179,12 +182,14 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(declared.riichi_sticks, 1)
         self.assertEqual(declared.to_payload()["riichi_seats"], [0])
         self.assertEqual(declared.to_payload()["riichi_pending_discard_seats"], [0])
+        self.assertEqual(declared.to_payload()["ippatsu_seats"], [0])
         self.assertEqual(declared.to_payload()["riichi_sticks"], 1)
         self.assertIn(Action.discard("5m"), legal_discard_actions(declared))
         self.assertEqual(legal_riichi_actions(declared), ())
         self.assertEqual(discard, Tile.parse("9s"))
         self.assertEqual(after_discard.riichi_seats, (0,))
         self.assertEqual(after_discard.riichi_pending_discard_seats, ())
+        self.assertEqual(after_discard.ippatsu_seats, (0,))
         self.assertEqual(after_discard.points, declared.points)
         self.assertEqual(after_discard.riichi_sticks, 1)
         self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
@@ -303,6 +308,51 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(terminal.to_payload()["honba"], honba)
 
+    def test_ippatsu_window_is_recorded_on_ron_and_tsumo_wins(self) -> None:
+        ron_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("5m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
+        )
+        ron_terminal = apply_ron_action(
+            ron_state,
+            seat=1,
+            action=Action(ActionKind.RON, TileType.parse("5m")),
+        )
+        tsumo_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 5m"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("5m"),
+            riichi_seats=(0,),
+            ippatsu_seats=(0,),
+        )
+        tsumo_terminal = apply_tsumo_action(tsumo_state, Action(ActionKind.TSUMO))
+
+        self.assertEqual(ron_terminal.winning_ippatsu_seats, (1,))
+        self.assertEqual(ron_terminal.ippatsu_seats, ())
+        self.assertEqual(ron_terminal.to_payload()["winning_ippatsu_seats"], [1])
+        self.assertEqual(tsumo_terminal.winning_ippatsu_seats, (0,))
+        self.assertEqual(tsumo_terminal.ippatsu_seats, ())
+        self.assertEqual(tsumo_terminal.to_payload()["winning_ippatsu_seats"], [0])
+
     def test_post_riichi_turn_discards_are_locked_to_drawn_tile(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -316,6 +366,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ),
             drawn_tile=Tile.parse("9s"),
             riichi_seats=(0,),
+            ippatsu_seats=(0,),
         )
 
         actions = legal_discard_actions(state)
@@ -336,6 +387,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(discard, Tile.parse("9s"))
         self.assertEqual(after_discard.riichi_seats, (0,))
         self.assertEqual(after_discard.riichi_pending_discard_seats, ())
+        self.assertEqual(after_discard.ippatsu_seats, ())
         self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
 
     def test_riichi_declaration_rejects_open_or_non_tenpai_or_wrong_phase(self) -> None:
@@ -771,6 +823,33 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_reaction_actions(state, seat=1), (Action.pass_(),))
         with self.assertRaisesRegex(ValueError, "not legal"):
             apply_call_action(state, seat=1, action=chi)
+
+    def test_calls_cancel_active_ippatsu_windows(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("3m 1p 1p 2p 3p 4p 5p 6p 7p 8p 9p E S"),
+                _tiles("1m 2m 4m 5m 6p 7p 8p 1s 2s 3s E S W"),
+                (),
+                (),
+            ),
+            riichi_seats=(2,),
+            ippatsu_seats=(2,),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("3m"))
+        chi = Action(
+            ActionKind.CHI,
+            TileType.parse("3m"),
+            consumed=(Tile.parse("1m"), Tile.parse("2m")),
+        )
+
+        called, _meld = apply_call_action(reaction_state, seat=1, action=chi)
+
+        self.assertEqual(called.ippatsu_seats, ())
+        self.assertEqual(called.to_payload()["ippatsu_seats"], [])
 
     def test_reaction_pass_action_resolves_one_seat_at_a_time(self) -> None:
         state = SandboxEnvironmentState(

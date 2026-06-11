@@ -116,6 +116,7 @@ def run_self_play_sandbox(
             "post_riichi_action_restrictions": True,
             "riichi_deposit_accounting": True,
             "honba_bonus_accounting": True,
+            "ippatsu_window_tracking": True,
             "calls": False,
             "call_policy": False,
             "ron_policy": False,
@@ -219,6 +220,8 @@ def _simulate_episode(
         "final_points": state_payload["points"],
         "riichi_sticks": state.riichi_sticks,
         "honba": state.honba,
+        "ippatsu_seats": state_payload["ippatsu_seats"],
+        "winning_ippatsu_seats": state_payload["winning_ippatsu_seats"],
         "wall_remaining": len(state.wall),
         "seat_decisions": seat_decisions,
         "discard_counts": dict(sorted(discard_counts.items())),
@@ -284,6 +287,7 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         temporary_furiten_seats=state.temporary_furiten_seats,
         riichi_seats=state.riichi_seats,
         riichi_pending_discard_seats=state.riichi_pending_discard_seats,
+        ippatsu_seats=state.ippatsu_seats,
         riichi_furiten_seats=state.riichi_furiten_seats,
         terminal_reason="max_turns",
         winner_seat=state.winner_seat,
@@ -291,6 +295,7 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         winning_tile=state.winning_tile,
         winning_shapes=state.winning_shapes,
         winning_shapes_by_seat=state.winning_shapes_by_seat,
+        winning_ippatsu_seats=state.winning_ippatsu_seats,
         terminal_rewards=tuple(0.0 for _seat in range(state.players)),
     )
 

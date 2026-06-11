@@ -496,11 +496,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
-    basic riichi deposit accounting, basic honba bonus accounting, legal chi/pon/minkan, individual
-    reaction passes, ron-priority call gating, discard/call/tsumo/ron transitions, basic multi-ron
-    terminal resolution, and simple terminal reward payloads only; the next simulator step is full
-    call/kan timing, complete payment accounting, ippatsu/ankan exception handling, yaku validation,
-    scoring, and richer reward semantics.
+    basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
+    legal chi/pon/minkan, individual reaction passes, ron-priority call gating,
+    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
+    reward payloads only; the next simulator step is full call/kan timing, complete payment
+    accounting, closed-kan/ankan exception handling, yaku validation, scoring, and richer reward
+    semantics.
 
 ---
 
@@ -1030,3 +1031,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   honba from each loser to the winner, and `self-play-sandbox` reports the honba count. This is
   still not hand scoring, next-round honba progression, real multi-ron payment validation, yaku
   validation, or a calibrated reward model.
+- Added basic sandbox ippatsu window tracking. Riichi declaration marks the seat as ippatsu-active,
+  calls clear all active ippatsu windows, the riichi player's next post-declaration discard clears
+  their own window, and terminal tsumo/ron records `winning_ippatsu_seats`. This is still not yaku
+  validation, ippatsu scoring, closed-kan exception handling after riichi, or full rules timing.
