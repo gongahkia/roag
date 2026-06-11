@@ -68,6 +68,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_rinshan_seats"], [])
+        self.assertEqual(first.to_payload()["winning_yaku"], [])
+        self.assertEqual(first.to_payload()["winning_yaku_by_seat"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
@@ -134,9 +136,16 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(drawn.winner_seat, 0)
         self.assertEqual(drawn.winning_tile, Tile.parse("5m"))
         self.assertEqual(drawn.winning_shapes, ("standard",))
+        self.assertEqual(drawn.winning_yaku, ("menzen_tsumo", "yakuhai"))
+        self.assertEqual(drawn.winning_yaku_by_seat, ((0, ("menzen_tsumo", "yakuhai")),))
         self.assertEqual(drawn.winning_rinshan_seats, ())
         self.assertEqual(drawn.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
         self.assertEqual(drawn.to_payload()["terminal_rewards"], [1.0, -1 / 3, -1 / 3, -1 / 3])
+        self.assertEqual(drawn.to_payload()["winning_yaku"], ["menzen_tsumo", "yakuhai"])
+        self.assertEqual(
+            drawn.to_payload()["winning_yaku_by_seat"],
+            [{"seat": 0, "yaku": ["menzen_tsumo", "yakuhai"]}],
+        )
         self.assertEqual(drawn.to_payload()["winning_rinshan_seats"], [])
         with self.assertRaisesRegex(ValueError, "already terminal"):
             legal_discard_actions(drawn)
@@ -165,6 +174,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winner_seat, 0)
         self.assertEqual(terminal.winning_rinshan_seats, ())
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
 
     def test_rinshan_tsumo_metadata_marks_replacement_draw_winner(self) -> None:
@@ -188,6 +198,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winner_seat, 0)
         self.assertTrue(terminal.rinshan_draw)
         self.assertEqual(terminal.winning_rinshan_seats, (0,))
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "rinshan", "yakuhai"))
         self.assertEqual(terminal.to_payload()["winning_rinshan_seats"], [0])
 
     def test_rinshan_draw_requires_drawn_tile(self) -> None:
@@ -227,6 +238,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
         self.assertEqual(terminal.winner_seats, (0,))
 
     def test_open_meld_ron_uses_melds_for_standard_shape(self) -> None:
@@ -258,6 +270,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "ron")
         self.assertEqual(terminal.winner_seats, (1,))
         self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
 
     def test_rinshan_tsumo_after_ankan_uses_kan_meld_for_standard_shape(self) -> None:
         state = SandboxEnvironmentState(
@@ -283,6 +296,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "rinshan", "yakuhai"))
         self.assertEqual(terminal.winning_rinshan_seats, (0,))
         self.assertEqual(terminal.to_payload()["winning_rinshan_seats"], [0])
 
@@ -612,7 +626,54 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_tile, Tile.parse("5m"))
         self.assertEqual(terminal.winning_shapes, ("standard",))
         self.assertEqual(terminal.winning_shapes_by_seat, ((1, ("standard",)),))
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
+        self.assertEqual(terminal.winning_yaku_by_seat, ((1, ("yakuhai",)),))
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
+
+    def test_ron_requires_recognized_sandbox_yaku(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
+                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 2s 3s 4s 5m"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        ron = Action(ActionKind.RON, TileType.parse("5m"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), ())
+        with self.assertRaisesRegex(ValueError, "no recognized sandbox yaku"):
+            apply_ron_action(reaction_state, seat=1, action=ron)
+
+    def test_riichi_yaku_allows_closed_shape_ron(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
+                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 2s 3s 4s 5m"),
+                (),
+                (),
+            ),
+            riichi_seats=(1,),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        ron = Action(ActionKind.RON, TileType.parse("5m"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), (ron,))
+
+        terminal = apply_ron_action(reaction_state, seat=1, action=ron)
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("riichi",))
 
     def test_passing_legal_ron_sets_temporary_furiten_until_next_draw(self) -> None:
         state = SandboxEnvironmentState(
@@ -824,12 +885,21 @@ class SandboxEnvironmentTests(unittest.TestCase):
             terminal.winning_shapes_by_seat,
             ((1, ("standard",)), (2, ("standard",))),
         )
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
+        self.assertEqual(
+            terminal.winning_yaku_by_seat,
+            ((1, ("yakuhai",)), (2, ("yakuhai",))),
+        )
         self.assertEqual(terminal.terminal_rewards, (-2.0, 1.0, 1.0, 0.0))
         payload = terminal.to_payload()
         self.assertEqual(payload["winner_seats"], [1, 2])
         self.assertEqual(
             payload["winning_shapes_by_seat"],
             [{"seat": 1, "shapes": ["standard"]}, {"seat": 2, "shapes": ["standard"]}],
+        )
+        self.assertEqual(
+            payload["winning_yaku_by_seat"],
+            [{"seat": 1, "yaku": ["yakuhai"]}, {"seat": 2, "yaku": ["yakuhai"]}],
         )
 
     def test_rejects_empty_or_duplicate_multi_ron_resolution(self) -> None:
@@ -1368,6 +1438,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "chankan")
         self.assertEqual(terminal.winner_seats, (1,))
         self.assertEqual(terminal.winning_shapes, ("kokushi",))
+        self.assertEqual(terminal.winning_yaku, ("kokushi", "chankan"))
         self.assertIsNone(terminal.pending_chankan_kind)
 
     def test_ankan_chankan_rejects_non_kokushi_ron_shape(self) -> None:
@@ -1508,6 +1579,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winner_seats, (1,))
         self.assertEqual(terminal.winning_tile, Tile.parse("3m"))
         self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("chankan", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
         self.assertIsNone(terminal.pending_chankan_tile)
         self.assertIsNone(terminal.pending_chankan_seat)

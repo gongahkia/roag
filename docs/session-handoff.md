@@ -50,11 +50,14 @@ Last updated: 2026-06-11.
   `pending_chankan_kind`; kakan keeps standard-shape chankan behavior, while ankan opens ron/pass
   only for kokushi wins on the concealed-kan tile. Added basic wait-preserving post-riichi
   closed-kan exceptions: a riichi player can ankan only the just-drawn tile, and only when the
-  before/after wait sets match. Together these are still not a call/ron policy, complete
-  yaku-aware open-hand legality, complete rinshan yaku/scoring semantics, complete
-  kan-dora/ura-dora indicator ordering, full riichi/kan timing legality, real scoring, or
-  PPO-ready self-play. Added individual reaction passes and ron-priority call gating so calls are
-  blocked while any pending reaction seat has legal ron.
+  before/after wait sets match. Added a basic sandbox yaku filter and terminal yaku metadata:
+  legal tsumo/ron/chankan now require at least one recognized sandbox yaku from kokushi,
+  chiitoitsu, riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a broad honor-triplet
+  yakuhai approximation, and terminal states expose `winning_yaku` plus `winning_yaku_by_seat`.
+  Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
+  rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, full riichi/kan
+  timing legality, real scoring, or PPO-ready self-play. Added individual reaction passes and
+  ron-priority call gating so calls are blocked while any pending reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. Added seeded
@@ -78,10 +81,10 @@ Last updated: 2026-06-11.
   expose visible dora/kan-dora indicator metadata plus basic rinshan draw-source metadata. The
   sandbox now detects basic open/kan standard hand shapes, including rinshan replacement draws after
   kan, and supports kokushi-only ankan robbery. This is still not hand scoring, next-round honba
-  progression, real multi-ron payment validation, complete yaku validation, complete rinshan
-  yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete
-  robbing-kan/chankan semantics, complete post-riichi kan timing, ippatsu scoring, or calibrated
-  rewards.
+  progression, real multi-ron payment validation, complete yaku validation, full open-hand yaku
+  rules, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering,
+  complete robbing-kan/chankan semantics, complete post-riichi kan timing, ippatsu scoring, or
+  calibrated rewards.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
@@ -228,14 +231,14 @@ Last updated: 2026-06-11.
   `terminal_rewards`: neutral zero rewards for non-win terminal states and a simple zero-sum utility
   vector for sandbox tsumo/ron. They also include final point-ledger and riichi-stick counts from
   the sandbox state, the current honba count, active ippatsu seats, winning ippatsu seats,
-  rinshan draw-source metadata, winning rinshan seats, dead-wall remaining count, and visible
-  dora/kan-dora indicators.
+  rinshan draw-source metadata, winning rinshan seats, terminal yaku metadata, dead-wall remaining
+  count, and visible dora/kan-dora indicators.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
   excludes 2m-8m and rotates three seats. `--stop-on-tsumo` checks basic closed-hand standard,
   chiitoitsu, and kokushi winning shapes immediately after a synthetic draw. It is for plumbing
-  only; it has no call/ron/kan policy, yaku validation, complete rinshan yaku/scoring semantics,
-  complete kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan handling, scoring,
-  complete payment accounting, complete post-riichi kan timing, PPO, or population
+  only; it has no call/ron/kan policy, complete yaku validation, complete rinshan yaku/scoring
+  semantics, complete kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan handling,
+  scoring, complete payment accounting, complete post-riichi kan timing, PPO, or population
   training.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
@@ -256,7 +259,8 @@ Last updated: 2026-06-11.
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
   terminal metadata, a basic chankan ron/pass window before kakan replacement draw, kokushi-only
   ankan chankan, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
-  resolution, basic open/kan standard-shape win detection, and simple sandbox terminal rewards.
+  resolution, basic open/kan standard-shape win detection, a basic sandbox yaku filter/metadata
+  layer, and simple sandbox terminal rewards.
 
 ## Working Rules
 

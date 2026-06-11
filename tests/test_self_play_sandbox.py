@@ -61,6 +61,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["discard_furiten_ron_filter"])
         self.assertTrue(first["capabilities"]["temporary_furiten_ron_filter"])
         self.assertTrue(first["capabilities"]["riichi_furiten_ron_filter"])
+        self.assertTrue(first["capabilities"]["basic_yaku_win_filter"])
+        self.assertTrue(first["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(first["capabilities"]["terminal_rewards"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
         self.assertEqual(
@@ -148,6 +150,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("discard_furiten_ron_filter: yes", text)
         self.assertIn("temporary_furiten_ron_filter: yes", text)
         self.assertIn("riichi_furiten_ron_filter: yes", text)
+        self.assertIn("basic_yaku_win_filter: yes", text)
+        self.assertIn("basic_yaku_metadata: yes", text)
         self.assertIn("terminal_rewards: yes", text)
         self.assertIn("scoring: no", text)
         self.assertIn("ppo: no", text)
@@ -169,6 +173,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("winning_tile", episode)
         self.assertIn("winning_shapes", episode)
         self.assertIn("winning_shapes_by_seat", episode)
+        self.assertIn("winning_yaku", episode)
+        self.assertIn("winning_yaku_by_seat", episode)
         self.assertIn("terminal_rewards", episode)
         self.assertIn("final_points", episode)
         self.assertIn("riichi_sticks", episode)
@@ -187,6 +193,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
             self.assertIsInstance(episode["winning_tile"], str)
             self.assertTrue(episode["winning_shapes"])
             self.assertTrue(episode["winning_shapes_by_seat"])
+            self.assertTrue(episode["winning_yaku"])
+            self.assertTrue(episode["winning_yaku_by_seat"])
             self.assertAlmostEqual(sum(episode["terminal_rewards"]), 0.0)
 
     def test_invalid_arguments_raise_value_error(self) -> None:

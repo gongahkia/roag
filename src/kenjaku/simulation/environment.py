@@ -67,6 +67,8 @@ class SandboxEnvironmentState:
     winning_tile: Tile | None = None
     winning_shapes: tuple[str, ...] = ()
     winning_shapes_by_seat: tuple[tuple[int, tuple[str, ...]], ...] = ()
+    winning_yaku: tuple[str, ...] = ()
+    winning_yaku_by_seat: tuple[tuple[int, tuple[str, ...]], ...] = ()
     winning_ippatsu_seats: tuple[int, ...] = ()
     winning_rinshan_seats: tuple[int, ...] = ()
     terminal_rewards: tuple[float, ...] = ()
@@ -174,6 +176,12 @@ class SandboxEnvironmentState:
             raise ValueError("winning rinshan seats must be unique")
         if any(seat not in self.winner_seats for seat in self.winning_rinshan_seats):
             raise ValueError("winning rinshan seats must also be winner seats")
+        if self.winning_yaku and not self.winner_seats:
+            raise ValueError("winning yaku require winner seats")
+        if any(not 0 <= seat < self.players for seat, _yaku in self.winning_yaku_by_seat):
+            raise ValueError("winning yaku seat outside player range")
+        if any(seat not in self.winner_seats for seat, _yaku in self.winning_yaku_by_seat):
+            raise ValueError("winning yaku seats must also be winner seats")
         if self.terminal_rewards and len(self.terminal_rewards) != self.players:
             raise ValueError("terminal reward count must match player count")
 
@@ -230,6 +238,11 @@ class SandboxEnvironmentState:
             "winning_shapes_by_seat": [
                 {"seat": seat, "shapes": list(shapes)}
                 for seat, shapes in self.winning_shapes_by_seat
+            ],
+            "winning_yaku": list(self.winning_yaku),
+            "winning_yaku_by_seat": [
+                {"seat": seat, "yaku": list(yaku)}
+                for seat, yaku in self.winning_yaku_by_seat
             ],
             "winning_ippatsu_seats": list(self.winning_ippatsu_seats),
             "winning_rinshan_seats": list(self.winning_rinshan_seats),
@@ -358,6 +371,14 @@ def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
         raise ValueError("current seat must draw before tsumo")
     shapes = _winning_shapes_for_state(state, seat=state.current_seat)
     if not shapes:
+        return ()
+    if not _winning_yaku_for_state(
+        state,
+        seat=state.current_seat,
+        winning_tile=state.drawn_tile,
+        shapes=shapes,
+        win_kind="tsumo",
+    ):
         return ()
     return (Action(ActionKind.TSUMO),)
 
@@ -580,6 +601,7 @@ def apply_kakan_action(
         state,
         tile=action.consumed[0],
         candidate_seats=tuple(seat for seat in range(state.players) if seat != state.current_seat),
+        win_kind="chankan",
     )
     if chankan_seats:
         updates["pending_chankan_tile"] = action.consumed[0]
@@ -730,7 +752,7 @@ def legal_ron_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Act
     _require_pending_discard(state)
     _require_reaction_seat(state, seat)
     pending_discard = _pending_discard(state)
-    if not _can_ron_tile(state, seat=seat, tile=pending_discard):
+    if not _can_ron_tile(state, seat=seat, tile=pending_discard, win_kind="ron"):
         return ()
     return (Action(ActionKind.RON, pending_discard.type),)
 
@@ -747,7 +769,7 @@ def legal_chankan_ron_actions(
     can_ron = (
         _can_kokushi_ron_tile(state, seat=seat, tile=pending_chankan)
         if state.pending_chankan_kind is ActionKind.ANKAN
-        else _can_ron_tile(state, seat=seat, tile=pending_chankan)
+        else _can_ron_tile(state, seat=seat, tile=pending_chankan, win_kind="chankan")
     )
     if not can_ron:
         return ()
@@ -882,6 +904,7 @@ def apply_ron_actions(
     seen: set[int] = set()
     winner_seats: list[int] = []
     winning_shapes_by_seat: list[tuple[int, tuple[str, ...]]] = []
+    winning_yaku_by_seat: list[tuple[int, tuple[str, ...]]] = []
     for seat, action in seat_actions:
         _require_reaction_seat(state, seat)
         if seat in seen:
@@ -894,6 +917,15 @@ def apply_ron_actions(
             raise ValueError("reacting hand is not a winning ron")
         if state.pending_chankan_kind is ActionKind.ANKAN and "kokushi" not in shapes:
             raise ValueError("concealed kan can only be robbed by kokushi")
+        yaku = _winning_yaku_for_state(
+            state,
+            seat=seat,
+            winning_tile=pending_tile,
+            shapes=shapes,
+            win_kind=terminal_reason,
+        )
+        if not yaku:
+            raise ValueError("winning hand has no recognized sandbox yaku")
         if _is_discard_furiten(state, seat=seat):
             raise ValueError("reacting hand is in discard furiten")
         if _is_temporary_furiten(state, seat=seat):
@@ -902,6 +934,7 @@ def apply_ron_actions(
             raise ValueError("reacting hand is in riichi furiten")
         winner_seats.append(seat)
         winning_shapes_by_seat.append((seat, shapes))
+        winning_yaku_by_seat.append((seat, yaku))
 
     point_updates = _terminal_win_point_updates(
         state,
@@ -922,6 +955,8 @@ def apply_ron_actions(
         winning_tile=pending_tile,
         winning_shapes=winning_shapes_by_seat[0][1],
         winning_shapes_by_seat=tuple(winning_shapes_by_seat),
+        winning_yaku=winning_yaku_by_seat[0][1],
+        winning_yaku_by_seat=tuple(winning_yaku_by_seat),
         winning_ippatsu_seats=tuple(
             seat for seat in winner_seats if seat in state.ippatsu_seats
         ),
@@ -971,6 +1006,15 @@ def apply_tsumo_action(
     shapes = _winning_shapes_for_state(state, seat=state.current_seat)
     if not shapes:
         raise ValueError("current hand is not a winning tsumo")
+    yaku = _winning_yaku_for_state(
+        state,
+        seat=state.current_seat,
+        winning_tile=state.drawn_tile,
+        shapes=shapes,
+        win_kind="tsumo",
+    )
+    if not yaku:
+        raise ValueError("winning hand has no recognized sandbox yaku")
     point_updates = _terminal_win_point_updates(
         state,
         winner_seats=(state.current_seat,),
@@ -984,6 +1028,8 @@ def apply_tsumo_action(
         winning_tile=state.drawn_tile,
         winning_shapes=shapes,
         winning_shapes_by_seat=((state.current_seat, shapes),),
+        winning_yaku=yaku,
+        winning_yaku_by_seat=((state.current_seat, yaku),),
         winning_ippatsu_seats=(
             (state.current_seat,) if state.current_seat in state.ippatsu_seats else ()
         ),
@@ -1118,6 +1164,68 @@ def _winning_shapes_for_concealed_and_melds(
     return tuple(shape for shape in shapes if shape == "standard")
 
 
+def _winning_yaku_for_state(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile | None,
+    shapes: tuple[str, ...],
+    win_kind: str,
+) -> tuple[str, ...]:
+    yaku: list[str] = []
+    melds = _melds_by_seat(state)[seat]
+    full_tiles = _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
+
+    if "kokushi" in shapes:
+        yaku.append("kokushi")
+    if "chiitoitsu" in shapes:
+        yaku.append("chiitoitsu")
+    if _is_riichi(state, seat=seat):
+        yaku.append("riichi")
+    if seat in state.ippatsu_seats:
+        yaku.append("ippatsu")
+    if win_kind == "tsumo" and _is_closed_hand_for_yaku(melds):
+        yaku.append("menzen_tsumo")
+    if win_kind == "tsumo" and state.rinshan_draw:
+        yaku.append("rinshan")
+    if win_kind == "chankan":
+        yaku.append("chankan")
+    if _is_tanyao_yaku(full_tiles):
+        yaku.append("tanyao")
+    if _has_sandbox_yakuhai(full_tiles):
+        yaku.append("yakuhai")
+    return tuple(yaku)
+
+
+def _full_yaku_tiles(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile | None,
+) -> tuple[Tile, ...]:
+    concealed_tiles = state.hands[seat]
+    if winning_tile is not None:
+        concealed_tiles = (*concealed_tiles, winning_tile)
+    meld_tiles = tuple(tile for meld in _melds_by_seat(state)[seat] for tile in meld.tiles)
+    return (*concealed_tiles, *meld_tiles)
+
+
+def _is_closed_hand_for_yaku(melds: tuple[Meld, ...]) -> bool:
+    return all(meld.kind is ActionKind.ANKAN for meld in melds)
+
+
+def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
+    return bool(tiles) and all(not tile.type.is_terminal_or_honor for tile in tiles)
+
+
+def _has_sandbox_yakuhai(tiles: tuple[Tile, ...]) -> bool:
+    counts = _hand_type_counts(tiles)
+    return any(
+        TileType(index).is_honor and count >= 3
+        for index, count in enumerate(counts)
+    )
+
+
 def _standard_shape_tiles_for_melds(melds: tuple[Meld, ...]) -> tuple[Tile, ...]:
     return tuple(tile for meld in melds for tile in meld.tiles[:3])
 
@@ -1192,8 +1300,18 @@ def _can_ron_tile(
     *,
     seat: int,
     tile: Tile,
+    win_kind: str,
 ) -> bool:
-    if not _winning_shapes_for_state(state, seat=seat, winning_tile=tile):
+    shapes = _winning_shapes_for_state(state, seat=seat, winning_tile=tile)
+    if not shapes:
+        return False
+    if not _winning_yaku_for_state(
+        state,
+        seat=seat,
+        winning_tile=tile,
+        shapes=shapes,
+        win_kind=win_kind,
+    ):
         return False
     if _is_discard_furiten(state, seat=seat):
         return False
@@ -1207,11 +1325,12 @@ def _legal_ron_seats_for_tile(
     *,
     tile: Tile,
     candidate_seats: tuple[int, ...],
+    win_kind: str,
 ) -> tuple[int, ...]:
     return tuple(
         seat
         for seat in candidate_seats
-        if _can_ron_tile(state, seat=seat, tile=tile)
+        if _can_ron_tile(state, seat=seat, tile=tile, win_kind=win_kind)
     )
 
 
@@ -1341,6 +1460,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "winning_tile": state.winning_tile,
         "winning_shapes": state.winning_shapes,
         "winning_shapes_by_seat": state.winning_shapes_by_seat,
+        "winning_yaku": state.winning_yaku,
+        "winning_yaku_by_seat": state.winning_yaku_by_seat,
         "winning_ippatsu_seats": state.winning_ippatsu_seats,
         "winning_rinshan_seats": state.winning_rinshan_seats,
         "terminal_rewards": state.terminal_rewards,
@@ -1521,6 +1642,7 @@ def _pending_ron_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
         state,
         tile=pending_discard,
         candidate_seats=state.pending_reaction_seats,
+        win_kind="ron",
     )
 
 

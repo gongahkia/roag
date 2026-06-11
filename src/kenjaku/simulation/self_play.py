@@ -136,6 +136,8 @@ def run_self_play_sandbox(
             "discard_furiten_ron_filter": True,
             "temporary_furiten_ron_filter": True,
             "riichi_furiten_ron_filter": True,
+            "basic_yaku_win_filter": True,
+            "basic_yaku_metadata": True,
             "terminal_rewards": True,
             "scoring": False,
             "ppo": False,
@@ -226,6 +228,11 @@ def _simulate_episode(
         "winning_shapes_by_seat": [
             {"seat": seat, "shapes": list(shapes)}
             for seat, shapes in state.winning_shapes_by_seat
+        ],
+        "winning_yaku": list(state.winning_yaku),
+        "winning_yaku_by_seat": [
+            {"seat": seat, "yaku": list(yaku)}
+            for seat, yaku in state.winning_yaku_by_seat
         ],
         "terminal_rewards": list(state.terminal_rewards),
         "final_points": state_payload["points"],
@@ -319,6 +326,8 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         winning_tile=state.winning_tile,
         winning_shapes=state.winning_shapes,
         winning_shapes_by_seat=state.winning_shapes_by_seat,
+        winning_yaku=state.winning_yaku,
+        winning_yaku_by_seat=state.winning_yaku_by_seat,
         winning_ippatsu_seats=state.winning_ippatsu_seats,
         winning_rinshan_seats=state.winning_rinshan_seats,
         terminal_rewards=tuple(0.0 for _seat in range(state.players)),

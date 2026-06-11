@@ -74,6 +74,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_rinshan_draw_metadata": True,
                 "sandbox_call_action_generation": True,
                 "sandbox_call_application": True,
+                "sandbox_basic_yaku_win_filter": True,
+                "sandbox_basic_yaku_metadata": True,
                 "sandbox_terminal_reward_payloads": True,
                 "basic_winning_hand_detection": True,
                 "sandbox_open_meld_win_detection": True,

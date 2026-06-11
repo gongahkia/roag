@@ -84,6 +84,8 @@ class StatusTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_win_filter"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(
@@ -153,6 +155,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_rinshan_draw_metadata: yes", text)
         self.assertIn("sandbox_call_action_generation: yes", text)
         self.assertIn("sandbox_call_application: yes", text)
+        self.assertIn("sandbox_basic_yaku_win_filter: yes", text)
+        self.assertIn("sandbox_basic_yaku_metadata: yes", text)
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)
         self.assertIn("basic_winning_hand_detection: yes", text)
         self.assertIn("sandbox_open_meld_win_detection: yes", text)

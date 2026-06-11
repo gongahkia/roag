@@ -502,10 +502,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     draw-source metadata, individual reaction passes, ron-priority call gating, a basic chankan
     ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads, plus basic open/kan standard-shape win detection only; the next simulator step
-    is full call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring
-    semantics, complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
-    payment accounting, complete post-riichi kan timing, scoring, and richer reward semantics.
+    reward payloads, plus basic open/kan standard-shape win detection and a basic sandbox yaku
+    filter/metadata layer only; the next simulator step is full call/kan timing, complete
+    yaku/terminal legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
+    indicator ordering, complete chankan semantics, complete payment accounting, complete
+    post-riichi kan timing, scoring, and richer reward semantics.
 
 ---
 
@@ -1085,3 +1086,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   now declare an ankan only when the kan uses the just-drawn tile and the winning wait set before
   the kan exactly matches the wait set after adding the concealed-kan meld. This is still not full
   riichi/kan timing, yaku validation, scoring, or a learned kan policy.
+- Added a basic sandbox yaku filter and terminal yaku metadata. Legal tsumo/ron/chankan now require
+  at least one recognized sandbox yaku from a deliberately small set: kokushi, chiitoitsu, riichi,
+  ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a broad honor-triplet yakuhai approximation.
+  Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
+  yaku validation, full open-hand yaku rules, dora/ura-dora scoring, fu/han scoring, or calibrated
+  reward semantics.

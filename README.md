@@ -24,8 +24,8 @@ handoff notes.
 - Offline replay share planning for accepted intake rows, gated by demo/redistribution permission
   scope. It produces a local report only and does not post replay URLs.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
-  optional synthetic tsumo termination in the self-play sandbox. This is not yaku validation or
-  scoring.
+  optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
+  validation or scoring.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
@@ -36,13 +36,13 @@ handoff notes.
   indicator metadata, and rinshan draw-source metadata, a basic chankan ron/pass window before
   kakan replacement draw plus kokushi-only ankan robbery, individual reaction passes, ron-priority
   call gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic
-  open/kan standard-shape win detection, and simple terminal reward payloads. The self-play sandbox
-  uses this boundary for 4-player and static 3-player
+  open/kan standard-shape win detection, a basic sandbox yaku filter/metadata layer, and simple
+  terminal reward payloads. The self-play sandbox uses this boundary for 4-player and static 3-player
   tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan policy
   yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
-  validator, complete rinshan yaku/scoring implementation, complete robbing-kan/chankan model,
+  validator, complete yaku/scoring implementation, complete robbing-kan/chankan model,
   complete post-riichi kan timing model, scoring engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
