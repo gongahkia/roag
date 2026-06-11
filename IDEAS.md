@@ -1098,3 +1098,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   wall-exhaustion and max-turn terminals expose neutral zero deltas. This is still not complete
   payment accounting, base hand scoring, point-based reward scaling, or a calibrated RL reward
   model.
+- Stopped before landing the next scoring/payment slice. Still not done: `terminal_score_estimates`
+  payloads, han/fu/limit metadata, score-derived ron/tsumo point transfers, point-based reward
+  scaling, dealer/oya handling, Sanma payment differences, dora/ura-dora scoring, kiriage and
+  kazoe handling, exhaustive yaku/fu validation, honba/riichi-stick carryover into next-round state,
+  and tests proving the above across ron, tsumo, multi-ron, chankan, rinshan, riichi, and open-hand
+  cases. The current sandbox point ledger only exposes riichi-stick and honba deltas; do not treat
+  it as complete scoring.
