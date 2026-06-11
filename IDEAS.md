@@ -498,13 +498,13 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
     basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
     legal chi/pon/minkan, basic dead-wall replacement draws for minkan/ankan/kakan, basic
-    kan-dora indicator metadata, individual reaction passes, ron-priority call gating, a basic
-    chankan ron/pass window before kakan replacement draw, discard/call/tsumo/ron transitions,
-    basic multi-ron terminal resolution, and simple terminal reward payloads only; the next
-    simulator step is full call/kan timing, complete rinshan draw semantics, complete
-    kan-dora/ura-dora indicator ordering, complete chankan semantics, complete payment accounting,
-    post-riichi closed-kan exception handling, yaku validation, scoring, and richer reward
-    semantics.
+    kan-dora indicator metadata, basic rinshan draw-source metadata, individual reaction passes,
+    ron-priority call gating, a basic chankan ron/pass window before kakan replacement draw,
+    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
+    reward payloads only; the next simulator step is full call/kan timing, open/kan hand win
+    validation, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator
+    ordering, complete chankan semantics, complete payment accounting, post-riichi closed-kan
+    exception handling, yaku validation, scoring, and richer reward semantics.
 
 ---
 
@@ -1063,3 +1063,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   available before the replacement draw. This replaces the earlier live-wall shortcut, but remains
   incomplete: it is not full rinshan handling, complete kan-dora/ura-dora ordering, yaku validation,
   scoring, post-riichi closed-kan exceptions, or a learned kan/chankan policy.
+- Added basic sandbox rinshan draw-source metadata. Normal wall draws clear `rinshan_draw`,
+  minkan/ankan/kakan replacement draws set it, discards clear it, self-play episode summaries expose
+  the transient flag plus `winning_rinshan_seats`, and tsumo terminal metadata records a winner when
+  the current draw is marked as a replacement draw. This is still metadata only: open/kan hand win
+  validation, full rinshan yaku/scoring, complete kan-dora/ura-dora ordering, post-riichi
+  closed-kan exceptions, and learned kan/chankan policy remain open.

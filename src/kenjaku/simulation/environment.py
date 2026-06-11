@@ -49,6 +49,7 @@ class SandboxEnvironmentState:
     current_seat: int = 0
     turn: int = 0
     drawn_tile: Tile | None = None
+    rinshan_draw: bool = False
     needs_discard: bool = False
     pending_discard: Tile | None = None
     pending_discard_seat: int | None = None
@@ -67,6 +68,7 @@ class SandboxEnvironmentState:
     winning_shapes: tuple[str, ...] = ()
     winning_shapes_by_seat: tuple[tuple[int, tuple[str, ...]], ...] = ()
     winning_ippatsu_seats: tuple[int, ...] = ()
+    winning_rinshan_seats: tuple[int, ...] = ()
     terminal_rewards: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
@@ -93,6 +95,8 @@ class SandboxEnvironmentState:
             raise ValueError("current_seat outside player range")
         if self.needs_discard and self.drawn_tile is not None:
             raise ValueError("needs_discard cannot be set with a drawn tile")
+        if self.rinshan_draw and self.drawn_tile is None:
+            raise ValueError("rinshan draw requires a drawn tile")
         pending_windows = int(self.pending_discard is not None) + int(
             self.pending_chankan_tile is not None
         )
@@ -158,6 +162,12 @@ class SandboxEnvironmentState:
             raise ValueError("winning ippatsu seats must be unique")
         if any(seat not in self.winner_seats for seat in self.winning_ippatsu_seats):
             raise ValueError("winning ippatsu seats must also be winner seats")
+        if any(not 0 <= seat < self.players for seat in self.winning_rinshan_seats):
+            raise ValueError("winning rinshan seat outside player range")
+        if len(set(self.winning_rinshan_seats)) != len(self.winning_rinshan_seats):
+            raise ValueError("winning rinshan seats must be unique")
+        if any(seat not in self.winner_seats for seat in self.winning_rinshan_seats):
+            raise ValueError("winning rinshan seats must also be winner seats")
         if self.terminal_rewards and len(self.terminal_rewards) != self.players:
             raise ValueError("terminal reward count must match player count")
 
@@ -187,6 +197,7 @@ class SandboxEnvironmentState:
             ],
             "melds": _meld_payloads(self),
             "drawn_tile": None if self.drawn_tile is None else self.drawn_tile.notation,
+            "rinshan_draw": self.rinshan_draw,
             "needs_discard": self.needs_discard,
             "pending_discard": (
                 None if self.pending_discard is None else self.pending_discard.notation
@@ -212,6 +223,7 @@ class SandboxEnvironmentState:
                 for seat, shapes in self.winning_shapes_by_seat
             ],
             "winning_ippatsu_seats": list(self.winning_ippatsu_seats),
+            "winning_rinshan_seats": list(self.winning_rinshan_seats),
             "terminal_rewards": list(self.terminal_rewards),
         }
 
@@ -270,6 +282,7 @@ def draw_for_current_seat(
         wall=next_wall,
         hands=tuple(tuple(hand) for hand in hands),
         drawn_tile=draw,
+        rinshan_draw=False,
         temporary_furiten_seats=_without_seat(
             state.temporary_furiten_seats,
             state.current_seat,
@@ -485,6 +498,7 @@ def apply_ankan_action(
         "hands": tuple(tuple(hand) for hand in hands),
         "melds": tuple(tuple(seat_melds) for seat_melds in melds),
         "drawn_tile": None,
+        "rinshan_draw": False,
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -530,6 +544,7 @@ def apply_kakan_action(
         "hands": tuple(tuple(hand) for hand in hands),
         "melds": tuple(tuple(seat_melds) for seat_melds in melds),
         "drawn_tile": None,
+        "rinshan_draw": False,
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -592,6 +607,7 @@ def apply_discard_action(
         current_seat=next_seat,
         turn=state.turn + 1,
         drawn_tile=None,
+        rinshan_draw=False,
         needs_discard=False,
         pending_discard=discard,
         pending_discard_seat=state.current_seat,
@@ -744,6 +760,7 @@ def apply_call_action(
         "melds": tuple(tuple(seat_melds) for seat_melds in melds),
         "current_seat": seat,
         "drawn_tile": None,
+        "rinshan_draw": False,
         "needs_discard": action.kind is not ActionKind.MINKAN,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -875,6 +892,7 @@ def apply_ron_actions(
         winning_ippatsu_seats=tuple(
             seat for seat in winner_seats if seat in state.ippatsu_seats
         ),
+        winning_rinshan_seats=(),
         ippatsu_seats=(),
         terminal_rewards=_multi_ron_rewards(
             winner_seats=tuple(winner_seats),
@@ -936,6 +954,7 @@ def apply_tsumo_action(
         winning_ippatsu_seats=(
             (state.current_seat,) if state.current_seat in state.ippatsu_seats else ()
         ),
+        winning_rinshan_seats=((state.current_seat,) if state.rinshan_draw else ()),
         ippatsu_seats=(),
         terminal_rewards=_tsumo_rewards(state.current_seat, state.players),
         **point_updates,
@@ -1072,6 +1091,7 @@ def _apply_kan_replacement_draw(
     if not _has_dead_wall_replacement_tile(state):
         updates["terminal_reason"] = "wall_exhausted"
         updates["terminal_rewards"] = _neutral_rewards(state.players)
+        updates["rinshan_draw"] = False
         return
 
     dora_indicators = state.dora_indicators
@@ -1085,6 +1105,7 @@ def _apply_kan_replacement_draw(
     updates["dora_indicators"] = dora_indicators
     updates["hands"] = tuple(tuple(hand) for hand in hands)
     updates["drawn_tile"] = replacement_draw
+    updates["rinshan_draw"] = True
 
 
 def _has_dead_wall_replacement_tile(state: SandboxEnvironmentState) -> bool:
@@ -1136,6 +1157,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "current_seat": state.current_seat,
         "turn": state.turn,
         "drawn_tile": state.drawn_tile,
+        "rinshan_draw": state.rinshan_draw,
         "needs_discard": state.needs_discard,
         "pending_discard": state.pending_discard,
         "pending_discard_seat": state.pending_discard_seat,
@@ -1154,6 +1176,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "winning_shapes": state.winning_shapes,
         "winning_shapes_by_seat": state.winning_shapes_by_seat,
         "winning_ippatsu_seats": state.winning_ippatsu_seats,
+        "winning_rinshan_seats": state.winning_rinshan_seats,
         "terminal_rewards": state.terminal_rewards,
     }
     payload.update(updates)

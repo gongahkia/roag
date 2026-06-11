@@ -54,10 +54,12 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.riichi_sticks, 0)
         self.assertEqual(first.honba, 0)
         self.assertIsNone(first.drawn_tile)
+        self.assertFalse(first.rinshan_draw)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["honba"], 0)
+        self.assertFalse(first.to_payload()["rinshan_draw"])
         self.assertEqual(first.to_payload()["dead_wall_remaining"], 14)
         self.assertEqual(
             first.to_payload()["dora_indicators"],
@@ -65,6 +67,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(first.to_payload()["ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
+        self.assertEqual(first.to_payload()["winning_rinshan_seats"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
@@ -75,6 +78,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         next_state, discard = apply_discard_action(drawn, actions[0])
 
         self.assertEqual(drawn.hand_sizes()[0], 14)
+        self.assertFalse(drawn.rinshan_draw)
         self.assertGreaterEqual(len(actions), 1)
         self.assertEqual(actions[0].kind.value, "discard")
         self.assertIsInstance(discard, Tile)
@@ -82,6 +86,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_state.turn, 1)
         self.assertEqual(next_state.hand_sizes(), [13, 13, 13, 13])
         self.assertIsNone(next_state.drawn_tile)
+        self.assertFalse(next_state.rinshan_draw)
         self.assertEqual(next_state.pending_discard, discard)
         self.assertEqual(next_state.pending_discard_seat, 0)
         self.assertEqual(next_state.pending_reaction_seats, (1, 2, 3))
@@ -129,8 +134,10 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(drawn.winner_seat, 0)
         self.assertEqual(drawn.winning_tile, Tile.parse("5m"))
         self.assertEqual(drawn.winning_shapes, ("standard",))
+        self.assertEqual(drawn.winning_rinshan_seats, ())
         self.assertEqual(drawn.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
         self.assertEqual(drawn.to_payload()["terminal_rewards"], [1.0, -1 / 3, -1 / 3, -1 / 3])
+        self.assertEqual(drawn.to_payload()["winning_rinshan_seats"], [])
         with self.assertRaisesRegex(ValueError, "already terminal"):
             legal_discard_actions(drawn)
 
@@ -157,7 +164,41 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIn(Action.discard("5m"), turn_actions)
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winner_seat, 0)
+        self.assertEqual(terminal.winning_rinshan_seats, ())
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
+
+    def test_rinshan_tsumo_metadata_marks_replacement_draw_winner(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 5m"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("5m"),
+            rinshan_draw=True,
+        )
+
+        terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winner_seat, 0)
+        self.assertTrue(terminal.rinshan_draw)
+        self.assertEqual(terminal.winning_rinshan_seats, (0,))
+        self.assertEqual(terminal.to_payload()["winning_rinshan_seats"], [0])
+
+    def test_rinshan_draw_requires_drawn_tile(self) -> None:
+        with self.assertRaisesRegex(ValueError, "rinshan draw requires a drawn tile"):
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(),
+                hands=((), (), (), ()),
+                rinshan_draw=True,
+            )
 
     def test_riichi_declaration_is_legal_after_draw_when_discard_leaves_tenpai(self) -> None:
         state = SandboxEnvironmentState(
@@ -996,6 +1037,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(called.current_seat, 1)
         self.assertFalse(called.needs_discard)
         self.assertEqual(called.drawn_tile, Tile.parse("9s"))
+        self.assertTrue(called.rinshan_draw)
+        self.assertTrue(called.to_payload()["rinshan_draw"])
         self.assertEqual(called.wall, ())
         self.assertEqual(called.dead_wall, _tiles("1m 2m"))
         self.assertEqual(called.dora_indicators, _tiles("1m 2m"))
@@ -1040,6 +1083,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kan.turn, 0)
         self.assertFalse(after_kan.needs_discard)
         self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertTrue(after_kan.to_payload()["rinshan_draw"])
         self.assertEqual(after_kan.wall, ())
         self.assertEqual(after_kan.dead_wall, _tiles("1m 2m"))
         self.assertEqual(after_kan.dora_indicators, _tiles("1m 2m"))
@@ -1162,6 +1207,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kan.turn, 0)
         self.assertFalse(after_kan.needs_discard)
         self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_kan.rinshan_draw)
         self.assertEqual(after_kan.wall, ())
         self.assertEqual(after_kan.dead_wall, _tiles("1m 2m"))
         self.assertEqual(after_kan.dora_indicators, _tiles("1m 2m"))
@@ -1213,6 +1259,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertEqual(meld.kind, ActionKind.KAKAN)
         self.assertIsNone(pending.drawn_tile)
+        self.assertFalse(pending.rinshan_draw)
         self.assertFalse(pending.needs_discard)
         self.assertEqual(pending.wall, ())
         self.assertEqual(pending.dead_wall, _tiles("1m 2m 8s"))
@@ -1271,6 +1318,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_pass.pending_reaction_seats, ())
         self.assertEqual(after_pass.temporary_furiten_seats, (1,))
         self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_pass.rinshan_draw)
         self.assertEqual(after_pass.wall, ())
         self.assertEqual(after_pass.dead_wall, _tiles("1m 2m"))
         self.assertEqual(after_pass.dora_indicators, _tiles("1m 2m"))
@@ -1371,6 +1419,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(meld.kind, ActionKind.KAKAN)
         self.assertEqual(terminal.terminal_reason, "wall_exhausted")
         self.assertIsNone(terminal.drawn_tile)
+        self.assertFalse(terminal.rinshan_draw)
         self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
 
     def test_rejects_tsumo_without_draw_or_winning_hand(self) -> None:

@@ -71,6 +71,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_chankan_ron_resolution: yes", output)
         self.assertIn("sandbox_dead_wall_replacement_draws: yes", output)
         self.assertIn("sandbox_kan_dora_indicator_metadata: yes", output)
+        self.assertIn("sandbox_rinshan_draw_metadata: yes", output)
         self.assertIn("sandbox_call_action_generation: yes", output)
         self.assertIn("sandbox_call_application: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
@@ -154,6 +155,9 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_kan_dora_indicator_metadata"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_rinshan_draw_metadata"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
@@ -388,6 +392,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("chankan_ron_resolution: yes", text_stdout.getvalue())
         self.assertIn("dead_wall_replacement_draws: yes", text_stdout.getvalue())
         self.assertIn("kan_dora_indicator_metadata: yes", text_stdout.getvalue())
+        self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
         self.assertIn("report_path:", text_stdout.getvalue())
         self.assertEqual(report_payload["kind"], "kenjaku-self-play-sandbox-report-v0")
         self.assertTrue(report_payload["stop_on_tsumo"])
@@ -408,6 +413,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["chankan_ron_resolution"])
         self.assertTrue(report_payload["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(report_payload["capabilities"]["kan_dora_indicator_metadata"])
+        self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
         self.assertFalse(report_payload["capabilities"]["kan_policy"])
         self.assertFalse(report_payload["capabilities"]["chankan_policy"])
         self.assertFalse(report_payload["capabilities"]["ppo"])

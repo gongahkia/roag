@@ -123,6 +123,7 @@ def run_self_play_sandbox(
             "chankan_ron_resolution": True,
             "dead_wall_replacement_draws": True,
             "kan_dora_indicator_metadata": True,
+            "rinshan_draw_metadata": True,
             "calls": False,
             "kan_policy": False,
             "chankan_policy": False,
@@ -230,6 +231,8 @@ def _simulate_episode(
         "honba": state.honba,
         "ippatsu_seats": state_payload["ippatsu_seats"],
         "winning_ippatsu_seats": state_payload["winning_ippatsu_seats"],
+        "rinshan_draw": state_payload["rinshan_draw"],
+        "winning_rinshan_seats": state_payload["winning_rinshan_seats"],
         "wall_remaining": len(state.wall),
         "dead_wall_remaining": state_payload["dead_wall_remaining"],
         "dora_indicators": state_payload["dora_indicators"],
@@ -295,6 +298,7 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         current_seat=state.current_seat,
         turn=state.turn,
         drawn_tile=state.drawn_tile,
+        rinshan_draw=state.rinshan_draw,
         needs_discard=state.needs_discard,
         pending_discard=state.pending_discard,
         pending_discard_seat=state.pending_discard_seat,
@@ -313,6 +317,7 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         winning_shapes=state.winning_shapes,
         winning_shapes_by_seat=state.winning_shapes_by_seat,
         winning_ippatsu_seats=state.winning_ippatsu_seats,
+        winning_rinshan_seats=state.winning_rinshan_seats,
         terminal_rewards=tuple(0.0 for _seat in range(state.players)),
     )
 
