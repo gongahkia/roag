@@ -15,6 +15,7 @@ from kenjaku.core import (
     Tile,
     TileType,
     all_tile_types,
+    shanten_for_tiles,
     winning_hand_shapes_for_tiles,
 )
 
@@ -43,6 +44,7 @@ class SandboxEnvironmentState:
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
+    riichi_pending_discard_seats: tuple[int, ...] = ()
     riichi_furiten_seats: tuple[int, ...] = ()
     terminal_reason: str | None = None
     winner_seat: int | None = None
@@ -90,6 +92,14 @@ class SandboxEnvironmentState:
             raise ValueError("riichi seat outside player range")
         if len(set(self.riichi_seats)) != len(self.riichi_seats):
             raise ValueError("riichi seats must be unique")
+        if any(not 0 <= seat < self.players for seat in self.riichi_pending_discard_seats):
+            raise ValueError("riichi pending discard seat outside player range")
+        if len(set(self.riichi_pending_discard_seats)) != len(
+            self.riichi_pending_discard_seats
+        ):
+            raise ValueError("riichi pending discard seats must be unique")
+        if any(seat not in self.riichi_seats for seat in self.riichi_pending_discard_seats):
+            raise ValueError("riichi pending discard seats must also be riichi seats")
         if any(not 0 <= seat < self.players for seat in self.riichi_furiten_seats):
             raise ValueError("riichi furiten seat outside player range")
         if len(set(self.riichi_furiten_seats)) != len(self.riichi_furiten_seats):
@@ -128,6 +138,7 @@ class SandboxEnvironmentState:
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
+            "riichi_pending_discard_seats": list(self.riichi_pending_discard_seats),
             "riichi_furiten_seats": list(self.riichi_furiten_seats),
             "terminal_reason": self.terminal_reason,
             "winner_seat": self.winner_seat,
@@ -209,6 +220,7 @@ def legal_sandbox_actions(
     *,
     seat: int | None = None,
     include_tsumo: bool = True,
+    include_riichi: bool = True,
     include_ron: bool = True,
     include_calls: bool = True,
 ) -> tuple[Action, ...]:
@@ -229,6 +241,8 @@ def legal_sandbox_actions(
     actions: list[Action] = []
     if include_tsumo:
         actions.extend(legal_tsumo_actions(state))
+    if include_riichi:
+        actions.extend(legal_riichi_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 
@@ -245,14 +259,56 @@ def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     return (Action(ActionKind.TSUMO),)
 
 
+def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot riichi during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before riichi")
+    if _is_riichi(state, seat=state.current_seat):
+        return ()
+    if _melds_by_seat(state)[state.current_seat]:
+        return ()
+    if not _has_riichi_tenpai_discard(state):
+        return ()
+    return (Action(ActionKind.RIICHI),)
+
+
 def legal_discard_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
     if state.pending_discard is not None:
         raise ValueError("pending discard reactions must be resolved before discarding")
     if state.drawn_tile is None and not state.needs_discard:
         raise ValueError("current seat must draw before discarding")
+    if _is_post_riichi_discard_locked(state, seat=state.current_seat):
+        if state.drawn_tile is None:
+            raise ValueError("post-riichi discard requires a drawn tile")
+        return (Action.discard(state.drawn_tile.type, tsumogiri=True),)
     tile_types = sorted({tile.type for tile in state.current_hand()}, key=lambda tile: tile.index)
     return tuple(Action.discard(tile_type) for tile_type in tile_types)
+
+
+def apply_riichi_action(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> SandboxEnvironmentState:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot riichi during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before riichi")
+    if action.kind is not ActionKind.RIICHI:
+        raise ValueError("sandbox environment only supports riichi actions here")
+    if action not in legal_riichi_actions(state):
+        raise ValueError("riichi action is not legal for this state")
+    return _replace_state(
+        state,
+        riichi_seats=_with_seat(state.riichi_seats, state.current_seat),
+        riichi_pending_discard_seats=_with_seat(
+            state.riichi_pending_discard_seats,
+            state.current_seat,
+        ),
+    )
 
 
 def apply_discard_action(
@@ -264,6 +320,11 @@ def apply_discard_action(
         raise ValueError("current seat must draw before discarding")
     if action.kind is not ActionKind.DISCARD or action.tile is None:
         raise ValueError("sandbox environment only supports discard actions")
+    if _is_post_riichi_discard_locked(state, seat=state.current_seat):
+        if state.drawn_tile is None:
+            raise ValueError("post-riichi discard requires a drawn tile")
+        if action.tile != state.drawn_tile.type or not action.tsumogiri:
+            raise ValueError("post-riichi discard must be a tsumogiri of the drawn tile")
 
     hands = [list(hand) for hand in state.hands]
     hand = hands[state.current_seat]
@@ -284,6 +345,10 @@ def apply_discard_action(
         pending_discard_seat=state.current_seat,
         pending_reaction_seats=tuple(
             seat for seat in range(state.players) if seat != state.current_seat
+        ),
+        riichi_pending_discard_seats=_without_seat(
+            state.riichi_pending_discard_seats,
+            state.current_seat,
         ),
     )
     return next_state, discard
@@ -314,6 +379,8 @@ def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Ac
     _require_reaction_seat(state, seat)
     pending_discard = _pending_discard(state)
     pending_discard_seat = _pending_discard_seat(state)
+    if _is_riichi(state, seat=seat):
+        return ()
     hand = state.hands[seat]
     counts = _hand_type_counts(hand)
     actions: list[Action] = []
@@ -599,6 +666,19 @@ def _winning_shapes_for_complete_tiles(tiles: tuple[Tile, ...]) -> tuple[str, ..
     return winning_hand_shapes_for_tiles(tiles)
 
 
+def _has_riichi_tenpai_discard(state: SandboxEnvironmentState) -> bool:
+    hand = state.current_hand()
+    if len(hand) != 14:
+        return False
+    for discard_type in {tile.type for tile in hand}:
+        candidate = list(hand)
+        discard_index = _discard_index(candidate, discard_type)
+        candidate.pop(discard_index)
+        if shanten_for_tiles(candidate) == 0:
+            return True
+    return False
+
+
 def _require_non_terminal(state: SandboxEnvironmentState) -> None:
     if state.terminal_reason is not None:
         raise ValueError("environment is already terminal")
@@ -621,6 +701,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
+        "riichi_pending_discard_seats": state.riichi_pending_discard_seats,
         "riichi_furiten_seats": state.riichi_furiten_seats,
         "terminal_reason": state.terminal_reason,
         "winner_seat": state.winner_seat,
@@ -789,6 +870,10 @@ def _is_temporary_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
 
 def _is_riichi(state: SandboxEnvironmentState, *, seat: int) -> bool:
     return seat in state.riichi_seats
+
+
+def _is_post_riichi_discard_locked(state: SandboxEnvironmentState, *, seat: int) -> bool:
+    return _is_riichi(state, seat=seat) and seat not in state.riichi_pending_discard_seats
 
 
 def _is_riichi_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:

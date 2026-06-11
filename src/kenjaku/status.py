@@ -56,6 +56,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_discard_furiten_ron_filter": True,
                 "sandbox_temporary_furiten_ron_filter": True,
                 "sandbox_riichi_furiten_ron_filter": True,
+                "sandbox_riichi_declaration_action": True,
+                "sandbox_post_riichi_action_restrictions": True,
                 "sandbox_call_action_generation": True,
                 "sandbox_call_application": True,
                 "sandbox_terminal_reward_payloads": True,

@@ -495,10 +495,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
-    filtering, legal chi/pon/minkan, individual reaction passes, ron-priority call gating,
+    filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
+    legal chi/pon/minkan, individual reaction passes, ron-priority call gating,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads only; the next simulator step is full call/kan timing, full riichi declaration
-    legality, yaku validation, scoring, and richer reward semantics.
+    reward payloads only; the next simulator step is full call/kan timing, riichi stick/accounting,
+    ippatsu/ankan exception handling, yaku validation, scoring, and richer reward semantics.
 
 ---
 
@@ -1006,5 +1007,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   scoring remained open because the sandbox still had no riichi declaration/state or points model.
 - Added a seeded riichi-furiten filter to the sandbox. States can now mark `riichi_seats`, and
   passing a legal ron while in riichi adds the player to `riichi_furiten_seats`, suppressing and
-  rejecting future ron attempts for the hand. This is still not full riichi declaration legality,
-  riichi stick accounting, yaku validation, or scoring.
+  rejecting future ron attempts for the hand. At that point this was still not full riichi
+  declaration legality, riichi stick accounting, yaku validation, or scoring.
+- Added a basic sandbox riichi declaration action. `legal_riichi_actions` and
+  `apply_riichi_action` allow a closed current seat to declare riichi after drawing when at least
+  one discard leaves a 13-tile tenpai hand. At that point this was still not riichi stick
+  accounting, ippatsu, post-riichi discard locking, yaku validation, or scoring.
+- Added basic post-riichi sandbox action restrictions. `riichi_pending_discard_seats` preserves the
+  declaration discard as a flexible tenpai-preserving choice, later riichi turns are locked to a
+  tsumogiri discard of the drawn tile, and riichi seats cannot chi/pon/minkan opponent discards.
+  This is still not riichi stick accounting, ippatsu, closed-kan exceptions after riichi, yaku
+  validation, or scoring.

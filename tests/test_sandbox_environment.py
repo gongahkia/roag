@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import Action, ActionKind, Tile, TileType, tile_counts
+from kenjaku.core import Action, ActionKind, Meld, Tile, TileType, tile_counts
 from kenjaku.simulation import (
     SANDBOX_ENVIRONMENT_KIND,
     SandboxEnvironmentState,
     apply_call_action,
     apply_discard_action,
     apply_reaction_pass_action,
+    apply_riichi_action,
     apply_ron_action,
     apply_ron_actions,
     apply_tsumo_action,
@@ -17,6 +18,7 @@ from kenjaku.simulation import (
     legal_call_actions,
     legal_discard_actions,
     legal_reaction_actions,
+    legal_riichi_actions,
     legal_ron_actions,
     legal_sandbox_actions,
     legal_tsumo_actions,
@@ -131,6 +133,121 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winner_seat, 0)
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
+
+    def test_riichi_declaration_is_legal_after_draw_when_discard_leaves_tenpai(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        riichi_actions = legal_riichi_actions(drawn)
+        turn_actions = legal_sandbox_actions(drawn)
+        declared = apply_riichi_action(drawn, riichi_actions[0])
+        after_discard, discard = apply_discard_action(declared, Action.discard("9s"))
+
+        self.assertEqual(riichi_actions, (Action(ActionKind.RIICHI),))
+        self.assertIn(Action(ActionKind.RIICHI), turn_actions)
+        self.assertEqual(declared.riichi_seats, (0,))
+        self.assertEqual(declared.riichi_pending_discard_seats, (0,))
+        self.assertEqual(declared.to_payload()["riichi_seats"], [0])
+        self.assertEqual(declared.to_payload()["riichi_pending_discard_seats"], [0])
+        self.assertIn(Action.discard("5m"), legal_discard_actions(declared))
+        self.assertEqual(legal_riichi_actions(declared), ())
+        self.assertEqual(discard, Tile.parse("9s"))
+        self.assertEqual(after_discard.riichi_seats, (0,))
+        self.assertEqual(after_discard.riichi_pending_discard_seats, ())
+        self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
+
+    def test_post_riichi_turn_discards_are_locked_to_drawn_tile(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 9s"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("9s"),
+            riichi_seats=(0,),
+        )
+
+        actions = legal_discard_actions(state)
+        turn_actions = legal_sandbox_actions(state)
+
+        self.assertEqual(actions, (Action.discard("9s", tsumogiri=True),))
+        self.assertEqual(turn_actions, actions)
+        with self.assertRaisesRegex(ValueError, "post-riichi discard"):
+            apply_discard_action(state, Action.discard("5m"))
+        with self.assertRaisesRegex(ValueError, "tsumogiri"):
+            apply_discard_action(state, Action.discard("9s"))
+
+        after_discard, discard = apply_discard_action(
+            state,
+            Action.discard("9s", tsumogiri=True),
+        )
+
+        self.assertEqual(discard, Tile.parse("9s"))
+        self.assertEqual(after_discard.riichi_seats, (0,))
+        self.assertEqual(after_discard.riichi_pending_discard_seats, ())
+        self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
+
+    def test_riichi_declaration_rejects_open_or_non_tenpai_or_wrong_phase(self) -> None:
+        base_hand = _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m")
+        open_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(base_hand, (), (), ()),
+            melds=(
+                (
+                    Meld(
+                        ActionKind.CHI,
+                        _tiles("1m 2m 3m"),
+                        called_tile=Tile.parse("3m"),
+                        from_seat=3,
+                    ),
+                ),
+                (),
+                (),
+                (),
+            ),
+        )
+        non_tenpai_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "must draw"):
+            legal_riichi_actions(open_state)
+
+        open_drawn = draw_for_current_seat(open_state)
+        self.assertEqual(legal_riichi_actions(open_drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_riichi_action(open_drawn, Action(ActionKind.RIICHI))
+
+        non_tenpai_drawn = draw_for_current_seat(non_tenpai_state)
+        self.assertEqual(legal_riichi_actions(non_tenpai_drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_riichi_action(non_tenpai_drawn, Action(ActionKind.RIICHI))
+        with self.assertRaisesRegex(ValueError, "supports riichi"):
+            apply_riichi_action(non_tenpai_drawn, Action.pass_())
 
     def test_ron_is_a_legal_reaction_to_pending_discard(self) -> None:
         state = SandboxEnvironmentState(
@@ -490,6 +607,33 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertNotIn(ActionKind.CHI, {action.kind for action in seat_three_actions})
         self.assertEqual(reaction_actions[-1], Action.pass_())
+
+    def test_riichi_seat_cannot_call_pending_discard(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1m 2m 4m 5m 6p 7p 8p 1s 2s 3s E S W"),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("3m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+            riichi_seats=(1,),
+        )
+        chi = Action(
+            ActionKind.CHI,
+            TileType.parse("3m"),
+            consumed=(Tile.parse("1m"), Tile.parse("2m")),
+        )
+
+        self.assertEqual(legal_call_actions(state, seat=1), ())
+        self.assertEqual(legal_reaction_actions(state, seat=1), (Action.pass_(),))
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_call_action(state, seat=1, action=chi)
 
     def test_reaction_pass_action_resolves_one_seat_at_a_time(self) -> None:
         state = SandboxEnvironmentState(
