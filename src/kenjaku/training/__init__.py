@@ -1,6 +1,12 @@
 """Training-data adapters and example builders."""
 
 from kenjaku.training.call_examples import CallExample, iter_call_examples
+from kenjaku.training.deal_in import (
+    DEAL_IN_LABEL_SOURCE,
+    DealInExample,
+    iter_deal_in_examples,
+    summarize_deal_in_examples,
+)
 from kenjaku.training.defense_features import (
     active_riichi_opponents,
     actual_discard_has_kabe,
@@ -20,6 +26,13 @@ from kenjaku.training.defense_features import (
     has_active_riichi_opponent,
     max_active_riichi_discards_elapsed,
     min_active_riichi_discards_elapsed,
+)
+from kenjaku.training.defense_risk import (
+    DefenseRiskScore,
+    candidate_defense_risk,
+    legal_candidate_defense_risks,
+    summarize_defense_risk_outcomes,
+    summarize_defense_risks,
 )
 from kenjaku.training.discard_examples import DiscardExample, iter_discard_examples
 from kenjaku.training.discard_features import (
@@ -49,14 +62,20 @@ __all__ = [
     "candidate_is_genbutsu",
     "candidate_seen_after_riichi",
     "candidate_seen_before_riichi",
+    "candidate_defense_risk",
+    "DEAL_IN_LABEL_SOURCE",
+    "DefenseRiskScore",
     "DiscardExample",
     "DiscardShantenDelta",
+    "DealInExample",
     "deterministic_split",
     "discard_shanten_delta",
     "has_active_riichi_opponent",
     "iter_call_examples",
+    "iter_deal_in_examples",
     "iter_discard_examples",
     "iter_riichi_examples",
+    "legal_candidate_defense_risks",
     "max_active_riichi_discards_elapsed",
     "min_active_riichi_discards_elapsed",
     "RiichiExample",
@@ -65,4 +84,7 @@ __all__ = [
     "round_outcome_payload",
     "summarize_discard_predictions",
     "summarize_discard_shanten",
+    "summarize_defense_risk_outcomes",
+    "summarize_defense_risks",
+    "summarize_deal_in_examples",
 ]

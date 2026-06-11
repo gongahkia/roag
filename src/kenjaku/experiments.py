@@ -10,6 +10,7 @@ from kenjaku.io import TenhouGame, TenhouParseFailure
 
 CALL_BENCHMARK_REPORT_KIND = "kenjaku-call-benchmark-report-v0"
 BENCHMARK_SUMMARY_KIND = "kenjaku-benchmark-summary-v0"
+DEAL_IN_BENCHMARK_REPORT_KIND = "kenjaku-deal-in-benchmark-report-v0"
 DISCARD_BENCHMARK_REPORT_KIND = "kenjaku-discard-benchmark-report-v0"
 DISCARD_BENCHMARK_SUMMARY_KIND = "kenjaku-discard-benchmark-summary-v0"
 DISCARD_DISAGREEMENT_REPORT_KIND = "kenjaku-discard-disagreements-v0"
@@ -17,6 +18,10 @@ DISCARD_DISAGREEMENT_SUMMARY_KIND = "kenjaku-discard-disagreement-summary-v0"
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
 DISCARD_MLP_BENCHMARK_REPORT_KIND = "kenjaku-discard-mlp-benchmark-report-v0"
 DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
+DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND = (
+    "kenjaku-discard-transformer-benchmark-report-v0"
+)
+DISCARD_TRANSFORMER_REPORT_KIND = "kenjaku-discard-transformer-report-v0"
 RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_MLP_BENCHMARK_MODEL_ORDER = (
@@ -24,6 +29,12 @@ DISCARD_MLP_BENCHMARK_MODEL_ORDER = (
     "risk_context_linear",
     "defense_context_linear",
     "discard_mlp",
+)
+DISCARD_TRANSFORMER_BENCHMARK_MODEL_ORDER = (
+    "frequency",
+    "risk_context_linear",
+    "defense_context_linear",
+    "discard_transformer",
 )
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -487,6 +498,160 @@ def build_discard_benchmark_report_from_models(
     }
 
 
+def build_discard_transformer_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    model_kind: str,
+    encoder_kind: str,
+    input_tokens: int,
+    output_dim: int,
+    model_config: dict[str, int | float],
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    device: str,
+    seed: int,
+    train_metrics: dict[str, int | float | None],
+    eval_metrics: dict[str, int | float | None],
+    history: list[dict[str, Any]],
+    best_epoch: int,
+    selection_split: str,
+    best_metrics: dict[str, dict[str, int | float | None]],
+    discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
+    checkpoint_path: Path | None,
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    return {
+        "kind": DISCARD_TRANSFORMER_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "model": {
+            "kind": model_kind,
+            "encoder_kind": encoder_kind,
+            "input_tokens": input_tokens,
+            "output_dim": output_dim,
+            "config": model_config,
+        },
+        "training": {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "device": device,
+            "seed": seed,
+            "history": history,
+            "best_epoch": best_epoch,
+            "selection_split": selection_split,
+        },
+        "metrics": {
+            "train": train_metrics,
+            "eval": eval_metrics,
+            "best": best_metrics,
+        },
+        "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
+        "artifacts": {
+            "checkpoint_path": None if checkpoint_path is None else str(checkpoint_path),
+        },
+    }
+
+
+def build_discard_transformer_benchmark_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame,
+    discard_examples: int,
+    call_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    models: dict[str, dict[str, Any]],
+    discard_shanten: dict[str, int | float | None],
+    parse_failures: Sequence[TenhouParseFailure],
+    checkpoint_path: Path | None,
+    source: dict[str, str | None],
+) -> dict[str, Any]:
+    transformer_eval = _nested_model_metric(
+        models,
+        "discard_transformer",
+        "metrics",
+        "best",
+        "eval",
+        "accuracy",
+    )
+    if transformer_eval is None:
+        transformer_eval = _nested_model_metric(
+            models,
+            "discard_transformer",
+            "metrics",
+            "eval",
+            "accuracy",
+        )
+    risk_eval = _nested_model_metric(models, "risk_context_linear", "metrics", "eval_accuracy")
+    defense_eval = _nested_model_metric(
+        models,
+        "defense_context_linear",
+        "metrics",
+        "eval_accuracy",
+    )
+    frequency_eval = _nested_model_metric(models, "frequency", "metrics", "eval_accuracy")
+    return {
+        "kind": DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts(game),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "models": models,
+        "deltas": {
+            "transformer_eval_accuracy_lift_over_frequency": _optional_delta(
+                transformer_eval,
+                frequency_eval,
+            ),
+            "transformer_eval_accuracy_lift_over_risk_context": _optional_delta(
+                transformer_eval,
+                risk_eval,
+            ),
+            "transformer_eval_accuracy_lift_over_defense_context": _optional_delta(
+                transformer_eval,
+                defense_eval,
+            ),
+        },
+        "discard_shanten": discard_shanten,
+        "parse_failures": _parse_failure_payload(parse_failures),
+        "artifacts": {
+            "checkpoint_path": None if checkpoint_path is None else str(checkpoint_path),
+        },
+    }
+
+
 def build_call_benchmark_report(
     *,
     input_paths: Sequence[Path],
@@ -618,8 +783,14 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
             _append_discard_mlp_summary_lines(lines, report)
         elif report["target"] == "discard_mlp_benchmark":
             _append_discard_mlp_benchmark_summary_lines(lines, report)
+        elif report["target"] == "discard_transformer":
+            _append_discard_transformer_summary_lines(lines, report)
+        elif report["target"] == "discard_transformer_benchmark":
+            _append_discard_transformer_benchmark_summary_lines(lines, report)
         elif report["target"] in {"call", "riichi"}:
             _append_binary_benchmark_summary_lines(lines, report)
+        elif report["target"] == "deal_in":
+            _append_deal_in_benchmark_summary_lines(lines, report)
         else:
             raise ValueError(f"unsupported benchmark summary target: {report['target']}")
     return "\n".join(lines)
@@ -727,6 +898,12 @@ def _summarize_benchmark_report(path: Path, payload: dict[str, Any]) -> dict[str
         return _summarize_discard_mlp_report(path, payload)
     if kind == DISCARD_MLP_BENCHMARK_REPORT_KIND:
         return _summarize_discard_mlp_benchmark_report(path, payload)
+    if kind == DISCARD_TRANSFORMER_REPORT_KIND:
+        return _summarize_discard_transformer_report(path, payload)
+    if kind == DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND:
+        return _summarize_discard_transformer_benchmark_report(path, payload)
+    if kind == DEAL_IN_BENCHMARK_REPORT_KIND:
+        return _summarize_deal_in_benchmark_report(path, payload)
     if kind == CALL_BENCHMARK_REPORT_KIND:
         return _summarize_binary_benchmark_report(path, payload, target="call")
     if kind == RIICHI_BENCHMARK_REPORT_KIND:
@@ -817,6 +994,73 @@ def _summarize_binary_benchmark_report(
     return summary
 
 
+def _summarize_deal_in_benchmark_report(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("kind") != DEAL_IN_BENCHMARK_REPORT_KIND:
+        raise ValueError(f"not a deal-in benchmark report: {path}")
+    model_eval = payload["metrics"]["eval"]
+    heuristic_eval = payload["heuristic_risk_baseline"]["eval"]
+    return {
+        "path": str(path),
+        "target": "deal_in",
+        "report_kind": DEAL_IN_BENCHMARK_REPORT_KIND,
+        "source": payload["source"],
+        "xml_file_count": payload["xml_file_count"],
+        "rounds": payload["rounds"],
+        "deal_in_examples": payload["deal_in_examples"],
+        "label_summary": payload["label_summary"],
+        "filters": payload.get("filters", {}),
+        "split": payload["split"],
+        "model": payload["model"],
+        "training": payload["training"],
+        "metrics": {
+            "train": _deal_in_metrics_summary(payload["metrics"]["train"]),
+            "eval": _deal_in_metrics_summary(model_eval),
+        },
+        "heuristic_risk_baseline": {
+            "calibrated_probability": payload["heuristic_risk_baseline"].get(
+                "calibrated_probability"
+            ),
+            "train": _deal_in_metrics_summary(payload["heuristic_risk_baseline"]["train"]),
+            "eval": _deal_in_metrics_summary(heuristic_eval),
+        },
+        "deltas": {
+            "eval_brier_score_vs_heuristic": _optional_delta(
+                _metric(model_eval, "brier_score"),
+                _metric(heuristic_eval, "brier_score"),
+            ),
+            "eval_log_loss_vs_heuristic": _optional_delta(
+                _metric(model_eval, "log_loss"),
+                _metric(heuristic_eval, "log_loss"),
+            ),
+            "eval_accuracy_vs_heuristic": _optional_delta(
+                _metric(model_eval, "accuracy"),
+                _metric(heuristic_eval, "accuracy"),
+            ),
+            "eval_balanced_accuracy_vs_heuristic": _optional_delta(
+                _metric(model_eval, "balanced_accuracy"),
+                _metric(heuristic_eval, "balanced_accuracy"),
+            ),
+        },
+    }
+
+
+def _deal_in_metrics_summary(metrics: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "examples": metrics.get("examples"),
+        "positives": metrics.get("positives"),
+        "negatives": metrics.get("negatives"),
+        "positive_rate": metrics.get("positive_rate"),
+        "accuracy": metrics.get("accuracy"),
+        "balanced_accuracy": metrics.get("balanced_accuracy"),
+        "precision": metrics.get("precision"),
+        "recall": metrics.get("recall"),
+        "specificity": metrics.get("specificity"),
+        "brier_score": metrics.get("brier_score"),
+        "log_loss": metrics.get("log_loss"),
+        "predicted_positive_rate": metrics.get("predicted_positive_rate"),
+    }
+
+
 def _summarize_discard_mlp_report(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("kind") != DISCARD_MLP_REPORT_KIND:
         raise ValueError(f"not a discard MLP report: {path}")
@@ -834,6 +1078,71 @@ def _summarize_discard_mlp_report(path: Path, payload: dict[str, Any]) -> dict[s
         "training": _mlp_training_summary(payload["training"]),
         "metrics": _mlp_metrics_summary(payload["metrics"]),
         "deltas": {},
+    }
+
+
+def _summarize_discard_transformer_report(
+    path: Path,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if payload.get("kind") != DISCARD_TRANSFORMER_REPORT_KIND:
+        raise ValueError(f"not a discard transformer report: {path}")
+    return {
+        "path": str(path),
+        "target": "discard_transformer",
+        "report_kind": DISCARD_TRANSFORMER_REPORT_KIND,
+        "source": payload["source"],
+        "xml_file_count": payload["xml_file_count"],
+        "rounds": payload["rounds"],
+        "discard_examples": payload["discard_examples"],
+        "call_examples": payload["call_examples"],
+        "split": payload["split"],
+        "model": payload["model"],
+        "training": _mlp_training_summary(payload["training"]),
+        "metrics": _mlp_metrics_summary(payload["metrics"]),
+        "deltas": {},
+        "artifacts": payload.get("artifacts", {}),
+    }
+
+
+def _summarize_discard_transformer_benchmark_report(
+    path: Path,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if payload.get("kind") != DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND:
+        raise ValueError(f"not a discard transformer benchmark report: {path}")
+    models: dict[str, Any] = {}
+    for model_name, model_payload in payload["models"].items():
+        if model_name == "discard_transformer":
+            models[model_name] = {
+                "kind": model_payload.get("kind"),
+                "encoder_kind": model_payload.get("encoder_kind"),
+                "input_tokens": model_payload.get("input_tokens"),
+                "output_dim": model_payload.get("output_dim"),
+                "config": model_payload.get("config", {}),
+                "training": _mlp_training_summary(model_payload["training"]),
+                "metrics": _mlp_metrics_summary(model_payload["metrics"]),
+            }
+        else:
+            models[model_name] = {
+                "kind": model_payload.get("kind"),
+                "feature_dim": model_payload.get("feature_dim"),
+                "train_accuracy": model_payload["metrics"]["train_accuracy"],
+                "eval_accuracy": model_payload["metrics"]["eval_accuracy"],
+            }
+    return {
+        "path": str(path),
+        "target": "discard_transformer_benchmark",
+        "report_kind": DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND,
+        "source": payload["source"],
+        "xml_file_count": payload["xml_file_count"],
+        "rounds": payload["rounds"],
+        "discard_examples": payload["discard_examples"],
+        "call_examples": payload["call_examples"],
+        "split": payload["split"],
+        "models": models,
+        "deltas": payload.get("deltas", {}),
+        "artifacts": payload.get("artifacts", {}),
     }
 
 
@@ -956,6 +1265,59 @@ def _append_binary_benchmark_summary_lines(lines: list[str], report: dict[str, A
         lines.append("selected_policy: " + " ".join(parts))
 
 
+def _append_deal_in_benchmark_summary_lines(lines: list[str], report: dict[str, Any]) -> None:
+    split = report["split"]
+    labels = report["label_summary"]
+    lines.append(
+        "examples: "
+        f"{report['deal_in_examples']} direct-labeled, "
+        f"{labels['direct_deal_in_examples']} positive, "
+        f"{split['train_examples']} train, "
+        f"{split['eval_examples']} eval"
+    )
+    lines.append(
+        "labels: "
+        f"positive_rate={_format_optional_float(labels['positive_rate'])} "
+        f"active_riichi={labels['active_riichi_examples']} "
+        f"active_riichi_positive={labels['active_riichi_deal_in_examples']}"
+    )
+    model = report["model"]
+    training = report["training"]
+    lines.append(
+        "model: "
+        f"{model['kind']} feature_dim={model['feature_dim']} "
+        f"epochs={training['epochs']} "
+        f"learning_rate={float(training['learning_rate']):.6g} "
+        f"weight={float(training['positive_class_weight']):.2f} "
+        f"threshold={float(training['threshold']):.2f}"
+    )
+    _append_deal_in_metric_line(lines, "eval", report["metrics"]["eval"])
+    _append_deal_in_metric_line(
+        lines,
+        "heuristic_eval",
+        report["heuristic_risk_baseline"]["eval"],
+    )
+    lines.append("deltas:")
+    for name, value in report["deltas"].items():
+        lines.append(f"  {name}: {_format_optional_delta(value)}")
+
+
+def _append_deal_in_metric_line(
+    lines: list[str],
+    label: str,
+    metrics: dict[str, Any],
+) -> None:
+    lines.append(
+        f"{label}: "
+        f"accuracy={_format_optional_float(metrics['accuracy'])} "
+        f"balanced={_format_optional_float(metrics['balanced_accuracy'])} "
+        f"recall={_format_optional_float(metrics['recall'])} "
+        f"specificity={_format_optional_float(metrics['specificity'])} "
+        f"brier={_format_optional_float(metrics['brier_score'])} "
+        f"log_loss={_format_optional_float(metrics['log_loss'])}"
+    )
+
+
 def _append_discard_mlp_summary_lines(lines: list[str], report: dict[str, Any]) -> None:
     split = report["split"]
     lines.append(
@@ -970,6 +1332,49 @@ def _append_discard_mlp_summary_lines(lines: list[str], report: dict[str, Any]) 
     lines.append(
         "model: "
         f"{model['kind']} hidden_dim={model['hidden_dim']} "
+        f"device={training['device']} epochs={training['epochs']} "
+        f"batch_size={training['batch_size']} "
+        f"learning_rate={float(training['learning_rate']):.6g} seed={training['seed']}"
+    )
+    lines.append(
+        "metrics: "
+        f"train={_format_optional_float(metrics['train_accuracy'])} "
+        f"eval={_format_optional_float(metrics['eval_accuracy'])} "
+        f"train_loss={_format_optional_float(metrics['train_loss'])} "
+        f"eval_loss={_format_optional_float(metrics['eval_loss'])}"
+    )
+    lines.append(
+        "best: "
+        f"epoch={training['best_epoch']} split={training['selection_split']} "
+        f"eval={_format_optional_float(metrics['best_eval_accuracy'])} "
+        f"eval_loss={_format_optional_float(metrics['best_eval_loss'])}"
+    )
+
+
+def _append_discard_transformer_summary_lines(
+    lines: list[str],
+    report: dict[str, Any],
+) -> None:
+    split = report["split"]
+    lines.append(
+        "examples: "
+        f"{report['discard_examples']} total, "
+        f"{split['train_examples']} train, "
+        f"{split['eval_examples']} eval"
+    )
+    model = report["model"]
+    config = model["config"]
+    training = report["training"]
+    metrics = report["metrics"]
+    lines.append(
+        "model: "
+        f"{model['kind']} encoder={model['encoder_kind']} "
+        f"tokens={model['input_tokens']} dim={config['model_dim']} "
+        f"heads={config['num_heads']} layers={config['num_layers']} "
+        f"ff={config['feedforward_dim']} dropout={float(config['dropout']):.4g}"
+    )
+    lines.append(
+        "training: "
         f"device={training['device']} epochs={training['epochs']} "
         f"batch_size={training['batch_size']} "
         f"learning_rate={float(training['learning_rate']):.6g} seed={training['seed']}"
@@ -1015,6 +1420,45 @@ def _append_discard_mlp_benchmark_summary_lines(
                 f"loss={_format_optional_float(metrics['eval_loss'])} "
                 f"best_epoch={training['best_epoch']} "
                 f"hidden_dim={model['hidden_dim']} device={training['device']}"
+            )
+        else:
+            lines.append(
+                f"  {model_name}: "
+                f"train={_format_optional_float(model['train_accuracy'])} "
+                f"eval={_format_optional_float(model['eval_accuracy'])}"
+            )
+    lines.append("deltas:")
+    for name, value in report["deltas"].items():
+        lines.append(f"  {name}: {_format_optional_delta(value)}")
+
+
+def _append_discard_transformer_benchmark_summary_lines(
+    lines: list[str],
+    report: dict[str, Any],
+) -> None:
+    split = report["split"]
+    lines.append(
+        "examples: "
+        f"{report['discard_examples']} total, "
+        f"{split['train_examples']} train, "
+        f"{split['eval_examples']} eval"
+    )
+    lines.append("models:")
+    for model_name in DISCARD_TRANSFORMER_BENCHMARK_MODEL_ORDER:
+        if model_name not in report["models"]:
+            continue
+        model = report["models"][model_name]
+        if model_name == "discard_transformer":
+            metrics = model["metrics"]
+            config = model["config"]
+            lines.append(
+                "  discard_transformer: "
+                f"eval={_format_optional_float(metrics['eval_accuracy'])} "
+                f"best_eval={_format_optional_float(metrics['best_eval_accuracy'])} "
+                f"loss={_format_optional_float(metrics['eval_loss'])} "
+                f"dim={config.get('model_dim')} "
+                f"heads={config.get('num_heads')} "
+                f"layers={config.get('num_layers')}"
             )
         else:
             lines.append(
@@ -1382,6 +1826,11 @@ def _optional_delta(left: float | None, right: float | None) -> float | None:
     if left is None or right is None:
         return None
     return left - right
+
+
+def _metric(payload: dict[str, Any], key: str) -> float | None:
+    value = payload.get(key)
+    return None if value is None else float(value)
 
 
 def _format_optional_float(value: float | None) -> str:

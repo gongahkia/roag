@@ -44,6 +44,34 @@ Mahjong Soul ranked automation is out of scope unless written permission is obta
 analysis should start from user-provided replay URLs or local exports, and tests should use
 synthetic fixtures.
 
+## Replay Intake Manifests
+
+Use `kenjaku replay-intake-review` before adding replay URLs or local exports to an analysis queue.
+The command accepts a JSON manifest with `kind: "kenjaku-replay-manifest-v0"` and `items` containing
+`id`, `platform`, `uri`, `intended_uses`, and a `permission` block. Accepted rows can be written to
+JSONL with `--accepted-output` for later offline tooling.
+
+Supported `permission.status` values are:
+
+- `local_synthetic`: fixture or generated replay data; allowed for analysis, evaluation, training,
+  demo, and redistribution.
+- `user_provided`: replay supplied by the user; allowed only for analysis and evaluation by
+  default.
+- `public_replay`: publicly available replay reference; allowed only for analysis and evaluation by
+  default.
+- `explicit_permission`: requires an explicit `permission.scope` list and is accepted only for uses
+  covered by that scope.
+- `unknown` and `denied`: rejected.
+
+Tenhou redistribution is rejected by the intake gate. Mahjong Soul training, demo, or
+redistribution uses require explicit permission. The intake command is a provenance and permission
+review step only; it does not fetch live-service data or automate a client.
+
+Use `kenjaku replay-share-plan` on accepted intake JSONL before any demo or redistribution work.
+The share planner checks that the accepted row's original `intended_uses` and `permission.scope`
+cover the requested `--intent demo|redistribution`. It writes a local plan/report only; it does not
+post URLs, upload files, or call platform APIs.
+
 ## Fixtures
 
 Fixtures under `data/fixtures/` must be synthetic unless a future commit documents why a real

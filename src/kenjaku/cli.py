@@ -16,6 +16,7 @@ from typing import Any, TypeVar
 from kenjaku import __version__
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.experiments import (
+    DEAL_IN_BENCHMARK_REPORT_KIND,
     build_call_benchmark_report,
     build_discard_benchmark_report_from_models,
     build_discard_benchmark_summary,
@@ -23,6 +24,8 @@ from kenjaku.experiments import (
     build_discard_linear_report,
     build_discard_mlp_benchmark_report,
     build_discard_mlp_report,
+    build_discard_transformer_benchmark_report,
+    build_discard_transformer_report,
     build_riichi_benchmark_report,
     build_tenhou_inspect_report,
     format_discard_benchmark_summary,
@@ -32,12 +35,18 @@ from kenjaku.experiments import (
 from kenjaku.io import (
     TenhouGame,
     TenhouParseFailure,
+    build_replay_share_plan_file,
+    format_replay_intake_review,
+    format_replay_share_plan,
     parse_tenhou_xml_dataset,
+    review_replay_manifest_file,
     tenhou_xml_files,
+    write_accepted_replay_intake_jsonl,
 )
 from kenjaku.models import (
     CALL_DECISION_KINDS,
     CALL_LINEAR_V1_FEATURE_PROFILE,
+    DEAL_IN_LINEAR_MODEL_KIND,
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
     RAW_COUNT_FEATURE_PROFILE,
@@ -47,11 +56,21 @@ from kenjaku.models import (
     CallFrequencyBaseline,
     CallLegalFrequencyBaseline,
     CallLinearModel,
+    DealInLinearModel,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
     RiichiFrequencyBaseline,
     RiichiLinearModel,
+    evaluate_deal_in_probabilities,
+    heuristic_deal_in_probabilities,
 )
+from kenjaku.simulation import (
+    SELF_PLAY_SANDBOX_POLICIES,
+    SELF_PLAY_SANDBOX_RULESETS,
+    format_self_play_sandbox_report,
+    run_self_play_sandbox,
+)
+from kenjaku.status import build_status_payload, format_status_text
 from kenjaku.training import (
     CallExample,
     DiscardExample,
@@ -62,12 +81,18 @@ from kenjaku.training import (
     actual_discard_is_genbutsu,
     actual_discard_seen_after_riichi,
     actual_discard_seen_before_riichi,
+    candidate_defense_risk,
     deterministic_split,
     discard_shanten_delta,
     has_active_riichi_opponent,
     iter_call_examples,
+    iter_deal_in_examples,
     iter_discard_examples,
     iter_riichi_examples,
+    round_outcome,
+    summarize_deal_in_examples,
+    summarize_defense_risk_outcomes,
+    summarize_defense_risks,
     summarize_discard_predictions,
     summarize_discard_shanten,
 )
@@ -125,6 +150,7 @@ PREDICTION_STUB_STRATEGIES = ("pass", "first-legal", "echo-actual")
 CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
+DEFAULT_DEAL_IN_POSITIVE_CLASS_WEIGHT = 5.0
 T = TypeVar("T")
 TResult = TypeVar("TResult")
 CALL_BENCHMARK_DEFAULT_MODELS = (
@@ -171,6 +197,125 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="store_true", help="print version and exit")
     subparsers = parser.add_subparsers(dest="command")
 
+    status = subparsers.add_parser(
+        "status",
+        help="print implemented capabilities and local environment status",
+    )
+    status.add_argument(
+        "--json",
+        action="store_true",
+        help="emit status as JSON instead of text",
+    )
+    status.set_defaults(func=_status)
+
+    replay_intake = subparsers.add_parser(
+        "replay-intake-review",
+        help="review a permission-aware replay intake manifest",
+    )
+    replay_intake.add_argument(
+        "manifest",
+        type=Path,
+        help="JSON replay manifest to review",
+    )
+    replay_intake.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for the full JSON intake review report",
+    )
+    replay_intake.add_argument(
+        "--accepted-output",
+        type=Path,
+        help="optional JSONL output for accepted replay intake items",
+    )
+    replay_intake.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the review as JSON instead of text",
+    )
+    replay_intake.set_defaults(func=_replay_intake_review)
+
+    replay_share = subparsers.add_parser(
+        "replay-share-plan",
+        help="build an offline shareability plan from accepted replay intake JSONL",
+    )
+    replay_share.add_argument(
+        "accepted_items",
+        type=Path,
+        help="JSONL rows from replay-intake-review --accepted-output",
+    )
+    replay_share.add_argument(
+        "--intent",
+        choices=("demo", "redistribution"),
+        default="demo",
+        help="share intent to validate against permission scope",
+    )
+    replay_share.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for the JSON shareability plan",
+    )
+    replay_share.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the share plan as JSON instead of text",
+    )
+    replay_share.set_defaults(func=_replay_share_plan)
+
+    self_play = subparsers.add_parser(
+        "self-play-sandbox",
+        help="run a deterministic offline draw/discard self-play sandbox",
+    )
+    self_play.add_argument(
+        "--episodes",
+        type=int,
+        default=1,
+        help="number of sandbox episodes to simulate",
+    )
+    self_play.add_argument(
+        "--max-turns",
+        type=int,
+        default=64,
+        help="maximum draw/discard turns per episode",
+    )
+    self_play.add_argument(
+        "--seed",
+        default="kenjaku-self-play-v0",
+        help="stable seed for deterministic sandbox episodes",
+    )
+    self_play.add_argument(
+        "--policy",
+        choices=SELF_PLAY_SANDBOX_POLICIES,
+        default="random",
+        help="sandbox discard policy",
+    )
+    self_play.add_argument(
+        "--ruleset",
+        choices=SELF_PLAY_SANDBOX_RULESETS,
+        default="tenhou-4p",
+        help="sandbox static tile set and player count",
+    )
+    self_play.add_argument(
+        "--include-trajectories",
+        action="store_true",
+        help="include full synthetic draw/discard trajectories in JSON output",
+    )
+    self_play.add_argument(
+        "--stop-on-tsumo",
+        action="store_true",
+        help="stop an episode on basic closed-hand tsumo shape detection",
+    )
+    self_play.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON sandbox report artifact",
+    )
+    self_play.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the sandbox report as JSON instead of text",
+    )
+    self_play.set_defaults(func=_self_play_sandbox)
+
     inspect_tenhou = subparsers.add_parser(
         "inspect-tenhou",
         help="parse a Tenhou XML file and print Phase 0 dataset counts",
@@ -193,6 +338,108 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(inspect_tenhou)
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
+
+    defense_risk = subparsers.add_parser(
+        "defense-risk-summary",
+        help="summarize heuristic discard danger scores from Tenhou XML",
+    )
+    defense_risk.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    defense_risk.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON defense-risk summary report",
+    )
+    defense_risk.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the summary as JSON instead of text",
+    )
+    defense_risk.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(defense_risk)
+    defense_risk.set_defaults(func=_defense_risk_summary)
+
+    deal_in = subparsers.add_parser(
+        "benchmark-deal-in",
+        help="train/evaluate a small direct ron-discard probability estimator",
+    )
+    deal_in.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    deal_in.add_argument(
+        "--epochs",
+        type=int,
+        default=50,
+        help="training epochs for the logistic estimator",
+    )
+    deal_in.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="logistic estimator learning rate",
+    )
+    deal_in.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="L2 regularization strength",
+    )
+    deal_in.add_argument(
+        "--positive-class-weight",
+        type=float,
+        default=DEFAULT_DEAL_IN_POSITIVE_CLASS_WEIGHT,
+        help="weight applied to direct deal-in examples during training",
+    )
+    deal_in.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.25,
+        help="fraction of examples assigned to eval split",
+    )
+    deal_in.add_argument(
+        "--split-seed",
+        default="kenjaku-deal-in-v0",
+        help="stable seed for train/eval split",
+    )
+    deal_in.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="probability threshold for binary metrics",
+    )
+    deal_in.add_argument(
+        "--active-riichi-only",
+        action="store_true",
+        help="train/evaluate only discard examples with active riichi opponents",
+    )
+    deal_in.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON deal-in benchmark report",
+    )
+    deal_in.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the benchmark report as JSON instead of text",
+    )
+    deal_in.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(deal_in)
+    deal_in.set_defaults(func=_benchmark_deal_in)
 
     export_snapshots = subparsers.add_parser(
         "export-decision-snapshots",
@@ -459,6 +706,100 @@ def build_parser() -> argparse.ArgumentParser:
     _add_source_args(train_mlp)
     train_mlp.set_defaults(func=_train_discard_mlp)
 
+    train_transformer = subparsers.add_parser(
+        "train-discard-transformer",
+        help="fit a PyTorch transformer masked-logit discard policy",
+    )
+    train_transformer.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    train_transformer.add_argument("--epochs", type=int, default=5, help="training epochs")
+    train_transformer.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="mini-batch size",
+    )
+    train_transformer.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="AdamW learning rate",
+    )
+    train_transformer.add_argument(
+        "--model-dim",
+        type=int,
+        default=64,
+        help="transformer hidden width",
+    )
+    train_transformer.add_argument(
+        "--num-heads",
+        type=int,
+        default=4,
+        help="transformer attention heads",
+    )
+    train_transformer.add_argument(
+        "--num-layers",
+        type=int,
+        default=2,
+        help="transformer encoder layers",
+    )
+    train_transformer.add_argument(
+        "--feedforward-dim",
+        type=int,
+        default=128,
+        help="transformer feedforward width",
+    )
+    train_transformer.add_argument(
+        "--dropout",
+        type=float,
+        default=0.1,
+        help="transformer dropout",
+    )
+    train_transformer.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    train_transformer.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    train_transformer.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="torch and dataloader random seed",
+    )
+    train_transformer.add_argument(
+        "--device",
+        choices=("auto", "cpu", "mps", "cuda"),
+        default="auto",
+        help="training device",
+    )
+    train_transformer.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON training report artifact",
+    )
+    train_transformer.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="optional path for the best PyTorch checkpoint artifact",
+    )
+    train_transformer.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(train_transformer)
+    train_transformer.set_defaults(func=_train_discard_transformer)
+
     benchmark_discard = subparsers.add_parser(
         "benchmark-discard",
         help="compare deterministic discard baselines on one train/eval split",
@@ -613,6 +954,123 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(benchmark_mlp)
     benchmark_mlp.set_defaults(func=_benchmark_discard_mlp)
+
+    benchmark_transformer = subparsers.add_parser(
+        "benchmark-discard-transformer",
+        help="compare a PyTorch discard transformer against discard baseline anchors",
+    )
+    benchmark_transformer.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    benchmark_transformer.add_argument(
+        "--epochs",
+        type=int,
+        default=5,
+        help="transformer training epochs",
+    )
+    benchmark_transformer.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="transformer mini-batch size",
+    )
+    benchmark_transformer.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="transformer AdamW learning rate",
+    )
+    benchmark_transformer.add_argument(
+        "--model-dim",
+        type=int,
+        default=64,
+        help="transformer hidden width",
+    )
+    benchmark_transformer.add_argument(
+        "--num-heads",
+        type=int,
+        default=4,
+        help="transformer attention heads",
+    )
+    benchmark_transformer.add_argument(
+        "--num-layers",
+        type=int,
+        default=2,
+        help="transformer encoder layers",
+    )
+    benchmark_transformer.add_argument(
+        "--feedforward-dim",
+        type=int,
+        default=128,
+        help="transformer feedforward width",
+    )
+    benchmark_transformer.add_argument(
+        "--dropout",
+        type=float,
+        default=0.1,
+        help="transformer dropout",
+    )
+    benchmark_transformer.add_argument(
+        "--linear-epochs",
+        type=int,
+        default=3,
+        help="linear anchor training epochs",
+    )
+    benchmark_transformer.add_argument(
+        "--linear-learning-rate",
+        type=float,
+        default=0.05,
+        help="linear anchor SGD learning rate",
+    )
+    benchmark_transformer.add_argument(
+        "--linear-l2",
+        type=float,
+        default=0.0,
+        help="linear anchor L2 regularization strength",
+    )
+    benchmark_transformer.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    benchmark_transformer.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    benchmark_transformer.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="torch and dataloader random seed",
+    )
+    benchmark_transformer.add_argument(
+        "--device",
+        choices=("auto", "cpu", "mps", "cuda"),
+        default="auto",
+        help="training device",
+    )
+    benchmark_transformer.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="optional path for the best PyTorch checkpoint artifact",
+    )
+    benchmark_transformer.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON transformer benchmark report artifact",
+    )
+    benchmark_transformer.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(benchmark_transformer)
+    benchmark_transformer.set_defaults(func=_benchmark_discard_transformer)
 
     benchmark_summary = subparsers.add_parser(
         "benchmark-report-summary",
@@ -861,6 +1319,82 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _status(args: argparse.Namespace) -> int:
+    payload = build_status_payload()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    print(format_status_text(payload))
+    return 0
+
+
+def _replay_intake_review(args: argparse.Namespace) -> int:
+    try:
+        review = review_replay_manifest_file(args.manifest)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, review)
+    if args.accepted_output is not None:
+        write_accepted_replay_intake_jsonl(args.accepted_output, review)
+
+    if args.json:
+        print(json.dumps(review, indent=2, sort_keys=True))
+    else:
+        print(format_replay_intake_review(review))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    if args.accepted_output is not None:
+        print(f"accepted_output_path: {args.accepted_output}")
+    return 0
+
+
+def _replay_share_plan(args: argparse.Namespace) -> int:
+    try:
+        plan = build_replay_share_plan_file(args.accepted_items, intent=args.intent)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, plan)
+
+    if args.json:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(format_replay_share_plan(plan))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _self_play_sandbox(args: argparse.Namespace) -> int:
+    try:
+        report = run_self_play_sandbox(
+            episodes=args.episodes,
+            max_turns=args.max_turns,
+            seed=args.seed,
+            policy=args.policy,
+            ruleset=args.ruleset,
+            include_trajectories=args.include_trajectories,
+            stop_on_tsumo=args.stop_on_tsumo,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_self_play_sandbox_report(report))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
 def _inspect_tenhou(args: argparse.Namespace) -> int:
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
@@ -888,6 +1422,223 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
+
+
+def _defense_risk_summary(args: argparse.Namespace) -> int:
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    examples = list(iter_discard_examples(dataset.game))
+    summary = summarize_defense_risks(examples)
+    outcomes = tuple(round_outcome(round_) for round_ in dataset.game.rounds)
+    report = {
+        **summary,
+        "outcome_analysis": summarize_defense_risk_outcomes(examples, outcomes),
+        "source": _source_metadata(args),
+        "input_paths": [str(path) for path in args.paths],
+        "xml_file_count": len(dataset.files),
+        **_call_example_cache_game_counts(dataset.game),
+        "discard_examples": len(examples),
+        "parse_failures": _parse_failures_payload(dataset.failures),
+    }
+    if args.report is not None:
+        write_json_report(args.report, report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"examples: {report['examples']}")
+        print(f"active_riichi_examples: {report['active_riichi_examples']}")
+        actual_risk = report["actual_discard_risk"]
+        highest_risk = report["highest_candidate_risk"]
+        assert isinstance(actual_risk, dict)
+        assert isinstance(highest_risk, dict)
+        print(f"actual_mean_risk: {_format_optional_float(actual_risk.get('mean'))}")
+        print(f"highest_candidate_mean_risk: {_format_optional_float(highest_risk.get('mean'))}")
+        outcome_analysis = report["outcome_analysis"]
+        assert isinstance(outcome_analysis, dict)
+        outcome_buckets = outcome_analysis["buckets"]
+        assert isinstance(outcome_buckets, dict)
+        eventual_deal_in = outcome_buckets["eventual_deal_in"]
+        active_deal_in = outcome_buckets["active_riichi_eventual_deal_in"]
+        assert isinstance(eventual_deal_in, dict)
+        assert isinstance(active_deal_in, dict)
+        print(f"outcome_labeled_examples: {outcome_analysis['labeled_examples']}")
+        print(f"eventual_deal_in_examples: {eventual_deal_in['examples']}")
+        print(f"eventual_deal_in_mean_risk: {_format_optional_float(eventual_deal_in.get('mean'))}")
+        print(f"active_riichi_deal_in_examples: {active_deal_in['examples']}")
+        bands = report["actual_discard_risk_bands"]
+        assert isinstance(bands, dict)
+        print(
+            "actual_risk_bands: "
+            + " ".join(
+                f"{name}={int(bucket.get('examples', 0))}"
+                for name, bucket in bands.items()
+                if isinstance(bucket, dict)
+            )
+        )
+        if dataset.failures:
+            print(f"parse_failures: {len(dataset.failures)}")
+        if args.report is not None:
+            print(f"report_path: {args.report}")
+    return 0
+
+
+def _benchmark_deal_in(args: argparse.Namespace) -> int:
+    if args.epochs < 0:
+        raise SystemExit("--epochs must be non-negative")
+    if args.l2 < 0:
+        raise SystemExit("--l2 must be non-negative")
+    if not 0 <= args.eval_fraction < 1:
+        raise SystemExit("--eval-fraction must be in the range [0, 1)")
+    threshold = _validated_probability(args.threshold, "--threshold")
+    positive_class_weight = _validated_positive_float(
+        args.positive_class_weight,
+        "--positive-class-weight",
+    )
+
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    examples = tuple(
+        iter_deal_in_examples(
+            dataset.game,
+            active_riichi_only=args.active_riichi_only,
+        )
+    )
+    if not examples:
+        raise SystemExit("no deal-in examples found")
+
+    train_examples, eval_examples = _deal_in_train_eval_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    model = DealInLinearModel.fit(
+        train_examples,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        l2=args.l2,
+        positive_class_weight=positive_class_weight,
+    )
+    train_metrics = model.evaluate(train_examples, threshold=threshold)
+    eval_metrics = model.evaluate(eval_examples, threshold=threshold)
+    heuristic_train_metrics = evaluate_deal_in_probabilities(
+        train_examples,
+        heuristic_deal_in_probabilities(train_examples),
+        threshold=threshold,
+    )
+    heuristic_eval_metrics = evaluate_deal_in_probabilities(
+        eval_examples,
+        heuristic_deal_in_probabilities(eval_examples),
+        threshold=threshold,
+    )
+    report = {
+        "kind": DEAL_IN_BENCHMARK_REPORT_KIND,
+        "source": _source_metadata(args),
+        "input_paths": [str(path) for path in args.paths],
+        "xml_file_count": len(dataset.files),
+        **_call_example_cache_game_counts(dataset.game),
+        "deal_in_examples": len(examples),
+        "label_summary": summarize_deal_in_examples(examples),
+        "filters": {
+            "active_riichi_only": args.active_riichi_only,
+            "label_source": "terminal_ron_discard",
+        },
+        "split": {
+            "strategy": "label-stratified",
+            "seed": args.split_seed,
+            "eval_fraction": args.eval_fraction,
+            "train_examples": len(train_examples),
+            "eval_examples": len(eval_examples),
+        },
+        "model": {
+            "kind": DEAL_IN_LINEAR_MODEL_KIND,
+            "feature_dim": model.feature_dim,
+            "feature_names": list(model.feature_names),
+        },
+        "training": {
+            "epochs": args.epochs,
+            "learning_rate": args.learning_rate,
+            "l2": args.l2,
+            "positive_class_weight": positive_class_weight,
+            "threshold": threshold,
+        },
+        "metrics": {
+            "train": train_metrics,
+            "eval": eval_metrics,
+        },
+        "heuristic_risk_baseline": {
+            "calibrated_probability": False,
+            "train": heuristic_train_metrics,
+            "eval": heuristic_eval_metrics,
+        },
+        "model_diagnostics": {
+            "weights": model.weight_summary(),
+            "features": model.feature_summary(examples),
+        },
+        "parse_failures": _parse_failures_payload(dataset.failures),
+    }
+    if args.report is not None:
+        write_json_report(args.report, report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        label_summary = report["label_summary"]
+        split = report["split"]
+        metrics = report["metrics"]
+        heuristic = report["heuristic_risk_baseline"]
+        assert isinstance(label_summary, dict)
+        assert isinstance(split, dict)
+        assert isinstance(metrics, dict)
+        assert isinstance(heuristic, dict)
+        eval_report = metrics["eval"]
+        heuristic_eval = heuristic["eval"]
+        assert isinstance(eval_report, dict)
+        assert isinstance(heuristic_eval, dict)
+        print(f"examples: {report['deal_in_examples']}")
+        print(f"direct_deal_in_examples: {label_summary['direct_deal_in_examples']}")
+        print(f"positive_rate: {_format_optional_float(label_summary.get('positive_rate'))}")
+        print(f"active_riichi_examples: {label_summary['active_riichi_examples']}")
+        print(f"train_examples: {split['train_examples']}")
+        print(f"eval_examples: {split['eval_examples']}")
+        print(f"model: {DEAL_IN_LINEAR_MODEL_KIND}")
+        print(f"eval_accuracy: {_format_optional_float(eval_report.get('accuracy'))}")
+        print(
+            "eval_balanced_accuracy: "
+            f"{_format_optional_float(eval_report.get('balanced_accuracy'))}"
+        )
+        print(f"eval_brier_score: {_format_optional_float(eval_report.get('brier_score'))}")
+        print(
+            "heuristic_eval_brier_score: "
+            f"{_format_optional_float(heuristic_eval.get('brier_score'))}"
+        )
+        if dataset.failures:
+            print(f"parse_failures: {len(dataset.failures)}")
+        if args.report is not None:
+            print(f"report_path: {args.report}")
+    return 0
+
+
+def _deal_in_train_eval_split(
+    examples: Sequence[Any],
+    *,
+    eval_fraction: float,
+    seed: str,
+) -> tuple[list[Any], list[Any]]:
+    indexed = list(enumerate(examples))
+    positives = [(index, example) for index, example in indexed if example.dealt_in]
+    negatives = [(index, example) for index, example in indexed if not example.dealt_in]
+    positive_train, positive_eval = deterministic_split(
+        positives,
+        eval_fraction=eval_fraction,
+        seed=f"{seed}:positive",
+    )
+    negative_train, negative_eval = deterministic_split(
+        negatives,
+        eval_fraction=eval_fraction,
+        seed=f"{seed}:negative",
+    )
+    train = sorted((*positive_train, *negative_train), key=lambda item: item[0])
+    evaluation = sorted((*positive_eval, *negative_eval), key=lambda item: item[0])
+    return [example for _index, example in train], [example for _index, example in evaluation]
 
 
 def _export_decision_snapshots(args: argparse.Namespace) -> int:
@@ -1604,6 +2355,109 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _train_discard_transformer(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.models.torch_transformer import (
+            MahjongTransformerConfig,
+            save_discard_transformer_checkpoint,
+            train_discard_transformer,
+            transformer_config_payload,
+        )
+    except ImportError as error:
+        raise SystemExit("PyTorch is required for train-discard-transformer") from error
+
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_discard_examples(game))
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    config = MahjongTransformerConfig(
+        model_dim=args.model_dim,
+        num_heads=args.num_heads,
+        num_layers=args.num_layers,
+        feedforward_dim=args.feedforward_dim,
+        dropout=args.dropout,
+    )
+    try:
+        result = train_discard_transformer(
+            train_examples,
+            eval_examples,
+            config=config,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            device=args.device,
+            seed=args.seed,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    print(f"device: {result.device}")
+    print(f"model: {result.model.kind}")
+    print(f"encoder: {result.model.encoder.kind}")
+    print(f"input_tokens: {result.model.input_tokens}")
+    print(f"train_accuracy: {_format_optional_accuracy(result.train_metrics['accuracy'])}")
+    print(f"eval_accuracy: {_format_optional_accuracy(result.eval_metrics['accuracy'])}")
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.checkpoint is not None:
+        save_discard_transformer_checkpoint(
+            result,
+            args.checkpoint,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            eval_fraction=args.eval_fraction,
+            split_seed=args.split_seed,
+            seed=args.seed,
+        )
+        print(f"checkpoint_path: {args.checkpoint}")
+    if args.report is not None:
+        report = build_discard_transformer_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(examples),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            model_kind=result.model.kind,
+            encoder_kind=result.model.encoder.kind,
+            input_tokens=result.model.input_tokens,
+            output_dim=result.model.output_dim,
+            model_config=transformer_config_payload(result.model.encoder.config),
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            device=result.device,
+            seed=args.seed,
+            train_metrics=result.train_metrics,
+            eval_metrics=result.eval_metrics,
+            history=result.history,
+            best_epoch=result.best_epoch,
+            selection_split=result.selection_split,
+            best_metrics=result.best_metrics,
+            discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=dataset.failures,
+            checkpoint_path=args.checkpoint,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
 def _benchmark_discard(args: argparse.Namespace) -> int:
     if args.max_disagreements < 0:
         raise SystemExit("--max-disagreements must be non-negative")
@@ -1846,6 +2700,164 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.models.torch_transformer import (
+            MahjongTransformerConfig,
+            save_discard_transformer_checkpoint,
+            train_discard_transformer,
+            transformer_config_payload,
+        )
+    except ImportError as error:
+        raise SystemExit("PyTorch is required for benchmark-discard-transformer") from error
+
+    if args.linear_epochs <= 0:
+        raise SystemExit("--linear-epochs must be positive")
+    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    game = dataset.game
+    examples = list(iter_discard_examples(game))
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    frequency_model = DiscardFrequencyBaseline.fit(train_examples)
+    risk_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.linear_epochs,
+        learning_rate=args.linear_learning_rate,
+        l2=args.linear_l2,
+        feature_profile=RISK_CONTEXT_FEATURE_PROFILE,
+    )
+    defense_model = DiscardLinearModel.fit(
+        train_examples,
+        epochs=args.linear_epochs,
+        learning_rate=args.linear_learning_rate,
+        l2=args.linear_l2,
+        feature_profile=DEFENSE_CONTEXT_FEATURE_PROFILE,
+    )
+    config = MahjongTransformerConfig(
+        model_dim=args.model_dim,
+        num_heads=args.num_heads,
+        num_layers=args.num_layers,
+        feedforward_dim=args.feedforward_dim,
+        dropout=args.dropout,
+    )
+    try:
+        transformer_result = train_discard_transformer(
+            train_examples,
+            eval_examples,
+            config=config,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            device=args.device,
+            seed=args.seed,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.checkpoint is not None:
+        save_discard_transformer_checkpoint(
+            transformer_result,
+            args.checkpoint,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            eval_fraction=args.eval_fraction,
+            split_seed=args.split_seed,
+            seed=args.seed,
+        )
+
+    model_payloads = {
+        "frequency": _discard_frequency_payload(
+            frequency_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            include_analysis=False,
+        ),
+        "risk_context_linear": _discard_linear_payload(
+            "risk_context_linear",
+            risk_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.linear_epochs,
+            learning_rate=args.linear_learning_rate,
+            l2=args.linear_l2,
+            include_analysis=False,
+        ),
+        "defense_context_linear": _discard_linear_payload(
+            "defense_context_linear",
+            defense_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.linear_epochs,
+            learning_rate=args.linear_learning_rate,
+            l2=args.linear_l2,
+            include_analysis=False,
+        ),
+        "discard_transformer": _discard_transformer_benchmark_payload(
+            transformer_result,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            seed=args.seed,
+            config=transformer_config_payload(transformer_result.model.encoder.config),
+        ),
+    }
+
+    print(f"examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    print(f"device: {transformer_result.device}")
+    for model_name in ("frequency", "risk_context_linear", "defense_context_linear"):
+        metrics = model_payloads[model_name]["metrics"]
+        print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
+        print(
+            f"{model_name}_eval_accuracy: "
+            f"{_format_optional_accuracy(metrics['eval_accuracy'])}"
+        )
+    print(
+        "discard_transformer_train_accuracy: "
+        f"{_format_optional_accuracy(transformer_result.train_metrics['accuracy'])}"
+    )
+    print(
+        "discard_transformer_eval_accuracy: "
+        f"{_format_optional_accuracy(transformer_result.eval_metrics['accuracy'])}"
+    )
+    print(
+        "discard_transformer_best_eval_accuracy: "
+        f"{_format_optional_accuracy(transformer_result.best_metrics['eval']['accuracy'])}"
+    )
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.checkpoint is not None:
+        print(f"checkpoint_path: {args.checkpoint}")
+    if args.report is not None:
+        report = build_discard_transformer_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=game,
+            discard_examples=len(examples),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=dataset.failures,
+            checkpoint_path=args.checkpoint,
+            source=_source_metadata(args),
+        )
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
 def _discard_mlp_benchmark_payload(
     result: Any,
     *,
@@ -1859,6 +2871,39 @@ def _discard_mlp_benchmark_payload(
         "input_dim": result.model.input_dim,
         "hidden_dim": result.model.hidden_dim,
         "output_dim": result.model.output_dim,
+        "training": {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
+            "device": result.device,
+            "seed": seed,
+            "history": result.history,
+            "best_epoch": result.best_epoch,
+            "selection_split": result.selection_split,
+        },
+        "metrics": {
+            "train": result.train_metrics,
+            "eval": result.eval_metrics,
+            "best": result.best_metrics,
+        },
+    }
+
+
+def _discard_transformer_benchmark_payload(
+    result: Any,
+    *,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    seed: int,
+    config: dict[str, int | float],
+) -> dict[str, Any]:
+    return {
+        "kind": result.model.kind,
+        "encoder_kind": result.model.encoder.kind,
+        "input_tokens": result.model.input_tokens,
+        "output_dim": result.model.output_dim,
+        "config": config,
         "training": {
             "epochs": epochs,
             "batch_size": batch_size,
@@ -2164,6 +3209,9 @@ def _format_disagreement_item(
             for name, enabled in sorted(buckets.items())
         ]
         lines.append("     buckets: " + ", ".join(bucket_parts))
+    defense_risk = _format_disagreement_defense_risk(item, correct_model, wrong_model)
+    if defense_risk:
+        lines.append("     defense_risk: " + defense_risk)
     if include_tags:
         tags = _disagreement_item_tags(item, correct_model=correct_model, wrong_model=wrong_model)
         lines.append("     tags: " + ", ".join(tags))
@@ -2175,6 +3223,39 @@ def _format_disagreement_item(
     if logit_parts:
         lines.append("     logits: " + "; ".join(logit_parts))
     return lines
+
+
+def _format_disagreement_defense_risk(
+    item: dict[str, Any],
+    correct_model: str,
+    wrong_model: str,
+) -> str:
+    payload = item.get("defense_risk")
+    if not isinstance(payload, dict):
+        return ""
+
+    parts: list[str] = []
+    actual = _format_defense_risk_score(payload.get("actual_discard"))
+    if actual:
+        parts.append(f"actual={actual}")
+
+    predictions = payload.get("predictions")
+    if isinstance(predictions, dict):
+        for model_name in (correct_model, wrong_model):
+            rendered = _format_defense_risk_score(predictions.get(model_name))
+            if rendered:
+                parts.append(f"{model_name}={rendered}")
+    return " ".join(parts)
+
+
+def _format_defense_risk_score(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    tile = payload.get("tile")
+    risk = payload.get("risk")
+    if not isinstance(tile, str) or not isinstance(risk, int | float):
+        return ""
+    return f"{tile}:{risk:.3f}"
 
 
 def _build_disagreement_tag_summary(paths: Sequence[Path]) -> dict[str, Any]:
@@ -4086,6 +5167,15 @@ def _disagreement_record(
             "delta": shanten_delta.delta,
         },
         "defense_buckets": _actual_discard_defense_buckets(example),
+        "defense_risk": {
+            "actual_discard": _defense_risk_payload(
+                candidate_defense_risk(example, example.action.tile)
+            ),
+            "predictions": {
+                model_name: _defense_risk_payload(candidate_defense_risk(example, tile_type))
+                for model_name, tile_type in predictions.items()
+            },
+        },
         "hand_counts": _tile_count_payload(example.hand_counts),
         "visible_counts": _tile_count_payload(example.visible_counts),
         "active_riichi_seats": list(example.active_riichi_seats),
@@ -4111,6 +5201,17 @@ def _actual_discard_defense_buckets(example: DiscardExample) -> dict[str, bool]:
         "one_chance": actual_discard_has_one_chance(example),
         "seen_before_riichi": actual_discard_seen_before_riichi(example),
         "seen_after_riichi": actual_discard_seen_after_riichi(example),
+    }
+
+
+def _defense_risk_payload(score: Any) -> dict[str, object]:
+    return {
+        "tile": score.tile.notation,
+        "risk": score.risk,
+        "calibrated_probability": score.calibrated_probability,
+        "active_riichi_opponents": score.active_riichi_opponents,
+        "safety_reasons": list(score.safety_reasons),
+        "danger_reasons": list(score.danger_reasons),
     }
 
 
@@ -4166,6 +5267,20 @@ def _source_metadata(args: argparse.Namespace) -> dict[str, str | None]:
     }
 
 
+def _parse_failures_payload(failures: Sequence[TenhouParseFailure]) -> dict[str, Any]:
+    return {
+        "count": len(failures),
+        "items": [
+            {
+                "path": str(failure.path),
+                "error_type": failure.error_type,
+                "message": failure.message,
+            }
+            for failure in failures
+        ],
+    }
+
+
 def _validated_probability(value: float, option: str) -> float:
     if value < 0.0 or value > 1.0:
         raise SystemExit(f"{option} must be between 0.0 and 1.0")
@@ -4180,6 +5295,10 @@ def _validated_positive_float(value: float, option: str) -> float:
 
 def _format_optional_accuracy(accuracy: float | None) -> str:
     return "n/a" if accuracy is None else f"{accuracy:.4f}"
+
+
+def _format_optional_float(value: Any) -> str:
+    return "n/a" if value is None else f"{float(value):.4f}"
 
 
 def _format_optional_delta(delta: float | None) -> str:

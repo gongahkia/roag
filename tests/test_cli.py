@@ -13,13 +13,14 @@ from kenjaku.cli import (
     _call_example_from_payload,
     _call_example_to_payload,
     _call_examples_signature,
+    _disagreement_record,
     _limit_call_examples,
     main,
 )
-from kenjaku.core import Action, ActionKind, Tile
+from kenjaku.core import Action, ActionKind, Tile, TileType, tile_counts
 from kenjaku.experiments import build_discard_mlp_benchmark_report
 from kenjaku.io import parse_tenhou_xml_file
-from kenjaku.training import CallExample
+from kenjaku.training import CallExample, DiscardExample
 
 
 class CliTests(unittest.TestCase):
@@ -31,6 +32,319 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("kenjaku", stdout.getvalue())
+
+    def test_status_reports_current_project_stage(self) -> None:
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            exit_code = main(["status"])
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("stage: offline research toolkit", output)
+        self.assertIn("trained_model: not bundled", output)
+        self.assertIn("product_status: research toolkit, not a trained production agent", output)
+        self.assertIn("tenhou_xml_parsing: yes", output)
+        self.assertIn("permission_aware_replay_intake: yes", output)
+        self.assertIn("permitted_replay_share_planning: yes", output)
+        self.assertIn("self_play_sandbox: yes", output)
+        self.assertIn("sandbox_legal_discard_environment: yes", output)
+        self.assertIn("sandbox_tsumo_action_generation: yes", output)
+        self.assertIn("sandbox_pending_discard_reactions: yes", output)
+        self.assertIn("sandbox_individual_reaction_passes: yes", output)
+        self.assertIn("sandbox_ron_action_generation: yes", output)
+        self.assertIn("sandbox_ron_priority_reactions: yes", output)
+        self.assertIn("sandbox_multi_ron_resolution: yes", output)
+        self.assertIn("sandbox_discard_furiten_ron_filter: yes", output)
+        self.assertIn("sandbox_temporary_furiten_ron_filter: yes", output)
+        self.assertIn("sandbox_call_action_generation: yes", output)
+        self.assertIn("sandbox_call_application: yes", output)
+        self.assertIn("sandbox_terminal_reward_payloads: yes", output)
+        self.assertIn("basic_winning_hand_detection: yes", output)
+        self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
+        self.assertIn("sanma_static_ruleset: yes", output)
+        self.assertIn("self_play_sandbox_sanma_tile_set: yes", output)
+        self.assertIn("deal_in_estimator_training_command: yes", output)
+        self.assertIn("transformer_state_encoder_module: yes", output)
+        self.assertIn("transformer_behavior_cloning_training_command: yes", output)
+        self.assertIn("transformer_anchor_benchmark_command: yes", output)
+        self.assertIn("transformer_policy: no", output)
+        self.assertIn("automatic_replay_posting: no", output)
+        self.assertIn("full_rules_self_play_harness: no", output)
+        self.assertIn("sanma_ruleset: no", output)
+        self.assertIn("rl_self_play: no", output)
+        self.assertIn("live_ladder_automation: no", output)
+
+    def test_status_json_reports_current_project_stage(self) -> None:
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            exit_code = main(["status", "--json"])
+        payload = json.loads(stdout.getvalue())
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-status-v0")
+        self.assertEqual(payload["stage"], "offline research toolkit")
+        self.assertFalse(payload["trained_model"]["bundled"])
+        self.assertTrue(payload["capabilities"]["implemented"]["tenhou_xml_parsing"])
+        self.assertTrue(payload["capabilities"]["implemented"]["permission_aware_replay_intake"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["permitted_replay_share_planning"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_tsumo_action_generation"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_pending_discard_reactions"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_individual_reaction_passes"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ron_action_generation"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ron_priority_reactions"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_multi_ron_resolution"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_discard_furiten_ron_filter"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_temporary_furiten_ron_filter"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
+        self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_sandbox_tsumo_termination"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sanma_static_ruleset"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_sandbox_sanma_tile_set"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["transformer_state_encoder_module"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "transformer_behavior_cloning_training_command"
+            ]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["transformer_anchor_benchmark_command"]
+        )
+        self.assertFalse(payload["capabilities"]["not_implemented"]["transformer_policy"])
+        self.assertFalse(payload["capabilities"]["not_implemented"]["automatic_replay_posting"])
+        self.assertFalse(
+            payload["capabilities"]["not_implemented"]["full_rules_self_play_harness"]
+        )
+        self.assertFalse(payload["capabilities"]["not_implemented"]["sanma_ruleset"])
+        self.assertFalse(payload["capabilities"]["not_implemented"]["rl_self_play"])
+        self.assertEqual(payload["environment"]["supported_python"], ">=3.11,<3.14")
+
+    def test_replay_intake_review_outputs_text_json_report_and_accepted_queue(self) -> None:
+        manifest_payload = {
+            "kind": "kenjaku-replay-manifest-v0",
+            "items": [
+                {
+                    "id": "accepted-synthetic",
+                    "platform": "synthetic",
+                    "uri": "data/fixtures/replay/synthetic.json",
+                    "intended_uses": ["analysis", "training"],
+                    "permission": {"status": "local_synthetic"},
+                },
+                {
+                    "id": "blocked-training",
+                    "platform": "mahjong_soul",
+                    "uri": "https://mahjongsoul.game.yo-star.com/?paipu=blocked",
+                    "intended_uses": ["training"],
+                    "permission": {"status": "user_provided"},
+                },
+            ],
+        }
+        with TemporaryDirectory() as directory:
+            manifest = Path(directory) / "manifest.json"
+            report = Path(directory) / "review.json"
+            accepted = Path(directory) / "accepted.jsonl"
+            manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "replay-intake-review",
+                        str(manifest),
+                        "--report",
+                        str(report),
+                        "--accepted-output",
+                        str(accepted),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+            accepted_rows = [
+                json.loads(line)
+                for line in accepted.read_text(encoding="utf-8").splitlines()
+            ]
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["replay-intake-review", str(manifest), "--json"])
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("items: 2", text_stdout.getvalue())
+        self.assertIn("accepted: 1", text_stdout.getvalue())
+        self.assertIn("rejected: 1", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertIn("accepted_output_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-replay-intake-review-v0")
+        self.assertEqual(report_payload["accepted"], 1)
+        self.assertEqual(report_payload["rejected"], 1)
+        self.assertEqual(len(accepted_rows), 1)
+        self.assertEqual(accepted_rows[0]["kind"], "kenjaku-replay-intake-item-v0")
+        self.assertEqual(accepted_rows[0]["id"], "accepted-synthetic")
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["accepted"], 1)
+
+    def test_replay_share_plan_outputs_text_json_and_report(self) -> None:
+        accepted_rows = [
+            {
+                "kind": "kenjaku-replay-intake-item-v0",
+                "id": "demo-ready",
+                "platform": "other",
+                "uri": "https://example.test/replay",
+                "intended_uses": ["analysis", "demo"],
+                "permission": {
+                    "status": "explicit_permission",
+                    "scope": ["analysis", "demo"],
+                    "granted_by": "unit-test",
+                    "granted_at": "2026-06-11",
+                    "notes": None,
+                },
+            },
+            {
+                "kind": "kenjaku-replay-intake-item-v0",
+                "id": "analysis-only",
+                "platform": "mahjong_soul",
+                "uri": "https://mahjongsoul.game.yo-star.com/?paipu=analysis",
+                "intended_uses": ["analysis"],
+                "permission": {
+                    "status": "user_provided",
+                    "scope": ["analysis", "evaluation"],
+                    "granted_by": None,
+                    "granted_at": None,
+                    "notes": None,
+                },
+            },
+        ]
+        with TemporaryDirectory() as directory:
+            accepted = Path(directory) / "accepted.jsonl"
+            report = Path(directory) / "share-plan.json"
+            accepted.write_text(
+                "".join(json.dumps(row, sort_keys=True) + "\n" for row in accepted_rows),
+                encoding="utf-8",
+            )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "replay-share-plan",
+                        str(accepted),
+                        "--intent",
+                        "demo",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    ["replay-share-plan", str(accepted), "--intent", "demo", "--json"]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("intent: demo", text_stdout.getvalue())
+        self.assertIn("shareable: 1", text_stdout.getvalue())
+        self.assertIn("blocked: 1", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-replay-share-plan-v0")
+        self.assertEqual(report_payload["shareable"], 1)
+        self.assertEqual(report_payload["blocked"], 1)
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["intent"], "demo")
+
+    def test_self_play_sandbox_outputs_text_json_and_report(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "self-play.json"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "self-play-sandbox",
+                        "--episodes",
+                        "2",
+                        "--max-turns",
+                        "8",
+                        "--seed",
+                        "fixed",
+                        "--policy",
+                        "frequency",
+                        "--ruleset",
+                        "tenhou-3p",
+                        "--stop-on-tsumo",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "self-play-sandbox",
+                        "--episodes",
+                        "1",
+                        "--max-turns",
+                        "4",
+                        "--seed",
+                        "fixed",
+                        "--policy",
+                        "drawn",
+                        "--stop-on-tsumo",
+                        "--json",
+                        "--include-trajectories",
+                    ]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("episodes: 2", text_stdout.getvalue())
+        self.assertIn("ruleset: tenhou-3p", text_stdout.getvalue())
+        self.assertIn("policy: frequency-discard-sandbox-v0", text_stdout.getvalue())
+        self.assertIn("stop_on_tsumo: yes", text_stdout.getvalue())
+        self.assertIn("full_riichi_rules: no", text_stdout.getvalue())
+        self.assertIn("discard_furiten_ron_filter: yes", text_stdout.getvalue())
+        self.assertIn("temporary_furiten_ron_filter: yes", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-self-play-sandbox-report-v0")
+        self.assertTrue(report_payload["stop_on_tsumo"])
+        self.assertEqual(report_payload["ruleset"], "tenhou-3p")
+        self.assertEqual(report_payload["players"], 3)
+        self.assertLessEqual(report_payload["decisions"], 16)
+        self.assertTrue(report_payload["capabilities"]["discard_furiten_ron_filter"])
+        self.assertTrue(report_payload["capabilities"]["temporary_furiten_ron_filter"])
+        self.assertFalse(report_payload["capabilities"]["ppo"])
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["episodes"], 1)
+        self.assertTrue(json_payload["stop_on_tsumo"])
+        self.assertIn("trajectory", json_payload["episode_summaries"][0])
 
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()
@@ -115,6 +429,150 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["rounds"], 1)
         self.assertEqual(payload["parse_failures"]["count"], 1)
         self.assertEqual(payload["parse_failures"]["items"][0]["error_type"], "ValueError")
+
+    def test_defense_risk_summary_outputs_text_json_and_report(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "defense-risk.json"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "defense-risk-summary",
+                        "data/fixtures/tenhou",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-defense-risk",
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    ["defense-risk-summary", "data/fixtures/tenhou", "--json"]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("examples: 4", text_stdout.getvalue())
+        self.assertIn("active_riichi_examples: 1", text_stdout.getvalue())
+        self.assertIn("actual_mean_risk: 0.1775", text_stdout.getvalue())
+        self.assertIn("outcome_labeled_examples: 4", text_stdout.getvalue())
+        self.assertIn("eventual_deal_in_examples: 1", text_stdout.getvalue())
+        self.assertIn("eventual_deal_in_mean_risk: 0.7100", text_stdout.getvalue())
+        self.assertIn("active_riichi_deal_in_examples: 1", text_stdout.getvalue())
+        self.assertIn("actual_risk_bands: low=3 medium=0 high=1", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-defense-risk-summary-v0")
+        self.assertEqual(report_payload["source"]["label"], "fixture-defense-risk")
+        self.assertEqual(report_payload["xml_file_count"], 3)
+        self.assertEqual(report_payload["examples"], 4)
+        self.assertEqual(report_payload["active_riichi_examples"], 1)
+        self.assertFalse(report_payload["calibrated_probability"])
+        self.assertEqual(
+            report_payload["outcome_analysis"]["kind"],
+            "kenjaku-defense-risk-outcome-analysis-v0",
+        )
+        self.assertEqual(report_payload["outcome_analysis"]["labeled_examples"], 4)
+        self.assertEqual(
+            report_payload["outcome_analysis"]["buckets"]["eventual_deal_in"]["examples"],
+            1,
+        )
+        self.assertEqual(report_payload["parse_failures"]["count"], 0)
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-defense-risk-summary-v0")
+        self.assertEqual(json_payload["actual_discard_risk"]["mean"], 0.1775)
+        self.assertEqual(json_payload["outcome_analysis"]["missing_outcomes"], 0)
+
+    def test_benchmark_deal_in_outputs_text_json_and_report(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "deal-in.json"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "benchmark-deal-in",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "2",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-deal-in",
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "benchmark-deal-in",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "2",
+                        "--json",
+                    ]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("examples: 4", text_stdout.getvalue())
+        self.assertIn("direct_deal_in_examples: 1", text_stdout.getvalue())
+        self.assertIn("active_riichi_examples: 1", text_stdout.getvalue())
+        self.assertIn("model: deal-in-linear-v0", text_stdout.getvalue())
+        self.assertIn("eval_brier_score:", text_stdout.getvalue())
+        self.assertIn("heuristic_eval_brier_score:", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-deal-in-benchmark-report-v0")
+        self.assertEqual(report_payload["source"]["label"], "fixture-deal-in")
+        self.assertEqual(report_payload["deal_in_examples"], 4)
+        self.assertEqual(report_payload["label_summary"]["direct_deal_in_examples"], 1)
+        self.assertEqual(report_payload["model"]["kind"], "deal-in-linear-v0")
+        self.assertFalse(report_payload["heuristic_risk_baseline"]["calibrated_probability"])
+        self.assertEqual(report_payload["parse_failures"]["count"], 0)
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-deal-in-benchmark-report-v0")
+        self.assertEqual(json_payload["label_summary"]["examples"], 4)
+
+    def test_benchmark_report_summary_supports_deal_in_reports(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "deal-in.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "benchmark-deal-in",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "2",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-deal-in",
+                    ]
+                )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("model: deal-in-linear-v0 feature_dim=25", text_stdout.getvalue())
+        self.assertIn("heuristic_eval:", text_stdout.getvalue())
+        self.assertIn("eval_brier_score_vs_heuristic:", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-benchmark-summary-v0")
+        self.assertEqual(payload["reports"][0]["target"], "deal_in")
+        self.assertEqual(payload["reports"][0]["label_summary"]["direct_deal_in_examples"], 1)
+        self.assertIn("eval_brier_score_vs_heuristic", payload["reports"][0]["deltas"])
 
     def test_export_decision_snapshots_writes_jsonl(self) -> None:
         stdout = io.StringIO()
@@ -686,6 +1144,320 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
         self.assertEqual(payload["reports"][0]["target"], "discard_mlp")
         self.assertEqual(payload["reports"][0]["model"]["hidden_dim"], 8)
+
+    def test_train_discard_transformer_fixture_smoke_writes_report_artifact(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "transformer.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "train-discard-transformer",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--batch-size",
+                        "2",
+                        "--model-dim",
+                        "16",
+                        "--num-heads",
+                        "4",
+                        "--num-layers",
+                        "1",
+                        "--feedforward-dim",
+                        "32",
+                        "--dropout",
+                        "0.0",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-transformer",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("device: cpu", stdout.getvalue())
+        self.assertIn("model: discard-transformer-policy-v0", stdout.getvalue())
+        self.assertIn("encoder: mahjong-transformer-encoder-v0", stdout.getvalue())
+        self.assertIn("input_tokens: 152", stdout.getvalue())
+        self.assertIn("report_path:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-transformer-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-transformer")
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(payload["split"]["train_examples"], 3)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+        self.assertEqual(payload["model"]["kind"], "discard-transformer-policy-v0")
+        self.assertEqual(payload["model"]["encoder_kind"], "mahjong-transformer-encoder-v0")
+        self.assertEqual(payload["model"]["input_tokens"], 152)
+        self.assertEqual(payload["model"]["config"]["model_dim"], 16)
+        self.assertEqual(payload["model"]["config"]["num_layers"], 1)
+        self.assertEqual(payload["training"]["device"], "cpu")
+        self.assertEqual(payload["training"]["seed"], 123)
+        self.assertEqual(payload["training"]["best_epoch"], 1)
+        self.assertEqual(payload["metrics"]["train"]["examples"], 3)
+        self.assertEqual(payload["metrics"]["eval"]["examples"], 1)
+        self.assertIsNone(payload["artifacts"]["checkpoint_path"])
+
+    def test_benchmark_report_summary_supports_synthetic_transformer_report(self) -> None:
+        report_payload = {
+            "kind": "kenjaku-discard-transformer-report-v0",
+            "source": {"label": "synthetic-transformer", "command": None, "date": None},
+            "input_paths": ["synthetic"],
+            "xml_file_count": 1,
+            "rounds": 1,
+            "draws": 0,
+            "discards": 0,
+            "reaches": 0,
+            "calls": 0,
+            "wins": 0,
+            "exhaustive_draws": 0,
+            "discard_examples": 4,
+            "call_examples": 1,
+            "split": {
+                "seed": "fixed",
+                "eval_fraction": 0.25,
+                "train_examples": 3,
+                "eval_examples": 1,
+            },
+            "model": {
+                "kind": "discard-transformer-policy-v0",
+                "encoder_kind": "mahjong-transformer-encoder-v0",
+                "input_tokens": 152,
+                "output_dim": 34,
+                "config": {
+                    "model_dim": 16,
+                    "num_heads": 4,
+                    "num_layers": 1,
+                    "feedforward_dim": 32,
+                    "dropout": 0.0,
+                },
+            },
+            "training": {
+                "epochs": 1,
+                "batch_size": 2,
+                "learning_rate": 0.001,
+                "device": "cpu",
+                "seed": 123,
+                "history": [],
+                "best_epoch": 1,
+                "selection_split": "eval",
+            },
+            "metrics": {
+                "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.0},
+                "best": {
+                    "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                    "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.0},
+                },
+            },
+            "discard_shanten": {"examples": 4},
+            "parse_failures": {"count": 0, "items": []},
+            "artifacts": {"checkpoint_path": None},
+        }
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "transformer.json"
+            report.write_text(json.dumps(report_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn(
+            "model: discard-transformer-policy-v0 encoder=mahjong-transformer-encoder-v0",
+            text_stdout.getvalue(),
+        )
+        self.assertIn("tokens=152 dim=16 heads=4 layers=1", text_stdout.getvalue())
+        self.assertIn("best: epoch=1 split=eval", text_stdout.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-discard-benchmark-summary-v0")
+        self.assertEqual(payload["reports"][0]["target"], "discard_transformer")
+        self.assertEqual(payload["reports"][0]["model"]["config"]["model_dim"], 16)
+
+    def test_benchmark_discard_transformer_fixture_smoke_writes_report_artifact(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "transformer-benchmark.json"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "benchmark-discard-transformer",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--batch-size",
+                        "2",
+                        "--model-dim",
+                        "16",
+                        "--num-heads",
+                        "4",
+                        "--num-layers",
+                        "1",
+                        "--feedforward-dim",
+                        "32",
+                        "--dropout",
+                        "0.0",
+                        "--linear-epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "fixture-transformer-benchmark",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("device: cpu", stdout.getvalue())
+        self.assertIn("discard_transformer_eval_accuracy:", stdout.getvalue())
+        self.assertIn("report_path:", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-discard-transformer-benchmark-report-v0")
+        self.assertEqual(payload["source"]["label"], "fixture-transformer-benchmark")
+        self.assertEqual(payload["discard_examples"], 4)
+        self.assertEqual(
+            payload["models"]["discard_transformer"]["kind"],
+            "discard-transformer-policy-v0",
+        )
+        self.assertEqual(payload["models"]["discard_transformer"]["config"]["model_dim"], 16)
+        self.assertIn("transformer_eval_accuracy_lift_over_defense_context", payload["deltas"])
+
+    def test_benchmark_report_summary_supports_synthetic_transformer_benchmark(self) -> None:
+        report_payload = {
+            "kind": "kenjaku-discard-transformer-benchmark-report-v0",
+            "source": {
+                "label": "synthetic-transformer-benchmark",
+                "command": None,
+                "date": None,
+            },
+            "input_paths": ["synthetic"],
+            "xml_file_count": 1,
+            "rounds": 1,
+            "draws": 0,
+            "discards": 0,
+            "reaches": 0,
+            "calls": 0,
+            "wins": 0,
+            "exhaustive_draws": 0,
+            "discard_examples": 4,
+            "call_examples": 1,
+            "split": {
+                "seed": "fixed",
+                "eval_fraction": 0.25,
+                "train_examples": 3,
+                "eval_examples": 1,
+            },
+            "models": {
+                "frequency": {
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.0},
+                },
+                "risk_context_linear": {
+                    "kind": "discard-linear-risk-context-v0",
+                    "feature_dim": 86,
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.25},
+                },
+                "defense_context_linear": {
+                    "kind": "discard-linear-defense-context-v0",
+                    "feature_dim": 98,
+                    "metrics": {"train_accuracy": 2 / 3, "eval_accuracy": 0.5},
+                },
+                "discard_transformer": {
+                    "kind": "discard-transformer-policy-v0",
+                    "encoder_kind": "mahjong-transformer-encoder-v0",
+                    "input_tokens": 152,
+                    "output_dim": 34,
+                    "config": {
+                        "model_dim": 16,
+                        "num_heads": 4,
+                        "num_layers": 1,
+                        "feedforward_dim": 32,
+                        "dropout": 0.0,
+                    },
+                    "training": {
+                        "epochs": 1,
+                        "batch_size": 2,
+                        "learning_rate": 0.001,
+                        "device": "cpu",
+                        "seed": 123,
+                        "history": [],
+                        "best_epoch": 1,
+                        "selection_split": "eval",
+                    },
+                    "metrics": {
+                        "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                        "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.75},
+                        "best": {
+                            "train": {"examples": 3, "loss": 1.5, "accuracy": 2 / 3},
+                            "eval": {"examples": 1, "loss": 2.0, "accuracy": 0.75},
+                        },
+                    },
+                },
+            },
+            "deltas": {
+                "transformer_eval_accuracy_lift_over_frequency": 0.75,
+                "transformer_eval_accuracy_lift_over_risk_context": 0.5,
+                "transformer_eval_accuracy_lift_over_defense_context": 0.25,
+            },
+            "discard_shanten": {"examples": 4},
+            "parse_failures": {"count": 0, "items": []},
+            "artifacts": {"checkpoint_path": None},
+        }
+
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "transformer-benchmark.json"
+            report.write_text(json.dumps(report_payload), encoding="utf-8")
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(["benchmark-report-summary", str(report)])
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(["benchmark-report-summary", str(report), "--json"])
+            payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("discard_transformer: eval=0.7500", text_stdout.getvalue())
+        self.assertIn(
+            "transformer_eval_accuracy_lift_over_defense_context: +0.2500",
+            text_stdout.getvalue(),
+        )
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(payload["reports"][0]["target"], "discard_transformer_benchmark")
+        self.assertEqual(
+            payload["reports"][0]["deltas"][
+                "transformer_eval_accuracy_lift_over_defense_context"
+            ],
+            0.25,
+        )
 
     def test_benchmark_report_summary_supports_synthetic_mlp_benchmark_report(self) -> None:
         report_payload = build_discard_mlp_benchmark_report(
@@ -1389,6 +2161,54 @@ class CliTests(unittest.TestCase):
         for category in payload["categories"].values():
             self.assertLessEqual(len(category["items"]), 2)
 
+    def test_disagreement_record_includes_defense_risk_payload(self) -> None:
+        hand = tuple(Tile.parse(tile) for tile in ["4m", "5m"])
+        opponent_river = (Tile.parse("4m"),)
+        rivers_by_seat = ((), opponent_river, (), ())
+        example = DiscardExample(
+            round_index=0,
+            event_index=0,
+            seat=0,
+            dealer=0,
+            scores=(25000, 25000, 25000, 25000),
+            hand_counts=tile_counts(hand),
+            visible_counts=tile_counts((*hand, *opponent_river)),
+            action=Action.discard("5m"),
+            active_riichi_seats=(False, True, False, False),
+            river_counts_by_seat=tuple(tile_counts(river) for river in rivers_by_seat),
+            rivers_by_seat=rivers_by_seat,
+            riichi_declared_turns=(None, 0, None, None),
+            riichi_declared_event_indices=(None, 1, None, None),
+        )
+        tile_4m = TileType.parse("4m")
+        tile_5m = TileType.parse("5m")
+
+        record = _disagreement_record(
+            example,
+            predictions={
+                "risk_context_linear": tile_5m,
+                "defense_context_linear": tile_4m,
+            },
+            correct={
+                "risk_context_linear": True,
+                "defense_context_linear": False,
+            },
+            logits_by_model={
+                "risk_context_linear": {tile_4m: 0.5, tile_5m: 2.0},
+                "defense_context_linear": {tile_4m: 2.0, tile_5m: 0.5},
+            },
+        )
+
+        defense_risk = record["defense_risk"]
+        self.assertEqual(defense_risk["actual_discard"]["tile"], "5m")
+        self.assertFalse(defense_risk["actual_discard"]["calibrated_probability"])
+        self.assertIn("mostly_live", defense_risk["actual_discard"]["danger_reasons"])
+        self.assertEqual(defense_risk["predictions"]["defense_context_linear"]["tile"], "4m")
+        self.assertIn(
+            "genbutsu",
+            defense_risk["predictions"]["defense_context_linear"]["safety_reasons"],
+        )
+
     def test_disagreement_report_summary_outputs_text_and_json(self) -> None:
         payload = {
             "kind": "kenjaku-discard-disagreements-v0",
@@ -1408,6 +2228,34 @@ class CliTests(unittest.TestCase):
                                 "active_riichi_opponent": True,
                                 "genbutsu": True,
                                 "suji": False,
+                            },
+                            "defense_risk": {
+                                "actual_discard": {
+                                    "tile": "5m",
+                                    "risk": 0.2,
+                                    "calibrated_probability": False,
+                                    "active_riichi_opponents": 1,
+                                    "safety_reasons": ["genbutsu"],
+                                    "danger_reasons": [],
+                                },
+                                "predictions": {
+                                    "risk_context_linear": {
+                                        "tile": "5m",
+                                        "risk": 0.2,
+                                        "calibrated_probability": False,
+                                        "active_riichi_opponents": 1,
+                                        "safety_reasons": ["genbutsu"],
+                                        "danger_reasons": [],
+                                    },
+                                    "defense_context_linear": {
+                                        "tile": "8m",
+                                        "risk": 0.8,
+                                        "calibrated_probability": False,
+                                        "active_riichi_opponents": 1,
+                                        "safety_reasons": [],
+                                        "danger_reasons": ["mostly_live"],
+                                    },
+                                },
                             },
                             "shanten_delta": {
                                 "before": 2,
@@ -1477,6 +2325,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(examples_exit_code, 0)
         self.assertIn("examples:", examples_stdout.getvalue())
         self.assertIn("actual=5m", examples_stdout.getvalue())
+        self.assertIn(
+            "defense_risk: actual=5m:0.200 risk_context_linear=5m:0.200 "
+            "defense_context_linear=8m:0.800",
+            examples_stdout.getvalue(),
+        )
         self.assertIn("logits:", examples_stdout.getvalue())
         self.assertEqual(tags_exit_code, 0)
         self.assertIn("tags:", tags_stdout.getvalue())

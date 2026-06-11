@@ -18,6 +18,14 @@ from kenjaku.models.linear_call import (
     CALL_LINEAR_V1_MODEL_KIND,
     CallLinearModel,
 )
+from kenjaku.models.linear_deal_in import (
+    DEAL_IN_LINEAR_FEATURE_DIM,
+    DEAL_IN_LINEAR_FEATURE_NAMES,
+    DEAL_IN_LINEAR_MODEL_KIND,
+    DealInLinearModel,
+    evaluate_deal_in_probabilities,
+    heuristic_deal_in_probabilities,
+)
 from kenjaku.models.linear_discard import (
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
@@ -52,6 +60,10 @@ __all__ = [
     "CallFrequencyBaseline",
     "CallLegalFrequencyBaseline",
     "CallLinearModel",
+    "DEAL_IN_LINEAR_FEATURE_DIM",
+    "DEAL_IN_LINEAR_FEATURE_NAMES",
+    "DEAL_IN_LINEAR_MODEL_KIND",
+    "DealInLinearModel",
     "DiscardFrequencyBaseline",
     "DiscardLinearModel",
     "DEFENSE_CONTEXT_FEATURE_PROFILE",
@@ -66,4 +78,6 @@ __all__ = [
     "RiichiLinearModel",
     "RISK_CONTEXT_FEATURE_PROFILE",
     "SHANTEN_FEATURE_PROFILE",
+    "evaluate_deal_in_probabilities",
+    "heuristic_deal_in_probabilities",
 ]

@@ -1,6 +1,13 @@
 """Core riichi mahjong domain primitives."""
 
 from kenjaku.core.actions import Action, ActionKind
+from kenjaku.core.agari import (
+    WINNING_HAND_SHAPES,
+    is_winning_hand,
+    is_winning_hand_for_tiles,
+    winning_hand_shapes,
+    winning_hand_shapes_for_tiles,
+)
 from kenjaku.core.rules import TENHOU_3P, TENHOU_4P, RuleSet
 from kenjaku.core.shanten import (
     chiitoitsu_shanten,
@@ -17,6 +24,8 @@ __all__ = [
     "ActionKind",
     "chiitoitsu_shanten",
     "Discard",
+    "is_winning_hand",
+    "is_winning_hand_for_tiles",
     "kokushi_shanten",
     "Meld",
     "PlayerState",
@@ -31,4 +40,7 @@ __all__ = [
     "shanten_for_tiles",
     "standard_shanten",
     "tile_counts",
+    "WINNING_HAND_SHAPES",
+    "winning_hand_shapes",
+    "winning_hand_shapes_for_tiles",
 ]

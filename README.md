@@ -19,9 +19,37 @@ handoff notes.
 - Dependency-free frequency and linear baselines with deterministic train/eval splits, calibration
   reports, feature summaries, and local-only disagreement diagnostics.
 - Neutral decision snapshot JSONL export plus prediction JSONL comparison.
+- Permission-aware replay manifest review with accepted-item JSONL output for offline replay
+  analysis queues. It validates consent/provenance gates but does not fetch from live services.
+- Offline replay share planning for accepted intake rows, gated by demo/redistribution permission
+  scope. It produces a local report only and does not post replay URLs.
+- Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
+  optional synthetic tsumo termination in the self-play sandbox. This is not yaku validation or
+  scoring.
+- A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
+  discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
+  actions, legal closed-hand tsumo/ron actions, discard-furiten and temporary ron-pass furiten
+  filtering, individual reaction passes, ron-priority call gating, discard/call/tsumo/ron
+  application, basic multi-ron terminal resolution, and simple terminal reward payloads. The
+  self-play sandbox uses this boundary for 4-player and static 3-player tile-set draw/discard
+  turn-rotation plus terminal-outcome plumbing, auto-passing reaction windows because it has no
+  ron/call policy yet. It is not a full riichi/Sanma simulator, complete furiten model, yaku
+  validator, dead-wall/kan-dora/rinshan implementation, scoring engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.
+- A dependency-free heuristic defense risk scorer for ranking candidate discard danger against
+  active riichi opponents. This is not a calibrated deal-in probability estimator.
+- Direct ron-discard label extraction plus a small dependency-free `deal-in-linear-v0` logistic
+  estimator command for offline probability-estimator experiments. No trained deal-in model is
+  bundled yet.
+- A PyTorch transformer state encoder and masked discard policy head module for future supervised
+  policy experiments. It is architecture scaffolding only; no trained transformer policy is bundled.
+- `train-discard-transformer`, a PyTorch behavior-cloning command for supervised discard policy
+  experiments over local Tenhou XML. No Tenhou Phoenix transformer run or trained checkpoint is
+  bundled yet.
+- `benchmark-discard-transformer`, which compares the transformer policy head against frequency,
+  risk-context linear, and defense-context linear anchors on the same split.
 
 ## Quickstart
 
@@ -33,6 +61,7 @@ PYTHONPATH=src python3.13 -m unittest discover -s tests
 PYTHONPATH=src python3.13 -m compileall -q src tests
 python3.13 -m ruff check .
 PYTHONPATH=src python3.13 -m kenjaku --version
+PYTHONPATH=src python3.13 -m kenjaku status
 ```
 
 If you are working from this checkout without installing the package, keep `PYTHONPATH=src`.
@@ -41,6 +70,26 @@ If you are working from this checkout without installing the package, keep `PYTH
 
 ```bash
 PYTHONPATH=src python3.13 -m kenjaku inspect-tenhou data/fixtures/tenhou
+
+PYTHONPATH=src python3.13 -m kenjaku replay-intake-review \
+  path/to/replay-manifest.json \
+  --report runs/replay-intake-review.json \
+  --accepted-output runs/replay-intake-accepted.jsonl
+PYTHONPATH=src python3.13 -m kenjaku replay-share-plan \
+  runs/replay-intake-accepted.jsonl --intent demo \
+  --report runs/replay-share-plan.json
+
+PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
+  --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p --stop-on-tsumo \
+  --report runs/fixture-self-play-sandbox.json
+
+PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \
+  data/fixtures/tenhou --report runs/fixture-defense-risk-summary.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-deal-in \
+  data/fixtures/tenhou --epochs 2 --report runs/fixture-deal-in-benchmark.json
+PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
+  runs/fixture-deal-in-benchmark.json
 
 PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 3 --models fast \
@@ -63,6 +112,19 @@ PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp \
   data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
   --checkpoint runs/fixture-discard-mlp.pt \
   --report runs/fixture-discard-mlp.json
+
+PYTHONPATH=src python3.13 -m kenjaku train-discard-transformer \
+  data/fixtures/tenhou --epochs 1 --batch-size 2 --device cpu \
+  --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 \
+  --checkpoint runs/fixture-discard-transformer.pt \
+  --report runs/fixture-discard-transformer.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-transformer \
+  data/fixtures/tenhou --epochs 1 --batch-size 2 --device cpu \
+  --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 \
+  --linear-epochs 1 \
+  --checkpoint runs/fixture-discard-transformer-benchmark.pt \
+  --report runs/fixture-discard-transformer-benchmark.json
 
 PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-mlp \
   data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu \
@@ -136,5 +198,12 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 3. Use decision snapshot prediction producers for external-baseline protocol work; do not import
    or copy AGPL baseline code.
 4. Use discard disagreement tags before adding another feature profile.
-5. Use `benchmark-discard-mlp` and `benchmark-report-summary` for small discard MLP comparisons
-   before attempting a larger neural architecture.
+5. Use `benchmark-discard-mlp`, `benchmark-discard-transformer`, and `benchmark-report-summary` on
+   comparable ignored Tenhou slices before claiming behavior-cloned transformer progress.
+6. Run `benchmark-deal-in` on the ignored 100/500-log slices and compare reports with
+   `benchmark-report-summary` before treating the defense scorer as a validated probability
+   estimator.
+
+## License
+
+MIT. See `LICENSE`.

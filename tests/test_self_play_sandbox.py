@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+import unittest
+
+from kenjaku.simulation import (
+    SELF_PLAY_SANDBOX_REPORT_KIND,
+    format_self_play_sandbox_report,
+    run_self_play_sandbox,
+)
+
+
+class SelfPlaySandboxTests(unittest.TestCase):
+    def test_run_self_play_sandbox_is_deterministic(self) -> None:
+        first = run_self_play_sandbox(
+            episodes=2,
+            max_turns=8,
+            seed="fixed",
+            policy="random",
+            include_trajectories=True,
+        )
+        second = run_self_play_sandbox(
+            episodes=2,
+            max_turns=8,
+            seed="fixed",
+            policy="random",
+            include_trajectories=True,
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["kind"], SELF_PLAY_SANDBOX_REPORT_KIND)
+        self.assertEqual(first["episodes"], 2)
+        self.assertEqual(first["ruleset"], "tenhou-4p")
+        self.assertEqual(first["players"], 4)
+        self.assertEqual(first["decisions"], 16)
+        self.assertEqual(first["terminal_reasons"], {"max_turns": 2})
+        self.assertEqual(first["seat_decisions"], [4, 4, 4, 4])
+        self.assertTrue(first["capabilities"]["draw_discard_loop"])
+        self.assertTrue(first["capabilities"]["multi_agent_turn_rotation"])
+        self.assertFalse(first["capabilities"]["basic_closed_hand_win_detection"])
+        self.assertFalse(first["capabilities"]["full_riichi_rules"])
+        self.assertFalse(first["capabilities"]["call_policy"])
+        self.assertFalse(first["capabilities"]["ron_policy"])
+        self.assertTrue(first["capabilities"]["reaction_windows_auto_passed"])
+        self.assertTrue(first["capabilities"]["discard_furiten_ron_filter"])
+        self.assertTrue(first["capabilities"]["temporary_furiten_ron_filter"])
+        self.assertTrue(first["capabilities"]["terminal_rewards"])
+        self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
+        self.assertIn("trajectory", first["episode_summaries"][0])
+
+    def test_sanma_ruleset_uses_three_seats_and_excluded_tiles(self) -> None:
+        report = run_self_play_sandbox(
+            episodes=1,
+            max_turns=9,
+            seed="sanma",
+            policy="drawn",
+            ruleset="tenhou-3p",
+            include_trajectories=True,
+        )
+
+        discarded_tiles = set(report["discard_counts"])
+
+        self.assertEqual(report["ruleset"], "tenhou-3p")
+        self.assertEqual(report["players"], 3)
+        self.assertEqual(report["decisions"], 9)
+        self.assertEqual(report["seat_decisions"], [3, 3, 3])
+        self.assertTrue(report["capabilities"]["static_sanma_tile_set"])
+        self.assertFalse(any(tile in discarded_tiles for tile in _excluded_sanma_manzu()))
+
+    def test_frequency_policy_updates_counts(self) -> None:
+        report = run_self_play_sandbox(
+            episodes=3,
+            max_turns=4,
+            seed="frequency",
+            policy="frequency",
+        )
+
+        learned_counts = report["policy"]["learned_discard_counts"]
+        self.assertEqual(sum(learned_counts.values()), report["decisions"])
+        self.assertEqual(report["policy"]["updates"], report["decisions"])
+
+    def test_text_summary_marks_missing_full_rules(self) -> None:
+        report = run_self_play_sandbox(
+            episodes=1,
+            max_turns=4,
+            seed="summary",
+            policy="drawn",
+            stop_on_tsumo=True,
+        )
+
+        text = format_self_play_sandbox_report(report)
+
+        self.assertIn("episodes: 1", text)
+        self.assertIn("ruleset: tenhou-4p", text)
+        self.assertIn("policy: drawn-discard-sandbox-v0", text)
+        self.assertIn("stop_on_tsumo: yes", text)
+        self.assertIn("basic_closed_hand_win_detection: yes", text)
+        self.assertIn("draw_discard_loop: yes", text)
+        self.assertIn("call_policy: no", text)
+        self.assertIn("ron_policy: no", text)
+        self.assertIn("reaction_windows_auto_passed: yes", text)
+        self.assertIn("discard_furiten_ron_filter: yes", text)
+        self.assertIn("temporary_furiten_ron_filter: yes", text)
+        self.assertIn("terminal_rewards: yes", text)
+        self.assertIn("scoring: no", text)
+        self.assertIn("ppo: no", text)
+
+    def test_stop_on_tsumo_adds_terminal_metadata(self) -> None:
+        report = run_self_play_sandbox(
+            episodes=1,
+            max_turns=8,
+            seed="tsumo-metadata",
+            policy="drawn",
+            stop_on_tsumo=True,
+        )
+        episode = report["episode_summaries"][0]
+
+        self.assertTrue(report["stop_on_tsumo"])
+        self.assertIn(episode["terminal_reason"], {"max_turns", "wall_exhausted", "tsumo"})
+        self.assertIn("winner_seat", episode)
+        self.assertIn("winner_seats", episode)
+        self.assertIn("winning_tile", episode)
+        self.assertIn("winning_shapes", episode)
+        self.assertIn("winning_shapes_by_seat", episode)
+        self.assertIn("terminal_rewards", episode)
+        self.assertEqual(len(episode["terminal_rewards"]), report["players"])
+        if episode["terminal_reason"] == "tsumo":
+            self.assertIsInstance(episode["winner_seat"], int)
+            self.assertEqual(episode["winner_seats"], [episode["winner_seat"]])
+            self.assertIsInstance(episode["winning_tile"], str)
+            self.assertTrue(episode["winning_shapes"])
+            self.assertTrue(episode["winning_shapes_by_seat"])
+            self.assertAlmostEqual(sum(episode["terminal_rewards"]), 0.0)
+
+    def test_invalid_arguments_raise_value_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "episodes must be positive"):
+            run_self_play_sandbox(episodes=0, max_turns=4, seed="bad")
+        with self.assertRaisesRegex(ValueError, "max_turns must be positive"):
+            run_self_play_sandbox(episodes=1, max_turns=0, seed="bad")
+        with self.assertRaisesRegex(ValueError, "unsupported self-play sandbox policy"):
+            run_self_play_sandbox(episodes=1, max_turns=4, seed="bad", policy="bad")
+        with self.assertRaisesRegex(ValueError, "unsupported .*ruleset"):
+            run_self_play_sandbox(episodes=1, max_turns=4, seed="bad", ruleset="bad")
+
+
+def _excluded_sanma_manzu() -> tuple[str, ...]:
+    return tuple(f"{rank}m" for rank in range(2, 9))
+
+
+if __name__ == "__main__":
+    unittest.main()

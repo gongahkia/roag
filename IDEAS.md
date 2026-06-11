@@ -259,7 +259,7 @@ This is well within "side project budget" territory.
 - [x] Fork mortal, get it running locally on Mac (baseline reproduction)
 - [ ] Spin up a Mahjong Soul account, verify replay sharing works
 - [ ] Confirm cloud GPU rental pipeline (Lambda or RunPod test run)
-- [ ] Lock in project name and create the GitHub repo (private until launch)
+- [x] Lock in project name and create the GitHub repo (private until launch)
 
 ### Phase 1 — Data and baseline (weeks 2-3)
 - [x] Parse Tenhou logs into supervised discard/call/riichi training formats
@@ -269,7 +269,7 @@ This is well within "side project budget" territory.
 - [ ] Defense scorer (deal-in probability estimator)
 
 ### Phase 2 — Architecture (weeks 4-6)
-- [ ] Implement transformer encoder for mahjong state
+- [x] Implement transformer encoder for mahjong state
 - [ ] Behavior cloning on Tenhou Phoenix logs
 - [ ] Match mortal's supervised baseline performance
 - [ ] First cloud training burst
@@ -282,7 +282,7 @@ This is well within "side project budget" territory.
 - [ ] Target: match or exceed mortal on Tenhou General room
 
 ### Phase 4 — Deployment infrastructure (weeks 13-14)
-- [ ] Permission-aware replay ingestion and review pipeline
+- [x] Permission-aware replay ingestion and review pipeline
 - [ ] Auto-replay-sharing pipeline for permitted games and offline analysis
 - [ ] Live rank tracker website
 - [ ] Browser playable demo (you vs AI)
@@ -425,7 +425,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 4. **Cloud GPU cheapest source**: Lambda Labs vs RunPod vs vast.ai pricing for the relevant GPU/duration mix
 5. **Sanma log availability**: where are MJS sanma logs, is there a scraping pipeline
 6. **Name**: confirm "kenjaku" isn't trademarked/registered elsewhere in the mahjong AI space
-7. **License**: MIT vs Apache 2.0 vs AGPL — consider how this affects future commercial use
+7. **License**: resolved to MIT for Kenjaku's own code. Keep AGPL external-baseline boundaries
+   explicit if Mortal integration changes.
 8. **Branding**: domain, twitter handle, github org
 
 ---
@@ -467,18 +468,37 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 1. Restore or regenerate the ignored local 500-log Tenhou slice, then rerun the documented
    10k/20k call reports through `benchmark-report-summary` so the report-local `selected_policy`
    is based on comparable artifacts.
-2. Use `benchmark-discard-mlp` for small MLP checks against frequency, risk-context linear, and
-   defense-context linear anchors before attempting a transformer encoder.
-3. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
+2. Run `benchmark-deal-in` on the ignored 100/500-log Tenhou slices and compare the resulting
+   `benchmark-report-summary` output for `deal-in-linear-v0` against the uncalibrated heuristic
+   risk baseline before marking the defense scorer/probability-estimator item complete.
+3. Run `benchmark-discard-mlp` and `benchmark-discard-transformer` on comparable ignored Tenhou
+   slices, then summarize both artifacts before marking behavior-cloned transformer progress.
+4. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
    loses pass recall and is not the balanced baseline on the latest 500-log split checks.
-4. Keep external-baseline work at the neutral prediction protocol. Stub producers and a generic
+5. Keep external-baseline work at the neutral prediction protocol. Stub producers and a generic
    subprocess producer boundary exist for tests; real Mortal inference still requires legally
    usable weights and must stay outside Kenjaku's dependency boundary.
-5. Use disagreement tag filters before changing discard features. The capped 100-log sample is
+6. Use disagreement tag filters before changing discard features. The capped 100-log sample is
    dominated by efficiency-preserving and close-logit cases, so do not add another defense profile
    until a tag-specific sample points to a concrete feature gap.
-6. Do not promote `discard-linear-defense-context-v1` as a default until a matching split shows an
+7. Use `replay-intake-review` and `replay-share-plan` for any replay URL or local-export queue
+   before building analysis, demo, or sharing features. The current implementation is a manifest
+   gate plus local shareability plan, not a live-service fetcher or automatic poster.
+8. Do not promote `discard-linear-defense-context-v1` as a default until a matching split shows an
    aggregate or targeted gain that survives the existing risk/defense comparison.
+9. Use `self-play-sandbox` only for deterministic draw/discard and basic synthetic tsumo plumbing
+   checks. It is not a full rules simulator, yaku/scoring engine, PPO loop, or evidence that the
+   Phase 3 self-play harness is complete.
+10. Treat `self-play-sandbox --ruleset tenhou-3p` as static Sanma tile-set plumbing only. The Phase
+    5 Sanma ruleset still needs real 3-player round flow, calls/kita treatment, scoring, training
+    data, and evaluation.
+11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
+    initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
+    closed-hand tsumo/ron, discard-furiten and temporary ron-pass furiten filtering, legal
+    chi/pon/minkan, individual reaction passes, ron-priority call gating, discard/call/tsumo/ron
+    transitions, basic multi-ron terminal resolution, and simple terminal reward payloads only; the
+    next simulator step is full call/kan timing, riichi furiten, yaku validation, scoring, and
+    richer reward semantics.
 
 ---
 
@@ -870,3 +890,117 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   JSONL and can write a comparison report.
 - Updated README, local evaluation, external-baseline, and handoff docs. No real 500-log reports
   were regenerated in this workspace because ignored raw Tenhou data and run artifacts were absent.
+
+### 2026-06-11
+
+- Added `kenjaku status`, a text/JSON CLI status command backed by `kenjaku.status` that makes the
+  current implementation boundary explicit: offline research toolkit, no bundled trained model, no
+  transformer policy, no RL self-play, no Sanma ruleset, no browser demo, and no live ladder
+  automation. The status payload also reports the current Python version, whether it falls inside
+  the supported `>=3.11,<3.14` range, PyTorch availability, and ignored local artifact presence.
+- Added CLI tests for the status command and updated the quickstart to include it.
+- Added the missing MIT `LICENSE` file so the repository matches the package metadata and GitHub can
+  detect the license.
+- Added a dependency-free heuristic defense risk scorer over discard examples. It ranks candidate
+  discard danger against active riichi opponents and reports safety/danger reasons, but remains
+  explicitly uncalibrated and does not complete the trained deal-in probability estimator item yet.
+- Extended discard disagreement records and example rendering with heuristic defense-risk payloads
+  for the actual discard and model predictions, so tag-filtered disagreement review can inspect
+  risk magnitude and reasons without adding another discard feature profile.
+- Added `defense-risk-summary`, a fixture-safe/local-data CLI report for aggregate heuristic
+  discard-risk inspection. It emits text, JSON, and optional report artifacts while preserving the
+  explicit uncalibrated-probability boundary.
+- Extended defense-risk summaries with terminal outcome analysis using existing `RoundOutcome`
+  labels. The report now separates eventual deal-in/no-deal-in risk distributions, including
+  active-riichi subsets, as a diagnostic correlation check rather than a causal or calibrated
+  probability claim.
+- Rechecked GitHub repository state: there are no open issues or PRs as of 2026-06-11. Recent
+  `main` CI runs are still failed before normal test execution, so local verification remains the
+  meaningful code signal until the external Actions/account setup is fixed and rerun.
+- Added direct ron-discard `DealInExample` labels from terminal `AGARI` events. Positive labels are
+  only the last discard by the ron source immediately before the win; earlier discards by the same
+  eventual deal-in player remain negative examples.
+- Added `deal-in-linear-v0`, a small dependency-free logistic estimator for direct deal-in
+  probability over actual discard features, heuristic risk, active-riichi context, and tile-safety
+  signals. This is a training/evaluation path, not a bundled trained model.
+- Added `benchmark-deal-in` for fixture-safe/local-data reports with label-stratified splitting,
+  train/eval Brier/log-loss/classification metrics, and a separately labeled uncalibrated heuristic
+  risk baseline. The fixture smoke has only four labeled examples and one positive, so it is a
+  command-contract check rather than evidence that the defense scorer item is complete.
+- Extended `benchmark-report-summary` to read `kenjaku-deal-in-benchmark-report-v0` artifacts and
+  print model-vs-heuristic eval deltas for Brier score, log loss, accuracy, and balanced accuracy.
+  This gives the next ignored-slice validation step a comparable report view instead of manual JSON
+  inspection.
+- Added `mahjong-transformer-encoder-v0`, a PyTorch fixed-token state encoder over hand, visible,
+  unseen, dora-indicator, riichi, seat, dealer, and score signals, plus an untrained masked discard
+  policy head and tensor dataset helpers. This checks off the Phase 2 encoder implementation item,
+  but behavior cloning, trained transformer policy metrics, and cloud training remain open.
+- Added `train-discard-transformer`, a PyTorch supervised discard behavior-cloning command around
+  `discard-transformer-policy-v0`. It emits `kenjaku-discard-transformer-report-v0` reports,
+  optional best-checkpoint artifacts, and `benchmark-report-summary` output. The Phase 2 behavior
+  cloning item remains unchecked because this workspace has no ignored Tenhou Phoenix/raw slice and
+  no real transformer training report yet.
+- Added `benchmark-discard-transformer`, which trains the transformer and frequency/risk/defense
+  anchors on one deterministic split, then emits
+  `kenjaku-discard-transformer-benchmark-report-v0` with transformer-vs-anchor eval accuracy
+  deltas. This gives the Phase 2 behavior-cloning work a comparable report target once ignored raw
+  Tenhou data is restored.
+- Added `replay-intake-review`, a permission-aware replay manifest review command. It reads
+  `kenjaku-replay-manifest-v0`, rejects unknown/denied or out-of-scope replay uses, writes
+  `kenjaku-replay-intake-review-v0` reports, and can emit accepted replay queue rows as JSONL. This
+  checks off the Phase 4 permission-aware replay ingestion/review item in the narrow offline
+  manifest-gate sense; it deliberately does not fetch live-service data or automate clients.
+- Added `replay-share-plan`, which consumes accepted replay intake JSONL and builds
+  `kenjaku-replay-share-plan-v0` reports for `demo` or `redistribution` intent. It blocks rows whose
+  original intended uses or permission scope do not cover the requested share intent. The Phase 4
+  auto-replay-sharing item remains unchecked because this command plans permitted offline sharing
+  only; it does not post URLs, upload files, or call platform APIs.
+- Added `self-play-sandbox`, a deterministic offline four-seat draw/discard turn-rotation harness
+  that can emit `kenjaku-self-play-sandbox-report-v0` reports and optional synthetic trajectories.
+  It has random/drawn/frequency discard policies and updates simple discard counts for plumbing
+  tests. Phase 3 self-play remains unchecked because this sandbox has no full riichi legality,
+  calls, yaku validation, scoring, PPO, or population training.
+- Added basic closed-hand winning-shape detection for standard hands, chiitoitsu, and kokushi, plus
+  `self-play-sandbox --stop-on-tsumo` terminal metadata. This advances terminal-outcome plumbing but
+  still leaves full yaku validation, open-hand legality, ron/furiten, scoring, and the Phase 3
+  full-rules self-play harness open.
+- Extended `self-play-sandbox` with `--ruleset tenhou-3p`, using the existing `TENHOU_3P` static
+  tile-set facts to run three seats and exclude 2m-8m from the wall. This is Sanma plumbing only;
+  the Phase 5 Sanma ruleset remains unchecked because actual 3-player gameplay, kita/call
+  semantics, scoring, training, and evaluation are not implemented.
+- Added `kenjaku-sandbox-environment-v0`, a reusable immutable sandbox environment boundary with
+  deterministic initial state, draw transitions, legal discard actions, discard transitions, and
+  terminal metadata. `self-play-sandbox` now runs through this boundary instead of directly mutating
+  wall/hand lists. This advances Phase 3 simulator plumbing, but the self-play harness remains
+  unchecked until legal calls/ron/tsumo, yaku/scoring, and a real training loop exist.
+- Extended `kenjaku-sandbox-environment-v0` with legal closed-hand tsumo action generation,
+  explicit tsumo application, and simple zero-sum terminal reward payloads. This removes the first
+  terminal-action shortcut from the sandbox, but did not yet add ron/call legality, yaku
+  validation, real scoring, or PPO-ready self-play.
+- Extended `kenjaku-sandbox-environment-v0` with a pending-discard reaction window, legal
+  closed-hand ron action generation, explicit ron application, and simple zero-sum ron rewards.
+  `self-play-sandbox` auto-passes those reaction windows because it still has no ron/call policy.
+  At that point this was useful simulator plumbing, but still not furiten, calls, yaku validation,
+  real scoring, or PPO-ready self-play.
+- Extended `kenjaku-sandbox-environment-v0` with legal chi/pon/minkan call action generation,
+  explicit call application, open meld tracking, post-call discard obligation, and a simple live-wall
+  replacement draw for minkan. `self-play-sandbox` still auto-passes reaction windows, so this is
+  environment plumbing only; it is not call-policy learning, dead-wall/kan-dora/rinshan semantics,
+  yaku validation, scoring, or PPO-ready self-play.
+- Extended the sandbox reaction window with individual reaction passes and ron-priority call gating:
+  calls are blocked while any pending reaction seat has a legal closed-hand ron. This moves call/ron
+  timing closer to real play, but still does not implement furiten, yaku validation, real scoring,
+  or a learned call/ron policy.
+- Extended sandbox ron resolution to accept multiple simultaneous ron declarations, preserve
+  `winner_seats` and per-seat winning shapes in terminal payloads, and assign simple multi-ron
+  sandbox rewards. At that point this was still not temporary/riichi furiten, yaku validation,
+  honba/riichi-stick payment handling, real scoring, or a learned call/ron policy.
+- Added sandbox discard history and a discard-furiten ron filter. Legal ron actions now disappear
+  when any current winning wait type is present in that player's own discard history, and explicit
+  ron application rejects the same state. This covers the permanent own-discard furiten case only;
+  at that point temporary furiten after passing a win, riichi furiten, yaku validation, and scoring
+  remained open.
+- Added temporary ron-pass furiten to the sandbox. Passing a currently legal ron adds that seat to
+  `temporary_furiten_seats`, suppresses later ron actions, rejects explicit ron application while
+  active, and clears when the seat next draws. Riichi furiten, yaku validation, and scoring remain
+  open because the sandbox still has no riichi declaration/state or points model.
