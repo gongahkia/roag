@@ -118,6 +118,7 @@ def run_self_play_sandbox(
             "honba_bonus_accounting": True,
             "ippatsu_window_tracking": True,
             "closed_kan_actions": True,
+            "added_kan_actions": True,
             "calls": False,
             "kan_policy": False,
             "call_policy": False,

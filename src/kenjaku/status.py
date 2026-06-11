@@ -63,6 +63,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_ippatsu_window_tracking": True,
                 "sandbox_ankan_action_generation": True,
                 "sandbox_ankan_application": True,
+                "sandbox_kakan_action_generation": True,
+                "sandbox_kakan_application": True,
                 "sandbox_call_action_generation": True,
                 "sandbox_call_application": True,
                 "sandbox_terminal_reward_payloads": True,

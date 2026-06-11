@@ -13,6 +13,7 @@ from kenjaku.simulation import (
     apply_ankan_action,
     apply_call_action,
     apply_discard_action,
+    apply_kakan_action,
     apply_reaction_pass_action,
     apply_riichi_action,
     apply_ron_action,
@@ -23,6 +24,7 @@ from kenjaku.simulation import (
     legal_ankan_actions,
     legal_call_actions,
     legal_discard_actions,
+    legal_kakan_actions,
     legal_reaction_actions,
     legal_riichi_actions,
     legal_ron_actions,
@@ -1101,6 +1103,150 @@ class SandboxEnvironmentTests(unittest.TestCase):
         after_kan, _meld = apply_ankan_action(drawn, ankan)
 
         self.assertEqual(after_kan.ippatsu_seats, ())
+
+    def test_kakan_action_promotes_pon_and_uses_simple_replacement_draw(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            hands=(
+                _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+            riichi_seats=(2,),
+            ippatsu_seats=(2,),
+        )
+        drawn = draw_for_current_seat(state)
+        kakan = Action(
+            ActionKind.KAKAN,
+            TileType.parse("3m"),
+            consumed=(Tile.parse("3m"),),
+        )
+
+        self.assertEqual(legal_kakan_actions(drawn), (kakan,))
+        self.assertIn(kakan, legal_sandbox_actions(drawn))
+
+        after_kan, meld = apply_kakan_action(drawn, kakan)
+
+        self.assertEqual(after_kan.current_seat, 0)
+        self.assertEqual(after_kan.turn, 0)
+        self.assertFalse(after_kan.needs_discard)
+        self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+        self.assertEqual(after_kan.wall, ())
+        self.assertEqual(after_kan.hand_sizes()[0], 11)
+        self.assertEqual(
+            sum(tile.type == TileType.parse("3m") for tile in after_kan.hands[0]),
+            0,
+        )
+        self.assertEqual(after_kan.ippatsu_seats, ())
+        self.assertEqual(after_kan.to_payload()["ippatsu_seats"], [])
+        self.assertEqual(meld.kind, ActionKind.KAKAN)
+        self.assertEqual(meld.tiles, (*pon.tiles, Tile.parse("3m")))
+        self.assertEqual(meld.called_tile, Tile.parse("3m"))
+        self.assertEqual(meld.from_seat, 3)
+        self.assertEqual(after_kan.melds[0], (meld,))
+        self.assertIn(Action.discard("8s"), legal_discard_actions(after_kan))
+
+    def test_kakan_rejects_without_draw_or_after_riichi(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("3m 1p 2p 3p 4p 5p 6p 7s 8s E"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+        kakan = Action(
+            ActionKind.KAKAN,
+            TileType.parse("3m"),
+            consumed=(Tile.parse("3m"),),
+        )
+
+        with self.assertRaisesRegex(ValueError, "must draw"):
+            legal_kakan_actions(state)
+
+        no_pon_drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(Tile.parse("3m"),),
+                hands=(_tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"), (), (), ()),
+            )
+        )
+        riichi_drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(Tile.parse("9s"),),
+                hands=state.hands,
+                melds=state.melds,
+                riichi_seats=(0,),
+                ippatsu_seats=(0,),
+            )
+        )
+        pending = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=state.hands,
+            melds=state.melds,
+            pending_discard=Tile.parse("7s"),
+            pending_discard_seat=1,
+            pending_reaction_seats=(0,),
+        )
+
+        self.assertEqual(legal_kakan_actions(no_pon_drawn), ())
+        self.assertEqual(legal_kakan_actions(riichi_drawn), ())
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_kakan_action(riichi_drawn, kakan)
+        with self.assertRaisesRegex(ValueError, "supports added kan"):
+            apply_kakan_action(riichi_drawn, Action.pass_())
+        with self.assertRaisesRegex(ValueError, "pending discard reaction"):
+            legal_kakan_actions(pending)
+
+    def test_kakan_without_replacement_draw_exhausts_wall(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(Tile.parse("3m"),),
+                hands=(_tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"), (), (), ()),
+                melds=((pon,), (), (), ()),
+            )
+        )
+        kakan = legal_kakan_actions(drawn)[0]
+
+        terminal, meld = apply_kakan_action(drawn, kakan)
+
+        self.assertEqual(meld.kind, ActionKind.KAKAN)
+        self.assertEqual(terminal.terminal_reason, "wall_exhausted")
+        self.assertIsNone(terminal.drawn_tile)
+        self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
 
     def test_rejects_tsumo_without_draw_or_winning_hand(self) -> None:
         state = SandboxEnvironmentState(

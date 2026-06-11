@@ -498,11 +498,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
     basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
     legal chi/pon/minkan, basic closed-kan/ankan self-turn actions with simple live-wall replacement
-    draws, individual reaction passes, ron-priority call gating,
+    draws, basic added-kan/kakan pon promotions with simple live-wall replacement draws, individual
+    reaction passes, ron-priority call gating,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads only; the next simulator step is full call/kan timing, kakan/dead-wall/rinshan
-    semantics, complete payment accounting, post-riichi closed-kan exception handling, yaku
-    validation, scoring, and richer reward semantics.
+    reward payloads only; the next simulator step is full call/kan timing, dead-wall, kan-dora,
+    rinshan, chankan semantics, complete payment accounting, post-riichi closed-kan exception
+    handling, yaku validation, scoring, and richer reward semantics.
 
 ---
 
@@ -1039,5 +1040,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added basic sandbox closed-kan/ankan actions. `legal_ankan_actions` and `apply_ankan_action`
   allow a non-riichi current seat to declare a self-turn concealed kan after drawing, consume four
   matching concealed tiles into an `ANKAN` meld, clear active ippatsu windows, and take a simple
-  live-wall replacement draw. This is still not dead-wall, kan-dora, rinshan, kakan, post-riichi
+  live-wall replacement draw. This is still not dead-wall, kan-dora, rinshan, post-riichi
   closed-kan exception handling, open-hand win validation, yaku validation, or scoring.
+- Added basic sandbox added-kan/kakan actions. `legal_kakan_actions` and `apply_kakan_action`
+  allow a non-riichi current seat with an existing pon to promote that pon into a `KAKAN` meld
+  after drawing, consume the fourth tile from the concealed hand, clear active ippatsu windows, and
+  take a simple live-wall replacement draw. This is still not dead-wall, kan-dora, rinshan,
+  robbing-kan/chankan reaction timing, post-riichi closed-kan exception handling, open-hand win
+  validation, yaku validation, or scoring.

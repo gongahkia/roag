@@ -255,6 +255,7 @@ def legal_sandbox_actions(
     include_tsumo: bool = True,
     include_riichi: bool = True,
     include_ankan: bool = True,
+    include_kakan: bool = True,
     include_ron: bool = True,
     include_calls: bool = True,
 ) -> tuple[Action, ...]:
@@ -279,6 +280,8 @@ def legal_sandbox_actions(
         actions.extend(legal_riichi_actions(state))
     if include_ankan:
         actions.extend(legal_ankan_actions(state))
+    if include_kakan:
+        actions.extend(legal_kakan_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 
@@ -335,6 +338,37 @@ def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
                 )
             )
     return tuple(actions)
+
+
+def legal_kakan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot added kan during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before added kan")
+    if _is_riichi(state, seat=state.current_seat):
+        return ()
+
+    hand = state.current_hand()
+    counts = _hand_type_counts(hand)
+    promotable_types = sorted(
+        {
+            tile_type
+            for meld in _melds_by_seat(state)[state.current_seat]
+            if meld.kind is ActionKind.PON
+            for tile_type in (_pon_meld_tile_type(meld),)
+            if counts[tile_type.index] >= 1
+        },
+        key=lambda tile_type: tile_type.index,
+    )
+    return tuple(
+        Action(
+            ActionKind.KAKAN,
+            tile_type,
+            consumed=_first_tiles_of_type(hand, tile_type, 1),
+        )
+        for tile_type in promotable_types
+    )
 
 
 def legal_discard_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
@@ -427,6 +461,54 @@ def apply_ankan_action(
         updates["drawn_tile"] = replacement_draw
 
     return _replace_state(state, **updates), meld
+
+
+def apply_kakan_action(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> tuple[SandboxEnvironmentState, Meld]:
+    _require_non_terminal(state)
+    if state.pending_discard is not None:
+        raise ValueError("cannot added kan during a pending discard reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before added kan")
+    if action.kind is not ActionKind.KAKAN:
+        raise ValueError("sandbox environment only supports added kan actions here")
+    if action not in legal_kakan_actions(state):
+        raise ValueError("added kan action is not legal for this state")
+
+    hands = [list(hand) for hand in state.hands]
+    for tile in action.consumed:
+        _remove_tile(hands[state.current_seat], tile)
+
+    melds = [list(seat_melds) for seat_melds in _melds_by_seat(state)]
+    promoted_meld = _promote_pon_meld_to_kakan(
+        melds[state.current_seat],
+        tile_type=_action_tile(action),
+        added_tile=action.consumed[0],
+    )
+    updates: dict[str, Any] = {
+        "hands": tuple(tuple(hand) for hand in hands),
+        "melds": tuple(tuple(seat_melds) for seat_melds in melds),
+        "drawn_tile": None,
+        "needs_discard": False,
+        "pending_discard": None,
+        "pending_discard_seat": None,
+        "pending_reaction_seats": (),
+        "ippatsu_seats": (),
+    }
+
+    if not state.wall:
+        updates["terminal_reason"] = "wall_exhausted"
+        updates["terminal_rewards"] = _neutral_rewards(state.players)
+    else:
+        replacement_draw = state.wall[-1]
+        hands[state.current_seat].append(replacement_draw)
+        updates["wall"] = state.wall[:-1]
+        updates["hands"] = tuple(tuple(hand) for hand in hands)
+        updates["drawn_tile"] = replacement_draw
+
+    return _replace_state(state, **updates), promoted_meld
 
 
 def apply_discard_action(
@@ -787,6 +869,40 @@ def _discard_index(hand: list[Tile], tile_type: TileType) -> int:
         if tile.type == tile_type:
             return index
     raise ValueError(f"discard tile is not in current hand: {tile_type.notation}")
+
+
+def _action_tile(action: Action) -> TileType:
+    if action.tile is None:
+        raise ValueError(f"{action.kind.value} action requires a tile")
+    return action.tile
+
+
+def _promote_pon_meld_to_kakan(
+    melds: list[Meld],
+    *,
+    tile_type: TileType,
+    added_tile: Tile,
+) -> Meld:
+    for index, meld in enumerate(melds):
+        if meld.kind is not ActionKind.PON or _pon_meld_tile_type(meld) != tile_type:
+            continue
+        promoted = Meld(
+            kind=ActionKind.KAKAN,
+            tiles=(*meld.tiles, added_tile),
+            called_tile=meld.called_tile,
+            from_seat=meld.from_seat,
+        )
+        melds[index] = promoted
+        return promoted
+    raise ValueError(f"no pon meld can be promoted for {tile_type.notation}")
+
+
+def _pon_meld_tile_type(meld: Meld) -> TileType:
+    if meld.kind is not ActionKind.PON:
+        raise ValueError("meld is not a pon")
+    if meld.called_tile is not None:
+        return meld.called_tile.type
+    return meld.tiles[0].type
 
 
 def _remove_tile(hand: list[Tile], tile: Tile) -> None:
