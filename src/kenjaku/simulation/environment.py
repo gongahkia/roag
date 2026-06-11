@@ -42,6 +42,8 @@ class SandboxEnvironmentState:
     pending_discard_seat: int | None = None
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
+    riichi_seats: tuple[int, ...] = ()
+    riichi_furiten_seats: tuple[int, ...] = ()
     terminal_reason: str | None = None
     winner_seat: int | None = None
     winner_seats: tuple[int, ...] = ()
@@ -84,6 +86,16 @@ class SandboxEnvironmentState:
             raise ValueError("temporary furiten seat outside player range")
         if len(set(self.temporary_furiten_seats)) != len(self.temporary_furiten_seats):
             raise ValueError("temporary furiten seats must be unique")
+        if any(not 0 <= seat < self.players for seat in self.riichi_seats):
+            raise ValueError("riichi seat outside player range")
+        if len(set(self.riichi_seats)) != len(self.riichi_seats):
+            raise ValueError("riichi seats must be unique")
+        if any(not 0 <= seat < self.players for seat in self.riichi_furiten_seats):
+            raise ValueError("riichi furiten seat outside player range")
+        if len(set(self.riichi_furiten_seats)) != len(self.riichi_furiten_seats):
+            raise ValueError("riichi furiten seats must be unique")
+        if any(seat not in self.riichi_seats for seat in self.riichi_furiten_seats):
+            raise ValueError("riichi furiten seats must also be riichi seats")
         if self.terminal_rewards and len(self.terminal_rewards) != self.players:
             raise ValueError("terminal reward count must match player count")
 
@@ -115,6 +127,8 @@ class SandboxEnvironmentState:
             "pending_discard_seat": self.pending_discard_seat,
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
+            "riichi_seats": list(self.riichi_seats),
+            "riichi_furiten_seats": list(self.riichi_furiten_seats),
             "terminal_reason": self.terminal_reason,
             "winner_seat": self.winner_seat,
             "winner_seats": list(self.winner_seats),
@@ -347,6 +361,8 @@ def legal_ron_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Act
         return ()
     if _is_temporary_furiten(state, seat=seat):
         return ()
+    if _is_riichi_furiten(state, seat=seat):
+        return ()
     return (Action(ActionKind.RON, pending_discard.type),)
 
 
@@ -418,8 +434,12 @@ def apply_reaction_pass_action(
     if action is not None and action.kind is not ActionKind.PASS:
         raise ValueError("reaction pass requires a pass action")
     temporary_furiten_seats = state.temporary_furiten_seats
+    riichi_furiten_seats = state.riichi_furiten_seats
     if legal_ron_actions(state, seat=seat):
-        temporary_furiten_seats = _with_seat(temporary_furiten_seats, seat)
+        if _is_riichi(state, seat=seat):
+            riichi_furiten_seats = _with_seat(riichi_furiten_seats, seat)
+        else:
+            temporary_furiten_seats = _with_seat(temporary_furiten_seats, seat)
     remaining = tuple(
         reaction_seat for reaction_seat in state.pending_reaction_seats if reaction_seat != seat
     )
@@ -428,6 +448,7 @@ def apply_reaction_pass_action(
             state,
             pending_reaction_seats=remaining,
             temporary_furiten_seats=temporary_furiten_seats,
+            riichi_furiten_seats=riichi_furiten_seats,
         )
     return _replace_state(
         state,
@@ -435,6 +456,7 @@ def apply_reaction_pass_action(
         pending_discard_seat=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
+        riichi_furiten_seats=riichi_furiten_seats,
     )
 
 
@@ -475,6 +497,8 @@ def apply_ron_actions(
             raise ValueError("reacting hand is in discard furiten")
         if _is_temporary_furiten(state, seat=seat):
             raise ValueError("reacting hand is in temporary furiten")
+        if _is_riichi_furiten(state, seat=seat):
+            raise ValueError("reacting hand is in riichi furiten")
         winner_seats.append(seat)
         winning_shapes_by_seat.append((seat, shapes))
 
@@ -498,15 +522,20 @@ def pass_pending_discard_reactions(state: SandboxEnvironmentState) -> SandboxEnv
     _require_non_terminal(state)
     _require_pending_discard(state)
     temporary_furiten_seats = state.temporary_furiten_seats
+    riichi_furiten_seats = state.riichi_furiten_seats
     for seat in state.pending_reaction_seats:
         if legal_ron_actions(state, seat=seat):
-            temporary_furiten_seats = _with_seat(temporary_furiten_seats, seat)
+            if _is_riichi(state, seat=seat):
+                riichi_furiten_seats = _with_seat(riichi_furiten_seats, seat)
+            else:
+                temporary_furiten_seats = _with_seat(temporary_furiten_seats, seat)
     return _replace_state(
         state,
         pending_discard=None,
         pending_discard_seat=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
+        riichi_furiten_seats=riichi_furiten_seats,
     )
 
 
@@ -591,6 +620,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_discard_seat": state.pending_discard_seat,
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
+        "riichi_seats": state.riichi_seats,
+        "riichi_furiten_seats": state.riichi_furiten_seats,
         "terminal_reason": state.terminal_reason,
         "winner_seat": state.winner_seat,
         "winner_seats": state.winner_seats,
@@ -740,6 +771,7 @@ def _pending_ron_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
         if _winning_shapes_for_complete_tiles((*state.hands[seat], pending_discard))
         and not _is_discard_furiten(state, seat=seat)
         and not _is_temporary_furiten(state, seat=seat)
+        and not _is_riichi_furiten(state, seat=seat)
     )
 
 
@@ -753,6 +785,14 @@ def _is_discard_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
 
 def _is_temporary_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
     return seat in state.temporary_furiten_seats
+
+
+def _is_riichi(state: SandboxEnvironmentState, *, seat: int) -> bool:
+    return seat in state.riichi_seats
+
+
+def _is_riichi_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
+    return seat in state.riichi_furiten_seats
 
 
 def _winning_wait_types(state: SandboxEnvironmentState, *, seat: int) -> tuple[TileType, ...]:

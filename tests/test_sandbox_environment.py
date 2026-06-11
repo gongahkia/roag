@@ -61,6 +61,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_state.discards[0], (discard,))
         self.assertEqual(next_state.to_payload()["discards"][0], [discard.notation])
         self.assertEqual(next_state.to_payload()["temporary_furiten_seats"], [])
+        self.assertEqual(next_state.to_payload()["riichi_seats"], [])
+        self.assertEqual(next_state.to_payload()["riichi_furiten_seats"], [])
 
         with self.assertRaisesRegex(ValueError, "pending discard reactions"):
             draw_for_current_seat(next_state)
@@ -206,6 +208,47 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_draw.current_seat, 1)
         self.assertEqual(next_draw.temporary_furiten_seats, ())
 
+    def test_passing_legal_ron_after_riichi_sets_riichi_furiten(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"), Tile.parse("5m")),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            riichi_seats=(1,),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+
+        self.assertEqual(
+            legal_ron_actions(reaction_state, seat=1),
+            (Action(ActionKind.RON, TileType.parse("5m")),),
+        )
+        bulk_resolved = pass_pending_discard_reactions(reaction_state)
+        self.assertEqual(bulk_resolved.riichi_furiten_seats, (1,))
+        self.assertEqual(bulk_resolved.temporary_furiten_seats, ())
+
+        after_ron_pass = apply_reaction_pass_action(
+            reaction_state,
+            seat=1,
+            action=Action.pass_(),
+        )
+        after_two_passes = apply_reaction_pass_action(after_ron_pass, seat=2)
+        resolved = apply_reaction_pass_action(after_two_passes, seat=3)
+        next_draw = draw_for_current_seat(resolved)
+
+        self.assertEqual(after_ron_pass.riichi_furiten_seats, (1,))
+        self.assertEqual(after_ron_pass.temporary_furiten_seats, ())
+        self.assertEqual(after_ron_pass.to_payload()["riichi_seats"], [1])
+        self.assertEqual(after_ron_pass.to_payload()["riichi_furiten_seats"], [1])
+        self.assertEqual(resolved.riichi_furiten_seats, (1,))
+        self.assertEqual(next_draw.current_seat, 1)
+        self.assertEqual(next_draw.riichi_furiten_seats, (1,))
+
     def test_temporary_furiten_blocks_ron(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -226,6 +269,33 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_ron_actions(state, seat=1), ())
         self.assertEqual(legal_reaction_actions(state, seat=1), (Action.pass_(),))
         with self.assertRaisesRegex(ValueError, "temporary furiten"):
+            apply_ron_action(
+                state,
+                seat=1,
+                action=Action(ActionKind.RON, TileType.parse("5m")),
+            )
+
+    def test_riichi_furiten_blocks_ron(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("5m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+            riichi_seats=(1,),
+            riichi_furiten_seats=(1,),
+        )
+
+        self.assertEqual(legal_ron_actions(state, seat=1), ())
+        self.assertEqual(legal_reaction_actions(state, seat=1), (Action.pass_(),))
+        with self.assertRaisesRegex(ValueError, "riichi furiten"):
             apply_ron_action(
                 state,
                 seat=1,

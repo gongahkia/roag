@@ -41,13 +41,14 @@ Last updated: 2026-06-11.
   closed-hand ron action generation, explicit ron application, and simple zero-sum ron rewards.
   Added legal chi/pon/minkan call action generation, explicit call application, open meld tracking,
   post-call discard obligation, and a simple live-wall replacement draw for minkan. Together these
-  are still not a call/ron policy, dead-wall/kan-dora/rinshan semantics, riichi furiten, yaku
-  validation, real scoring, or PPO-ready self-play. Added individual reaction passes and
-  ron-priority call gating so calls are blocked while any pending reaction seat has legal ron.
+  are still not a call/ron policy, dead-wall/kan-dora/rinshan semantics, full riichi declaration
+  legality, yaku validation, real scoring, or PPO-ready self-play. Added individual reaction passes
+  and ron-priority call gating so calls are blocked while any pending reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. This is
-  still not riichi furiten, yaku validation, or scoring.
+  Added seeded riichi-furiten filtering for states that already mark `riichi_seats`. This is still
+  not full riichi declaration legality, yaku validation, or scoring.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
@@ -195,8 +196,8 @@ Last updated: 2026-06-11.
   vector for sandbox tsumo/ron. `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and
   player count; `tenhou-3p` excludes 2m-8m and rotates three seats. `--stop-on-tsumo` checks basic
   closed-hand standard, chiitoitsu, and kokushi winning shapes immediately after a synthetic draw.
-  It is for plumbing only; it has no call/ron policy, yaku validation, riichi furiten,
-  dead-wall/kan-dora handling, scoring, full riichi legality, PPO, or population training.
+  It is for plumbing only; it has no call/ron policy, yaku validation, dead-wall/kan-dora handling,
+  scoring, full riichi legality, PPO, or population training.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_call_actions`, `legal_reaction_actions`,
@@ -204,9 +205,9 @@ Last updated: 2026-06-11.
   `apply_call_action`, `apply_tsumo_action`, `apply_ron_action`, `apply_ron_actions`, and
   `pass_pending_discard_reactions`. This is the current simulator boundary for future Phase 3 work.
   It only supports draw/discard transitions, pending discard reactions with individual passes,
-  ron-priority call gating, discard-furiten and temporary ron-pass furiten filtering, basic
-  chi/pon/minkan calls, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
-  resolution, and simple sandbox terminal rewards.
+  ron-priority call gating, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
+  filtering, basic chi/pon/minkan calls, basic closed-hand tsumo/ron terminal metadata, basic
+  multi-ron terminal resolution, and simple sandbox terminal rewards.
 
 ## Working Rules
 
@@ -231,8 +232,8 @@ Last updated: 2026-06-11.
   but not a full simulator or training loop.
 - The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
-  including riichi furiten and yaku checks, yaku/scoring semantics, real multi-ron payment handling,
-  richer terminal reward signals, and validation against real reconstructed games.
+  including yaku checks, full riichi declaration legality, yaku/scoring semantics, real multi-ron
+  payment handling, richer terminal reward signals, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It only applies the static tile exclusions and three-seat rotation. Real Sanma still needs
   gameplay, calls/kita treatment, scoring, training, and evaluation.
@@ -751,10 +752,11 @@ Mortal local baseline reconnaissance:
    Use `replay-share-plan` as the local permission/scope check before demo or redistribution work.
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
-   outcome semantics, riichi furiten, real multi-ron payment handling, and scoring before PPO work.
+   outcome semantics, full riichi declaration legality, real multi-ron payment handling, and scoring
+   before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check static Sanma tile-set plumbing. Do not
    mark the Phase 5 Sanma ruleset complete until real 3-player gameplay, kita/call semantics,
    scoring, training, and evaluation exist.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
-    payment semantics, full ron/tsumo legality, riichi furiten, yaku/scoring semantics, and richer
-    terminal reward payloads should come before policy optimization.
+    payment semantics, full ron/tsumo legality, full riichi declaration legality, yaku/scoring
+    semantics, and richer terminal reward payloads should come before policy optimization.

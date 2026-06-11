@@ -28,13 +28,14 @@ handoff notes.
   scoring.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
-  actions, legal closed-hand tsumo/ron actions, discard-furiten and temporary ron-pass furiten
-  filtering, individual reaction passes, ron-priority call gating, discard/call/tsumo/ron
-  application, basic multi-ron terminal resolution, and simple terminal reward payloads. The
-  self-play sandbox uses this boundary for 4-player and static 3-player tile-set draw/discard
-  turn-rotation plus terminal-outcome plumbing, auto-passing reaction windows because it has no
-  ron/call policy yet. It is not a full riichi/Sanma simulator, complete furiten model, yaku
-  validator, dead-wall/kan-dora/rinshan implementation, scoring engine, or RL implementation.
+  actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
+  seeded riichi-furiten filtering, individual reaction passes, ron-priority call gating,
+  discard/call/tsumo/ron application, basic multi-ron terminal resolution, and simple terminal
+  reward payloads. The self-play sandbox uses this boundary for 4-player and static 3-player
+  tile-set draw/discard turn-rotation plus terminal-outcome plumbing, auto-passing reaction windows
+  because it has no ron/call policy yet. It is not a full riichi/Sanma simulator, complete riichi
+  declaration model, yaku validator, dead-wall/kan-dora/rinshan implementation, scoring engine, or
+  RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.

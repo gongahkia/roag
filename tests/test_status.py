@@ -43,6 +43,9 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_temporary_furiten_ron_filter"]
         )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_riichi_furiten_ron_filter"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
@@ -92,6 +95,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_multi_ron_resolution: yes", text)
         self.assertIn("sandbox_discard_furiten_ron_filter: yes", text)
         self.assertIn("sandbox_temporary_furiten_ron_filter: yes", text)
+        self.assertIn("sandbox_riichi_furiten_ron_filter: yes", text)
         self.assertIn("sandbox_call_action_generation: yes", text)
         self.assertIn("sandbox_call_application: yes", text)
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)

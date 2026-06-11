@@ -494,11 +494,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
-    closed-hand tsumo/ron, discard-furiten and temporary ron-pass furiten filtering, legal
-    chi/pon/minkan, individual reaction passes, ron-priority call gating, discard/call/tsumo/ron
-    transitions, basic multi-ron terminal resolution, and simple terminal reward payloads only; the
-    next simulator step is full call/kan timing, riichi furiten, yaku validation, scoring, and
-    richer reward semantics.
+    closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
+    filtering, legal chi/pon/minkan, individual reaction passes, ron-priority call gating,
+    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
+    reward payloads only; the next simulator step is full call/kan timing, full riichi declaration
+    legality, yaku validation, scoring, and richer reward semantics.
 
 ---
 
@@ -1002,5 +1002,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   remained open.
 - Added temporary ron-pass furiten to the sandbox. Passing a currently legal ron adds that seat to
   `temporary_furiten_seats`, suppresses later ron actions, rejects explicit ron application while
-  active, and clears when the seat next draws. Riichi furiten, yaku validation, and scoring remain
-  open because the sandbox still has no riichi declaration/state or points model.
+  active, and clears when the seat next draws. At that point riichi furiten, yaku validation, and
+  scoring remained open because the sandbox still had no riichi declaration/state or points model.
+- Added a seeded riichi-furiten filter to the sandbox. States can now mark `riichi_seats`, and
+  passing a legal ron while in riichi adds the player to `riichi_furiten_seats`, suppressing and
+  rejecting future ron attempts for the hand. This is still not full riichi declaration legality,
+  riichi stick accounting, yaku validation, or scoring.
