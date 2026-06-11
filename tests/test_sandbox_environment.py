@@ -200,6 +200,92 @@ class SandboxEnvironmentTests(unittest.TestCase):
                 rinshan_draw=True,
             )
 
+    def test_open_meld_tsumo_uses_melds_for_standard_shape(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        tsumo_actions = legal_tsumo_actions(drawn)
+        terminal = apply_tsumo_action(drawn, tsumo_actions[0])
+
+        self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winner_seats, (0,))
+
+    def test_open_meld_ron_uses_melds_for_standard_shape(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            melds=((), (pon,), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        ron_actions = legal_ron_actions(reaction_state, seat=1)
+        terminal = apply_ron_action(reaction_state, seat=1, action=ron_actions[0])
+
+        self.assertEqual(ron_actions, (Action(ActionKind.RON, TileType.parse("5m")),))
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winner_seats, (1,))
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+
+    def test_rinshan_tsumo_after_ankan_uses_kan_meld_for_standard_shape(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 5m"),
+            dora_indicators=(Tile.parse("1m"),),
+            hands=(
+                _tiles("3m 3m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        after_kan, _meld = apply_ankan_action(drawn, legal_ankan_actions(drawn)[0])
+
+        tsumo_actions = legal_tsumo_actions(after_kan)
+        terminal = apply_tsumo_action(after_kan, tsumo_actions[0])
+
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_rinshan_seats, (0,))
+        self.assertEqual(terminal.to_payload()["winning_rinshan_seats"], [0])
+
     def test_riichi_declaration_is_legal_after_draw_when_discard_leaves_tenpai(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

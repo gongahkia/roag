@@ -129,7 +129,7 @@ def run_self_play_sandbox(
             "chankan_policy": False,
             "call_policy": False,
             "ron_policy": False,
-            "open_hand_win_detection": False,
+            "open_hand_win_detection": True,
             "reaction_windows_auto_passed": True,
             "discard_furiten_ron_filter": True,
             "temporary_furiten_ron_filter": True,

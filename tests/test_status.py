@@ -81,6 +81,9 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"]
+        )
+        self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_sandbox_tsumo_termination"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sanma_static_ruleset"])
@@ -144,6 +147,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_call_application: yes", text)
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)
         self.assertIn("basic_winning_hand_detection: yes", text)
+        self.assertIn("sandbox_open_meld_win_detection: yes", text)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", text)
         self.assertIn("sanma_static_ruleset: yes", text)
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", text)

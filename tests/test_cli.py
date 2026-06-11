@@ -76,6 +76,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_call_application: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
         self.assertIn("basic_winning_hand_detection: yes", output)
+        self.assertIn("sandbox_open_meld_win_detection: yes", output)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
         self.assertIn("sanma_static_ruleset: yes", output)
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", output)
@@ -163,6 +164,9 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_sandbox_tsumo_termination"]
         )
@@ -378,6 +382,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("policy: frequency-discard-sandbox-v0", text_stdout.getvalue())
         self.assertIn("stop_on_tsumo: yes", text_stdout.getvalue())
         self.assertIn("full_riichi_rules: no", text_stdout.getvalue())
+        self.assertIn("open_hand_win_detection: yes", text_stdout.getvalue())
         self.assertIn("discard_furiten_ron_filter: yes", text_stdout.getvalue())
         self.assertIn("temporary_furiten_ron_filter: yes", text_stdout.getvalue())
         self.assertIn("riichi_furiten_ron_filter: yes", text_stdout.getvalue())
@@ -414,6 +419,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(report_payload["capabilities"]["kan_dora_indicator_metadata"])
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
+        self.assertTrue(report_payload["capabilities"]["open_hand_win_detection"])
         self.assertFalse(report_payload["capabilities"]["kan_policy"])
         self.assertFalse(report_payload["capabilities"]["chankan_policy"])
         self.assertFalse(report_payload["capabilities"]["ppo"])

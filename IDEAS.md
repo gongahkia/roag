@@ -501,10 +501,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     kan-dora indicator metadata, basic rinshan draw-source metadata, individual reaction passes,
     ron-priority call gating, a basic chankan ron/pass window before kakan replacement draw,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads only; the next simulator step is full call/kan timing, open/kan hand win
-    validation, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator
-    ordering, complete chankan semantics, complete payment accounting, post-riichi closed-kan
-    exception handling, yaku validation, scoring, and richer reward semantics.
+    reward payloads, plus basic open/kan standard-shape win detection only; the next simulator step
+    is full call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring
+    semantics, complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
+    payment accounting, post-riichi closed-kan exception handling, scoring, and richer reward
+    semantics.
 
 ---
 
@@ -1066,6 +1067,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added basic sandbox rinshan draw-source metadata. Normal wall draws clear `rinshan_draw`,
   minkan/ankan/kakan replacement draws set it, discards clear it, self-play episode summaries expose
   the transient flag plus `winning_rinshan_seats`, and tsumo terminal metadata records a winner when
-  the current draw is marked as a replacement draw. This is still metadata only: open/kan hand win
-  validation, full rinshan yaku/scoring, complete kan-dora/ura-dora ordering, post-riichi
-  closed-kan exceptions, and learned kan/chankan policy remain open.
+  the current draw is marked as a replacement draw. This is still metadata only: full yaku-aware
+  open/kan hand legality, full rinshan yaku/scoring, complete kan-dora/ura-dora ordering,
+  post-riichi closed-kan exceptions, and learned kan/chankan policy remain open.
+- Added basic open/kan standard-shape win detection to the sandbox environment. Legal tsumo, ron,
+  chankan ron, wait-type/furiten checks, and rinshan replacement draws now validate standard hands
+  by combining concealed tiles with each existing meld as one completed group. Chiitoitsu and
+  kokushi remain closed-hand-only, and this still does not implement yaku legality, open-hand yaku
+  restrictions, scoring, complete rinshan yaku/scoring semantics, or learned call/ron/kan policy.

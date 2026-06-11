@@ -44,10 +44,13 @@ Last updated: 2026-06-11.
   replacement draws plus kan-dora indicator metadata. Added basic rinshan draw-source metadata:
   normal wall draws clear `rinshan_draw`, kan replacement draws set it, discards clear it, and tsumo
   terminal metadata records `winning_rinshan_seats` when the current draw is marked as a
-  replacement draw. Together these are still not a call/ron policy, complete rinshan yaku/scoring
-  semantics, complete kan-dora/ura-dora indicator ordering, full riichi declaration legality, yaku
-  validation, real scoring, or PPO-ready self-play. Added individual reaction passes and
-  ron-priority call gating so calls are blocked while any pending reaction seat has legal ron.
+  replacement draw. Added basic open/kan standard-shape win detection by combining concealed tiles
+  with each existing meld as one completed group for tsumo, ron, chankan ron, wait, and furiten
+  checks. Together these are still not a call/ron policy, complete yaku-aware open-hand legality,
+  complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, full
+  riichi declaration legality, real scoring, or PPO-ready self-play. Added individual reaction
+  passes and ron-priority call gating so calls are blocked while any pending reaction seat has legal
+  ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. Added seeded
@@ -67,11 +70,12 @@ Last updated: 2026-06-11.
   ippatsu windows, and either open a basic chankan ron/pass window or take a basic dead-wall
   replacement draw. Chankan pass resolution performs the delayed replacement draw; chankan ron
   terminates with `terminal_reason="chankan"`. Sandbox states now reserve a 14-tile dead wall and
-  expose visible dora/kan-dora indicator metadata plus basic rinshan draw-source metadata. This is
-  still not hand scoring, next-round honba progression, real multi-ron payment validation, yaku
-  validation, open/kan hand win validation, complete rinshan yaku/scoring semantics, complete
-  kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan semantics, closed-kan
-  exception handling after riichi, ippatsu scoring, or calibrated rewards.
+  expose visible dora/kan-dora indicator metadata plus basic rinshan draw-source metadata. The
+  sandbox now detects basic open/kan standard hand shapes, including rinshan replacement draws after
+  kan. This is still not hand scoring, next-round honba progression, real multi-ron payment
+  validation, complete yaku validation, complete rinshan yaku/scoring semantics, complete
+  kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan semantics, closed-kan exception
+  handling after riichi, ippatsu scoring, or calibrated rewards.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
@@ -223,10 +227,10 @@ Last updated: 2026-06-11.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
   excludes 2m-8m and rotates three seats. `--stop-on-tsumo` checks basic closed-hand standard,
   chiitoitsu, and kokushi winning shapes immediately after a synthetic draw. It is for plumbing
-  only; it has no call/ron/kan policy, yaku validation, open/kan hand win validation, complete
-  rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete
-  robbing-kan/chankan handling, scoring, complete payment accounting, post-riichi closed-kan
-  exception handling, PPO, or population training.
+  only; it has no call/ron/kan policy, yaku validation, complete rinshan yaku/scoring semantics,
+  complete kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan handling, scoring,
+  complete payment accounting, post-riichi closed-kan exception handling, PPO, or population
+  training.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_chankan_ron_actions`,
@@ -245,7 +249,7 @@ Last updated: 2026-06-11.
   replacement draws, basic added-kan/kakan pon promotions with dead-wall replacement draws, basic
   rinshan draw-source and winning-rinshan terminal metadata, a basic chankan ron/pass window before
   kakan replacement draw, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
-  resolution, and simple sandbox terminal rewards.
+  resolution, basic open/kan standard-shape win detection, and simple sandbox terminal rewards.
 
 ## Working Rules
 
@@ -271,10 +275,10 @@ Last updated: 2026-06-11.
 - The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
   including yaku checks, complete payment/scoring semantics, next-round honba progression, ippatsu
-  scoring, open/kan hand win validation, complete rinshan yaku/scoring semantics, complete
-  kan-dora/ura-dora indicator ordering, complete chankan semantics, and post-riichi closed-kan
-  exception handling, real multi-ron payment handling, richer terminal reward signals, and
-  validation against real reconstructed games.
+  scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
+  complete kan-dora/ura-dora indicator ordering, complete chankan semantics, and post-riichi
+  closed-kan exception handling, real multi-ron payment handling, richer terminal reward signals,
+  and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It only applies the static tile exclusions and three-seat rotation. Real Sanma still needs
   gameplay, calls/kita treatment, scoring, training, and evaluation.
@@ -794,15 +798,15 @@ Mortal local baseline reconnaissance:
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics, next-round honba progression, ippatsu
-   scoring, open/kan hand win validation, complete rinshan yaku/scoring semantics, complete
-   kan-dora/ura-dora indicator ordering, complete chankan semantics, post-riichi closed-kan
-   exception handling, real multi-ron payment handling, and scoring before PPO work.
+   scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
+   complete kan-dora/ura-dora indicator ordering, complete chankan semantics, post-riichi
+   closed-kan exception handling, real multi-ron payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check static Sanma tile-set plumbing. Do not
    mark the Phase 5 Sanma ruleset complete until real 3-player gameplay, kita/call semantics,
    scoring, training, and evaluation exist.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics, next-round
-    honba progression, ippatsu scoring, open/kan hand win validation, complete rinshan
+    honba progression, ippatsu scoring, full yaku-aware open/kan hand legality, complete rinshan
     yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete chankan
     semantics, post-riichi closed-kan exception handling, yaku/scoring semantics, and richer
     terminal reward payloads should come before policy optimization.

@@ -74,6 +74,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_call_application": True,
                 "sandbox_terminal_reward_payloads": True,
                 "basic_winning_hand_detection": True,
+                "sandbox_open_meld_win_detection": True,
                 "self_play_sandbox_tsumo_termination": True,
                 "sanma_static_ruleset": True,
                 "self_play_sandbox_sanma_tile_set": True,

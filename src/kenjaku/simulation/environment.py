@@ -347,7 +347,7 @@ def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
         raise ValueError("cannot tsumo during a pending reaction")
     if state.drawn_tile is None:
         raise ValueError("current seat must draw before tsumo")
-    shapes = _winning_shapes_for_complete_tiles(state.current_hand())
+    shapes = _winning_shapes_for_state(state, seat=state.current_seat)
     if not shapes:
         return ()
     return (Action(ActionKind.TSUMO),)
@@ -859,7 +859,7 @@ def apply_ron_actions(
         seen.add(seat)
         if action.kind is not ActionKind.RON or action.tile != pending_tile.type:
             raise ValueError("sandbox environment only supports matching ron actions here")
-        shapes = _winning_shapes_for_complete_tiles((*state.hands[seat], pending_tile))
+        shapes = _winning_shapes_for_state(state, seat=seat, winning_tile=pending_tile)
         if not shapes:
             raise ValueError("reacting hand is not a winning ron")
         if _is_discard_furiten(state, seat=seat):
@@ -935,7 +935,7 @@ def apply_tsumo_action(
         raise ValueError("current seat must draw before tsumo")
     if action.kind is not ActionKind.TSUMO:
         raise ValueError("sandbox environment only supports tsumo actions here")
-    shapes = _winning_shapes_for_complete_tiles(state.current_hand())
+    shapes = _winning_shapes_for_state(state, seat=state.current_seat)
     if not shapes:
         raise ValueError("current hand is not a winning tsumo")
     point_updates = _terminal_win_point_updates(
@@ -1029,6 +1029,30 @@ def _winning_shapes_for_complete_tiles(tiles: tuple[Tile, ...]) -> tuple[str, ..
     return winning_hand_shapes_for_tiles(tiles)
 
 
+def _winning_shapes_for_state(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile | None = None,
+) -> tuple[str, ...]:
+    concealed_tiles = state.hands[seat]
+    if winning_tile is not None:
+        concealed_tiles = (*concealed_tiles, winning_tile)
+    melds = _melds_by_seat(state)[seat]
+    if not melds:
+        return _winning_shapes_for_complete_tiles(concealed_tiles)
+
+    full_tiles = (*concealed_tiles, *_standard_shape_tiles_for_melds(melds))
+    if len(full_tiles) != 14:
+        return ()
+    shapes = winning_hand_shapes_for_tiles(full_tiles)
+    return tuple(shape for shape in shapes if shape == "standard")
+
+
+def _standard_shape_tiles_for_melds(melds: tuple[Meld, ...]) -> tuple[Tile, ...]:
+    return tuple(tile for meld in melds for tile in meld.tiles[:3])
+
+
 def _has_riichi_tenpai_discard(state: SandboxEnvironmentState) -> bool:
     hand = state.current_hand()
     if len(hand) != 14:
@@ -1057,7 +1081,7 @@ def _can_ron_tile(
     seat: int,
     tile: Tile,
 ) -> bool:
-    if not _winning_shapes_for_complete_tiles((*state.hands[seat], tile)):
+    if not _winning_shapes_for_state(state, seat=seat, winning_tile=tile):
         return False
     if _is_discard_furiten(state, seat=seat):
         return False
@@ -1394,7 +1418,7 @@ def _winning_wait_types(state: SandboxEnvironmentState, *, seat: int) -> tuple[T
             tile_type.index
         ]:
             continue
-        if _winning_shapes_for_complete_tiles((*hand, Tile(tile_type))):
+        if _winning_shapes_for_state(state, seat=seat, winning_tile=Tile(tile_type)):
             waits.append(tile_type)
     return tuple(waits)
 
