@@ -26,10 +26,74 @@ HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_INITIAL_DORA_INDICATORS = 1
+SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-nondealer-rounded-v0"
+SANDBOX_YAKU_HAN = {
+    "chiitoitsu": 2,
+    "riichi": 1,
+    "ippatsu": 1,
+    "menzen_tsumo": 1,
+    "rinshan": 1,
+    "chankan": 1,
+    "tanyao": 1,
+    "yakuhai": 1,
+}
+SANDBOX_LIMIT_BASE_POINTS = {
+    "mangan": 2000,
+    "haneman": 3000,
+    "baiman": 4000,
+    "sanbaiman": 6000,
+    "yakuman": 8000,
+}
+SANDBOX_LIMIT_RON_POINTS = {
+    "mangan": 8000,
+    "haneman": 12000,
+    "baiman": 16000,
+    "sanbaiman": 24000,
+    "yakuman": 32000,
+}
+SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER = {
+    "mangan": 2000,
+    "haneman": 3000,
+    "baiman": 4000,
+    "sanbaiman": 6000,
+    "yakuman": 8000,
+}
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class SandboxScoreEstimate:
+    seat: int
+    win_kind: str
+    yaku: tuple[str, ...]
+    han: int
+    fu: int | None
+    limit: str | None
+    base_points: int
+    ron_payment: int | None
+    tsumo_payment_per_loser: int | None
+    honba_payment: int
+    riichi_stick_points: int
+    payment_model: str = SANDBOX_SCORE_PAYMENT_MODEL
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "seat": self.seat,
+            "win_kind": self.win_kind,
+            "yaku": list(self.yaku),
+            "han": self.han,
+            "fu": self.fu,
+            "limit": self.limit,
+            "base_points": self.base_points,
+            "ron_payment": self.ron_payment,
+            "tsumo_payment_per_loser": self.tsumo_payment_per_loser,
+            "honba_payment": self.honba_payment,
+            "riichi_stick_points": self.riichi_stick_points,
+            "payment_model": self.payment_model,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +137,7 @@ class SandboxEnvironmentState:
     winning_rinshan_seats: tuple[int, ...] = ()
     terminal_rewards: tuple[float, ...] = ()
     terminal_point_deltas: tuple[int, ...] = ()
+    terminal_score_estimates: tuple[SandboxScoreEstimate, ...] = ()
 
     def __post_init__(self) -> None:
         if self.ruleset not in SANDBOX_RULESET_BY_NAME:
@@ -187,6 +252,12 @@ class SandboxEnvironmentState:
             raise ValueError("terminal reward count must match player count")
         if self.terminal_point_deltas and len(self.terminal_point_deltas) != self.players:
             raise ValueError("terminal point-delta count must match player count")
+        if self.terminal_score_estimates and not self.winner_seats:
+            raise ValueError("terminal score estimates require winner seats")
+        if any(not 0 <= estimate.seat < self.players for estimate in self.terminal_score_estimates):
+            raise ValueError("terminal score estimate seat outside player range")
+        if any(estimate.seat not in self.winner_seats for estimate in self.terminal_score_estimates):
+            raise ValueError("terminal score estimate seats must also be winner seats")
 
     def current_hand(self) -> tuple[Tile, ...]:
         return self.hands[self.current_seat]
@@ -251,6 +322,9 @@ class SandboxEnvironmentState:
             "winning_rinshan_seats": list(self.winning_rinshan_seats),
             "terminal_rewards": list(self.terminal_rewards),
             "terminal_point_deltas": list(self.terminal_point_deltas),
+            "terminal_score_estimates": [
+                estimate.to_payload() for estimate in self.terminal_score_estimates
+            ],
         }
 
 
@@ -945,6 +1019,8 @@ def apply_ron_actions(
         state,
         winner_seats=tuple(winner_seats),
         discarder_seat=pending_source_seat,
+        win_kind=terminal_reason,
+        winning_yaku_by_seat=tuple(winning_yaku_by_seat),
     )
     return _replace_state(
         state,
@@ -1024,6 +1100,8 @@ def apply_tsumo_action(
         state,
         winner_seats=(state.current_seat,),
         discarder_seat=None,
+        win_kind="tsumo",
+        winning_yaku_by_seat=((state.current_seat, yaku),),
     )
     return _replace_state(
         state,
@@ -1472,6 +1550,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "winning_rinshan_seats": state.winning_rinshan_seats,
         "terminal_rewards": state.terminal_rewards,
         "terminal_point_deltas": state.terminal_point_deltas,
+        "terminal_score_estimates": state.terminal_score_estimates,
     }
     payload.update(updates)
     return SandboxEnvironmentState(**payload)
@@ -1517,39 +1596,136 @@ def _terminal_win_point_updates(
     *,
     winner_seats: tuple[int, ...],
     discarder_seat: int | None,
+    win_kind: str,
+    winning_yaku_by_seat: tuple[tuple[int, tuple[str, ...]], ...],
 ) -> dict[str, Any]:
     before_points = _points_by_seat(state)
     if not winner_seats:
         return {"terminal_point_deltas": _neutral_point_deltas(state.players)}
     points = list(before_points)
-    if state.riichi_sticks:
-        points[winner_seats[0]] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
-    if state.honba:
+    yaku_by_seat = dict(winning_yaku_by_seat)
+    estimates: list[SandboxScoreEstimate] = []
+    for winner_index, winner_seat in enumerate(winner_seats):
+        riichi_stick_points = (
+            state.riichi_sticks * RIICHI_DEPOSIT_POINTS if winner_index == 0 else 0
+        )
+        estimate = _sandbox_score_estimate(
+            seat=winner_seat,
+            win_kind=win_kind,
+            yaku=yaku_by_seat.get(winner_seat, ()),
+            honba=state.honba,
+            riichi_stick_points=riichi_stick_points,
+        )
+        estimates.append(estimate)
+
         if discarder_seat is None:
-            payment = state.honba * HONBA_TSUMO_POINTS_PER_LOSER
-            winner_seat = winner_seats[0]
+            payment = estimate.tsumo_payment_per_loser
+            if payment is None:
+                raise ValueError("tsumo score estimate must include per-loser payment")
+            per_loser_payment = payment + estimate.honba_payment
             for seat in range(state.players):
                 if seat == winner_seat:
                     continue
-                points[seat] -= payment
-                points[winner_seat] += payment
+                points[seat] -= per_loser_payment
+                points[winner_seat] += per_loser_payment
         else:
-            payment = state.honba * HONBA_RON_POINTS
-            for winner_seat in winner_seats:
-                points[winner_seat] += payment
-                points[discarder_seat] -= payment
+            payment = estimate.ron_payment
+            if payment is None:
+                raise ValueError("ron score estimate must include ron payment")
+            payment += estimate.honba_payment
+            points[winner_seat] += payment
+            points[discarder_seat] -= payment
+        if riichi_stick_points:
+            points[winner_seat] += riichi_stick_points
+
     point_deltas = tuple(
         after - before for after, before in zip(points, before_points, strict=True)
     )
-    if state.riichi_sticks == 0 and state.honba == 0:
-        return {
-            "terminal_point_deltas": point_deltas,
-        }
     return {
         "points": tuple(points),
         "riichi_sticks": 0,
         "terminal_point_deltas": point_deltas,
+        "terminal_score_estimates": tuple(estimates),
     }
+
+
+def _sandbox_score_estimate(
+    *,
+    seat: int,
+    win_kind: str,
+    yaku: tuple[str, ...],
+    honba: int,
+    riichi_stick_points: int,
+) -> SandboxScoreEstimate:
+    if "kokushi" in yaku:
+        return SandboxScoreEstimate(
+            seat=seat,
+            win_kind=win_kind,
+            yaku=yaku,
+            han=13,
+            fu=None,
+            limit="yakuman",
+            base_points=SANDBOX_LIMIT_BASE_POINTS["yakuman"],
+            ron_payment=SANDBOX_LIMIT_RON_POINTS["yakuman"] if win_kind != "tsumo" else None,
+            tsumo_payment_per_loser=(
+                SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER["yakuman"]
+                if win_kind == "tsumo"
+                else None
+            ),
+            honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
+            riichi_stick_points=riichi_stick_points,
+        )
+
+    han = sum(SANDBOX_YAKU_HAN.get(yaku_name, 0) for yaku_name in yaku)
+    fu = 25 if "chiitoitsu" in yaku else 30
+    base_points = fu * (2 ** (han + 2))
+    limit = _sandbox_score_limit(han=han, base_points=base_points)
+    if limit is not None:
+        base_points = SANDBOX_LIMIT_BASE_POINTS[limit]
+        ron_payment = SANDBOX_LIMIT_RON_POINTS[limit] if win_kind != "tsumo" else None
+        tsumo_payment_per_loser = (
+            SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER[limit] if win_kind == "tsumo" else None
+        )
+    else:
+        ron_payment = _ceil_to_hundred(base_points * 4) if win_kind != "tsumo" else None
+        tsumo_payment_per_loser = (
+            _ceil_to_hundred(base_points * 2) if win_kind == "tsumo" else None
+        )
+    return SandboxScoreEstimate(
+        seat=seat,
+        win_kind=win_kind,
+        yaku=yaku,
+        han=han,
+        fu=fu,
+        limit=limit,
+        base_points=base_points,
+        ron_payment=ron_payment,
+        tsumo_payment_per_loser=tsumo_payment_per_loser,
+        honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
+        riichi_stick_points=riichi_stick_points,
+    )
+
+
+def _sandbox_honba_payment(*, win_kind: str, honba: int) -> int:
+    if win_kind == "tsumo":
+        return honba * HONBA_TSUMO_POINTS_PER_LOSER
+    return honba * HONBA_RON_POINTS
+
+
+def _sandbox_score_limit(*, han: int, base_points: int) -> str | None:
+    if han >= 11:
+        return "sanbaiman"
+    if han >= 8:
+        return "baiman"
+    if han >= 6:
+        return "haneman"
+    if han >= 5 or base_points >= 2000:
+        return "mangan"
+    return None
+
+
+def _ceil_to_hundred(points: int) -> int:
+    return ((points + 99) // 100) * 100
 
 
 def _meld_payloads(state: SandboxEnvironmentState) -> list[list[dict[str, Any]]]:
