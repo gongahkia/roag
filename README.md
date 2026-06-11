@@ -37,8 +37,8 @@ handoff notes.
   kakan replacement draw plus kokushi-only ankan robbery, individual reaction passes, ron-priority
   call gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic
   open/kan standard-shape win detection, a basic sandbox yaku filter/metadata layer, and simple
-  terminal reward payloads. The self-play sandbox uses this boundary for 4-player and static 3-player
-  tile-set draw/discard turn-rotation plus
+  terminal reward payloads plus terminal point-delta metadata. The self-play sandbox uses this
+  boundary for 4-player and static 3-player tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan policy
   yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku

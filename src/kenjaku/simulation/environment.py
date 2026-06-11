@@ -72,6 +72,7 @@ class SandboxEnvironmentState:
     winning_ippatsu_seats: tuple[int, ...] = ()
     winning_rinshan_seats: tuple[int, ...] = ()
     terminal_rewards: tuple[float, ...] = ()
+    terminal_point_deltas: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.ruleset not in SANDBOX_RULESET_BY_NAME:
@@ -184,6 +185,8 @@ class SandboxEnvironmentState:
             raise ValueError("winning yaku seats must also be winner seats")
         if self.terminal_rewards and len(self.terminal_rewards) != self.players:
             raise ValueError("terminal reward count must match player count")
+        if self.terminal_point_deltas and len(self.terminal_point_deltas) != self.players:
+            raise ValueError("terminal point-delta count must match player count")
 
     def current_hand(self) -> tuple[Tile, ...]:
         return self.hands[self.current_seat]
@@ -247,6 +250,7 @@ class SandboxEnvironmentState:
             "winning_ippatsu_seats": list(self.winning_ippatsu_seats),
             "winning_rinshan_seats": list(self.winning_rinshan_seats),
             "terminal_rewards": list(self.terminal_rewards),
+            "terminal_point_deltas": list(self.terminal_point_deltas),
         }
 
 
@@ -293,6 +297,7 @@ def draw_for_current_seat(
             state,
             terminal_reason="wall_exhausted",
             terminal_rewards=_neutral_rewards(state.players),
+            terminal_point_deltas=_neutral_point_deltas(state.players),
         )
 
     draw = state.wall[-1]
@@ -1374,6 +1379,7 @@ def _apply_kan_replacement_draw(
     if not _has_dead_wall_replacement_tile(state):
         updates["terminal_reason"] = "wall_exhausted"
         updates["terminal_rewards"] = _neutral_rewards(state.players)
+        updates["terminal_point_deltas"] = _neutral_point_deltas(state.players)
         updates["rinshan_draw"] = False
         return
 
@@ -1465,6 +1471,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "winning_ippatsu_seats": state.winning_ippatsu_seats,
         "winning_rinshan_seats": state.winning_rinshan_seats,
         "terminal_rewards": state.terminal_rewards,
+        "terminal_point_deltas": state.terminal_point_deltas,
     }
     payload.update(updates)
     return SandboxEnvironmentState(**payload)
@@ -1511,9 +1518,10 @@ def _terminal_win_point_updates(
     winner_seats: tuple[int, ...],
     discarder_seat: int | None,
 ) -> dict[str, Any]:
-    if not winner_seats or (state.riichi_sticks == 0 and state.honba == 0):
-        return {}
-    points = list(_points_by_seat(state))
+    before_points = _points_by_seat(state)
+    if not winner_seats:
+        return {"terminal_point_deltas": _neutral_point_deltas(state.players)}
+    points = list(before_points)
     if state.riichi_sticks:
         points[winner_seats[0]] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
     if state.honba:
@@ -1530,9 +1538,17 @@ def _terminal_win_point_updates(
             for winner_seat in winner_seats:
                 points[winner_seat] += payment
                 points[discarder_seat] -= payment
+    point_deltas = tuple(
+        after - before for after, before in zip(points, before_points, strict=True)
+    )
+    if state.riichi_sticks == 0 and state.honba == 0:
+        return {
+            "terminal_point_deltas": point_deltas,
+        }
     return {
         "points": tuple(points),
         "riichi_sticks": 0,
+        "terminal_point_deltas": point_deltas,
     }
 
 
@@ -1634,6 +1650,10 @@ def _multi_ron_rewards(
 
 def _neutral_rewards(players: int) -> tuple[float, ...]:
     return tuple(0.0 for _seat in range(players))
+
+
+def _neutral_point_deltas(players: int) -> tuple[int, ...]:
+    return tuple(0 for _seat in range(players))
 
 
 def _pending_ron_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:

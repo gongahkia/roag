@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-11.
+Last updated: 2026-06-12.
 
 ## Stop State
 
@@ -54,10 +54,14 @@ Last updated: 2026-06-11.
   legal tsumo/ron/chankan now require at least one recognized sandbox yaku from kokushi,
   chiitoitsu, riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a broad honor-triplet
   yakuhai approximation, and terminal states expose `winning_yaku` plus `winning_yaku_by_seat`.
+  Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
+  riichi-stick and honba point ledger, while wall-exhaustion and max-turn terminals expose neutral
+  zero deltas.
   Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
   rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, full riichi/kan
-  timing legality, real scoring, or PPO-ready self-play. Added individual reaction passes and
-  ron-priority call gating so calls are blocked while any pending reaction seat has legal ron.
+  timing legality, real scoring, point-based reward scaling, or PPO-ready self-play. Added
+  individual reaction passes and ron-priority call gating so calls are blocked while any pending
+  reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. Added seeded
@@ -81,10 +85,10 @@ Last updated: 2026-06-11.
   expose visible dora/kan-dora indicator metadata plus basic rinshan draw-source metadata. The
   sandbox now detects basic open/kan standard hand shapes, including rinshan replacement draws after
   kan, and supports kokushi-only ankan robbery. This is still not hand scoring, next-round honba
-  progression, real multi-ron payment validation, complete yaku validation, full open-hand yaku
-  rules, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering,
-  complete robbing-kan/chankan semantics, complete post-riichi kan timing, ippatsu scoring, or
-  calibrated rewards.
+  progression, real multi-ron payment validation, complete payment accounting, complete yaku
+  validation, full open-hand yaku rules, complete rinshan yaku/scoring semantics, complete
+  kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan semantics, complete
+  post-riichi kan timing, ippatsu scoring, point-based reward scaling, or calibrated rewards.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
 - Do not promote `discard-linear-defense-context-v1` as the default path yet. Lowering learning
@@ -95,7 +99,7 @@ Last updated: 2026-06-11.
 
 - Branch: `main`.
 - License: MIT, with the canonical text in `LICENSE`.
-- GitHub check on 2026-06-11: no open issues and no open PRs. Recent `main` CI runs are still
+- GitHub check on 2026-06-12: no open issues and no open PRs. Recent `main` CI runs are still
   failed, but the latest inspected run had jobs with no executed steps and no failed-job log
   available through `gh run view --log-failed`; treat that as an external Actions/account setup
   blocker until a fresh run proves otherwise. Local verification is the current code signal.
@@ -231,8 +235,8 @@ Last updated: 2026-06-11.
   `terminal_rewards`: neutral zero rewards for non-win terminal states and a simple zero-sum utility
   vector for sandbox tsumo/ron. They also include final point-ledger and riichi-stick counts from
   the sandbox state, the current honba count, active ippatsu seats, winning ippatsu seats,
-  rinshan draw-source metadata, winning rinshan seats, terminal yaku metadata, dead-wall remaining
-  count, and visible dora/kan-dora indicators.
+  rinshan draw-source metadata, winning rinshan seats, terminal yaku metadata, terminal point-delta
+  metadata, dead-wall remaining count, and visible dora/kan-dora indicators.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
   excludes 2m-8m and rotates three seats. `--stop-on-tsumo` checks basic closed-hand standard,
   chiitoitsu, and kokushi winning shapes immediately after a synthetic draw. It is for plumbing
@@ -260,7 +264,7 @@ Last updated: 2026-06-11.
   terminal metadata, a basic chankan ron/pass window before kakan replacement draw, kokushi-only
   ankan chankan, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
   resolution, basic open/kan standard-shape win detection, a basic sandbox yaku filter/metadata
-  layer, and simple sandbox terminal rewards.
+  layer, simple sandbox terminal rewards, and terminal point-delta metadata.
 
 ## Working Rules
 

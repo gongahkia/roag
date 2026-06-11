@@ -79,6 +79,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_basic_yaku_win_filter: yes", output)
         self.assertIn("sandbox_basic_yaku_metadata: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
+        self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
         self.assertIn("basic_winning_hand_detection: yes", output)
         self.assertIn("sandbox_open_meld_win_detection: yes", output)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
@@ -177,6 +178,9 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_win_filter"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"]
@@ -416,6 +420,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_win_filter: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
+        self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
         self.assertIn("report_path:", text_stdout.getvalue())
         self.assertEqual(report_payload["kind"], "kenjaku-self-play-sandbox-report-v0")
         self.assertTrue(report_payload["stop_on_tsumo"])
@@ -441,6 +446,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
+        self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(report_payload["capabilities"]["open_hand_win_detection"])
         self.assertFalse(report_payload["capabilities"]["kan_policy"])
         self.assertFalse(report_payload["capabilities"]["chankan_policy"])

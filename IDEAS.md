@@ -502,9 +502,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     draw-source metadata, individual reaction passes, ron-priority call gating, a basic chankan
     ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads, plus basic open/kan standard-shape win detection and a basic sandbox yaku
-    filter/metadata layer only; the next simulator step is full call/kan timing, complete
-    yaku/terminal legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
+    reward payloads with terminal point-delta metadata, plus basic open/kan standard-shape win
+    detection and a basic sandbox yaku filter/metadata layer only; the next simulator step is full
+    call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring semantics,
+    complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
 
@@ -1092,3 +1093,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
   yaku validation, full open-hand yaku rules, dora/ura-dora scoring, fu/han scoring, or calibrated
   reward semantics.
+- Added terminal point-delta metadata to the sandbox. Terminal win states now expose
+  `terminal_point_deltas` derived from the existing riichi-stick and honba point ledger, while
+  wall-exhaustion and max-turn terminals expose neutral zero deltas. This is still not complete
+  payment accounting, base hand scoring, point-based reward scaling, or a calibrated RL reward
+  model.

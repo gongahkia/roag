@@ -71,6 +71,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["winning_yaku"], [])
         self.assertEqual(first.to_payload()["winning_yaku_by_seat"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
+        self.assertEqual(first.to_payload()["terminal_point_deltas"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-4p", seed="transition")
@@ -140,7 +141,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(drawn.winning_yaku_by_seat, ((0, ("menzen_tsumo", "yakuhai")),))
         self.assertEqual(drawn.winning_rinshan_seats, ())
         self.assertEqual(drawn.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
+        self.assertEqual(drawn.terminal_point_deltas, (0, 0, 0, 0))
         self.assertEqual(drawn.to_payload()["terminal_rewards"], [1.0, -1 / 3, -1 / 3, -1 / 3])
+        self.assertEqual(drawn.to_payload()["terminal_point_deltas"], [0, 0, 0, 0])
         self.assertEqual(drawn.to_payload()["winning_yaku"], ["menzen_tsumo", "yakuhai"])
         self.assertEqual(
             drawn.to_payload()["winning_yaku_by_seat"],
@@ -176,6 +179,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_rinshan_seats, ())
         self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
 
     def test_rinshan_tsumo_metadata_marks_replacement_draw_winner(self) -> None:
         state = SandboxEnvironmentState(
@@ -402,6 +406,11 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ),
         )
         self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
+        self.assertEqual(terminal.terminal_point_deltas, (0, RIICHI_DEPOSIT_POINTS, 0, 0))
+        self.assertEqual(
+            terminal.to_payload()["terminal_point_deltas"],
+            [0, RIICHI_DEPOSIT_POINTS, 0, 0],
+        )
 
     def test_honba_bonus_applies_to_ron_point_ledger(self) -> None:
         honba = 2
@@ -433,6 +442,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             terminal.points,
             (25000 - payment, 25000 + payment, 25000, 25000),
         )
+        self.assertEqual(terminal.terminal_point_deltas, (-payment, payment, 0, 0))
+        self.assertEqual(terminal.to_payload()["terminal_point_deltas"], [-payment, payment, 0, 0])
         self.assertEqual(terminal.to_payload()["honba"], honba)
 
     def test_honba_bonus_applies_to_tsumo_point_ledger(self) -> None:
@@ -459,6 +470,14 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             terminal.points,
             (25000 + payment * 3, 25000 - payment, 25000 - payment, 25000 - payment),
+        )
+        self.assertEqual(
+            terminal.terminal_point_deltas,
+            (payment * 3, -payment, -payment, -payment),
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_point_deltas"],
+            [payment * 3, -payment, -payment, -payment],
         )
         self.assertEqual(terminal.to_payload()["honba"], honba)
 
@@ -1722,6 +1741,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIsNone(terminal.drawn_tile)
         self.assertFalse(terminal.rinshan_draw)
         self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
 
     def test_rejects_tsumo_without_draw_or_winning_hand(self) -> None:
         state = SandboxEnvironmentState(
@@ -1761,6 +1781,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertEqual(terminal.terminal_reason, "wall_exhausted")
         self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
 
     def test_sanma_environment_excludes_two_to_eight_manzu(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-3p", seed="sanma")

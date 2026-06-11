@@ -64,7 +64,12 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(first["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(first["capabilities"]["terminal_rewards"])
+        self.assertTrue(first["capabilities"]["terminal_point_delta_metadata"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(
+            first["episode_summaries"][0]["terminal_point_deltas"],
+            [0, 0, 0, 0],
+        )
         self.assertEqual(
             first["episode_summaries"][0]["final_points"],
             [25000, 25000, 25000, 25000],
@@ -153,6 +158,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("basic_yaku_win_filter: yes", text)
         self.assertIn("basic_yaku_metadata: yes", text)
         self.assertIn("terminal_rewards: yes", text)
+        self.assertIn("terminal_point_delta_metadata: yes", text)
         self.assertIn("scoring: no", text)
         self.assertIn("ppo: no", text)
 
@@ -176,6 +182,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("winning_yaku", episode)
         self.assertIn("winning_yaku_by_seat", episode)
         self.assertIn("terminal_rewards", episode)
+        self.assertIn("terminal_point_deltas", episode)
         self.assertIn("final_points", episode)
         self.assertIn("riichi_sticks", episode)
         self.assertIn("honba", episode)
@@ -186,6 +193,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("dead_wall_remaining", episode)
         self.assertIn("dora_indicators", episode)
         self.assertEqual(len(episode["terminal_rewards"]), report["players"])
+        self.assertEqual(len(episode["terminal_point_deltas"]), report["players"])
         self.assertEqual(len(episode["final_points"]), report["players"])
         if episode["terminal_reason"] == "tsumo":
             self.assertIsInstance(episode["winner_seat"], int)

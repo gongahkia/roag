@@ -77,6 +77,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_basic_yaku_win_filter": True,
                 "sandbox_basic_yaku_metadata": True,
                 "sandbox_terminal_reward_payloads": True,
+                "sandbox_terminal_point_delta_metadata": True,
                 "basic_winning_hand_detection": True,
                 "sandbox_open_meld_win_detection": True,
                 "self_play_sandbox_tsumo_termination": True,

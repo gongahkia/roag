@@ -139,6 +139,7 @@ def run_self_play_sandbox(
             "basic_yaku_win_filter": True,
             "basic_yaku_metadata": True,
             "terminal_rewards": True,
+            "terminal_point_delta_metadata": True,
             "scoring": False,
             "ppo": False,
         },
@@ -235,6 +236,7 @@ def _simulate_episode(
             for seat, yaku in state.winning_yaku_by_seat
         ],
         "terminal_rewards": list(state.terminal_rewards),
+        "terminal_point_deltas": list(state.terminal_point_deltas),
         "final_points": state_payload["points"],
         "riichi_sticks": state.riichi_sticks,
         "honba": state.honba,
@@ -331,6 +333,7 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         winning_ippatsu_seats=state.winning_ippatsu_seats,
         winning_rinshan_seats=state.winning_rinshan_seats,
         terminal_rewards=tuple(0.0 for _seat in range(state.players)),
+        terminal_point_deltas=tuple(0 for _seat in range(state.players)),
     )
 
 
