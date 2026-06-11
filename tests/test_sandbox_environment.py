@@ -4,6 +4,8 @@ import unittest
 
 from kenjaku.core import Action, ActionKind, Meld, Tile, TileType, tile_counts
 from kenjaku.simulation import (
+    HONBA_RON_POINTS,
+    HONBA_TSUMO_POINTS_PER_LOSER,
     RIICHI_DEPOSIT_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
     SANDBOX_INITIAL_POINTS,
@@ -42,10 +44,12 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(len(first.wall), 84)
         self.assertEqual(first.points, (SANDBOX_INITIAL_POINTS,) * 4)
         self.assertEqual(first.riichi_sticks, 0)
+        self.assertEqual(first.honba, 0)
         self.assertIsNone(first.drawn_tile)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
+        self.assertEqual(first.to_payload()["honba"], 0)
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
@@ -239,6 +243,65 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ),
         )
         self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
+
+    def test_honba_bonus_applies_to_ron_point_ledger(self) -> None:
+        honba = 2
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            points=(25000, 25000, 25000, 25000),
+            honba=honba,
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        terminal = apply_ron_action(
+            reaction_state,
+            seat=1,
+            action=Action(ActionKind.RON, TileType.parse("5m")),
+        )
+        payment = honba * HONBA_RON_POINTS
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.honba, honba)
+        self.assertEqual(
+            terminal.points,
+            (25000 - payment, 25000 + payment, 25000, 25000),
+        )
+        self.assertEqual(terminal.to_payload()["honba"], honba)
+
+    def test_honba_bonus_applies_to_tsumo_point_ledger(self) -> None:
+        honba = 3
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            points=(25000, 25000, 25000, 25000),
+            honba=honba,
+        )
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
+        payment = honba * HONBA_TSUMO_POINTS_PER_LOSER
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.honba, honba)
+        self.assertEqual(
+            terminal.points,
+            (25000 + payment * 3, 25000 - payment, 25000 - payment, 25000 - payment),
+        )
+        self.assertEqual(terminal.to_payload()["honba"], honba)
 
     def test_post_riichi_turn_discards_are_locked_to_drawn_tile(self) -> None:
         state = SandboxEnvironmentState(

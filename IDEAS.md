@@ -496,11 +496,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
-    basic riichi deposit accounting, legal chi/pon/minkan, individual reaction passes,
-    ron-priority call gating, discard/call/tsumo/ron transitions, basic multi-ron terminal
-    resolution, and simple terminal reward payloads only; the next simulator step is full call/kan
-    timing, complete riichi/honba payment accounting, ippatsu/ankan exception handling, yaku
-    validation, scoring, and richer reward semantics.
+    basic riichi deposit accounting, basic honba bonus accounting, legal chi/pon/minkan, individual
+    reaction passes, ron-priority call gating, discard/call/tsumo/ron transitions, basic multi-ron
+    terminal resolution, and simple terminal reward payloads only; the next simulator step is full
+    call/kan timing, complete payment accounting, ippatsu/ankan exception handling, yaku validation,
+    scoring, and richer reward semantics.
 
 ---
 
@@ -1022,6 +1022,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added basic sandbox riichi deposit accounting. `SandboxEnvironmentState` now carries a point
   ledger and riichi-stick pool, riichi declaration requires and subtracts a 1000-point deposit,
   terminal tsumo/ron transfers the current stick pool to the first recorded winner, and
-  `self-play-sandbox` episode summaries expose final points and stick count. This is still not hand
-  scoring, honba, real multi-ron payment semantics, ippatsu, closed-kan exceptions after riichi,
-  yaku validation, or a calibrated reward model.
+  `self-play-sandbox` episode summaries expose final points and stick count. At that point this was
+  still not hand scoring, honba, real multi-ron payment semantics, ippatsu, closed-kan exceptions
+  after riichi, yaku validation, or a calibrated reward model.
+- Added basic sandbox honba bonus accounting. `SandboxEnvironmentState` now carries `honba`, ron
+  wins apply 300 points per honba from the discarder to each winner, tsumo wins apply 100 points per
+  honba from each loser to the winner, and `self-play-sandbox` reports the honba count. This is
+  still not hand scoring, next-round honba progression, real multi-ron payment validation, yaku
+  validation, or a calibrated reward model.

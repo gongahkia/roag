@@ -1,6 +1,8 @@
 """Offline simulation harnesses."""
 
 from kenjaku.simulation.environment import (
+    HONBA_RON_POINTS,
+    HONBA_TSUMO_POINTS_PER_LOSER,
     RIICHI_DEPOSIT_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
     SANDBOX_INITIAL_POINTS,
@@ -61,5 +63,7 @@ __all__ = [
     "SELF_PLAY_SANDBOX_REPORT_KIND",
     "SELF_PLAY_SANDBOX_RULESETS",
     "format_self_play_sandbox_report",
+    "HONBA_RON_POINTS",
+    "HONBA_TSUMO_POINTS_PER_LOSER",
     "run_self_play_sandbox",
 ]

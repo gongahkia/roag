@@ -52,7 +52,9 @@ Last updated: 2026-06-11.
   remains flexible, later riichi turns must tsumogiri the drawn tile, and riichi seats cannot
   chi/pon/minkan opponent discards. Added a basic point ledger and riichi-stick pool: declaration
   requires and subtracts a 1000-point deposit, and terminal tsumo/ron transfers the pool to the
-  first recorded winner. This is still not hand scoring, honba, real multi-ron payment semantics,
+  first recorded winner. Added basic honba bonus deltas: ron applies 300 points per honba from the
+  discarder to each winner, and tsumo applies 100 points per honba from each loser to the winner.
+  This is still not hand scoring, next-round honba progression, real multi-ron payment validation,
   ippatsu, closed-kan exception handling after riichi, yaku validation, or calibrated rewards.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
@@ -199,12 +201,12 @@ Last updated: 2026-06-11.
   windows because no ron/call policy is implemented in this sandbox. Episode summaries now include
   `terminal_rewards`: neutral zero rewards for non-win terminal states and a simple zero-sum utility
   vector for sandbox tsumo/ron. They also include final point-ledger and riichi-stick counts from
-  the sandbox state. `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count;
-  `tenhou-3p` excludes 2m-8m and rotates three seats. `--stop-on-tsumo` checks basic closed-hand
-  standard, chiitoitsu, and kokushi winning shapes immediately after a synthetic draw. It is for
-  plumbing only; it has no call/ron policy, yaku validation, dead-wall/kan-dora handling, scoring,
-  complete riichi/honba payment accounting, ippatsu/closed-kan exception handling, PPO, or
-  population training.
+  the sandbox state, plus the current honba count. `--ruleset tenhou-4p|tenhou-3p` selects the
+  static tile set and player count; `tenhou-3p` excludes 2m-8m and rotates three seats.
+  `--stop-on-tsumo` checks basic closed-hand standard, chiitoitsu, and kokushi winning shapes
+  immediately after a synthetic draw. It is for plumbing only; it has no call/ron policy, yaku
+  validation, dead-wall/kan-dora handling, scoring, complete payment accounting,
+  ippatsu/closed-kan exception handling, PPO, or population training.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_call_actions`, `legal_riichi_actions`,
@@ -215,9 +217,9 @@ Last updated: 2026-06-11.
   It only supports draw/discard transitions, pending discard reactions with individual passes,
   ron-priority call gating, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
   filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
-  a basic point ledger with riichi deposit/stick accounting, basic chi/pon/minkan calls, basic
-  closed-hand tsumo/ron terminal metadata, basic multi-ron terminal resolution, and simple sandbox
-  terminal rewards.
+  a basic point ledger with riichi deposit/stick accounting and honba bonus deltas, basic
+  chi/pon/minkan calls, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
+  resolution, and simple sandbox terminal rewards.
 
 ## Working Rules
 
@@ -242,9 +244,9 @@ Last updated: 2026-06-11.
   but not a full simulator or training loop.
 - The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
-  including yaku checks, complete riichi/honba payment accounting, ippatsu and post-riichi
-  closed-kan exception handling, yaku/scoring semantics, real multi-ron payment handling, richer
-  terminal reward signals, and validation against real reconstructed games.
+  including yaku checks, complete payment/scoring semantics, next-round honba progression, ippatsu
+  and post-riichi closed-kan exception handling, real multi-ron payment handling, richer terminal
+  reward signals, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It only applies the static tile exclusions and three-seat rotation. Real Sanma still needs
   gameplay, calls/kita treatment, scoring, training, and evaluation.
@@ -763,12 +765,13 @@ Mortal local baseline reconnaissance:
    Use `replay-share-plan` as the local permission/scope check before demo or redistribution work.
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
-   outcome semantics, complete riichi/honba payment accounting, ippatsu and post-riichi closed-kan
-   exception handling, real multi-ron payment handling, and scoring before PPO work.
+   outcome semantics, complete payment/scoring semantics, next-round honba progression, ippatsu and
+   post-riichi closed-kan exception handling, real multi-ron payment handling, and scoring before
+   PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check static Sanma tile-set plumbing. Do not
    mark the Phase 5 Sanma ruleset complete until real 3-player gameplay, kita/call semantics,
    scoring, training, and evaluation exist.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
-    payment semantics, full ron/tsumo legality, complete riichi/honba payment accounting, ippatsu
-    and post-riichi closed-kan exception handling, yaku/scoring semantics, and richer terminal
-    reward payloads should come before policy optimization.
+    payment semantics, full ron/tsumo legality, complete payment/scoring semantics, next-round
+    honba progression, ippatsu and post-riichi closed-kan exception handling, yaku/scoring
+    semantics, and richer terminal reward payloads should come before policy optimization.

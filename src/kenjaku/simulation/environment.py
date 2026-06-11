@@ -23,6 +23,8 @@ SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
 SANDBOX_RULESETS = ("tenhou-4p", "tenhou-3p")
 SANDBOX_INITIAL_POINTS = 25000
 RIICHI_DEPOSIT_POINTS = 1000
+HONBA_RON_POINTS = 300
+HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
@@ -39,6 +41,7 @@ class SandboxEnvironmentState:
     melds: tuple[tuple[Meld, ...], ...] = ()
     points: tuple[int, ...] = ()
     riichi_sticks: int = 0
+    honba: int = 0
     current_seat: int = 0
     turn: int = 0
     drawn_tile: Tile | None = None
@@ -74,6 +77,8 @@ class SandboxEnvironmentState:
             raise ValueError("point count must match player count")
         if self.riichi_sticks < 0:
             raise ValueError("riichi sticks cannot be negative")
+        if self.honba < 0:
+            raise ValueError("honba cannot be negative")
         if not 0 <= self.current_seat < self.players:
             raise ValueError("current_seat outside player range")
         if self.needs_discard and self.drawn_tile is not None:
@@ -134,6 +139,7 @@ class SandboxEnvironmentState:
             "hand_sizes": self.hand_sizes(),
             "points": list(_points_by_seat(self)),
             "riichi_sticks": self.riichi_sticks,
+            "honba": self.honba,
             "discards": [
                 [tile.notation for tile in seat_discards]
                 for seat_discards in _discards_by_seat(self)
@@ -586,9 +592,10 @@ def apply_ron_actions(
         winner_seats.append(seat)
         winning_shapes_by_seat.append((seat, shapes))
 
-    stick_updates = _riichi_stick_win_updates(
+    point_updates = _terminal_win_point_updates(
         state,
-        winner_seats=(winner_seats[0],),
+        winner_seats=tuple(winner_seats),
+        discarder_seat=pending_discard_seat,
     )
     return _replace_state(
         state,
@@ -603,7 +610,7 @@ def apply_ron_actions(
             discarder_seat=pending_discard_seat,
             players=state.players,
         ),
-        **stick_updates,
+        **point_updates,
     )
 
 
@@ -642,9 +649,10 @@ def apply_tsumo_action(
     shapes = _winning_shapes_for_complete_tiles(state.current_hand())
     if not shapes:
         raise ValueError("current hand is not a winning tsumo")
-    stick_updates = _riichi_stick_win_updates(
+    point_updates = _terminal_win_point_updates(
         state,
         winner_seats=(state.current_seat,),
+        discarder_seat=None,
     )
     return _replace_state(
         state,
@@ -655,7 +663,7 @@ def apply_tsumo_action(
         winning_shapes=shapes,
         winning_shapes_by_seat=((state.current_seat, shapes),),
         terminal_rewards=_tsumo_rewards(state.current_seat, state.players),
-        **stick_updates,
+        **point_updates,
     )
 
 
@@ -721,6 +729,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "melds": state.melds,
         "points": state.points,
         "riichi_sticks": state.riichi_sticks,
+        "honba": state.honba,
         "current_seat": state.current_seat,
         "turn": state.turn,
         "drawn_tile": state.drawn_tile,
@@ -779,15 +788,31 @@ def _points_by_seat(state: SandboxEnvironmentState) -> tuple[int, ...]:
     return tuple(SANDBOX_INITIAL_POINTS for _seat in range(state.players))
 
 
-def _riichi_stick_win_updates(
+def _terminal_win_point_updates(
     state: SandboxEnvironmentState,
     *,
     winner_seats: tuple[int, ...],
+    discarder_seat: int | None,
 ) -> dict[str, Any]:
-    if not winner_seats or state.riichi_sticks == 0:
+    if not winner_seats or (state.riichi_sticks == 0 and state.honba == 0):
         return {}
     points = list(_points_by_seat(state))
-    points[winner_seats[0]] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
+    if state.riichi_sticks:
+        points[winner_seats[0]] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
+    if state.honba:
+        if discarder_seat is None:
+            payment = state.honba * HONBA_TSUMO_POINTS_PER_LOSER
+            winner_seat = winner_seats[0]
+            for seat in range(state.players):
+                if seat == winner_seat:
+                    continue
+                points[seat] -= payment
+                points[winner_seat] += payment
+        else:
+            payment = state.honba * HONBA_RON_POINTS
+            for winner_seat in winner_seats:
+                points[winner_seat] += payment
+                points[discarder_seat] -= payment
     return {
         "points": tuple(points),
         "riichi_sticks": 0,
