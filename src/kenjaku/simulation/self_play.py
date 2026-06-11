@@ -119,8 +119,11 @@ def run_self_play_sandbox(
             "ippatsu_window_tracking": True,
             "closed_kan_actions": True,
             "added_kan_actions": True,
+            "chankan_reaction_windows": True,
+            "chankan_ron_resolution": True,
             "calls": False,
             "kan_policy": False,
+            "chankan_policy": False,
             "call_policy": False,
             "ron_policy": False,
             "open_hand_win_detection": False,
@@ -287,6 +290,11 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         turn=state.turn,
         drawn_tile=state.drawn_tile,
         needs_discard=state.needs_discard,
+        pending_discard=state.pending_discard,
+        pending_discard_seat=state.pending_discard_seat,
+        pending_chankan_tile=state.pending_chankan_tile,
+        pending_chankan_seat=state.pending_chankan_seat,
+        pending_reaction_seats=state.pending_reaction_seats,
         temporary_furiten_seats=state.temporary_furiten_seats,
         riichi_seats=state.riichi_seats,
         riichi_pending_discard_seats=state.riichi_pending_discard_seats,
@@ -304,9 +312,9 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
 
 
 def _auto_pass_reactions(state: SandboxEnvironmentState) -> SandboxEnvironmentState:
-    while state.pending_discard is not None:
+    while state.pending_discard is not None or state.pending_chankan_tile is not None:
         if not state.pending_reaction_seats:
-            raise RuntimeError("pending discard has no reaction seats")
+            raise RuntimeError("pending reaction has no reaction seats")
         state = apply_reaction_pass_action(state, seat=state.pending_reaction_seats[0])
     return state
 

@@ -499,11 +499,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     basic riichi deposit accounting, basic honba bonus accounting, basic ippatsu window metadata,
     legal chi/pon/minkan, basic closed-kan/ankan self-turn actions with simple live-wall replacement
     draws, basic added-kan/kakan pon promotions with simple live-wall replacement draws, individual
-    reaction passes, ron-priority call gating,
-    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads only; the next simulator step is full call/kan timing, dead-wall, kan-dora,
-    rinshan, chankan semantics, complete payment accounting, post-riichi closed-kan exception
-    handling, yaku validation, scoring, and richer reward semantics.
+    reaction passes, ron-priority call gating, a basic chankan ron/pass window before kakan
+    replacement draw, discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and
+    simple terminal reward payloads only; the next simulator step is full call/kan timing,
+    dead-wall, kan-dora, rinshan, complete chankan semantics, complete payment accounting,
+    post-riichi closed-kan exception handling, yaku validation, scoring, and richer reward
+    semantics.
 
 ---
 
@@ -1048,3 +1049,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   take a simple live-wall replacement draw. This is still not dead-wall, kan-dora, rinshan,
   robbing-kan/chankan reaction timing, post-riichi closed-kan exception handling, open-hand win
   validation, yaku validation, or scoring.
+- Added a basic kakan chankan reaction window. When a kakan tile completes another player's
+  currently legal ron shape under the existing shape/furiten filters, `apply_kakan_action` now
+  pauses before replacement draw with `pending_chankan_tile`, `pending_chankan_seat`, and legal
+  `RON`/`PASS` chankan reactions. Passing all chankan reactions performs the delayed simple
+  live-wall replacement draw; ron in that window terminates with `terminal_reason="chankan"`.
+  This is still not full chankan semantics, yaku validation, kokushi-only ankan robbery, kan-dora,
+  dead-wall/rinshan handling, scoring, or a learned kan/chankan policy.

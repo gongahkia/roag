@@ -23,6 +23,8 @@ from kenjaku.simulation import (
     initial_sandbox_environment,
     legal_ankan_actions,
     legal_call_actions,
+    legal_chankan_reaction_actions,
+    legal_chankan_ron_actions,
     legal_discard_actions,
     legal_kakan_actions,
     legal_reaction_actions,
@@ -82,7 +84,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_state.to_payload()["riichi_seats"], [])
         self.assertEqual(next_state.to_payload()["riichi_furiten_seats"], [])
 
-        with self.assertRaisesRegex(ValueError, "pending discard reactions"):
+        with self.assertRaisesRegex(ValueError, "pending reactions"):
             draw_for_current_seat(next_state)
 
         advanced = pass_pending_discard_reactions(next_state)
@@ -1156,6 +1158,98 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kan.melds[0], (meld,))
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_kan))
 
+    def test_kakan_opens_chankan_reaction_window_before_replacement_draw(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8s"), Tile.parse("3m")),
+            hands=(
+                _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                _tiles("1m 1m 1m 2p 3p 4p 5s 6s 7s E E E 3m"),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+            points=(25000, 25000, 25000, 25000),
+        )
+        drawn = draw_for_current_seat(state)
+        kakan = Action(
+            ActionKind.KAKAN,
+            TileType.parse("3m"),
+            consumed=(Tile.parse("3m"),),
+        )
+
+        pending, meld = apply_kakan_action(drawn, kakan)
+        ron = Action(ActionKind.RON, TileType.parse("3m"))
+
+        self.assertEqual(meld.kind, ActionKind.KAKAN)
+        self.assertIsNone(pending.drawn_tile)
+        self.assertFalse(pending.needs_discard)
+        self.assertEqual(pending.wall, (Tile.parse("8s"),))
+        self.assertEqual(pending.hand_sizes()[0], 10)
+        self.assertEqual(pending.pending_chankan_tile, Tile.parse("3m"))
+        self.assertEqual(pending.pending_chankan_seat, 0)
+        self.assertEqual(pending.pending_reaction_seats, (1,))
+        self.assertEqual(pending.to_payload()["pending_chankan_tile"], "3m")
+        self.assertEqual(pending.to_payload()["pending_chankan_seat"], 0)
+        self.assertEqual(legal_chankan_ron_actions(pending, seat=1), (ron,))
+        self.assertEqual(legal_chankan_reaction_actions(pending, seat=1), (ron, Action.pass_()))
+        self.assertEqual(legal_sandbox_actions(pending, seat=1), (ron, Action.pass_()))
+
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+
+        self.assertEqual(terminal.terminal_reason, "chankan")
+        self.assertEqual(terminal.winner_seat, 1)
+        self.assertEqual(terminal.winner_seats, (1,))
+        self.assertEqual(terminal.winning_tile, Tile.parse("3m"))
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
+        self.assertIsNone(terminal.pending_chankan_tile)
+        self.assertIsNone(terminal.pending_chankan_seat)
+        self.assertEqual(terminal.pending_reaction_seats, ())
+
+    def test_chankan_pass_draws_delayed_replacement_tile(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(Tile.parse("8s"), Tile.parse("3m")),
+                hands=(
+                    _tiles("1p 2p 3p 4p 5p 6p 7s 8s E S"),
+                    _tiles("1m 1m 1m 2p 3p 4p 5s 6s 7s E E E 3m"),
+                    (),
+                    (),
+                ),
+                melds=((pon,), (), (), ()),
+            )
+        )
+        pending, _meld = apply_kakan_action(drawn, legal_kakan_actions(drawn)[0])
+
+        after_pass = apply_reaction_pass_action(pending, seat=1, action=Action.pass_())
+
+        self.assertIsNone(after_pass.pending_chankan_tile)
+        self.assertIsNone(after_pass.pending_chankan_seat)
+        self.assertEqual(after_pass.pending_reaction_seats, ())
+        self.assertEqual(after_pass.temporary_furiten_seats, (1,))
+        self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
+        self.assertEqual(after_pass.wall, ())
+        self.assertEqual(after_pass.hand_sizes()[0], 11)
+        self.assertIn(Action.discard("8s"), legal_discard_actions(after_pass))
+        with self.assertRaisesRegex(ValueError, "no pending chankan reaction"):
+            legal_chankan_ron_actions(after_pass, seat=1)
+
     def test_kakan_rejects_without_draw_or_after_riichi(self) -> None:
         pon = Meld(
             ActionKind.PON,
@@ -1220,7 +1314,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             apply_kakan_action(riichi_drawn, kakan)
         with self.assertRaisesRegex(ValueError, "supports added kan"):
             apply_kakan_action(riichi_drawn, Action.pass_())
-        with self.assertRaisesRegex(ValueError, "pending discard reaction"):
+        with self.assertRaisesRegex(ValueError, "pending reaction"):
             legal_kakan_actions(pending)
 
     def test_kakan_without_replacement_draw_exhausts_wall(self) -> None:

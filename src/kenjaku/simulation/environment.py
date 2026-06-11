@@ -48,6 +48,8 @@ class SandboxEnvironmentState:
     needs_discard: bool = False
     pending_discard: Tile | None = None
     pending_discard_seat: int | None = None
+    pending_chankan_tile: Tile | None = None
+    pending_chankan_seat: int | None = None
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
@@ -85,18 +87,35 @@ class SandboxEnvironmentState:
             raise ValueError("current_seat outside player range")
         if self.needs_discard and self.drawn_tile is not None:
             raise ValueError("needs_discard cannot be set with a drawn tile")
-        if self.needs_discard and self.pending_discard is not None:
-            raise ValueError("needs_discard cannot be set during pending discard reactions")
-        if self.pending_discard is None:
-            if self.pending_discard_seat is not None or self.pending_reaction_seats:
-                raise ValueError("pending discard metadata requires a pending discard")
-        else:
+        pending_windows = int(self.pending_discard is not None) + int(
+            self.pending_chankan_tile is not None
+        )
+        if pending_windows > 1:
+            raise ValueError("only one pending reaction window is supported")
+        if self.needs_discard and pending_windows:
+            raise ValueError("needs_discard cannot be set during pending reactions")
+        if self.pending_discard is None and self.pending_discard_seat is not None:
+            raise ValueError("pending discard seat requires a pending discard")
+        if self.pending_chankan_tile is None and self.pending_chankan_seat is not None:
+            raise ValueError("pending chankan seat requires a pending chankan tile")
+        if pending_windows == 0 and self.pending_reaction_seats:
+            raise ValueError("pending reaction seats require a pending reaction window")
+        if self.pending_discard is not None:
             if self.pending_discard_seat is None:
                 raise ValueError("pending discard seat is required")
             if not 0 <= self.pending_discard_seat < self.players:
                 raise ValueError("pending discard seat outside player range")
             if self.pending_discard_seat in self.pending_reaction_seats:
                 raise ValueError("discarding seat cannot react to its own discard")
+            if any(not 0 <= seat < self.players for seat in self.pending_reaction_seats):
+                raise ValueError("pending reaction seat outside player range")
+        if self.pending_chankan_tile is not None:
+            if self.pending_chankan_seat is None:
+                raise ValueError("pending chankan seat is required")
+            if not 0 <= self.pending_chankan_seat < self.players:
+                raise ValueError("pending chankan seat outside player range")
+            if self.pending_chankan_seat in self.pending_reaction_seats:
+                raise ValueError("kan seat cannot react to its own added kan")
             if any(not 0 <= seat < self.players for seat in self.pending_reaction_seats):
                 raise ValueError("pending reaction seat outside player range")
         if any(not 0 <= seat < self.players for seat in self.temporary_furiten_seats):
@@ -165,6 +184,10 @@ class SandboxEnvironmentState:
                 None if self.pending_discard is None else self.pending_discard.notation
             ),
             "pending_discard_seat": self.pending_discard_seat,
+            "pending_chankan_tile": (
+                None if self.pending_chankan_tile is None else self.pending_chankan_tile.notation
+            ),
+            "pending_chankan_seat": self.pending_chankan_seat,
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
@@ -214,8 +237,8 @@ def draw_for_current_seat(
     stop_on_tsumo: bool = False,
 ) -> SandboxEnvironmentState:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("pending discard reactions must be resolved before drawing")
+    if _has_pending_reaction(state):
+        raise ValueError("pending reactions must be resolved before drawing")
     if state.needs_discard:
         raise ValueError("current seat must discard before drawing")
     if state.drawn_tile is not None:
@@ -269,6 +292,14 @@ def legal_sandbox_actions(
             include_ron=include_ron,
             include_calls=include_calls,
         )
+    if state.pending_chankan_tile is not None:
+        if seat is None:
+            raise ValueError("seat is required for pending chankan reactions")
+        return legal_chankan_reaction_actions(
+            state,
+            seat=seat,
+            include_ron=include_ron,
+        )
     if state.drawn_tile is None and not state.needs_discard:
         raise ValueError("current seat must draw before acting")
     if seat is not None and seat != state.current_seat:
@@ -288,8 +319,8 @@ def legal_sandbox_actions(
 
 def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot tsumo during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot tsumo during a pending reaction")
     if state.drawn_tile is None:
         raise ValueError("current seat must draw before tsumo")
     shapes = _winning_shapes_for_complete_tiles(state.current_hand())
@@ -300,8 +331,8 @@ def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
 
 def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot riichi during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot riichi during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before riichi")
     if _is_riichi(state, seat=state.current_seat):
@@ -317,8 +348,8 @@ def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
 
 def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot closed kan during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot closed kan during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before closed kan")
     if _is_riichi(state, seat=state.current_seat):
@@ -342,8 +373,8 @@ def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
 
 def legal_kakan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot added kan during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot added kan during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before added kan")
     if _is_riichi(state, seat=state.current_seat):
@@ -373,8 +404,8 @@ def legal_kakan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
 
 def legal_discard_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("pending discard reactions must be resolved before discarding")
+    if _has_pending_reaction(state):
+        raise ValueError("pending reactions must be resolved before discarding")
     if state.drawn_tile is None and not state.needs_discard:
         raise ValueError("current seat must draw before discarding")
     if _is_post_riichi_discard_locked(state, seat=state.current_seat):
@@ -390,8 +421,8 @@ def apply_riichi_action(
     action: Action,
 ) -> SandboxEnvironmentState:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot riichi during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot riichi during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before riichi")
     if action.kind is not ActionKind.RIICHI:
@@ -418,8 +449,8 @@ def apply_ankan_action(
     action: Action,
 ) -> tuple[SandboxEnvironmentState, Meld]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot closed kan during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot closed kan during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before closed kan")
     if action.kind is not ActionKind.ANKAN:
@@ -468,8 +499,8 @@ def apply_kakan_action(
     action: Action,
 ) -> tuple[SandboxEnvironmentState, Meld]:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot added kan during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot added kan during a pending reaction")
     if state.drawn_tile is None or state.needs_discard:
         raise ValueError("current seat must draw before added kan")
     if action.kind is not ActionKind.KAKAN:
@@ -498,6 +529,17 @@ def apply_kakan_action(
         "ippatsu_seats": (),
     }
 
+    chankan_seats = _legal_ron_seats_for_tile(
+        state,
+        tile=action.consumed[0],
+        candidate_seats=tuple(seat for seat in range(state.players) if seat != state.current_seat),
+    )
+    if chankan_seats:
+        updates["pending_chankan_tile"] = action.consumed[0]
+        updates["pending_chankan_seat"] = state.current_seat
+        updates["pending_reaction_seats"] = chankan_seats
+        return _replace_state(state, **updates), promoted_meld
+
     if not state.wall:
         updates["terminal_reason"] = "wall_exhausted"
         updates["terminal_rewards"] = _neutral_rewards(state.players)
@@ -516,6 +558,8 @@ def apply_discard_action(
     action: Action,
 ) -> tuple[SandboxEnvironmentState, Tile]:
     _require_non_terminal(state)
+    if _has_pending_reaction(state):
+        raise ValueError("pending reactions must be resolved before discarding")
     if state.drawn_tile is None and not state.needs_discard:
         raise ValueError("current seat must draw before discarding")
     if action.kind is not ActionKind.DISCARD or action.tile is None:
@@ -577,6 +621,22 @@ def legal_reaction_actions(
     return tuple(actions)
 
 
+def legal_chankan_reaction_actions(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    include_ron: bool = True,
+) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    _require_pending_chankan(state)
+    _require_reaction_seat(state, seat)
+    actions: list[Action] = []
+    if include_ron:
+        actions.extend(legal_chankan_ron_actions(state, seat=seat))
+    actions.append(Action.pass_())
+    return tuple(actions)
+
+
 def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Action, ...]:
     _require_non_terminal(state)
     _require_pending_discard(state)
@@ -624,17 +684,23 @@ def legal_ron_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Act
     _require_pending_discard(state)
     _require_reaction_seat(state, seat)
     pending_discard = _pending_discard(state)
-    hand = (*state.hands[seat], pending_discard)
-    shapes = _winning_shapes_for_complete_tiles(hand)
-    if not shapes:
-        return ()
-    if _is_discard_furiten(state, seat=seat):
-        return ()
-    if _is_temporary_furiten(state, seat=seat):
-        return ()
-    if _is_riichi_furiten(state, seat=seat):
+    if not _can_ron_tile(state, seat=seat, tile=pending_discard):
         return ()
     return (Action(ActionKind.RON, pending_discard.type),)
+
+
+def legal_chankan_ron_actions(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    _require_pending_chankan(state)
+    _require_reaction_seat(state, seat)
+    pending_chankan = _pending_chankan_tile(state)
+    if not _can_ron_tile(state, seat=seat, tile=pending_chankan):
+        return ()
+    return (Action(ActionKind.RON, pending_chankan.type),)
 
 
 def apply_call_action(
@@ -701,13 +767,18 @@ def apply_reaction_pass_action(
     action: Action | None = None,
 ) -> SandboxEnvironmentState:
     _require_non_terminal(state)
-    _require_pending_discard(state)
+    _require_pending_reaction(state)
     _require_reaction_seat(state, seat)
     if action is not None and action.kind is not ActionKind.PASS:
         raise ValueError("reaction pass requires a pass action")
     temporary_furiten_seats = state.temporary_furiten_seats
     riichi_furiten_seats = state.riichi_furiten_seats
-    if legal_ron_actions(state, seat=seat):
+    legal_ron = (
+        legal_chankan_ron_actions(state, seat=seat)
+        if state.pending_chankan_tile is not None
+        else legal_ron_actions(state, seat=seat)
+    )
+    if legal_ron:
         if _is_riichi(state, seat=seat):
             riichi_furiten_seats = _with_seat(riichi_furiten_seats, seat)
         else:
@@ -719,6 +790,12 @@ def apply_reaction_pass_action(
         return _replace_state(
             state,
             pending_reaction_seats=remaining,
+            temporary_furiten_seats=temporary_furiten_seats,
+            riichi_furiten_seats=riichi_furiten_seats,
+        )
+    if state.pending_chankan_tile is not None:
+        return _finish_chankan_reaction_window(
+            state,
             temporary_furiten_seats=temporary_furiten_seats,
             riichi_furiten_seats=riichi_furiten_seats,
         )
@@ -746,9 +823,10 @@ def apply_ron_actions(
     seat_actions: tuple[tuple[int, Action], ...],
 ) -> SandboxEnvironmentState:
     _require_non_terminal(state)
-    _require_pending_discard(state)
-    pending_discard = _pending_discard(state)
-    pending_discard_seat = _pending_discard_seat(state)
+    _require_pending_reaction(state)
+    pending_tile = _pending_ron_tile(state)
+    pending_source_seat = _pending_ron_source_seat(state)
+    terminal_reason = "chankan" if state.pending_chankan_tile is not None else "ron"
     if not seat_actions:
         raise ValueError("at least one ron action is required")
 
@@ -760,9 +838,9 @@ def apply_ron_actions(
         if seat in seen:
             raise ValueError(f"duplicate ron reaction seat: {seat}")
         seen.add(seat)
-        if action.kind is not ActionKind.RON or action.tile != pending_discard.type:
+        if action.kind is not ActionKind.RON or action.tile != pending_tile.type:
             raise ValueError("sandbox environment only supports matching ron actions here")
-        shapes = _winning_shapes_for_complete_tiles((*state.hands[seat], pending_discard))
+        shapes = _winning_shapes_for_complete_tiles((*state.hands[seat], pending_tile))
         if not shapes:
             raise ValueError("reacting hand is not a winning ron")
         if _is_discard_furiten(state, seat=seat):
@@ -777,14 +855,19 @@ def apply_ron_actions(
     point_updates = _terminal_win_point_updates(
         state,
         winner_seats=tuple(winner_seats),
-        discarder_seat=pending_discard_seat,
+        discarder_seat=pending_source_seat,
     )
     return _replace_state(
         state,
-        terminal_reason="ron",
+        pending_discard=None,
+        pending_discard_seat=None,
+        pending_chankan_tile=None,
+        pending_chankan_seat=None,
+        pending_reaction_seats=(),
+        terminal_reason=terminal_reason,
         winner_seat=winner_seats[0],
         winner_seats=tuple(winner_seats),
-        winning_tile=pending_discard,
+        winning_tile=pending_tile,
         winning_shapes=winning_shapes_by_seat[0][1],
         winning_shapes_by_seat=tuple(winning_shapes_by_seat),
         winning_ippatsu_seats=tuple(
@@ -793,7 +876,7 @@ def apply_ron_actions(
         ippatsu_seats=(),
         terminal_rewards=_multi_ron_rewards(
             winner_seats=tuple(winner_seats),
-            discarder_seat=pending_discard_seat,
+            discarder_seat=pending_source_seat,
             players=state.players,
         ),
         **point_updates,
@@ -826,8 +909,8 @@ def apply_tsumo_action(
     action: Action,
 ) -> SandboxEnvironmentState:
     _require_non_terminal(state)
-    if state.pending_discard is not None:
-        raise ValueError("cannot tsumo during a pending discard reaction")
+    if _has_pending_reaction(state):
+        raise ValueError("cannot tsumo during a pending reaction")
     if state.drawn_tile is None:
         raise ValueError("current seat must draw before tsumo")
     if action.kind is not ActionKind.TSUMO:
@@ -943,6 +1026,72 @@ def _require_non_terminal(state: SandboxEnvironmentState) -> None:
         raise ValueError("environment is already terminal")
 
 
+def _has_pending_reaction(state: SandboxEnvironmentState) -> bool:
+    return state.pending_discard is not None or state.pending_chankan_tile is not None
+
+
+def _can_ron_tile(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    tile: Tile,
+) -> bool:
+    if not _winning_shapes_for_complete_tiles((*state.hands[seat], tile)):
+        return False
+    if _is_discard_furiten(state, seat=seat):
+        return False
+    if _is_temporary_furiten(state, seat=seat):
+        return False
+    return not _is_riichi_furiten(state, seat=seat)
+
+
+def _legal_ron_seats_for_tile(
+    state: SandboxEnvironmentState,
+    *,
+    tile: Tile,
+    candidate_seats: tuple[int, ...],
+) -> tuple[int, ...]:
+    return tuple(
+        seat
+        for seat in candidate_seats
+        if _can_ron_tile(state, seat=seat, tile=tile)
+    )
+
+
+def _finish_chankan_reaction_window(
+    state: SandboxEnvironmentState,
+    *,
+    temporary_furiten_seats: tuple[int, ...],
+    riichi_furiten_seats: tuple[int, ...],
+) -> SandboxEnvironmentState:
+    updates: dict[str, Any] = {
+        "pending_chankan_tile": None,
+        "pending_chankan_seat": None,
+        "pending_reaction_seats": (),
+        "temporary_furiten_seats": temporary_furiten_seats,
+        "riichi_furiten_seats": riichi_furiten_seats,
+    }
+    if not state.wall:
+        return _replace_state(
+            state,
+            terminal_reason="wall_exhausted",
+            terminal_rewards=_neutral_rewards(state.players),
+            **updates,
+        )
+
+    replacement_draw = state.wall[-1]
+    hands = [list(hand) for hand in state.hands]
+    hands[state.current_seat].append(replacement_draw)
+    return _replace_state(
+        state,
+        wall=state.wall[:-1],
+        hands=tuple(tuple(hand) for hand in hands),
+        drawn_tile=replacement_draw,
+        needs_discard=False,
+        **updates,
+    )
+
+
 def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnvironmentState:
     payload = {
         "ruleset": state.ruleset,
@@ -960,6 +1109,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "needs_discard": state.needs_discard,
         "pending_discard": state.pending_discard,
         "pending_discard_seat": state.pending_discard_seat,
+        "pending_chankan_tile": state.pending_chankan_tile,
+        "pending_chankan_seat": state.pending_chankan_seat,
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
@@ -1147,13 +1298,10 @@ def _neutral_rewards(players: int) -> tuple[float, ...]:
 
 def _pending_ron_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
     pending_discard = _pending_discard(state)
-    return tuple(
-        seat
-        for seat in state.pending_reaction_seats
-        if _winning_shapes_for_complete_tiles((*state.hands[seat], pending_discard))
-        and not _is_discard_furiten(state, seat=seat)
-        and not _is_temporary_furiten(state, seat=seat)
-        and not _is_riichi_furiten(state, seat=seat)
+    return _legal_ron_seats_for_tile(
+        state,
+        tile=pending_discard,
+        candidate_seats=state.pending_reaction_seats,
     )
 
 
@@ -1208,9 +1356,19 @@ def _without_seat(seats: tuple[int, ...], seat: int) -> tuple[int, ...]:
     return tuple(candidate for candidate in seats if candidate != seat)
 
 
+def _require_pending_reaction(state: SandboxEnvironmentState) -> None:
+    if not _has_pending_reaction(state):
+        raise ValueError("no pending reaction")
+
+
 def _require_pending_discard(state: SandboxEnvironmentState) -> None:
     if state.pending_discard is None:
         raise ValueError("no pending discard reaction")
+
+
+def _require_pending_chankan(state: SandboxEnvironmentState) -> None:
+    if state.pending_chankan_tile is None:
+        raise ValueError("no pending chankan reaction")
 
 
 def _require_reaction_seat(state: SandboxEnvironmentState, seat: int) -> None:
@@ -1230,3 +1388,27 @@ def _pending_discard_seat(state: SandboxEnvironmentState) -> int:
     if state.pending_discard_seat is None:
         raise ValueError("no pending discard seat")
     return state.pending_discard_seat
+
+
+def _pending_chankan_tile(state: SandboxEnvironmentState) -> Tile:
+    if state.pending_chankan_tile is None:
+        raise ValueError("no pending chankan reaction")
+    return state.pending_chankan_tile
+
+
+def _pending_chankan_seat(state: SandboxEnvironmentState) -> int:
+    if state.pending_chankan_seat is None:
+        raise ValueError("no pending chankan seat")
+    return state.pending_chankan_seat
+
+
+def _pending_ron_tile(state: SandboxEnvironmentState) -> Tile:
+    if state.pending_discard is not None:
+        return state.pending_discard
+    return _pending_chankan_tile(state)
+
+
+def _pending_ron_source_seat(state: SandboxEnvironmentState) -> int:
+    if state.pending_discard is not None:
+        return _pending_discard_seat(state)
+    return _pending_chankan_seat(state)
