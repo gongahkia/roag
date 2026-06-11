@@ -55,6 +55,7 @@ class SandboxEnvironmentState:
     pending_discard_seat: int | None = None
     pending_chankan_tile: Tile | None = None
     pending_chankan_seat: int | None = None
+    pending_chankan_kind: ActionKind | None = None
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
@@ -108,6 +109,12 @@ class SandboxEnvironmentState:
             raise ValueError("pending discard seat requires a pending discard")
         if self.pending_chankan_tile is None and self.pending_chankan_seat is not None:
             raise ValueError("pending chankan seat requires a pending chankan tile")
+        if self.pending_chankan_tile is None and self.pending_chankan_kind is not None:
+            raise ValueError("pending chankan kind requires a pending chankan tile")
+        if self.pending_chankan_tile is not None and self.pending_chankan_kind is None:
+            raise ValueError("pending chankan kind is required")
+        if self.pending_chankan_kind not in (None, ActionKind.ANKAN, ActionKind.KAKAN):
+            raise ValueError("pending chankan kind must be ankan or kakan")
         if pending_windows == 0 and self.pending_reaction_seats:
             raise ValueError("pending reaction seats require a pending reaction window")
         if self.pending_discard is not None:
@@ -207,6 +214,9 @@ class SandboxEnvironmentState:
                 None if self.pending_chankan_tile is None else self.pending_chankan_tile.notation
             ),
             "pending_chankan_seat": self.pending_chankan_seat,
+            "pending_chankan_kind": (
+                None if self.pending_chankan_kind is None else self.pending_chankan_kind.value
+            ),
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
@@ -506,6 +516,18 @@ def apply_ankan_action(
         "ippatsu_seats": (),
     }
 
+    chankan_seats = _legal_kokushi_ron_seats_for_tile(
+        state,
+        tile=action.consumed[0],
+        candidate_seats=tuple(seat for seat in range(state.players) if seat != state.current_seat),
+    )
+    if chankan_seats:
+        updates["pending_chankan_tile"] = action.consumed[0]
+        updates["pending_chankan_seat"] = state.current_seat
+        updates["pending_chankan_kind"] = ActionKind.ANKAN
+        updates["pending_reaction_seats"] = chankan_seats
+        return _replace_state(state, **updates), meld
+
     _apply_kan_replacement_draw(
         state,
         hands=hands,
@@ -560,6 +582,7 @@ def apply_kakan_action(
     if chankan_seats:
         updates["pending_chankan_tile"] = action.consumed[0]
         updates["pending_chankan_seat"] = state.current_seat
+        updates["pending_chankan_kind"] = ActionKind.KAKAN
         updates["pending_reaction_seats"] = chankan_seats
         return _replace_state(state, **updates), promoted_meld
 
@@ -719,7 +742,12 @@ def legal_chankan_ron_actions(
     _require_pending_chankan(state)
     _require_reaction_seat(state, seat)
     pending_chankan = _pending_chankan_tile(state)
-    if not _can_ron_tile(state, seat=seat, tile=pending_chankan):
+    can_ron = (
+        _can_kokushi_ron_tile(state, seat=seat, tile=pending_chankan)
+        if state.pending_chankan_kind is ActionKind.ANKAN
+        else _can_ron_tile(state, seat=seat, tile=pending_chankan)
+    )
+    if not can_ron:
         return ()
     return (Action(ActionKind.RON, pending_chankan.type),)
 
@@ -862,6 +890,8 @@ def apply_ron_actions(
         shapes = _winning_shapes_for_state(state, seat=seat, winning_tile=pending_tile)
         if not shapes:
             raise ValueError("reacting hand is not a winning ron")
+        if state.pending_chankan_kind is ActionKind.ANKAN and "kokushi" not in shapes:
+            raise ValueError("concealed kan can only be robbed by kokushi")
         if _is_discard_furiten(state, seat=seat):
             raise ValueError("reacting hand is in discard furiten")
         if _is_temporary_furiten(state, seat=seat):
@@ -882,6 +912,7 @@ def apply_ron_actions(
         pending_discard_seat=None,
         pending_chankan_tile=None,
         pending_chankan_seat=None,
+        pending_chankan_kind=None,
         pending_reaction_seats=(),
         terminal_reason=terminal_reason,
         winner_seat=winner_seats[0],
@@ -1103,6 +1134,34 @@ def _legal_ron_seats_for_tile(
     )
 
 
+def _legal_kokushi_ron_seats_for_tile(
+    state: SandboxEnvironmentState,
+    *,
+    tile: Tile,
+    candidate_seats: tuple[int, ...],
+) -> tuple[int, ...]:
+    return tuple(
+        seat
+        for seat in candidate_seats
+        if _can_kokushi_ron_tile(state, seat=seat, tile=tile)
+    )
+
+
+def _can_kokushi_ron_tile(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    tile: Tile,
+) -> bool:
+    if "kokushi" not in _winning_shapes_for_state(state, seat=seat, winning_tile=tile):
+        return False
+    if _is_discard_furiten(state, seat=seat):
+        return False
+    if _is_temporary_furiten(state, seat=seat):
+        return False
+    return not _is_riichi_furiten(state, seat=seat)
+
+
 def _apply_kan_replacement_draw(
     state: SandboxEnvironmentState,
     *,
@@ -1151,6 +1210,7 @@ def _finish_chankan_reaction_window(
     updates: dict[str, Any] = {
         "pending_chankan_tile": None,
         "pending_chankan_seat": None,
+        "pending_chankan_kind": None,
         "pending_reaction_seats": (),
         "temporary_furiten_seats": temporary_furiten_seats,
         "riichi_furiten_seats": riichi_furiten_seats,
@@ -1187,6 +1247,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_discard_seat": state.pending_discard_seat,
         "pending_chankan_tile": state.pending_chankan_tile,
         "pending_chankan_seat": state.pending_chankan_seat,
+        "pending_chankan_kind": state.pending_chankan_kind,
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,

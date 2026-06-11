@@ -500,12 +500,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     legal chi/pon/minkan, basic dead-wall replacement draws for minkan/ankan/kakan, basic
     kan-dora indicator metadata, basic rinshan draw-source metadata, individual reaction passes,
     ron-priority call gating, a basic chankan ron/pass window before kakan replacement draw,
-    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads, plus basic open/kan standard-shape win detection only; the next simulator step
-    is full call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring
-    semantics, complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
-    payment accounting, post-riichi closed-kan exception handling, scoring, and richer reward
-    semantics.
+    kokushi-only ankan robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal
+    resolution, and simple terminal reward payloads, plus basic open/kan standard-shape win
+    detection only; the next simulator step is full call/kan timing, complete yaku/terminal
+    legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator
+    ordering, complete chankan semantics, complete payment accounting, post-riichi closed-kan
+    exception handling, scoring, and richer reward semantics.
 
 ---
 
@@ -1075,3 +1075,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   by combining concealed tiles with each existing meld as one completed group. Chiitoitsu and
   kokushi remain closed-hand-only, and this still does not implement yaku legality, open-hand yaku
   restrictions, scoring, complete rinshan yaku/scoring semantics, or learned call/ron/kan policy.
+- Added kokushi-only ankan chankan to the sandbox. Pending chankan windows now carry a
+  `pending_chankan_kind`, kakan keeps the existing standard-shape chankan behavior, and ankan opens
+  a ron/pass window only for seats whose hand wins by kokushi on the concealed-kan tile under the
+  existing furiten filters. This is still not complete robbing-kan/chankan semantics, complete yaku
+  validation, post-riichi closed-kan exception handling, scoring, or a learned kan/chankan policy.

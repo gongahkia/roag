@@ -33,10 +33,10 @@ handoff notes.
   discard/call restrictions, a basic riichi deposit/stick ledger, basic honba bonus deltas,
   basic active/winning ippatsu metadata, basic closed-kan/ankan and added-kan/kakan actions with
   dead-wall replacement draws, kan-dora indicator metadata, and rinshan draw-source metadata, a
-  basic chankan ron/pass window before kakan replacement draw, individual reaction passes,
-  ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
-  resolution, basic open/kan standard-shape win detection, and simple terminal reward payloads. The
-  self-play sandbox uses this boundary for 4-player and static 3-player
+  basic chankan ron/pass window before kakan replacement draw plus kokushi-only ankan robbery,
+  individual reaction passes, ron-priority call gating, discard/call/tsumo/ron application, basic
+  multi-ron terminal resolution, basic open/kan standard-shape win detection, and simple terminal
+  reward payloads. The self-play sandbox uses this boundary for 4-player and static 3-player
   tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan policy
   yet.

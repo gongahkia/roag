@@ -67,6 +67,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_kakan_application": True,
                 "sandbox_chankan_reaction_window": True,
                 "sandbox_chankan_ron_resolution": True,
+                "sandbox_ankan_kokushi_chankan": True,
                 "sandbox_dead_wall_replacement_draws": True,
                 "sandbox_kan_dora_indicator_metadata": True,
                 "sandbox_rinshan_draw_metadata": True,

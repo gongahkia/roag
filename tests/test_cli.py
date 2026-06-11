@@ -69,6 +69,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_kakan_application: yes", output)
         self.assertIn("sandbox_chankan_reaction_window: yes", output)
         self.assertIn("sandbox_chankan_ron_resolution: yes", output)
+        self.assertIn("sandbox_ankan_kokushi_chankan: yes", output)
         self.assertIn("sandbox_dead_wall_replacement_draws: yes", output)
         self.assertIn("sandbox_kan_dora_indicator_metadata: yes", output)
         self.assertIn("sandbox_rinshan_draw_metadata: yes", output)
@@ -151,6 +152,9 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_kakan_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_chankan_reaction_window"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_chankan_ron_resolution"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_ankan_kokushi_chankan"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dead_wall_replacement_draws"]
         )
@@ -395,6 +399,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("added_kan_actions: yes", text_stdout.getvalue())
         self.assertIn("chankan_reaction_windows: yes", text_stdout.getvalue())
         self.assertIn("chankan_ron_resolution: yes", text_stdout.getvalue())
+        self.assertIn("ankan_kokushi_chankan: yes", text_stdout.getvalue())
         self.assertIn("dead_wall_replacement_draws: yes", text_stdout.getvalue())
         self.assertIn("kan_dora_indicator_metadata: yes", text_stdout.getvalue())
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
@@ -416,6 +421,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["added_kan_actions"])
         self.assertTrue(report_payload["capabilities"]["chankan_reaction_windows"])
         self.assertTrue(report_payload["capabilities"]["chankan_ron_resolution"])
+        self.assertTrue(report_payload["capabilities"]["ankan_kokushi_chankan"])
         self.assertTrue(report_payload["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(report_payload["capabilities"]["kan_dora_indicator_metadata"])
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])

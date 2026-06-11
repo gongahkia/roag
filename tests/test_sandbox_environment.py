@@ -1254,6 +1254,68 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertEqual(after_kan.ippatsu_seats, ())
 
+    def test_ankan_opens_kokushi_chankan_window_before_replacement_draw(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1m"),),
+            dead_wall=_tiles("2m 3m 5s"),
+            dora_indicators=(Tile.parse("2m"),),
+            hands=(
+                _tiles("1m 1m 1m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("9m 1p 9p 1s 9s E E S W N P F C"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        ankan = legal_ankan_actions(drawn)[0]
+
+        pending, meld = apply_ankan_action(drawn, ankan)
+        ron = Action(ActionKind.RON, TileType.parse("1m"))
+
+        self.assertEqual(meld.kind, ActionKind.ANKAN)
+        self.assertIsNone(pending.drawn_tile)
+        self.assertFalse(pending.rinshan_draw)
+        self.assertEqual(pending.dead_wall, _tiles("2m 3m 5s"))
+        self.assertEqual(pending.dora_indicators, _tiles("2m"))
+        self.assertEqual(pending.pending_chankan_tile, Tile.parse("1m"))
+        self.assertEqual(pending.pending_chankan_seat, 0)
+        self.assertEqual(pending.pending_chankan_kind, ActionKind.ANKAN)
+        self.assertEqual(pending.to_payload()["pending_chankan_kind"], "ankan")
+        self.assertEqual(pending.pending_reaction_seats, (1,))
+        self.assertEqual(legal_chankan_ron_actions(pending, seat=1), (ron,))
+
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+
+        self.assertEqual(terminal.terminal_reason, "chankan")
+        self.assertEqual(terminal.winner_seats, (1,))
+        self.assertEqual(terminal.winning_shapes, ("kokushi",))
+        self.assertIsNone(terminal.pending_chankan_kind)
+
+    def test_ankan_chankan_rejects_non_kokushi_ron_shape(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
+            hands=(
+                _tiles("3m 3m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 1p 2p 3p 1s 2s 3s E E E 5m 5m"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+
+        after_kan, _meld = apply_ankan_action(drawn, legal_ankan_actions(drawn)[0])
+
+        self.assertIsNone(after_kan.pending_chankan_tile)
+        self.assertIsNone(after_kan.pending_chankan_kind)
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertEqual(after_kan.drawn_tile, Tile.parse("8s"))
+
     def test_kakan_action_promotes_pon_and_uses_simple_replacement_draw(self) -> None:
         pon = Meld(
             ActionKind.PON,
@@ -1353,9 +1415,11 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(pending.hand_sizes()[0], 10)
         self.assertEqual(pending.pending_chankan_tile, Tile.parse("3m"))
         self.assertEqual(pending.pending_chankan_seat, 0)
+        self.assertEqual(pending.pending_chankan_kind, ActionKind.KAKAN)
         self.assertEqual(pending.pending_reaction_seats, (1,))
         self.assertEqual(pending.to_payload()["pending_chankan_tile"], "3m")
         self.assertEqual(pending.to_payload()["pending_chankan_seat"], 0)
+        self.assertEqual(pending.to_payload()["pending_chankan_kind"], "kakan")
         self.assertEqual(legal_chankan_ron_actions(pending, seat=1), (ron,))
         self.assertEqual(legal_chankan_reaction_actions(pending, seat=1), (ron, Action.pass_()))
         self.assertEqual(legal_sandbox_actions(pending, seat=1), (ron, Action.pass_()))
@@ -1370,6 +1434,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
         self.assertIsNone(terminal.pending_chankan_tile)
         self.assertIsNone(terminal.pending_chankan_seat)
+        self.assertIsNone(terminal.pending_chankan_kind)
         self.assertEqual(terminal.pending_reaction_seats, ())
 
     def test_chankan_pass_draws_delayed_replacement_tile(self) -> None:
@@ -1401,6 +1466,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertIsNone(after_pass.pending_chankan_tile)
         self.assertIsNone(after_pass.pending_chankan_seat)
+        self.assertIsNone(after_pass.pending_chankan_kind)
         self.assertEqual(after_pass.pending_reaction_seats, ())
         self.assertEqual(after_pass.temporary_furiten_seats, (1,))
         self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))

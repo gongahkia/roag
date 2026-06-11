@@ -67,6 +67,7 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_kakan_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_chankan_reaction_window"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_chankan_ron_resolution"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_kokushi_chankan"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dead_wall_replacement_draws"]
         )
@@ -140,6 +141,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_kakan_application: yes", text)
         self.assertIn("sandbox_chankan_reaction_window: yes", text)
         self.assertIn("sandbox_chankan_ron_resolution: yes", text)
+        self.assertIn("sandbox_ankan_kokushi_chankan: yes", text)
         self.assertIn("sandbox_dead_wall_replacement_draws: yes", text)
         self.assertIn("sandbox_kan_dora_indicator_metadata: yes", text)
         self.assertIn("sandbox_rinshan_draw_metadata: yes", text)
