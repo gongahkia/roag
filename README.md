@@ -8,7 +8,7 @@ local prediction artifacts. Live ladder automation is intentionally out of scope
 grants explicit permission.
 
 The repo is not yet a transformer agent, RL system, Sanma implementation, browser demo, or full
-scoring engine. See `IDEAS.md` and `docs/session-handoff.md` for the research roadmap and running
+scoring engine. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running
 handoff notes.
 
 ## Current State

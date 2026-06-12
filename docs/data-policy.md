@@ -35,7 +35,7 @@ local evaluation workflow.
 
 Generated reports and model artifacts belong under ignored local paths such as `runs/` and
 `models/`. If aggregate results are useful for project history, record only summary counts,
-metrics, and source commands in `IDEAS.md` or docs; do not copy raw XML, database contents, player
+metrics, and source commands in `TODO.md` or docs; do not copy raw XML, database contents, player
 records, or full generated artifacts into git without a separate redistribution review.
 
 ## Mahjong Soul

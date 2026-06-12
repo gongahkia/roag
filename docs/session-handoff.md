@@ -328,7 +328,7 @@ Last updated: 2026-06-12.
 
 - Start every session with `git status --short` and inspect current files before relying on this
   document.
-- Make small commits for each coherent change. Update `IDEAS.md` with progress, benchmark results,
+- Make small commits for each coherent change. Update `TODO.md` with progress, benchmark results,
   and next targets as work lands.
 - Do not revert or overwrite user changes. If the worktree is dirty, distinguish current-task files
   from unrelated edits before patching.
