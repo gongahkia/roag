@@ -86,6 +86,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("sanma_static_ruleset: yes", output)
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", output)
         self.assertIn("sandbox_sanma_kita_action: yes", output)
+        self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", output)
+        self.assertIn("sandbox_sanma_kita_ron_resolution: yes", output)
         self.assertIn("deal_in_estimator_training_command: yes", output)
         self.assertIn("transformer_state_encoder_module: yes", output)
         self.assertIn("transformer_behavior_cloning_training_command: yes", output)
@@ -194,6 +196,12 @@ class CliTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["self_play_sandbox_sanma_tile_set"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_reaction_window"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_resolution"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )
@@ -422,6 +430,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
         self.assertIn("sanma_kita_action: yes", text_stdout.getvalue())
         self.assertIn("kita_policy: no", text_stdout.getvalue())
+        self.assertIn("kita_ron_reaction_windows: yes", text_stdout.getvalue())
+        self.assertIn("kita_ron_resolution: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_win_filter: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
@@ -450,6 +460,8 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
         self.assertTrue(report_payload["capabilities"]["sanma_kita_action"])
         self.assertFalse(report_payload["capabilities"]["kita_policy"])
+        self.assertTrue(report_payload["capabilities"]["kita_ron_reaction_windows"])
+        self.assertTrue(report_payload["capabilities"]["kita_ron_resolution"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])

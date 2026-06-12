@@ -242,9 +242,10 @@ Last updated: 2026-06-12.
   rinshan draw-source metadata, winning rinshan seats, terminal yaku metadata, terminal point-delta
   metadata, dead-wall remaining count, and visible dora/kan-dora indicators.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
-  excludes 2m-8m, rotates three seats, and the environment exposes a basic Kita/pei-nuki action;
-  episode summaries include `kita_tiles` and `kita_counts`. `--stop-on-tsumo` checks basic
-  closed-hand standard, chiitoitsu, and kokushi winning shapes immediately after a synthetic draw.
+  excludes 2m-8m, rotates three seats, and the environment exposes a basic Kita/pei-nuki action
+  plus Kita ron/pass reaction windows; episode summaries include `kita_tiles` and `kita_counts`.
+  `--stop-on-tsumo` checks basic closed-hand standard, chiitoitsu, and kokushi winning shapes
+  immediately after a synthetic draw.
   It is for plumbing only; it has no call/ron/kan/Kita policy, complete yaku validation, complete
   rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete
   robbing-kan/chankan handling, scoring, complete payment accounting, complete post-riichi kan
@@ -252,7 +253,8 @@ Last updated: 2026-06-12.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_chankan_ron_actions`,
-  `legal_chankan_reaction_actions`, `legal_call_actions`, `legal_ankan_actions`,
+  `legal_chankan_reaction_actions`, `legal_kita_ron_actions`,
+  `legal_kita_reaction_actions`, `legal_call_actions`, `legal_ankan_actions`,
   `legal_kakan_actions`, `legal_kita_actions`, `legal_riichi_actions`,
   `legal_reaction_actions`, `legal_sandbox_actions`, `apply_discard_action`,
   `apply_reaction_pass_action`, `apply_call_action`, `apply_ankan_action`, `apply_kakan_action`,
@@ -268,10 +270,11 @@ Last updated: 2026-06-12.
   basic closed-kan/ankan self-turn actions with dead-wall replacement draws, basic added-kan/kakan
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
   terminal metadata, a basic Sanma Kita/pei-nuki action with dead-wall replacement draws and
-  bonus-han score-estimate metadata, a basic chankan ron/pass window before kakan replacement draw,
-  kokushi-only ankan chankan, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
-  resolution, basic open/kan standard-shape win detection, a basic sandbox yaku filter/metadata
-  layer, simple sandbox terminal rewards, and terminal point-delta metadata.
+  bonus-han score-estimate metadata, a basic Sanma Kita ron/pass reaction window before replacement
+  draw that resolves as normal ron rather than chankan, a basic chankan ron/pass window before
+  kakan replacement draw, kokushi-only ankan chankan, basic closed-hand tsumo/ron terminal metadata,
+  basic multi-ron terminal resolution, basic open/kan standard-shape win detection, a basic sandbox
+  yaku filter/metadata layer, simple sandbox terminal rewards, and terminal point-delta metadata.
 
 ## Working Rules
 
@@ -302,9 +305,9 @@ Last updated: 2026-06-12.
   kan timing, real multi-ron payment handling, richer terminal reward signals,
   and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
-  item. It applies the static tile exclusions, three-seat rotation, and a basic Kita/pei-nuki
-  environment action only. Real Sanma still needs gameplay, ron-on-Kita semantics, exact call
-  handling, scoring, training, and evaluation.
+  item. It applies the static tile exclusions, three-seat rotation, a basic Kita/pei-nuki
+  environment action, and a basic Kita ron/pass reaction window only. Real Sanma still needs
+  gameplay, exact platform timing, exact call handling, scoring, training, and evaluation.
 - PyTorch is now a core dependency for the supervised-learning path. Keep non-ML command imports
   lazy where practical so source checkouts remain usable before installation.
 
@@ -825,7 +828,7 @@ Mortal local baseline reconnaissance:
    complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
    post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
-   the Phase 5 Sanma ruleset complete until real 3-player gameplay, ron-on-Kita semantics, exact
+   the Phase 5 Sanma ruleset complete until real 3-player gameplay, exact platform timing, exact
    call handling, scoring, training, and evaluation exist.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics, next-round

@@ -128,6 +128,8 @@ def run_self_play_sandbox(
             "kan_dora_indicator_metadata": True,
             "rinshan_draw_metadata": True,
             "kita_policy": False,
+            "kita_ron_reaction_windows": rules.players == 3,
+            "kita_ron_resolution": rules.players == 3,
             "calls": False,
             "kan_policy": False,
             "chankan_policy": False,
@@ -323,6 +325,8 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         pending_chankan_tile=state.pending_chankan_tile,
         pending_chankan_seat=state.pending_chankan_seat,
         pending_chankan_kind=state.pending_chankan_kind,
+        pending_kita_tile=state.pending_kita_tile,
+        pending_kita_seat=state.pending_kita_seat,
         pending_reaction_seats=state.pending_reaction_seats,
         temporary_furiten_seats=state.temporary_furiten_seats,
         riichi_seats=state.riichi_seats,
@@ -345,7 +349,11 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
 
 
 def _auto_pass_reactions(state: SandboxEnvironmentState) -> SandboxEnvironmentState:
-    while state.pending_discard is not None or state.pending_chankan_tile is not None:
+    while (
+        state.pending_discard is not None
+        or state.pending_chankan_tile is not None
+        or state.pending_kita_tile is not None
+    ):
         if not state.pending_reaction_seats:
             raise RuntimeError("pending reaction has no reaction seats")
         state = apply_reaction_pass_action(state, seat=state.pending_reaction_seats[0])

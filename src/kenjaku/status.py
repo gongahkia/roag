@@ -86,6 +86,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sanma_static_ruleset": True,
                 "self_play_sandbox_sanma_tile_set": True,
                 "sandbox_sanma_kita_action": True,
+                "sandbox_sanma_kita_ron_reaction_window": True,
+                "sandbox_sanma_kita_ron_resolution": True,
                 "discard_mlp_training_command": True,
                 "heuristic_defense_risk_scoring": True,
                 "deal_in_estimator_training_command": True,

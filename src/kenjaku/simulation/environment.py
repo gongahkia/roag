@@ -127,6 +127,8 @@ class SandboxEnvironmentState:
     pending_chankan_tile: Tile | None = None
     pending_chankan_seat: int | None = None
     pending_chankan_kind: ActionKind | None = None
+    pending_kita_tile: Tile | None = None
+    pending_kita_seat: int | None = None
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
@@ -181,8 +183,10 @@ class SandboxEnvironmentState:
             raise ValueError("needs_discard cannot be set with a drawn tile")
         if self.rinshan_draw and self.drawn_tile is None:
             raise ValueError("rinshan draw requires a drawn tile")
-        pending_windows = int(self.pending_discard is not None) + int(
-            self.pending_chankan_tile is not None
+        pending_windows = (
+            int(self.pending_discard is not None)
+            + int(self.pending_chankan_tile is not None)
+            + int(self.pending_kita_tile is not None)
         )
         if pending_windows > 1:
             raise ValueError("only one pending reaction window is supported")
@@ -198,6 +202,8 @@ class SandboxEnvironmentState:
             raise ValueError("pending chankan kind is required")
         if self.pending_chankan_kind not in (None, ActionKind.ANKAN, ActionKind.KAKAN):
             raise ValueError("pending chankan kind must be ankan or kakan")
+        if self.pending_kita_tile is None and self.pending_kita_seat is not None:
+            raise ValueError("pending kita seat requires a pending kita tile")
         if pending_windows == 0 and self.pending_reaction_seats:
             raise ValueError("pending reaction seats require a pending reaction window")
         if self.pending_discard is not None:
@@ -216,6 +222,19 @@ class SandboxEnvironmentState:
                 raise ValueError("pending chankan seat outside player range")
             if self.pending_chankan_seat in self.pending_reaction_seats:
                 raise ValueError("kan seat cannot react to its own added kan")
+            if any(not 0 <= seat < self.players for seat in self.pending_reaction_seats):
+                raise ValueError("pending reaction seat outside player range")
+        if self.pending_kita_tile is not None:
+            if self.ruleset != TENHOU_3P.name:
+                raise ValueError("pending kita reactions are only supported for tenhou-3p")
+            if self.pending_kita_tile.type != SANDBOX_KITA_TILE:
+                raise ValueError("pending kita tile must be a north tile")
+            if self.pending_kita_seat is None:
+                raise ValueError("pending kita seat is required")
+            if not 0 <= self.pending_kita_seat < self.players:
+                raise ValueError("pending kita seat outside player range")
+            if self.pending_kita_seat in self.pending_reaction_seats:
+                raise ValueError("kita seat cannot react to its own kita")
             if any(not 0 <= seat < self.players for seat in self.pending_reaction_seats):
                 raise ValueError("pending reaction seat outside player range")
         if any(not 0 <= seat < self.players for seat in self.temporary_furiten_seats):
@@ -322,6 +341,10 @@ class SandboxEnvironmentState:
             "pending_chankan_kind": (
                 None if self.pending_chankan_kind is None else self.pending_chankan_kind.value
             ),
+            "pending_kita_tile": (
+                None if self.pending_kita_tile is None else self.pending_kita_tile.notation
+            ),
+            "pending_kita_seat": self.pending_kita_seat,
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
@@ -447,6 +470,14 @@ def legal_sandbox_actions(
         if seat is None:
             raise ValueError("seat is required for pending chankan reactions")
         return legal_chankan_reaction_actions(
+            state,
+            seat=seat,
+            include_ron=include_ron,
+        )
+    if state.pending_kita_tile is not None:
+        if seat is None:
+            raise ValueError("seat is required for pending kita reactions")
+        return legal_kita_reaction_actions(
             state,
             seat=seat,
             include_ron=include_ron,
@@ -785,9 +816,26 @@ def apply_kita_action(
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
+        "pending_chankan_tile": None,
+        "pending_chankan_seat": None,
+        "pending_chankan_kind": None,
+        "pending_kita_tile": None,
+        "pending_kita_seat": None,
         "pending_reaction_seats": (),
         "ippatsu_seats": (),
     }
+    kita_ron_seats = _legal_ron_seats_for_tile(
+        state,
+        tile=kita_tile,
+        candidate_seats=tuple(seat for seat in range(state.players) if seat != state.current_seat),
+        win_kind="ron",
+    )
+    if kita_ron_seats:
+        updates["pending_kita_tile"] = kita_tile
+        updates["pending_kita_seat"] = state.current_seat
+        updates["pending_reaction_seats"] = kita_ron_seats
+        return _replace_state(state, **updates)
+
     _apply_kan_replacement_draw(
         state,
         hands=hands,
@@ -883,6 +931,22 @@ def legal_chankan_reaction_actions(
     return tuple(actions)
 
 
+def legal_kita_reaction_actions(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    include_ron: bool = True,
+) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    _require_pending_kita(state)
+    _require_reaction_seat(state, seat)
+    actions: list[Action] = []
+    if include_ron:
+        actions.extend(legal_kita_ron_actions(state, seat=seat))
+    actions.append(Action.pass_())
+    return tuple(actions)
+
+
 def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Action, ...]:
     _require_non_terminal(state)
     _require_pending_discard(state)
@@ -952,6 +1016,20 @@ def legal_chankan_ron_actions(
     if not can_ron:
         return ()
     return (Action(ActionKind.RON, pending_chankan.type),)
+
+
+def legal_kita_ron_actions(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    _require_pending_kita(state)
+    _require_reaction_seat(state, seat)
+    pending_kita = _pending_kita_tile(state)
+    if not _can_ron_tile(state, seat=seat, tile=pending_kita, win_kind="ron"):
+        return ()
+    return (Action(ActionKind.RON, pending_kita.type),)
 
 
 def apply_call_action(
@@ -1025,7 +1103,11 @@ def apply_reaction_pass_action(
     legal_ron = (
         legal_chankan_ron_actions(state, seat=seat)
         if state.pending_chankan_tile is not None
-        else legal_ron_actions(state, seat=seat)
+        else (
+            legal_kita_ron_actions(state, seat=seat)
+            if state.pending_kita_tile is not None
+            else legal_ron_actions(state, seat=seat)
+        )
     )
     if legal_ron:
         if _is_riichi(state, seat=seat):
@@ -1044,6 +1126,12 @@ def apply_reaction_pass_action(
         )
     if state.pending_chankan_tile is not None:
         return _finish_chankan_reaction_window(
+            state,
+            temporary_furiten_seats=temporary_furiten_seats,
+            riichi_furiten_seats=riichi_furiten_seats,
+        )
+    if state.pending_kita_tile is not None:
+        return _finish_kita_reaction_window(
             state,
             temporary_furiten_seats=temporary_furiten_seats,
             riichi_furiten_seats=riichi_furiten_seats,
@@ -1128,6 +1216,8 @@ def apply_ron_actions(
         pending_chankan_tile=None,
         pending_chankan_seat=None,
         pending_chankan_kind=None,
+        pending_kita_tile=None,
+        pending_kita_seat=None,
         pending_reaction_seats=(),
         terminal_reason=terminal_reason,
         winner_seat=winner_seats[0],
@@ -1474,7 +1564,11 @@ def _require_non_terminal(state: SandboxEnvironmentState) -> None:
 
 
 def _has_pending_reaction(state: SandboxEnvironmentState) -> bool:
-    return state.pending_discard is not None or state.pending_chankan_tile is not None
+    return (
+        state.pending_discard is not None
+        or state.pending_chankan_tile is not None
+        or state.pending_kita_tile is not None
+    )
 
 
 def _can_ron_tile(
@@ -1610,6 +1704,30 @@ def _finish_chankan_reaction_window(
     return _replace_state(state, **updates)
 
 
+def _finish_kita_reaction_window(
+    state: SandboxEnvironmentState,
+    *,
+    temporary_furiten_seats: tuple[int, ...],
+    riichi_furiten_seats: tuple[int, ...],
+) -> SandboxEnvironmentState:
+    updates: dict[str, Any] = {
+        "pending_kita_tile": None,
+        "pending_kita_seat": None,
+        "pending_reaction_seats": (),
+        "temporary_furiten_seats": temporary_furiten_seats,
+        "riichi_furiten_seats": riichi_furiten_seats,
+    }
+    hands = [list(hand) for hand in state.hands]
+    _apply_kan_replacement_draw(
+        state,
+        hands=hands,
+        updates=updates,
+        seat=state.current_seat,
+        reveal_kan_dora=False,
+    )
+    return _replace_state(state, **updates)
+
+
 def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnvironmentState:
     payload = {
         "ruleset": state.ruleset,
@@ -1634,6 +1752,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_chankan_tile": state.pending_chankan_tile,
         "pending_chankan_seat": state.pending_chankan_seat,
         "pending_chankan_kind": state.pending_chankan_kind,
+        "pending_kita_tile": state.pending_kita_tile,
+        "pending_kita_seat": state.pending_kita_seat,
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
@@ -2036,11 +2156,16 @@ def _require_pending_chankan(state: SandboxEnvironmentState) -> None:
         raise ValueError("no pending chankan reaction")
 
 
+def _require_pending_kita(state: SandboxEnvironmentState) -> None:
+    if state.pending_kita_tile is None:
+        raise ValueError("no pending kita reaction")
+
+
 def _require_reaction_seat(state: SandboxEnvironmentState, seat: int) -> None:
     if not 0 <= seat < state.players:
         raise ValueError("reaction seat outside player range")
     if seat not in state.pending_reaction_seats:
-        raise ValueError("seat cannot react to this pending discard")
+        raise ValueError("seat cannot react to this pending reaction")
 
 
 def _pending_discard(state: SandboxEnvironmentState) -> Tile:
@@ -2067,13 +2192,29 @@ def _pending_chankan_seat(state: SandboxEnvironmentState) -> int:
     return state.pending_chankan_seat
 
 
+def _pending_kita_tile(state: SandboxEnvironmentState) -> Tile:
+    if state.pending_kita_tile is None:
+        raise ValueError("no pending kita reaction")
+    return state.pending_kita_tile
+
+
+def _pending_kita_seat(state: SandboxEnvironmentState) -> int:
+    if state.pending_kita_seat is None:
+        raise ValueError("no pending kita seat")
+    return state.pending_kita_seat
+
+
 def _pending_ron_tile(state: SandboxEnvironmentState) -> Tile:
     if state.pending_discard is not None:
         return state.pending_discard
-    return _pending_chankan_tile(state)
+    if state.pending_chankan_tile is not None:
+        return _pending_chankan_tile(state)
+    return _pending_kita_tile(state)
 
 
 def _pending_ron_source_seat(state: SandboxEnvironmentState) -> int:
     if state.pending_discard is not None:
         return _pending_discard_seat(state)
-    return _pending_chankan_seat(state)
+    if state.pending_chankan_tile is not None:
+        return _pending_chankan_seat(state)
+    return _pending_kita_seat(state)

@@ -29,6 +29,8 @@ from kenjaku.simulation import (
     legal_discard_actions,
     legal_kakan_actions,
     legal_kita_actions,
+    legal_kita_reaction_actions,
+    legal_kita_ron_actions,
     legal_reaction_actions,
     legal_riichi_actions,
     legal_ron_actions,
@@ -1852,6 +1854,91 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kita.to_payload()["kita_tiles"], [["N"], [], []])
         self.assertEqual(after_kita.to_payload()["kita_counts"], [1, 0, 0])
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_kita))
+
+    def test_sanma_kita_opens_ron_only_reaction_window_before_replacement_draw(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 2p 8s"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                _tiles("1p 2p 3p 4p 5p 6p 1s 2s 3s E E E N"),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        kita = legal_kita_actions(drawn)[0]
+
+        pending = apply_kita_action(drawn, kita)
+        ron = Action(ActionKind.RON, TileType.parse("N"))
+
+        self.assertIsNone(pending.drawn_tile)
+        self.assertFalse(pending.rinshan_draw)
+        self.assertFalse(pending.needs_discard)
+        self.assertEqual(pending.dead_wall, _tiles("1p 2p 8s"))
+        self.assertEqual(pending.dora_indicators, _tiles("1p"))
+        self.assertEqual(pending.kita_tiles, ((Tile.parse("N"),), (), ()))
+        self.assertEqual(pending.hand_sizes(), [13, 13, 0])
+        self.assertEqual(pending.pending_kita_tile, Tile.parse("N"))
+        self.assertEqual(pending.pending_kita_seat, 0)
+        self.assertEqual(pending.pending_reaction_seats, (1,))
+        self.assertEqual(pending.to_payload()["pending_kita_tile"], "N")
+        self.assertEqual(pending.to_payload()["pending_kita_seat"], 0)
+        self.assertEqual(legal_kita_ron_actions(pending, seat=1), (ron,))
+        self.assertEqual(legal_kita_reaction_actions(pending, seat=1), (ron, Action.pass_()))
+        self.assertEqual(legal_sandbox_actions(pending, seat=1), (ron, Action.pass_()))
+        with self.assertRaisesRegex(ValueError, "no pending discard reaction"):
+            legal_call_actions(pending, seat=1)
+
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winner_seat, 1)
+        self.assertEqual(terminal.winner_seats, (1,))
+        self.assertEqual(terminal.winning_tile, Tile.parse("N"))
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
+        self.assertNotIn("chankan", terminal.winning_yaku)
+        self.assertIsNone(terminal.pending_kita_tile)
+        self.assertIsNone(terminal.pending_kita_seat)
+        self.assertIsNone(terminal.pending_chankan_tile)
+        self.assertIsNone(terminal.pending_chankan_kind)
+        self.assertEqual(terminal.pending_reaction_seats, ())
+        self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0))
+
+    def test_sanma_kita_pass_draws_delayed_replacement_tile_without_kan_dora(self) -> None:
+        drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-3p",
+                players=3,
+                wall=(Tile.parse("N"),),
+                dead_wall=_tiles("1p 2p 8s"),
+                dora_indicators=(Tile.parse("1p"),),
+                hands=(
+                    _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                    _tiles("1p 2p 3p 4p 5p 6p 1s 2s 3s E E E N"),
+                    (),
+                ),
+            )
+        )
+        pending = apply_kita_action(drawn, legal_kita_actions(drawn)[0])
+
+        after_pass = apply_reaction_pass_action(pending, seat=1, action=Action.pass_())
+
+        self.assertIsNone(after_pass.pending_kita_tile)
+        self.assertIsNone(after_pass.pending_kita_seat)
+        self.assertEqual(after_pass.pending_reaction_seats, ())
+        self.assertEqual(after_pass.temporary_furiten_seats, (1,))
+        self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_pass.rinshan_draw)
+        self.assertEqual(after_pass.dead_wall, _tiles("1p 2p"))
+        self.assertEqual(after_pass.dora_indicators, _tiles("1p"))
+        self.assertEqual(after_pass.hand_sizes(), [14, 13, 0])
+        self.assertIn(Action.discard("8s"), legal_discard_actions(after_pass))
+        with self.assertRaisesRegex(ValueError, "no pending kita reaction"):
+            legal_kita_ron_actions(after_pass, seat=1)
 
     def test_kita_is_not_legal_in_four_player_sandbox(self) -> None:
         state = SandboxEnvironmentState(
