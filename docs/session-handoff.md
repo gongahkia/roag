@@ -269,7 +269,8 @@ Last updated: 2026-06-12.
   ron-priority call gating, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
   filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
   basic wait-preserving post-riichi closed-kan exceptions, a basic point ledger with riichi
-  deposit/stick accounting and honba bonus deltas, basic ippatsu window metadata, basic
+  deposit/stick accounting and honba bonus deltas, a basic next-round dealer/honba transition
+  helper, basic ippatsu window metadata, basic
   chi/pon/minkan calls, a reserved 14-tile dead wall with visible dora/kan-dora indicator metadata,
   basic closed-kan/ankan self-turn actions with dead-wall replacement draws, basic added-kan/kakan
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
@@ -302,12 +303,13 @@ Last updated: 2026-06-12.
 - `replay-share-plan` is not enough to check off the auto-replay-sharing Phase 4 item. It is a
   local permission/scope report that should precede any future permitted sharing implementation.
 - `self-play-sandbox` is not enough to check off the Phase 3 self-play harness item. It proves a
-  deterministic multi-agent turn loop, basic closed-hand tsumo terminal metadata, and report shape,
-  but not a full simulator or training loop.
+  deterministic multi-agent turn loop, basic closed-hand tsumo terminal metadata, a basic
+  next-round transition helper, and report shape, but not a full simulator or training loop.
 - The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
-  including yaku checks, complete payment/scoring semantics, next-round honba progression, ippatsu
-  scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
+  including yaku checks, complete payment/scoring semantics beyond the basic next-round
+  dealer/honba helper, ippatsu scoring, full yaku-aware open/kan hand legality, complete rinshan
+  yaku/scoring semantics,
   complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete post-riichi
   kan timing, real multi-ron payment handling, richer terminal reward signals,
   and validation against real reconstructed games.
@@ -833,17 +835,17 @@ Mortal local baseline reconnaissance:
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
-   tenpai/noten point-delta slice, next-round honba progression, ippatsu scoring, full yaku-aware
-   open/kan hand legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
-   indicator ordering, complete chankan semantics, complete post-riichi kan timing, real multi-ron
-   payment handling, and scoring before PPO work.
+   tenpai/noten point-delta slice and basic next-round dealer/honba helper, ippatsu scoring, full
+   yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics, complete
+   kan-dora/ura-dora indicator ordering, complete chankan semantics, complete post-riichi kan
+   timing, real multi-ron payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete until real 3-player gameplay, exact platform timing, exact
    call timing, complete call handling, full yaku/fu validation, scoring, placement/return
    handling, training, and evaluation exist.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
-    payment semantics, full ron/tsumo legality, complete payment/scoring semantics, next-round
-    honba progression, ippatsu scoring, full yaku-aware open/kan hand legality, complete rinshan
-    yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete chankan
-    semantics, complete post-riichi kan timing, yaku/scoring semantics, and richer
+    payment semantics, full ron/tsumo legality, complete payment/scoring semantics beyond the basic
+    next-round dealer/honba helper, ippatsu scoring, full yaku-aware open/kan hand legality,
+    complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering,
+    complete chankan semantics, complete post-riichi kan timing, yaku/scoring semantics, and richer
     terminal reward payloads should come before policy optimization.

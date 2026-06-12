@@ -129,6 +129,7 @@ class SandboxEnvironmentState:
     points: tuple[int, ...] = ()
     riichi_sticks: int = 0
     honba: int = 0
+    dealer_seat: int = 0
     current_seat: int = 0
     turn: int = 0
     drawn_tile: Tile | None = None
@@ -191,6 +192,8 @@ class SandboxEnvironmentState:
             raise ValueError("riichi sticks cannot be negative")
         if self.honba < 0:
             raise ValueError("honba cannot be negative")
+        if not 0 <= self.dealer_seat < self.players:
+            raise ValueError("dealer_seat outside player range")
         if not 0 <= self.current_seat < self.players:
             raise ValueError("current_seat outside player range")
         if self.needs_discard and self.drawn_tile is not None:
@@ -350,6 +353,7 @@ class SandboxEnvironmentState:
             "points": list(_points_by_seat(self)),
             "riichi_sticks": self.riichi_sticks,
             "honba": self.honba,
+            "dealer_seat": self.dealer_seat,
             "discards": [
                 [tile.notation for tile in seat_discards]
                 for seat_discards in _discards_by_seat(self)
@@ -434,6 +438,31 @@ def initial_sandbox_environment(
         melds=tuple(() for _seat in range(rules.players)),
         kita_tiles=tuple(() for _seat in range(rules.players)),
         points=tuple(_initial_points_for_ruleset(rules.name) for _seat in range(rules.players)),
+        dealer_seat=0,
+        current_seat=0,
+    )
+
+
+def next_round_sandbox_environment(
+    state: SandboxEnvironmentState,
+    *,
+    seed: str | int,
+) -> SandboxEnvironmentState:
+    if state.terminal_reason is None:
+        raise ValueError("next round requires a terminal sandbox state")
+    if state.terminal_reason == "max_turns":
+        raise ValueError("cannot advance artificial max-turn terminal")
+    next_dealer = (
+        state.dealer_seat
+        if _dealer_repeats_after_terminal(state)
+        else (state.dealer_seat + 1) % state.players
+    )
+    next_honba = state.honba + 1 if _terminal_carries_honba(state) else 0
+    return _new_sandbox_round_state(
+        state,
+        seed=seed,
+        dealer_seat=next_dealer,
+        honba=next_honba,
     )
 
 
@@ -1495,7 +1524,13 @@ def _winning_yaku_for_state(
         yaku.append("chankan")
     if _is_tanyao_yaku(full_tiles):
         yaku.append("tanyao")
-    if _has_sandbox_yakuhai(full_tiles, ruleset=state.ruleset, seat=seat):
+    if _has_sandbox_yakuhai(
+        full_tiles,
+        ruleset=state.ruleset,
+        seat=seat,
+        dealer_seat=state.dealer_seat,
+        players=state.players,
+    ):
         yaku.append("yakuhai")
     return tuple(yaku)
 
@@ -1521,26 +1556,52 @@ def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
     return bool(tiles) and all(not tile.type.is_terminal_or_honor for tile in tiles)
 
 
-def _has_sandbox_yakuhai(tiles: tuple[Tile, ...], *, ruleset: str, seat: int) -> bool:
+def _has_sandbox_yakuhai(
+    tiles: tuple[Tile, ...],
+    *,
+    ruleset: str,
+    seat: int,
+    dealer_seat: int,
+    players: int,
+) -> bool:
     counts = _hand_type_counts(tiles)
     return any(
-        _is_sandbox_yakuhai_type(TileType(index), ruleset=ruleset, seat=seat) and count >= 3
+        _is_sandbox_yakuhai_type(
+            TileType(index),
+            ruleset=ruleset,
+            seat=seat,
+            dealer_seat=dealer_seat,
+            players=players,
+        )
+        and count >= 3
         for index, count in enumerate(counts)
     )
 
 
-def _is_sandbox_yakuhai_type(tile_type: TileType, *, ruleset: str, seat: int) -> bool:
+def _is_sandbox_yakuhai_type(
+    tile_type: TileType,
+    *,
+    ruleset: str,
+    seat: int,
+    dealer_seat: int,
+    players: int,
+) -> bool:
     if ruleset == TENHOU_3P.name and tile_type == SANDBOX_KITA_TILE:
         return False
     if tile_type in SANDBOX_DRAGON_TILES:
         return True
     if tile_type == SANDBOX_ROUND_WIND:
         return True
-    return tile_type == _sandbox_seat_wind(seat)
+    return tile_type == _sandbox_seat_wind(
+        seat=seat,
+        dealer_seat=dealer_seat,
+        players=players,
+    )
 
 
-def _sandbox_seat_wind(seat: int) -> TileType:
-    return SANDBOX_SEAT_WINDS[seat]
+def _sandbox_seat_wind(*, seat: int, dealer_seat: int, players: int) -> TileType:
+    relative_seat = (seat - dealer_seat) % players
+    return SANDBOX_SEAT_WINDS[relative_seat]
 
 
 def _standard_shape_tiles_for_melds(melds: tuple[Meld, ...]) -> tuple[Tile, ...]:
@@ -1787,6 +1848,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "points": state.points,
         "riichi_sticks": state.riichi_sticks,
         "honba": state.honba,
+        "dealer_seat": state.dealer_seat,
         "current_seat": state.current_seat,
         "turn": state.turn,
         "drawn_tile": state.drawn_tile,
@@ -1823,6 +1885,54 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
     }
     payload.update(updates)
     return SandboxEnvironmentState(**payload)
+
+
+def _new_sandbox_round_state(
+    state: SandboxEnvironmentState,
+    *,
+    seed: str | int,
+    dealer_seat: int,
+    honba: int,
+) -> SandboxEnvironmentState:
+    rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
+    rng = random.Random(_seed_int(seed))
+    wall = _shuffled_wall(rng, rules=rules)
+    hands = tuple(tuple(wall.pop() for _tile in range(13)) for _seat in range(state.players))
+    dead_wall = tuple(wall.pop() for _tile in range(SANDBOX_DEAD_WALL_TILES))
+    return SandboxEnvironmentState(
+        ruleset=state.ruleset,
+        players=state.players,
+        wall=tuple(wall),
+        hands=hands,
+        dead_wall=dead_wall,
+        dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
+        discards=tuple(() for _seat in range(state.players)),
+        melds=tuple(() for _seat in range(state.players)),
+        kita_tiles=tuple(() for _seat in range(state.players)),
+        points=_points_by_seat(state),
+        riichi_sticks=state.riichi_sticks,
+        honba=honba,
+        dealer_seat=dealer_seat,
+        current_seat=dealer_seat,
+    )
+
+
+def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
+    if state.terminal_reason in {"ron", "tsumo", "chankan"}:
+        return state.dealer_seat in state.winner_seats
+    if state.terminal_reason == "wall_exhausted":
+        return state.dealer_seat in state.exhaustive_draw_tenpai_seats
+    raise ValueError("unsupported terminal reason for next round: " + str(state.terminal_reason))
+
+
+def _terminal_carries_honba(state: SandboxEnvironmentState) -> bool:
+    if state.terminal_reason == "wall_exhausted":
+        return True
+    if state.terminal_reason in {"ron", "tsumo", "chankan"}:
+        return state.dealer_seat in state.winner_seats
+    raise ValueError(
+        "unsupported terminal reason for honba progression: " + str(state.terminal_reason)
+    )
 
 
 def _shuffled_wall(rng: random.Random, *, rules: RuleSet) -> list[Tile]:

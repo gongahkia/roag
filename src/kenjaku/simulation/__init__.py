@@ -36,6 +36,7 @@ from kenjaku.simulation.environment import (
     legal_ron_actions,
     legal_sandbox_actions,
     legal_tsumo_actions,
+    next_round_sandbox_environment,
     pass_pending_discard_reactions,
     resolve_sandbox_ruleset,
 )
@@ -74,6 +75,7 @@ __all__ = [
     "legal_ron_actions",
     "legal_sandbox_actions",
     "legal_tsumo_actions",
+    "next_round_sandbox_environment",
     "pass_pending_discard_reactions",
     "resolve_sandbox_ruleset",
     "RIICHI_DEPOSIT_POINTS",

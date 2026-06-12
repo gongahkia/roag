@@ -38,6 +38,7 @@ from kenjaku.simulation import (
     legal_ron_actions,
     legal_sandbox_actions,
     legal_tsumo_actions,
+    next_round_sandbox_environment,
     pass_pending_discard_reactions,
 )
 
@@ -59,12 +60,14 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.points, (SANDBOX_INITIAL_POINTS,) * 4)
         self.assertEqual(first.riichi_sticks, 0)
         self.assertEqual(first.honba, 0)
+        self.assertEqual(first.dealer_seat, 0)
         self.assertIsNone(first.drawn_tile)
         self.assertFalse(first.rinshan_draw)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["honba"], 0)
+        self.assertEqual(first.to_payload()["dealer_seat"], 0)
         self.assertFalse(first.to_payload()["rinshan_draw"])
         self.assertEqual(first.to_payload()["dead_wall_remaining"], 14)
         self.assertEqual(
@@ -497,6 +500,134 @@ class SandboxEnvironmentTests(unittest.TestCase):
             [payment * 3, -payment, -payment, -payment],
         )
         self.assertEqual(terminal.to_payload()["honba"], honba)
+
+    def test_next_round_after_dealer_tsumo_repeats_dealer_and_increments_honba(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            points=(26000, 24000, 25000, 25000),
+            honba=2,
+            dealer_seat=0,
+        )
+        terminal = draw_for_current_seat(state, stop_on_tsumo=True)
+
+        next_round = next_round_sandbox_environment(terminal, seed="dealer-repeat")
+
+        self.assertIsNone(next_round.terminal_reason)
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.points, terminal.points)
+        self.assertEqual(next_round.riichi_sticks, 0)
+        self.assertEqual(next_round.turn, 0)
+        self.assertEqual(next_round.hand_sizes(), [13, 13, 13, 13])
+        self.assertEqual(len(next_round.wall), 70)
+        self.assertEqual(next_round.discards, ((), (), (), ()))
+        self.assertEqual(next_round.to_payload()["dealer_seat"], 0)
+
+    def test_next_round_after_child_ron_rotates_dealer_and_resets_honba(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5m 6p 7p 8s 9s E S"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            honba=2,
+            dealer_seat=0,
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        terminal = apply_ron_action(
+            reaction_state,
+            seat=1,
+            action=legal_ron_actions(reaction_state, seat=1)[0],
+        )
+
+        next_round = next_round_sandbox_environment(terminal, seed="dealer-rotate")
+
+        self.assertEqual(next_round.dealer_seat, 1)
+        self.assertEqual(next_round.current_seat, 1)
+        self.assertEqual(next_round.honba, 0)
+        self.assertEqual(next_round.points, terminal.points)
+        self.assertEqual(next_round.riichi_sticks, 0)
+
+    def test_next_round_after_exhaustive_draw_carries_honba_and_riichi_sticks(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            riichi_sticks=1,
+            honba=2,
+            dealer_seat=0,
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
+                _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
+                _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
+            ),
+        )
+        terminal = draw_for_current_seat(state)
+
+        next_round = next_round_sandbox_environment(terminal, seed="draw-renchan")
+
+        self.assertEqual(terminal.exhaustive_draw_tenpai_seats, (0,))
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.riichi_sticks, 1)
+        self.assertEqual(next_round.points, terminal.points)
+
+    def test_next_round_after_dealer_noten_draw_rotates_dealer(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            honba=1,
+            dealer_seat=0,
+            hands=(
+                _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
+                _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
+            ),
+        )
+        terminal = draw_for_current_seat(state)
+
+        next_round = next_round_sandbox_environment(terminal, seed="draw-rotate")
+
+        self.assertEqual(terminal.exhaustive_draw_tenpai_seats, (1,))
+        self.assertEqual(next_round.dealer_seat, 1)
+        self.assertEqual(next_round.current_seat, 1)
+        self.assertEqual(next_round.honba, 2)
+
+    def test_next_round_rejects_nonterminal_and_artificial_max_turns(self) -> None:
+        state = initial_sandbox_environment(ruleset="tenhou-4p", seed="next-errors")
+
+        with self.assertRaisesRegex(ValueError, "requires a terminal"):
+            next_round_sandbox_environment(state, seed="bad")
+
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="max_turns",
+        )
+        with self.assertRaisesRegex(ValueError, "artificial max-turn"):
+            next_round_sandbox_environment(terminal, seed="bad")
 
     def test_ippatsu_window_is_recorded_on_ron_and_tsumo_wins(self) -> None:
         ron_state = SandboxEnvironmentState(
