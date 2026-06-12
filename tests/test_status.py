@@ -65,6 +65,9 @@ class StatusTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_next_round_transition"])
         self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_round_wind_progression"]
+        )
+        self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_action_generation"])
@@ -174,6 +177,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_riichi_deposit_accounting: yes", text)
         self.assertIn("sandbox_honba_bonus_accounting: yes", text)
         self.assertIn("sandbox_next_round_transition: yes", text)
+        self.assertIn("sandbox_round_wind_progression: yes", text)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", text)
         self.assertIn("sandbox_ankan_action_generation: yes", text)
         self.assertIn("sandbox_ankan_application: yes", text)

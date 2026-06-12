@@ -32,15 +32,16 @@ handoff notes.
   seeded riichi-furiten filtering, basic closed-tenpai riichi declaration, basic post-riichi
   discard/call restrictions, basic wait-preserving post-riichi closed-kan exceptions, a basic
   riichi deposit/stick ledger, basic honba bonus deltas, a basic next-round dealer/honba transition
-  helper, basic active/winning ippatsu metadata, basic closed-kan/ankan and added-kan/kakan actions
-  with dead-wall replacement draws, kan-dora indicator metadata, and rinshan draw-source metadata, a
-  basic chankan ron/pass window before kakan replacement draw plus kokushi-only ankan robbery,
-  individual reaction passes, ron-priority call gating, discard/call/tsumo/ron application, basic
-  multi-ron terminal resolution, basic open/kan standard-shape win detection, a basic sandbox yaku
-  filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering, and simple terminal
-  reward payloads plus terminal point-delta and score-estimate metadata, including basic live-wall
-  exhaustive-draw tenpai/noten point deltas. The sandbox also has narrow Sanma support: static
-  3-player tile exclusions, 35,000-point starts, no-chi call filtering,
+  helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
+  closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
+  metadata, and rinshan draw-source metadata, a basic chankan ron/pass window before kakan
+  replacement draw plus kokushi-only ankan robbery, individual reaction passes, ron-priority call
+  gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic open/kan
+  standard-shape win detection, a basic sandbox yaku filter/metadata layer with
+  dragon/round-wind/seat-wind yakuhai filtering, and simple terminal reward payloads plus terminal
+  point-delta and score-estimate metadata, including basic live-wall exhaustive-draw tenpai/noten
+  point deltas. The sandbox also has narrow Sanma support: static 3-player tile exclusions,
+  35,000-point starts, no-chi call filtering,
   North-as-guest-wind yaku filtering, and a basic Kita/pei-nuki action that tracks exposed North
   tiles separately from melds, opens a ron/pass reaction window when an opponent can win on the
   North, takes a delayed dead-wall replacement draw without revealing kan-dora after passes, and
@@ -50,8 +51,8 @@ handoff notes.
   policy yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
   validator, complete yaku/scoring implementation, complete robbing-kan/chankan model,
-  complete post-riichi kan timing model, round-wind/end-of-game progression model, scoring engine,
-  or RL implementation.
+  complete post-riichi kan timing model, complete round/end-of-game progression model, scoring
+  engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.

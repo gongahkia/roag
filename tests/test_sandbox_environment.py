@@ -61,6 +61,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.riichi_sticks, 0)
         self.assertEqual(first.honba, 0)
         self.assertEqual(first.dealer_seat, 0)
+        self.assertEqual(first.round_wind, TileType.parse("E"))
         self.assertIsNone(first.drawn_tile)
         self.assertFalse(first.rinshan_draw)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
@@ -68,6 +69,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
         self.assertEqual(first.to_payload()["honba"], 0)
         self.assertEqual(first.to_payload()["dealer_seat"], 0)
+        self.assertEqual(first.to_payload()["round_wind"], "E")
         self.assertFalse(first.to_payload()["rinshan_draw"])
         self.assertEqual(first.to_payload()["dead_wall_remaining"], 14)
         self.assertEqual(
@@ -524,6 +526,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.dealer_seat, 0)
         self.assertEqual(next_round.current_seat, 0)
         self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.round_wind, TileType.parse("E"))
         self.assertEqual(next_round.points, terminal.points)
         self.assertEqual(next_round.riichi_sticks, 0)
         self.assertEqual(next_round.turn, 0)
@@ -559,8 +562,32 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.dealer_seat, 1)
         self.assertEqual(next_round.current_seat, 1)
         self.assertEqual(next_round.honba, 0)
+        self.assertEqual(next_round.round_wind, TileType.parse("E"))
         self.assertEqual(next_round.points, terminal.points)
         self.assertEqual(next_round.riichi_sticks, 0)
+
+    def test_next_round_after_final_dealer_loss_advances_round_wind(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(28000, 25000, 25000, 22000),
+            honba=1,
+            dealer_seat=3,
+            round_wind=TileType.parse("E"),
+        )
+
+        next_round = next_round_sandbox_environment(terminal, seed="south-round")
+
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.honba, 0)
+        self.assertEqual(next_round.round_wind, TileType.parse("S"))
+        self.assertEqual(next_round.to_payload()["round_wind"], "S")
 
     def test_next_round_after_exhaustive_draw_carries_honba_and_riichi_sticks(self) -> None:
         state = SandboxEnvironmentState(
@@ -586,6 +613,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.dealer_seat, 0)
         self.assertEqual(next_round.current_seat, 0)
         self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.round_wind, TileType.parse("E"))
         self.assertEqual(next_round.riichi_sticks, 1)
         self.assertEqual(next_round.points, terminal.points)
 
@@ -612,6 +640,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.dealer_seat, 1)
         self.assertEqual(next_round.current_seat, 1)
         self.assertEqual(next_round.honba, 2)
+        self.assertEqual(next_round.round_wind, TileType.parse("E"))
 
     def test_next_round_rejects_nonterminal_and_artificial_max_turns(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-4p", seed="next-errors")
@@ -628,6 +657,33 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "artificial max-turn"):
             next_round_sandbox_environment(terminal, seed="bad")
+
+    def test_round_wind_yakuhai_uses_state_round_wind(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                (),
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s S S S 5m"),
+                (),
+            ),
+            pending_discard=Tile.parse("5m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(2,),
+            dealer_seat=0,
+            round_wind=TileType.parse("S"),
+        )
+        ron = Action(ActionKind.RON, TileType.parse("5m"))
+
+        self.assertEqual(legal_ron_actions(state, seat=2), (ron,))
+
+        terminal = apply_ron_action(state, seat=2, action=ron)
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_yaku, ("yakuhai",))
+        self.assertEqual(terminal.to_payload()["round_wind"], "S")
 
     def test_ippatsu_window_is_recorded_on_ron_and_tsumo_wins(self) -> None:
         ron_state = SandboxEnvironmentState(

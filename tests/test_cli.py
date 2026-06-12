@@ -64,6 +64,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_riichi_deposit_accounting: yes", output)
         self.assertIn("sandbox_honba_bonus_accounting: yes", output)
         self.assertIn("sandbox_next_round_transition: yes", output)
+        self.assertIn("sandbox_round_wind_progression: yes", output)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", output)
         self.assertIn("sandbox_ankan_action_generation: yes", output)
         self.assertIn("sandbox_ankan_application: yes", output)
@@ -163,6 +164,9 @@ class CliTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_honba_bonus_accounting"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_next_round_transition"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_round_wind_progression"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"]
         )
@@ -448,6 +452,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("riichi_deposit_accounting: yes", text_stdout.getvalue())
         self.assertIn("honba_bonus_accounting: yes", text_stdout.getvalue())
         self.assertIn("next_round_transition: yes", text_stdout.getvalue())
+        self.assertIn("round_wind_progression: yes", text_stdout.getvalue())
         self.assertIn("ippatsu_window_tracking: yes", text_stdout.getvalue())
         self.assertIn("closed_kan_actions: yes", text_stdout.getvalue())
         self.assertIn("added_kan_actions: yes", text_stdout.getvalue())
@@ -483,6 +488,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["riichi_deposit_accounting"])
         self.assertTrue(report_payload["capabilities"]["honba_bonus_accounting"])
         self.assertTrue(report_payload["capabilities"]["next_round_transition"])
+        self.assertTrue(report_payload["capabilities"]["round_wind_progression"])
         self.assertTrue(report_payload["capabilities"]["ippatsu_window_tracking"])
         self.assertTrue(report_payload["capabilities"]["closed_kan_actions"])
         self.assertTrue(report_payload["capabilities"]["added_kan_actions"])

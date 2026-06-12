@@ -280,6 +280,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox exhaustive-draw tenpai/noten point-delta metadata
   - [x] Basic sandbox dragon/round-wind/seat-wind yakuhai filtering
   - [x] Basic sandbox next-round dealer/honba transition helper
+  - [x] Basic sandbox round-wind state and dealer-wrap progression
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -509,11 +510,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
     basic wait-preserving post-riichi closed-kan exceptions, basic riichi deposit accounting, basic
-    honba bonus accounting, a basic next-round dealer/honba transition helper, basic ippatsu window
-    metadata, legal chi/pon/minkan, basic dead-wall replacement draws for minkan/ankan/kakan, basic
-    kan-dora indicator metadata, basic rinshan draw-source metadata, individual reaction passes,
-    ron-priority call gating, a basic chankan ron/pass window before kakan replacement draw,
-    kokushi-only ankan robbery,
+    honba bonus accounting, a basic next-round dealer/honba transition helper, explicit round-wind
+    state with dealer-wrap progression, basic ippatsu window metadata, legal chi/pon/minkan, basic
+    dead-wall replacement draws for minkan/ankan/kakan, basic kan-dora indicator metadata, basic
+    rinshan draw-source metadata, individual reaction passes, ron-priority call gating, a basic
+    chankan ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, plus basic open/kan standard-shape win detection and a basic
@@ -965,16 +966,22 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   checks off the narrow exhaustive-draw payment metadata subtask, but does not complete full round
   progression, abortive draw handling, exact platform scoring, or the Phase 3 self-play harness.
 - Replaced the remaining broad honor-triplet yakuhai approximation with a basic
-  dragon/round-wind/seat-wind filter. The sandbox still assumes East round and seat winds by seat
-  index, but guest wind triplets no longer create yaku. This checks off the narrow yakuhai filtering
-  subtask, but does not complete full yaku/fu validation, round progression, dealer rotation, or
-  scoring.
+  dragon/round-wind/seat-wind filter. The sandbox now uses explicit round-wind state and
+  dealer-relative seat winds, and guest wind triplets no longer create yaku. This checks off the
+  narrow yakuhai filtering subtask, but does not complete full yaku/fu validation, full round
+  progression, exact continuation rules, or scoring.
 - Added a basic sandbox next-round transition helper. `SandboxEnvironmentState` now carries an
   explicit `dealer_seat`, and `next_round_sandbox_environment` creates a fresh shuffled round after
   real terminal states while preserving the point ledger, carrying riichi sticks through exhaustive
   draws, rotating/repeating dealer, and updating honba for basic win/draw outcomes. This checks off
-  the narrow next-round transition subtask, but does not complete round wind progression, end-of-game
-  placement/return handling, abortive draws, exact platform continuation rules, or the Phase 3
+  the narrow next-round transition subtask, but does not complete full round/end-of-game
+  progression, placement/return handling, abortive draws, exact platform continuation rules, or the
+  Phase 3 self-play harness.
+- Added explicit sandbox round-wind state and basic dealer-wrap progression. Round wind now appears
+  in sandbox payloads/self-play reports, yakuhai filtering uses `state.round_wind`, and
+  `next_round_sandbox_environment` advances the round wind when dealer rotation wraps back to seat
+  0. This checks off the narrow round-wind progression subtask, but does not complete end-of-game
+  placement/return handling, exact hanchan continuation rules, abortive draws, or the Phase 3
   self-play harness.
 - Added `mahjong-transformer-encoder-v0`, a PyTorch fixed-token state encoder over hand, visible,
   unseen, dora-indicator, riichi, seat, dealer, and score signals, plus an untrained masked discard
@@ -1072,8 +1079,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added basic sandbox honba bonus accounting. `SandboxEnvironmentState` now carries `honba`, ron
   wins apply 300 points per honba from the discarder to each winner, tsumo wins apply 100 points per
   honba from each loser to the winner, and `self-play-sandbox` reports the honba count. This is
-  still not hand scoring, next-round honba progression, real multi-ron payment validation, yaku
-  validation, or a calibrated reward model.
+  still not hand scoring, full round-continuation semantics, real multi-ron payment validation,
+  yaku validation, or a calibrated reward model.
 - Added basic sandbox ippatsu window tracking. Riichi declaration marks the seat as ippatsu-active,
   calls clear all active ippatsu windows, the riichi player's next post-declaration discard clears
   their own window, and terminal tsumo/ron records `winning_ippatsu_seats`. This is still not yaku

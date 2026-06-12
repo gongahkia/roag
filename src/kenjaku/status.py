@@ -62,6 +62,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_riichi_deposit_accounting": True,
                 "sandbox_honba_bonus_accounting": True,
                 "sandbox_next_round_transition": True,
+                "sandbox_round_wind_progression": True,
                 "sandbox_ippatsu_window_tracking": True,
                 "sandbox_ankan_action_generation": True,
                 "sandbox_ankan_application": True,
