@@ -286,6 +286,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox red-five score-estimate bonus han
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
   - [x] Basic sandbox chankan ippatsu reaction timing
+  - [x] Basic sandbox haitei/houtei yaku metadata
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -526,10 +527,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     honba bonus accounting, a basic next-round dealer/honba transition helper, explicit round-wind
     state with dealer-wrap progression, basic ippatsu window metadata, legal chi/pon/minkan, basic
     dead-wall replacement draws for minkan/ankan/kakan, basic kan-dora indicator metadata, basic
-    rinshan draw-source metadata, individual reaction passes, ron-priority call gating, a basic
-    chankan ron/pass window before kakan replacement draw, basic chankan ippatsu reaction timing,
-    kokushi-only ankan robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal
-    resolution, and simple terminal
+    rinshan draw-source metadata, basic haitei/houtei yaku metadata for explicitly final live-wall
+    draws/discards, individual reaction passes, ron-priority call gating, a basic chankan ron/pass
+    window before kakan replacement draw, basic chankan ippatsu reaction timing, kokushi-only ankan
+    robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple
+    terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
@@ -541,6 +543,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     timing, complete
     yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
+    complete haitei/houtei endgame timing,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
@@ -1195,6 +1198,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   replacement draw proceeds. This checks off the narrow chankan ippatsu timing subtask, but does not
   complete exact kan timing, complete post-riichi kan rules, complete chankan semantics, full
   yaku/fu validation, or exact scoring.
+- Added basic haitei/houtei sandbox yaku metadata. Explicitly final live-wall draws can score
+  `haitei`, and ron on the resulting final discard can score `houtei`, including cases where that
+  is the only recognized sandbox yaku. The state carries `last_draw_was_final_live_wall` so dead-wall
+  replacement draws and post-call discards do not accidentally qualify. This checks off the narrow
+  last-live-wall yaku subtask, but does not complete exact wall/call timing, abortive draw rules,
+  full yaku/fu validation, or exact scoring.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

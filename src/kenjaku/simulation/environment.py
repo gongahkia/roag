@@ -56,6 +56,8 @@ SANDBOX_YAKU_HAN = {
     "ippatsu": 1,
     "menzen_tsumo": 1,
     "rinshan": 1,
+    "haitei": 1,
+    "houtei": 1,
     "chankan": 1,
     "tanyao": 1,
     "yakuhai": 1,
@@ -170,6 +172,7 @@ class SandboxEnvironmentState:
     turn: int = 0
     drawn_tile: Tile | None = None
     rinshan_draw: bool = False
+    last_draw_was_final_live_wall: bool = False
     needs_discard: bool = False
     pending_discard: Tile | None = None
     pending_discard_seat: int | None = None
@@ -238,6 +241,8 @@ class SandboxEnvironmentState:
             raise ValueError("needs_discard cannot be set with a drawn tile")
         if self.rinshan_draw and self.drawn_tile is None:
             raise ValueError("rinshan draw requires a drawn tile")
+        if self.rinshan_draw and self.last_draw_was_final_live_wall:
+            raise ValueError("rinshan draw cannot also be a live-wall draw")
         pending_windows = (
             int(self.pending_discard is not None)
             + int(self.pending_chankan_tile is not None)
@@ -405,6 +410,7 @@ class SandboxEnvironmentState:
             "kita_counts": [len(seat_tiles) for seat_tiles in _kita_tiles_by_seat(self)],
             "drawn_tile": None if self.drawn_tile is None else self.drawn_tile.notation,
             "rinshan_draw": self.rinshan_draw,
+            "last_draw_was_final_live_wall": self.last_draw_was_final_live_wall,
             "needs_discard": self.needs_discard,
             "pending_discard": (
                 None if self.pending_discard is None else self.pending_discard.notation
@@ -538,6 +544,7 @@ def draw_for_current_seat(
         hands=tuple(tuple(hand) for hand in hands),
         drawn_tile=draw,
         rinshan_draw=False,
+        last_draw_was_final_live_wall=(len(state.wall) == 1 and state.turn > 0),
         temporary_furiten_seats=_without_seat(
             state.temporary_furiten_seats,
             state.current_seat,
@@ -808,6 +815,7 @@ def apply_ankan_action(
         "melds": tuple(tuple(seat_melds) for seat_melds in melds),
         "drawn_tile": None,
         "rinshan_draw": False,
+        "last_draw_was_final_live_wall": False,
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -866,6 +874,7 @@ def apply_kakan_action(
         "melds": tuple(tuple(seat_melds) for seat_melds in melds),
         "drawn_tile": None,
         "rinshan_draw": False,
+        "last_draw_was_final_live_wall": False,
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -920,6 +929,7 @@ def apply_kita_action(
         "kita_tiles": tuple(tuple(seat_tiles) for seat_tiles in kita_tiles),
         "drawn_tile": None,
         "rinshan_draw": False,
+        "last_draw_was_final_live_wall": False,
         "needs_discard": False,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -988,6 +998,11 @@ def apply_discard_action(
         turn=state.turn + 1,
         drawn_tile=None,
         rinshan_draw=False,
+        last_draw_was_final_live_wall=(
+            state.last_draw_was_final_live_wall
+            and state.drawn_tile is not None
+            and not state.rinshan_draw
+        ),
         needs_discard=False,
         pending_discard=discard,
         pending_discard_seat=state.current_seat,
@@ -1177,6 +1192,7 @@ def apply_call_action(
         "current_seat": seat,
         "drawn_tile": None,
         "rinshan_draw": False,
+        "last_draw_was_final_live_wall": False,
         "needs_discard": action.kind is not ActionKind.MINKAN,
         "pending_discard": None,
         "pending_discard_seat": None,
@@ -1251,6 +1267,7 @@ def apply_reaction_pass_action(
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
         riichi_furiten_seats=riichi_furiten_seats,
+        last_draw_was_final_live_wall=False,
     )
 
 
@@ -1368,6 +1385,7 @@ def pass_pending_discard_reactions(state: SandboxEnvironmentState) -> SandboxEnv
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
         riichi_furiten_seats=riichi_furiten_seats,
+        last_draw_was_final_live_wall=False,
     )
 
 
@@ -1570,6 +1588,10 @@ def _winning_yaku_for_state(
         yaku.append("menzen_tsumo")
     if win_kind == "tsumo" and state.rinshan_draw:
         yaku.append("rinshan")
+    if win_kind == "tsumo" and _is_haitei_draw(state):
+        yaku.append("haitei")
+    if win_kind == "ron" and _is_houtei_discard(state):
+        yaku.append("houtei")
     if win_kind == "chankan":
         yaku.append("chankan")
     if _is_tanyao_yaku(full_tiles):
@@ -1601,6 +1623,23 @@ def _full_yaku_tiles(
 
 def _is_closed_hand_for_yaku(melds: tuple[Meld, ...]) -> bool:
     return all(meld.kind is ActionKind.ANKAN for meld in melds)
+
+
+def _is_haitei_draw(state: SandboxEnvironmentState) -> bool:
+    return (
+        state.last_draw_was_final_live_wall
+        and state.drawn_tile is not None
+        and not state.rinshan_draw
+        and not state.wall
+    )
+
+
+def _is_houtei_discard(state: SandboxEnvironmentState) -> bool:
+    return (
+        state.last_draw_was_final_live_wall
+        and state.pending_discard is not None
+        and not state.wall
+    )
 
 
 def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
@@ -1813,6 +1852,7 @@ def _apply_kan_replacement_draw(
         updates["terminal_rewards"] = _neutral_rewards(state.players)
         updates["terminal_point_deltas"] = _neutral_point_deltas(state.players)
         updates["rinshan_draw"] = False
+        updates["last_draw_was_final_live_wall"] = False
         return
 
     dora_indicators = state.dora_indicators
@@ -1828,6 +1868,7 @@ def _apply_kan_replacement_draw(
     updates["hands"] = tuple(tuple(hand) for hand in hands)
     updates["drawn_tile"] = replacement_draw
     updates["rinshan_draw"] = True
+    updates["last_draw_was_final_live_wall"] = False
 
 
 def _has_dead_wall_replacement_tile(state: SandboxEnvironmentState) -> bool:
@@ -1915,6 +1956,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "turn": state.turn,
         "drawn_tile": state.drawn_tile,
         "rinshan_draw": state.rinshan_draw,
+        "last_draw_was_final_live_wall": state.last_draw_was_final_live_wall,
         "needs_discard": state.needs_discard,
         "pending_discard": state.pending_discard,
         "pending_discard_seat": state.pending_discard_seat,
@@ -2151,6 +2193,7 @@ def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str
         "terminal_rewards": _point_delta_rewards(point_deltas),
         "terminal_point_deltas": point_deltas,
         "points": points,
+        "last_draw_was_final_live_wall": False,
         "exhaustive_draw_tenpai_seats": tenpai_seats,
         "exhaustive_draw_noten_seats": noten_seats,
     }

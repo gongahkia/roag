@@ -64,6 +64,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.round_wind, TileType.parse("E"))
         self.assertIsNone(first.drawn_tile)
         self.assertFalse(first.rinshan_draw)
+        self.assertFalse(first.last_draw_was_final_live_wall)
         self.assertEqual(first.to_payload()["kind"], SANDBOX_ENVIRONMENT_KIND)
         self.assertEqual(first.to_payload()["points"], [SANDBOX_INITIAL_POINTS] * 4)
         self.assertEqual(first.to_payload()["riichi_sticks"], 0)
@@ -71,6 +72,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["dealer_seat"], 0)
         self.assertEqual(first.to_payload()["round_wind"], "E")
         self.assertFalse(first.to_payload()["rinshan_draw"])
+        self.assertFalse(first.to_payload()["last_draw_was_final_live_wall"])
         self.assertEqual(first.to_payload()["dead_wall_remaining"], 14)
         self.assertEqual(
             first.to_payload()["dora_indicators"],
@@ -103,6 +105,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_state.hand_sizes(), [13, 13, 13, 13])
         self.assertIsNone(next_state.drawn_tile)
         self.assertFalse(next_state.rinshan_draw)
+        self.assertFalse(drawn.last_draw_was_final_live_wall)
+        self.assertFalse(next_state.last_draw_was_final_live_wall)
         self.assertEqual(next_state.pending_discard, discard)
         self.assertEqual(next_state.pending_discard_seat, 0)
         self.assertEqual(next_state.pending_reaction_seats, (1, 2, 3))
@@ -199,6 +203,95 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
         self.assertEqual(terminal.terminal_point_deltas, (3000, -1000, -1000, -1000))
+
+    def test_haitei_yaku_allows_open_last_live_wall_tsumo(self) -> None:
+        chi = Meld(
+            ActionKind.CHI,
+            _tiles("1m 2m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("6m"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E"),
+                (),
+                (),
+                (),
+            ),
+            melds=((chi,), (), (), ()),
+            turn=17,
+        )
+
+        drawn = draw_for_current_seat(state)
+        tsumo = Action(ActionKind.TSUMO)
+
+        self.assertEqual(drawn.wall, ())
+        self.assertTrue(drawn.last_draw_was_final_live_wall)
+        self.assertEqual(legal_tsumo_actions(drawn), (tsumo,))
+
+        terminal = apply_tsumo_action(drawn, tsumo)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_yaku, ("haitei",))
+        self.assertEqual(terminal.winning_yaku_by_seat, ((0, ("haitei",)),))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.han, 1)
+
+    def test_houtei_yaku_allows_last_live_wall_ron(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("6m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E S S"),
+                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E 7p 8p 9p"),
+                (),
+                (),
+            ),
+            turn=17,
+        )
+        drawn = draw_for_current_seat(state)
+
+        pending, discard = apply_discard_action(drawn, Action.discard("6m", tsumogiri=True))
+        ron = Action(ActionKind.RON, TileType.parse("6m"))
+
+        self.assertEqual(discard, Tile.parse("6m"))
+        self.assertEqual(pending.wall, ())
+        self.assertTrue(pending.last_draw_was_final_live_wall)
+        self.assertEqual(legal_ron_actions(pending, seat=1), (ron,))
+
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_yaku, ("houtei",))
+        self.assertEqual(terminal.winning_yaku_by_seat, ((1, ("houtei",)),))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.han, 1)
+
+    def test_houtei_requires_last_live_wall_draw_discard(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("6m 1m 2m 3m 1p 2p 3p 1s 2s 3s E E S"),
+                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E 7p 8p 9p"),
+                (),
+                (),
+            ),
+            needs_discard=True,
+        )
+
+        pending, _discard = apply_discard_action(state, Action.discard("6m"))
+
+        self.assertEqual(pending.wall, ())
+        self.assertFalse(pending.last_draw_was_final_live_wall)
+        self.assertEqual(legal_ron_actions(pending, seat=1), ())
 
     def test_tsumo_yaku_does_not_duplicate_drawn_pair_tile(self) -> None:
         state = SandboxEnvironmentState(
