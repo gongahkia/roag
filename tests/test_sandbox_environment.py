@@ -940,6 +940,41 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate_payload["bonus_han"], 1)
         self.assertEqual(estimate_payload["han"], 3)
 
+    def test_thirteen_han_score_estimate_uses_kazoe_yakuman_limit(self) -> None:
+        dora_indicators = tuple(Tile.parse("9m") for _index in range(11))
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            dead_wall=dora_indicators,
+            dora_indicators=dora_indicators,
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        terminal = apply_tsumo_action(
+            draw_for_current_seat(state),
+            Action(ActionKind.TSUMO),
+        )
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.visible_dora_count, 11)
+        self.assertEqual(estimate.bonus_han, 11)
+        self.assertEqual(estimate.han, 13)
+        self.assertEqual(estimate.limit, "yakuman")
+        self.assertEqual(estimate.base_points, 8000)
+        self.assertEqual(estimate.tsumo_child_payment, 16000)
+        self.assertIsNone(estimate.tsumo_dealer_payment)
+        self.assertEqual(estimate_payload["limit"], "yakuman")
+        self.assertEqual(estimate_payload["base_points"], 8000)
+        self.assertEqual(estimate_payload["tsumo_child_payment"], 16000)
+
     def test_next_round_after_dealer_tsumo_repeats_dealer_and_increments_honba(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

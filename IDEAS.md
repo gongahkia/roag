@@ -284,6 +284,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox dealer-aware win payment estimates
   - [x] Basic sandbox visible-dora score-estimate bonus han
   - [x] Basic sandbox red-five score-estimate bonus han
+  - [x] Basic sandbox kazoe-yakuman score estimates
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
   - [x] Basic sandbox chankan ippatsu reaction timing
   - [x] Basic sandbox haitei/houtei yaku metadata
@@ -537,9 +538,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
-    visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
-    Tenhou Sanma post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, tsumo
-    yaku/dora tile views that avoid duplicating the drawn tile, basic Tenhou Sanma tsumo-loss
+    visible-dora and red-five bonus han in score estimates, basic kazoe-yakuman score estimates,
+    Tenhou Sanma 1m/9m dora indicator wrap, Tenhou Sanma post-pon Kita suppression, basic Tenhou
+    Sanma Kita ippatsu reaction timing, tsumo yaku/dora tile views that avoid duplicating the drawn
+    tile, basic Tenhou Sanma tsumo-loss
     payment estimates, a basic Tenhou Sanma eight-rinshan replacement reserve cap, plus basic
     open/kan standard-shape win detection and a basic sandbox yaku filter/metadata layer with
     dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
@@ -1198,6 +1200,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   alongside visible dora and Kita. This checks off the narrow red-dora score-estimate subtask, but
   does not complete ura-dora, exact dora ordering, kiriage/kazoe, exhaustive yaku/fu validation, or
   calibrated point-based rewards.
+- Added basic kazoe-yakuman score estimates. Non-yakuman terminal score estimates now use the
+  yakuman limit when yaku plus bonus han reaches 13 or more, matching the common counted-yakuman
+  limit. This checks off the narrow kazoe limit subtask, but does not complete kiriage handling,
+  exact dora/ura-dora ordering, exhaustive yaku/fu validation, or exact scoring.
 - Fixed tsumo yaku/dora score-estimate tile views to avoid duplicating the drawn tile. Tsumo yaku
   checks and terminal score estimates now use the already-complete hand, while ron/chankan still add
   the pending winning tile. This checks off the narrow tsumo tile-view de-duplication subtask and

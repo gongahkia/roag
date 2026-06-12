@@ -92,12 +92,12 @@ Last updated: 2026-06-12.
   draw-source metadata. The sandbox now detects basic open/kan standard hand shapes, including
   rinshan replacement draws after kan, and supports kokushi-only ankan robbery. Terminal win score
   estimates now include basic
-  dealer-aware ron/tsumo payment handling plus visible-dora/red-five bonus han, and tsumo yaku/dora
-  tile views no longer duplicate the drawn tile. This is still not hand scoring, full
-  round-continuation semantics, real multi-ron payment validation, complete payment accounting,
-  complete yaku validation, full open-hand yaku rules, complete rinshan yaku/scoring semantics,
-  complete kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan semantics, complete
-  post-riichi kan timing, ippatsu scoring, point-based reward scaling, or calibrated rewards.
+  dealer-aware ron/tsumo payment handling plus visible-dora/red-five bonus han and kazoe-yakuman
+  limits, and tsumo yaku/dora tile views no longer duplicate the drawn tile. This is still not hand
+  scoring, full round-continuation semantics, real multi-ron payment validation, complete payment
+  accounting, complete yaku validation, full open-hand yaku rules, complete rinshan yaku/scoring
+  semantics, complete kan-dora/ura-dora indicator ordering, complete robbing-kan/chankan semantics,
+  complete post-riichi kan timing, ippatsu scoring, point-based reward scaling, or calibrated rewards.
   Added a narrow Sanma Kita/pei-nuki sandbox action that records exposed North tiles separately
   from melds, takes a dead-wall replacement draw without revealing kan-dora, allows post-riichi
   Kita only on a drawn North, and counts exposed Kita as bonus han in sandbox score estimates.
@@ -109,6 +109,7 @@ Last updated: 2026-06-12.
   Added basic haitei/houtei yaku metadata for explicitly final live-wall draws/discards.
   Added basic double-riichi yaku metadata for first-turn riichi before any tile call or Sanma Kita
   exposure.
+  Added basic kazoe-yakuman score estimates for non-yakuman hands reaching 13 or more total han.
   Added direct coverage for basic Tenhou Sanma tsumo-loss point estimates.
   Added a basic Tenhou Sanma eight-rinshan replacement reserve cap for full dead-wall states.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan/Kita
@@ -308,8 +309,8 @@ Last updated: 2026-06-12.
   basic open/kan standard-shape win detection, a basic sandbox yaku
   filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering, simple sandbox terminal
   rewards, and terminal point-delta metadata, including basic dealer-aware win payment estimates,
-  visible-dora/red-five score-estimate bonus han, tsumo yaku/dora tile-view de-duplication, and
-  basic live-wall exhaustive-draw tenpai/noten point deltas.
+  visible-dora/red-five score-estimate bonus han, basic kazoe-yakuman score estimates, tsumo
+  yaku/dora tile-view de-duplication, and basic live-wall exhaustive-draw tenpai/noten point deltas.
 
 ## Working Rules
 
@@ -336,9 +337,9 @@ Last updated: 2026-06-12.
 - The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
   including yaku checks, complete payment/scoring semantics beyond the current basic point-ledger,
-  dealer-aware payment, visible/red dora, tsumo tile-view de-duplication, and next-round
-  dealer/honba/round-wind helper slices, ippatsu scoring, full yaku-aware open/kan hand legality,
-  complete rinshan yaku/scoring semantics, complete haitei/houtei endgame timing,
+  dealer-aware payment, visible/red dora, kazoe-yakuman limit, tsumo tile-view de-duplication, and
+  next-round dealer/honba/round-wind helper slices, ippatsu scoring, full yaku-aware open/kan hand
+  legality, complete rinshan yaku/scoring semantics, complete haitei/houtei endgame timing,
   complete double-riichi/riichi timing, complete kan-dora/ura-dora indicator ordering, complete
   chankan semantics, complete post-riichi kan timing, real multi-ron payment handling, richer
   terminal reward signals, and validation against real reconstructed games.
@@ -866,12 +867,12 @@ Mortal local baseline reconnaissance:
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
-   tenpai/noten point-delta, dealer-aware win payment, visible/red-dora score-estimate, and
-   next-round dealer/honba/round-wind slices, ippatsu scoring beyond narrow ron metadata, full
-   yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics, complete
-   haitei/houtei endgame timing, complete double-riichi/riichi timing, complete kan-dora/ura-dora
-   indicator ordering, complete chankan semantics beyond the basic ippatsu timing slice, complete
-   post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
+   tenpai/noten point-delta, dealer-aware win payment, visible/red-dora score-estimate,
+   kazoe-yakuman limit, and next-round dealer/honba/round-wind slices, ippatsu scoring beyond
+   narrow ron metadata, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring
+   semantics, complete haitei/houtei endgame timing, complete double-riichi/riichi timing, complete
+   kan-dora/ura-dora indicator ordering, complete chankan semantics beyond the basic ippatsu timing
+   slice, complete post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita

@@ -2443,6 +2443,8 @@ def _sandbox_honba_payment(*, win_kind: str, honba: int) -> int:
 
 
 def _sandbox_score_limit(*, han: int, base_points: int) -> str | None:
+    if han >= 13:
+        return "yakuman"
     if han >= 11:
         return "sanbaiman"
     if han >= 8:
