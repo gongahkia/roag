@@ -105,11 +105,11 @@ missed the baseline and includes the exact artifact paths.
 
 ### TODO-201 Complete Call And Kan Timing
 
-- [ ] Model full chi, pon, minkan, ankan, kakan, Kita, ron, pass, and replacement
+- [x] Model full chi, pon, minkan, ankan, kakan, Kita, ron, pass, and replacement
   draw timing as explicit state transitions.
-- [ ] Add tests for priority order across ron, pon, kan, chi, pass, and multiple
+- [x] Add tests for priority order across ron, pon, kan, chi, pass, and multiple
   reaction seats.
-- [ ] Add tests for illegal calls after riichi, post-call discard obligations,
+- [x] Add tests for illegal calls after riichi, post-call discard obligations,
   and simultaneous reaction windows.
 
 Done when: all call/kan reaction windows have deterministic priority tests and no

@@ -2033,6 +2033,45 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertNotIn(ActionKind.CHI, {action.kind for action in seat_three_actions})
         self.assertEqual(reaction_actions[-1], Action.pass_())
 
+    def test_pending_discard_reaction_actions_are_priority_ordered(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1m 2m 3m 3m 3m 4p 5p 6p P P P E E"),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("3m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+        )
+
+        self.assertEqual(
+            legal_reaction_actions(state, seat=1),
+            (
+                Action(ActionKind.RON, TileType.parse("3m")),
+                Action(
+                    ActionKind.CHI,
+                    TileType.parse("3m"),
+                    consumed=(Tile.parse("1m"), Tile.parse("2m")),
+                ),
+                Action(
+                    ActionKind.PON,
+                    TileType.parse("3m"),
+                    consumed=(Tile.parse("3m"), Tile.parse("3m")),
+                ),
+                Action(
+                    ActionKind.MINKAN,
+                    TileType.parse("3m"),
+                    consumed=(Tile.parse("3m"), Tile.parse("3m"), Tile.parse("3m")),
+                ),
+                Action.pass_(),
+            ),
+        )
+
     def test_riichi_seat_cannot_call_pending_discard(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
