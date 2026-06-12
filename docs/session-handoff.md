@@ -53,8 +53,8 @@ Last updated: 2026-06-12.
   before/after wait sets match. Added a basic sandbox yaku filter and terminal yaku metadata:
   legal tsumo/ron/chankan now require at least one recognized sandbox yaku from kokushi,
   chiitoitsu, riichi, double riichi, ippatsu, menzen tsumo, rinshan, haitei, houtei, chankan,
-  tanyao, toitoi, or a broad honor-triplet yakuhai approximation, and terminal states expose
-  `winning_yaku` plus `winning_yaku_by_seat`.
+  tanyao, toitoi, honroutou, or a broad honor-triplet yakuhai approximation, and terminal states
+  expose `winning_yaku` plus `winning_yaku_by_seat`.
   The current yakuhai filter is now narrowed to dragons, the sandbox state's round wind, and the
   winner's dealer-relative seat wind.
   Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
@@ -114,6 +114,7 @@ Last updated: 2026-06-12.
   Added basic double-riichi yaku metadata for first-turn riichi before any tile call or Sanma Kita
   exposure.
   Added basic toitoi yaku metadata for all-triplet/all-kan standard hands.
+  Added basic honroutou yaku metadata for terminal-and-honor standard or chiitoitsu hands.
   Added basic kazoe-yakuman score estimates for non-yakuman hands reaching 13 or more total han.
   Added basic yakuman bonus-han suppression in score estimates while preserving raw dora counts.
   Added basic Nagashi mangan wall-exhaustion handling that bypasses normal tenpai/noten settlement.
@@ -315,9 +316,9 @@ Last updated: 2026-06-12.
   basic chankan ippatsu reaction timing, kokushi-only ankan chankan, basic closed-hand tsumo/ron
   terminal metadata, basic multi-ron terminal resolution with turn-priority riichi-stick assignment,
   basic open/kan standard-shape win detection, a basic sandbox yaku
-  filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering plus toitoi, simple
-  sandbox terminal rewards, and terminal point-delta metadata, including basic dealer-aware win
-  payment estimates,
+  filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering plus toitoi and
+  honroutou, simple sandbox terminal rewards, and terminal point-delta metadata, including basic
+  dealer-aware win payment estimates,
   visible-dora/red-five score-estimate bonus han, basic kazoe-yakuman score estimates, basic
   yakuman bonus-han suppression, tsumo yaku/dora tile-view de-duplication, basic Nagashi mangan
   wall-exhaustion and next-round progression, and basic live-wall exhaustive-draw tenpai/noten

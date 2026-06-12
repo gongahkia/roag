@@ -94,6 +94,7 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_yakuhai_seat_round_dragon_filter"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_toitoi_yaku_metadata"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_honroutou_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
@@ -213,6 +214,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_basic_yaku_metadata: yes", text)
         self.assertIn("sandbox_yakuhai_seat_round_dragon_filter: yes", text)
         self.assertIn("sandbox_toitoi_yaku_metadata: yes", text)
+        self.assertIn("sandbox_honroutou_yaku_metadata: yes", text)
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", text)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", text)

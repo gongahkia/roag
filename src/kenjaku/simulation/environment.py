@@ -59,6 +59,7 @@ SANDBOX_YAKU_HAN = {
     "menzen_tsumo": 1,
     "rinshan": 1,
     "haitei": 1,
+    "honroutou": 2,
     "houtei": 1,
     "chankan": 1,
     "tanyao": 1,
@@ -1639,6 +1640,8 @@ def _winning_yaku_for_state(
         yaku.append("yakuhai")
     if _is_toitoi_yaku(full_tiles, melds=melds, shapes=shapes):
         yaku.append("toitoi")
+    if _is_honroutou_yaku(full_tiles, shapes=shapes):
+        yaku.append("honroutou")
     return tuple(yaku)
 
 
@@ -1718,6 +1721,20 @@ def _is_toitoi_yaku(
     return positive_counts.count(2) == 1 and all(
         count in {2, 3, 4} for count in positive_counts
     )
+
+
+def _is_honroutou_yaku(
+    tiles: tuple[Tile, ...],
+    *,
+    shapes: tuple[str, ...],
+) -> bool:
+    if "standard" not in shapes and "chiitoitsu" not in shapes:
+        return False
+    if not tiles or any(not tile.type.is_terminal_or_honor for tile in tiles):
+        return False
+    has_terminal = any(tile.type.is_terminal for tile in tiles)
+    has_honor = any(tile.type.is_honor for tile in tiles)
+    return has_terminal and has_honor
 
 
 def _is_sandbox_yakuhai_type(

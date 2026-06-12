@@ -477,6 +477,82 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertEqual(legal_tsumo_actions(drawn), ())
 
+    def test_honroutou_toitoi_tsumo_scores_stacked_yaku(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("S S S"),
+            called_tile=Tile.parse("S"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 1m 1m 9p 9p 9p 1s 1s 1s 9s"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, legal_tsumo_actions(drawn)[0])
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("toitoi", "honroutou"))
+        self.assertEqual(estimate.yaku_han, 4)
+
+    def test_honroutou_scores_with_chiitoitsu_shape(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("S"),),
+            hands=(
+                _tiles("1m 1m 9m 9m 1p 1p 9p 9p 1s 1s 9s 9s S"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, legal_tsumo_actions(drawn)[0])
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_shapes, ("chiitoitsu",))
+        self.assertEqual(terminal.winning_yaku, ("chiitoitsu", "menzen_tsumo", "honroutou"))
+        self.assertEqual(estimate.yaku_han, 5)
+
+    def test_honroutou_requires_terminal_and_honor_tiles(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("1m 1m 1m"),
+            called_tile=Tile.parse("1m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1s"),),
+            hands=(
+                _tiles("9m 9m 9m 1p 1p 1p 9p 9p 9p 1s"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, legal_tsumo_actions(drawn)[0])
+
+        self.assertEqual(terminal.winning_yaku, ("toitoi",))
+
     def test_rinshan_tsumo_after_ankan_uses_kan_meld_for_standard_shape(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

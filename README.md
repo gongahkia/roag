@@ -41,8 +41,9 @@ handoff notes.
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
   resolution with turn-priority riichi-stick assignment, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
-  dragon/round-wind/seat-wind yakuhai filtering plus toitoi, and simple terminal reward payloads
-  plus terminal point-delta and score-estimate metadata, including basic dealer-aware win payments,
+  dragon/round-wind/seat-wind yakuhai filtering plus toitoi and honroutou, and simple terminal
+  reward payloads plus terminal point-delta and score-estimate metadata, including basic
+  dealer-aware win payments,
   visible-dora/red-five bonus han, basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
   tenpai/noten point deltas plus basic Nagashi mangan wall-exhaustion and next-round progression.

@@ -81,6 +81,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_basic_yaku_metadata": True,
                 "sandbox_yakuhai_seat_round_dragon_filter": True,
                 "sandbox_toitoi_yaku_metadata": True,
+                "sandbox_honroutou_yaku_metadata": True,
                 "sandbox_terminal_reward_payloads": True,
                 "sandbox_terminal_point_delta_metadata": True,
                 "sandbox_exhaustive_draw_tenpai_noten_payments": True,
