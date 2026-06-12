@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import shutil
 import sys
 import unittest
 from pathlib import Path
@@ -758,6 +759,46 @@ class CliTests(unittest.TestCase):
             stdout.getvalue().splitlines(),
             ["rounds: 3", "discards: 4", "discard_examples: 4", "call_examples: 1"],
         )
+
+    def test_inspect_tenhou_smoke_parses_exported_xml_directory_outside_git(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            export_dir = Path(directory) / "houou-export"
+            export_dir.mkdir()
+            shutil.copyfile(
+                Path("data/fixtures/tenhou/events_4p.xml"),
+                export_dir / "2026040200gm-00a9-0000-smoke.xml",
+            )
+            report = Path(directory) / "inspect-export.json"
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "inspect-tenhou",
+                        str(export_dir),
+                        "--report",
+                        str(report),
+                        "--source-label",
+                        "houou-export-smoke",
+                        "--source-date",
+                        "synthetic-runtime-copy",
+                        "--source-command",
+                        "houou-logs export DB OUT --players 4 --length h --limit 1",
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            stdout.getvalue().splitlines()[:4],
+            ["rounds: 1", "discards: 2", "discard_examples: 2", "call_examples: 1"],
+        )
+        self.assertEqual(payload["kind"], "kenjaku-tenhou-inspect-report-v0")
+        self.assertEqual(payload["source"]["label"], "houou-export-smoke")
+        self.assertEqual(payload["xml_file_count"], 1)
+        self.assertEqual(payload["parse_failures"]["count"], 0)
+        self.assertIn("report_path:", stdout.getvalue())
 
     def test_inspect_tenhou_writes_report_artifact(self) -> None:
         stdout = io.StringIO()

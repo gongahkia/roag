@@ -17,16 +17,23 @@ Rules for this backlog:
 
 ### TODO-001 Verify Tenhou Phoenix Data Intake
 
-- [ ] Run a local `houou-logs` export/import smoke test on at least 1 permitted
+- [x] Run a local `houou-logs` export/import smoke test on at least 1 permitted
   Tenhou XML game stored outside git.
-- [ ] Document the exact export/import commands, source date, and
+- [x] Document the exact export/import commands, source date, and
   no-redistribution handling in `docs/data-policy.md`.
-- [ ] Add or update a CLI smoke test that proves Kenjaku can parse the exported
+- [x] Add or update a CLI smoke test that proves Kenjaku can parse the exported
   file format without committing raw logs.
 
 Done when: `inspect-tenhou` or the replacement intake command parses at least 1
 local exported game, the command is documented, and `git status --short` shows no
 raw replay files.
+
+Evidence: completed locally on 2026-06-13 SGT with one ignored `houou-logs`
+4-player hanchan export dated `2026-04-02T00:06`; `inspect-tenhou` parsed
+1 XML file into 13 rounds, 619 discard examples, 164 call examples, and 0 parse
+failures. Commands and no-redistribution handling are recorded in
+`docs/data-policy.md`. The checked-in CLI smoke test copies a synthetic Tenhou
+fixture into a temporary exported-XML directory outside git.
 
 ### TODO-002 Gate Mahjong Soul Replay Usage
 

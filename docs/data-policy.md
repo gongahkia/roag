@@ -33,6 +33,60 @@ houou-logs export data/raw/tenhou/2024.db data/raw/tenhou/xml/4p-hanchan \
 Do not commit the resulting database or exported XML files. See `docs/local-tenhou-eval.md` for a
 local evaluation workflow.
 
+### Tenhou Local Smoke Record
+
+TODO-001 was validated locally on 2026-06-13 SGT with `houou-logs` 2.0.1 installed from
+`Apricot-S/houou-logs` commit `3aeb640659d4ba635739d82ad75e94f826076c76`.
+
+The smoke used a single downloaded 4-player hanchan log with source date
+`2026-04-02T00:06` in the local `houou-logs` database. The raw log ID, database, exported XML, and
+Kenjaku JSON report remain under ignored local paths and are intentionally not copied into tracked
+documentation.
+
+Exact local commands run:
+
+```bash
+mkdir -p data/raw/tenhou/db data/raw/tenhou/xml/todo-001-smoke runs/todo-001
+uv tool install --python 3.12 git+https://github.com/Apricot-S/houou-logs
+
+# Fetch current-year IDs into an ignored local DB. This command has no --limit; the local smoke
+# stopped the fetch after enough IDs were recorded and did not start another fetch session.
+houou-logs fetch data/raw/tenhou/db/todo-001-current-year.db
+
+houou-logs download data/raw/tenhou/db/todo-001-current-year.db \
+  --players 4 --length h --limit 1
+houou-logs validate data/raw/tenhou/db/todo-001-current-year.db
+houou-logs export data/raw/tenhou/db/todo-001-current-year.db \
+  data/raw/tenhou/xml/todo-001-smoke --players 4 --length h --limit 1
+
+PYTHONPATH=src /usr/bin/python3.11 -m kenjaku inspect-tenhou \
+  data/raw/tenhou/xml/todo-001-smoke \
+  --report runs/todo-001/inspect-tenhou-houou-smoke.json \
+  --source-label tenhou-houou-current-year-4p-hanchan-smoke \
+  --source-date 2026-06-13 \
+  --source-command "houou-logs fetch data/raw/tenhou/db/todo-001-current-year.db; houou-logs download data/raw/tenhou/db/todo-001-current-year.db --players 4 --length h --limit 1; houou-logs validate data/raw/tenhou/db/todo-001-current-year.db; houou-logs export data/raw/tenhou/db/todo-001-current-year.db data/raw/tenhou/xml/todo-001-smoke --players 4 --length h --limit 1"
+```
+
+Observed smoke output:
+
+```text
+Number of logs downloaded: 1
+Everything is fine, checked 1/8009 (valid logs / all IDs)
+Number of logs exported: 1
+rounds: 13
+discards: 619
+discard_examples: 619
+call_examples: 164
+```
+
+No-redistribution handling:
+
+- The `houou-logs` database and exported XML stayed under ignored `data/raw/`.
+- The parse report stayed under ignored `runs/`.
+- `git status --short` showed no tracked or untracked raw replay files after the smoke.
+- The checked-in CLI smoke test copies a synthetic fixture into a temporary directory outside the
+  worktree, so CI can prove the exported-directory parser path without committing raw Tenhou logs.
+
 Generated reports and model artifacts belong under ignored local paths such as `runs/` and
 `models/`. If aggregate results are useful for project history, record only summary counts,
 metrics, and source commands in `TODO.md` or docs; do not copy raw XML, database contents, player
