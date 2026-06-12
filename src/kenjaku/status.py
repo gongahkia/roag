@@ -89,6 +89,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_visible_dora_score_estimates": True,
                 "sandbox_red_dora_score_estimates": True,
                 "sandbox_kazoe_yakuman_score_estimates": True,
+                "sandbox_yakuman_bonus_han_suppression": True,
                 "basic_winning_hand_detection": True,
                 "sandbox_open_meld_win_detection": True,
                 "self_play_sandbox_tsumo_termination": True,

@@ -2323,6 +2323,7 @@ def _sandbox_score_estimate(
 ) -> SandboxScoreEstimate:
     bonus_han = visible_dora_count + red_dora_count + kita_dora_count
     if "kokushi" in yaku:
+        scoring_bonus_han = 0
         ron_payment = (
             _sandbox_limit_ron_payment(limit="yakuman", is_dealer=is_dealer)
             if win_kind != "tsumo"
@@ -2343,11 +2344,11 @@ def _sandbox_score_estimate(
             win_kind=win_kind,
             yaku=yaku,
             yaku_han=13,
-            bonus_han=bonus_han,
+            bonus_han=scoring_bonus_han,
             visible_dora_count=visible_dora_count,
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
-            han=13 + bonus_han,
+            han=13,
             fu=None,
             limit="yakuman",
             base_points=SANDBOX_LIMIT_BASE_POINTS["yakuman"],

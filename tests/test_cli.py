@@ -89,6 +89,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_visible_dora_score_estimates: yes", output)
         self.assertIn("sandbox_red_dora_score_estimates: yes", output)
         self.assertIn("sandbox_kazoe_yakuman_score_estimates: yes", output)
+        self.assertIn("sandbox_yakuman_bonus_han_suppression: yes", output)
         self.assertIn("basic_winning_hand_detection: yes", output)
         self.assertIn("sandbox_open_meld_win_detection: yes", output)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
@@ -223,6 +224,9 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_kazoe_yakuman_score_estimates"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_yakuman_bonus_han_suppression"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(
@@ -498,6 +502,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("visible_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("red_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("kazoe_yakuman_score_estimates: yes", text_stdout.getvalue())
+        self.assertIn("yakuman_bonus_han_suppression: yes", text_stdout.getvalue())
         self.assertIn("report_path:", text_stdout.getvalue())
         self.assertEqual(report_payload["kind"], "kenjaku-self-play-sandbox-report-v0")
         self.assertTrue(report_payload["stop_on_tsumo"])
@@ -539,6 +544,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["visible_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["red_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["kazoe_yakuman_score_estimates"])
+        self.assertTrue(report_payload["capabilities"]["yakuman_bonus_han_suppression"])
         self.assertTrue(report_payload["capabilities"]["open_hand_win_detection"])
         self.assertFalse(report_payload["capabilities"]["kan_policy"])
         self.assertFalse(report_payload["capabilities"]["chankan_policy"])

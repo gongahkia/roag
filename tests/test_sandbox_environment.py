@@ -975,6 +975,38 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate_payload["base_points"], 8000)
         self.assertEqual(estimate_payload["tsumo_child_payment"], 16000)
 
+    def test_yakuman_score_estimate_does_not_add_bonus_han(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=(Tile.parse("9m"),),
+            dora_indicators=(Tile.parse("9m"),),
+            hands=(
+                _tiles("1m 9m 9m 1p 9p 1s 9s E S W N P F C"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("C"),
+        )
+
+        terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.winning_shapes, ("kokushi",))
+        self.assertIn("kokushi", terminal.winning_yaku)
+        self.assertEqual(estimate.visible_dora_count, 1)
+        self.assertEqual(estimate.red_dora_count, 0)
+        self.assertEqual(estimate.kita_dora_count, 0)
+        self.assertEqual(estimate.bonus_han, 0)
+        self.assertEqual(estimate.han, 13)
+        self.assertEqual(estimate.limit, "yakuman")
+        self.assertEqual(estimate_payload["visible_dora_count"], 1)
+        self.assertEqual(estimate_payload["bonus_han"], 0)
+        self.assertEqual(estimate_payload["han"], 13)
+
     def test_next_round_after_dealer_tsumo_repeats_dealer_and_increments_honba(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

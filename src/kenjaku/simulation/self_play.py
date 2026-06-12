@@ -159,6 +159,7 @@ def run_self_play_sandbox(
             "visible_dora_score_estimates": True,
             "red_dora_score_estimates": True,
             "kazoe_yakuman_score_estimates": True,
+            "yakuman_bonus_han_suppression": True,
             "scoring": False,
             "ppo": False,
         },
