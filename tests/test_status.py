@@ -101,6 +101,11 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox_sanma_tile_set"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_initial_points"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_no_chi"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_sanma_north_guest_wind_yaku_filter"
+            ]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_reaction_window"]
@@ -178,6 +183,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", text)
         self.assertIn("sandbox_sanma_initial_points: yes", text)
         self.assertIn("sandbox_sanma_no_chi: yes", text)
+        self.assertIn("sandbox_sanma_north_guest_wind_yaku_filter: yes", text)
         self.assertIn("sandbox_sanma_kita_action: yes", text)
         self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", text)
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", text)

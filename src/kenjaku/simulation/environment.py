@@ -1466,7 +1466,7 @@ def _winning_yaku_for_state(
         yaku.append("chankan")
     if _is_tanyao_yaku(full_tiles):
         yaku.append("tanyao")
-    if _has_sandbox_yakuhai(full_tiles):
+    if _has_sandbox_yakuhai(full_tiles, ruleset=state.ruleset):
         yaku.append("yakuhai")
     return tuple(yaku)
 
@@ -1492,12 +1492,18 @@ def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
     return bool(tiles) and all(not tile.type.is_terminal_or_honor for tile in tiles)
 
 
-def _has_sandbox_yakuhai(tiles: tuple[Tile, ...]) -> bool:
+def _has_sandbox_yakuhai(tiles: tuple[Tile, ...], *, ruleset: str) -> bool:
     counts = _hand_type_counts(tiles)
     return any(
-        TileType(index).is_honor and count >= 3
+        _is_sandbox_yakuhai_type(TileType(index), ruleset=ruleset) and count >= 3
         for index, count in enumerate(counts)
     )
+
+
+def _is_sandbox_yakuhai_type(tile_type: TileType, *, ruleset: str) -> bool:
+    if ruleset == TENHOU_3P.name and tile_type == SANDBOX_KITA_TILE:
+        return False
+    return tile_type.is_honor
 
 
 def _standard_shape_tiles_for_melds(melds: tuple[Meld, ...]) -> tuple[Tile, ...]:

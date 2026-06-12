@@ -87,6 +87,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", output)
         self.assertIn("sandbox_sanma_initial_points: yes", output)
         self.assertIn("sandbox_sanma_no_chi: yes", output)
+        self.assertIn("sandbox_sanma_north_guest_wind_yaku_filter: yes", output)
         self.assertIn("sandbox_sanma_kita_action: yes", output)
         self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", output)
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", output)
@@ -199,6 +200,11 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_initial_points"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_no_chi"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_sanma_north_guest_wind_yaku_filter"
+            ]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_reaction_window"]
@@ -434,6 +440,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
         self.assertIn("sanma_initial_points: yes", text_stdout.getvalue())
         self.assertIn("sanma_no_chi: yes", text_stdout.getvalue())
+        self.assertIn("sanma_north_guest_wind: yes", text_stdout.getvalue())
         self.assertIn("sanma_kita_action: yes", text_stdout.getvalue())
         self.assertIn("kita_policy: no", text_stdout.getvalue())
         self.assertIn("kita_ron_reaction_windows: yes", text_stdout.getvalue())
@@ -466,6 +473,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
         self.assertTrue(report_payload["capabilities"]["sanma_initial_points"])
         self.assertTrue(report_payload["capabilities"]["sanma_no_chi"])
+        self.assertTrue(report_payload["capabilities"]["sanma_north_guest_wind"])
         self.assertTrue(report_payload["capabilities"]["sanma_kita_action"])
         self.assertFalse(report_payload["capabilities"]["kita_policy"])
         self.assertTrue(report_payload["capabilities"]["kita_ron_reaction_windows"])

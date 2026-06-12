@@ -113,6 +113,7 @@ def run_self_play_sandbox(
             "static_sanma_tile_set": rules.players == 3,
             "sanma_initial_points": rules.players == 3,
             "sanma_no_chi": rules.players == 3,
+            "sanma_north_guest_wind": rules.players == 3,
             "sanma_kita_action": rules.players == 3,
             "full_riichi_rules": False,
             "riichi_declaration_action": True,

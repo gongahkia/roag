@@ -683,6 +683,25 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no recognized sandbox yaku"):
             apply_ron_action(reaction_state, seat=1, action=ron)
 
+    def test_sanma_north_triplet_is_not_yakuhai_when_used_in_hand(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("5p"),),
+            hands=(
+                _tiles("1p 1p 1p 2p 3p 4p 5s 6s 7s E S W N"),
+                _tiles("N N N 1p 2p 3p 4p 6p 1s 2s 3s 7p 7p"),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5p"))
+        ron = Action(ActionKind.RON, TileType.parse("5p"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), ())
+        with self.assertRaisesRegex(ValueError, "no recognized sandbox yaku"):
+            apply_ron_action(reaction_state, seat=1, action=ron)
+
     def test_riichi_yaku_allows_closed_shape_ron(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

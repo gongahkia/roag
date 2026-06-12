@@ -292,6 +292,7 @@ This is well within "side project budget" territory.
 - [ ] Sanma ruleset implementation
   - [x] Basic Tenhou Sanma 35,000-point sandbox starts
   - [x] Basic Tenhou Sanma no-chi call filtering
+  - [x] Basic Tenhou Sanma North-as-guest-wind yaku filtering
   - [x] Basic sandbox Kita/pei-nuki action with dead-wall replacement draw and bonus-han metadata
   - [x] Basic sandbox Kita ron/pass reaction window without chankan yaku
 - [ ] Mahjong Soul Sanma log scraping
@@ -494,10 +495,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
    checks. It is not a full rules simulator, yaku/scoring engine, PPO loop, or evidence that the
    Phase 3 self-play harness is complete.
 10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
-    exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering, a basic
-    Kita/pei-nuki action, and a basic Kita ron/pass reaction window, but the Phase 5 Sanma ruleset
-    still needs real 3-player round flow, exact platform timing, complete call handling, scoring,
-    training data, and evaluation.
+    exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
+    North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
+    reaction window, but the Phase 5 Sanma ruleset still needs real 3-player round flow, exact
+    platform timing, complete call handling, scoring, training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -1134,3 +1135,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   3-player rule note that chi is unavailable. This checks off the narrow Sanma no-chi call subtask,
   but does not complete pon-after-Kita timing, exact platform call timing, full call policy,
   scoring, training data, or evaluation.
+- Added Tenhou Sanma North guest-wind yaku filtering to the sandbox. The broad sandbox yakuhai
+  approximation now excludes North triplets under `tenhou-3p`, matching Tenhou's rule note that
+  North used inside a hand is otakaze. This checks off the narrow North-as-guest-wind yaku subtask,
+  but does not complete seat/round wind specificity, full yaku/fu validation, scoring, training
+  data, or evaluation.

@@ -39,12 +39,13 @@ handoff notes.
   open/kan standard-shape win detection, a basic sandbox yaku filter/metadata layer, and simple
   terminal reward payloads plus terminal point-delta and score-estimate metadata. The sandbox also
   has narrow Sanma support: static 3-player tile exclusions, 35,000-point starts, no-chi call
-  filtering, and a basic Kita/pei-nuki action that tracks exposed North tiles separately from
-  melds, opens a ron/pass reaction window when an opponent can win on the North, takes a delayed
-  dead-wall replacement draw without revealing kan-dora after passes, and counts as bonus han in
-  sandbox score estimates. The self-play sandbox uses this boundary for 4-player and static
-  3-player tile-set draw/discard turn-rotation plus terminal-outcome plumbing, auto-passing
-  reaction windows because it has no ron/call/kan/Kita policy yet.
+  filtering, North-as-guest-wind yaku filtering, and a basic Kita/pei-nuki action that tracks
+  exposed North tiles separately from melds, opens a ron/pass reaction window when an opponent can
+  win on the North, takes a delayed dead-wall replacement draw without revealing kan-dora after
+  passes, and counts as bonus han in sandbox score estimates. The self-play sandbox uses this
+  boundary for 4-player and static 3-player tile-set draw/discard turn-rotation plus
+  terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
+  policy yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
   validator, complete yaku/scoring implementation, complete robbing-kan/chankan model,
   complete post-riichi kan timing model, scoring engine, or RL implementation.
