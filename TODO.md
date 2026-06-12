@@ -59,6 +59,13 @@ links, and a clear allowed/not-allowed workflow.
 Done when: a documented dry run produces a training report and cost estimate
 without committing model weights or raw data.
 
+Progress: local fallback was verified on 2026-06-13 SGT with
+`train-discard-transformer --device auto`; it selected CPU, wrote ignored
+artifacts under `runs/todo-003/`, and completed in 9.30 seconds. The cloud GPU
+run remains open because this environment has no provider CLI, credentials, or
+local GPU. See `docs/cloud-gpu-dry-run.md` for the exact command and remaining
+evidence needed.
+
 ## P1 Data And Supervised Models
 
 ### TODO-101 Finish Deal-In Probability Estimator
