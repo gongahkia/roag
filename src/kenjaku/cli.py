@@ -1529,6 +1529,12 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
         heuristic_deal_in_probabilities(eval_examples),
         threshold=threshold,
     )
+    calibration = {
+        "target": "deal_in",
+        "thresholds": list(CALIBRATION_THRESHOLDS),
+        "train": _deal_in_threshold_sweep(model, train_examples),
+        "eval": _deal_in_threshold_sweep(model, eval_examples),
+    }
     report = {
         "kind": DEAL_IN_BENCHMARK_REPORT_KIND,
         "source": _source_metadata(args),
@@ -1560,6 +1566,7 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
             "positive_class_weight": positive_class_weight,
             "threshold": threshold,
         },
+        "calibration": calibration,
         "metrics": {
             "train": train_metrics,
             "eval": eval_metrics,
@@ -1610,11 +1617,30 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
             "heuristic_eval_brier_score: "
             f"{_format_optional_float(heuristic_eval.get('brier_score'))}"
         )
+        eval_best_threshold = _format_calibration_best(
+            _calibration_best(calibration, "eval"),
+            target_name="deal_in",
+        )
+        print(f"eval_best_threshold: {eval_best_threshold}")
         if dataset.failures:
             print(f"parse_failures: {len(dataset.failures)}")
         if args.report is not None:
             print(f"report_path: {args.report}")
     return 0
+
+
+def _deal_in_threshold_sweep(
+    model: DealInLinearModel,
+    examples: Sequence[Any],
+) -> dict[str, Any]:
+    records = [
+        {
+            "score": model.predict_probability(example),
+            "actual_positive": example.dealt_in,
+        }
+        for example in examples
+    ]
+    return _binary_threshold_sweep(records, target_name="deal_in")
 
 
 def _deal_in_train_eval_split(

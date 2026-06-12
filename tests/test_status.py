@@ -117,6 +117,11 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "deal_in_estimator_threshold_calibration"
+            ]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["transformer_state_encoder_module"])
         self.assertTrue(
             payload["capabilities"]["implemented"][
@@ -189,6 +194,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", text)
         self.assertIn("heuristic_defense_risk_scoring: yes", text)
         self.assertIn("deal_in_estimator_training_command: yes", text)
+        self.assertIn("deal_in_estimator_threshold_calibration: yes", text)
         self.assertIn("transformer_state_encoder_module: yes", text)
         self.assertIn("transformer_behavior_cloning_training_command: yes", text)
         self.assertIn("transformer_anchor_benchmark_command: yes", text)

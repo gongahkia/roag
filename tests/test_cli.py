@@ -92,6 +92,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", output)
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", output)
         self.assertIn("deal_in_estimator_training_command: yes", output)
+        self.assertIn("deal_in_estimator_threshold_calibration: yes", output)
         self.assertIn("transformer_state_encoder_module: yes", output)
         self.assertIn("transformer_behavior_cloning_training_command: yes", output)
         self.assertIn("transformer_anchor_benchmark_command: yes", output)
@@ -214,6 +215,11 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "deal_in_estimator_threshold_calibration"
+            ]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["transformer_state_encoder_module"])
         self.assertTrue(
@@ -672,17 +678,23 @@ class CliTests(unittest.TestCase):
         self.assertIn("model: deal-in-linear-v0", text_stdout.getvalue())
         self.assertIn("eval_brier_score:", text_stdout.getvalue())
         self.assertIn("heuristic_eval_brier_score:", text_stdout.getvalue())
+        self.assertIn("eval_best_threshold:", text_stdout.getvalue())
         self.assertIn("report_path:", text_stdout.getvalue())
         self.assertEqual(report_payload["kind"], "kenjaku-deal-in-benchmark-report-v0")
         self.assertEqual(report_payload["source"]["label"], "fixture-deal-in")
         self.assertEqual(report_payload["deal_in_examples"], 4)
         self.assertEqual(report_payload["label_summary"]["direct_deal_in_examples"], 1)
         self.assertEqual(report_payload["model"]["kind"], "deal-in-linear-v0")
+        self.assertEqual(report_payload["calibration"]["target"], "deal_in")
+        self.assertEqual(len(report_payload["calibration"]["thresholds"]), 21)
+        self.assertIsNotNone(report_payload["calibration"]["train"]["best"])
+        self.assertIsNotNone(report_payload["calibration"]["eval"]["best"])
         self.assertFalse(report_payload["heuristic_risk_baseline"]["calibrated_probability"])
         self.assertEqual(report_payload["parse_failures"]["count"], 0)
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["kind"], "kenjaku-deal-in-benchmark-report-v0")
         self.assertEqual(json_payload["label_summary"]["examples"], 4)
+        self.assertEqual(json_payload["calibration"]["target"], "deal_in")
 
     def test_benchmark_report_summary_supports_deal_in_reports(self) -> None:
         with TemporaryDirectory() as directory:
@@ -712,12 +724,16 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(text_exit_code, 0)
         self.assertIn("model: deal-in-linear-v0 feature_dim=25", text_stdout.getvalue())
+        self.assertIn("calibration: target=deal_in", text_stdout.getvalue())
         self.assertIn("heuristic_eval:", text_stdout.getvalue())
         self.assertIn("eval_brier_score_vs_heuristic:", text_stdout.getvalue())
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(payload["kind"], "kenjaku-benchmark-summary-v0")
         self.assertEqual(payload["reports"][0]["target"], "deal_in")
         self.assertEqual(payload["reports"][0]["label_summary"]["direct_deal_in_examples"], 1)
+        self.assertEqual(payload["reports"][0]["calibration"]["target"], "deal_in")
+        self.assertIsNotNone(payload["reports"][0]["calibration"]["train_best_threshold"])
+        self.assertIsNotNone(payload["reports"][0]["calibration"]["eval_best_threshold"])
         self.assertIn("eval_brier_score_vs_heuristic", payload["reports"][0]["deltas"])
 
     def test_export_decision_snapshots_writes_jsonl(self) -> None:

@@ -55,8 +55,8 @@ handoff notes.
 - A dependency-free heuristic defense risk scorer for ranking candidate discard danger against
   active riichi opponents. This is not a calibrated deal-in probability estimator.
 - Direct ron-discard label extraction plus a small dependency-free `deal-in-linear-v0` logistic
-  estimator command for offline probability-estimator experiments. No trained deal-in model is
-  bundled yet.
+  estimator command for offline probability-estimator experiments. Its benchmark reports include
+  report-only threshold calibration sweeps, but no trained deal-in model is bundled yet.
 - A PyTorch transformer state encoder and masked discard policy head module for future supervised
   policy experiments. It is architecture scaffolding only; no trained transformer policy is bundled.
 - `train-discard-transformer`, a PyTorch behavior-cloning command for supervised discard policy
@@ -214,9 +214,9 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
 4. Use discard disagreement tags before adding another feature profile.
 5. Use `benchmark-discard-mlp`, `benchmark-discard-transformer`, and `benchmark-report-summary` on
    comparable ignored Tenhou slices before claiming behavior-cloned transformer progress.
-6. Run `benchmark-deal-in` on the ignored 100/500-log slices and compare reports with
-   `benchmark-report-summary` before treating the defense scorer as a validated probability
-   estimator.
+6. Run `benchmark-deal-in` on the ignored 100/500-log slices and compare calibrated-threshold
+   reports with `benchmark-report-summary` before treating the defense scorer as a validated
+   probability estimator.
 
 ## License
 

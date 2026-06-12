@@ -999,6 +999,7 @@ def _summarize_deal_in_benchmark_report(path: Path, payload: dict[str, Any]) -> 
         raise ValueError(f"not a deal-in benchmark report: {path}")
     model_eval = payload["metrics"]["eval"]
     heuristic_eval = payload["heuristic_risk_baseline"]["eval"]
+    calibration = payload.get("calibration")
     return {
         "path": str(path),
         "target": "deal_in",
@@ -1012,6 +1013,11 @@ def _summarize_deal_in_benchmark_report(path: Path, payload: dict[str, Any]) -> 
         "split": payload["split"],
         "model": payload["model"],
         "training": payload["training"],
+        "calibration": {
+            "target": calibration.get("target") if isinstance(calibration, dict) else None,
+            "train_best_threshold": _calibration_best_threshold(calibration, "train"),
+            "eval_best_threshold": _calibration_best_threshold(calibration, "eval"),
+        },
         "metrics": {
             "train": _deal_in_metrics_summary(payload["metrics"]["train"]),
             "eval": _deal_in_metrics_summary(model_eval),
@@ -1283,6 +1289,7 @@ def _append_deal_in_benchmark_summary_lines(lines: list[str], report: dict[str, 
     )
     model = report["model"]
     training = report["training"]
+    calibration = report.get("calibration", {})
     lines.append(
         "model: "
         f"{model['kind']} feature_dim={model['feature_dim']} "
@@ -1291,6 +1298,15 @@ def _append_deal_in_benchmark_summary_lines(lines: list[str], report: dict[str, 
         f"weight={float(training['positive_class_weight']):.2f} "
         f"threshold={float(training['threshold']):.2f}"
     )
+    if isinstance(calibration, dict):
+        train_best = calibration.get("train_best_threshold")
+        eval_best = calibration.get("eval_best_threshold")
+        lines.append(
+            "calibration: "
+            f"target={calibration.get('target')} "
+            f"train_best={_format_optional_threshold(train_best)} "
+            f"eval_best={_format_optional_threshold(eval_best)}"
+        )
     _append_deal_in_metric_line(lines, "eval", report["metrics"]["eval"])
     _append_deal_in_metric_line(
         lines,
@@ -1835,6 +1851,10 @@ def _metric(payload: dict[str, Any], key: str) -> float | None:
 
 def _format_optional_float(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.4f}"
+
+
+def _format_optional_threshold(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f}"
 
 
 def _format_optional_delta(value: float | None) -> str:

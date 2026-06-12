@@ -94,6 +94,7 @@ def build_status_payload() -> dict[str, Any]:
                 "discard_mlp_training_command": True,
                 "heuristic_defense_risk_scoring": True,
                 "deal_in_estimator_training_command": True,
+                "deal_in_estimator_threshold_calibration": True,
                 "transformer_state_encoder_module": True,
                 "transformer_behavior_cloning_training_command": True,
                 "transformer_anchor_benchmark_command": True,

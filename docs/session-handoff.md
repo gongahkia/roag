@@ -204,9 +204,10 @@ Last updated: 2026-06-12.
   over actual-discard defense features, heuristic risk, active-riichi context, and tile-safety
   signals. The command uses a deterministic label-stratified split, reports train/eval
   accuracy/balanced accuracy/Brier/log-loss metrics, and includes the old heuristic risk score as a
-  separately labeled uncalibrated baseline. `benchmark-report-summary` now reads
-  `kenjaku-deal-in-benchmark-report-v0` artifacts and prints model-vs-heuristic eval deltas for
-  Brier score, log loss, accuracy, and balanced accuracy.
+  separately labeled uncalibrated baseline. Reports now also include report-only threshold
+  calibration sweeps for direct deal-in detection, and `benchmark-report-summary` reads
+  `kenjaku-deal-in-benchmark-report-v0` artifacts, prints train/eval best thresholds, and shows
+  model-vs-heuristic eval deltas for Brier score, log loss, accuracy, and balanced accuracy.
 - `mahjong-transformer-encoder-v0` encodes fixed player-perspective state tokens covering hand
   counts, visible counts, unseen counts, dora indicators, active riichi flags, acting seat, dealer,
   and score. `discard-transformer-policy-v0` is an untrained masked-logit head on top of that
@@ -812,8 +813,9 @@ Mortal local baseline reconnaissance:
    policy against the 20k calibrated policy with the same cap and
    seed before selecting a default call report policy.
 2. Run `benchmark-deal-in` on the ignored 100/500-log Tenhou slices and compare the resulting
-   `benchmark-report-summary` output for `deal-in-linear-v0` against the heuristic risk baseline
-   before checking off the Phase 1 defense scorer/probability-estimator item.
+   `benchmark-report-summary` output for `deal-in-linear-v0`, including train/eval best threshold
+   calibration, against the heuristic risk baseline before checking off the Phase 1 defense
+   scorer/probability-estimator item.
 3. Keep riichi on train-best calibration for now. Do not add riichi features until a concrete
    failure mode appears beyond the fixed-0.25 recall/pass-recall tradeoff.
 4. Use the stub prediction producer only for protocol tests. Real Mortal inference still requires

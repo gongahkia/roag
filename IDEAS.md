@@ -267,6 +267,7 @@ This is well within "side project budget" territory.
 - [x] Train a simple masked-logit MLP baseline on discard prediction to validate pipeline
 - [x] Tile efficiency calculator (shanten counter)
 - [ ] Defense scorer (deal-in probability estimator)
+  - [x] Report-only threshold calibration for `deal-in-linear-v0` benchmark artifacts
 
 ### Phase 2 — Architecture (weeks 4-6)
 - [x] Implement transformer encoder for mahjong state
@@ -474,8 +475,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
    10k/20k call reports through `benchmark-report-summary` so the report-local `selected_policy`
    is based on comparable artifacts.
 2. Run `benchmark-deal-in` on the ignored 100/500-log Tenhou slices and compare the resulting
-   `benchmark-report-summary` output for `deal-in-linear-v0` against the uncalibrated heuristic
-   risk baseline before marking the defense scorer/probability-estimator item complete.
+   `benchmark-report-summary` output for `deal-in-linear-v0`, including train/eval best threshold
+   calibration, against the uncalibrated heuristic risk baseline before marking the defense
+   scorer/probability-estimator item complete.
 3. Run `benchmark-discard-mlp` and `benchmark-discard-transformer` on comparable ignored Tenhou
    slices, then summarize both artifacts before marking behavior-cloned transformer progress.
 4. Keep riichi on train-best calibration for now. Fixed threshold 0.25 raises riichi recall but
@@ -947,6 +949,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   print model-vs-heuristic eval deltas for Brier score, log loss, accuracy, and balanced accuracy.
   This gives the next ignored-slice validation step a comparable report view instead of manual JSON
   inspection.
+- Added report-only threshold calibration to `benchmark-deal-in` artifacts. Reports now include
+  train/eval sweeps over the standard calibration thresholds plus best-threshold summaries in
+  `benchmark-report-summary`. This checks off the narrow deal-in benchmark calibration subtask, but
+  does not validate or bundle a trained deal-in probability estimator.
 - Added `mahjong-transformer-encoder-v0`, a PyTorch fixed-token state encoder over hand, visible,
   unseen, dora-indicator, riichi, seat, dealer, and score signals, plus an untrained masked discard
   policy head and tensor dataset helpers. This checks off the Phase 2 encoder implementation item,
