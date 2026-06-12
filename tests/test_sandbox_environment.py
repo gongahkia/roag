@@ -1067,6 +1067,44 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not legal"):
             apply_call_action(state, seat=1, action=chi)
 
+    def test_sanma_call_reactions_disallow_chi_but_keep_pon_and_minkan(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1p 2p 3p 3p 3p 4p 5p 6p 1s 2s 3s E S"),
+                (),
+            ),
+            pending_discard=Tile.parse("3p"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1, 2),
+        )
+        chi = Action(
+            ActionKind.CHI,
+            TileType.parse("3p"),
+            consumed=(Tile.parse("1p"), Tile.parse("2p")),
+        )
+        pon = Action(
+            ActionKind.PON,
+            TileType.parse("3p"),
+            consumed=(Tile.parse("3p"), Tile.parse("3p")),
+        )
+        minkan = Action(
+            ActionKind.MINKAN,
+            TileType.parse("3p"),
+            consumed=(Tile.parse("3p"), Tile.parse("3p"), Tile.parse("3p")),
+        )
+
+        call_actions = legal_call_actions(state, seat=1)
+
+        self.assertNotIn(chi, call_actions)
+        self.assertEqual(call_actions, (pon, minkan))
+        self.assertEqual(legal_reaction_actions(state, seat=1), (pon, minkan, Action.pass_()))
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_call_action(state, seat=1, action=chi)
+
     def test_calls_cancel_active_ippatsu_windows(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

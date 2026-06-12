@@ -960,15 +960,16 @@ def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Ac
     counts = _hand_type_counts(hand)
     actions: list[Action] = []
 
-    actions.extend(
-        _legal_chi_actions(
-            hand=hand,
-            pending_discard=pending_discard,
-            seat=seat,
-            pending_discard_seat=pending_discard_seat,
-            players=state.players,
+    if state.ruleset != TENHOU_3P.name:
+        actions.extend(
+            _legal_chi_actions(
+                hand=hand,
+                pending_discard=pending_discard,
+                seat=seat,
+                pending_discard_seat=pending_discard_seat,
+                players=state.players,
+            )
         )
-    )
 
     matching = counts[pending_discard.type.index]
     if matching >= 2:

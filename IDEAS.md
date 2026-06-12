@@ -291,6 +291,7 @@ This is well within "side project budget" territory.
 ### Phase 5 — Sanma (weeks 15-18)
 - [ ] Sanma ruleset implementation
   - [x] Basic Tenhou Sanma 35,000-point sandbox starts
+  - [x] Basic Tenhou Sanma no-chi call filtering
   - [x] Basic sandbox Kita/pei-nuki action with dead-wall replacement draw and bonus-han metadata
   - [x] Basic sandbox Kita ron/pass reaction window without chankan yaku
 - [ ] Mahjong Soul Sanma log scraping
@@ -493,10 +494,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
    checks. It is not a full rules simulator, yaku/scoring engine, PPO loop, or evidence that the
    Phase 3 self-play harness is complete.
 10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
-    exclusions, three-seat rotation, Tenhou's 35,000-point start, a basic Kita/pei-nuki action, and
-    a basic Kita ron/pass reaction window, but the Phase 5 Sanma ruleset still needs real
-    3-player round flow, exact platform timing, exact call handling, scoring, training data, and
-    evaluation.
+    exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering, a basic
+    Kita/pei-nuki action, and a basic Kita ron/pass reaction window, but the Phase 5 Sanma ruleset
+    still needs real 3-player round flow, exact platform timing, complete call handling, scoring,
+    training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -1128,3 +1129,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   `tenhou-4p`, matching Tenhou's 3-player ranked rule note of 35,000 start / 40,000 return. This
   checks off the narrow Sanma start-point subtask, but does not complete Sanma placement/return
   scoring, uma/oka, payment differences, round progression, training data, or evaluation.
+- Added Tenhou Sanma no-chi call filtering to the sandbox. `legal_call_actions` now suppresses chi
+  candidates under `tenhou-3p` while preserving legal pon and minkan reactions, matching Tenhou's
+  3-player rule note that chi is unavailable. This checks off the narrow Sanma no-chi call subtask,
+  but does not complete pon-after-Kita timing, exact platform call timing, full call policy,
+  scoring, training data, or evaluation.
