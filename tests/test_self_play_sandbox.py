@@ -77,6 +77,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(first["capabilities"]["exhaustive_draw_tenpai_noten_payments"])
         self.assertTrue(first["capabilities"]["dealer_aware_win_payments"])
+        self.assertTrue(first["capabilities"]["visible_dora_score_estimates"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
         self.assertEqual(
             first["episode_summaries"][0]["terminal_point_deltas"],
@@ -196,6 +197,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("terminal_point_delta_metadata: yes", text)
         self.assertIn("exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("dealer_aware_win_payments: yes", text)
+        self.assertIn("visible_dora_score_estimates: yes", text)
         self.assertIn("scoring: no", text)
         self.assertIn("ppo: no", text)
 

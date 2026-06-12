@@ -572,6 +572,36 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate_payload["tsumo_dealer_payment"], 1000)
         self.assertEqual(estimate_payload["tsumo_payment_per_loser"], 500)
 
+    def test_visible_dora_counts_as_score_estimate_bonus_han(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            dead_wall=(Tile.parse("9m"),),
+            dora_indicators=(Tile.parse("9m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.visible_dora_count, 1)
+        self.assertEqual(estimate.kita_dora_count, 0)
+        self.assertEqual(estimate.bonus_han, 1)
+        self.assertEqual(estimate.han, 3)
+        self.assertEqual(estimate_payload["visible_dora_count"], 1)
+        self.assertEqual(estimate_payload["bonus_han"], 1)
+        self.assertEqual(estimate_payload["han"], 3)
+
     def test_next_round_after_dealer_tsumo_repeats_dealer_and_increments_honba(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -2432,16 +2462,21 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_rinshan_seats, (0,))
         self.assertEqual(terminal.kita_tiles, ((Tile.parse("N"),), (), ()))
         self.assertEqual(estimate.yaku_han, 3)
-        self.assertEqual(estimate.bonus_han, 1)
+        self.assertEqual(estimate.visible_dora_count, 1)
+        self.assertEqual(estimate.bonus_han, 2)
         self.assertEqual(estimate.kita_dora_count, 1)
-        self.assertEqual(estimate.han, 4)
+        self.assertEqual(estimate.han, 5)
         self.assertEqual(
             terminal.to_payload()["terminal_score_estimates"][0]["yaku_han"],
             3,
         )
         self.assertEqual(
-            terminal.to_payload()["terminal_score_estimates"][0]["bonus_han"],
+            terminal.to_payload()["terminal_score_estimates"][0]["visible_dora_count"],
             1,
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["bonus_han"],
+            2,
         )
         self.assertEqual(
             terminal.to_payload()["terminal_score_estimates"][0]["kita_dora_count"],

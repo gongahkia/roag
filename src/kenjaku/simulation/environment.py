@@ -38,8 +38,13 @@ SANDBOX_SEAT_WINDS = (
 )
 SANDBOX_INITIAL_ROUND_WIND = SANDBOX_SEAT_WINDS[0]
 SANDBOX_ROUND_WINDS = SANDBOX_SEAT_WINDS
+SANDBOX_DRAGON_TILES_ORDER = (
+    TileType.parse("P"),
+    TileType.parse("F"),
+    TileType.parse("C"),
+)
 SANDBOX_DRAGON_TILES = frozenset(
-    {TileType.parse("P"), TileType.parse("F"), TileType.parse("C")}
+    SANDBOX_DRAGON_TILES_ORDER
 )
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
@@ -100,6 +105,7 @@ class SandboxScoreEstimate:
     yaku: tuple[str, ...]
     yaku_han: int
     bonus_han: int
+    visible_dora_count: int
     kita_dora_count: int
     han: int
     fu: int | None
@@ -121,6 +127,7 @@ class SandboxScoreEstimate:
             "yaku": list(self.yaku),
             "yaku_han": self.yaku_han,
             "bonus_han": self.bonus_han,
+            "visible_dora_count": self.visible_dora_count,
             "kita_dora_count": self.kita_dora_count,
             "han": self.han,
             "fu": self.fu,
@@ -1300,6 +1307,7 @@ def apply_ron_actions(
         state,
         winner_seats=tuple(winner_seats),
         discarder_seat=pending_source_seat,
+        winning_tile=pending_tile,
         win_kind=terminal_reason,
         winning_yaku_by_seat=tuple(winning_yaku_by_seat),
     )
@@ -1383,6 +1391,7 @@ def apply_tsumo_action(
         state,
         winner_seats=(state.current_seat,),
         discarder_seat=None,
+        winning_tile=state.drawn_tile,
         win_kind="tsumo",
         winning_yaku_by_seat=((state.current_seat, yaku),),
     )
@@ -2040,6 +2049,7 @@ def _terminal_win_point_updates(
     *,
     winner_seats: tuple[int, ...],
     discarder_seat: int | None,
+    winning_tile: Tile,
     win_kind: str,
     winning_yaku_by_seat: tuple[tuple[int, tuple[str, ...]], ...],
 ) -> dict[str, Any]:
@@ -2058,6 +2068,11 @@ def _terminal_win_point_updates(
             is_dealer=winner_seat == state.dealer_seat,
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
+            visible_dora_count=_visible_dora_count(
+                state,
+                seat=winner_seat,
+                winning_tile=winning_tile,
+            ),
             kita_dora_count=len(_kita_tiles_by_seat(state)[winner_seat]),
             honba=state.honba,
             riichi_stick_points=riichi_stick_points,
@@ -2143,17 +2158,50 @@ def _exhaustive_draw_point_deltas(
     return tuple(tenpai_payment if seat in tenpai else -noten_payment for seat in range(players))
 
 
+def _visible_dora_count(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile,
+) -> int:
+    if not state.dora_indicators:
+        return 0
+    dora_type_counts = [0] * 34
+    for indicator in state.dora_indicators:
+        dora_type_counts[_dora_type_for_indicator(indicator.type).index] += 1
+    return sum(
+        dora_type_counts[tile.type.index]
+        for tile in _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
+    )
+
+
+def _dora_type_for_indicator(indicator: TileType) -> TileType:
+    if indicator.suit in {"m", "p", "s"}:
+        rank = indicator.rank
+        assert rank is not None
+        next_rank = 1 if rank == 9 else rank + 1
+        return TileType.parse(f"{next_rank}{indicator.suit}")
+    if indicator in SANDBOX_SEAT_WINDS:
+        wind_index = SANDBOX_SEAT_WINDS.index(indicator)
+        return SANDBOX_SEAT_WINDS[(wind_index + 1) % len(SANDBOX_SEAT_WINDS)]
+    dragon_index = SANDBOX_DRAGON_TILES_ORDER.index(indicator)
+    return SANDBOX_DRAGON_TILES_ORDER[
+        (dragon_index + 1) % len(SANDBOX_DRAGON_TILES_ORDER)
+    ]
+
+
 def _sandbox_score_estimate(
     *,
     seat: int,
     is_dealer: bool,
     win_kind: str,
     yaku: tuple[str, ...],
+    visible_dora_count: int,
     kita_dora_count: int,
     honba: int,
     riichi_stick_points: int,
 ) -> SandboxScoreEstimate:
-    bonus_han = kita_dora_count
+    bonus_han = visible_dora_count + kita_dora_count
     if "kokushi" in yaku:
         ron_payment = (
             _sandbox_limit_ron_payment(limit="yakuman", is_dealer=is_dealer)
@@ -2176,6 +2224,7 @@ def _sandbox_score_estimate(
             yaku=yaku,
             yaku_han=13,
             bonus_han=bonus_han,
+            visible_dora_count=visible_dora_count,
             kita_dora_count=kita_dora_count,
             han=13 + bonus_han,
             fu=None,
@@ -2231,6 +2280,7 @@ def _sandbox_score_estimate(
         yaku=yaku,
         yaku_han=yaku_han,
         bonus_han=bonus_han,
+        visible_dora_count=visible_dora_count,
         kita_dora_count=kita_dora_count,
         han=han,
         fu=fu,

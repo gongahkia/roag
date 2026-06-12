@@ -105,6 +105,9 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
         )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"]
@@ -201,6 +204,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", text)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", text)
+        self.assertIn("sandbox_visible_dora_score_estimates: yes", text)
         self.assertIn("basic_winning_hand_detection: yes", text)
         self.assertIn("sandbox_open_meld_win_detection: yes", text)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", text)

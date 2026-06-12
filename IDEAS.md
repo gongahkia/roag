@@ -282,6 +282,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox next-round dealer/honba transition helper
   - [x] Basic sandbox round-wind state and dealer-wrap progression
   - [x] Basic sandbox dealer-aware win payment estimates
+  - [x] Basic sandbox visible-dora score-estimate bonus han
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -518,10 +519,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     chankan ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
-    tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, plus
-    basic open/kan standard-shape win detection and a basic sandbox yaku filter/metadata layer with
-    dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
-    timing, complete yaku/terminal legality, complete rinshan yaku/scoring semantics,
+    tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
+    visible-dora bonus han in score estimates, plus basic open/kan standard-shape win detection and
+    a basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering
+    only; the next simulator step is full call/kan timing, complete yaku/terminal legality,
+    complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
@@ -1136,8 +1138,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   at least one recognized sandbox yaku from a deliberately small set: kokushi, chiitoitsu, riichi,
   ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a basic yakuhai filter.
   Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
-  yaku validation, full open-hand yaku rules, dora/ura-dora scoring, fu/han scoring, or calibrated
-  reward semantics.
+  yaku validation, full open-hand yaku rules, complete bonus-han treatment, fu/han scoring, or
+  calibrated reward semantics.
 - Added terminal point-delta metadata to the sandbox. Terminal win states now expose
   `terminal_point_deltas` derived from the existing riichi-stick and honba point ledger, while
   wall-exhaustion and max-turn terminals expose neutral zero deltas. This is still not complete
@@ -1146,15 +1148,20 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added a basic sandbox score-estimate slice. Terminal wins now expose `terminal_score_estimates`
   with han/fu/limit metadata and use rounded score-derived ron/tsumo point transfers alongside
   riichi-stick and honba deltas. Later work added basic dealer-aware win payments. Still not done:
-  point-based reward scaling, Sanma payment differences, dora/ura-dora scoring, kiriage and kazoe
-  handling, exhaustive yaku/fu validation, and full validation across every win/timing path. Do not
-  treat this as complete scoring.
+  point-based reward scaling, Sanma payment differences, ura-dora/red-dora treatment, kiriage and
+  kazoe handling, exhaustive yaku/fu validation, and full validation across every win/timing path.
+  Do not treat this as complete scoring.
 - Added basic dealer-aware sandbox win payment estimates. Terminal win point updates now mark
   whether each winner is dealer, use dealer ron multipliers, split nondealer tsumo payments between
   dealer and child losers, and expose `tsumo_child_payment`/`tsumo_dealer_payment` in score-estimate
   payloads. This checks off the narrow dealer-aware payment subtask, but does not complete exact
-  scoring, Sanma payment differences, kiriage/kazoe, dora/ura-dora, exhaustive yaku/fu validation,
-  or calibrated point-based rewards.
+  scoring, Sanma payment differences, kiriage/kazoe, complete dora handling, exhaustive yaku/fu
+  validation, or calibrated point-based rewards.
+- Added basic visible-dora score-estimate bonus han. Terminal win score estimates now count current
+  visible dora indicators over the same concealed-plus-meld tile view used for sandbox yaku metadata,
+  expose `visible_dora_count`, and include it in bonus han alongside Kita. This checks off the narrow
+  visible-dora score-estimate subtask, but does not complete ura-dora, red dora, exact dora ordering,
+  kiriage/kazoe, exhaustive yaku/fu validation, or calibrated point-based rewards.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

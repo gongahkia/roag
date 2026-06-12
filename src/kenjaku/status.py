@@ -85,6 +85,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_terminal_score_estimate_metadata": True,
                 "sandbox_score_estimate_point_accounting": True,
                 "sandbox_dealer_aware_win_payments": True,
+                "sandbox_visible_dora_score_estimates": True,
                 "basic_winning_hand_detection": True,
                 "sandbox_open_meld_win_detection": True,
                 "self_play_sandbox_tsumo_termination": True,
