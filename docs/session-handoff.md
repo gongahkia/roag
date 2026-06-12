@@ -66,6 +66,8 @@ Last updated: 2026-06-12.
   individual reaction passes and ron-priority call gating so calls are blocked while any pending
   reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
+  Added basic multi-ron turn-priority ordering for `winner_seat`, per-winner metadata, score
+  estimates, and carried riichi-stick assignment.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. Added seeded
   riichi-furiten filtering for states that already mark `riichi_seats`. Added a basic closed-tenpai
@@ -299,8 +301,8 @@ Last updated: 2026-06-12.
   metadata, a basic Sanma Kita ron/pass reaction window before replacement draw that resolves as
   normal ron rather than chankan, a basic chankan ron/pass window before kakan replacement draw,
   basic chankan ippatsu reaction timing, kokushi-only ankan chankan, basic closed-hand tsumo/ron
-  terminal metadata, basic multi-ron
-  terminal resolution, basic open/kan standard-shape win detection, a basic sandbox yaku
+  terminal metadata, basic multi-ron terminal resolution with turn-priority riichi-stick assignment,
+  basic open/kan standard-shape win detection, a basic sandbox yaku
   filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering, simple sandbox terminal
   rewards, and terminal point-delta metadata, including basic dealer-aware win payment estimates,
   visible-dora/red-five score-estimate bonus han, tsumo yaku/dora tile-view de-duplication, and

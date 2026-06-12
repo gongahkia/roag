@@ -38,7 +38,7 @@ handoff notes.
   live-wall draws/discards, a basic chankan ron/pass window before kakan replacement draw with
   ippatsu preserved until the reaction resolves plus kokushi-only ankan robbery, individual reaction
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
-  resolution, basic open/kan
+  resolution with turn-priority riichi-stick assignment, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
   dragon/round-wind/seat-wind yakuhai filtering, and simple terminal reward payloads plus terminal
   point-delta and score-estimate metadata, including basic dealer-aware win payments,

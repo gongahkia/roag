@@ -287,6 +287,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
   - [x] Basic sandbox chankan ippatsu reaction timing
   - [x] Basic sandbox haitei/houtei yaku metadata
+  - [x] Basic sandbox multi-ron turn-priority ordering for riichi sticks
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -1071,6 +1072,12 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   `winner_seats` and per-seat winning shapes in terminal payloads, and assign simple multi-ron
   sandbox rewards. At that point this was still not temporary/riichi furiten, yaku validation,
   honba/riichi-stick payment handling, real scoring, or a learned call/ron policy.
+- Added basic multi-ron turn-priority ordering for terminal metadata and riichi-stick assignment.
+  `apply_ron_actions` now sorts simultaneous ron winners by turn order from the discarding/source
+  seat before assigning `winner_seat`, per-winner metadata, score estimates, and the carried riichi
+  stick pool. This checks off the narrow multi-ron ordering subtask, but does not complete platform
+  rule variation handling, honba variation handling, exact scoring, or full multi-ron payment
+  validation.
 - Added sandbox discard history and a discard-furiten ron filter. Legal ron actions now disappear
   when any current winning wait type is present in that player's own discard history, and explicit
   ron application rejects the same state. This covers the permanent own-discard furiten case only;

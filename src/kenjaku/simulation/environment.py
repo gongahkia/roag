@@ -1327,6 +1327,21 @@ def apply_ron_actions(
         winning_shapes_by_seat.append((seat, shapes))
         winning_yaku_by_seat.append((seat, yaku))
 
+    winner_order = _reaction_priority_by_source(
+        source_seat=pending_source_seat,
+        players=state.players,
+    )
+    winner_priority = {seat: priority for priority, seat in enumerate(winner_order)}
+    winner_seats = sorted(winner_seats, key=winner_priority.__getitem__)
+    winning_shapes_by_seat = sorted(
+        winning_shapes_by_seat,
+        key=lambda seat_shapes: winner_priority[seat_shapes[0]],
+    )
+    winning_yaku_by_seat = sorted(
+        winning_yaku_by_seat,
+        key=lambda seat_yaku: winner_priority[seat_yaku[0]],
+    )
+
     point_updates = _terminal_win_point_updates(
         state,
         winner_seats=tuple(winner_seats),
@@ -1820,6 +1835,10 @@ def _legal_kokushi_ron_seats_for_tile(
         for seat in candidate_seats
         if _can_kokushi_ron_tile(state, seat=seat, tile=tile)
     )
+
+
+def _reaction_priority_by_source(*, source_seat: int, players: int) -> tuple[int, ...]:
+    return tuple((source_seat + offset) % players for offset in range(1, players))
 
 
 def _can_kokushi_ron_tile(

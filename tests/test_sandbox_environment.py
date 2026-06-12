@@ -1458,6 +1458,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
                 _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s W W W 5m"),
                 (),
             ),
+            riichi_sticks=1,
         )
         drawn = draw_for_current_seat(state)
         reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
@@ -1465,8 +1466,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         terminal = apply_ron_actions(
             reaction_state,
             (
-                (1, Action(ActionKind.RON, TileType.parse("5m"))),
                 (2, Action(ActionKind.RON, TileType.parse("5m"))),
+                (1, Action(ActionKind.RON, TileType.parse("5m"))),
             ),
         )
 
@@ -1484,8 +1485,23 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ((1, ("yakuhai",)), (2, ("yakuhai",))),
         )
         self.assertEqual(terminal.terminal_rewards, (-2.0, 1.0, 1.0, 0.0))
+        self.assertEqual(terminal.riichi_sticks, 0)
+        self.assertEqual(terminal.terminal_point_deltas, (-2000, 2000, 1000, 0))
+        self.assertEqual(
+            tuple(estimate.seat for estimate in terminal.terminal_score_estimates),
+            (1, 2),
+        )
+        self.assertEqual(
+            tuple(
+                estimate.riichi_stick_points
+                for estimate in terminal.terminal_score_estimates
+            ),
+            (1000, 0),
+        )
         payload = terminal.to_payload()
         self.assertEqual(payload["winner_seats"], [1, 2])
+        self.assertEqual(payload["riichi_sticks"], 0)
+        self.assertEqual(payload["terminal_point_deltas"], [-2000, 2000, 1000, 0])
         self.assertEqual(
             payload["winning_shapes_by_seat"],
             [{"seat": 1, "shapes": ["standard"]}, {"seat": 2, "shapes": ["standard"]}],
