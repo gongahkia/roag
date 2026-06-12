@@ -236,7 +236,8 @@ def build_replay_public_summary(
     ]
     return {
         "kind": REPLAY_PUBLIC_SUMMARY_KIND,
-        "accepted_input_path": plan["accepted_input_path"],
+        "accepted_input_path": None,
+        "accepted_input_path_included": False,
         "intent": plan["intent"],
         "items": plan["items"],
         "shareable": plan["shareable"],

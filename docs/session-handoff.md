@@ -29,6 +29,8 @@ Last updated: 2026-06-12.
   agent, and no Tenhou Phoenix transformer report exists in this workspace. Added
   `replay-intake-review`, an offline manifest-gated replay intake review command with accepted-item
   JSONL output. Added `replay-share-plan`, an offline shareability planner for accepted intake rows.
+  Added `replay-public-summary`, a sanitized public-safe summary report for accepted and permitted
+  demo/redistribution rows.
   Added `self-play-sandbox`, a deterministic four-seat draw/discard sandbox for turn-rotation and
   synthetic trajectory plumbing. Added basic closed-hand winning-shape detection and optional
   sandbox tsumo termination. Added static `tenhou-3p` tile-set support to the sandbox. These are
@@ -264,6 +266,9 @@ Last updated: 2026-06-12.
   reports for `--intent demo|redistribution`. It requires both the original `intended_uses` and
   `permission.scope` to include the requested share intent. It plans local sharing only; it does not
   post URLs, upload files, or call platform APIs.
+- `replay-public-summary` reads accepted intake JSONL, reuses the same share gate, and writes
+  `kenjaku-replay-public-summary-v0` reports with public-safe summaries, URI fingerprints, and
+  explicit blocked reasons. It omits raw replay data, accepted queue rows, and raw replay URLs.
 - `self-play-sandbox` runs deterministic synthetic draw/discard episodes across four seats and
   writes `kenjaku-self-play-sandbox-report-v0` reports. It supports `random`, `drawn`, and
   `frequency` discard policies, deterministic episode seeds, optional synthetic trajectories, and
@@ -345,8 +350,9 @@ Last updated: 2026-06-12.
 - The Phase 4 permission-aware replay ingestion/review item is implemented as a manifest review and
   accepted-queue gate only. It does not download replays, post replay URLs, or automate Tenhou or
   Mahjong Soul clients.
-- `replay-share-plan` is not enough to check off the auto-replay-sharing Phase 4 item. It is a
-  local permission/scope report that should precede any future permitted sharing implementation.
+- `replay-share-plan` and `replay-public-summary` are not auto-replay-sharing features. They are
+  local permission/scope and public-safe summary reports that should precede any future permitted
+  sharing implementation.
 - `self-play-sandbox` is not enough to check off the Phase 3 self-play harness item. It proves a
   deterministic multi-agent turn loop, basic closed-hand tsumo terminal metadata, a basic
   next-round transition helper with round-wind dealer-wrap progression, and report shape, but not a
@@ -563,6 +569,9 @@ PYTHONPATH=src python3 -m kenjaku replay-intake-review path/to/replay-manifest.j
 PYTHONPATH=src python3 -m kenjaku replay-share-plan \
   runs/replay-intake-accepted.jsonl --intent demo \
   --report runs/replay-share-plan.json
+PYTHONPATH=src python3 -m kenjaku replay-public-summary \
+  runs/replay-intake-accepted.jsonl --intent demo \
+  --report runs/replay-public-summary.json
 PYTHONPATH=src python3 -m kenjaku self-play-sandbox \
   --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \
   --reward-mode normalized-point-delta --stop-on-tsumo \
@@ -881,8 +890,9 @@ Mortal local baseline reconnaissance:
 6. Run `benchmark-discard-mlp` and `benchmark-discard-transformer` on comparable ignored Tenhou
    slices, then summarize both artifacts before treating transformer behavior cloning as underway.
 7. Use `replay-intake-review` before any replay URL/local-export analysis queue. Keep automatic
-   replay sharing and live-service fetching out of scope until explicit platform permission exists.
-   Use `replay-share-plan` as the local permission/scope check before demo or redistribution work.
+   live-service fetching out of scope until explicit platform permission exists. Use
+   `replay-share-plan` as the local permission/scope check and `replay-public-summary` as the
+   sanitized report before demo or redistribution work.
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw

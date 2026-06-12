@@ -217,6 +217,8 @@ class ReplayManifestTests(unittest.TestCase):
         self.assertEqual(summary["blocked"], 1)
         self.assertFalse(summary["raw_replay_data_included"])
         self.assertFalse(summary["raw_replay_uris_included"])
+        self.assertFalse(summary["accepted_input_path_included"])
+        self.assertIsNone(summary["accepted_input_path"])
         self.assertEqual(summary["public_summaries"][0]["id"], "demo-ready")
         self.assertEqual(summary["public_summaries"][0]["intent"], "demo")
         self.assertEqual(summary["public_summaries"][0]["platform"], "local_file")
@@ -250,7 +252,8 @@ class ReplayManifestTests(unittest.TestCase):
 
             summary = build_replay_public_summary_file(accepted, intent="demo")
 
-        self.assertEqual(summary["accepted_input_path"], str(accepted))
+        self.assertIsNone(summary["accepted_input_path"])
+        self.assertFalse(summary["accepted_input_path_included"])
         self.assertEqual(summary["shareable"], 1)
         self.assertEqual(summary["public_summaries"][0]["id"], "demo-ready")
 

@@ -47,6 +47,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("tenhou_xml_parsing: yes", output)
         self.assertIn("permission_aware_replay_intake: yes", output)
         self.assertIn("permitted_replay_share_planning: yes", output)
+        self.assertIn("public_safe_replay_summary: yes", output)
         self.assertIn("self_play_sandbox: yes", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
@@ -135,6 +136,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["permitted_replay_share_planning"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["public_safe_replay_summary"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]

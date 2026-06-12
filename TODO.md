@@ -303,10 +303,10 @@ without server-side raw replay data.
 
 ### TODO-503 Add Permitted Replay Sharing Pipeline
 
-- [ ] Accept only replay sources that pass `replay-intake-review`.
-- [ ] Generate shareable summaries for permitted private-room, tournament, or
+- [x] Accept only replay sources that pass `replay-intake-review`.
+- [x] Generate shareable summaries for permitted private-room, tournament, or
   offline analysis games.
-- [ ] Refuse unsupported ranked automation and raw replay redistribution.
+- [x] Refuse unsupported ranked automation and raw replay redistribution.
 
 Done when: the pipeline creates a public-safe report for permitted inputs and
 rejects disallowed inputs with an explicit reason.

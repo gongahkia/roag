@@ -21,8 +21,9 @@ handoff notes.
 - Neutral decision snapshot JSONL export plus prediction JSONL comparison.
 - Permission-aware replay manifest review with accepted-item JSONL output for offline replay
   analysis queues. It validates consent/provenance gates but does not fetch from live services.
-- Offline replay share planning for accepted intake rows, gated by demo/redistribution permission
-  scope. It produces a local report only and does not post replay URLs.
+- Offline replay share planning plus public-safe replay summary generation for accepted intake
+  rows, gated by demo/redistribution permission scope. These commands do not fetch, post, or expose
+  raw replay URLs.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
   validation or scoring.
@@ -107,6 +108,9 @@ PYTHONPATH=src python3.13 -m kenjaku replay-intake-review \
 PYTHONPATH=src python3.13 -m kenjaku replay-share-plan \
   runs/replay-intake-accepted.jsonl --intent demo \
   --report runs/replay-share-plan.json
+PYTHONPATH=src python3.13 -m kenjaku replay-public-summary \
+  runs/replay-intake-accepted.jsonl --intent demo \
+  --report runs/replay-public-summary.json
 
 PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
   --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \

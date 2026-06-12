@@ -97,6 +97,11 @@ The share planner checks that the accepted row's original `intended_uses` and `p
 cover the requested `--intent demo|redistribution`. It writes a local plan/report only; it does not
 post URLs, upload files, or call platform APIs.
 
+Use `kenjaku replay-public-summary` on the same accepted intake JSONL to generate a public-safe
+summary report for permitted demo or redistribution workflows. The summary command reuses the share
+gate, preserves blocked reasons, includes URI fingerprints for local correlation, and deliberately
+omits raw replay data, accepted queue rows, and raw replay URLs.
+
 ## Fixtures
 
 Fixtures under `data/fixtures/` must be synthetic unless a future commit documents why a real
