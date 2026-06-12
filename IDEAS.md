@@ -290,6 +290,7 @@ This is well within "side project budget" territory.
 
 ### Phase 5 — Sanma (weeks 15-18)
 - [ ] Sanma ruleset implementation
+  - [x] Basic sandbox Kita/pei-nuki action with dead-wall replacement draw and bonus-han metadata
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -489,9 +490,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 9. Use `self-play-sandbox` only for deterministic draw/discard and basic synthetic tsumo plumbing
    checks. It is not a full rules simulator, yaku/scoring engine, PPO loop, or evidence that the
    Phase 3 self-play harness is complete.
-10. Treat `self-play-sandbox --ruleset tenhou-3p` as static Sanma tile-set plumbing only. The Phase
-    5 Sanma ruleset still needs real 3-player round flow, calls/kita treatment, scoring, training
-    data, and evaluation.
+10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
+    exclusions, three-seat rotation, and a basic Kita/pei-nuki action, but the Phase 5 Sanma ruleset
+    still needs real 3-player round flow, ron-on-Kita semantics, exact call handling, scoring,
+    training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -975,8 +977,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   full-rules self-play harness open.
 - Extended `self-play-sandbox` with `--ruleset tenhou-3p`, using the existing `TENHOU_3P` static
   tile-set facts to run three seats and exclude 2m-8m from the wall. This is Sanma plumbing only;
-  the Phase 5 Sanma ruleset remains unchecked because actual 3-player gameplay, kita/call
-  semantics, scoring, training, and evaluation are not implemented.
+  the Phase 5 Sanma ruleset remains unchecked because actual 3-player gameplay, full call
+  semantics, scoring, training, and evaluation are not implemented. Basic Kita/pei-nuki support was
+  added later as a separate sandbox slice.
 - Added `kenjaku-sandbox-environment-v0`, a reusable immutable sandbox environment boundary with
   deterministic initial state, draw transitions, legal discard actions, discard transitions, and
   terminal metadata. `self-play-sandbox` now runs through this boundary instead of directly mutating
@@ -1098,10 +1101,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   wall-exhaustion and max-turn terminals expose neutral zero deltas. This is still not complete
   payment accounting, base hand scoring, point-based reward scaling, or a calibrated RL reward
   model.
-- Stopped before landing the next scoring/payment slice. Still not done: `terminal_score_estimates`
-  payloads, han/fu/limit metadata, score-derived ron/tsumo point transfers, point-based reward
-  scaling, dealer/oya handling, Sanma payment differences, dora/ura-dora scoring, kiriage and
-  kazoe handling, exhaustive yaku/fu validation, honba/riichi-stick carryover into next-round state,
-  and tests proving the above across ron, tsumo, multi-ron, chankan, rinshan, riichi, and open-hand
-  cases. The current sandbox point ledger only exposes riichi-stick and honba deltas; do not treat
-  it as complete scoring.
+- Added a basic sandbox score-estimate slice. Terminal wins now expose `terminal_score_estimates`
+  with han/fu/limit metadata and use rounded score-derived ron/tsumo point transfers alongside
+  riichi-stick and honba deltas. Still not done: point-based reward scaling, dealer/oya handling,
+  Sanma payment differences, dora/ura-dora scoring, kiriage and kazoe handling, exhaustive yaku/fu
+  validation, honba/riichi-stick carryover into next-round state, and full validation across every
+  win/timing path. Do not treat this as complete scoring.
+- Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
+  expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
+  clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora
+  indicator, allow post-riichi Kita only for a drawn North, and count exposed Kita as bonus han in
+  sandbox score estimates. This does not complete the Phase 5 Sanma ruleset: ron-on-Kita, exact
+  platform timing, full Sanma scoring, Kita ura-dora treatment, call semantics, training data, and
+  evaluation remain open.
