@@ -306,6 +306,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox Kita ron/pass reaction window without chankan yaku
   - [x] Basic Tenhou Sanma 1m/9m dora indicator wrap
   - [x] Basic Tenhou Sanma post-pon Kita suppression
+  - [x] Basic Tenhou Sanma Kita ippatsu reaction timing
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -509,9 +510,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
     exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
     North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
-    reaction window, plus Tenhou's 1m/9m dora indicator wrap and post-pon Kita suppression, but
-    the Phase 5 Sanma ruleset still needs real 3-player round flow, exact platform timing, complete
-    call handling, scoring, training data, and evaluation.
+    reaction window, plus Tenhou's 1m/9m dora indicator wrap, post-pon Kita suppression, and basic
+    Kita ippatsu reaction timing, but the Phase 5 Sanma ruleset still needs real 3-player round
+    flow, exact platform timing, complete call handling, scoring, training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -527,10 +528,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
-    Tenhou Sanma post-pon Kita suppression, tsumo yaku/dora tile views that avoid duplicating the
-    drawn tile, plus basic open/kan standard-shape win detection and a basic sandbox yaku
-    filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
-    simulator step is full call/kan timing, complete yaku/terminal legality,
+    Tenhou Sanma post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, tsumo
+    yaku/dora tile views that avoid duplicating the drawn tile, plus basic open/kan standard-shape
+    win detection and a basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind
+    yakuhai filtering only; the next simulator step is full call/kan timing, complete
+    yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
@@ -1219,3 +1221,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   action immediately after pon. This checks off the narrow post-pon Kita timing subtask, but does
   not complete exact platform call timing, full call handling, Sanma scoring, training data, or
   evaluation.
+- Added basic Tenhou Sanma Kita ippatsu reaction timing. A pending ron on a called North now keeps
+  active ippatsu available for the reacting winner, while passing the Kita reaction clears ippatsu
+  when the replacement draw proceeds. This checks off the narrow Kita ippatsu timing subtask, but
+  does not complete exact platform call timing, complete Chiihou/Kyuushu/Double Riichi interruption
+  semantics, full Sanma scoring, training data, or evaluation.

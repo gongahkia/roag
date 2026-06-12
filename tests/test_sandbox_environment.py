@@ -2472,6 +2472,35 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.pending_reaction_seats, ())
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0))
 
+    def test_sanma_kita_ron_preserves_ippatsu_until_reaction_resolves(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 2p 8s"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                _tiles("1p 2p 3p 4p 5p 6p 1s 2s 3s E E E N"),
+                (),
+            ),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
+        )
+        drawn = draw_for_current_seat(state)
+        pending = apply_kita_action(drawn, legal_kita_actions(drawn)[0])
+        ron = legal_kita_ron_actions(pending, seat=1)[0]
+
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+
+        self.assertEqual(pending.ippatsu_seats, (1,))
+        self.assertEqual(pending.to_payload()["ippatsu_seats"], [1])
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_ippatsu_seats, (1,))
+        self.assertEqual(terminal.winning_yaku, ("riichi", "ippatsu", "yakuhai"))
+        self.assertEqual(terminal.ippatsu_seats, ())
+        self.assertEqual(terminal.to_payload()["winning_ippatsu_seats"], [1])
+
     def test_sanma_kita_pass_draws_delayed_replacement_tile_without_kan_dora(self) -> None:
         drawn = draw_for_current_seat(
             SandboxEnvironmentState(
@@ -2503,6 +2532,33 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_pass))
         with self.assertRaisesRegex(ValueError, "no pending kita reaction"):
             legal_kita_ron_actions(after_pass, seat=1)
+
+    def test_sanma_kita_pass_clears_ippatsu_after_replacement_draw(self) -> None:
+        drawn = draw_for_current_seat(
+            SandboxEnvironmentState(
+                ruleset="tenhou-3p",
+                players=3,
+                wall=(Tile.parse("N"),),
+                dead_wall=_tiles("1p 2p 8s"),
+                dora_indicators=(Tile.parse("1p"),),
+                hands=(
+                    _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                    _tiles("1p 2p 3p 4p 5p 6p 1s 2s 3s E E E N"),
+                    (),
+                ),
+                riichi_seats=(1,),
+                ippatsu_seats=(1,),
+            )
+        )
+        pending = apply_kita_action(drawn, legal_kita_actions(drawn)[0])
+
+        after_pass = apply_reaction_pass_action(pending, seat=1, action=Action.pass_())
+
+        self.assertEqual(pending.ippatsu_seats, (1,))
+        self.assertEqual(after_pass.ippatsu_seats, ())
+        self.assertEqual(after_pass.riichi_furiten_seats, (1,))
+        self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_pass.rinshan_draw)
 
     def test_kita_is_not_legal_in_four_player_sandbox(self) -> None:
         state = SandboxEnvironmentState(

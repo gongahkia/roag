@@ -925,7 +925,6 @@ def apply_kita_action(
         "pending_kita_tile": None,
         "pending_kita_seat": None,
         "pending_reaction_seats": (),
-        "ippatsu_seats": (),
     }
     kita_ron_seats = _legal_ron_seats_for_tile(
         state,
@@ -939,6 +938,7 @@ def apply_kita_action(
         updates["pending_reaction_seats"] = kita_ron_seats
         return _replace_state(state, **updates)
 
+    updates["ippatsu_seats"] = ()
     _apply_kan_replacement_draw(
         state,
         hands=hands,
@@ -1872,6 +1872,7 @@ def _finish_kita_reaction_window(
         "pending_reaction_seats": (),
         "temporary_furiten_seats": temporary_furiten_seats,
         "riichi_furiten_seats": riichi_furiten_seats,
+        "ippatsu_seats": (),
     }
     hands = [list(hand) for hand in state.hands]
     _apply_kan_replacement_draw(
