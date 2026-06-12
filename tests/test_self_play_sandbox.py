@@ -31,6 +31,17 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertEqual(first["episodes"], 2)
         self.assertEqual(first["ruleset"], "tenhou-4p")
         self.assertEqual(first["players"], 4)
+        self.assertEqual(first["reward_mode"], "terminal")
+        self.assertEqual(
+            first["reward_modes"],
+            ["terminal", "point-delta", "normalized-point-delta", "placement-delta"],
+        )
+        self.assertEqual(first["reward_summary"]["mode"], "terminal")
+        self.assertEqual(
+            set(first["reward_summaries"]),
+            {"terminal", "point-delta", "normalized-point-delta", "placement-delta"},
+        )
+        self.assertEqual(first["outcome_summary"]["draw_outcomes"], {"max_turns": 2})
         self.assertEqual(first["decisions"], 16)
         self.assertEqual(first["terminal_reasons"], {"max_turns": 2})
         self.assertEqual(first["seat_decisions"], [4, 4, 4, 4])
@@ -76,6 +87,11 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["toitoi_yaku_metadata"])
         self.assertTrue(first["capabilities"]["honroutou_yaku_metadata"])
         self.assertTrue(first["capabilities"]["terminal_rewards"])
+        self.assertTrue(first["capabilities"]["selectable_reward_modes"])
+        self.assertTrue(first["capabilities"]["reward_mode_comparison"])
+        self.assertTrue(first["capabilities"]["point_delta_reward_mode"])
+        self.assertTrue(first["capabilities"]["normalized_point_delta_reward_mode"])
+        self.assertTrue(first["capabilities"]["placement_delta_reward_mode"])
         self.assertTrue(first["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(first["capabilities"]["exhaustive_draw_tenpai_noten_payments"])
         self.assertTrue(first["capabilities"]["dealer_aware_win_payments"])
@@ -85,6 +101,26 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertEqual(
             first["episode_summaries"][0]["terminal_point_deltas"],
             [0, 0, 0, 0],
+        )
+        self.assertEqual(first["episode_summaries"][0]["raw_point_delta"], [0, 0, 0, 0])
+        self.assertEqual(
+            first["episode_summaries"][0]["normalized_point_delta"],
+            [0.0, 0.0, 0.0, 0.0],
+        )
+        self.assertEqual(
+            first["episode_summaries"][0]["placement_delta"],
+            [0.0, 0.0, 0.0, 0.0],
+        )
+        self.assertEqual(first["episode_summaries"][0]["win_events"], [0, 0, 0, 0])
+        self.assertEqual(first["episode_summaries"][0]["deal_in_events"], [0, 0, 0, 0])
+        self.assertEqual(first["episode_summaries"][0]["draw_outcome"], "max_turns")
+        self.assertEqual(
+            set(first["episode_summaries"][0]["reward_vectors"]),
+            {"terminal", "point-delta", "normalized-point-delta", "placement-delta"},
+        )
+        self.assertEqual(
+            first["episode_summaries"][0]["selected_rewards"],
+            first["episode_summaries"][0]["reward_vectors"]["terminal"],
         )
         self.assertEqual(
             first["episode_summaries"][0]["final_points"],
@@ -144,6 +180,44 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertEqual(sum(learned_counts.values()), report["decisions"])
         self.assertEqual(report["policy"]["updates"], report["decisions"])
 
+    def test_reward_mode_selects_projection_and_reports_comparable_summaries(self) -> None:
+        report = run_self_play_sandbox(
+            episodes=2,
+            max_turns=4,
+            seed="reward-mode",
+            policy="drawn",
+            reward_mode="placement-delta",
+        )
+
+        episode = report["episode_summaries"][0]
+
+        self.assertEqual(report["reward_mode"], "placement-delta")
+        self.assertEqual(report["reward_summary"]["mode"], "placement-delta")
+        self.assertEqual(
+            set(report["reward_summaries"]),
+            {"terminal", "point-delta", "normalized-point-delta", "placement-delta"},
+        )
+        self.assertEqual(
+            episode["selected_rewards"],
+            episode["reward_vectors"]["placement-delta"],
+        )
+        self.assertEqual(len(report["reward_summaries"]), 4)
+        self.assertEqual(report["outcome_summary"]["draw_outcomes"], {"max_turns": 2})
+        self.assertEqual(report["outcome_summary"]["win_events_by_seat"], [0, 0, 0, 0])
+        self.assertEqual(report["outcome_summary"]["deal_in_events_by_seat"], [0, 0, 0, 0])
+        self.assertEqual(
+            report["outcome_summary"]["raw_point_delta_sum_by_seat"],
+            [0, 0, 0, 0],
+        )
+        self.assertEqual(
+            report["outcome_summary"]["normalized_point_delta_sum_by_seat"],
+            [0.0, 0.0, 0.0, 0.0],
+        )
+        self.assertEqual(
+            report["outcome_summary"]["placement_delta_sum_by_seat"],
+            [0.0, 0.0, 0.0, 0.0],
+        )
+
     def test_text_summary_marks_missing_full_rules(self) -> None:
         report = run_self_play_sandbox(
             episodes=1,
@@ -158,6 +232,13 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("episodes: 1", text)
         self.assertIn("ruleset: tenhou-4p", text)
         self.assertIn("policy: drawn-discard-sandbox-v0", text)
+        self.assertIn("reward_mode: terminal", text)
+        self.assertIn(
+            "reward_modes: terminal, point-delta, normalized-point-delta, placement-delta",
+            text,
+        )
+        self.assertIn("reward_summary: 0=0.000 1=0.000 2=0.000 3=0.000", text)
+        self.assertIn("draw_outcomes: max_turns=1", text)
         self.assertIn("stop_on_tsumo: yes", text)
         self.assertIn("basic_closed_hand_win_detection: yes", text)
         self.assertIn("draw_discard_loop: yes", text)
@@ -199,6 +280,11 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("toitoi_yaku_metadata: yes", text)
         self.assertIn("honroutou_yaku_metadata: yes", text)
         self.assertIn("terminal_rewards: yes", text)
+        self.assertIn("selectable_reward_modes: yes", text)
+        self.assertIn("reward_mode_comparison: yes", text)
+        self.assertIn("point_delta_reward_mode: yes", text)
+        self.assertIn("normalized_point_delta_reward_mode: yes", text)
+        self.assertIn("placement_delta_reward_mode: yes", text)
         self.assertIn("terminal_point_delta_metadata: yes", text)
         self.assertIn("exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("dealer_aware_win_payments: yes", text)
@@ -228,6 +314,14 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("winning_yaku_by_seat", episode)
         self.assertIn("terminal_rewards", episode)
         self.assertIn("terminal_point_deltas", episode)
+        self.assertIn("raw_point_delta", episode)
+        self.assertIn("normalized_point_delta", episode)
+        self.assertIn("placement_delta", episode)
+        self.assertIn("win_events", episode)
+        self.assertIn("deal_in_events", episode)
+        self.assertIn("draw_outcome", episode)
+        self.assertIn("reward_vectors", episode)
+        self.assertIn("selected_rewards", episode)
         self.assertIn("exhaustive_draw_tenpai_seats", episode)
         self.assertIn("exhaustive_draw_noten_seats", episode)
         self.assertIn("final_points", episode)
@@ -245,6 +339,12 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("dora_indicators", episode)
         self.assertEqual(len(episode["terminal_rewards"]), report["players"])
         self.assertEqual(len(episode["terminal_point_deltas"]), report["players"])
+        self.assertEqual(len(episode["raw_point_delta"]), report["players"])
+        self.assertEqual(len(episode["normalized_point_delta"]), report["players"])
+        self.assertEqual(len(episode["placement_delta"]), report["players"])
+        self.assertEqual(len(episode["win_events"]), report["players"])
+        self.assertEqual(len(episode["deal_in_events"]), report["players"])
+        self.assertEqual(len(episode["selected_rewards"]), report["players"])
         self.assertIsInstance(episode["exhaustive_draw_tenpai_seats"], list)
         self.assertIsInstance(episode["exhaustive_draw_noten_seats"], list)
         self.assertEqual(len(episode["final_points"]), report["players"])

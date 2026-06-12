@@ -85,6 +85,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_toitoi_yaku_metadata: yes", output)
         self.assertIn("sandbox_honroutou_yaku_metadata: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
+        self.assertIn("self_play_reward_modes: yes", output)
+        self.assertIn("self_play_reward_mode_comparison: yes", output)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", output)
         self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", output)
@@ -211,6 +213,10 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_toitoi_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_honroutou_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
+        self.assertTrue(payload["capabilities"]["implemented"]["self_play_reward_modes"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_reward_mode_comparison"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
         )
@@ -469,6 +475,8 @@ class CliTests(unittest.TestCase):
                         "fixed",
                         "--policy",
                         "drawn",
+                        "--reward-mode",
+                        "placement-delta",
                         "--stop-on-tsumo",
                         "--json",
                         "--include-trajectories",
@@ -480,6 +488,13 @@ class CliTests(unittest.TestCase):
         self.assertIn("episodes: 2", text_stdout.getvalue())
         self.assertIn("ruleset: tenhou-3p", text_stdout.getvalue())
         self.assertIn("policy: frequency-discard-sandbox-v0", text_stdout.getvalue())
+        self.assertIn("reward_mode: terminal", text_stdout.getvalue())
+        self.assertIn(
+            "reward_modes: terminal, point-delta, normalized-point-delta, placement-delta",
+            text_stdout.getvalue(),
+        )
+        self.assertIn("draw_outcomes:", text_stdout.getvalue())
+        self.assertIn("reward_summary:", text_stdout.getvalue())
         self.assertIn("stop_on_tsumo: yes", text_stdout.getvalue())
         self.assertIn("full_riichi_rules: no", text_stdout.getvalue())
         self.assertIn("open_hand_win_detection: yes", text_stdout.getvalue())
@@ -515,6 +530,11 @@ class CliTests(unittest.TestCase):
         self.assertIn("yakuhai_seat_round_dragon_filter: yes", text_stdout.getvalue())
         self.assertIn("toitoi_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("honroutou_yaku_metadata: yes", text_stdout.getvalue())
+        self.assertIn("selectable_reward_modes: yes", text_stdout.getvalue())
+        self.assertIn("reward_mode_comparison: yes", text_stdout.getvalue())
+        self.assertIn("point_delta_reward_mode: yes", text_stdout.getvalue())
+        self.assertIn("normalized_point_delta_reward_mode: yes", text_stdout.getvalue())
+        self.assertIn("placement_delta_reward_mode: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
         self.assertIn("nagashi_mangan_wall_exhaustion: yes", text_stdout.getvalue())
         self.assertIn("nagashi_mangan_next_round_progression: yes", text_stdout.getvalue())
@@ -528,6 +548,9 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["stop_on_tsumo"])
         self.assertEqual(report_payload["ruleset"], "tenhou-3p")
         self.assertEqual(report_payload["players"], 3)
+        self.assertEqual(report_payload["reward_mode"], "terminal")
+        self.assertEqual(len(report_payload["reward_summaries"]), 4)
+        self.assertIn("outcome_summary", report_payload)
         self.assertLessEqual(report_payload["decisions"], 16)
         self.assertTrue(report_payload["capabilities"]["discard_furiten_ron_filter"])
         self.assertTrue(report_payload["capabilities"]["temporary_furiten_ron_filter"])
@@ -561,6 +584,11 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["yakuhai_seat_round_dragon_filter"])
         self.assertTrue(report_payload["capabilities"]["toitoi_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["honroutou_yaku_metadata"])
+        self.assertTrue(report_payload["capabilities"]["selectable_reward_modes"])
+        self.assertTrue(report_payload["capabilities"]["reward_mode_comparison"])
+        self.assertTrue(report_payload["capabilities"]["point_delta_reward_mode"])
+        self.assertTrue(report_payload["capabilities"]["normalized_point_delta_reward_mode"])
+        self.assertTrue(report_payload["capabilities"]["placement_delta_reward_mode"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(report_payload["capabilities"]["nagashi_mangan_wall_exhaustion"])
         self.assertTrue(
@@ -577,10 +605,16 @@ class CliTests(unittest.TestCase):
         self.assertFalse(report_payload["capabilities"]["ppo"])
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["episodes"], 1)
+        self.assertEqual(json_payload["reward_mode"], "placement-delta")
         self.assertTrue(json_payload["stop_on_tsumo"])
         self.assertIn("trajectory", json_payload["episode_summaries"][0])
         self.assertIn("kita_tiles", json_payload["episode_summaries"][0])
         self.assertIn("kita_counts", json_payload["episode_summaries"][0])
+        self.assertIn("reward_vectors", json_payload["episode_summaries"][0])
+        self.assertEqual(
+            json_payload["episode_summaries"][0]["selected_rewards"],
+            json_payload["episode_summaries"][0]["reward_vectors"]["placement-delta"],
+        )
 
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()

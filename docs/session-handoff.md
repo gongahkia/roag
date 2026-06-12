@@ -60,9 +60,12 @@ Last updated: 2026-06-12.
   Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
   riichi-stick and honba point ledger, live-wall exhaustion can expose basic tenpai/noten deltas,
   and max-turn terminals expose neutral zero deltas.
+  Added report-level self-play reward projections for terminal, point-delta, normalized point-delta,
+  and placement-delta modes, plus per-mode aggregate summaries and win/deal-in/draw outcome
+  counters.
   Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
   rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, full riichi/kan
-  timing legality, real scoring, point-based reward scaling, or PPO-ready self-play. Added
+  timing legality, real scoring, or PPO-ready self-play. Added
   individual reaction passes and ron-priority call gating so calls are blocked while any pending
   reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
@@ -100,8 +103,8 @@ Last updated: 2026-06-12.
   round-continuation semantics, real
   multi-ron payment validation, complete payment accounting, complete yaku validation, full
   open-hand yaku rules, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
-  indicator ordering, complete robbing-kan/chankan semantics, complete post-riichi kan timing,
-  ippatsu scoring, point-based reward scaling, or calibrated rewards.
+  indicator ordering, complete robbing-kan/chankan semantics, complete post-riichi kan timing, or
+  ippatsu scoring.
   Added a narrow Sanma Kita/pei-nuki sandbox action that records exposed North tiles separately
   from melds, takes a dead-wall replacement draw without revealing kan-dora, allows post-riichi
   Kita only on a drawn North, and counts exposed Kita as bonus han in sandbox score estimates.
@@ -265,13 +268,15 @@ Last updated: 2026-06-12.
   writes `kenjaku-self-play-sandbox-report-v0` reports. It supports `random`, `drawn`, and
   `frequency` discard policies, deterministic episode seeds, optional synthetic trajectories, and
   simple discard-count policy updates. It auto-passes the environment's pending-discard reaction
-  windows because no ron/call policy is implemented in this sandbox. Episode summaries now include
-  `terminal_rewards`: neutral zero rewards for non-win terminal states and a simple zero-sum utility
-  vector for sandbox tsumo/ron. They also include final point-ledger and riichi-stick counts from
-  the sandbox state, the current honba count, active ippatsu seats, winning ippatsu seats,
-  active double-riichi seats, rinshan draw-source metadata, final live-wall draw metadata, winning
-  rinshan seats, terminal yaku metadata, terminal point-delta metadata, dead-wall remaining count,
-  and visible dora/kan-dora indicators.
+  windows because no ron/call policy is implemented in this sandbox. `--reward-mode` can select
+  terminal, point-delta, normalized point-delta, or placement-delta reward vectors, and every report
+  writes comparable summaries for all four modes. Episode summaries include raw point delta,
+  normalized point delta, placement delta, win/deal-in event vectors, draw outcomes,
+  `terminal_rewards`, final point-ledger and riichi-stick counts from the sandbox state, the current
+  honba count, active ippatsu seats, winning ippatsu seats, active double-riichi seats, rinshan
+  draw-source metadata, final live-wall draw metadata, winning rinshan seats, terminal yaku
+  metadata, terminal point-delta metadata, dead-wall remaining count, and visible dora/kan-dora
+  indicators.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
   excludes 2m-8m, starts each seat at 35,000 points, rotates three seats, filters out chi call
   reactions, treats North triplets in hand as guest-wind rather than yakuhai, maps 1m/9m dora
@@ -317,8 +322,8 @@ Last updated: 2026-06-12.
   terminal metadata, basic multi-ron terminal resolution with turn-priority riichi-stick assignment,
   basic open/kan standard-shape win detection, a basic sandbox yaku
   filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering plus toitoi and
-  honroutou, simple sandbox terminal rewards, and terminal point-delta metadata, including basic
-  dealer-aware win payment estimates,
+  honroutou, selectable self-play reward projections, and terminal point-delta metadata, including
+  basic dealer-aware win payment estimates,
   visible-dora/red-five score-estimate bonus han, basic kazoe-yakuman score estimates, basic
   yakuman bonus-han suppression, tsumo yaku/dora tile-view de-duplication, basic Nagashi mangan
   wall-exhaustion and next-round progression, and basic live-wall exhaustive-draw tenpai/noten
@@ -355,8 +360,7 @@ Last updated: 2026-06-12.
   complete rinshan yaku/scoring semantics, complete
   haitei/houtei endgame timing, complete double-riichi/riichi timing, complete kan-dora/ura-dora
   indicator ordering, complete chankan semantics, complete post-riichi kan timing,
-  real multi-ron payment handling, richer terminal reward signals, and validation against real
-  reconstructed games.
+  real multi-ron payment handling, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It applies the static tile exclusions, 35,000-point starts, three-seat rotation, a basic
   no-chi call filter, a basic North-as-guest-wind yaku filter, a basic Kita/pei-nuki environment
@@ -560,7 +564,8 @@ PYTHONPATH=src python3 -m kenjaku replay-share-plan \
   runs/replay-intake-accepted.jsonl --intent demo \
   --report runs/replay-share-plan.json
 PYTHONPATH=src python3 -m kenjaku self-play-sandbox \
-  --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p --stop-on-tsumo \
+  --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \
+  --reward-mode normalized-point-delta --stop-on-tsumo \
   --report runs/fixture-self-play-sandbox.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
@@ -901,5 +906,5 @@ Mortal local baseline reconnaissance:
     dealer-aware, visible/red-dora, and next-round dealer/honba/round-wind helper slices, ippatsu
     scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora indicator ordering, complete chankan semantics beyond the basic
-    ippatsu timing slice, complete post-riichi kan timing, yaku/scoring semantics, and richer
-    terminal reward payloads should come before policy optimization.
+    ippatsu timing slice, complete post-riichi kan timing, and yaku/scoring semantics should come
+    before policy optimization.

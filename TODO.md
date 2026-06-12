@@ -195,11 +195,11 @@ Done when: a sandbox match can run from East 1 to a final ranked result.
 
 ### TODO-209 Calibrate Reward Signals
 
-- [ ] Replace simple terminal rewards with point-delta and placement-aware reward
+- [x] Replace simple terminal rewards with point-delta and placement-aware reward
   options.
-- [ ] Add report fields for raw point delta, normalized point delta, placement
+- [x] Add report fields for raw point delta, normalized point delta, placement
   delta, win/deal-in events, and draw outcomes.
-- [ ] Compare at least 3 reward formulations on the same self-play smoke run.
+- [x] Compare at least 3 reward formulations on the same self-play smoke run.
 
 Done when: `self-play-sandbox` can select a reward mode and writes comparable
 reward summaries.

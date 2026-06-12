@@ -41,8 +41,9 @@ handoff notes.
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
   resolution with turn-priority riichi-stick assignment, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
-  dragon/round-wind/seat-wind yakuhai filtering plus toitoi and honroutou, and simple terminal
-  reward payloads plus terminal point-delta and score-estimate metadata, including basic
+  dragon/round-wind/seat-wind yakuhai filtering plus toitoi and honroutou, selectable self-play
+  reward projections for terminal, point-delta, normalized point-delta, and placement-delta modes,
+  plus terminal point-delta and score-estimate metadata, including basic
   dealer-aware win payments,
   visible-dora/red-five bonus han, basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
@@ -108,7 +109,8 @@ PYTHONPATH=src python3.13 -m kenjaku replay-share-plan \
   --report runs/replay-share-plan.json
 
 PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
-  --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p --stop-on-tsumo \
+  --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \
+  --reward-mode normalized-point-delta --stop-on-tsumo \
   --report runs/fixture-self-play-sandbox.json
 
 PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \

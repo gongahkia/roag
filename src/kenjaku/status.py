@@ -83,6 +83,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_toitoi_yaku_metadata": True,
                 "sandbox_honroutou_yaku_metadata": True,
                 "sandbox_terminal_reward_payloads": True,
+                "self_play_reward_modes": True,
+                "self_play_reward_mode_comparison": True,
                 "sandbox_terminal_point_delta_metadata": True,
                 "sandbox_exhaustive_draw_tenpai_noten_payments": True,
                 "sandbox_nagashi_mangan_wall_exhaustion": True,

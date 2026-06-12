@@ -66,6 +66,7 @@ from kenjaku.models import (
 )
 from kenjaku.simulation import (
     SELF_PLAY_SANDBOX_POLICIES,
+    SELF_PLAY_SANDBOX_REWARD_MODES,
     SELF_PLAY_SANDBOX_RULESETS,
     format_self_play_sandbox_report,
     run_self_play_sandbox,
@@ -293,6 +294,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=SELF_PLAY_SANDBOX_RULESETS,
         default="tenhou-4p",
         help="sandbox static tile set and player count",
+    )
+    self_play.add_argument(
+        "--reward-mode",
+        choices=SELF_PLAY_SANDBOX_REWARD_MODES,
+        default="terminal",
+        help="reward vector to expose as the selected sandbox reward",
     )
     self_play.add_argument(
         "--include-trajectories",
@@ -1377,6 +1384,7 @@ def _self_play_sandbox(args: argparse.Namespace) -> int:
             seed=args.seed,
             policy=args.policy,
             ruleset=args.ruleset,
+            reward_mode=args.reward_mode,
             include_trajectories=args.include_trajectories,
             stop_on_tsumo=args.stop_on_tsumo,
         )
