@@ -595,10 +595,42 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(estimate.yaku_han, 2)
         self.assertEqual(estimate.visible_dora_count, 1)
+        self.assertEqual(estimate.red_dora_count, 0)
         self.assertEqual(estimate.kita_dora_count, 0)
         self.assertEqual(estimate.bonus_han, 1)
         self.assertEqual(estimate.han, 3)
         self.assertEqual(estimate_payload["visible_dora_count"], 1)
+        self.assertEqual(estimate_payload["red_dora_count"], 0)
+        self.assertEqual(estimate_payload["bonus_han"], 1)
+        self.assertEqual(estimate_payload["han"], 3)
+
+    def test_red_five_counts_as_score_estimate_bonus_han(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 0m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.visible_dora_count, 0)
+        self.assertEqual(estimate.red_dora_count, 1)
+        self.assertEqual(estimate.kita_dora_count, 0)
+        self.assertEqual(estimate.bonus_han, 1)
+        self.assertEqual(estimate.han, 3)
+        self.assertEqual(estimate_payload["visible_dora_count"], 0)
+        self.assertEqual(estimate_payload["red_dora_count"], 1)
         self.assertEqual(estimate_payload["bonus_han"], 1)
         self.assertEqual(estimate_payload["han"], 3)
 
@@ -2463,6 +2495,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.kita_tiles, ((Tile.parse("N"),), (), ()))
         self.assertEqual(estimate.yaku_han, 3)
         self.assertEqual(estimate.visible_dora_count, 1)
+        self.assertEqual(estimate.red_dora_count, 0)
         self.assertEqual(estimate.bonus_han, 2)
         self.assertEqual(estimate.kita_dora_count, 1)
         self.assertEqual(estimate.han, 5)
@@ -2473,6 +2506,10 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             terminal.to_payload()["terminal_score_estimates"][0]["visible_dora_count"],
             1,
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["red_dora_count"],
+            0,
         )
         self.assertEqual(
             terminal.to_payload()["terminal_score_estimates"][0]["bonus_han"],

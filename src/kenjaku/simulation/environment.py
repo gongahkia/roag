@@ -106,6 +106,7 @@ class SandboxScoreEstimate:
     yaku_han: int
     bonus_han: int
     visible_dora_count: int
+    red_dora_count: int
     kita_dora_count: int
     han: int
     fu: int | None
@@ -128,6 +129,7 @@ class SandboxScoreEstimate:
             "yaku_han": self.yaku_han,
             "bonus_han": self.bonus_han,
             "visible_dora_count": self.visible_dora_count,
+            "red_dora_count": self.red_dora_count,
             "kita_dora_count": self.kita_dora_count,
             "han": self.han,
             "fu": self.fu,
@@ -2073,6 +2075,11 @@ def _terminal_win_point_updates(
                 seat=winner_seat,
                 winning_tile=winning_tile,
             ),
+            red_dora_count=_red_dora_count(
+                state,
+                seat=winner_seat,
+                winning_tile=winning_tile,
+            ),
             kita_dora_count=len(_kita_tiles_by_seat(state)[winner_seat]),
             honba=state.honba,
             riichi_stick_points=riichi_stick_points,
@@ -2175,6 +2182,20 @@ def _visible_dora_count(
     )
 
 
+def _red_dora_count(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile,
+) -> int:
+    rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
+    return sum(
+        1
+        for tile in _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
+        if tile.red and tile.type.suit in rules.red_five_suits
+    )
+
+
 def _dora_type_for_indicator(indicator: TileType) -> TileType:
     if indicator.suit in {"m", "p", "s"}:
         rank = indicator.rank
@@ -2197,11 +2218,12 @@ def _sandbox_score_estimate(
     win_kind: str,
     yaku: tuple[str, ...],
     visible_dora_count: int,
+    red_dora_count: int,
     kita_dora_count: int,
     honba: int,
     riichi_stick_points: int,
 ) -> SandboxScoreEstimate:
-    bonus_han = visible_dora_count + kita_dora_count
+    bonus_han = visible_dora_count + red_dora_count + kita_dora_count
     if "kokushi" in yaku:
         ron_payment = (
             _sandbox_limit_ron_payment(limit="yakuman", is_dealer=is_dealer)
@@ -2225,6 +2247,7 @@ def _sandbox_score_estimate(
             yaku_han=13,
             bonus_han=bonus_han,
             visible_dora_count=visible_dora_count,
+            red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
             han=13 + bonus_han,
             fu=None,
@@ -2281,6 +2304,7 @@ def _sandbox_score_estimate(
         yaku_han=yaku_han,
         bonus_han=bonus_han,
         visible_dora_count=visible_dora_count,
+        red_dora_count=red_dora_count,
         kita_dora_count=kita_dora_count,
         han=han,
         fu=fu,

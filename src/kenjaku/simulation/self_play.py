@@ -155,6 +155,7 @@ def run_self_play_sandbox(
             "score_estimate_point_accounting": True,
             "dealer_aware_win_payments": True,
             "visible_dora_score_estimates": True,
+            "red_dora_score_estimates": True,
             "scoring": False,
             "ppo": False,
         },

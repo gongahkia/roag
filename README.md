@@ -39,9 +39,10 @@ handoff notes.
   gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
   dragon/round-wind/seat-wind yakuhai filtering, and simple terminal reward payloads plus terminal
-  point-delta and score-estimate metadata, including basic dealer-aware win payments, visible-dora
-  bonus han, and basic live-wall exhaustive-draw tenpai/noten point deltas. The sandbox also has
-  narrow Sanma support: static 3-player tile exclusions, 35,000-point starts, no-chi call filtering,
+  point-delta and score-estimate metadata, including basic dealer-aware win payments,
+  visible-dora/red-five bonus han, and basic live-wall exhaustive-draw tenpai/noten point deltas. The
+  sandbox also has narrow Sanma support: static 3-player tile exclusions, 35,000-point starts,
+  no-chi call filtering,
   North-as-guest-wind yaku filtering, and a basic Kita/pei-nuki action that tracks exposed North
   tiles separately from melds, opens a ron/pass reaction window when an opponent can win on the
   North, takes a delayed dead-wall replacement draw without revealing kan-dora after passes, and
