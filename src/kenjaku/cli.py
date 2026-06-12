@@ -8,12 +8,15 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from hashlib import blake2b
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import perf_counter
 from typing import Any, TypeVar
 
 from kenjaku import __version__
+from kenjaku.browser_demo import write_browser_demo
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.experiments import (
     DEAL_IN_BENCHMARK_REPORT_KIND,
@@ -212,6 +215,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit status as JSON instead of text",
     )
     status.set_defaults(func=_status)
+
+    browser_demo = subparsers.add_parser(
+        "browser-demo",
+        help="write and optionally serve the browser-playable demo",
+    )
+    browser_demo.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("runs/browser-demo"),
+        help="directory for generated demo assets",
+    )
+    browser_demo.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="host to bind when serving the demo",
+    )
+    browser_demo.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="port to bind when serving the demo",
+    )
+    browser_demo.add_argument(
+        "--no-serve",
+        action="store_true",
+        help="write the demo assets without starting an HTTP server",
+    )
+    browser_demo.set_defaults(func=_browser_demo)
 
     replay_intake = subparsers.add_parser(
         "replay-intake-review",
@@ -1387,6 +1418,37 @@ def _status(args: argparse.Namespace) -> int:
         return 0
 
     print(format_status_text(payload))
+    return 0
+
+
+def _browser_demo(args: argparse.Namespace) -> int:
+    if not 0 <= args.port <= 65535:
+        raise SystemExit("--port must be between 0 and 65535")
+
+    manifest = write_browser_demo(args.output_dir)
+    output_dir = Path(manifest["output_dir"])
+    entrypoint = Path(manifest["entrypoint"])
+    print(f"wrote browser demo: {entrypoint}")
+    for file_path in manifest["files"]:
+        print(f"asset: {file_path}")
+
+    if args.no_serve:
+        print(f"open: {entrypoint}")
+        return 0
+
+    handler = partial(
+        SimpleHTTPRequestHandler,
+        directory=str(output_dir.resolve()),
+    )
+    server = ThreadingHTTPServer((args.host, args.port), handler)
+    host, port = server.server_address[:2]
+    print(f"serving browser demo: http://{host}:{port}/")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopped browser demo server")
+    finally:
+        server.server_close()
     return 0
 
 

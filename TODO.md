@@ -293,10 +293,10 @@ reasoning for each discard.
 
 ### TODO-502 Build Browser-Playable Demo
 
-- [ ] Implement a browser demo that can play at least one complete hand against
+- [x] Implement a browser demo that can play at least one complete hand against
   local AI policies.
-- [ ] Show hand, discards, calls, dora, score, legal actions, and terminal result.
-- [ ] Add smoke tests or screenshot checks for the main game screen.
+- [x] Show hand, discards, calls, dora, score, legal actions, and terminal result.
+- [x] Add smoke tests or screenshot checks for the main game screen.
 
 Done when: a documented command starts the demo and a user can complete a hand
 without server-side raw replay data.

@@ -49,6 +49,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("permitted_replay_share_planning: yes", output)
         self.assertIn("public_safe_replay_summary: yes", output)
         self.assertIn("public_benchmark_dashboard: yes", output)
+        self.assertIn("browser_playable_demo: yes", output)
         self.assertIn("self_play_sandbox: yes", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
@@ -139,6 +140,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["public_safe_replay_summary"])
         self.assertTrue(payload["capabilities"]["implemented"]["public_benchmark_dashboard"])
+        self.assertTrue(payload["capabilities"]["implemented"]["browser_playable_demo"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]
@@ -304,6 +306,39 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["capabilities"]["not_implemented"]["sanma_ruleset"])
         self.assertFalse(payload["capabilities"]["not_implemented"]["rl_self_play"])
         self.assertEqual(payload["environment"]["supported_python"], ">=3.11,<3.14")
+
+    def test_browser_demo_writes_static_assets_without_serving(self) -> None:
+        with TemporaryDirectory() as directory:
+            output_dir = Path(directory) / "demo"
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "browser-demo",
+                        "--output-dir",
+                        str(output_dir),
+                        "--no-serve",
+                    ]
+                )
+
+            index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+            styles_css = (output_dir / "styles.css").read_text(encoding="utf-8")
+            demo_js = (output_dir / "demo.js").read_text(encoding="utf-8")
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("wrote browser demo:", stdout.getvalue())
+        self.assertIn("open:", stdout.getvalue())
+        self.assertIn("Kenjaku Browser Demo", index_html)
+        self.assertIn("Legal Actions", index_html)
+        self.assertIn("Dora", index_html)
+        self.assertIn("Calls", index_html)
+        self.assertIn("finishExhaustiveDraw", demo_js)
+        self.assertIn("botDiscard", demo_js)
+        self.assertIn("window.KenjakuDemo", demo_js)
+        self.assertIn(".tile", styles_css)
+        self.assertNotIn("private", index_html + styles_css + demo_js)
+        self.assertNotIn("replay", index_html.lower() + styles_css.lower() + demo_js.lower())
 
     def test_replay_intake_review_outputs_text_json_report_and_accepted_queue(self) -> None:
         manifest_payload = {

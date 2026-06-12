@@ -7,9 +7,9 @@ decision points, train small supervised baselines, export neutral decision snaps
 local prediction artifacts. Live ladder automation is intentionally out of scope unless a platform
 grants explicit permission.
 
-The repo is not yet a transformer agent, RL system, Sanma implementation, browser demo, or full
-scoring engine. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running
-handoff notes.
+The repo is not yet a transformer agent, RL system, complete Sanma implementation, or full scoring
+engine. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running handoff
+notes.
 
 ## Current State
 
@@ -24,6 +24,8 @@ handoff notes.
 - Offline replay share planning plus public-safe replay summary generation for accepted intake
   rows, gated by demo/redistribution permission scope. These commands do not fetch, post, or expose
   raw replay URLs.
+- Static browser-playable demo generation via `kenjaku browser-demo`. The demo writes local
+  HTML/CSS/JS assets, can be served by the CLI, and does not require or embed raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
   validation or scoring.
@@ -111,6 +113,12 @@ PYTHONPATH=src python3.13 -m kenjaku replay-share-plan \
 PYTHONPATH=src python3.13 -m kenjaku replay-public-summary \
   runs/replay-intake-accepted.jsonl --intent demo \
   --report runs/replay-public-summary.json
+
+PYTHONPATH=src python3.13 -m kenjaku browser-demo \
+  --output-dir runs/browser-demo
+# CI/nonblocking smoke:
+PYTHONPATH=src python3.13 -m kenjaku browser-demo \
+  --output-dir runs/browser-demo --no-serve
 
 PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
   --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \
