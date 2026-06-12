@@ -2714,6 +2714,160 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.to_payload()["exhaustive_draw_tenpai_seats"], [0])
         self.assertEqual(terminal.to_payload()["exhaustive_draw_noten_seats"], [1, 2, 3])
 
+    def test_wall_exhaustion_scores_basic_nagashi_mangan(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            discards=(
+                _tiles("1m 9m E P"),
+                _tiles("2m"),
+                _tiles("3m"),
+                _tiles("4m"),
+            ),
+            hands=(
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+                (),
+            ),
+            riichi_sticks=1,
+            honba=1,
+            dealer_seat=0,
+        )
+
+        terminal = draw_for_current_seat(state)
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.terminal_reason, "nagashi_mangan")
+        self.assertEqual(terminal.winner_seat, 0)
+        self.assertEqual(terminal.winner_seats, (0,))
+        self.assertIsNone(terminal.winning_tile)
+        self.assertEqual(terminal.winning_shapes, ())
+        self.assertEqual(terminal.winning_yaku, ("nagashi_mangan",))
+        self.assertEqual(terminal.winning_yaku_by_seat, ((0, ("nagashi_mangan",)),))
+        self.assertEqual(terminal.riichi_sticks, 0)
+        self.assertEqual(terminal.terminal_point_deltas, (13300, -4100, -4100, -4100))
+        self.assertEqual(terminal.points, (38300, 20900, 20900, 20900))
+        self.assertEqual(
+            terminal.terminal_rewards,
+            (1.0, -4100 / 13300, -4100 / 13300, -4100 / 13300),
+        )
+        self.assertEqual(terminal.exhaustive_draw_tenpai_seats, ())
+        self.assertEqual(terminal.exhaustive_draw_noten_seats, ())
+        self.assertEqual(estimate.yaku, ("nagashi_mangan",))
+        self.assertEqual(estimate.yaku_han, 5)
+        self.assertEqual(estimate.limit, "mangan")
+        self.assertEqual(estimate.tsumo_child_payment, 4000)
+        self.assertIsNone(estimate.tsumo_dealer_payment)
+        self.assertEqual(estimate.riichi_stick_points, 1000)
+        self.assertEqual(estimate_payload["yaku"], ["nagashi_mangan"])
+        self.assertEqual(estimate_payload["limit"], "mangan")
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_tenpai_seats"], [])
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_noten_seats"], [])
+
+    def test_wall_exhaustion_scores_multiple_nagashi_mangan_winners(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            discards=(
+                _tiles("1m 9m E"),
+                _tiles("1p 9p S"),
+                _tiles("2m"),
+                _tiles("3m"),
+            ),
+            hands=(
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+            ),
+            dealer_seat=0,
+        )
+
+        terminal = draw_for_current_seat(state)
+
+        self.assertEqual(terminal.terminal_reason, "nagashi_mangan")
+        self.assertEqual(terminal.winner_seat, 0)
+        self.assertEqual(terminal.winner_seats, (0, 1))
+        self.assertEqual(
+            terminal.winning_yaku_by_seat,
+            ((0, ("nagashi_mangan",)), (1, ("nagashi_mangan",))),
+        )
+        self.assertEqual(terminal.terminal_point_deltas, (8000, 4000, -6000, -6000))
+        self.assertEqual(terminal.points, (33000, 29000, 19000, 19000))
+        self.assertEqual(
+            [estimate.yaku for estimate in terminal.terminal_score_estimates],
+            [("nagashi_mangan",), ("nagashi_mangan",)],
+        )
+
+    def test_wall_exhaustion_rejects_nagashi_for_simple_discard(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            discards=(
+                _tiles("1m 5m E"),
+                (),
+                (),
+                (),
+            ),
+            hands=(
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        terminal = draw_for_current_seat(state)
+
+        self.assertEqual(terminal.terminal_reason, "wall_exhausted")
+        self.assertEqual(terminal.winner_seats, ())
+        self.assertEqual(terminal.winning_yaku, ())
+
+    def test_wall_exhaustion_rejects_nagashi_when_own_discard_was_called(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            discards=(
+                _tiles("1m 9m E"),
+                (),
+                (),
+                (),
+            ),
+            melds=(
+                (),
+                (
+                    Meld(
+                        ActionKind.PON,
+                        _tiles("E E E"),
+                        called_tile=Tile.parse("E"),
+                        from_seat=0,
+                    ),
+                ),
+                (),
+                (),
+            ),
+            hands=(
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        terminal = draw_for_current_seat(state)
+
+        self.assertEqual(terminal.terminal_reason, "wall_exhausted")
+        self.assertEqual(terminal.winner_seats, ())
+        self.assertEqual(terminal.winning_yaku, ())
+
     def test_sanma_environment_excludes_two_to_eight_manzu(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-3p", seed="sanma")
         visible = [tile.notation for hand in state.hands for tile in hand]

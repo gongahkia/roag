@@ -53,6 +53,7 @@ SANDBOX_DRAGON_TILES = frozenset(
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
     "double_riichi": 2,
+    "nagashi_mangan": 5,
     "riichi": 1,
     "ippatsu": 1,
     "menzen_tsumo": 1,
@@ -2213,6 +2214,38 @@ def _terminal_win_point_updates(
 
 
 def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str, Any]:
+    nagashi_seats = _nagashi_mangan_seats(state)
+    if nagashi_seats:
+        winning_yaku_by_seat = tuple(
+            (seat, ("nagashi_mangan",)) for seat in nagashi_seats
+        )
+        point_updates = _terminal_win_point_updates(
+            state,
+            winner_seats=nagashi_seats,
+            discarder_seat=None,
+            winning_tile=None,
+            win_kind="tsumo",
+            winning_yaku_by_seat=winning_yaku_by_seat,
+        )
+        return {
+            "terminal_reason": "nagashi_mangan",
+            "winner_seat": nagashi_seats[0],
+            "winner_seats": nagashi_seats,
+            "winning_shapes": (),
+            "winning_shapes_by_seat": tuple((seat, ()) for seat in nagashi_seats),
+            "winning_yaku": winning_yaku_by_seat[0][1],
+            "winning_yaku_by_seat": winning_yaku_by_seat,
+            "winning_ippatsu_seats": (),
+            "winning_rinshan_seats": (),
+            "ippatsu_seats": (),
+            "terminal_rewards": _point_delta_rewards(
+                point_updates["terminal_point_deltas"]
+            ),
+            "last_draw_was_final_live_wall": False,
+            "exhaustive_draw_tenpai_seats": (),
+            "exhaustive_draw_noten_seats": (),
+            **point_updates,
+        }
     before_points = _points_by_seat(state)
     tenpai_seats = _exhaustive_draw_tenpai_seats(state)
     noten_seats = tuple(seat for seat in range(state.players) if seat not in tenpai_seats)
@@ -2232,6 +2265,22 @@ def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str
         "exhaustive_draw_tenpai_seats": tenpai_seats,
         "exhaustive_draw_noten_seats": noten_seats,
     }
+
+
+def _nagashi_mangan_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
+    called_from_seats = {
+        meld.from_seat
+        for seat_melds in _melds_by_seat(state)
+        for meld in seat_melds
+        if meld.from_seat is not None
+    }
+    return tuple(
+        seat
+        for seat, discards in enumerate(_discards_by_seat(state))
+        if discards
+        and seat not in called_from_seats
+        and all(tile.type.is_terminal_or_honor for tile in discards)
+    )
 
 
 def _exhaustive_draw_tenpai_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
@@ -2322,6 +2371,37 @@ def _sandbox_score_estimate(
     riichi_stick_points: int,
 ) -> SandboxScoreEstimate:
     bonus_han = visible_dora_count + red_dora_count + kita_dora_count
+    if "nagashi_mangan" in yaku:
+        return SandboxScoreEstimate(
+            seat=seat,
+            win_kind=win_kind,
+            yaku=yaku,
+            yaku_han=SANDBOX_YAKU_HAN["nagashi_mangan"],
+            bonus_han=0,
+            visible_dora_count=visible_dora_count,
+            red_dora_count=red_dora_count,
+            kita_dora_count=kita_dora_count,
+            han=SANDBOX_YAKU_HAN["nagashi_mangan"],
+            fu=None,
+            limit="mangan",
+            base_points=SANDBOX_LIMIT_BASE_POINTS["mangan"],
+            is_dealer=is_dealer,
+            ron_payment=None,
+            tsumo_payment_per_loser=_sandbox_limit_tsumo_child_payment(
+                limit="mangan",
+                is_dealer=is_dealer,
+            ),
+            tsumo_child_payment=_sandbox_limit_tsumo_child_payment(
+                limit="mangan",
+                is_dealer=is_dealer,
+            ),
+            tsumo_dealer_payment=_sandbox_limit_tsumo_dealer_payment(
+                limit="mangan",
+                is_dealer=is_dealer,
+            ),
+            honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
+            riichi_stick_points=riichi_stick_points,
+        )
     if "kokushi" in yaku:
         scoring_bonus_han = 0
         ron_payment = (

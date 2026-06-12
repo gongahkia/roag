@@ -83,6 +83,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_terminal_reward_payloads": True,
                 "sandbox_terminal_point_delta_metadata": True,
                 "sandbox_exhaustive_draw_tenpai_noten_payments": True,
+                "sandbox_nagashi_mangan_wall_exhaustion": True,
                 "sandbox_terminal_score_estimate_metadata": True,
                 "sandbox_score_estimate_point_accounting": True,
                 "sandbox_dealer_aware_win_payments": True,

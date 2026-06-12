@@ -286,6 +286,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox red-five score-estimate bonus han
   - [x] Basic sandbox kazoe-yakuman score estimates
   - [x] Basic sandbox yakuman bonus-han suppression
+  - [x] Basic sandbox Nagashi mangan wall-exhaustion handling
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
   - [x] Basic sandbox chankan ippatsu reaction timing
   - [x] Basic sandbox haitei/houtei yaku metadata
@@ -538,8 +539,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple
     terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
-    tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
-    visible-dora and red-five bonus han in score estimates, basic kazoe-yakuman score estimates,
+    tenpai/noten point-delta metadata, basic Nagashi mangan wall-exhaustion handling, basic
+    dealer-aware ron/tsumo win payment estimates, basic visible-dora and red-five bonus han in
+    score estimates, basic kazoe-yakuman score estimates,
     basic yakuman bonus-han suppression, Tenhou Sanma 1m/9m dora indicator wrap, Tenhou Sanma
     post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, tsumo yaku/dora
     tile views that avoid duplicating the drawn
@@ -1210,6 +1212,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   observed visible/red/Kita dora counts in metadata but do not add those counts to `bonus_han` or
   `han`. This checks off the narrow yakuman scoring metadata subtask, but does not complete multiple
   yakuman handling, yakuman yaku exclusivity, exhaustive yaku/fu validation, or exact scoring.
+- Added basic Nagashi mangan wall-exhaustion handling. Wall exhaustion now checks players whose
+  discards are all terminal/honor and whose discards were not called, resolves them as mangan tsumo
+  with `terminal_reason="nagashi_mangan"`, and skips normal tenpai/noten settlement. This checks off
+  narrow Nagashi mangan handling, but does not complete exact abortive-draw/platform timing,
+  full continuation rules, full yaku/fu validation, or exact scoring.
 - Fixed tsumo yaku/dora score-estimate tile views to avoid duplicating the drawn tile. Tsumo yaku
   checks and terminal score estimates now use the already-complete hand, while ron/chankan still add
   the pending winning tile. This checks off the narrow tsumo tile-view de-duplication subtask and

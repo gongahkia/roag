@@ -85,6 +85,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", output)
+        self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", output)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", output)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", output)
         self.assertIn("sandbox_red_dora_score_estimates: yes", output)
@@ -211,6 +212,11 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"][
                 "sandbox_exhaustive_draw_tenpai_noten_payments"
+            ]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_nagashi_mangan_wall_exhaustion"
             ]
         )
         self.assertTrue(
@@ -498,6 +504,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("yakuhai_seat_round_dragon_filter: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
+        self.assertIn("nagashi_mangan_wall_exhaustion: yes", text_stdout.getvalue())
         self.assertIn("dealer_aware_win_payments: yes", text_stdout.getvalue())
         self.assertIn("visible_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("red_dora_score_estimates: yes", text_stdout.getvalue())
@@ -540,6 +547,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["yakuhai_seat_round_dragon_filter"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
+        self.assertTrue(report_payload["capabilities"]["nagashi_mangan_wall_exhaustion"])
         self.assertTrue(report_payload["capabilities"]["dealer_aware_win_payments"])
         self.assertTrue(report_payload["capabilities"]["visible_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["red_dora_score_estimates"])
