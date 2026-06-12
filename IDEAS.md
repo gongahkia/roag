@@ -305,6 +305,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox Kita/pei-nuki action with dead-wall replacement draw and bonus-han metadata
   - [x] Basic sandbox Kita ron/pass reaction window without chankan yaku
   - [x] Basic Tenhou Sanma 1m/9m dora indicator wrap
+  - [x] Basic Tenhou Sanma post-pon Kita suppression
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -508,13 +509,14 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
     exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
     North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
-    reaction window, plus Tenhou's 1m/9m dora indicator wrap, but the Phase 5 Sanma ruleset still
-    needs real 3-player round flow, exact platform timing, complete call handling, scoring,
-    training data, and evaluation.
+    reaction window, plus Tenhou's 1m/9m dora indicator wrap and post-pon Kita suppression, but
+    the Phase 5 Sanma ruleset still needs real 3-player round flow, exact platform timing, complete
+    call handling, scoring, training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
     filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
+    post-call discard-obligation action listing,
     basic wait-preserving post-riichi closed-kan exceptions, basic riichi deposit accounting, basic
     honba bonus accounting, a basic next-round dealer/honba transition helper, explicit round-wind
     state with dealer-wrap progression, basic ippatsu window metadata, legal chi/pon/minkan, basic
@@ -525,10 +527,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
-    tsumo yaku/dora tile views that avoid duplicating the drawn tile, plus basic open/kan
-    standard-shape win detection and a basic sandbox yaku filter/metadata layer with
-    dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
-    timing, complete yaku/terminal legality,
+    Tenhou Sanma post-pon Kita suppression, tsumo yaku/dora tile views that avoid duplicating the
+    drawn tile, plus basic open/kan standard-shape win detection and a basic sandbox yaku
+    filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
+    simulator step is full call/kan timing, complete yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
@@ -1211,3 +1213,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   removed 2m tile, matching Tenhou's three-player rule note. This checks off the narrow Sanma dora
   wrap subtask, but does not complete exact dead-wall dora ordering, ura/kan-ura handling, full
   Sanma scoring, training data, or evaluation.
+- Added basic Tenhou Sanma post-pon Kita suppression and fixed post-call action listing.
+  `legal_sandbox_actions` now returns the required discard choices during a post-call discard
+  obligation instead of probing draw-only actions, and a North in hand is not exposed as a Kita
+  action immediately after pon. This checks off the narrow post-pon Kita timing subtask, but does
+  not complete exact platform call timing, full call handling, Sanma scoring, training data, or
+  evaluation.

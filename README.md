@@ -46,8 +46,8 @@ handoff notes.
   North-as-guest-wind yaku filtering, Tenhou's 1m/9m dora indicator wrap, and a basic
   Kita/pei-nuki action that tracks exposed North tiles separately from melds, opens a ron/pass
   reaction window when an opponent can win on the North, takes a delayed dead-wall replacement draw
-  without revealing kan-dora after passes, and counts as bonus han in sandbox score estimates. The
-  self-play sandbox uses this boundary for
+  without revealing kan-dora after passes, suppresses immediate post-pon Kita, and counts as bonus
+  han in sandbox score estimates. The self-play sandbox uses this boundary for
   4-player and static 3-player tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.

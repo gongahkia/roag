@@ -589,16 +589,17 @@ def legal_sandbox_actions(
     if seat is not None and seat != state.current_seat:
         raise ValueError("seat does not match current acting seat")
     actions: list[Action] = []
-    if include_tsumo:
-        actions.extend(legal_tsumo_actions(state))
-    if include_riichi:
-        actions.extend(legal_riichi_actions(state))
-    if include_ankan:
-        actions.extend(legal_ankan_actions(state))
-    if include_kakan:
-        actions.extend(legal_kakan_actions(state))
-    if include_kita:
-        actions.extend(legal_kita_actions(state))
+    if not state.needs_discard:
+        if include_tsumo:
+            actions.extend(legal_tsumo_actions(state))
+        if include_riichi:
+            actions.extend(legal_riichi_actions(state))
+        if include_ankan:
+            actions.extend(legal_ankan_actions(state))
+        if include_kakan:
+            actions.extend(legal_kakan_actions(state))
+        if include_kita:
+            actions.extend(legal_kita_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 

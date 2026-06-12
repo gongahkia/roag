@@ -1543,6 +1543,42 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not legal"):
             apply_call_action(state, seat=1, action=chi)
 
+    def test_sanma_kita_is_not_legal_immediately_after_pon(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1p 2p 3p 3p 4p 5p 6p 1s 2s 3s E S N"),
+                (),
+            ),
+            pending_discard=Tile.parse("3p"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+        )
+        pon = Action(
+            ActionKind.PON,
+            TileType.parse("3p"),
+            consumed=(Tile.parse("3p"), Tile.parse("3p")),
+        )
+        kita = Action(
+            ActionKind.KITA,
+            TileType.parse("N"),
+            consumed=(Tile.parse("N"),),
+        )
+
+        called, meld = apply_call_action(state, seat=1, action=pon)
+        turn_actions = legal_sandbox_actions(called)
+
+        self.assertEqual(meld.kind, ActionKind.PON)
+        self.assertEqual(called.current_seat, 1)
+        self.assertTrue(called.needs_discard)
+        self.assertNotIn(kita, turn_actions)
+        self.assertEqual(turn_actions, legal_discard_actions(called))
+        with self.assertRaisesRegex(ValueError, "current seat must draw before kita"):
+            legal_kita_actions(called)
+
     def test_calls_cancel_active_ippatsu_windows(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
