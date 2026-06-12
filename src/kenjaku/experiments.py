@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 from collections.abc import Sequence
+from html import escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from kenjaku.io import TenhouGame, TenhouParseFailure
 
@@ -22,6 +25,7 @@ DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND = (
     "kenjaku-discard-transformer-benchmark-report-v0"
 )
 DISCARD_TRANSFORMER_REPORT_KIND = "kenjaku-discard-transformer-report-v0"
+PUBLIC_BENCHMARK_DASHBOARD_KIND = "kenjaku-public-benchmark-dashboard-v0"
 RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_MLP_BENCHMARK_MODEL_ORDER = (
@@ -58,6 +62,36 @@ DISCARD_BENCHMARK_BUCKET_MODELS = (
     "risk_context_linear",
     "defense_context_linear",
     "defense_context_v1_linear",
+)
+PUBLIC_BENCHMARK_METRIC_DEFINITIONS = (
+    {
+        "name": "accuracy",
+        "definition": "Correct predictions divided by evaluated examples.",
+    },
+    {
+        "name": "balanced_accuracy",
+        "definition": "Mean recall across positive and negative classes for imbalanced labels.",
+    },
+    {
+        "name": "recall",
+        "definition": "Share of true target examples recovered by the model or policy.",
+    },
+    {
+        "name": "pass_recall",
+        "definition": "Share of true pass or non-action examples recovered by call/riichi policies.",
+    },
+    {
+        "name": "brier_score",
+        "definition": "Mean squared error of probability predictions; lower is better.",
+    },
+    {
+        "name": "log_loss",
+        "definition": "Negative log likelihood of labels under predicted probabilities; lower is better.",
+    },
+    {
+        "name": "eval_loss",
+        "definition": "Held-out training loss reported by neural benchmark runs; lower is better.",
+    },
 )
 
 
