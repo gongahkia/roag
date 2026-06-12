@@ -43,10 +43,11 @@ handoff notes.
   visible-dora/red-five bonus han, tsumo yaku/dora tile views that do not duplicate the drawn tile,
   and basic live-wall exhaustive-draw tenpai/noten point deltas. The sandbox also has narrow Sanma
   support: static 3-player tile exclusions, 35,000-point starts, no-chi call filtering,
-  North-as-guest-wind yaku filtering, and a basic Kita/pei-nuki action that tracks exposed North
-  tiles separately from melds, opens a ron/pass reaction window when an opponent can win on the
-  North, takes a delayed dead-wall replacement draw without revealing kan-dora after passes, and
-  counts as bonus han in sandbox score estimates. The self-play sandbox uses this boundary for
+  North-as-guest-wind yaku filtering, Tenhou's 1m/9m dora indicator wrap, and a basic
+  Kita/pei-nuki action that tracks exposed North tiles separately from melds, opens a ron/pass
+  reaction window when an opponent can win on the North, takes a delayed dead-wall replacement draw
+  without revealing kan-dora after passes, and counts as bonus han in sandbox score estimates. The
+  self-play sandbox uses this boundary for
   4-player and static 3-player tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.

@@ -649,6 +649,38 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate.visible_dora_count, 2)
         self.assertEqual(estimate.bonus_han, 2)
 
+    def test_sanma_visible_dora_wraps_one_and_nine_man_indicators(self) -> None:
+        cases = (
+            ("1m", "9m"),
+            ("9m", "1m"),
+        )
+        for indicator, dora in cases:
+            with self.subTest(indicator=indicator, dora=dora):
+                state = SandboxEnvironmentState(
+                    ruleset="tenhou-3p",
+                    players=3,
+                    wall=(),
+                    dead_wall=(Tile.parse(indicator),),
+                    dora_indicators=(Tile.parse(indicator),),
+                    hands=(
+                        _tiles(
+                            "1p 2p 3p 1s 2s 3s 7s 8s 9s "
+                            f"E E E {dora} {dora}"
+                        ),
+                        (),
+                        (),
+                    ),
+                    drawn_tile=Tile.parse(dora),
+                )
+
+                terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+                estimate = terminal.terminal_score_estimates[0]
+
+                self.assertEqual(terminal.terminal_reason, "tsumo")
+                self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
+                self.assertEqual(estimate.visible_dora_count, 2)
+                self.assertEqual(estimate.bonus_han, 2)
+
     def test_red_five_counts_as_score_estimate_bonus_han(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

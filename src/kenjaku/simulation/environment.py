@@ -2175,7 +2175,9 @@ def _visible_dora_count(
         return 0
     dora_type_counts = [0] * 34
     for indicator in state.dora_indicators:
-        dora_type_counts[_dora_type_for_indicator(indicator.type).index] += 1
+        dora_type_counts[
+            _dora_type_for_indicator(indicator.type, ruleset=state.ruleset).index
+        ] += 1
     return sum(
         dora_type_counts[tile.type.index]
         for tile in _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
@@ -2196,7 +2198,13 @@ def _red_dora_count(
     )
 
 
-def _dora_type_for_indicator(indicator: TileType) -> TileType:
+def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
+    if (
+        ruleset == TENHOU_3P.name
+        and indicator.suit == "m"
+        and indicator.rank in {1, 9}
+    ):
+        return TileType.parse("9m" if indicator.rank == 1 else "1m")
     if indicator.suit in {"m", "p", "s"}:
         rank = indicator.rank
         assert rank is not None

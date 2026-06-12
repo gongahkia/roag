@@ -304,6 +304,7 @@ This is well within "side project budget" territory.
   - [x] Basic Tenhou Sanma North-as-guest-wind yaku filtering
   - [x] Basic sandbox Kita/pei-nuki action with dead-wall replacement draw and bonus-han metadata
   - [x] Basic sandbox Kita ron/pass reaction window without chankan yaku
+  - [x] Basic Tenhou Sanma 1m/9m dora indicator wrap
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -507,8 +508,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 10. Treat `self-play-sandbox --ruleset tenhou-3p` as Sanma plumbing only. It now has static tile
     exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
     North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
-    reaction window, but the Phase 5 Sanma ruleset still needs real 3-player round flow, exact
-    platform timing, complete call handling, scoring, training data, and evaluation.
+    reaction window, plus Tenhou's 1m/9m dora indicator wrap, but the Phase 5 Sanma ruleset still
+    needs real 3-player round flow, exact platform timing, complete call handling, scoring,
+    training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -522,10 +524,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
-    visible-dora and red-five bonus han in score estimates, tsumo yaku/dora tile views that avoid
-    duplicating the drawn tile, plus basic open/kan standard-shape win detection and a basic sandbox
-    yaku filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
-    simulator step is full call/kan timing, complete yaku/terminal legality,
+    visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
+    tsumo yaku/dora tile views that avoid duplicating the drawn tile, plus basic open/kan
+    standard-shape win detection and a basic sandbox yaku filter/metadata layer with
+    dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
+    timing, complete yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
@@ -1203,3 +1206,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   North used inside a hand is otakaze. This checks off the narrow North-as-guest-wind yaku subtask,
   but does not complete seat/round wind specificity, full yaku/fu validation, scoring, training
   data, or evaluation.
+- Added Tenhou Sanma 1m/9m dora indicator wrapping to sandbox visible-dora score estimates.
+  `tenhou-3p` now maps a 1m indicator to 9m and a 9m indicator to 1m instead of pointing 1m at the
+  removed 2m tile, matching Tenhou's three-player rule note. This checks off the narrow Sanma dora
+  wrap subtask, but does not complete exact dead-wall dora ordering, ura/kan-ura handling, full
+  Sanma scoring, training data, or evaluation.
