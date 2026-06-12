@@ -45,8 +45,8 @@ handoff notes.
   point-delta and score-estimate metadata, including basic dealer-aware win payments,
   visible-dora/red-five bonus han, basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
-  tenpai/noten point deltas plus basic Nagashi mangan wall-exhaustion handling. The sandbox also
-  has narrow Sanma
+  tenpai/noten point deltas plus basic Nagashi mangan wall-exhaustion and next-round progression.
+  The sandbox also has narrow Sanma
   support: static 3-player tile exclusions, 35,000-point starts, no-chi call filtering,
   North-as-guest-wind yaku filtering, Tenhou's 1m/9m dora indicator wrap, and a basic
   Kita/pei-nuki action that tracks exposed North tiles separately from melds, opens a ron/pass

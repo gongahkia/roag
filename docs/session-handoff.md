@@ -95,8 +95,9 @@ Last updated: 2026-06-12.
   dealer-aware ron/tsumo payment handling plus visible-dora/red-five bonus han and kazoe-yakuman
   limits, suppresses bonus han on yakuman estimates, and tsumo yaku/dora tile views no longer
   duplicate the drawn tile. Added basic Nagashi mangan wall-exhaustion handling as mangan tsumo
-  when every discard is terminal/honor and no own discard was called. This is still not hand
-  scoring, full round-continuation semantics, real
+  when every discard is terminal/honor and no own discard was called, plus win-style next-round
+  progression for dealer repeat and honba. This is still not hand scoring, full
+  round-continuation semantics, real
   multi-ron payment validation, complete payment accounting, complete yaku validation, full
   open-hand yaku rules, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
   indicator ordering, complete robbing-kan/chankan semantics, complete post-riichi kan timing,
@@ -115,6 +116,7 @@ Last updated: 2026-06-12.
   Added basic kazoe-yakuman score estimates for non-yakuman hands reaching 13 or more total han.
   Added basic yakuman bonus-han suppression in score estimates while preserving raw dora counts.
   Added basic Nagashi mangan wall-exhaustion handling that bypasses normal tenpai/noten settlement.
+  Added basic Nagashi mangan next-round progression for the sandbox's win-style settlement path.
   Added direct coverage for basic Tenhou Sanma tsumo-loss point estimates.
   Added a basic Tenhou Sanma eight-rinshan replacement reserve cap for full dead-wall states.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan/Kita
@@ -316,7 +318,8 @@ Last updated: 2026-06-12.
   rewards, and terminal point-delta metadata, including basic dealer-aware win payment estimates,
   visible-dora/red-five score-estimate bonus han, basic kazoe-yakuman score estimates, basic
   yakuman bonus-han suppression, tsumo yaku/dora tile-view de-duplication, basic Nagashi mangan
-  wall-exhaustion handling, and basic live-wall exhaustive-draw tenpai/noten point deltas.
+  wall-exhaustion and next-round progression, and basic live-wall exhaustive-draw tenpai/noten
+  point deltas.
 
 ## Working Rules
 
@@ -344,7 +347,7 @@ Last updated: 2026-06-12.
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
   including yaku checks, complete payment/scoring semantics beyond the current basic point-ledger,
   dealer-aware payment, visible/red dora, kazoe-yakuman limit, yakuman bonus-han suppression, tsumo
-  tile-view de-duplication, Nagashi mangan wall-exhaustion handling, and next-round
+  tile-view de-duplication, Nagashi mangan wall-exhaustion and next-round handling, and next-round
   dealer/honba/round-wind helper slices, ippatsu scoring, full yaku-aware open/kan hand legality,
   complete rinshan yaku/scoring semantics, complete
   haitei/houtei endgame timing, complete double-riichi/riichi timing, complete kan-dora/ura-dora
@@ -876,9 +879,9 @@ Mortal local baseline reconnaissance:
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
    tenpai/noten point-delta, dealer-aware win payment, visible/red-dora score-estimate,
-   kazoe-yakuman limit, yakuman bonus-han suppression, Nagashi mangan wall-exhaustion handling, and
-   next-round dealer/honba/round-wind slices, ippatsu scoring beyond narrow ron metadata, full
-   yaku-aware open/kan hand legality,
+   kazoe-yakuman limit, yakuman bonus-han suppression, Nagashi mangan wall-exhaustion and
+   next-round handling, and next-round dealer/honba/round-wind slices, ippatsu scoring beyond
+   narrow ron metadata, full yaku-aware open/kan hand legality,
    complete rinshan yaku/scoring semantics, complete haitei/houtei endgame timing,
    complete double-riichi/riichi timing, complete kan-dora/ura-dora indicator ordering, complete
    chankan semantics beyond the basic ippatsu timing

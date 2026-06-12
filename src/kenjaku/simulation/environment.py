@@ -2060,7 +2060,7 @@ def _new_sandbox_round_state(
 
 
 def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
-    if state.terminal_reason in {"ron", "tsumo", "chankan"}:
+    if state.terminal_reason in {"ron", "tsumo", "chankan", "nagashi_mangan"}:
         return state.dealer_seat in state.winner_seats
     if state.terminal_reason == "wall_exhausted":
         return state.dealer_seat in state.exhaustive_draw_tenpai_seats
@@ -2070,7 +2070,7 @@ def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
 def _terminal_carries_honba(state: SandboxEnvironmentState) -> bool:
     if state.terminal_reason == "wall_exhausted":
         return True
-    if state.terminal_reason in {"ron", "tsumo", "chankan"}:
+    if state.terminal_reason in {"ron", "tsumo", "chankan", "nagashi_mangan"}:
         return state.dealer_seat in state.winner_seats
     raise ValueError(
         "unsupported terminal reason for honba progression: " + str(state.terminal_reason)

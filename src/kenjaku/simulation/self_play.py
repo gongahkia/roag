@@ -154,6 +154,7 @@ def run_self_play_sandbox(
             "terminal_point_delta_metadata": True,
             "exhaustive_draw_tenpai_noten_payments": True,
             "nagashi_mangan_wall_exhaustion": True,
+            "nagashi_mangan_next_round_progression": True,
             "terminal_score_estimate_metadata": True,
             "score_estimate_point_accounting": True,
             "dealer_aware_win_payments": True,

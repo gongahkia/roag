@@ -1146,6 +1146,76 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.honba, 2)
         self.assertEqual(next_round.round_wind, TileType.parse("E"))
 
+    def test_next_round_after_dealer_nagashi_repeats_dealer_and_increments_honba(
+        self,
+    ) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            discards=(
+                _tiles("1m 9m E"),
+                _tiles("2m"),
+                _tiles("3m"),
+                _tiles("4m"),
+            ),
+            hands=(
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+                (),
+            ),
+            riichi_sticks=1,
+            honba=2,
+            dealer_seat=0,
+        )
+        terminal = draw_for_current_seat(state)
+
+        next_round = next_round_sandbox_environment(terminal, seed="nagashi-repeat")
+
+        self.assertEqual(terminal.terminal_reason, "nagashi_mangan")
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.riichi_sticks, 0)
+        self.assertEqual(next_round.points, terminal.points)
+
+    def test_next_round_after_child_nagashi_rotates_dealer_and_resets_honba(
+        self,
+    ) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            discards=(
+                _tiles("2m"),
+                _tiles("1p 9p S"),
+                _tiles("3m"),
+                _tiles("4m"),
+            ),
+            hands=(
+                (),
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s 5m 6m 7m 8m"),
+                (),
+                (),
+            ),
+            riichi_sticks=1,
+            honba=2,
+            dealer_seat=0,
+        )
+        terminal = draw_for_current_seat(state)
+
+        next_round = next_round_sandbox_environment(terminal, seed="nagashi-rotate")
+
+        self.assertEqual(terminal.terminal_reason, "nagashi_mangan")
+        self.assertEqual(next_round.dealer_seat, 1)
+        self.assertEqual(next_round.current_seat, 1)
+        self.assertEqual(next_round.honba, 0)
+        self.assertEqual(next_round.riichi_sticks, 0)
+        self.assertEqual(next_round.points, terminal.points)
+
     def test_next_round_rejects_nonterminal_and_artificial_max_turns(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-4p", seed="next-errors")
 

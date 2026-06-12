@@ -103,6 +103,14 @@ class StatusTests(unittest.TestCase):
             ]
         )
         self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_nagashi_mangan_wall_exhaustion"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_nagashi_mangan_next_round_progression"
+            ]
+        )
+        self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
         )
         self.assertTrue(
@@ -206,6 +214,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_terminal_reward_payloads: yes", text)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", text)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", text)
+        self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", text)
+        self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", text)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", text)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", text)
         self.assertIn("sandbox_red_dora_score_estimates: yes", text)
