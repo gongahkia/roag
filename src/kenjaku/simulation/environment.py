@@ -27,6 +27,7 @@ HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-nondealer-rounded-v0"
+SANDBOX_KITA_TILE = TileType.parse("N")
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
     "riichi": 1,
@@ -69,6 +70,9 @@ class SandboxScoreEstimate:
     seat: int
     win_kind: str
     yaku: tuple[str, ...]
+    yaku_han: int
+    bonus_han: int
+    kita_dora_count: int
     han: int
     fu: int | None
     limit: str | None
@@ -84,6 +88,9 @@ class SandboxScoreEstimate:
             "seat": self.seat,
             "win_kind": self.win_kind,
             "yaku": list(self.yaku),
+            "yaku_han": self.yaku_han,
+            "bonus_han": self.bonus_han,
+            "kita_dora_count": self.kita_dora_count,
             "han": self.han,
             "fu": self.fu,
             "limit": self.limit,
@@ -106,6 +113,7 @@ class SandboxEnvironmentState:
     dora_indicators: tuple[Tile, ...] = ()
     discards: tuple[tuple[Tile, ...], ...] = ()
     melds: tuple[tuple[Meld, ...], ...] = ()
+    kita_tiles: tuple[tuple[Tile, ...], ...] = ()
     points: tuple[int, ...] = ()
     riichi_sticks: int = 0
     honba: int = 0
@@ -153,6 +161,14 @@ class SandboxEnvironmentState:
             raise ValueError("discards must match player count")
         if self.melds and len(self.melds) != self.players:
             raise ValueError("melds must match player count")
+        if self.kita_tiles and len(self.kita_tiles) != self.players:
+            raise ValueError("kita tiles must match player count")
+        if any(self.kita_tiles) and self.ruleset != TENHOU_3P.name:
+            raise ValueError("kita tiles are only supported for tenhou-3p")
+        if any(
+            tile.type != SANDBOX_KITA_TILE for seat_tiles in self.kita_tiles for tile in seat_tiles
+        ):
+            raise ValueError("kita tiles must all be north tiles")
         if self.points and len(self.points) != self.players:
             raise ValueError("point count must match player count")
         if self.riichi_sticks < 0:
@@ -256,7 +272,10 @@ class SandboxEnvironmentState:
             raise ValueError("terminal score estimates require winner seats")
         if any(not 0 <= estimate.seat < self.players for estimate in self.terminal_score_estimates):
             raise ValueError("terminal score estimate seat outside player range")
-        if any(estimate.seat not in self.winner_seats for estimate in self.terminal_score_estimates):
+        if any(
+            estimate.seat not in self.winner_seats
+            for estimate in self.terminal_score_estimates
+        ):
             raise ValueError("terminal score estimate seats must also be winner seats")
 
     def current_hand(self) -> tuple[Tile, ...]:
@@ -284,6 +303,11 @@ class SandboxEnvironmentState:
                 for seat_discards in _discards_by_seat(self)
             ],
             "melds": _meld_payloads(self),
+            "kita_tiles": [
+                [tile.notation for tile in seat_tiles]
+                for seat_tiles in _kita_tiles_by_seat(self)
+            ],
+            "kita_counts": [len(seat_tiles) for seat_tiles in _kita_tiles_by_seat(self)],
             "drawn_tile": None if self.drawn_tile is None else self.drawn_tile.notation,
             "rinshan_draw": self.rinshan_draw,
             "needs_discard": self.needs_discard,
@@ -350,6 +374,7 @@ def initial_sandbox_environment(
         dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
+        kita_tiles=tuple(() for _seat in range(rules.players)),
         points=tuple(SANDBOX_INITIAL_POINTS for _seat in range(rules.players)),
     )
 
@@ -404,6 +429,7 @@ def legal_sandbox_actions(
     include_riichi: bool = True,
     include_ankan: bool = True,
     include_kakan: bool = True,
+    include_kita: bool = True,
     include_ron: bool = True,
     include_calls: bool = True,
 ) -> tuple[Action, ...]:
@@ -438,6 +464,8 @@ def legal_sandbox_actions(
         actions.extend(legal_ankan_actions(state))
     if include_kakan:
         actions.extend(legal_kakan_actions(state))
+    if include_kita:
+        actions.extend(legal_kita_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 
@@ -535,6 +563,37 @@ def legal_kakan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
             consumed=_first_tiles_of_type(hand, tile_type, 1),
         )
         for tile_type in promotable_types
+    )
+
+
+def legal_kita_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    if _has_pending_reaction(state):
+        raise ValueError("cannot call kita during a pending reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before kita")
+    if state.ruleset != TENHOU_3P.name:
+        return ()
+    if _is_riichi(state, seat=state.current_seat):
+        if state.drawn_tile.type != SANDBOX_KITA_TILE:
+            return ()
+        return (
+            Action(
+                ActionKind.KITA,
+                SANDBOX_KITA_TILE,
+                consumed=(state.drawn_tile,),
+            ),
+        )
+
+    if not any(tile.type == SANDBOX_KITA_TILE for tile in state.current_hand()):
+        return ()
+    north_tiles = _first_tiles_of_type(state.current_hand(), SANDBOX_KITA_TILE, 1)
+    return (
+        Action(
+            ActionKind.KITA,
+            SANDBOX_KITA_TILE,
+            consumed=north_tiles,
+        ),
     )
 
 
@@ -697,6 +756,46 @@ def apply_kakan_action(
     )
 
     return _replace_state(state, **updates), promoted_meld
+
+
+def apply_kita_action(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> SandboxEnvironmentState:
+    _require_non_terminal(state)
+    if _has_pending_reaction(state):
+        raise ValueError("cannot call kita during a pending reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before kita")
+    if action.kind is not ActionKind.KITA:
+        raise ValueError("sandbox environment only supports kita actions here")
+    if action not in legal_kita_actions(state):
+        raise ValueError("kita action is not legal for this state")
+
+    hands = [list(hand) for hand in state.hands]
+    kita_tile = action.consumed[0] if action.consumed else Tile(SANDBOX_KITA_TILE)
+    _remove_tile(hands[state.current_seat], kita_tile)
+    kita_tiles = [list(seat_tiles) for seat_tiles in _kita_tiles_by_seat(state)]
+    kita_tiles[state.current_seat].append(kita_tile)
+    updates: dict[str, Any] = {
+        "hands": tuple(tuple(hand) for hand in hands),
+        "kita_tiles": tuple(tuple(seat_tiles) for seat_tiles in kita_tiles),
+        "drawn_tile": None,
+        "rinshan_draw": False,
+        "needs_discard": False,
+        "pending_discard": None,
+        "pending_discard_seat": None,
+        "pending_reaction_seats": (),
+        "ippatsu_seats": (),
+    }
+    _apply_kan_replacement_draw(
+        state,
+        hands=hands,
+        updates=updates,
+        seat=state.current_seat,
+        reveal_kan_dora=False,
+    )
+    return _replace_state(state, **updates)
 
 
 def apply_discard_action(
@@ -1451,6 +1550,7 @@ def _apply_kan_replacement_draw(
     hands: list[list[Tile]],
     updates: dict[str, Any],
     seat: int,
+    reveal_kan_dora: bool = True,
 ) -> None:
     if not 0 <= seat < state.players:
         raise ValueError("replacement draw seat outside player range")
@@ -1462,9 +1562,10 @@ def _apply_kan_replacement_draw(
         return
 
     dora_indicators = state.dora_indicators
-    kan_dora = _next_kan_dora_indicator(state)
-    if kan_dora is not None:
-        dora_indicators = (*dora_indicators, kan_dora)
+    if reveal_kan_dora:
+        kan_dora = _next_kan_dora_indicator(state)
+        if kan_dora is not None:
+            dora_indicators = (*dora_indicators, kan_dora)
 
     replacement_draw = state.dead_wall[-1]
     hands[seat].append(replacement_draw)
@@ -1519,6 +1620,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "dora_indicators": state.dora_indicators,
         "discards": state.discards,
         "melds": state.melds,
+        "kita_tiles": state.kita_tiles,
         "points": state.points,
         "riichi_sticks": state.riichi_sticks,
         "honba": state.honba,
@@ -1579,6 +1681,12 @@ def _melds_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Meld, ...], ..
     return tuple(() for _seat in range(state.players))
 
 
+def _kita_tiles_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Tile, ...], ...]:
+    if state.kita_tiles:
+        return state.kita_tiles
+    return tuple(() for _seat in range(state.players))
+
+
 def _discards_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Tile, ...], ...]:
     if state.discards:
         return state.discards
@@ -1613,6 +1721,7 @@ def _terminal_win_point_updates(
             seat=winner_seat,
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
+            kita_dora_count=len(_kita_tiles_by_seat(state)[winner_seat]),
             honba=state.honba,
             riichi_stick_points=riichi_stick_points,
         )
@@ -1654,15 +1763,20 @@ def _sandbox_score_estimate(
     seat: int,
     win_kind: str,
     yaku: tuple[str, ...],
+    kita_dora_count: int,
     honba: int,
     riichi_stick_points: int,
 ) -> SandboxScoreEstimate:
+    bonus_han = kita_dora_count
     if "kokushi" in yaku:
         return SandboxScoreEstimate(
             seat=seat,
             win_kind=win_kind,
             yaku=yaku,
-            han=13,
+            yaku_han=13,
+            bonus_han=bonus_han,
+            kita_dora_count=kita_dora_count,
+            han=13 + bonus_han,
             fu=None,
             limit="yakuman",
             base_points=SANDBOX_LIMIT_BASE_POINTS["yakuman"],
@@ -1676,7 +1790,8 @@ def _sandbox_score_estimate(
             riichi_stick_points=riichi_stick_points,
         )
 
-    han = sum(SANDBOX_YAKU_HAN.get(yaku_name, 0) for yaku_name in yaku)
+    yaku_han = sum(SANDBOX_YAKU_HAN.get(yaku_name, 0) for yaku_name in yaku)
+    han = yaku_han + bonus_han
     fu = 25 if "chiitoitsu" in yaku else 30
     base_points = fu * (2 ** (han + 2))
     limit = _sandbox_score_limit(han=han, base_points=base_points)
@@ -1695,6 +1810,9 @@ def _sandbox_score_estimate(
         seat=seat,
         win_kind=win_kind,
         yaku=yaku,
+        yaku_han=yaku_han,
+        bonus_han=bonus_han,
+        kita_dora_count=kita_dora_count,
         han=han,
         fu=fu,
         limit=limit,

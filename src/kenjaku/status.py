@@ -85,6 +85,7 @@ def build_status_payload() -> dict[str, Any]:
                 "self_play_sandbox_tsumo_termination": True,
                 "sanma_static_ruleset": True,
                 "self_play_sandbox_sanma_tile_set": True,
+                "sandbox_sanma_kita_action": True,
                 "discard_mlp_training_command": True,
                 "heuristic_defense_risk_scoring": True,
                 "deal_in_estimator_training_command": True,

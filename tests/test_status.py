@@ -99,6 +99,7 @@ class StatusTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sanma_static_ruleset"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox_sanma_tile_set"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
         self.assertTrue(payload["capabilities"]["implemented"]["heuristic_defense_risk_scoring"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
@@ -167,6 +168,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("self_play_sandbox_tsumo_termination: yes", text)
         self.assertIn("sanma_static_ruleset: yes", text)
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", text)
+        self.assertIn("sandbox_sanma_kita_action: yes", text)
         self.assertIn("heuristic_defense_risk_scoring: yes", text)
         self.assertIn("deal_in_estimator_training_command: yes", text)
         self.assertIn("transformer_state_encoder_module: yes", text)

@@ -85,6 +85,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
         self.assertIn("sanma_static_ruleset: yes", output)
         self.assertIn("self_play_sandbox_sanma_tile_set: yes", output)
+        self.assertIn("sandbox_sanma_kita_action: yes", output)
         self.assertIn("deal_in_estimator_training_command: yes", output)
         self.assertIn("transformer_state_encoder_module: yes", output)
         self.assertIn("transformer_behavior_cloning_training_command: yes", output)
@@ -192,6 +193,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_sandbox_sanma_tile_set"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )
@@ -418,6 +420,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("dead_wall_replacement_draws: yes", text_stdout.getvalue())
         self.assertIn("kan_dora_indicator_metadata: yes", text_stdout.getvalue())
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
+        self.assertIn("sanma_kita_action: yes", text_stdout.getvalue())
+        self.assertIn("kita_policy: no", text_stdout.getvalue())
         self.assertIn("basic_yaku_win_filter: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
@@ -444,6 +448,8 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(report_payload["capabilities"]["kan_dora_indicator_metadata"])
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
+        self.assertTrue(report_payload["capabilities"]["sanma_kita_action"])
+        self.assertFalse(report_payload["capabilities"]["kita_policy"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
@@ -455,6 +461,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_payload["episodes"], 1)
         self.assertTrue(json_payload["stop_on_tsumo"])
         self.assertIn("trajectory", json_payload["episode_summaries"][0])
+        self.assertIn("kita_tiles", json_payload["episode_summaries"][0])
+        self.assertIn("kita_counts", json_payload["episode_summaries"][0])
 
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()

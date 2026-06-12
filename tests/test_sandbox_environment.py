@@ -14,6 +14,7 @@ from kenjaku.simulation import (
     apply_call_action,
     apply_discard_action,
     apply_kakan_action,
+    apply_kita_action,
     apply_reaction_pass_action,
     apply_riichi_action,
     apply_ron_action,
@@ -27,6 +28,7 @@ from kenjaku.simulation import (
     legal_chankan_ron_actions,
     legal_discard_actions,
     legal_kakan_actions,
+    legal_kita_actions,
     legal_reaction_actions,
     legal_riichi_actions,
     legal_ron_actions,
@@ -141,9 +143,15 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(drawn.winning_yaku_by_seat, ((0, ("menzen_tsumo", "yakuhai")),))
         self.assertEqual(drawn.winning_rinshan_seats, ())
         self.assertEqual(drawn.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
-        self.assertEqual(drawn.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(drawn.terminal_point_deltas, (3000, -1000, -1000, -1000))
+        self.assertEqual(drawn.terminal_score_estimates[0].yaku_han, 2)
+        self.assertEqual(drawn.terminal_score_estimates[0].bonus_han, 0)
+        self.assertEqual(drawn.terminal_score_estimates[0].han, 2)
         self.assertEqual(drawn.to_payload()["terminal_rewards"], [1.0, -1 / 3, -1 / 3, -1 / 3])
-        self.assertEqual(drawn.to_payload()["terminal_point_deltas"], [0, 0, 0, 0])
+        self.assertEqual(
+            drawn.to_payload()["terminal_point_deltas"],
+            [3000, -1000, -1000, -1000],
+        )
         self.assertEqual(drawn.to_payload()["winning_yaku"], ["menzen_tsumo", "yakuhai"])
         self.assertEqual(
             drawn.to_payload()["winning_yaku_by_seat"],
@@ -179,7 +187,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_rinshan_seats, ())
         self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
-        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(terminal.terminal_point_deltas, (3000, -1000, -1000, -1000))
 
     def test_rinshan_tsumo_metadata_marks_replacement_draw_winner(self) -> None:
         state = SandboxEnvironmentState(
@@ -399,17 +407,20 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             terminal.points,
             (
-                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
-                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS,
+                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS - 1000,
+                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS + 1000,
                 SANDBOX_INITIAL_POINTS,
                 SANDBOX_INITIAL_POINTS,
             ),
         )
         self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
-        self.assertEqual(terminal.terminal_point_deltas, (0, RIICHI_DEPOSIT_POINTS, 0, 0))
+        self.assertEqual(
+            terminal.terminal_point_deltas,
+            (-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0),
+        )
         self.assertEqual(
             terminal.to_payload()["terminal_point_deltas"],
-            [0, RIICHI_DEPOSIT_POINTS, 0, 0],
+            [-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0],
         )
 
     def test_honba_bonus_applies_to_ron_point_ledger(self) -> None:
@@ -434,7 +445,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             seat=1,
             action=Action(ActionKind.RON, TileType.parse("5m")),
         )
-        payment = honba * HONBA_RON_POINTS
+        payment = 1000 + honba * HONBA_RON_POINTS
 
         self.assertEqual(terminal.terminal_reason, "ron")
         self.assertEqual(terminal.honba, honba)
@@ -463,7 +474,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         drawn = draw_for_current_seat(state)
         terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
-        payment = honba * HONBA_TSUMO_POINTS_PER_LOSER
+        payment = 1000 + honba * HONBA_TSUMO_POINTS_PER_LOSER
 
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.honba, honba)
@@ -1797,6 +1808,169 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertFalse(any(tile in visible for tile in _excluded_sanma_manzu()))
         self.assertFalse(any(tile in wall for tile in _excluded_sanma_manzu()))
         self.assertFalse(any(tile in dead_wall for tile in _excluded_sanma_manzu()))
+        self.assertEqual(state.kita_tiles, ((), (), ()))
+        self.assertEqual(state.to_payload()["kita_tiles"], [[], [], []])
+        self.assertEqual(state.to_payload()["kita_counts"], [0, 0, 0])
+
+    def test_sanma_kita_uses_replacement_draw_without_kan_dora(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 2p 8s"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                (),
+                (),
+            ),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
+        )
+
+        drawn = draw_for_current_seat(state)
+        kita = Action(
+            ActionKind.KITA,
+            TileType.parse("N"),
+            consumed=(Tile.parse("N"),),
+        )
+        actions = legal_kita_actions(drawn)
+        turn_actions = legal_sandbox_actions(drawn)
+        after_kita = apply_kita_action(drawn, kita)
+
+        self.assertEqual(actions, (kita,))
+        self.assertIn(kita, turn_actions)
+        self.assertEqual(after_kita.current_seat, 0)
+        self.assertEqual(after_kita.drawn_tile, Tile.parse("8s"))
+        self.assertTrue(after_kita.rinshan_draw)
+        self.assertFalse(after_kita.needs_discard)
+        self.assertEqual(after_kita.dead_wall, _tiles("1p 2p"))
+        self.assertEqual(after_kita.dora_indicators, _tiles("1p"))
+        self.assertEqual(after_kita.kita_tiles, ((Tile.parse("N"),), (), ()))
+        self.assertEqual(after_kita.hand_sizes(), [14, 0, 0])
+        self.assertEqual(after_kita.ippatsu_seats, ())
+        self.assertEqual(after_kita.to_payload()["kita_tiles"], [["N"], [], []])
+        self.assertEqual(after_kita.to_payload()["kita_counts"], [1, 0, 0])
+        self.assertIn(Action.discard("8s"), legal_discard_actions(after_kita))
+
+    def test_kita_is_not_legal_in_four_player_sandbox(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("N"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                (),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        kita = Action(
+            ActionKind.KITA,
+            TileType.parse("N"),
+            consumed=(Tile.parse("N"),),
+        )
+
+        self.assertEqual(legal_kita_actions(drawn), ())
+        self.assertNotIn(kita, legal_sandbox_actions(drawn))
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_kita_action(drawn, kita)
+        with self.assertRaisesRegex(ValueError, "kita tiles are only supported"):
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(),
+                hands=((), (), (), ()),
+                kita_tiles=((Tile.parse("N"),), (), (), ()),
+            )
+
+    def test_post_riichi_kita_is_allowed_only_for_drawn_north(self) -> None:
+        north_state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 2p 8s"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                (),
+                (),
+            ),
+            riichi_seats=(0,),
+            ippatsu_seats=(0,),
+        )
+        non_north_state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("8s"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s N"),
+                (),
+                (),
+            ),
+            riichi_seats=(0,),
+            ippatsu_seats=(0,),
+        )
+
+        north_drawn = draw_for_current_seat(north_state)
+        non_north_drawn = draw_for_current_seat(non_north_state)
+        after_kita = apply_kita_action(north_drawn, legal_kita_actions(north_drawn)[0])
+
+        self.assertEqual(
+            legal_kita_actions(north_drawn),
+            (
+                Action(
+                    ActionKind.KITA,
+                    TileType.parse("N"),
+                    consumed=(Tile.parse("N"),),
+                ),
+            ),
+        )
+        self.assertEqual(legal_kita_actions(non_north_drawn), ())
+        self.assertEqual(after_kita.riichi_seats, (0,))
+        self.assertEqual(after_kita.ippatsu_seats, ())
+        self.assertEqual(after_kita.drawn_tile, Tile.parse("8s"))
+        self.assertEqual(legal_discard_actions(after_kita), (Action.discard("8s", tsumogiri=True),))
+
+    def test_sanma_kita_tsumo_keeps_kita_as_bonus_han_metadata(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 5m"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        after_kita = apply_kita_action(drawn, legal_kita_actions(drawn)[0])
+        terminal = apply_tsumo_action(after_kita, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "rinshan", "yakuhai"))
+        self.assertEqual(terminal.winning_rinshan_seats, (0,))
+        self.assertEqual(terminal.kita_tiles, ((Tile.parse("N"),), (), ()))
+        self.assertEqual(estimate.yaku_han, 3)
+        self.assertEqual(estimate.bonus_han, 1)
+        self.assertEqual(estimate.kita_dora_count, 1)
+        self.assertEqual(estimate.han, 4)
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["yaku_han"],
+            3,
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["bonus_han"],
+            1,
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["kita_dora_count"],
+            1,
+        )
 
 
 def _missing_discard_action(state: SandboxEnvironmentState) -> Action:
