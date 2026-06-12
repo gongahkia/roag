@@ -100,6 +100,7 @@ Last updated: 2026-06-12.
   Added basic post-pon Kita suppression and post-call discard-obligation action listing.
   Added basic Kita ippatsu reaction timing: ron on a called North can still carry ippatsu, and
   passing the reaction clears ippatsu before the replacement draw.
+  Added direct coverage for basic Tenhou Sanma tsumo-loss point estimates.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan/Kita
   policy.
 - Expected tracked worktree after this implementation is committed and pushed: clean.
@@ -284,16 +285,16 @@ Last updated: 2026-06-12.
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
   terminal metadata, a Tenhou Sanma 35,000-point start, Tenhou Sanma no-chi call filtering, Tenhou
   Sanma North-as-guest-wind yaku filtering, Tenhou Sanma 1m/9m dora indicator wrap, Tenhou Sanma
-  post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, a basic Sanma
-  Kita/pei-nuki action with dead-wall replacement draws and bonus-han score-estimate metadata, a
-  basic Sanma Kita ron/pass reaction window before replacement draw that resolves as normal ron
-  rather than chankan, a basic chankan ron/pass window before kakan replacement draw, kokushi-only
-  ankan chankan, basic closed-hand tsumo/ron terminal metadata, basic multi-ron terminal
-  resolution, basic open/kan standard-shape win detection, a basic sandbox yaku filter/metadata
-  layer with dragon/round-wind/seat-wind yakuhai filtering, simple sandbox terminal rewards, and
-  terminal point-delta metadata, including basic dealer-aware win payment estimates,
-  visible-dora/red-five score-estimate bonus han, tsumo yaku/dora tile-view de-duplication, and
-  basic live-wall exhaustive-draw tenpai/noten point deltas.
+  post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, basic Tenhou Sanma
+  tsumo-loss point estimates, a basic Sanma Kita/pei-nuki action with dead-wall replacement draws
+  and bonus-han score-estimate metadata, a basic Sanma Kita ron/pass reaction window before
+  replacement draw that resolves as normal ron rather than chankan, a basic chankan ron/pass window
+  before kakan replacement draw, kokushi-only ankan chankan, basic closed-hand tsumo/ron terminal
+  metadata, basic multi-ron terminal resolution, basic open/kan standard-shape win detection, a
+  basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering,
+  simple sandbox terminal rewards, and terminal point-delta metadata, including basic dealer-aware
+  win payment estimates, visible-dora/red-five score-estimate bonus han, tsumo yaku/dora tile-view
+  de-duplication, and basic live-wall exhaustive-draw tenpai/noten point deltas.
 
 ## Working Rules
 
@@ -330,8 +331,9 @@ Last updated: 2026-06-12.
   item. It applies the static tile exclusions, 35,000-point starts, three-seat rotation, a basic
   no-chi call filter, a basic North-as-guest-wind yaku filter, a basic Kita/pei-nuki environment
   action, a basic Kita ron/pass reaction window, Tenhou's 1m/9m dora indicator wrap, and post-pon
-  Kita suppression plus Kita ippatsu reaction timing only. Real Sanma still needs gameplay, exact
-  platform timing, complete call handling, scoring, training, and evaluation.
+  Kita suppression plus Kita ippatsu reaction timing and basic tsumo-loss point estimates only.
+  Real Sanma still needs gameplay, exact platform timing, complete call handling, scoring, training,
+  and evaluation.
 - PyTorch is now a core dependency for the supervised-learning path. Keep non-ML command imports
   lazy where practical so source checkouts remain usable before installation.
 
@@ -857,9 +859,9 @@ Mortal local baseline reconnaissance:
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita
-   suppression, and Kita ippatsu reaction timing exist. Real 3-player gameplay, exact platform
-   timing, exact call timing, complete call handling, full yaku/fu validation, scoring,
-   placement/return handling, training, and evaluation are still open.
+   suppression, Kita ippatsu reaction timing, and basic tsumo-loss point estimates exist. Real
+   3-player gameplay, exact platform timing, exact call timing, complete call handling, full
+   yaku/fu validation, scoring, placement/return handling, training, and evaluation are still open.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics beyond the basic
     dealer-aware, visible/red-dora, and next-round dealer/honba/round-wind helper slices, ippatsu

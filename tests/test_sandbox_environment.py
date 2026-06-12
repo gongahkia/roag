@@ -594,6 +594,56 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate_payload["tsumo_dealer_payment"], 1000)
         self.assertEqual(estimate_payload["tsumo_payment_per_loser"], 500)
 
+    def test_sanma_tsumo_uses_tsumo_loss_point_estimates(self) -> None:
+        nondealer_state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("5p"),),
+            hands=(
+                (),
+                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5p"),
+                (),
+            ),
+            current_seat=1,
+            dealer_seat=0,
+        )
+        dealer_state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("5p"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5p"),
+                (),
+                (),
+            ),
+            current_seat=0,
+            dealer_seat=0,
+        )
+
+        nondealer_terminal = apply_tsumo_action(
+            draw_for_current_seat(nondealer_state),
+            Action(ActionKind.TSUMO),
+        )
+        dealer_terminal = apply_tsumo_action(
+            draw_for_current_seat(dealer_state),
+            Action(ActionKind.TSUMO),
+        )
+        nondealer_estimate = nondealer_terminal.terminal_score_estimates[0]
+        dealer_estimate = dealer_terminal.terminal_score_estimates[0]
+
+        self.assertEqual(nondealer_terminal.terminal_reason, "tsumo")
+        self.assertEqual(nondealer_terminal.terminal_point_deltas, (-1000, 1500, -500))
+        self.assertEqual(nondealer_terminal.points, (34000, 36500, 34500))
+        self.assertFalse(nondealer_estimate.is_dealer)
+        self.assertEqual(nondealer_estimate.tsumo_child_payment, 500)
+        self.assertEqual(nondealer_estimate.tsumo_dealer_payment, 1000)
+        self.assertEqual(dealer_terminal.terminal_reason, "tsumo")
+        self.assertEqual(dealer_terminal.terminal_point_deltas, (2000, -1000, -1000))
+        self.assertEqual(dealer_terminal.points, (37000, 34000, 34000))
+        self.assertTrue(dealer_estimate.is_dealer)
+        self.assertEqual(dealer_estimate.tsumo_child_payment, 1000)
+        self.assertIsNone(dealer_estimate.tsumo_dealer_payment)
+
     def test_visible_dora_counts_as_score_estimate_bonus_han(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

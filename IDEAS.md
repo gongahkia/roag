@@ -307,6 +307,7 @@ This is well within "side project budget" territory.
   - [x] Basic Tenhou Sanma 1m/9m dora indicator wrap
   - [x] Basic Tenhou Sanma post-pon Kita suppression
   - [x] Basic Tenhou Sanma Kita ippatsu reaction timing
+  - [x] Basic Tenhou Sanma tsumo-loss payment estimates
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -511,8 +512,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
     North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
     reaction window, plus Tenhou's 1m/9m dora indicator wrap, post-pon Kita suppression, and basic
-    Kita ippatsu reaction timing, but the Phase 5 Sanma ruleset still needs real 3-player round
-    flow, exact platform timing, complete call handling, scoring, training data, and evaluation.
+    Kita ippatsu reaction timing, plus basic tsumo-loss payment estimates, but the Phase 5 Sanma
+    ruleset still needs real 3-player round flow, exact platform timing, complete call handling,
+    scoring, training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -529,9 +531,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
     Tenhou Sanma post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, tsumo
-    yaku/dora tile views that avoid duplicating the drawn tile, plus basic open/kan standard-shape
-    win detection and a basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind
-    yakuhai filtering only; the next simulator step is full call/kan timing, complete
+    yaku/dora tile views that avoid duplicating the drawn tile, basic Tenhou Sanma tsumo-loss
+    payment estimates, plus basic open/kan standard-shape win detection and a basic sandbox yaku
+    filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
+    simulator step is full call/kan timing, complete
     yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
@@ -1158,15 +1161,16 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
 - Added a basic sandbox score-estimate slice. Terminal wins now expose `terminal_score_estimates`
   with han/fu/limit metadata and use rounded score-derived ron/tsumo point transfers alongside
   riichi-stick and honba deltas. Later work added basic dealer-aware win payments. Still not done:
-  point-based reward scaling, Sanma payment differences, ura-dora treatment, kiriage and
-  kazoe handling, exhaustive yaku/fu validation, and full validation across every win/timing path.
+  point-based reward scaling, complete Sanma payment differences beyond basic tsumo-loss,
+  ura-dora treatment, kiriage and kazoe handling, exhaustive yaku/fu validation, and full
+  validation across every win/timing path.
   Do not treat this as complete scoring.
 - Added basic dealer-aware sandbox win payment estimates. Terminal win point updates now mark
   whether each winner is dealer, use dealer ron multipliers, split nondealer tsumo payments between
   dealer and child losers, and expose `tsumo_child_payment`/`tsumo_dealer_payment` in score-estimate
   payloads. This checks off the narrow dealer-aware payment subtask, but does not complete exact
-  scoring, Sanma payment differences, kiriage/kazoe, complete dora handling, exhaustive yaku/fu
-  validation, or calibrated point-based rewards.
+  scoring, complete Sanma payment differences beyond basic tsumo-loss, kiriage/kazoe, complete
+  dora handling, exhaustive yaku/fu validation, or calibrated point-based rewards.
 - Added basic visible-dora score-estimate bonus han. Terminal win score estimates now count current
   visible dora indicators over the same concealed-plus-meld tile view used for sandbox yaku metadata,
   expose `visible_dora_count`, and include it in bonus han alongside Kita. This checks off the narrow
@@ -1226,3 +1230,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   when the replacement draw proceeds. This checks off the narrow Kita ippatsu timing subtask, but
   does not complete exact platform call timing, complete Chiihou/Kyuushu/Double Riichi interruption
   semantics, full Sanma scoring, training data, or evaluation.
+- Added basic Tenhou Sanma tsumo-loss payment estimate coverage. The existing sandbox point loop
+  now has direct regression coverage for dealer and nondealer `tenhou-3p` tsumo wins, where only
+  the two real opponents pay. This checks off the narrow tsumo-loss payment subtask, but does not
+  complete exact Sanma scoring, placement/return handling, pao, complete yaku/fu validation,
+  training data, or evaluation.

@@ -47,8 +47,8 @@ handoff notes.
   Kita/pei-nuki action that tracks exposed North tiles separately from melds, opens a ron/pass
   reaction window when an opponent can win on the North, takes a delayed dead-wall replacement draw
   without revealing kan-dora after passes, suppresses immediate post-pon Kita, and counts as bonus
-  han in sandbox score estimates while preserving ippatsu for immediate ron on the called North.
-  The self-play sandbox uses this boundary for
+  han in sandbox score estimates while preserving ippatsu for immediate ron on the called North and
+  using basic tsumo-loss point transfers. The self-play sandbox uses this boundary for
   4-player and static 3-player tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.
