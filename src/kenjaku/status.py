@@ -45,6 +45,7 @@ def build_status_payload() -> dict[str, Any]:
                 "external_prediction_subprocess_boundary": True,
                 "permission_aware_replay_intake": True,
                 "permitted_replay_share_planning": True,
+                "public_safe_replay_summary": True,
                 "self_play_sandbox": True,
                 "sandbox_legal_discard_environment": True,
                 "sandbox_tsumo_action_generation": True,

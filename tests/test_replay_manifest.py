@@ -9,11 +9,15 @@ from kenjaku.io import (
     REPLAY_INTAKE_ACCEPTED_ITEM_KIND,
     REPLAY_INTAKE_REVIEW_KIND,
     REPLAY_MANIFEST_KIND,
+    REPLAY_PUBLIC_SUMMARY_KIND,
     REPLAY_SHARE_PLAN_KIND,
     accepted_replay_intake_items,
+    build_replay_public_summary,
+    build_replay_public_summary_file,
     build_replay_share_plan,
     build_replay_share_plan_file,
     format_replay_intake_review,
+    format_replay_public_summary,
     format_replay_share_plan,
     review_replay_manifest,
     review_replay_manifest_file,
@@ -174,6 +178,81 @@ class ReplayManifestTests(unittest.TestCase):
 
         self.assertEqual(plan["accepted_input_path"], str(accepted))
         self.assertEqual(plan["shareable"], 1)
+
+    def test_public_summary_sanitizes_shareable_rows_and_keeps_block_reasons(self) -> None:
+        rows = [
+            {
+                "kind": REPLAY_INTAKE_ACCEPTED_ITEM_KIND,
+                "id": "demo-ready",
+                "platform": "local_file",
+                "uri": "/private/replays/demo-ready.xml",
+                "intended_uses": ["analysis", "demo"],
+                "permission": {
+                    "status": "explicit_permission",
+                    "scope": ["analysis", "demo"],
+                    "granted_by": "unit-test",
+                    "granted_at": "2026-06-12",
+                    "notes": "private room export",
+                },
+            },
+            {
+                "kind": REPLAY_INTAKE_ACCEPTED_ITEM_KIND,
+                "id": "analysis-only",
+                "platform": "local_file",
+                "uri": "/private/replays/analysis-only.xml",
+                "intended_uses": ["analysis"],
+                "permission": {
+                    "status": "user_provided",
+                    "scope": ["analysis", "evaluation"],
+                },
+            },
+        ]
+
+        summary = build_replay_public_summary(rows, intent="demo")
+        text = format_replay_public_summary(summary)
+        encoded = json.dumps(summary, sort_keys=True)
+
+        self.assertEqual(summary["kind"], REPLAY_PUBLIC_SUMMARY_KIND)
+        self.assertEqual(summary["shareable"], 1)
+        self.assertEqual(summary["blocked"], 1)
+        self.assertFalse(summary["raw_replay_data_included"])
+        self.assertFalse(summary["raw_replay_uris_included"])
+        self.assertEqual(summary["public_summaries"][0]["id"], "demo-ready")
+        self.assertEqual(summary["public_summaries"][0]["intent"], "demo")
+        self.assertEqual(summary["public_summaries"][0]["platform"], "local_file")
+        self.assertFalse(summary["public_summaries"][0]["raw_uri_included"])
+        self.assertIsNotNone(summary["public_summaries"][0]["uri_fingerprint"])
+        self.assertNotIn("/private/replays/demo-ready.xml", encoded)
+        self.assertNotIn("/private/replays/analysis-only.xml", encoded)
+        self.assertIn("accepted item intended_uses does not include demo", encoded)
+        self.assertIn("raw_replay_uris_included: no", text)
+        self.assertIn("public_summaries:", text)
+        self.assertIn("blocked_items:", text)
+
+    def test_public_summary_file_reads_accepted_queue(self) -> None:
+        review = review_replay_manifest(
+            {
+                "kind": REPLAY_MANIFEST_KIND,
+                "items": [
+                    {
+                        "id": "demo-ready",
+                        "platform": "synthetic",
+                        "uri": "data/fixtures/replay/synthetic.json",
+                        "intended_uses": ["analysis", "demo"],
+                        "permission": {"status": "local_synthetic"},
+                    }
+                ],
+            }
+        )
+        with TemporaryDirectory() as directory:
+            accepted = Path(directory) / "accepted.jsonl"
+            write_accepted_replay_intake_jsonl(accepted, review)
+
+            summary = build_replay_public_summary_file(accepted, intent="demo")
+
+        self.assertEqual(summary["accepted_input_path"], str(accepted))
+        self.assertEqual(summary["shareable"], 1)
+        self.assertEqual(summary["public_summaries"][0]["id"], "demo-ready")
 
 
 def _manifest_payload() -> dict:

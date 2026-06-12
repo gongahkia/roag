@@ -4,6 +4,7 @@ import json
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ REPLAY_MANIFEST_KIND = "kenjaku-replay-manifest-v0"
 REPLAY_INTAKE_REVIEW_KIND = "kenjaku-replay-intake-review-v0"
 REPLAY_INTAKE_ACCEPTED_ITEM_KIND = "kenjaku-replay-intake-item-v0"
 REPLAY_SHARE_PLAN_KIND = "kenjaku-replay-share-plan-v0"
+REPLAY_PUBLIC_SUMMARY_KIND = "kenjaku-replay-public-summary-v0"
 
 PLATFORMS = ("tenhou", "mahjong_soul", "local_file", "synthetic", "other")
 PERMISSION_STATUSES = (
@@ -201,6 +203,52 @@ def build_replay_share_plan_file(path: str | Path, *, intent: str = "demo") -> d
     return build_replay_share_plan(rows, input_path=input_path, intent=intent)
 
 
+def build_replay_public_summary_file(
+    path: str | Path,
+    *,
+    intent: str = "demo",
+) -> dict[str, Any]:
+    input_path = Path(path)
+    rows = [
+        json.loads(line)
+        for line in input_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    return build_replay_public_summary(rows, input_path=input_path, intent=intent)
+
+
+def build_replay_public_summary(
+    rows: Sequence[Any],
+    *,
+    input_path: Path | None = None,
+    intent: str = "demo",
+) -> dict[str, Any]:
+    plan = build_replay_share_plan(rows, input_path=input_path, intent=intent)
+    public_summaries = [
+        _public_replay_summary(decision, intent=plan["intent"])
+        for decision in plan["decisions"]
+        if decision["shareable"]
+    ]
+    blocked_items = [
+        _public_blocked_summary(decision)
+        for decision in plan["decisions"]
+        if not decision["shareable"]
+    ]
+    return {
+        "kind": REPLAY_PUBLIC_SUMMARY_KIND,
+        "accepted_input_path": plan["accepted_input_path"],
+        "intent": plan["intent"],
+        "items": plan["items"],
+        "shareable": plan["shareable"],
+        "blocked": plan["blocked"],
+        "platforms": plan["platforms"],
+        "public_summaries": public_summaries,
+        "blocked_items": blocked_items,
+        "raw_replay_data_included": False,
+        "raw_replay_uris_included": False,
+    }
+
+
 def build_replay_share_plan(
     rows: Sequence[Any],
     *,
@@ -250,6 +298,36 @@ def format_replay_share_plan(plan: dict[str, Any]) -> str:
         for decision in blocked:
             reasons = "; ".join(decision["reasons"])
             lines.append(f"  {decision.get('id') or '<missing>'}: {reasons}")
+    return "\n".join(lines)
+
+
+def format_replay_public_summary(summary: dict[str, Any]) -> str:
+    if summary.get("kind") != REPLAY_PUBLIC_SUMMARY_KIND:
+        raise ValueError(f"summary kind must be {REPLAY_PUBLIC_SUMMARY_KIND}")
+    lines = [
+        f"intent: {summary['intent']}",
+        f"items: {summary['items']}",
+        f"shareable: {summary['shareable']}",
+        f"blocked: {summary['blocked']}",
+        f"raw_replay_data_included: {'yes' if summary['raw_replay_data_included'] else 'no'}",
+        f"raw_replay_uris_included: {'yes' if summary['raw_replay_uris_included'] else 'no'}",
+    ]
+    if summary["platforms"]:
+        lines.append("platforms: " + _format_counts(summary["platforms"]))
+    if summary["public_summaries"]:
+        lines.append("public_summaries:")
+        for item in summary["public_summaries"]:
+            lines.append(
+                "  "
+                + f"{item['id']}: platform={item['platform']} "
+                + f"permission={item['permission_status']} "
+                + f"uri_fingerprint={item['uri_fingerprint']}"
+            )
+    if summary["blocked_items"]:
+        lines.append("blocked_items:")
+        for item in summary["blocked_items"]:
+            reasons = "; ".join(item["reasons"])
+            lines.append(f"  {item.get('id') or '<missing>'}: {reasons}")
     return "\n".join(lines)
 
 
@@ -348,6 +426,35 @@ def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, An
     }
 
 
+def _public_replay_summary(decision: dict[str, Any], *, intent: str) -> dict[str, Any]:
+    item = decision["item"]
+    permission = item.get("permission") if isinstance(item.get("permission"), dict) else {}
+    return {
+        "index": decision["index"],
+        "id": decision["id"],
+        "platform": item.get("platform"),
+        "intent": intent,
+        "intended_uses": _safe_string_list(item.get("intended_uses")),
+        "permission_status": permission.get("status"),
+        "permission_scope": _safe_string_list(permission.get("scope")),
+        "permission_granted_at": permission.get("granted_at"),
+        "uri_fingerprint": _uri_fingerprint(item.get("uri")),
+        "raw_uri_included": False,
+        "public_safe": True,
+    }
+
+
+def _public_blocked_summary(decision: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "index": decision["index"],
+        "id": decision.get("id"),
+        "platform": decision.get("platform"),
+        "shareable": False,
+        "reasons": list(decision["reasons"]),
+        "raw_uri_included": False,
+    }
+
+
 def _permission_scope(permission: dict[str, Any], status: str) -> tuple[str, ...]:
     if "scope" in permission:
         return _string_tuple(permission["scope"])
@@ -395,6 +502,10 @@ def _safe_string_tuple(value: Any) -> tuple[str, ...]:
         return ()
 
 
+def _safe_string_list(value: Any) -> list[str]:
+    return list(_safe_string_tuple(value))
+
+
 def _raw_id(raw_item: Any) -> str | None:
     if isinstance(raw_item, dict) and isinstance(raw_item.get("id"), str):
         return raw_item["id"]
@@ -403,3 +514,9 @@ def _raw_id(raw_item: Any) -> str | None:
 
 def _format_counts(counts: dict[str, int]) -> str:
     return " ".join(f"{key}={counts[key]}" for key in sorted(counts))
+
+
+def _uri_fingerprint(value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return blake2b(value.encode("utf-8"), digest_size=12).hexdigest()

@@ -436,6 +436,80 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["intent"], "demo")
 
+    def test_replay_public_summary_outputs_text_json_and_report(self) -> None:
+        accepted_rows = [
+            {
+                "kind": "kenjaku-replay-intake-item-v0",
+                "id": "demo-ready",
+                "platform": "local_file",
+                "uri": "/private/replays/demo-ready.xml",
+                "intended_uses": ["analysis", "demo"],
+                "permission": {
+                    "status": "explicit_permission",
+                    "scope": ["analysis", "demo"],
+                    "granted_by": "unit-test",
+                    "granted_at": "2026-06-12",
+                    "notes": None,
+                },
+            },
+            {
+                "kind": "kenjaku-replay-intake-item-v0",
+                "id": "analysis-only",
+                "platform": "local_file",
+                "uri": "/private/replays/analysis-only.xml",
+                "intended_uses": ["analysis"],
+                "permission": {
+                    "status": "user_provided",
+                    "scope": ["analysis", "evaluation"],
+                    "granted_by": None,
+                    "granted_at": None,
+                    "notes": None,
+                },
+            },
+        ]
+        with TemporaryDirectory() as directory:
+            accepted = Path(directory) / "accepted.jsonl"
+            report = Path(directory) / "public-summary.json"
+            accepted.write_text(
+                "".join(json.dumps(row, sort_keys=True) + "\n" for row in accepted_rows),
+                encoding="utf-8",
+            )
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "replay-public-summary",
+                        str(accepted),
+                        "--intent",
+                        "demo",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    ["replay-public-summary", str(accepted), "--intent", "demo", "--json"]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("raw_replay_uris_included: no", text_stdout.getvalue())
+        self.assertIn("public_summaries:", text_stdout.getvalue())
+        self.assertIn("blocked_items:", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-replay-public-summary-v0")
+        self.assertEqual(report_payload["shareable"], 1)
+        self.assertEqual(report_payload["blocked"], 1)
+        self.assertFalse(report_payload["raw_replay_uris_included"])
+        self.assertNotIn("/private/replays/demo-ready.xml", json.dumps(report_payload))
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["intent"], "demo")
+        self.assertFalse(json_payload["raw_replay_data_included"])
+
     def test_self_play_sandbox_outputs_text_json_and_report(self) -> None:
         with TemporaryDirectory() as directory:
             report = Path(directory) / "self-play.json"

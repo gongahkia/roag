@@ -35,8 +35,10 @@ from kenjaku.experiments import (
 from kenjaku.io import (
     TenhouGame,
     TenhouParseFailure,
+    build_replay_public_summary_file,
     build_replay_share_plan_file,
     format_replay_intake_review,
+    format_replay_public_summary,
     format_replay_share_plan,
     parse_tenhou_xml_dataset,
     review_replay_manifest_file,
@@ -261,6 +263,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the share plan as JSON instead of text",
     )
     replay_share.set_defaults(func=_replay_share_plan)
+
+    replay_public_summary = subparsers.add_parser(
+        "replay-public-summary",
+        help="build a public-safe replay summary from accepted intake JSONL",
+    )
+    replay_public_summary.add_argument(
+        "accepted_items",
+        type=Path,
+        help="JSONL rows from replay-intake-review --accepted-output",
+    )
+    replay_public_summary.add_argument(
+        "--intent",
+        choices=("demo", "redistribution"),
+        default="demo",
+        help="share intent to validate before summary generation",
+    )
+    replay_public_summary.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for the public-safe JSON summary",
+    )
+    replay_public_summary.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the public-safe summary as JSON instead of text",
+    )
+    replay_public_summary.set_defaults(func=_replay_public_summary)
 
     self_play = subparsers.add_parser(
         "self-play-sandbox",
@@ -1371,6 +1400,27 @@ def _replay_share_plan(args: argparse.Namespace) -> int:
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(format_replay_share_plan(plan))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _replay_public_summary(args: argparse.Namespace) -> int:
+    try:
+        summary = build_replay_public_summary_file(
+            args.accepted_items,
+            intent=args.intent,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, summary)
+
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(format_replay_public_summary(summary))
     if args.report is not None:
         print(f"report_path: {args.report}")
     return 0
