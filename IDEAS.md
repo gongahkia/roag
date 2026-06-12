@@ -308,6 +308,7 @@ This is well within "side project budget" territory.
   - [x] Basic Tenhou Sanma post-pon Kita suppression
   - [x] Basic Tenhou Sanma Kita ippatsu reaction timing
   - [x] Basic Tenhou Sanma tsumo-loss payment estimates
+  - [x] Basic Tenhou Sanma eight-rinshan replacement reserve cap
 - [ ] Mahjong Soul Sanma log scraping
 - [ ] Sanma-specific training
 - [ ] Evaluation
@@ -512,9 +513,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     exclusions, three-seat rotation, Tenhou's 35,000-point start, no-chi call filtering,
     North-as-guest-wind yaku filtering, a basic Kita/pei-nuki action, and a basic Kita ron/pass
     reaction window, plus Tenhou's 1m/9m dora indicator wrap, post-pon Kita suppression, and basic
-    Kita ippatsu reaction timing, plus basic tsumo-loss payment estimates, but the Phase 5 Sanma
-    ruleset still needs real 3-player round flow, exact platform timing, complete call handling,
-    scoring, training data, and evaluation.
+    Kita ippatsu reaction timing, plus basic tsumo-loss payment estimates and an eight-rinshan
+    replacement reserve cap, but the Phase 5 Sanma ruleset still needs real 3-player round flow,
+    exact platform timing, complete call handling, scoring, training data, and evaluation.
 11. Use the sandbox environment boundary for future simulator work. It currently has deterministic
     initial state, draw, legal-discard, discard history, pending-discard reaction windows, legal
     closed-hand tsumo/ron, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
@@ -532,9 +533,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
     Tenhou Sanma post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, tsumo
     yaku/dora tile views that avoid duplicating the drawn tile, basic Tenhou Sanma tsumo-loss
-    payment estimates, plus basic open/kan standard-shape win detection and a basic sandbox yaku
-    filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
-    simulator step is full call/kan timing, complete
+    payment estimates, a basic Tenhou Sanma eight-rinshan replacement reserve cap, plus basic
+    open/kan standard-shape win detection and a basic sandbox yaku filter/metadata layer with
+    dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
+    timing, complete
     yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
@@ -1235,3 +1237,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   the two real opponents pay. This checks off the narrow tsumo-loss payment subtask, but does not
   complete exact Sanma scoring, placement/return handling, pao, complete yaku/fu validation,
   training data, or evaluation.
+- Added a basic Tenhou Sanma eight-rinshan replacement reserve cap. Full `tenhou-3p` dead-wall
+  states now stop replacement draws once only the six non-replacement dead-wall tiles remain,
+  matching the narrow "8 replacement tiles" rule while preserving short synthetic dead-wall
+  fixtures. This checks off the narrow replacement-reserve subtask, but does not complete exact
+  dead-wall layout, dora/ura ordering, kan-dora timing, full Sanma scoring, training data, or
+  evaluation.

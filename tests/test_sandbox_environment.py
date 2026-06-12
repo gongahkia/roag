@@ -2417,6 +2417,31 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(state.to_payload()["kita_tiles"], [[], [], []])
         self.assertEqual(state.to_payload()["kita_counts"], [0, 0, 0])
 
+    def test_sanma_full_dead_wall_reserves_only_eight_replacement_tiles(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("N"),),
+            dead_wall=_tiles("1p 2p 3p 4p 5p 6p"),
+            dora_indicators=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1m 9m 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+
+        terminal = apply_kita_action(drawn, legal_kita_actions(drawn)[0])
+
+        self.assertEqual(terminal.terminal_reason, "wall_exhausted")
+        self.assertIsNone(terminal.drawn_tile)
+        self.assertFalse(terminal.rinshan_draw)
+        self.assertEqual(terminal.dead_wall, _tiles("1p 2p 3p 4p 5p 6p"))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0))
+        self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0))
+        self.assertEqual(terminal.kita_tiles, ((Tile.parse("N"),), (), ()))
+
     def test_sanma_default_points_use_tenhou_three_player_start(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-3p",

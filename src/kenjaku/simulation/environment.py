@@ -27,6 +27,10 @@ HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = 3000
 SANDBOX_DEAD_WALL_TILES = 14
+SANDBOX_3P_REPLACEMENT_TILES = 8
+SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = (
+    SANDBOX_DEAD_WALL_TILES - SANDBOX_3P_REPLACEMENT_TILES
+)
 SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-dealer-aware-rounded-v1"
 SANDBOX_KITA_TILE = TileType.parse("N")
@@ -1827,6 +1831,11 @@ def _apply_kan_replacement_draw(
 
 
 def _has_dead_wall_replacement_tile(state: SandboxEnvironmentState) -> bool:
+    if (
+        state.ruleset == TENHOU_3P.name
+        and len(state.dead_wall) >= SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES
+    ):
+        return len(state.dead_wall) > SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES
     return len(state.dead_wall) > len(state.dora_indicators)
 
 
