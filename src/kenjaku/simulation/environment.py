@@ -62,6 +62,7 @@ SANDBOX_YAKU_HAN = {
     "houtei": 1,
     "chankan": 1,
     "tanyao": 1,
+    "toitoi": 2,
     "yakuhai": 1,
 }
 SANDBOX_LIMIT_BASE_POINTS = {
@@ -1636,6 +1637,8 @@ def _winning_yaku_for_state(
         players=state.players,
     ):
         yaku.append("yakuhai")
+    if _is_toitoi_yaku(full_tiles, melds=melds, shapes=shapes):
+        yaku.append("toitoi")
     return tuple(yaku)
 
 
@@ -1698,6 +1701,22 @@ def _has_sandbox_yakuhai(
         )
         and count >= 3
         for index, count in enumerate(counts)
+    )
+
+
+def _is_toitoi_yaku(
+    tiles: tuple[Tile, ...],
+    *,
+    melds: tuple[Meld, ...],
+    shapes: tuple[str, ...],
+) -> bool:
+    if "standard" not in shapes:
+        return False
+    if any(meld.kind is ActionKind.CHI for meld in melds):
+        return False
+    positive_counts = tuple(count for count in _hand_type_counts(tiles) if count > 0)
+    return positive_counts.count(2) == 1 and all(
+        count in {2, 3, 4} for count in positive_counts
     )
 
 

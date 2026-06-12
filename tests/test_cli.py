@@ -82,6 +82,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_basic_yaku_win_filter: yes", output)
         self.assertIn("sandbox_basic_yaku_metadata: yes", output)
         self.assertIn("sandbox_yakuhai_seat_round_dragon_filter: yes", output)
+        self.assertIn("sandbox_toitoi_yaku_metadata: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", output)
@@ -206,6 +207,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_yakuhai_seat_round_dragon_filter"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_toitoi_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
@@ -509,6 +511,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("basic_yaku_win_filter: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("yakuhai_seat_round_dragon_filter: yes", text_stdout.getvalue())
+        self.assertIn("toitoi_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
         self.assertIn("nagashi_mangan_wall_exhaustion: yes", text_stdout.getvalue())
         self.assertIn("nagashi_mangan_next_round_progression: yes", text_stdout.getvalue())
@@ -553,6 +556,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["yakuhai_seat_round_dragon_filter"])
+        self.assertTrue(report_payload["capabilities"]["toitoi_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(report_payload["capabilities"]["nagashi_mangan_wall_exhaustion"])
         self.assertTrue(

@@ -292,6 +292,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox chankan ippatsu reaction timing
   - [x] Basic sandbox haitei/houtei yaku metadata
   - [x] Basic sandbox double-riichi yaku metadata
+  - [x] Basic sandbox toitoi yaku metadata
   - [x] Basic sandbox multi-ron turn-priority ordering for riichi sticks
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
@@ -549,8 +550,8 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     tile, basic Tenhou Sanma tsumo-loss
     payment estimates, a basic Tenhou Sanma eight-rinshan replacement reserve cap, plus basic
     open/kan standard-shape win detection and a basic sandbox yaku filter/metadata layer with
-    dragon/round-wind/seat-wind yakuhai filtering only; the next simulator step is full call/kan
-    timing, complete
+    dragon/round-wind/seat-wind yakuhai filtering and toitoi only; the next simulator step is full
+    call/kan timing, complete
     yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete haitei/houtei endgame timing,
@@ -1173,7 +1174,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   riichi/kan timing, yaku validation, scoring, or a learned kan policy.
 - Added a basic sandbox yaku filter and terminal yaku metadata. Legal tsumo/ron/chankan now require
   at least one recognized sandbox yaku from a deliberately small set: kokushi, chiitoitsu, riichi,
-  double riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a basic yakuhai filter.
+  double riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, toitoi, or a basic yakuhai filter.
   Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
   yaku validation, full open-hand yaku rules, complete bonus-han treatment, fu/han scoring, or
   calibrated reward semantics.
@@ -1244,6 +1245,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   `double_riichi` instead of stacking normal `riichi`, and score estimates count it as 2 yaku han.
   This checks off the narrow timing/yaku metadata subtask, but does not complete full riichi
   declaration timing, abortive draw interactions, full yaku/fu validation, or exact scoring.
+- Added basic toitoi sandbox yaku metadata. Standard-shape terminal yaku checks now recognize hands
+  whose completed groups are all triplets and/or kans plus one pair, including open pon/kan melds,
+  and score it as 2 yaku han. This checks off the narrow all-triplets yaku subtask, but does not
+  complete exact fu, sanankou/suuankou interaction, full yaku/fu validation, or exact scoring.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

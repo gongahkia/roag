@@ -421,6 +421,62 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_shapes, ("standard",))
         self.assertEqual(terminal.winning_yaku, ("yakuhai",))
 
+    def test_open_toitoi_tsumo_can_be_only_yaku(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("1m 1m 1m"),
+            called_tile=Tile.parse("1m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("7p"),),
+            hands=(
+                _tiles("4p 4p 4p 5s 5s 5s 6m 6m 6m 7p"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        tsumo_actions = legal_tsumo_actions(drawn)
+        terminal = apply_tsumo_action(drawn, tsumo_actions[0])
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("toitoi",))
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.han, 2)
+
+    def test_toitoi_rejects_standard_hand_with_sequence(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("1m 1m 1m"),
+            called_tile=Tile.parse("1m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("7p"),),
+            hands=(
+                _tiles("4p 4p 4p 5s 5s 5s 6m 7m 8m 7p"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+
+        self.assertEqual(legal_tsumo_actions(drawn), ())
+
     def test_rinshan_tsumo_after_ankan_uses_kan_meld_for_standard_shape(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

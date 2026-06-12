@@ -150,6 +150,7 @@ def run_self_play_sandbox(
             "basic_yaku_win_filter": True,
             "basic_yaku_metadata": True,
             "yakuhai_seat_round_dragon_filter": True,
+            "toitoi_yaku_metadata": True,
             "terminal_rewards": True,
             "terminal_point_delta_metadata": True,
             "exhaustive_draw_tenpai_noten_payments": True,
