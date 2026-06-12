@@ -76,6 +76,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_dead_wall_replacement_draws: yes", output)
         self.assertIn("sandbox_kan_dora_indicator_metadata: yes", output)
         self.assertIn("sandbox_rinshan_draw_metadata: yes", output)
+        self.assertIn("sandbox_double_riichi_yaku_metadata: yes", output)
         self.assertIn("sandbox_call_action_generation: yes", output)
         self.assertIn("sandbox_call_application: yes", output)
         self.assertIn("sandbox_basic_yaku_win_filter: yes", output)
@@ -190,6 +191,9 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_rinshan_draw_metadata"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_double_riichi_yaku_metadata"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
@@ -474,6 +478,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("dead_wall_replacement_draws: yes", text_stdout.getvalue())
         self.assertIn("kan_dora_indicator_metadata: yes", text_stdout.getvalue())
         self.assertIn("rinshan_draw_metadata: yes", text_stdout.getvalue())
+        self.assertIn("double_riichi_yaku_metadata: yes", text_stdout.getvalue())
         self.assertIn("sanma_initial_points: yes", text_stdout.getvalue())
         self.assertIn("sanma_no_chi: yes", text_stdout.getvalue())
         self.assertIn("sanma_north_guest_wind: yes", text_stdout.getvalue())
@@ -513,6 +518,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(report_payload["capabilities"]["kan_dora_indicator_metadata"])
         self.assertTrue(report_payload["capabilities"]["rinshan_draw_metadata"])
+        self.assertTrue(report_payload["capabilities"]["double_riichi_yaku_metadata"])
         self.assertTrue(report_payload["capabilities"]["sanma_initial_points"])
         self.assertTrue(report_payload["capabilities"]["sanma_no_chi"])
         self.assertTrue(report_payload["capabilities"]["sanma_north_guest_wind"])

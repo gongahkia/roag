@@ -78,6 +78,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             first.to_payload()["dora_indicators"],
             [first.dora_indicators[0].notation],
         )
+        self.assertEqual(first.to_payload()["double_riichi_seats"], [])
         self.assertEqual(first.to_payload()["ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_rinshan_seats"], [])
@@ -87,6 +88,16 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["terminal_point_deltas"], [])
         self.assertEqual(first.to_payload()["exhaustive_draw_tenpai_seats"], [])
         self.assertEqual(first.to_payload()["exhaustive_draw_noten_seats"], [])
+
+    def test_double_riichi_state_requires_riichi_state(self) -> None:
+        with self.assertRaisesRegex(ValueError, "double riichi seats must also be riichi"):
+            SandboxEnvironmentState(
+                ruleset="tenhou-4p",
+                players=4,
+                wall=(),
+                hands=((), (), (), ()),
+                double_riichi_seats=(0,),
+            )
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-4p", seed="transition")
@@ -460,6 +471,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(riichi_actions, (Action(ActionKind.RIICHI),))
         self.assertIn(Action(ActionKind.RIICHI), turn_actions)
         self.assertEqual(declared.riichi_seats, (0,))
+        self.assertEqual(declared.double_riichi_seats, (0,))
         self.assertEqual(declared.riichi_pending_discard_seats, (0,))
         self.assertEqual(declared.ippatsu_seats, (0,))
         self.assertEqual(
@@ -473,6 +485,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(declared.riichi_sticks, 1)
         self.assertEqual(declared.to_payload()["riichi_seats"], [0])
+        self.assertEqual(declared.to_payload()["double_riichi_seats"], [0])
         self.assertEqual(declared.to_payload()["riichi_pending_discard_seats"], [0])
         self.assertEqual(declared.to_payload()["ippatsu_seats"], [0])
         self.assertEqual(declared.to_payload()["riichi_sticks"], 1)
@@ -480,11 +493,84 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_riichi_actions(declared), ())
         self.assertEqual(discard, Tile.parse("9s"))
         self.assertEqual(after_discard.riichi_seats, (0,))
+        self.assertEqual(after_discard.double_riichi_seats, (0,))
         self.assertEqual(after_discard.riichi_pending_discard_seats, ())
         self.assertEqual(after_discard.ippatsu_seats, (0,))
         self.assertEqual(after_discard.points, declared.points)
         self.assertEqual(after_discard.riichi_sticks, 1)
         self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
+
+    def test_later_turn_riichi_declaration_is_not_double_riichi(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            turn=4,
+        )
+
+        drawn = draw_for_current_seat(state)
+        declared = apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+
+        self.assertEqual(declared.riichi_seats, (0,))
+        self.assertEqual(declared.double_riichi_seats, ())
+        self.assertEqual(declared.to_payload()["double_riichi_seats"], [])
+
+    def test_riichi_after_prior_tile_call_is_not_double_riichi(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            melds=(
+                (),
+                (
+                    Meld(
+                        ActionKind.PON,
+                        _tiles("C C C"),
+                        called_tile=Tile.parse("C"),
+                        from_seat=2,
+                    ),
+                ),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        declared = apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+
+        self.assertEqual(declared.riichi_seats, (0,))
+        self.assertEqual(declared.double_riichi_seats, ())
+
+    def test_sanma_riichi_after_prior_kita_is_not_double_riichi(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(Tile.parse("E"),),
+            hands=(
+                _tiles("1p 2p 3p 4p 5p 6p 7p 8p 9p 1s 2s 3s E"),
+                (),
+                (),
+            ),
+            kita_tiles=((Tile.parse("N"),), (), ()),
+        )
+
+        drawn = draw_for_current_seat(state)
+        declared = apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+
+        self.assertEqual(declared.riichi_seats, (0,))
+        self.assertEqual(declared.double_riichi_seats, ())
 
     def test_riichi_declaration_requires_deposit_points(self) -> None:
         state = SandboxEnvironmentState(
@@ -1267,6 +1353,47 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "ron")
         self.assertEqual(terminal.winning_shapes, ("standard",))
         self.assertEqual(terminal.winning_yaku, ("riichi",))
+
+    def test_double_riichi_yaku_replaces_riichi_and_scores_two_han(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("1m 2m 3m 7m 8m 9m 1p 2p 3p 1s 2s 3s 5p"),
+                (),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("5p"),
+            pending_discard_seat=1,
+            pending_reaction_seats=(0,),
+            riichi_seats=(0,),
+            double_riichi_seats=(0,),
+        )
+        ron = Action(ActionKind.RON, TileType.parse("5p"))
+
+        self.assertEqual(legal_ron_actions(state, seat=0), (ron,))
+
+        terminal = apply_ron_action(state, seat=0, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("double_riichi",))
+        self.assertEqual(terminal.winning_yaku_by_seat, ((0, ("double_riichi",)),))
+        self.assertEqual(estimate.yaku, ("double_riichi",))
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.bonus_han, 0)
+        self.assertEqual(estimate.han, 2)
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["yaku"],
+            ["double_riichi"],
+        )
+        self.assertEqual(
+            terminal.to_payload()["terminal_score_estimates"][0]["yaku_han"],
+            2,
+        )
 
     def test_passing_legal_ron_sets_temporary_furiten_until_next_draw(self) -> None:
         state = SandboxEnvironmentState(

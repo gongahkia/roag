@@ -52,6 +52,7 @@ SANDBOX_DRAGON_TILES = frozenset(
 )
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
+    "double_riichi": 2,
     "riichi": 1,
     "ippatsu": 1,
     "menzen_tsumo": 1,
@@ -184,6 +185,7 @@ class SandboxEnvironmentState:
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
+    double_riichi_seats: tuple[int, ...] = ()
     riichi_pending_discard_seats: tuple[int, ...] = ()
     ippatsu_seats: tuple[int, ...] = ()
     riichi_furiten_seats: tuple[int, ...] = ()
@@ -305,6 +307,12 @@ class SandboxEnvironmentState:
             raise ValueError("riichi seat outside player range")
         if len(set(self.riichi_seats)) != len(self.riichi_seats):
             raise ValueError("riichi seats must be unique")
+        if any(not 0 <= seat < self.players for seat in self.double_riichi_seats):
+            raise ValueError("double riichi seat outside player range")
+        if len(set(self.double_riichi_seats)) != len(self.double_riichi_seats):
+            raise ValueError("double riichi seats must be unique")
+        if any(seat not in self.riichi_seats for seat in self.double_riichi_seats):
+            raise ValueError("double riichi seats must also be riichi seats")
         if any(not 0 <= seat < self.players for seat in self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seat outside player range")
         if len(set(self.riichi_pending_discard_seats)) != len(
@@ -430,6 +438,7 @@ class SandboxEnvironmentState:
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
+            "double_riichi_seats": list(self.double_riichi_seats),
             "riichi_pending_discard_seats": list(self.riichi_pending_discard_seats),
             "ippatsu_seats": list(self.ippatsu_seats),
             "riichi_furiten_seats": list(self.riichi_furiten_seats),
@@ -771,11 +780,15 @@ def apply_riichi_action(
         raise ValueError("riichi action is not legal for this state")
     points = list(_points_by_seat(state))
     points[state.current_seat] -= RIICHI_DEPOSIT_POINTS
+    double_riichi_seats = state.double_riichi_seats
+    if _is_double_riichi_declaration(state):
+        double_riichi_seats = _with_seat(double_riichi_seats, state.current_seat)
     return _replace_state(
         state,
         points=tuple(points),
         riichi_sticks=state.riichi_sticks + 1,
         riichi_seats=_with_seat(state.riichi_seats, state.current_seat),
+        double_riichi_seats=double_riichi_seats,
         riichi_pending_discard_seats=_with_seat(
             state.riichi_pending_discard_seats,
             state.current_seat,
@@ -1595,7 +1608,9 @@ def _winning_yaku_for_state(
         yaku.append("kokushi")
     if "chiitoitsu" in shapes:
         yaku.append("chiitoitsu")
-    if _is_riichi(state, seat=seat):
+    if _is_double_riichi(state, seat=seat):
+        yaku.append("double_riichi")
+    elif _is_riichi(state, seat=seat):
         yaku.append("riichi")
     if seat in state.ippatsu_seats:
         yaku.append("ippatsu")
@@ -1987,6 +2002,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
+        "double_riichi_seats": state.double_riichi_seats,
         "riichi_pending_discard_seats": state.riichi_pending_discard_seats,
         "ippatsu_seats": state.ippatsu_seats,
         "riichi_furiten_seats": state.riichi_furiten_seats,
@@ -2577,6 +2593,19 @@ def _is_temporary_furiten(state: SandboxEnvironmentState, *, seat: int) -> bool:
 
 def _is_riichi(state: SandboxEnvironmentState, *, seat: int) -> bool:
     return seat in state.riichi_seats
+
+
+def _is_double_riichi(state: SandboxEnvironmentState, *, seat: int) -> bool:
+    return seat in state.double_riichi_seats
+
+
+def _is_double_riichi_declaration(state: SandboxEnvironmentState) -> bool:
+    first_turn = (state.current_seat - state.dealer_seat) % state.players
+    return (
+        state.turn == first_turn
+        and not any(_melds_by_seat(state))
+        and not any(_kita_tiles_by_seat(state))
+    )
 
 
 def _is_post_riichi_discard_locked(state: SandboxEnvironmentState, *, seat: int) -> bool:

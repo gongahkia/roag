@@ -287,6 +287,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
   - [x] Basic sandbox chankan ippatsu reaction timing
   - [x] Basic sandbox haitei/houtei yaku metadata
+  - [x] Basic sandbox double-riichi yaku metadata
   - [x] Basic sandbox multi-ron turn-priority ordering for riichi sticks
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
@@ -529,8 +530,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     state with dealer-wrap progression, basic ippatsu window metadata, legal chi/pon/minkan, basic
     dead-wall replacement draws for minkan/ankan/kakan, basic kan-dora indicator metadata, basic
     rinshan draw-source metadata, basic haitei/houtei yaku metadata for explicitly final live-wall
-    draws/discards, individual reaction passes, ron-priority call gating, a basic chankan ron/pass
-    window before kakan replacement draw, basic chankan ippatsu reaction timing, kokushi-only ankan
+    draws/discards, basic double-riichi yaku metadata, individual reaction passes, ron-priority call
+    gating, a basic chankan ron/pass window before kakan replacement draw, basic chankan ippatsu
+    reaction timing, kokushi-only ankan
     robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple
     terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
@@ -545,6 +547,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete haitei/houtei endgame timing,
+    complete double-riichi/riichi timing,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
@@ -1163,7 +1166,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   riichi/kan timing, yaku validation, scoring, or a learned kan policy.
 - Added a basic sandbox yaku filter and terminal yaku metadata. Legal tsumo/ron/chankan now require
   at least one recognized sandbox yaku from a deliberately small set: kokushi, chiitoitsu, riichi,
-  ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a basic yakuhai filter.
+  double riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a basic yakuhai filter.
   Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
   yaku validation, full open-hand yaku rules, complete bonus-han treatment, fu/han scoring, or
   calibrated reward semantics.
@@ -1211,6 +1214,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   replacement draws and post-call discards do not accidentally qualify. This checks off the narrow
   last-live-wall yaku subtask, but does not complete exact wall/call timing, abortive draw rules,
   full yaku/fu validation, or exact scoring.
+- Added basic double-riichi sandbox yaku metadata. First-turn riichi declarations before any prior
+  tile call or Sanma Kita exposure now record `double_riichi_seats`, terminal yaku metadata reports
+  `double_riichi` instead of stacking normal `riichi`, and score estimates count it as 2 yaku han.
+  This checks off the narrow timing/yaku metadata subtask, but does not complete full riichi
+  declaration timing, abortive draw interactions, full yaku/fu validation, or exact scoring.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

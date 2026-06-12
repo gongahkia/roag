@@ -34,9 +34,10 @@ handoff notes.
   riichi deposit/stick ledger, basic honba bonus deltas, a basic next-round dealer/honba transition
   helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
   closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
-  metadata, rinshan draw-source metadata, and basic haitei/houtei yaku metadata for explicitly final
-  live-wall draws/discards, a basic chankan ron/pass window before kakan replacement draw with
-  ippatsu preserved until the reaction resolves plus kokushi-only ankan robbery, individual reaction
+  metadata, rinshan draw-source metadata, basic haitei/houtei yaku metadata for explicitly final
+  live-wall draws/discards, basic double-riichi yaku metadata, a basic chankan ron/pass window
+  before kakan replacement draw with ippatsu preserved until the reaction resolves plus
+  kokushi-only ankan robbery, individual reaction
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
   resolution with turn-priority riichi-stick assignment, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with

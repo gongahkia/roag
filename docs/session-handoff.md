@@ -52,9 +52,9 @@ Last updated: 2026-06-12.
   closed-kan exceptions: a riichi player can ankan only the just-drawn tile, and only when the
   before/after wait sets match. Added a basic sandbox yaku filter and terminal yaku metadata:
   legal tsumo/ron/chankan now require at least one recognized sandbox yaku from kokushi,
-  chiitoitsu, riichi, ippatsu, menzen tsumo, rinshan, haitei, houtei, chankan, tanyao, or a broad
-  honor-triplet yakuhai approximation, and terminal states expose `winning_yaku` plus
-  `winning_yaku_by_seat`.
+  chiitoitsu, riichi, double riichi, ippatsu, menzen tsumo, rinshan, haitei, houtei, chankan,
+  tanyao, or a broad honor-triplet yakuhai approximation, and terminal states expose
+  `winning_yaku` plus `winning_yaku_by_seat`.
   The current yakuhai filter is now narrowed to dragons, the sandbox state's round wind, and the
   winner's dealer-relative seat wind.
   Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
@@ -107,6 +107,8 @@ Last updated: 2026-06-12.
   passing the reaction clears ippatsu before the replacement draw.
   Added basic chankan ippatsu reaction timing.
   Added basic haitei/houtei yaku metadata for explicitly final live-wall draws/discards.
+  Added basic double-riichi yaku metadata for first-turn riichi before any tile call or Sanma Kita
+  exposure.
   Added direct coverage for basic Tenhou Sanma tsumo-loss point estimates.
   Added a basic Tenhou Sanma eight-rinshan replacement reserve cap for full dead-wall states.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan/Kita
@@ -257,9 +259,9 @@ Last updated: 2026-06-12.
   `terminal_rewards`: neutral zero rewards for non-win terminal states and a simple zero-sum utility
   vector for sandbox tsumo/ron. They also include final point-ledger and riichi-stick counts from
   the sandbox state, the current honba count, active ippatsu seats, winning ippatsu seats,
-  rinshan draw-source metadata, final live-wall draw metadata, winning rinshan seats, terminal yaku
-  metadata, terminal point-delta metadata, dead-wall remaining count, and visible dora/kan-dora
-  indicators.
+  active double-riichi seats, rinshan draw-source metadata, final live-wall draw metadata, winning
+  rinshan seats, terminal yaku metadata, terminal point-delta metadata, dead-wall remaining count,
+  and visible dora/kan-dora indicators.
   `--ruleset tenhou-4p|tenhou-3p` selects the static tile set and player count; `tenhou-3p`
   excludes 2m-8m, starts each seat at 35,000 points, rotates three seats, filters out chi call
   reactions, treats North triplets in hand as guest-wind rather than yakuhai, maps 1m/9m dora
@@ -293,7 +295,8 @@ Last updated: 2026-06-12.
   basic closed-kan/ankan self-turn actions with dead-wall replacement draws, basic added-kan/kakan
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
   terminal metadata, basic haitei/houtei yaku metadata for explicitly final live-wall draws/discards,
-  a Tenhou Sanma 35,000-point start, Tenhou Sanma no-chi call filtering, Tenhou Sanma
+  basic double-riichi yaku metadata, a Tenhou Sanma 35,000-point start, Tenhou Sanma no-chi call
+  filtering, Tenhou Sanma
   North-as-guest-wind yaku filtering, Tenhou Sanma 1m/9m dora indicator wrap, Tenhou Sanma
   post-pon Kita suppression, basic Tenhou Sanma Kita ippatsu reaction timing, basic Tenhou Sanma
   tsumo-loss point estimates, a basic Tenhou Sanma eight-rinshan replacement reserve cap, a basic
@@ -336,9 +339,9 @@ Last updated: 2026-06-12.
   dealer-aware payment, visible/red dora, tsumo tile-view de-duplication, and next-round
   dealer/honba/round-wind helper slices, ippatsu scoring, full yaku-aware open/kan hand legality,
   complete rinshan yaku/scoring semantics, complete haitei/houtei endgame timing,
-  complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete post-riichi
-  kan timing, real multi-ron payment handling, richer terminal reward signals,
-  and validation against real reconstructed games.
+  complete double-riichi/riichi timing, complete kan-dora/ura-dora indicator ordering, complete
+  chankan semantics, complete post-riichi kan timing, real multi-ron payment handling, richer
+  terminal reward signals, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It applies the static tile exclusions, 35,000-point starts, three-seat rotation, a basic
   no-chi call filter, a basic North-as-guest-wind yaku filter, a basic Kita/pei-nuki environment
@@ -866,9 +869,9 @@ Mortal local baseline reconnaissance:
    tenpai/noten point-delta, dealer-aware win payment, visible/red-dora score-estimate, and
    next-round dealer/honba/round-wind slices, ippatsu scoring beyond narrow ron metadata, full
    yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics, complete
-   haitei/houtei endgame timing, complete kan-dora/ura-dora indicator ordering, complete chankan
-   semantics beyond the basic ippatsu timing slice, complete post-riichi kan timing, real multi-ron
-   payment handling, and scoring before PPO work.
+   haitei/houtei endgame timing, complete double-riichi/riichi timing, complete kan-dora/ura-dora
+   indicator ordering, complete chankan semantics beyond the basic ippatsu timing slice, complete
+   post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita
