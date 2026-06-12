@@ -75,7 +75,9 @@ notes.
   active riichi opponents. This is not a calibrated deal-in probability estimator.
 - Direct ron-discard label extraction plus a small dependency-free `deal-in-linear-v0` logistic
   estimator command for offline probability-estimator experiments. Its benchmark reports include
-  report-only threshold calibration sweeps, but no trained deal-in model is bundled yet.
+  threshold calibration sweeps and heuristic-risk comparisons. A local 130-log Tenhou smoke run on
+  2026-06-13 trained on 55,252 decisions, evaluated on 10,525 decisions, and beat the heuristic
+  baseline on eval Brier score and log loss. No trained deal-in model is bundled.
 - A PyTorch transformer state encoder and masked discard policy head module for future supervised
   policy experiments. It is architecture scaffolding only; no trained transformer policy is bundled.
 - `train-discard-transformer`, a PyTorch behavior-cloning command for supervised discard policy
@@ -250,9 +252,9 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
    slice, metric definitions, latest eval scores, and report/checkpoint artifact links. The
    dashboard intentionally omits live ladder rank tracking unless explicit platform permission is
    available.
-6. Run `benchmark-deal-in` on the ignored 100/500-log slices and compare calibrated-threshold
-   reports with `benchmark-report-summary` before treating the defense scorer as a validated
-   probability estimator.
+6. Broaden deal-in calibration beyond the current 130-log local smoke: compare multiple seeds,
+   larger ignored slices, and active-riichi-only variants before using it as a production defense
+   probability model.
 
 ## License
 

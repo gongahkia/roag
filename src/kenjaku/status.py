@@ -121,7 +121,7 @@ def build_status_payload() -> dict[str, Any]:
             },
             "not_implemented": {
                 "bundled_trained_model": False,
-                "trained_deal_in_probability_estimator": False,
+                "bundled_trained_deal_in_probability_estimator": False,
                 "transformer_policy": False,
                 "rl_self_play": False,
                 "sanma_ruleset": False,

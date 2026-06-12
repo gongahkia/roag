@@ -237,5 +237,59 @@ Use `run-external-prediction-producer` for subprocess-based producer checks; the
 `KENJAKU_SNAPSHOTS`, writes `KENJAKU_PREDICTIONS`, and remains outside Kenjaku's dependency/license
 boundary.
 
+## TODO-101 Deal-In Estimator Run
+
+The TODO-101 local run used an ignored 130-log current-year 4-player hanchan export produced from
+the `houou-logs` database used for TODO-001. The raw XML and JSON report stayed under ignored
+`data/raw/` and `runs/` paths.
+
+```bash
+houou-logs download data/raw/tenhou/db/todo-001-current-year.db \
+  --players 4 --length h --limit 130
+houou-logs validate data/raw/tenhou/db/todo-001-current-year.db
+houou-logs export data/raw/tenhou/db/todo-001-current-year.db \
+  data/raw/tenhou/xml/todo-101-deal-in-130 --players 4 --length h --limit 130
+
+PYTHONPATH=src python -m kenjaku inspect-tenhou \
+  data/raw/tenhou/xml/todo-101-deal-in-130 \
+  --report runs/todo-101/inspect-tenhou-deal-in-130.json \
+  --source-label tenhou-current-year-4p-hanchan-130 \
+  --source-date 2026-06-13 \
+  --source-command "houou-logs export data/raw/tenhou/db/todo-001-current-year.db data/raw/tenhou/xml/todo-101-deal-in-130 --players 4 --length h --limit 130"
+
+PYTHONPATH=src python -m kenjaku benchmark-deal-in \
+  data/raw/tenhou/xml/todo-101-deal-in-130 \
+  --eval-fraction 0.16 \
+  --split-seed todo-101-deal-in-130-v0 \
+  --epochs 50 \
+  --learning-rate 0.1 \
+  --l2 0.0001 \
+  --positive-class-weight 5.0 \
+  --report runs/todo-101/deal-in-benchmark-130-v0.json \
+  --source-label tenhou-current-year-4p-hanchan-130 \
+  --source-date 2026-06-13 \
+  --source-command "python -m kenjaku benchmark-deal-in data/raw/tenhou/xml/todo-101-deal-in-130 --eval-fraction 0.16 --split-seed todo-101-deal-in-130-v0 --epochs 50 --learning-rate 0.1 --l2 0.0001 --positive-class-weight 5.0 --report runs/todo-101/deal-in-benchmark-130-v0.json"
+
+PYTHONPATH=src python -m kenjaku benchmark-report-summary \
+  runs/todo-101/deal-in-benchmark-130-v0.json
+```
+
+Observed summary:
+
+```text
+examples: 65777 direct-labeled, 697 positive, 55252 train, 10525 eval
+eval: accuracy=0.9853 balanced=0.5068 recall=0.0179 specificity=0.9957 brier=0.0144 log_loss=0.0688
+heuristic_eval: accuracy=0.9402 balanced=0.5679 recall=0.1875 specificity=0.9483 brier=0.0322 log_loss=0.3176
+deltas:
+  eval_brier_score_vs_heuristic: -0.0178
+  eval_log_loss_vs_heuristic: -0.2488
+  eval_accuracy_vs_heuristic: +0.0450
+  eval_balanced_accuracy_vs_heuristic: -0.0611
+```
+
+This clears the TODO-101 size and Brier/log-loss gates for the direct-label logistic estimator, but
+balanced accuracy and recall remain weak at the default 0.50 threshold. Treat the report as a
+validated local estimator baseline, not a release checkpoint.
+
 Commit neither the exported XML nor the generated model/report artifacts unless a later release
 review explicitly clears the artifact for redistribution.

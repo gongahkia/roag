@@ -117,6 +117,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("transformer_state_encoder_module: yes", output)
         self.assertIn("transformer_behavior_cloning_training_command: yes", output)
         self.assertIn("transformer_anchor_benchmark_command: yes", output)
+        self.assertIn("bundled_trained_deal_in_probability_estimator: no", output)
         self.assertIn("transformer_policy: no", output)
         self.assertIn("automatic_replay_posting: no", output)
         self.assertIn("full_rules_self_play_harness: no", output)

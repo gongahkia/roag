@@ -167,7 +167,9 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["transformer_anchor_benchmark_command"])
         self.assertFalse(payload["capabilities"]["not_implemented"]["bundled_trained_model"])
         self.assertFalse(
-            payload["capabilities"]["not_implemented"]["trained_deal_in_probability_estimator"]
+            payload["capabilities"]["not_implemented"][
+                "bundled_trained_deal_in_probability_estimator"
+            ]
         )
         self.assertFalse(payload["capabilities"]["not_implemented"]["transformer_policy"])
         self.assertFalse(payload["capabilities"]["not_implemented"]["automatic_replay_posting"])
@@ -249,7 +251,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("transformer_behavior_cloning_training_command: yes", text)
         self.assertIn("transformer_anchor_benchmark_command: yes", text)
         self.assertIn("bundled_trained_model: no", text)
-        self.assertIn("trained_deal_in_probability_estimator: no", text)
+        self.assertIn("bundled_trained_deal_in_probability_estimator: no", text)
         self.assertIn("transformer_policy: no", text)
         self.assertIn("automatic_replay_posting: no", text)
         self.assertIn("full_rules_self_play_harness: no", text)

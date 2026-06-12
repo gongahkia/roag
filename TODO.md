@@ -70,16 +70,27 @@ evidence needed.
 
 ### TODO-101 Finish Deal-In Probability Estimator
 
-- [ ] Train a deal-in estimator on at least 50,000 local discard decisions.
-- [ ] Evaluate on a held-out slice of at least 10,000 decisions.
-- [ ] Report Brier score, log loss, accuracy, balanced accuracy, precision,
+- [x] Train a deal-in estimator on at least 50,000 local discard decisions.
+- [x] Evaluate on a held-out slice of at least 10,000 decisions.
+- [x] Report Brier score, log loss, accuracy, balanced accuracy, precision,
   recall, and calibration-threshold sweep.
-- [ ] Beat the current heuristic baseline on Brier score and log loss, or
+- [x] Beat the current heuristic baseline on Brier score and log loss, or
   document why the model is not ready.
 
 Done when: `benchmark-deal-in` outputs a reproducible report showing model versus
 heuristic metrics and the status command no longer needs to describe the defense
 scorer as only heuristic/report-only.
+
+Evidence: completed on 2026-06-13 SGT with
+`runs/todo-101/deal-in-benchmark-130-v0.json` over an ignored 130-log Tenhou
+4-player hanchan slice. The report has 65,777 direct-labeled decisions,
+55,252 train examples, 10,525 eval examples, 697 positive labels, and an eval
+threshold sweep. Eval metrics at threshold 0.50: accuracy 0.9853, balanced
+accuracy 0.5068, precision 0.0426, recall 0.0179, Brier 0.0144, log loss
+0.0688. The heuristic baseline scored Brier 0.0322 and log loss 0.3176, so the
+model beat it on both required calibration metrics. Commands and caveats are in
+`docs/local-tenhou-eval.md`; the status command now says only that no trained
+deal-in estimator is bundled.
 
 ### TODO-102 Run Behavior Cloning On Real Tenhou Slices
 
