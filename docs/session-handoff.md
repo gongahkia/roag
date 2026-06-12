@@ -254,9 +254,9 @@ Last updated: 2026-06-12.
 - `replay-intake-review` reads `kenjaku-replay-manifest-v0` JSON manifests and writes
   `kenjaku-replay-intake-review-v0` reports. It accepts only replay items whose `permission.status`
   and `permission.scope` cover the requested `intended_uses`, rejects unknown/denied permissions,
-  rejects Tenhou redistribution, and restricts Mahjong Soul training/demo/redistribution use to
-  explicit permission. `--accepted-output` writes accepted queue rows as JSONL for later offline
-  analysis tooling.
+  rejects Tenhou redistribution, and requires explicit permission for every Mahjong Soul intended
+  use after the 2026-06-12 policy review. `--accepted-output` writes accepted queue rows as JSONL
+  for later offline analysis tooling.
 - `replay-share-plan` reads accepted intake JSONL and writes `kenjaku-replay-share-plan-v0`
   reports for `--intent demo|redistribution`. It requires both the original `intended_uses` and
   `permission.scope` to include the requested share intent. It plans local sharing only; it does not

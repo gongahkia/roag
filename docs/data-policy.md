@@ -40,9 +40,34 @@ records, or full generated artifacts into git without a separate redistribution 
 
 ## Mahjong Soul
 
-Mahjong Soul ranked automation is out of scope unless written permission is obtained. Replay
-analysis should start from user-provided replay URLs or local exports, and tests should use
-synthetic fixtures.
+Decision as of 2026-06-12: Mahjong Soul replay sharing is not treated as permitted for Kenjaku
+offline analysis, evaluation, training, demo, or redistribution unless Yostar or another
+rights-holder with authority grants explicit written permission for the exact intended use.
+
+Evidence reviewed on 2026-06-12:
+
+- Official Mahjong Soul site footer links to `https://mahjongsoul.yo-star.com/terms_of_service`
+  and `https://mahjongsoul.yo-star.com/privacy_policy`.
+- The terms grant only a limited personal, noncommercial service-use license and require use only
+  as permitted by service features.
+- The service rules prohibit copying, distributing, or disclosing service material by automated or
+  non-automated scraping, prohibit high-volume automated access, and prohibit access through
+  technology or means not provided or authorized by the service.
+- The proprietary-rights section includes in-game chat transcripts, character profile information,
+  and recordings of games played using a Yostar client in Yostar content. No public research,
+  dataset, replay-export, or replay-redistribution license was found.
+- The privacy policy says Yostar collects service usage and actions, including gameplay activity,
+  interactions with others, user content, and a unique user ID used to track played games. Its
+  displayed last revision date is May 27, 2025.
+
+Allowed workflow: reject Mahjong Soul replay manifest rows by default. Accept them only when
+`permission.status` is `explicit_permission` and `permission.scope` covers every requested
+`intended_uses` value. Accepted rows remain local-only unless the explicit scope also covers demo or
+redistribution.
+
+Blocked workflow: do not scrape Mahjong Soul, automate Mahjong Soul clients, fetch ranked replay
+data, mirror replay-share URLs, or use user-provided/public Mahjong Soul links for Kenjaku analysis
+without explicit permission. Use synthetic fixtures for tests.
 
 ## Replay Intake Manifests
 
@@ -63,9 +88,9 @@ Supported `permission.status` values are:
   covered by that scope.
 - `unknown` and `denied`: rejected.
 
-Tenhou redistribution is rejected by the intake gate. Mahjong Soul training, demo, or
-redistribution uses require explicit permission. The intake command is a provenance and permission
-review step only; it does not fetch live-service data or automate a client.
+Tenhou redistribution is rejected by the intake gate. Mahjong Soul replay intake requires explicit
+permission for every intended use. The intake command is a provenance and permission review step
+only; it does not fetch live-service data or automate a client.
 
 Use `kenjaku replay-share-plan` on accepted intake JSONL before any demo or redistribution work.
 The share planner checks that the accepted row's original `intended_uses` and `permission.scope`

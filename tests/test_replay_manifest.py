@@ -26,17 +26,17 @@ class ReplayManifestTests(unittest.TestCase):
         review = review_replay_manifest(_manifest_payload())
 
         self.assertEqual(review["kind"], REPLAY_INTAKE_REVIEW_KIND)
-        self.assertEqual(review["items"], 5)
+        self.assertEqual(review["items"], 6)
         self.assertEqual(review["accepted"], 2)
-        self.assertEqual(review["rejected"], 3)
-        self.assertEqual(review["platforms"]["mahjong_soul"], 2)
+        self.assertEqual(review["rejected"], 4)
+        self.assertEqual(review["platforms"]["mahjong_soul"], 3)
         self.assertEqual(review["permission_statuses"]["user_provided"], 2)
         accepted_ids = [
             decision["id"]
             for decision in review["decisions"]
             if decision["accepted"]
         ]
-        self.assertEqual(accepted_ids, ["synthetic-training", "mjs-review"])
+        self.assertEqual(accepted_ids, ["synthetic-training", "mjs-explicit-analysis"])
         rejected = {
             decision["id"]: decision["reasons"]
             for decision in review["decisions"]
@@ -44,7 +44,13 @@ class ReplayManifestTests(unittest.TestCase):
         }
         self.assertTrue(
             any(
-                "mahjong_soul replay intake is limited" in reason
+                "mahjong_soul replay intake requires explicit permission" in reason
+                for reason in rejected["mjs-review"]
+            )
+        )
+        self.assertTrue(
+            any(
+                "mahjong_soul replay intake requires explicit permission" in reason
                 for reason in rejected["mjs-training"]
             )
         )
@@ -74,10 +80,13 @@ class ReplayManifestTests(unittest.TestCase):
         accepted = accepted_replay_intake_items(review)
         text = format_replay_intake_review(review)
 
-        self.assertEqual([row["id"] for row in accepted], ["synthetic-training", "mjs-review"])
-        self.assertIn("items: 5", text)
+        self.assertEqual(
+            [row["id"] for row in accepted],
+            ["synthetic-training", "mjs-explicit-analysis"],
+        )
+        self.assertIn("items: 6", text)
         self.assertIn("accepted: 2", text)
-        self.assertIn("rejected: 3", text)
+        self.assertIn("rejected: 4", text)
         self.assertIn("permission_statuses:", text)
         self.assertIn("rejections:", text)
 
@@ -185,6 +194,18 @@ def _manifest_payload() -> dict:
                 "uri": "https://mahjongsoul.game.yo-star.com/?paipu=abc",
                 "intended_uses": ["analysis"],
                 "permission": {"status": "user_provided"},
+            },
+            {
+                "id": "mjs-explicit-analysis",
+                "platform": "mahjong_soul",
+                "uri": "https://mahjongsoul.game.yo-star.com/?paipu=explicit",
+                "intended_uses": ["analysis"],
+                "permission": {
+                    "status": "explicit_permission",
+                    "scope": ["analysis"],
+                    "granted_by": "unit-test",
+                    "granted_at": "2026-06-12",
+                },
             },
             {
                 "id": "mjs-training",

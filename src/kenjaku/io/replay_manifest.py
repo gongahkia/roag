@@ -296,12 +296,8 @@ def _replay_item_rejection_reasons(item: ReplayManifestItem) -> Iterable[str]:
     missing_scope = [use for use in item.intended_uses if use not in item.permission_scope]
     if missing_scope:
         yield "permission scope does not cover intended uses: " + ", ".join(missing_scope)
-    if (
-        item.platform == "mahjong_soul"
-        and item.permission_status != "explicit_permission"
-        and any(use in {"training", "demo", "redistribution"} for use in item.intended_uses)
-    ):
-        yield "mahjong_soul replay intake is limited to analysis/evaluation without explicit review"
+    if item.platform == "mahjong_soul" and item.permission_status != "explicit_permission":
+        yield "mahjong_soul replay intake requires explicit permission for every intended use"
     if item.platform == "tenhou" and "redistribution" in item.intended_uses:
         yield "tenhou replay redistribution is not allowed by this intake gate"
     if item.platform == "local_file" and not item.uri:

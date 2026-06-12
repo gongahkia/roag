@@ -30,11 +30,12 @@ raw replay files.
 
 ### TODO-002 Gate Mahjong Soul Replay Usage
 
-- [ ] Decide whether Mahjong Soul replay sharing can be used for offline
+- [x] Decide whether Mahjong Soul replay sharing can be used for offline
   analysis without violating current terms.
-- [ ] If permitted, manually validate 3 replay-share examples and document the
-  allowed source, storage, and redistribution limits.
-- [ ] If not permitted, document the block and remove Mahjong Soul scraping from
+- [x] If permitted, manually validate 3 replay-share examples and document the
+  allowed source, storage, and redistribution limits. Not applicable: the
+  2026-06-12 policy decision is not-permitted without explicit permission.
+- [x] If not permitted, document the block and remove Mahjong Soul scraping from
   the active implementation path.
 
 Done when: `docs/data-policy.md` has a dated Mahjong Soul decision, evidence
