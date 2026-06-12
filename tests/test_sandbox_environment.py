@@ -503,6 +503,75 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(terminal.to_payload()["honba"], honba)
 
+    def test_dealer_ron_uses_oya_payment_estimate(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            pending_discard=Tile.parse("5m"),
+            pending_discard_seat=0,
+            pending_reaction_seats=(1,),
+            dealer_seat=1,
+        )
+
+        terminal = apply_ron_action(
+            state,
+            seat=1,
+            action=Action(ActionKind.RON, TileType.parse("5m")),
+        )
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.terminal_point_deltas, (-1500, 1500, 0, 0))
+        self.assertEqual(terminal.points, (23500, 26500, 25000, 25000))
+        self.assertTrue(estimate.is_dealer)
+        self.assertEqual(estimate.ron_payment, 1500)
+        self.assertIsNone(estimate.tsumo_child_payment)
+        self.assertIsNone(estimate.tsumo_dealer_payment)
+        self.assertTrue(estimate_payload["is_dealer"])
+        self.assertEqual(estimate_payload["ron_payment"], 1500)
+        self.assertIsNone(estimate_payload["tsumo_child_payment"])
+        self.assertIsNone(estimate_payload["tsumo_dealer_payment"])
+
+    def test_nondealer_tsumo_charges_dealer_more_than_children(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+            current_seat=1,
+            dealer_seat=0,
+        )
+
+        drawn = draw_for_current_seat(state)
+        terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+        estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.terminal_point_deltas, (-1000, 2000, -500, -500))
+        self.assertEqual(terminal.points, (24000, 27000, 24500, 24500))
+        self.assertFalse(estimate.is_dealer)
+        self.assertEqual(estimate.tsumo_child_payment, 500)
+        self.assertEqual(estimate.tsumo_dealer_payment, 1000)
+        self.assertEqual(estimate.tsumo_payment_per_loser, 500)
+        self.assertFalse(estimate_payload["is_dealer"])
+        self.assertEqual(estimate_payload["tsumo_child_payment"], 500)
+        self.assertEqual(estimate_payload["tsumo_dealer_payment"], 1000)
+        self.assertEqual(estimate_payload["tsumo_payment_per_loser"], 500)
+
     def test_next_round_after_dealer_tsumo_repeats_dealer_and_increments_honba(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

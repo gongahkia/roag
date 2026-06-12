@@ -28,7 +28,7 @@ HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = 3000
 SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_INITIAL_DORA_INDICATORS = 1
-SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-nondealer-rounded-v0"
+SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-dealer-aware-rounded-v1"
 SANDBOX_KITA_TILE = TileType.parse("N")
 SANDBOX_SEAT_WINDS = (
     TileType.parse("E"),
@@ -65,13 +65,28 @@ SANDBOX_LIMIT_RON_POINTS = {
     "sanbaiman": 24000,
     "yakuman": 32000,
 }
-SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER = {
+SANDBOX_LIMIT_DEALER_RON_POINTS = {
+    "mangan": 12000,
+    "haneman": 18000,
+    "baiman": 24000,
+    "sanbaiman": 36000,
+    "yakuman": 48000,
+}
+SANDBOX_LIMIT_TSUMO_CHILD_POINTS = {
     "mangan": 2000,
     "haneman": 3000,
     "baiman": 4000,
     "sanbaiman": 6000,
     "yakuman": 8000,
 }
+SANDBOX_LIMIT_TSUMO_DEALER_POINTS = {
+    "mangan": 4000,
+    "haneman": 6000,
+    "baiman": 8000,
+    "sanbaiman": 12000,
+    "yakuman": 16000,
+}
+SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER = SANDBOX_LIMIT_TSUMO_CHILD_POINTS
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
@@ -90,8 +105,11 @@ class SandboxScoreEstimate:
     fu: int | None
     limit: str | None
     base_points: int
+    is_dealer: bool
     ron_payment: int | None
     tsumo_payment_per_loser: int | None
+    tsumo_child_payment: int | None
+    tsumo_dealer_payment: int | None
     honba_payment: int
     riichi_stick_points: int
     payment_model: str = SANDBOX_SCORE_PAYMENT_MODEL
@@ -108,8 +126,11 @@ class SandboxScoreEstimate:
             "fu": self.fu,
             "limit": self.limit,
             "base_points": self.base_points,
+            "is_dealer": self.is_dealer,
             "ron_payment": self.ron_payment,
             "tsumo_payment_per_loser": self.tsumo_payment_per_loser,
+            "tsumo_child_payment": self.tsumo_child_payment,
+            "tsumo_dealer_payment": self.tsumo_dealer_payment,
             "honba_payment": self.honba_payment,
             "riichi_stick_points": self.riichi_stick_points,
             "payment_model": self.payment_model,
@@ -2034,6 +2055,7 @@ def _terminal_win_point_updates(
         )
         estimate = _sandbox_score_estimate(
             seat=winner_seat,
+            is_dealer=winner_seat == state.dealer_seat,
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
             kita_dora_count=len(_kita_tiles_by_seat(state)[winner_seat]),
@@ -2043,15 +2065,21 @@ def _terminal_win_point_updates(
         estimates.append(estimate)
 
         if discarder_seat is None:
-            payment = estimate.tsumo_payment_per_loser
-            if payment is None:
-                raise ValueError("tsumo score estimate must include per-loser payment")
-            per_loser_payment = payment + estimate.honba_payment
+            child_payment = estimate.tsumo_child_payment
+            if child_payment is None:
+                raise ValueError("tsumo score estimate must include child payment")
             for seat in range(state.players):
                 if seat == winner_seat:
                     continue
-                points[seat] -= per_loser_payment
-                points[winner_seat] += per_loser_payment
+                payment = child_payment
+                if (
+                    seat == state.dealer_seat
+                    and estimate.tsumo_dealer_payment is not None
+                ):
+                    payment = estimate.tsumo_dealer_payment
+                total_payment = payment + estimate.honba_payment
+                points[seat] -= total_payment
+                points[winner_seat] += total_payment
         else:
             payment = estimate.ron_payment
             if payment is None:
@@ -2118,6 +2146,7 @@ def _exhaustive_draw_point_deltas(
 def _sandbox_score_estimate(
     *,
     seat: int,
+    is_dealer: bool,
     win_kind: str,
     yaku: tuple[str, ...],
     kita_dora_count: int,
@@ -2126,6 +2155,21 @@ def _sandbox_score_estimate(
 ) -> SandboxScoreEstimate:
     bonus_han = kita_dora_count
     if "kokushi" in yaku:
+        ron_payment = (
+            _sandbox_limit_ron_payment(limit="yakuman", is_dealer=is_dealer)
+            if win_kind != "tsumo"
+            else None
+        )
+        tsumo_child_payment = (
+            _sandbox_limit_tsumo_child_payment(limit="yakuman", is_dealer=is_dealer)
+            if win_kind == "tsumo"
+            else None
+        )
+        tsumo_dealer_payment = (
+            _sandbox_limit_tsumo_dealer_payment(limit="yakuman", is_dealer=is_dealer)
+            if win_kind == "tsumo"
+            else None
+        )
         return SandboxScoreEstimate(
             seat=seat,
             win_kind=win_kind,
@@ -2137,12 +2181,11 @@ def _sandbox_score_estimate(
             fu=None,
             limit="yakuman",
             base_points=SANDBOX_LIMIT_BASE_POINTS["yakuman"],
-            ron_payment=SANDBOX_LIMIT_RON_POINTS["yakuman"] if win_kind != "tsumo" else None,
-            tsumo_payment_per_loser=(
-                SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER["yakuman"]
-                if win_kind == "tsumo"
-                else None
-            ),
+            is_dealer=is_dealer,
+            ron_payment=ron_payment,
+            tsumo_payment_per_loser=tsumo_child_payment,
+            tsumo_child_payment=tsumo_child_payment,
+            tsumo_dealer_payment=tsumo_dealer_payment,
             honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
             riichi_stick_points=riichi_stick_points,
         )
@@ -2154,15 +2197,34 @@ def _sandbox_score_estimate(
     limit = _sandbox_score_limit(han=han, base_points=base_points)
     if limit is not None:
         base_points = SANDBOX_LIMIT_BASE_POINTS[limit]
-        ron_payment = SANDBOX_LIMIT_RON_POINTS[limit] if win_kind != "tsumo" else None
-        tsumo_payment_per_loser = (
-            SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER[limit] if win_kind == "tsumo" else None
+        ron_payment = (
+            _sandbox_limit_ron_payment(limit=limit, is_dealer=is_dealer)
+            if win_kind != "tsumo"
+            else None
+        )
+        tsumo_child_payment = (
+            _sandbox_limit_tsumo_child_payment(limit=limit, is_dealer=is_dealer)
+            if win_kind == "tsumo"
+            else None
+        )
+        tsumo_dealer_payment = (
+            _sandbox_limit_tsumo_dealer_payment(limit=limit, is_dealer=is_dealer)
+            if win_kind == "tsumo"
+            else None
         )
     else:
-        ron_payment = _ceil_to_hundred(base_points * 4) if win_kind != "tsumo" else None
-        tsumo_payment_per_loser = (
-            _ceil_to_hundred(base_points * 2) if win_kind == "tsumo" else None
+        ron_payment = (
+            _ceil_to_hundred(base_points * (6 if is_dealer else 4))
+            if win_kind != "tsumo"
+            else None
         )
+        tsumo_child_payment = None
+        tsumo_dealer_payment = None
+        if win_kind == "tsumo":
+            tsumo_child_payment = _ceil_to_hundred(base_points * (2 if is_dealer else 1))
+            tsumo_dealer_payment = (
+                None if is_dealer else _ceil_to_hundred(base_points * 2)
+            )
     return SandboxScoreEstimate(
         seat=seat,
         win_kind=win_kind,
@@ -2174,11 +2236,32 @@ def _sandbox_score_estimate(
         fu=fu,
         limit=limit,
         base_points=base_points,
+        is_dealer=is_dealer,
         ron_payment=ron_payment,
-        tsumo_payment_per_loser=tsumo_payment_per_loser,
+        tsumo_payment_per_loser=tsumo_child_payment,
+        tsumo_child_payment=tsumo_child_payment,
+        tsumo_dealer_payment=tsumo_dealer_payment,
         honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
         riichi_stick_points=riichi_stick_points,
     )
+
+
+def _sandbox_limit_ron_payment(*, limit: str, is_dealer: bool) -> int:
+    if is_dealer:
+        return SANDBOX_LIMIT_DEALER_RON_POINTS[limit]
+    return SANDBOX_LIMIT_RON_POINTS[limit]
+
+
+def _sandbox_limit_tsumo_child_payment(*, limit: str, is_dealer: bool) -> int:
+    if is_dealer:
+        return SANDBOX_LIMIT_TSUMO_DEALER_POINTS[limit]
+    return SANDBOX_LIMIT_TSUMO_CHILD_POINTS[limit]
+
+
+def _sandbox_limit_tsumo_dealer_payment(*, limit: str, is_dealer: bool) -> int | None:
+    if is_dealer:
+        return None
+    return SANDBOX_LIMIT_TSUMO_DEALER_POINTS[limit]
 
 
 def _sandbox_honba_payment(*, win_kind: str, honba: int) -> int:
