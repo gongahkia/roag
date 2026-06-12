@@ -7,6 +7,7 @@ from kenjaku.simulation import (
     HONBA_RON_POINTS,
     HONBA_TSUMO_POINTS_PER_LOSER,
     RIICHI_DEPOSIT_POINTS,
+    SANDBOX_3P_INITIAL_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
     SANDBOX_INITIAL_POINTS,
     SandboxEnvironmentState,
@@ -1807,12 +1808,25 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(len(state.wall), 55)
         self.assertEqual(len(state.dead_wall), 14)
         self.assertEqual(state.dora_indicators, state.dead_wall[:1])
+        self.assertEqual(state.points, (SANDBOX_3P_INITIAL_POINTS,) * 3)
+        self.assertEqual(state.to_payload()["points"], [SANDBOX_3P_INITIAL_POINTS] * 3)
         self.assertFalse(any(tile in visible for tile in _excluded_sanma_manzu()))
         self.assertFalse(any(tile in wall for tile in _excluded_sanma_manzu()))
         self.assertFalse(any(tile in dead_wall for tile in _excluded_sanma_manzu()))
         self.assertEqual(state.kita_tiles, ((), (), ()))
         self.assertEqual(state.to_payload()["kita_tiles"], [[], [], []])
         self.assertEqual(state.to_payload()["kita_counts"], [0, 0, 0])
+
+    def test_sanma_default_points_use_tenhou_three_player_start(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(),
+            hands=((), (), ()),
+        )
+
+        self.assertEqual(state.points, ())
+        self.assertEqual(state.to_payload()["points"], [SANDBOX_3P_INITIAL_POINTS] * 3)
 
     def test_sanma_kita_uses_replacement_draw_without_kan_dora(self) -> None:
         state = SandboxEnvironmentState(

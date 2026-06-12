@@ -85,6 +85,7 @@ def build_status_payload() -> dict[str, Any]:
                 "self_play_sandbox_tsumo_termination": True,
                 "sanma_static_ruleset": True,
                 "self_play_sandbox_sanma_tile_set": True,
+                "sandbox_sanma_initial_points": True,
                 "sandbox_sanma_kita_action": True,
                 "sandbox_sanma_kita_ron_reaction_window": True,
                 "sandbox_sanma_kita_ron_resolution": True,

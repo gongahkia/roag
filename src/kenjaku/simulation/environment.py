@@ -21,6 +21,7 @@ from kenjaku.core import (
 SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
 SANDBOX_RULESETS = ("tenhou-4p", "tenhou-3p")
 SANDBOX_INITIAL_POINTS = 25000
+SANDBOX_3P_INITIAL_POINTS = 35000
 RIICHI_DEPOSIT_POINTS = 1000
 HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
@@ -398,7 +399,7 @@ def initial_sandbox_environment(
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
         kita_tiles=tuple(() for _seat in range(rules.players)),
-        points=tuple(SANDBOX_INITIAL_POINTS for _seat in range(rules.players)),
+        points=tuple(_initial_points_for_ruleset(rules.name) for _seat in range(rules.players)),
     )
 
 
@@ -1816,7 +1817,13 @@ def _discards_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Tile, ...],
 def _points_by_seat(state: SandboxEnvironmentState) -> tuple[int, ...]:
     if state.points:
         return state.points
-    return tuple(SANDBOX_INITIAL_POINTS for _seat in range(state.players))
+    return tuple(_initial_points_for_ruleset(state.ruleset) for _seat in range(state.players))
+
+
+def _initial_points_for_ruleset(ruleset: str) -> int:
+    if ruleset == TENHOU_3P.name:
+        return SANDBOX_3P_INITIAL_POINTS
+    return SANDBOX_INITIAL_POINTS
 
 
 def _terminal_win_point_updates(
