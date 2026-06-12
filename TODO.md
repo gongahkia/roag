@@ -142,11 +142,11 @@ coverage and current status text no longer says scoring is false.
 
 ### TODO-204 Complete Dora And Ura-Dora Ordering
 
-- [ ] Implement visible dora, kan-dora, ura-dora, kan-ura, red dora, and Kita
+- [x] Implement visible dora, kan-dora, ura-dora, kan-ura, red dora, and Kita
   counting in the same order as the target ruleset.
-- [ ] Add tests for indicator reveal timing after minkan, ankan, kakan, rinshan,
+- [x] Add tests for indicator reveal timing after minkan, ankan, kakan, rinshan,
   chankan, and riichi wins.
-- [ ] Validate Tenhou Sanma 1m/9m wrap remains covered.
+- [x] Validate Tenhou Sanma 1m/9m wrap remains covered.
 
 Done when: dora counts are exact for at least 20 fixture hands and are no longer
 described as basic estimates.

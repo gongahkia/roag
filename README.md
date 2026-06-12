@@ -48,7 +48,8 @@ notes.
   reward projections for terminal, point-delta, normalized point-delta, and placement-delta modes,
   plus terminal point-delta and score-estimate metadata, including basic
   dealer-aware win payments,
-  visible-dora/red-five bonus han, basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
+  visible-dora, kan-dora, riichi-gated ura/kan-ura, red-five, and Kita bonus han,
+  basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
   tenpai/noten point deltas plus basic Nagashi mangan wall-exhaustion and next-round progression.
   The sandbox also has narrow Sanma

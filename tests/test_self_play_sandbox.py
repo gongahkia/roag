@@ -96,6 +96,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["exhaustive_draw_tenpai_noten_payments"])
         self.assertTrue(first["capabilities"]["dealer_aware_win_payments"])
         self.assertTrue(first["capabilities"]["visible_dora_score_estimates"])
+        self.assertTrue(first["capabilities"]["ura_dora_score_estimates"])
         self.assertTrue(first["capabilities"]["red_dora_score_estimates"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
         self.assertEqual(
@@ -289,6 +290,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("dealer_aware_win_payments: yes", text)
         self.assertIn("visible_dora_score_estimates: yes", text)
+        self.assertIn("ura_dora_score_estimates: yes", text)
         self.assertIn("red_dora_score_estimates: yes", text)
         self.assertIn("scoring: no", text)
         self.assertIn("ppo: no", text)

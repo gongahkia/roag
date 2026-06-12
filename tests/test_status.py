@@ -121,6 +121,9 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
         )
         self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_ura_dora_score_estimates"]
+        )
+        self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_red_dora_score_estimates"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
@@ -226,6 +229,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", text)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", text)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", text)
+        self.assertIn("sandbox_ura_dora_score_estimates: yes", text)
         self.assertIn("sandbox_red_dora_score_estimates: yes", text)
         self.assertIn("basic_winning_hand_detection: yes", text)
         self.assertIn("sandbox_open_meld_win_detection: yes", text)

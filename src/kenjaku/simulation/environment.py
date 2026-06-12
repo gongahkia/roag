@@ -116,6 +116,7 @@ class SandboxScoreEstimate:
     yaku_han: int
     bonus_han: int
     visible_dora_count: int
+    ura_dora_count: int
     red_dora_count: int
     kita_dora_count: int
     han: int
@@ -139,6 +140,7 @@ class SandboxScoreEstimate:
             "yaku_han": self.yaku_han,
             "bonus_han": self.bonus_han,
             "visible_dora_count": self.visible_dora_count,
+            "ura_dora_count": self.ura_dora_count,
             "red_dora_count": self.red_dora_count,
             "kita_dora_count": self.kita_dora_count,
             "han": self.han,
@@ -164,6 +166,7 @@ class SandboxEnvironmentState:
     hands: tuple[tuple[Tile, ...], ...]
     dead_wall: tuple[Tile, ...] = ()
     dora_indicators: tuple[Tile, ...] = ()
+    ura_dora_indicators: tuple[Tile, ...] = ()
     discards: tuple[tuple[Tile, ...], ...] = ()
     melds: tuple[tuple[Meld, ...], ...] = ()
     kita_tiles: tuple[tuple[Tile, ...], ...] = ()
@@ -218,6 +221,8 @@ class SandboxEnvironmentState:
             raise ValueError("hands must match player count")
         if len(self.dora_indicators) > len(self.dead_wall):
             raise ValueError("dora indicators cannot exceed dead wall size")
+        if len(self.ura_dora_indicators) > len(self.dead_wall):
+            raise ValueError("ura dora indicators cannot exceed dead wall size")
         if self.discards and len(self.discards) != self.players:
             raise ValueError("discards must match player count")
         if self.melds and len(self.melds) != self.players:
@@ -403,6 +408,9 @@ class SandboxEnvironmentState:
             "wall_remaining": len(self.wall),
             "dead_wall_remaining": len(self.dead_wall),
             "dora_indicators": [tile.notation for tile in self.dora_indicators],
+            "ura_dora_indicators": [
+                tile.notation for tile in self.ura_dora_indicators
+            ],
             "hand_sizes": self.hand_sizes(),
             "points": list(_points_by_seat(self)),
             "riichi_sticks": self.riichi_sticks,
@@ -491,6 +499,7 @@ def initial_sandbox_environment(
         hands=hands,
         dead_wall=dead_wall,
         dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
+        ura_dora_indicators=(),
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
         kita_tiles=tuple(() for _seat in range(rules.players)),
@@ -2015,6 +2024,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "hands": state.hands,
         "dead_wall": state.dead_wall,
         "dora_indicators": state.dora_indicators,
+        "ura_dora_indicators": state.ura_dora_indicators,
         "discards": state.discards,
         "melds": state.melds,
         "kita_tiles": state.kita_tiles,
@@ -2083,6 +2093,7 @@ def _new_sandbox_round_state(
         hands=hands,
         dead_wall=dead_wall,
         dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
+        ura_dora_indicators=(),
         discards=tuple(() for _seat in range(state.players)),
         melds=tuple(() for _seat in range(state.players)),
         kita_tiles=tuple(() for _seat in range(state.players)),
@@ -2197,6 +2208,11 @@ def _terminal_win_point_updates(
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
             visible_dora_count=_visible_dora_count(
+                state,
+                seat=winner_seat,
+                winning_tile=winning_tile,
+            ),
+            ura_dora_count=_ura_dora_count(
                 state,
                 seat=winner_seat,
                 winning_tile=winning_tile,
@@ -2346,10 +2362,42 @@ def _visible_dora_count(
     seat: int,
     winning_tile: Tile | None,
 ) -> int:
-    if not state.dora_indicators:
+    return _dora_count_for_indicators(
+        state,
+        indicators=state.dora_indicators,
+        seat=seat,
+        winning_tile=winning_tile,
+    )
+
+
+def _ura_dora_count(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile | None,
+) -> int:
+    if not _is_riichi(state, seat=seat):
+        return 0
+    active_indicators = state.ura_dora_indicators[: len(state.dora_indicators)]
+    return _dora_count_for_indicators(
+        state,
+        indicators=active_indicators,
+        seat=seat,
+        winning_tile=winning_tile,
+    )
+
+
+def _dora_count_for_indicators(
+    state: SandboxEnvironmentState,
+    *,
+    indicators: tuple[Tile, ...],
+    seat: int,
+    winning_tile: Tile | None,
+) -> int:
+    if not indicators:
         return 0
     dora_type_counts = [0] * 34
-    for indicator in state.dora_indicators:
+    for indicator in indicators:
         dora_type_counts[
             _dora_type_for_indicator(indicator.type, ruleset=state.ruleset).index
         ] += 1
@@ -2401,12 +2449,13 @@ def _sandbox_score_estimate(
     win_kind: str,
     yaku: tuple[str, ...],
     visible_dora_count: int,
+    ura_dora_count: int,
     red_dora_count: int,
     kita_dora_count: int,
     honba: int,
     riichi_stick_points: int,
 ) -> SandboxScoreEstimate:
-    bonus_han = visible_dora_count + red_dora_count + kita_dora_count
+    bonus_han = visible_dora_count + ura_dora_count + red_dora_count + kita_dora_count
     if "nagashi_mangan" in yaku:
         return SandboxScoreEstimate(
             seat=seat,
@@ -2415,6 +2464,7 @@ def _sandbox_score_estimate(
             yaku_han=SANDBOX_YAKU_HAN["nagashi_mangan"],
             bonus_han=0,
             visible_dora_count=visible_dora_count,
+            ura_dora_count=ura_dora_count,
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
             han=SANDBOX_YAKU_HAN["nagashi_mangan"],
@@ -2462,6 +2512,7 @@ def _sandbox_score_estimate(
             yaku_han=13,
             bonus_han=scoring_bonus_han,
             visible_dora_count=visible_dora_count,
+            ura_dora_count=ura_dora_count,
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
             han=13,
@@ -2519,6 +2570,7 @@ def _sandbox_score_estimate(
         yaku_han=yaku_han,
         bonus_han=bonus_han,
         visible_dora_count=visible_dora_count,
+        ura_dora_count=ura_dora_count,
         red_dora_count=red_dora_count,
         kita_dora_count=kita_dora_count,
         han=han,

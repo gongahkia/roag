@@ -96,6 +96,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_score_estimate_point_accounting": True,
                 "sandbox_dealer_aware_win_payments": True,
                 "sandbox_visible_dora_score_estimates": True,
+                "sandbox_ura_dora_score_estimates": True,
                 "sandbox_red_dora_score_estimates": True,
                 "sandbox_kazoe_yakuman_score_estimates": True,
                 "sandbox_yakuman_bonus_han_suppression": True,

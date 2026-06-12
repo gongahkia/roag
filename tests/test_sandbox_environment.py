@@ -78,6 +78,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             first.to_payload()["dora_indicators"],
             [first.dora_indicators[0].notation],
         )
+        self.assertEqual(first.to_payload()["ura_dora_indicators"], [])
         self.assertEqual(first.to_payload()["double_riichi_seats"], [])
         self.assertEqual(first.to_payload()["ippatsu_seats"], [])
         self.assertEqual(first.to_payload()["winning_ippatsu_seats"], [])
@@ -1009,6 +1010,125 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(estimate.visible_dora_count, 2)
         self.assertEqual(estimate.bonus_han, 2)
+
+    def test_ura_dora_counts_only_for_riichi_winners(self) -> None:
+        base_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=_tiles("9m 4m"),
+            dora_indicators=(Tile.parse("9m"),),
+            ura_dora_indicators=(Tile.parse("4m"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("5m"),
+        )
+        riichi_state = SandboxEnvironmentState(
+            ruleset=base_state.ruleset,
+            players=base_state.players,
+            wall=base_state.wall,
+            dead_wall=base_state.dead_wall,
+            dora_indicators=base_state.dora_indicators,
+            ura_dora_indicators=base_state.ura_dora_indicators,
+            hands=base_state.hands,
+            drawn_tile=base_state.drawn_tile,
+            riichi_seats=(0,),
+        )
+
+        non_riichi = apply_tsumo_action(base_state, Action(ActionKind.TSUMO))
+        riichi = apply_tsumo_action(riichi_state, Action(ActionKind.TSUMO))
+        non_riichi_estimate = non_riichi.terminal_score_estimates[0]
+        riichi_estimate = riichi.terminal_score_estimates[0]
+        riichi_payload = riichi.to_payload()["terminal_score_estimates"][0]
+
+        self.assertEqual(non_riichi_estimate.ura_dora_count, 0)
+        self.assertEqual(non_riichi_estimate.bonus_han, 0)
+        self.assertEqual(riichi_estimate.ura_dora_count, 2)
+        self.assertEqual(riichi_estimate.bonus_han, 2)
+        self.assertEqual(riichi_payload["ura_dora_count"], 2)
+        self.assertEqual(riichi_payload["bonus_han"], 2)
+
+    def test_kan_ura_counts_only_for_revealed_kan_dora_slots(self) -> None:
+        hand = _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m")
+        first_slot_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=_tiles("9m 1p 4m 8s"),
+            dora_indicators=(Tile.parse("9m"),),
+            ura_dora_indicators=(Tile.parse("4m"), Tile.parse("8s")),
+            hands=(hand, (), (), ()),
+            drawn_tile=Tile.parse("5m"),
+            riichi_seats=(0,),
+        )
+        kan_slot_state = SandboxEnvironmentState(
+            ruleset=first_slot_state.ruleset,
+            players=first_slot_state.players,
+            wall=first_slot_state.wall,
+            dead_wall=first_slot_state.dead_wall,
+            dora_indicators=(Tile.parse("9m"), Tile.parse("1p")),
+            ura_dora_indicators=first_slot_state.ura_dora_indicators,
+            hands=first_slot_state.hands,
+            drawn_tile=first_slot_state.drawn_tile,
+            riichi_seats=first_slot_state.riichi_seats,
+        )
+
+        first_slot = apply_tsumo_action(first_slot_state, Action(ActionKind.TSUMO))
+        kan_slot = apply_tsumo_action(kan_slot_state, Action(ActionKind.TSUMO))
+
+        self.assertEqual(first_slot.terminal_score_estimates[0].ura_dora_count, 2)
+        self.assertEqual(kan_slot.terminal_score_estimates[0].ura_dora_count, 3)
+
+    def test_dora_count_fixture_matrix_covers_twenty_indicator_cases(self) -> None:
+        hand = _tiles("1m 2m 3m 4p 5p 6p 7s 8s 9s E E E 5m 5m")
+        cases = (
+            (("9m",), (), False, 1, 0),
+            (("1m",), (), False, 1, 0),
+            (("2m",), (), False, 1, 0),
+            (("4m",), (), False, 2, 0),
+            (("3p",), (), False, 1, 0),
+            (("4p",), (), False, 1, 0),
+            (("5p",), (), False, 1, 0),
+            (("6s",), (), False, 1, 0),
+            (("7s",), (), False, 1, 0),
+            (("8s",), (), False, 1, 0),
+            (("N",), (), False, 3, 0),
+            (("E",), (), False, 0, 0),
+            (("S",), (), False, 0, 0),
+            (("W",), (), False, 0, 0),
+            (("C",), (), False, 0, 0),
+            (("4m", "N"), (), False, 5, 0),
+            (("4m", "4m"), (), False, 4, 0),
+            (("9m",), ("4m",), False, 1, 0),
+            (("9m",), ("4m",), True, 1, 2),
+            (("4m", "9m"), ("N", "4m"), True, 3, 5),
+        )
+
+        self.assertEqual(len(cases), 20)
+        for visible, ura, riichi, expected_visible, expected_ura in cases:
+            with self.subTest(visible=visible, ura=ura, riichi=riichi):
+                dead_wall = tuple(Tile.parse(tile) for tile in (*visible, *ura))
+                state = SandboxEnvironmentState(
+                    ruleset="tenhou-4p",
+                    players=4,
+                    wall=(),
+                    dead_wall=dead_wall,
+                    dora_indicators=tuple(Tile.parse(tile) for tile in visible),
+                    ura_dora_indicators=tuple(Tile.parse(tile) for tile in ura),
+                    hands=(hand, (), (), ()),
+                    drawn_tile=Tile.parse("5m"),
+                    riichi_seats=((0,) if riichi else ()),
+                )
+
+                terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+                estimate = terminal.terminal_score_estimates[0]
+
+                self.assertEqual(estimate.visible_dora_count, expected_visible)
+                self.assertEqual(estimate.ura_dora_count, expected_ura)
 
     def test_sanma_visible_dora_wraps_one_and_nine_man_indicators(self) -> None:
         cases = (

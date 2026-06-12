@@ -96,6 +96,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", output)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", output)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", output)
+        self.assertIn("sandbox_ura_dora_score_estimates: yes", output)
         self.assertIn("sandbox_red_dora_score_estimates: yes", output)
         self.assertIn("sandbox_kazoe_yakuman_score_estimates: yes", output)
         self.assertIn("sandbox_yakuman_bonus_han_suppression: yes", output)
@@ -246,6 +247,9 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_ura_dora_score_estimates"]
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_red_dora_score_estimates"]
@@ -653,6 +657,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("nagashi_mangan_next_round_progression: yes", text_stdout.getvalue())
         self.assertIn("dealer_aware_win_payments: yes", text_stdout.getvalue())
         self.assertIn("visible_dora_score_estimates: yes", text_stdout.getvalue())
+        self.assertIn("ura_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("red_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("kazoe_yakuman_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("yakuman_bonus_han_suppression: yes", text_stdout.getvalue())
@@ -709,6 +714,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(report_payload["capabilities"]["dealer_aware_win_payments"])
         self.assertTrue(report_payload["capabilities"]["visible_dora_score_estimates"])
+        self.assertTrue(report_payload["capabilities"]["ura_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["red_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["kazoe_yakuman_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["yakuman_bonus_han_suppression"])
