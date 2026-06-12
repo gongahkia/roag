@@ -26,10 +26,12 @@ from kenjaku.experiments import (
     build_discard_mlp_report,
     build_discard_transformer_benchmark_report,
     build_discard_transformer_report,
+    build_public_benchmark_dashboard,
     build_riichi_benchmark_report,
     build_tenhou_inspect_report,
     format_discard_benchmark_summary,
     format_discard_disagreement_summary,
+    format_public_benchmark_dashboard_html,
     write_json_report,
 )
 from kenjaku.io import (
@@ -1124,6 +1126,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the summary as JSON instead of text",
     )
     benchmark_summary.set_defaults(func=_benchmark_report_summary)
+
+    benchmark_dashboard = subparsers.add_parser(
+        "benchmark-dashboard",
+        help="build a static public dashboard from benchmark JSON reports",
+    )
+    benchmark_dashboard.add_argument(
+        "reports",
+        nargs="+",
+        type=Path,
+        help="benchmark report JSON files",
+    )
+    benchmark_dashboard.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="path to the static HTML dashboard to write",
+    )
+    benchmark_dashboard.add_argument(
+        "--title",
+        default="Kenjaku Offline Benchmark Dashboard",
+        help="dashboard page title",
+    )
+    benchmark_dashboard.set_defaults(func=_benchmark_dashboard)
 
     disagreement_summary = subparsers.add_parser(
         "disagreement-report-summary",
@@ -3182,6 +3207,27 @@ def _benchmark_report_summary(args: argparse.Namespace) -> int:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
         print(format_discard_benchmark_summary(summary))
+    return 0
+
+
+def _benchmark_dashboard(args: argparse.Namespace) -> int:
+    output = args.output
+    generated_at = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
+    dashboard = build_public_benchmark_dashboard(
+        args.reports,
+        version=__version__,
+        generated_at=generated_at,
+        title=args.title,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    html = format_public_benchmark_dashboard_html(
+        dashboard,
+        link_base_dir=output.parent.resolve(),
+    )
+    output.write_text(html, encoding="utf-8")
+    print(f"wrote public benchmark dashboard: {output}")
     return 0
 
 

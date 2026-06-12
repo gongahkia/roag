@@ -124,6 +124,9 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-deal-in \
   data/fixtures/tenhou --epochs 2 --report runs/fixture-deal-in-benchmark.json
 PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
   runs/fixture-deal-in-benchmark.json
+PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard \
+  runs/fixture-deal-in-benchmark.json \
+  --output runs/public-benchmarks/index.html
 
 PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 3 --models fast \
@@ -233,7 +236,11 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi \
    or copy AGPL baseline code.
 4. Use discard disagreement tags before adding another feature profile.
 5. Use `benchmark-discard-mlp`, `benchmark-discard-transformer`, and `benchmark-report-summary` on
-   comparable ignored Tenhou slices before claiming behavior-cloned transformer progress.
+   comparable ignored Tenhou slices before claiming behavior-cloned transformer progress. Use
+   `benchmark-dashboard` to publish a static offline benchmark page with model/version, dataset
+   slice, metric definitions, latest eval scores, and report/checkpoint artifact links. The
+   dashboard intentionally omits live ladder rank tracking unless explicit platform permission is
+   available.
 6. Run `benchmark-deal-in` on the ignored 100/500-log slices and compare calibrated-threshold
    reports with `benchmark-report-summary` before treating the defense scorer as a validated
    probability estimator.

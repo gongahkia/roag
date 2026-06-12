@@ -313,10 +313,10 @@ rejects disallowed inputs with an explicit reason.
 
 ### TODO-504 Build Public Benchmark Dashboard
 
-- [ ] Publish model/version, dataset slice, metric definitions, latest eval
+- [x] Publish model/version, dataset slice, metric definitions, latest eval
   scores, and artifact links.
-- [ ] Keep live rank tracking behind an explicit permission gate.
-- [ ] Add a static-site or simple web build command.
+- [x] Keep live rank tracking behind an explicit permission gate.
+- [x] Add a static-site or simple web build command.
 
 Done when: a public page can show offline benchmark progress without claiming
 unauthorized live ladder results.

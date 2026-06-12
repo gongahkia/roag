@@ -78,7 +78,9 @@ PUBLIC_BENCHMARK_METRIC_DEFINITIONS = (
     },
     {
         "name": "pass_recall",
-        "definition": "Share of true pass or non-action examples recovered by call/riichi policies.",
+        "definition": (
+            "Share of true pass or non-action examples recovered by call/riichi policies."
+        ),
     },
     {
         "name": "brier_score",
@@ -86,7 +88,9 @@ PUBLIC_BENCHMARK_METRIC_DEFINITIONS = (
     },
     {
         "name": "log_loss",
-        "definition": "Negative log likelihood of labels under predicted probabilities; lower is better.",
+        "definition": (
+            "Negative log likelihood of labels under predicted probabilities; lower is better."
+        ),
     },
     {
         "name": "eval_loss",
@@ -828,6 +832,465 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
         else:
             raise ValueError(f"unsupported benchmark summary target: {report['target']}")
     return "\n".join(lines)
+
+
+def build_public_benchmark_dashboard(
+    paths: Sequence[Path],
+    *,
+    version: str,
+    generated_at: str,
+    title: str = "Kenjaku Offline Benchmark Dashboard",
+) -> dict[str, Any]:
+    return {
+        "kind": PUBLIC_BENCHMARK_DASHBOARD_KIND,
+        "title": title,
+        "kenjaku_version": version,
+        "generated_at": generated_at,
+        "scope": {
+            "offline_benchmarks_only": True,
+            "live_rank_tracking": {
+                "included": False,
+                "requires_explicit_permission": True,
+                "note": (
+                    "Live ladder rank tracking is intentionally absent and requires "
+                    "explicit platform permission before it can be published."
+                ),
+            },
+        },
+        "metric_definitions": list(PUBLIC_BENCHMARK_METRIC_DEFINITIONS),
+        "summary": build_discard_benchmark_summary(paths),
+    }
+
+
+def format_public_benchmark_dashboard_html(
+    dashboard: dict[str, Any],
+    *,
+    link_base_dir: Path | None = None,
+) -> str:
+    if dashboard.get("kind") != PUBLIC_BENCHMARK_DASHBOARD_KIND:
+        raise ValueError("not a public benchmark dashboard")
+
+    title = _html_text(dashboard["title"])
+    version = _html_text(dashboard["kenjaku_version"])
+    generated_at = _html_text(dashboard["generated_at"])
+    metric_definitions = "\n".join(
+        _dashboard_metric_definition_item(definition)
+        for definition in dashboard["metric_definitions"]
+    )
+    reports = "\n".join(
+        _dashboard_report_section(report, link_base_dir=link_base_dir)
+        for report in dashboard["summary"]["reports"]
+    )
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --text: #17202a;
+      --muted: #5d6875;
+      --line: #d9dee5;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-soft: #d9f4ee;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    header, main, footer {{
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }}
+    header {{ padding: 40px 0 20px; }}
+    h1 {{ margin: 0 0 10px; font-size: 34px; line-height: 1.15; }}
+    h2 {{ margin: 0 0 14px; font-size: 22px; }}
+    h3 {{ margin: 0 0 12px; font-size: 18px; }}
+    p {{ margin: 0 0 10px; }}
+    a {{ color: var(--accent); }}
+    .eyebrow {{
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }}
+    .lede {{ max-width: 760px; color: var(--muted); font-size: 17px; }}
+    .notice {{
+      margin: 18px 0 0;
+      padding: 12px 14px;
+      border: 1px solid #a9d9d1;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: #164e46;
+    }}
+    section {{
+      margin: 22px 0;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }}
+    .summary-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }}
+    .summary-item {{
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }}
+    .summary-item dt {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }}
+    .summary-item dd {{ margin: 4px 0 0; }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }}
+    th, td {{
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{ color: var(--muted); font-size: 12px; text-transform: uppercase; }}
+    .model-kind, .muted {{ color: var(--muted); }}
+    .artifact-list {{ margin: 8px 0 0; padding-left: 18px; }}
+    .metric-definitions {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }}
+    .metric-definitions div {{
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }}
+    .metric-definitions dt {{ font-weight: 700; }}
+    .metric-definitions dd {{ margin: 4px 0 0; color: var(--muted); }}
+    footer {{ padding: 10px 0 36px; color: var(--muted); }}
+    @media (max-width: 720px) {{
+      header, main, footer {{ width: min(100% - 20px, 1120px); }}
+      h1 {{ font-size: 28px; }}
+      section {{ padding: 16px; overflow-x: auto; }}
+      table {{ min-width: 760px; }}
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Kenjaku {version}</p>
+    <h1>{title}</h1>
+    <p class="lede">
+      Offline benchmark progress generated from local report artifacts. This page
+      does not include, imply, or automate live ladder rank tracking.
+    </p>
+    <p class="notice">
+      Live rank tracking: not included. Publishing live platform rank or ladder
+      data requires explicit platform permission before collection or display.
+    </p>
+  </header>
+  <main>
+    <section>
+      <h2>Metric Definitions</h2>
+      <dl class="metric-definitions">
+        {metric_definitions}
+      </dl>
+    </section>
+    {reports}
+  </main>
+  <footer>Generated at {generated_at}</footer>
+</body>
+</html>
+"""
+
+
+def _dashboard_metric_definition_item(definition: dict[str, Any]) -> str:
+    return (
+        "<div>"
+        f"<dt>{_html_text(definition['name'])}</dt>"
+        f"<dd>{_html_text(definition['definition'])}</dd>"
+        "</div>"
+    )
+
+
+def _dashboard_report_section(
+    report: dict[str, Any],
+    *,
+    link_base_dir: Path | None,
+) -> str:
+    source = report["source"]
+    source_label = source.get("label") or "unknown"
+    source_date = source.get("date") or "unknown"
+    overview_rows = "\n".join(
+        _dashboard_summary_item(label, value)
+        for label, value in (
+            ("Target", report["target"]),
+            ("Report kind", report["report_kind"]),
+            ("Source", f"{source_label} ({source_date})"),
+            ("Dataset slice", _dashboard_dataset_slice(report)),
+            ("Split", _dashboard_split(report["split"])),
+        )
+    )
+    model_rows = "\n".join(_dashboard_model_row(row) for row in _dashboard_model_rows(report))
+    artifact_items = "\n".join(
+        _dashboard_artifact_item(name, path, link_base_dir=link_base_dir)
+        for name, path in _dashboard_artifacts(report)
+    )
+    selected_policy = _dashboard_selected_policy(report)
+    selected_policy_block = (
+        f'<p class="muted">{_html_text(selected_policy)}</p>'
+        if selected_policy is not None
+        else ""
+    )
+
+    return f"""
+    <section>
+      <h2>{_html_text(report['target'].replace('_', ' ').title())}</h2>
+      <dl class="summary-grid">
+        {overview_rows}
+      </dl>
+      {selected_policy_block}
+      <h3>Latest Eval Scores</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Eval Accuracy</th>
+            <th>Balanced</th>
+            <th>Target Recall</th>
+            <th>Pass Recall</th>
+            <th>Brier</th>
+            <th>Log Loss</th>
+            <th>Best Eval</th>
+            <th>Eval Loss</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {model_rows}
+        </tbody>
+      </table>
+      <h3>Artifacts</h3>
+      <ul class="artifact-list">
+        {artifact_items}
+      </ul>
+    </section>
+"""
+
+
+def _dashboard_summary_item(label: str, value: str) -> str:
+    return (
+        '<div class="summary-item">'
+        f"<dt>{_html_text(label)}</dt>"
+        f"<dd>{_html_text(value)}</dd>"
+        "</div>"
+    )
+
+
+def _dashboard_dataset_slice(report: dict[str, Any]) -> str:
+    parts = [
+        f"{report.get('xml_file_count', 0)} XML files",
+        f"{report.get('rounds', 0)} rounds",
+    ]
+    for key, label in (
+        ("discard_examples", "discard examples"),
+        ("call_examples", "call examples"),
+        ("riichi_examples", "riichi examples"),
+        ("deal_in_examples", "deal-in examples"),
+    ):
+        if key in report:
+            parts.append(f"{report[key]} {label}")
+    if "examples" in report:
+        parts.append(f"{report['examples']} {report['target']} examples")
+    return ", ".join(parts)
+
+
+def _dashboard_split(split: dict[str, Any]) -> str:
+    return (
+        f"seed={split.get('seed')}, "
+        f"eval_fraction={split.get('eval_fraction')}, "
+        f"train={split.get('train_examples')}, "
+        f"eval={split.get('eval_examples')}"
+    )
+
+
+def _dashboard_model_rows(report: dict[str, Any]) -> list[dict[str, Any]]:
+    if report["target"] == "deal_in":
+        metrics = report["metrics"]["eval"]
+        model = report["model"]
+        training = report["training"]
+        return [
+            {
+                "name": model.get("kind", "deal-in model"),
+                "kind": model.get("kind"),
+                "eval_accuracy": metrics.get("accuracy"),
+                "balanced_accuracy": metrics.get("balanced_accuracy"),
+                "target_recall": metrics.get("recall"),
+                "pass_recall": metrics.get("specificity"),
+                "brier_score": metrics.get("brier_score"),
+                "log_loss": metrics.get("log_loss"),
+                "best_eval_accuracy": None,
+                "eval_loss": None,
+                "notes": (
+                    f"feature_dim={model.get('feature_dim')} "
+                    f"threshold={training.get('threshold')}"
+                ),
+            }
+        ]
+
+    target = report["target"]
+    rows: list[dict[str, Any]] = []
+    for model_name, model in report.get("models", {}).items():
+        metrics = model.get("metrics")
+        if not isinstance(metrics, dict):
+            metrics = {}
+        notes = _dashboard_model_notes(model)
+        rows.append(
+            {
+                "name": model_name,
+                "kind": model.get("kind"),
+                "eval_accuracy": model.get("eval_accuracy", metrics.get("eval_accuracy")),
+                "balanced_accuracy": model.get("eval_balanced_accuracy"),
+                "target_recall": _dashboard_target_recall(target, model),
+                "pass_recall": model.get("eval_pass_recall"),
+                "brier_score": None,
+                "log_loss": None,
+                "best_eval_accuracy": metrics.get("best_eval_accuracy"),
+                "eval_loss": metrics.get("eval_loss"),
+                "notes": notes,
+            }
+        )
+    return rows
+
+
+def _dashboard_model_notes(model: dict[str, Any]) -> str:
+    notes: list[str] = []
+    for key in (
+        "feature_dim",
+        "input_dim",
+        "hidden_dim",
+        "output_dim",
+        "encoder_kind",
+        "input_tokens",
+    ):
+        if model.get(key) is not None:
+            notes.append(f"{key}={model[key]}")
+    if model.get("policy_threshold") is not None:
+        notes.append(f"threshold={model['policy_threshold']}")
+    if model.get("policy_threshold_source") is not None:
+        notes.append(f"threshold_source={model['policy_threshold_source']}")
+    training = model.get("training")
+    if isinstance(training, dict) and training.get("best_epoch") is not None:
+        notes.append(f"best_epoch={training['best_epoch']}")
+    return " ".join(notes) if notes else "n/a"
+
+
+def _dashboard_target_recall(target: str, model: dict[str, Any]) -> Any:
+    if target == "call":
+        return model.get("eval_call_recall")
+    if target == "riichi":
+        return model.get("eval_riichi_recall")
+    return None
+
+
+def _dashboard_model_row(row: dict[str, Any]) -> str:
+    kind = row.get("kind") or "unknown"
+    return (
+        "<tr>"
+        f"<td>{_html_text(row['name'])}<br>"
+        f'<span class="model-kind">{_html_text(kind)}</span></td>'
+        f"<td>{_html_metric(row['eval_accuracy'])}</td>"
+        f"<td>{_html_metric(row['balanced_accuracy'])}</td>"
+        f"<td>{_html_metric(row['target_recall'])}</td>"
+        f"<td>{_html_metric(row['pass_recall'])}</td>"
+        f"<td>{_html_metric(row['brier_score'])}</td>"
+        f"<td>{_html_metric(row['log_loss'])}</td>"
+        f"<td>{_html_metric(row['best_eval_accuracy'])}</td>"
+        f"<td>{_html_metric(row['eval_loss'])}</td>"
+        f"<td>{_html_text(row['notes'])}</td>"
+        "</tr>"
+    )
+
+
+def _dashboard_selected_policy(report: dict[str, Any]) -> str | None:
+    selected_policy = report.get("selected_policy")
+    if not isinstance(selected_policy, dict):
+        return None
+    model_name = selected_policy.get("model_name")
+    if model_name is None:
+        return None
+    return (
+        "Selected call policy: "
+        f"{model_name} "
+        f"balanced={_format_optional_float(selected_policy.get('eval_balanced_accuracy'))} "
+        f"call_recall={_format_optional_float(selected_policy.get('eval_call_recall'))} "
+        f"pass_recall={_format_optional_float(selected_policy.get('eval_pass_recall'))} "
+        f"eval={_format_optional_float(selected_policy.get('eval_accuracy'))}"
+    )
+
+
+def _dashboard_artifacts(report: dict[str, Any]) -> list[tuple[str, str]]:
+    artifacts = [("Report JSON", report["path"])]
+    for name, value in report.get("artifacts", {}).items():
+        if value:
+            artifacts.append((name.replace("_", " ").title(), str(value)))
+    return artifacts
+
+
+def _dashboard_artifact_item(
+    name: str,
+    path: str,
+    *,
+    link_base_dir: Path | None,
+) -> str:
+    link_target = _dashboard_link_target(path, link_base_dir=link_base_dir)
+    href = escape(
+        quote(link_target.replace("\\", "/"), safe="/:#?&=%._~+-"),
+        quote=True,
+    )
+    return (
+        f'<li>{_html_text(name)}: '
+        f'<a href="{href}">{_html_text(link_target)}</a></li>'
+    )
+
+
+def _dashboard_link_target(path: str, *, link_base_dir: Path | None) -> str:
+    href = path
+    if not path.startswith(("http://", "https://")) and link_base_dir is not None:
+        path_obj = Path(path)
+        if path_obj.is_absolute():
+            try:
+                href = os.path.relpath(path_obj, link_base_dir)
+            except ValueError:
+                href = path
+    return href
+
+
+def _html_metric(value: Any) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, (int, float)):
+        return _html_text(_format_optional_float(float(value)))
+    return _html_text(value)
+
+
+def _html_text(value: Any) -> str:
+    return escape(str(value), quote=True)
 
 
 def build_discard_disagreement_summary(paths: Sequence[Path]) -> dict[str, Any]:

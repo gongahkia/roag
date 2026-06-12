@@ -160,6 +160,10 @@ Last updated: 2026-06-12.
   train/eval best threshold diagnostics, and positive class weight. Call summaries also include a
   report-local `selected_policy` ranked by eval balanced accuracy, target recall, pass recall, and
   eval accuracy. MLP summaries include final/best validation metrics and anchor deltas.
+- `benchmark-dashboard` writes a static public HTML page from benchmark report JSON files. It
+  publishes the Kenjaku version, dataset label/date and split, metric definitions, latest eval
+  scores, selected call policy, and report/checkpoint artifact links while explicitly keeping live
+  ladder rank tracking out of scope unless platform permission is granted.
 - `disagreement-report-summary` reads ignored disagreement exports and summarizes category counts,
   defense bucket rates, common actual/predicted tile pairs, and logit margins. Use `--examples N`
   to append representative stored examples with defense flags and top logits. Use `--tags` to add
@@ -514,6 +518,9 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard data/fixtures/tenhou \
   --l2 0.0001 --report runs/fixture-benchmark-diagnostics.json \
   --disagreements runs/fixture-disagreements.json
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/fixture-benchmark-diagnostics.json
+PYTHONPATH=src python3 -m kenjaku benchmark-dashboard \
+  runs/fixture-benchmark-diagnostics.json \
+  --output runs/public-benchmarks/index.html
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/fixture-disagreements.json --examples 1 --tags
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
