@@ -278,6 +278,7 @@ This is well within "side project budget" territory.
 ### Phase 3 — RL pipeline (weeks 7-12)
 - [ ] Self-play harness (simulator + multi-agent training loop)
   - [x] Basic sandbox exhaustive-draw tenpai/noten point-delta metadata
+  - [x] Basic sandbox dragon/round-wind/seat-wind yakuhai filtering
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -514,8 +515,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, plus basic open/kan standard-shape win detection and a basic
-    sandbox yaku filter/metadata layer only; the next simulator step is full call/kan timing,
-    complete yaku/terminal legality, complete rinshan yaku/scoring semantics,
+    sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the
+    next simulator step is full call/kan timing, complete yaku/terminal legality, complete rinshan
+    yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
@@ -960,6 +962,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   terminal point deltas and final points, and exposes the metadata in self-play reports. This
   checks off the narrow exhaustive-draw payment metadata subtask, but does not complete full round
   progression, abortive draw handling, exact platform scoring, or the Phase 3 self-play harness.
+- Replaced the remaining broad honor-triplet yakuhai approximation with a basic
+  dragon/round-wind/seat-wind filter. The sandbox still assumes East round and seat winds by seat
+  index, but guest wind triplets no longer create yaku. This checks off the narrow yakuhai filtering
+  subtask, but does not complete full yaku/fu validation, round progression, dealer rotation, or
+  scoring.
 - Added `mahjong-transformer-encoder-v0`, a PyTorch fixed-token state encoder over hand, visible,
   unseen, dora-indicator, riichi, seat, dealer, and score signals, plus an untrained masked discard
   policy head and tensor dataset helpers. This checks off the Phase 2 encoder implementation item,
@@ -1110,7 +1117,7 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   riichi/kan timing, yaku validation, scoring, or a learned kan policy.
 - Added a basic sandbox yaku filter and terminal yaku metadata. Legal tsumo/ron/chankan now require
   at least one recognized sandbox yaku from a deliberately small set: kokushi, chiitoitsu, riichi,
-  ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a broad honor-triplet yakuhai approximation.
+  ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a basic yakuhai filter.
   Terminal states now report `winning_yaku` and `winning_yaku_by_seat`. This is still not complete
   yaku validation, full open-hand yaku rules, dora/ura-dora scoring, fu/han scoring, or calibrated
   reward semantics.

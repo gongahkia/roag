@@ -54,9 +54,11 @@ Last updated: 2026-06-12.
   legal tsumo/ron/chankan now require at least one recognized sandbox yaku from kokushi,
   chiitoitsu, riichi, ippatsu, menzen tsumo, rinshan, chankan, tanyao, or a broad honor-triplet
   yakuhai approximation, and terminal states expose `winning_yaku` plus `winning_yaku_by_seat`.
+  The current yakuhai filter is now narrowed to dragons, East round wind, and the winner's seat
+  wind under the sandbox's fixed seat-wind assumption.
   Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
-  riichi-stick and honba point ledger, while wall-exhaustion and max-turn terminals expose neutral
-  zero deltas.
+  riichi-stick and honba point ledger, live-wall exhaustion can expose basic tenpai/noten deltas,
+  and max-turn terminals expose neutral zero deltas.
   Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
   rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, full riichi/kan
   timing legality, real scoring, point-based reward scaling, or PPO-ready self-play. Added
@@ -277,9 +279,9 @@ Last updated: 2026-06-12.
   window before replacement draw that resolves as normal ron rather than chankan, a basic chankan
   ron/pass window before kakan replacement draw, kokushi-only ankan chankan, basic closed-hand
   tsumo/ron terminal metadata, basic multi-ron terminal resolution, basic open/kan standard-shape
-  win detection, a basic sandbox yaku filter/metadata layer, simple sandbox terminal rewards, and
-  terminal point-delta metadata, including basic live-wall exhaustive-draw tenpai/noten point
-  deltas.
+  win detection, a basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind
+  yakuhai filtering, simple sandbox terminal rewards, and terminal point-delta metadata, including
+  basic live-wall exhaustive-draw tenpai/noten point deltas.
 
 ## Working Rules
 

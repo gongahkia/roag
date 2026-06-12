@@ -30,6 +30,16 @@ SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-nondealer-rounded-v0"
 SANDBOX_KITA_TILE = TileType.parse("N")
+SANDBOX_ROUND_WIND = TileType.parse("E")
+SANDBOX_SEAT_WINDS = (
+    TileType.parse("E"),
+    TileType.parse("S"),
+    TileType.parse("W"),
+    TileType.parse("N"),
+)
+SANDBOX_DRAGON_TILES = frozenset(
+    {TileType.parse("P"), TileType.parse("F"), TileType.parse("C")}
+)
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
     "riichi": 1,
@@ -1485,7 +1495,7 @@ def _winning_yaku_for_state(
         yaku.append("chankan")
     if _is_tanyao_yaku(full_tiles):
         yaku.append("tanyao")
-    if _has_sandbox_yakuhai(full_tiles, ruleset=state.ruleset):
+    if _has_sandbox_yakuhai(full_tiles, ruleset=state.ruleset, seat=seat):
         yaku.append("yakuhai")
     return tuple(yaku)
 
@@ -1511,18 +1521,26 @@ def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
     return bool(tiles) and all(not tile.type.is_terminal_or_honor for tile in tiles)
 
 
-def _has_sandbox_yakuhai(tiles: tuple[Tile, ...], *, ruleset: str) -> bool:
+def _has_sandbox_yakuhai(tiles: tuple[Tile, ...], *, ruleset: str, seat: int) -> bool:
     counts = _hand_type_counts(tiles)
     return any(
-        _is_sandbox_yakuhai_type(TileType(index), ruleset=ruleset) and count >= 3
+        _is_sandbox_yakuhai_type(TileType(index), ruleset=ruleset, seat=seat) and count >= 3
         for index, count in enumerate(counts)
     )
 
 
-def _is_sandbox_yakuhai_type(tile_type: TileType, *, ruleset: str) -> bool:
+def _is_sandbox_yakuhai_type(tile_type: TileType, *, ruleset: str, seat: int) -> bool:
     if ruleset == TENHOU_3P.name and tile_type == SANDBOX_KITA_TILE:
         return False
-    return tile_type.is_honor
+    if tile_type in SANDBOX_DRAGON_TILES:
+        return True
+    if tile_type == SANDBOX_ROUND_WIND:
+        return True
+    return tile_type == _sandbox_seat_wind(seat)
+
+
+def _sandbox_seat_wind(seat: int) -> TileType:
+    return SANDBOX_SEAT_WINDS[seat]
 
 
 def _standard_shape_tiles_for_melds(melds: tuple[Meld, ...]) -> tuple[Tile, ...]:

@@ -78,6 +78,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_call_application: yes", output)
         self.assertIn("sandbox_basic_yaku_win_filter: yes", output)
         self.assertIn("sandbox_basic_yaku_metadata: yes", output)
+        self.assertIn("sandbox_yakuhai_seat_round_dragon_filter: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", output)
@@ -185,6 +186,9 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_win_filter"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_metadata"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_yakuhai_seat_round_dragon_filter"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
@@ -459,6 +463,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("kita_ron_resolution: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_win_filter: yes", text_stdout.getvalue())
         self.assertIn("basic_yaku_metadata: yes", text_stdout.getvalue())
+        self.assertIn("yakuhai_seat_round_dragon_filter: yes", text_stdout.getvalue())
         self.assertIn("terminal_point_delta_metadata: yes", text_stdout.getvalue())
         self.assertIn("report_path:", text_stdout.getvalue())
         self.assertEqual(report_payload["kind"], "kenjaku-self-play-sandbox-report-v0")
@@ -492,6 +497,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["kita_ron_resolution"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_win_filter"])
         self.assertTrue(report_payload["capabilities"]["basic_yaku_metadata"])
+        self.assertTrue(report_payload["capabilities"]["yakuhai_seat_round_dragon_filter"])
         self.assertTrue(report_payload["capabilities"]["terminal_point_delta_metadata"])
         self.assertTrue(report_payload["capabilities"]["open_hand_win_detection"])
         self.assertFalse(report_payload["capabilities"]["kan_policy"])

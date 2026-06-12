@@ -917,7 +917,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s S S S 5m"),
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s W W W 5m"),
                 (),
             ),
         )
@@ -956,6 +956,27 @@ class SandboxEnvironmentTests(unittest.TestCase):
             payload["winning_yaku_by_seat"],
             [{"seat": 1, "yaku": ["yakuhai"]}, {"seat": 2, "yaku": ["yakuhai"]}],
         )
+
+    def test_guest_wind_triplet_is_not_yakuhai(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5p"),),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                _tiles("W W W 1m 2m 3m 1s 2s 3s 4p 6p 7p 7p"),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5p"))
+        ron = Action(ActionKind.RON, TileType.parse("5p"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), ())
+        with self.assertRaisesRegex(ValueError, "no recognized sandbox yaku"):
+            apply_ron_action(reaction_state, seat=1, action=ron)
 
     def test_rejects_empty_or_duplicate_multi_ron_resolution(self) -> None:
         state = SandboxEnvironmentState(
