@@ -277,6 +277,7 @@ This is well within "side project budget" territory.
 
 ### Phase 3 — RL pipeline (weeks 7-12)
 - [ ] Self-play harness (simulator + multi-agent training loop)
+  - [x] Basic sandbox exhaustive-draw tenpai/noten point-delta metadata
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -511,9 +512,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     draw-source metadata, individual reaction passes, ron-priority call gating, a basic chankan
     ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
-    reward payloads with terminal point-delta metadata, plus basic open/kan standard-shape win
-    detection and a basic sandbox yaku filter/metadata layer only; the next simulator step is full
-    call/kan timing, complete yaku/terminal legality, complete rinshan yaku/scoring semantics,
+    reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
+    tenpai/noten point-delta metadata, plus basic open/kan standard-shape win detection and a basic
+    sandbox yaku filter/metadata layer only; the next simulator step is full call/kan timing,
+    complete yaku/terminal legality, complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
     post-riichi kan timing, scoring, and richer reward semantics.
@@ -953,6 +955,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   train/eval sweeps over the standard calibration thresholds plus best-threshold summaries in
   `benchmark-report-summary`. This checks off the narrow deal-in benchmark calibration subtask, but
   does not validate or bundle a trained deal-in probability estimator.
+- Added basic live-wall exhaustive-draw tenpai/noten settlement metadata to the sandbox. Normal
+  wall exhaustion now records tenpai/noten seats, applies the standard 3,000-point noten pool to
+  terminal point deltas and final points, and exposes the metadata in self-play reports. This
+  checks off the narrow exhaustive-draw payment metadata subtask, but does not complete full round
+  progression, abortive draw handling, exact platform scoring, or the Phase 3 self-play harness.
 - Added `mahjong-transformer-encoder-v0`, a PyTorch fixed-token state encoder over hand, visible,
   unseen, dora-indicator, riichi, seat, dealer, and score signals, plus an untrained masked discard
   policy head and tensor dataset helpers. This checks off the Phase 2 encoder implementation item,

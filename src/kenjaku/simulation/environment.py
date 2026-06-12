@@ -25,6 +25,7 @@ SANDBOX_3P_INITIAL_POINTS = 35000
 RIICHI_DEPOSIT_POINTS = 1000
 HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
+SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = 3000
 SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-nondealer-rounded-v0"
@@ -149,6 +150,8 @@ class SandboxEnvironmentState:
     terminal_rewards: tuple[float, ...] = ()
     terminal_point_deltas: tuple[int, ...] = ()
     terminal_score_estimates: tuple[SandboxScoreEstimate, ...] = ()
+    exhaustive_draw_tenpai_seats: tuple[int, ...] = ()
+    exhaustive_draw_noten_seats: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.ruleset not in SANDBOX_RULESET_BY_NAME:
@@ -297,6 +300,25 @@ class SandboxEnvironmentState:
             for estimate in self.terminal_score_estimates
         ):
             raise ValueError("terminal score estimate seats must also be winner seats")
+        if any(not 0 <= seat < self.players for seat in self.exhaustive_draw_tenpai_seats):
+            raise ValueError("exhaustive draw tenpai seat outside player range")
+        if len(set(self.exhaustive_draw_tenpai_seats)) != len(
+            self.exhaustive_draw_tenpai_seats
+        ):
+            raise ValueError("exhaustive draw tenpai seats must be unique")
+        if any(not 0 <= seat < self.players for seat in self.exhaustive_draw_noten_seats):
+            raise ValueError("exhaustive draw noten seat outside player range")
+        if len(set(self.exhaustive_draw_noten_seats)) != len(
+            self.exhaustive_draw_noten_seats
+        ):
+            raise ValueError("exhaustive draw noten seats must be unique")
+        if set(self.exhaustive_draw_tenpai_seats) & set(self.exhaustive_draw_noten_seats):
+            raise ValueError("exhaustive draw tenpai and noten seats cannot overlap")
+        if (
+            self.terminal_reason != "wall_exhausted"
+            and (self.exhaustive_draw_tenpai_seats or self.exhaustive_draw_noten_seats)
+        ):
+            raise ValueError("exhaustive draw seats require wall exhaustion")
 
     def current_hand(self) -> tuple[Tile, ...]:
         return self.hands[self.current_seat]
@@ -373,6 +395,8 @@ class SandboxEnvironmentState:
             "terminal_score_estimates": [
                 estimate.to_payload() for estimate in self.terminal_score_estimates
             ],
+            "exhaustive_draw_tenpai_seats": list(self.exhaustive_draw_tenpai_seats),
+            "exhaustive_draw_noten_seats": list(self.exhaustive_draw_noten_seats),
         }
 
 
@@ -416,12 +440,7 @@ def draw_for_current_seat(
     if state.drawn_tile is not None:
         raise ValueError("current seat has already drawn")
     if not state.wall:
-        return _replace_state(
-            state,
-            terminal_reason="wall_exhausted",
-            terminal_rewards=_neutral_rewards(state.players),
-            terminal_point_deltas=_neutral_point_deltas(state.players),
-        )
+        return _replace_state(state, **_terminal_wall_exhausted_updates(state))
 
     draw = state.wall[-1]
     next_wall = state.wall[:-1]
@@ -1781,6 +1800,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "terminal_rewards": state.terminal_rewards,
         "terminal_point_deltas": state.terminal_point_deltas,
         "terminal_score_estimates": state.terminal_score_estimates,
+        "exhaustive_draw_tenpai_seats": state.exhaustive_draw_tenpai_seats,
+        "exhaustive_draw_noten_seats": state.exhaustive_draw_noten_seats,
     }
     payload.update(updates)
     return SandboxEnvironmentState(**payload)
@@ -1890,6 +1911,48 @@ def _terminal_win_point_updates(
         "terminal_point_deltas": point_deltas,
         "terminal_score_estimates": tuple(estimates),
     }
+
+
+def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str, Any]:
+    before_points = _points_by_seat(state)
+    tenpai_seats = _exhaustive_draw_tenpai_seats(state)
+    noten_seats = tuple(seat for seat in range(state.players) if seat not in tenpai_seats)
+    point_deltas = _exhaustive_draw_point_deltas(
+        players=state.players,
+        tenpai_seats=tenpai_seats,
+    )
+    points = tuple(
+        before + delta for before, delta in zip(before_points, point_deltas, strict=True)
+    )
+    return {
+        "terminal_reason": "wall_exhausted",
+        "terminal_rewards": _point_delta_rewards(point_deltas),
+        "terminal_point_deltas": point_deltas,
+        "points": points,
+        "exhaustive_draw_tenpai_seats": tenpai_seats,
+        "exhaustive_draw_noten_seats": noten_seats,
+    }
+
+
+def _exhaustive_draw_tenpai_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
+    return tuple(
+        seat for seat in range(state.players) if _winning_wait_types(state, seat=seat)
+    )
+
+
+def _exhaustive_draw_point_deltas(
+    *,
+    players: int,
+    tenpai_seats: tuple[int, ...],
+) -> tuple[int, ...]:
+    tenpai_count = len(tenpai_seats)
+    if tenpai_count == 0 or tenpai_count == players:
+        return _neutral_point_deltas(players)
+    noten_count = players - tenpai_count
+    tenpai_payment = SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // tenpai_count
+    noten_payment = SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // noten_count
+    tenpai = set(tenpai_seats)
+    return tuple(tenpai_payment if seat in tenpai else -noten_payment for seat in range(players))
 
 
 def _sandbox_score_estimate(
@@ -2078,6 +2141,13 @@ def _multi_ron_rewards(
 
 def _neutral_rewards(players: int) -> tuple[float, ...]:
     return tuple(0.0 for _seat in range(players))
+
+
+def _point_delta_rewards(point_deltas: tuple[int, ...]) -> tuple[float, ...]:
+    max_delta = max((abs(delta) for delta in point_deltas), default=0)
+    if max_delta == 0:
+        return _neutral_rewards(len(point_deltas))
+    return tuple(delta / max_delta for delta in point_deltas)
 
 
 def _neutral_point_deltas(players: int) -> tuple[int, ...]:

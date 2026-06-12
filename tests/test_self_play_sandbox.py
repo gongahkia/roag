@@ -72,6 +72,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["basic_yaku_metadata"])
         self.assertTrue(first["capabilities"]["terminal_rewards"])
         self.assertTrue(first["capabilities"]["terminal_point_delta_metadata"])
+        self.assertTrue(first["capabilities"]["exhaustive_draw_tenpai_noten_payments"])
         self.assertEqual(first["episode_summaries"][0]["terminal_rewards"], [0.0, 0.0, 0.0, 0.0])
         self.assertEqual(
             first["episode_summaries"][0]["terminal_point_deltas"],
@@ -184,6 +185,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("basic_yaku_metadata: yes", text)
         self.assertIn("terminal_rewards: yes", text)
         self.assertIn("terminal_point_delta_metadata: yes", text)
+        self.assertIn("exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("scoring: no", text)
         self.assertIn("ppo: no", text)
 
@@ -208,6 +210,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("winning_yaku_by_seat", episode)
         self.assertIn("terminal_rewards", episode)
         self.assertIn("terminal_point_deltas", episode)
+        self.assertIn("exhaustive_draw_tenpai_seats", episode)
+        self.assertIn("exhaustive_draw_noten_seats", episode)
         self.assertIn("final_points", episode)
         self.assertIn("riichi_sticks", episode)
         self.assertIn("honba", episode)
@@ -221,6 +225,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("dora_indicators", episode)
         self.assertEqual(len(episode["terminal_rewards"]), report["players"])
         self.assertEqual(len(episode["terminal_point_deltas"]), report["players"])
+        self.assertIsInstance(episode["exhaustive_draw_tenpai_seats"], list)
+        self.assertIsInstance(episode["exhaustive_draw_noten_seats"], list)
         self.assertEqual(len(episode["final_points"]), report["players"])
         self.assertEqual(len(episode["kita_tiles"]), report["players"])
         self.assertEqual(len(episode["kita_counts"]), report["players"])

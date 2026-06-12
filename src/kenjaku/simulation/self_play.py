@@ -147,6 +147,7 @@ def run_self_play_sandbox(
             "basic_yaku_metadata": True,
             "terminal_rewards": True,
             "terminal_point_delta_metadata": True,
+            "exhaustive_draw_tenpai_noten_payments": True,
             "terminal_score_estimate_metadata": True,
             "score_estimate_point_accounting": True,
             "scoring": False,
@@ -246,6 +247,8 @@ def _simulate_episode(
         ],
         "terminal_rewards": list(state.terminal_rewards),
         "terminal_point_deltas": list(state.terminal_point_deltas),
+        "exhaustive_draw_tenpai_seats": state_payload["exhaustive_draw_tenpai_seats"],
+        "exhaustive_draw_noten_seats": state_payload["exhaustive_draw_noten_seats"],
         "terminal_score_estimates": state_payload["terminal_score_estimates"],
         "final_points": state_payload["points"],
         "riichi_sticks": state.riichi_sticks,
@@ -348,6 +351,8 @@ def _terminal_max_turns(state: SandboxEnvironmentState) -> SandboxEnvironmentSta
         winning_rinshan_seats=state.winning_rinshan_seats,
         terminal_rewards=tuple(0.0 for _seat in range(state.players)),
         terminal_point_deltas=tuple(0 for _seat in range(state.players)),
+        exhaustive_draw_tenpai_seats=state.exhaustive_draw_tenpai_seats,
+        exhaustive_draw_noten_seats=state.exhaustive_draw_noten_seats,
     )
 
 

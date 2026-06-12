@@ -78,6 +78,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_basic_yaku_metadata": True,
                 "sandbox_terminal_reward_payloads": True,
                 "sandbox_terminal_point_delta_metadata": True,
+                "sandbox_exhaustive_draw_tenpai_noten_payments": True,
                 "sandbox_terminal_score_estimate_metadata": True,
                 "sandbox_score_estimate_point_accounting": True,
                 "basic_winning_hand_detection": True,

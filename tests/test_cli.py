@@ -80,6 +80,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_basic_yaku_metadata: yes", output)
         self.assertIn("sandbox_terminal_reward_payloads: yes", output)
         self.assertIn("sandbox_terminal_point_delta_metadata: yes", output)
+        self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", output)
         self.assertIn("basic_winning_hand_detection: yes", output)
         self.assertIn("sandbox_open_meld_win_detection: yes", output)
         self.assertIn("self_play_sandbox_tsumo_termination: yes", output)
@@ -187,6 +188,11 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_terminal_reward_payloads"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_exhaustive_draw_tenpai_noten_payments"
+            ]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
         self.assertTrue(

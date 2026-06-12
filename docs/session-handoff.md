@@ -278,7 +278,8 @@ Last updated: 2026-06-12.
   ron/pass window before kakan replacement draw, kokushi-only ankan chankan, basic closed-hand
   tsumo/ron terminal metadata, basic multi-ron terminal resolution, basic open/kan standard-shape
   win detection, a basic sandbox yaku filter/metadata layer, simple sandbox terminal rewards, and
-  terminal point-delta metadata.
+  terminal point-delta metadata, including basic live-wall exhaustive-draw tenpai/noten point
+  deltas.
 
 ## Working Rules
 
@@ -829,10 +830,11 @@ Mortal local baseline reconnaissance:
    Use `replay-share-plan` as the local permission/scope check before demo or redistribution work.
 8. Use `self-play-sandbox` for deterministic self-play plumbing checks only. The next real Phase 3
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
-   outcome semantics, complete payment/scoring semantics, next-round honba progression, ippatsu
-   scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
-   complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete
-   post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
+   outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
+   tenpai/noten point-delta slice, next-round honba progression, ippatsu scoring, full yaku-aware
+   open/kan hand legality, complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora
+   indicator ordering, complete chankan semantics, complete post-riichi kan timing, real multi-ron
+   payment handling, and scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete until real 3-player gameplay, exact platform timing, exact
    call timing, complete call handling, full yaku/fu validation, scoring, placement/return

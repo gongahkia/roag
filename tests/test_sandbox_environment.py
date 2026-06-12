@@ -9,6 +9,7 @@ from kenjaku.simulation import (
     RIICHI_DEPOSIT_POINTS,
     SANDBOX_3P_INITIAL_POINTS,
     SANDBOX_ENVIRONMENT_KIND,
+    SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL,
     SANDBOX_INITIAL_POINTS,
     SandboxEnvironmentState,
     apply_ankan_action,
@@ -77,6 +78,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(first.to_payload()["winning_yaku_by_seat"], [])
         self.assertEqual(first.to_payload()["terminal_rewards"], [])
         self.assertEqual(first.to_payload()["terminal_point_deltas"], [])
+        self.assertEqual(first.to_payload()["exhaustive_draw_tenpai_seats"], [])
+        self.assertEqual(first.to_payload()["exhaustive_draw_noten_seats"], [])
 
     def test_draw_legal_actions_and_discard_transition(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-4p", seed="transition")
@@ -1835,7 +1838,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not a winning tsumo"):
             apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
 
-    def test_wall_exhaustion_uses_neutral_terminal_rewards(self) -> None:
+    def test_wall_exhaustion_with_no_tenpai_uses_neutral_terminal_rewards(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
@@ -1853,6 +1856,44 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "wall_exhausted")
         self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
         self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(terminal.points, (SANDBOX_INITIAL_POINTS,) * 4)
+        self.assertEqual(terminal.exhaustive_draw_tenpai_seats, ())
+        self.assertEqual(terminal.exhaustive_draw_noten_seats, (0, 1, 2, 3))
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_tenpai_seats"], [])
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_noten_seats"], [0, 1, 2, 3])
+
+    def test_wall_exhaustion_applies_basic_tenpai_noten_payments(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            points=(25000, 25000, 25000, 25000),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
+                _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
+                _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
+            ),
+        )
+
+        terminal = draw_for_current_seat(state)
+
+        self.assertEqual(terminal.terminal_reason, "wall_exhausted")
+        self.assertEqual(terminal.exhaustive_draw_tenpai_seats, (0,))
+        self.assertEqual(terminal.exhaustive_draw_noten_seats, (1, 2, 3))
+        self.assertEqual(
+            terminal.terminal_point_deltas,
+            (
+                SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL,
+                -SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // 3,
+                -SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // 3,
+                -SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // 3,
+            ),
+        )
+        self.assertEqual(terminal.points, (28000, 24000, 24000, 24000))
+        self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_tenpai_seats"], [0])
+        self.assertEqual(terminal.to_payload()["exhaustive_draw_noten_seats"], [1, 2, 3])
 
     def test_sanma_environment_excludes_two_to_eight_manzu(self) -> None:
         state = initial_sandbox_environment(ruleset="tenhou-3p", seed="sanma")
