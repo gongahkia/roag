@@ -285,6 +285,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox visible-dora score-estimate bonus han
   - [x] Basic sandbox red-five score-estimate bonus han
   - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
+  - [x] Basic sandbox chankan ippatsu reaction timing
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -526,8 +527,9 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     state with dealer-wrap progression, basic ippatsu window metadata, legal chi/pon/minkan, basic
     dead-wall replacement draws for minkan/ankan/kakan, basic kan-dora indicator metadata, basic
     rinshan draw-source metadata, individual reaction passes, ron-priority call gating, a basic
-    chankan ron/pass window before kakan replacement draw, kokushi-only ankan robbery,
-    discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
+    chankan ron/pass window before kakan replacement draw, basic chankan ippatsu reaction timing,
+    kokushi-only ankan robbery, discard/call/tsumo/ron transitions, basic multi-ron terminal
+    resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
     visible-dora and red-five bonus han in score estimates, Tenhou Sanma 1m/9m dora indicator wrap,
@@ -1188,6 +1190,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   the pending winning tile. This checks off the narrow tsumo tile-view de-duplication subtask and
   prevents drawn pair tiles from becoming false yakuhai triplets or drawn dora tiles from being
   counted twice, but it does not complete full yaku/fu validation or exact scoring.
+- Added basic chankan ippatsu reaction timing. Pending chankan windows now preserve active ippatsu
+  so immediate robbing-kan ron can score it, while pass resolution clears ippatsu before the kan
+  replacement draw proceeds. This checks off the narrow chankan ippatsu timing subtask, but does not
+  complete exact kan timing, complete post-riichi kan rules, complete chankan semantics, full
+  yaku/fu validation, or exact scoring.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

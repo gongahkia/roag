@@ -812,7 +812,6 @@ def apply_ankan_action(
         "pending_discard": None,
         "pending_discard_seat": None,
         "pending_reaction_seats": (),
-        "ippatsu_seats": (),
     }
 
     chankan_seats = _legal_kokushi_ron_seats_for_tile(
@@ -827,6 +826,7 @@ def apply_ankan_action(
         updates["pending_reaction_seats"] = chankan_seats
         return _replace_state(state, **updates), meld
 
+    updates["ippatsu_seats"] = ()
     _apply_kan_replacement_draw(
         state,
         hands=hands,
@@ -870,7 +870,6 @@ def apply_kakan_action(
         "pending_discard": None,
         "pending_discard_seat": None,
         "pending_reaction_seats": (),
-        "ippatsu_seats": (),
     }
 
     chankan_seats = _legal_ron_seats_for_tile(
@@ -886,6 +885,7 @@ def apply_kakan_action(
         updates["pending_reaction_seats"] = chankan_seats
         return _replace_state(state, **updates), promoted_meld
 
+    updates["ippatsu_seats"] = ()
     _apply_kan_replacement_draw(
         state,
         hands=hands,
@@ -1858,6 +1858,7 @@ def _finish_chankan_reaction_window(
         "pending_reaction_seats": (),
         "temporary_furiten_seats": temporary_furiten_seats,
         "riichi_furiten_seats": riichi_furiten_seats,
+        "ippatsu_seats": (),
     }
     hands = [list(hand) for hand in state.hands]
     _apply_kan_replacement_draw(

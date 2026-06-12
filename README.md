@@ -35,8 +35,9 @@ handoff notes.
   helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
   closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
   metadata, and rinshan draw-source metadata, a basic chankan ron/pass window before kakan
-  replacement draw plus kokushi-only ankan robbery, individual reaction passes, ron-priority call
-  gating, discard/call/tsumo/ron application, basic multi-ron terminal resolution, basic open/kan
+  replacement draw with ippatsu preserved until the reaction resolves plus kokushi-only ankan
+  robbery, individual reaction passes, ron-priority call gating, discard/call/tsumo/ron application,
+  basic multi-ron terminal resolution, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
   dragon/round-wind/seat-wind yakuhai filtering, and simple terminal reward payloads plus terminal
   point-delta and score-estimate metadata, including basic dealer-aware win payments,

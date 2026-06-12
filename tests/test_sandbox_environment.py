@@ -2009,6 +2009,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
                 (),
                 (),
             ),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
         )
         drawn = draw_for_current_seat(state)
         ankan = legal_ankan_actions(drawn)[0]
@@ -2026,6 +2028,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(pending.pending_chankan_kind, ActionKind.ANKAN)
         self.assertEqual(pending.to_payload()["pending_chankan_kind"], "ankan")
         self.assertEqual(pending.pending_reaction_seats, (1,))
+        self.assertEqual(pending.ippatsu_seats, (1,))
         self.assertEqual(legal_chankan_ron_actions(pending, seat=1), (ron,))
 
         terminal = apply_ron_action(pending, seat=1, action=ron)
@@ -2033,7 +2036,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_reason, "chankan")
         self.assertEqual(terminal.winner_seats, (1,))
         self.assertEqual(terminal.winning_shapes, ("kokushi",))
-        self.assertEqual(terminal.winning_yaku, ("kokushi", "chankan"))
+        self.assertEqual(terminal.winning_yaku, ("kokushi", "riichi", "ippatsu", "chankan"))
+        self.assertEqual(terminal.winning_ippatsu_seats, (1,))
+        self.assertEqual(terminal.ippatsu_seats, ())
         self.assertIsNone(terminal.pending_chankan_kind)
 
     def test_ankan_chankan_rejects_non_kokushi_ron_shape(self) -> None:
@@ -2137,6 +2142,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ),
             melds=((pon,), (), (), ()),
             points=(25000, 25000, 25000, 25000),
+            riichi_seats=(1,),
+            ippatsu_seats=(1,),
         )
         drawn = draw_for_current_seat(state)
         kakan = Action(
@@ -2160,6 +2167,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(pending.pending_chankan_seat, 0)
         self.assertEqual(pending.pending_chankan_kind, ActionKind.KAKAN)
         self.assertEqual(pending.pending_reaction_seats, (1,))
+        self.assertEqual(pending.ippatsu_seats, (1,))
         self.assertEqual(pending.to_payload()["pending_chankan_tile"], "3m")
         self.assertEqual(pending.to_payload()["pending_chankan_seat"], 0)
         self.assertEqual(pending.to_payload()["pending_chankan_kind"], "kakan")
@@ -2174,7 +2182,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winner_seats, (1,))
         self.assertEqual(terminal.winning_tile, Tile.parse("3m"))
         self.assertEqual(terminal.winning_shapes, ("standard",))
-        self.assertEqual(terminal.winning_yaku, ("chankan", "yakuhai"))
+        self.assertEqual(terminal.winning_yaku, ("riichi", "ippatsu", "chankan", "yakuhai"))
+        self.assertEqual(terminal.winning_ippatsu_seats, (1,))
+        self.assertEqual(terminal.ippatsu_seats, ())
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
         self.assertIsNone(terminal.pending_chankan_tile)
         self.assertIsNone(terminal.pending_chankan_seat)
@@ -2202,6 +2212,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
                     (),
                 ),
                 melds=((pon,), (), (), ()),
+                riichi_seats=(1,),
+                ippatsu_seats=(1,),
             )
         )
         pending, _meld = apply_kakan_action(drawn, legal_kakan_actions(drawn)[0])
@@ -2212,7 +2224,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertIsNone(after_pass.pending_chankan_seat)
         self.assertIsNone(after_pass.pending_chankan_kind)
         self.assertEqual(after_pass.pending_reaction_seats, ())
-        self.assertEqual(after_pass.temporary_furiten_seats, (1,))
+        self.assertEqual(after_pass.temporary_furiten_seats, ())
+        self.assertEqual(after_pass.riichi_furiten_seats, (1,))
+        self.assertEqual(after_pass.ippatsu_seats, ())
         self.assertEqual(after_pass.drawn_tile, Tile.parse("8s"))
         self.assertTrue(after_pass.rinshan_draw)
         self.assertEqual(after_pass.wall, ())

@@ -78,15 +78,17 @@ Last updated: 2026-06-12.
   ippatsu windows, the riichi player's next post-declaration discard expires their window, and
   terminal tsumo/ron records winning ippatsu seats. Added basic closed-kan/ankan self-turn actions:
   non-riichi seats, plus wait-preserving post-riichi drawn-tile exceptions, can consume four
-  matching concealed tiles, record an `ANKAN` meld, clear active ippatsu windows, and take a basic
-  dead-wall replacement draw. Added basic added-kan/kakan self-turn actions: non-riichi seats can
-  promote an existing pon into a `KAKAN` meld, clear active ippatsu windows, and either open a basic
-  chankan ron/pass window or take a basic dead-wall
+  matching concealed tiles, record an `ANKAN` meld, clear active ippatsu windows when the kan
+  completes, and take a basic dead-wall replacement draw. Added basic added-kan/kakan self-turn
+  actions: non-riichi seats can promote an existing pon into a `KAKAN` meld and either open a basic
+  chankan ron/pass window or clear active ippatsu windows before taking a basic dead-wall
   replacement draw. Chankan pass resolution performs the delayed replacement draw; chankan ron
-  terminates with `terminal_reason="chankan"`. Sandbox states now reserve a 14-tile dead wall and
-  expose visible dora/kan-dora indicator metadata plus basic rinshan draw-source metadata. The
-  sandbox now detects basic open/kan standard hand shapes, including rinshan replacement draws after
-  kan, and supports kokushi-only ankan robbery. Terminal win score estimates now include basic
+  terminates with `terminal_reason="chankan"`, with active ippatsu preserved for immediate
+  robbing-kan ron and cleared if the kan completes after passes. Sandbox states now reserve a
+  14-tile dead wall and expose visible dora/kan-dora indicator metadata plus basic rinshan
+  draw-source metadata. The sandbox now detects basic open/kan standard hand shapes, including
+  rinshan replacement draws after kan, and supports kokushi-only ankan robbery. Terminal win score
+  estimates now include basic
   dealer-aware ron/tsumo payment handling plus visible-dora/red-five bonus han, and tsumo yaku/dora
   tile views no longer duplicate the drawn tile. This is still not hand scoring, full
   round-continuation semantics, real multi-ron payment validation, complete payment accounting,
@@ -100,6 +102,7 @@ Last updated: 2026-06-12.
   Added basic post-pon Kita suppression and post-call discard-obligation action listing.
   Added basic Kita ippatsu reaction timing: ron on a called North can still carry ippatsu, and
   passing the reaction clears ippatsu before the replacement draw.
+  Added basic chankan ippatsu reaction timing.
   Added direct coverage for basic Tenhou Sanma tsumo-loss point estimates.
   Added a basic Tenhou Sanma eight-rinshan replacement reserve cap for full dead-wall states.
   `self-play-sandbox` auto-passes reaction windows because it still has no ron/call/kan/Kita
@@ -291,7 +294,8 @@ Last updated: 2026-06-12.
   Sanma Kita/pei-nuki action with dead-wall replacement draws and bonus-han score-estimate
   metadata, a basic Sanma Kita ron/pass reaction window before replacement draw that resolves as
   normal ron rather than chankan, a basic chankan ron/pass window before kakan replacement draw,
-  kokushi-only ankan chankan, basic closed-hand tsumo/ron terminal metadata, basic multi-ron
+  basic chankan ippatsu reaction timing, kokushi-only ankan chankan, basic closed-hand tsumo/ron
+  terminal metadata, basic multi-ron
   terminal resolution, basic open/kan standard-shape win detection, a basic sandbox yaku
   filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering, simple sandbox terminal
   rewards, and terminal point-delta metadata, including basic dealer-aware win payment estimates,
@@ -854,10 +858,11 @@ Mortal local baseline reconnaissance:
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
    tenpai/noten point-delta, dealer-aware win payment, visible/red-dora score-estimate, and
-   next-round dealer/honba/round-wind slices, ippatsu scoring, full yaku-aware open/kan hand legality,
-   complete rinshan yaku/scoring semantics, complete kan-dora/ura-dora indicator ordering, complete
-   chankan semantics, complete post-riichi kan timing, real multi-ron payment handling, and scoring
-   before PPO work.
+   next-round dealer/honba/round-wind slices, ippatsu scoring beyond narrow ron metadata, full
+   yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics, complete
+   kan-dora/ura-dora indicator ordering, complete chankan semantics beyond the basic ippatsu timing
+   slice, complete post-riichi kan timing, real multi-ron payment handling, and scoring before PPO
+   work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita
@@ -869,6 +874,6 @@ Mortal local baseline reconnaissance:
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics beyond the basic
     dealer-aware, visible/red-dora, and next-round dealer/honba/round-wind helper slices, ippatsu
     scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics,
-    complete kan-dora/ura-dora indicator ordering, complete chankan semantics, complete post-riichi
-    kan timing, yaku/scoring semantics, and richer terminal reward payloads should come before
-    policy optimization.
+    complete kan-dora/ura-dora indicator ordering, complete chankan semantics beyond the basic
+    ippatsu timing slice, complete post-riichi kan timing, yaku/scoring semantics, and richer
+    terminal reward payloads should come before policy optimization.
