@@ -615,7 +615,7 @@ def legal_tsumo_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     if not _winning_yaku_for_state(
         state,
         seat=state.current_seat,
-        winning_tile=state.drawn_tile,
+        winning_tile=None,
         shapes=shapes,
         win_kind="tsumo",
     ):
@@ -1383,7 +1383,7 @@ def apply_tsumo_action(
     yaku = _winning_yaku_for_state(
         state,
         seat=state.current_seat,
-        winning_tile=state.drawn_tile,
+        winning_tile=None,
         shapes=shapes,
         win_kind="tsumo",
     )
@@ -1393,7 +1393,7 @@ def apply_tsumo_action(
         state,
         winner_seats=(state.current_seat,),
         discarder_seat=None,
-        winning_tile=state.drawn_tile,
+        winning_tile=None,
         win_kind="tsumo",
         winning_yaku_by_seat=((state.current_seat, yaku),),
     )
@@ -2051,7 +2051,7 @@ def _terminal_win_point_updates(
     *,
     winner_seats: tuple[int, ...],
     discarder_seat: int | None,
-    winning_tile: Tile,
+    winning_tile: Tile | None,
     win_kind: str,
     winning_yaku_by_seat: tuple[tuple[int, tuple[str, ...]], ...],
 ) -> dict[str, Any]:
@@ -2169,7 +2169,7 @@ def _visible_dora_count(
     state: SandboxEnvironmentState,
     *,
     seat: int,
-    winning_tile: Tile,
+    winning_tile: Tile | None,
 ) -> int:
     if not state.dora_indicators:
         return 0
@@ -2186,7 +2186,7 @@ def _red_dora_count(
     state: SandboxEnvironmentState,
     *,
     seat: int,
-    winning_tile: Tile,
+    winning_tile: Tile | None,
 ) -> int:
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
     return sum(

@@ -284,6 +284,7 @@ This is well within "side project budget" territory.
   - [x] Basic sandbox dealer-aware win payment estimates
   - [x] Basic sandbox visible-dora score-estimate bonus han
   - [x] Basic sandbox red-five score-estimate bonus han
+  - [x] Basic sandbox tsumo yaku/dora tile-view de-duplication
 - [ ] PPO implementation tuned for mahjong reward structure
 - [ ] Population-based training
 - [ ] Evaluate against mortal and akochan
@@ -521,9 +522,10 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
     discard/call/tsumo/ron transitions, basic multi-ron terminal resolution, and simple terminal
     reward payloads with terminal point-delta metadata, basic live-wall exhaustive-draw
     tenpai/noten point-delta metadata, basic dealer-aware ron/tsumo win payment estimates, basic
-    visible-dora and red-five bonus han in score estimates, plus basic open/kan standard-shape win
-    detection and a basic sandbox yaku filter/metadata layer with dragon/round-wind/seat-wind
-    yakuhai filtering only; the next simulator step is full call/kan timing, complete yaku/terminal legality,
+    visible-dora and red-five bonus han in score estimates, tsumo yaku/dora tile views that avoid
+    duplicating the drawn tile, plus basic open/kan standard-shape win detection and a basic sandbox
+    yaku filter/metadata layer with dragon/round-wind/seat-wind yakuhai filtering only; the next
+    simulator step is full call/kan timing, complete yaku/terminal legality,
     complete rinshan yaku/scoring semantics,
     complete kan-dora/ura-dora
     indicator ordering, complete chankan semantics, complete payment accounting, complete
@@ -1168,6 +1170,11 @@ Mahjong wins on prestige and narrative; snap wins on viral velocity. Both are vi
   alongside visible dora and Kita. This checks off the narrow red-dora score-estimate subtask, but
   does not complete ura-dora, exact dora ordering, kiriage/kazoe, exhaustive yaku/fu validation, or
   calibrated point-based rewards.
+- Fixed tsumo yaku/dora score-estimate tile views to avoid duplicating the drawn tile. Tsumo yaku
+  checks and terminal score estimates now use the already-complete hand, while ron/chankan still add
+  the pending winning tile. This checks off the narrow tsumo tile-view de-duplication subtask and
+  prevents drawn pair tiles from becoming false yakuhai triplets or drawn dora tiles from being
+  counted twice, but it does not complete full yaku/fu validation or exact scoring.
 - Added a basic Sanma Kita/pei-nuki sandbox action. `legal_kita_actions` and `apply_kita_action`
   expose North only under `tenhou-3p`, record exposed North tiles in `kita_tiles` instead of melds,
   clear active ippatsu windows, take a dead-wall replacement draw without revealing a kan-dora

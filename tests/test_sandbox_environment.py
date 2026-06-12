@@ -200,6 +200,28 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
         self.assertEqual(terminal.terminal_point_deltas, (3000, -1000, -1000, -1000))
 
+    def test_tsumo_yaku_does_not_duplicate_drawn_pair_tile(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s 4m 5m 6m E E"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("E"),
+        )
+
+        terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo",))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.han, 1)
+
     def test_rinshan_tsumo_metadata_marks_replacement_draw_winner(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -603,6 +625,29 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate_payload["red_dora_count"], 0)
         self.assertEqual(estimate_payload["bonus_han"], 1)
         self.assertEqual(estimate_payload["han"], 3)
+
+    def test_visible_dora_does_not_duplicate_drawn_tsumo_tile(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=(Tile.parse("4m"),),
+            dora_indicators=(Tile.parse("4m"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m"),
+                (),
+                (),
+                (),
+            ),
+            drawn_tile=Tile.parse("5m"),
+        )
+
+        terminal = apply_tsumo_action(state, Action(ActionKind.TSUMO))
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(estimate.visible_dora_count, 2)
+        self.assertEqual(estimate.bonus_han, 2)
 
     def test_red_five_counts_as_score_estimate_bonus_han(self) -> None:
         state = SandboxEnvironmentState(
