@@ -1528,6 +1528,269 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "artificial max-turn"):
             next_round_sandbox_environment(terminal, seed="bad")
 
+    def test_kyuushu_kyuuhai_aborts_and_repeats_dealer_with_honba(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("N"),),
+            points=(25000, 25000, 25000, 25000),
+            riichi_sticks=1,
+            honba=2,
+            dealer_seat=0,
+            hands=(
+                _tiles("1m 9m 1p 9p 1s 9s E S W P F C 2m"),
+                (),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        kyushu = Action(ActionKind.KYUSHU)
+
+        terminal = apply_kyuushu_kyuuhai_action(drawn, kyushu)
+        next_round = next_round_sandbox_environment(terminal, seed="kyuushu")
+
+        self.assertEqual(legal_kyuushu_kyuuhai_actions(drawn), (kyushu,))
+        self.assertIn(kyushu, legal_sandbox_actions(drawn))
+        self.assertEqual(terminal.terminal_reason, "kyuushu_kyuuhai")
+        self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(terminal.points, (25000, 25000, 25000, 25000))
+        self.assertEqual(terminal.riichi_sticks, 1)
+        self.assertEqual(terminal.winner_seats, ())
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.honba, 3)
+        self.assertEqual(next_round.riichi_sticks, 1)
+        self.assertEqual(next_round.points, terminal.points)
+
+    def test_kyuushu_kyuuhai_requires_first_draw_before_calls(self) -> None:
+        late_draw = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            turn=4,
+            drawn_tile=Tile.parse("N"),
+            hands=(
+                _tiles("1m 9m 1p 9p 1s 9s E S W P F C 2m N"),
+                (),
+                (),
+                (),
+            ),
+        )
+        called_draw = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            drawn_tile=Tile.parse("N"),
+            hands=(
+                _tiles("1m 9m 1p 9p 1s 9s E S W P F C 2m N"),
+                (),
+                (),
+                (),
+            ),
+            melds=(
+                (),
+                (
+                    Meld(
+                        ActionKind.PON,
+                        _tiles("3m 3m 3m"),
+                        called_tile=Tile.parse("3m"),
+                        from_seat=2,
+                    ),
+                ),
+                (),
+                (),
+            ),
+        )
+
+        self.assertEqual(legal_kyuushu_kyuuhai_actions(late_draw), ())
+        self.assertEqual(legal_kyuushu_kyuuhai_actions(called_draw), ())
+
+    def test_four_winds_aborts_after_ron_window_passes_and_repeats_dealer(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            points=(25000, 25000, 25000, 25000),
+            honba=1,
+            dealer_seat=0,
+            current_seat=3,
+            turn=3,
+            discards=((Tile.parse("E"),), (Tile.parse("E"),), (Tile.parse("E"),), ()),
+            hands=(
+                (),
+                (),
+                (),
+                _tiles("E 1m 2m 3m 4p 5p 6p 7s 8s 9s P F C"),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+
+        pending, discard = apply_discard_action(drawn, Action.discard("E"))
+        terminal = pass_pending_discard_reactions(pending)
+        next_round = next_round_sandbox_environment(terminal, seed="four-winds")
+
+        self.assertEqual(discard, Tile.parse("E"))
+        self.assertEqual(pending.pending_abortive_draw_reason, "four_winds")
+        self.assertEqual(legal_reaction_actions(pending, seat=0), (Action.pass_(),))
+        self.assertEqual(legal_call_actions(pending, seat=0), ())
+        self.assertEqual(terminal.terminal_reason, "four_winds")
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.honba, 2)
+        self.assertEqual(next_round.riichi_sticks, 0)
+
+    def test_four_riichi_aborts_after_fourth_riichi_discard_passes(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            points=(24000, 24000, 24000, 25000),
+            riichi_sticks=3,
+            riichi_seats=(0, 1, 2),
+            honba=1,
+            dealer_seat=0,
+            current_seat=3,
+            turn=12,
+            hands=(
+                (),
+                (),
+                (),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+
+        declared = apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+        pending, discard = apply_discard_action(
+            declared,
+            Action.discard("9s", tsumogiri=True),
+        )
+        terminal = pass_pending_discard_reactions(pending)
+        next_round = next_round_sandbox_environment(terminal, seed="four-riichi")
+
+        self.assertEqual(discard, Tile.parse("9s"))
+        self.assertEqual(pending.pending_abortive_draw_reason, "four_riichi")
+        self.assertEqual(pending.riichi_sticks, 4)
+        self.assertEqual(terminal.terminal_reason, "four_riichi")
+        self.assertEqual(terminal.riichi_sticks, 4)
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.honba, 2)
+        self.assertEqual(next_round.riichi_sticks, 4)
+
+    def test_four_kans_aborts_after_fourth_kan_discard_passes(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
+            points=(25000, 25000, 25000, 25000),
+            honba=1,
+            dealer_seat=0,
+            drawn_tile=Tile.parse("4m"),
+            hands=(
+                _tiles("4m 4m 4m 4m 1p 2p 3p 1s 2s 3s E E E 7m"),
+                (),
+                (),
+                (),
+            ),
+            melds=(
+                (),
+                (_kan_meld(ActionKind.ANKAN, "1p"),),
+                (_kan_meld(ActionKind.MINKAN, "2p"),),
+                (_kan_meld(ActionKind.KAKAN, "3p"),),
+            ),
+        )
+
+        after_kan, meld = apply_ankan_action(state, legal_ankan_actions(state)[0])
+        pending, discard = apply_discard_action(after_kan, Action.discard("8s"))
+        terminal = pass_pending_discard_reactions(pending)
+        next_round = next_round_sandbox_environment(terminal, seed="four-kans")
+
+        self.assertEqual(meld.kind, ActionKind.ANKAN)
+        self.assertEqual(after_kan.abortive_draw_after_discard_reason, "four_kans")
+        self.assertEqual(discard, Tile.parse("8s"))
+        self.assertEqual(pending.pending_abortive_draw_reason, "four_kans")
+        self.assertEqual(legal_call_actions(pending, seat=1), ())
+        self.assertEqual(terminal.terminal_reason, "four_kans")
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.honba, 2)
+
+    def test_four_kans_by_one_player_does_not_abort(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            dead_wall=_tiles("1m 2m 8s"),
+            dora_indicators=(Tile.parse("1m"),),
+            drawn_tile=Tile.parse("4m"),
+            hands=(
+                _tiles("4m 4m 4m 4m 1p 2p 3p 1s 2s 3s E E E 7m"),
+                (),
+                (),
+                (),
+            ),
+            melds=(
+                (
+                    _kan_meld(ActionKind.ANKAN, "1p"),
+                    _kan_meld(ActionKind.ANKAN, "2p"),
+                    _kan_meld(ActionKind.ANKAN, "3p"),
+                ),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        after_kan, _meld = apply_ankan_action(state, legal_ankan_actions(state)[0])
+
+        self.assertIsNone(after_kan.abortive_draw_after_discard_reason)
+        self.assertTrue(after_kan.rinshan_draw)
+
+    def test_triple_ron_aborts_without_payments_and_repeats_dealer(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            points=(25000, 25000, 25000, 25000),
+            riichi_sticks=1,
+            honba=1,
+            dealer_seat=0,
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s W W W 5m"),
+                _tiles("3m 4m 5m 3p 4p 5p 3s 4s 5s P P P 5m"),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+
+        terminal = apply_ron_actions(
+            reaction_state,
+            (
+                (3, Action(ActionKind.RON, TileType.parse("5m"))),
+                (2, Action(ActionKind.RON, TileType.parse("5m"))),
+                (1, Action(ActionKind.RON, TileType.parse("5m"))),
+            ),
+        )
+        next_round = next_round_sandbox_environment(terminal, seed="triple-ron")
+
+        self.assertEqual(terminal.terminal_reason, "triple_ron")
+        self.assertEqual(terminal.winner_seats, ())
+        self.assertEqual(terminal.winning_yaku_by_seat, ())
+        self.assertEqual(terminal.terminal_rewards, (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(terminal.terminal_point_deltas, (0, 0, 0, 0))
+        self.assertEqual(terminal.points, (25000, 25000, 25000, 25000))
+        self.assertEqual(terminal.riichi_sticks, 1)
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.honba, 2)
+        self.assertEqual(next_round.riichi_sticks, 1)
+
     def test_round_wind_yakuhai_uses_state_round_wind(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -3743,6 +4006,16 @@ def _missing_discard_action(state: SandboxEnvironmentState) -> Action:
         if count == 0:
             return Action.discard(TileType(index))
     raise AssertionError("test hand unexpectedly contains every tile type")
+
+
+def _kan_meld(kind: ActionKind, tile: str) -> Meld:
+    parsed = Tile.parse(tile)
+    return Meld(
+        kind,
+        (parsed, parsed, parsed, parsed),
+        called_tile=None if kind is ActionKind.ANKAN else parsed,
+        from_seat=None if kind is ActionKind.ANKAN else 0,
+    )
 
 
 def _tiles(text: str) -> tuple[Tile, ...]:
