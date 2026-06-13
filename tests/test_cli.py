@@ -2159,6 +2159,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["eval_examples"], 1)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["train_accuracy"], 2 / 3)
         self.assertEqual(payload["models"]["frequency"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["models"]["frequency"]["metrics"]["loss_kind"], "zero_one")
+        self.assertAlmostEqual(payload["models"]["frequency"]["metrics"]["train_loss"], 1 / 3)
+        self.assertEqual(payload["models"]["frequency"]["metrics"]["eval_loss"], 1.0)
+        self.assertIn("4p", payload["models"]["frequency"]["metrics"]["train_action_recall"])
+        self.assertIn("4p", payload["models"]["frequency"]["metrics"]["eval_action_recall"])
+        self.assertIn("train_balanced_accuracy", payload["models"]["frequency"]["metrics"])
+        self.assertIn("eval_balanced_accuracy", payload["models"]["frequency"]["metrics"])
         self.assertEqual(payload["models"]["frequency"]["eval_analysis"]["overall"]["examples"], 1)
         self.assertEqual(payload["models"]["frequency"]["eval_analysis"]["overall"]["correct"], 0)
         self.assertEqual(
@@ -2178,6 +2185,9 @@ class CliTests(unittest.TestCase):
             69,
         )
         self.assertEqual(payload["models"]["raw_count_linear"]["metrics"]["eval_accuracy"], 0.0)
+        self.assertEqual(payload["models"]["raw_count_linear"]["metrics"]["loss_kind"], "zero_one")
+        self.assertIn("train_action_recall", payload["models"]["raw_count_linear"]["metrics"])
+        self.assertIn("eval_action_recall", payload["models"]["raw_count_linear"]["metrics"])
         self.assertEqual(
             payload["models"]["raw_count_linear"]["eval_analysis"]["overall"]["examples"],
             1,
@@ -2614,6 +2624,37 @@ class CliTests(unittest.TestCase):
             0.0,
         )
 
+    def test_benchmark_discard_example_limit_records_total_examples(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark-limit.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.5",
+                        "--split-seed",
+                        "fixed",
+                        "--models",
+                        "fast",
+                        "--example-limit",
+                        "2",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["discard_examples"], 2)
+        self.assertEqual(payload["discard_examples_total"], 4)
+        self.assertEqual(payload["example_limit"], 2)
+        self.assertEqual(payload["split"]["train_examples"], 1)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+
     def test_benchmark_discard_explicit_models(self) -> None:
         stdout = io.StringIO()
 
@@ -2917,6 +2958,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(frequency["kind"], "call-frequency-v0")
         self.assertEqual(frequency["counts"]["pon"], 1)
         self.assertEqual(frequency["metrics"]["train_accuracy"], 1.0)
+        self.assertEqual(frequency["metrics"]["loss_kind"], "zero_one")
+        self.assertEqual(frequency["metrics"]["train_loss"], 0.0)
+        self.assertIsNone(frequency["metrics"]["eval_loss"])
         self.assertEqual(frequency["metrics"]["train_balanced_accuracy"], 1.0)
         self.assertEqual(frequency["metrics"]["train_call_recall"], 1.0)
         self.assertIsNone(frequency["metrics"]["train_pass_recall"])
@@ -3510,6 +3554,9 @@ class CliTests(unittest.TestCase):
         calibrated = payload["models"]["riichi_linear_calibrated"]
         self.assertEqual(model["kind"], "riichi-frequency-v0")
         self.assertEqual(model["counts"]["riichi"], 1)
+        self.assertEqual(model["metrics"]["loss_kind"], "zero_one")
+        self.assertEqual(model["metrics"]["train_loss"], 0.0)
+        self.assertIsNone(model["metrics"]["eval_loss"])
         self.assertEqual(model["metrics"]["train_riichi_recall"], 1.0)
         self.assertEqual(linear["kind"], "riichi-linear-v0")
         self.assertGreater(linear["feature_dim"], 0)
@@ -3567,6 +3614,39 @@ class CliTests(unittest.TestCase):
             calibrated["policy"]["threshold"],
             base["calibration"]["train"]["best"]["threshold"],
         )
+
+    def test_benchmark_riichi_example_limit_records_total_examples(self) -> None:
+        with TemporaryDirectory() as directory:
+            fixture_dir = Path(directory) / "fixtures"
+            fixture_dir.mkdir()
+            fixture_text = Path("data/fixtures/tenhou/events_4p.xml").read_text(
+                encoding="utf-8",
+            )
+            (fixture_dir / "a.xml").write_text(fixture_text, encoding="utf-8")
+            (fixture_dir / "b.xml").write_text(fixture_text, encoding="utf-8")
+            report = Path(directory) / "riichi-benchmark.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "benchmark-riichi",
+                        str(fixture_dir),
+                        "--eval-fraction",
+                        "0.5",
+                        "--split-seed",
+                        "fixed",
+                        "--example-limit",
+                        "1",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["riichi_examples"], 1)
+        self.assertEqual(payload["riichi_examples_total"], 2)
+        self.assertEqual(payload["example_limit"], 1)
 
     def test_benchmark_riichi_can_include_weighted_variant(self) -> None:
         stdout = io.StringIO()

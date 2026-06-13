@@ -913,6 +913,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="stable seed for deterministic train/eval split",
     )
     benchmark_discard.add_argument(
+        "--example-limit",
+        type=int,
+        help="maximum discard examples to use after deterministic reconstruction",
+    )
+    benchmark_discard.add_argument(
         "--report",
         type=Path,
         help="optional path for a JSON benchmark report artifact",
@@ -1339,6 +1344,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--split-seed",
         default="kenjaku-v0",
         help="stable seed for deterministic train/eval split",
+    )
+    benchmark_riichi.add_argument(
+        "--example-limit",
+        type=int,
+        help="maximum riichi/pass examples to use after deterministic reconstruction",
     )
     benchmark_riichi.add_argument(
         "--epochs",
@@ -2632,6 +2642,8 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
 def _benchmark_discard(args: argparse.Namespace) -> int:
     if args.max_disagreements < 0:
         raise SystemExit("--max-disagreements must be non-negative")
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
     selected_model_names = _parse_discard_benchmark_models(args.models)
     if args.disagreements is not None:
         missing = [
@@ -2645,7 +2657,10 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
-    examples = list(iter_discard_examples(game))
+    examples, total_examples = _collect_limited_examples(
+        iter_discard_examples(game),
+        args.example_limit,
+    )
     if not examples:
         raise SystemExit("no discard examples found")
 
@@ -2710,6 +2725,8 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
+        report["discard_examples_total"] = total_examples
+        report["example_limit"] = args.example_limit
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     if args.disagreements is not None:
@@ -3120,10 +3137,29 @@ def _discard_frequency_payload(
     eval_examples: list[DiscardExample],
     include_analysis: bool,
 ) -> dict[str, Any]:
+    train_metrics = _discard_classification_metrics(
+        train_examples,
+        lambda example: model.predict(example.hand_counts),
+    )
+    eval_metrics = _discard_classification_metrics(
+        eval_examples,
+        lambda example: model.predict(example.hand_counts),
+    )
     payload: dict[str, Any] = {
         "metrics": {
-            "train_accuracy": model.score(train_examples),
-            "eval_accuracy": model.score(eval_examples) if eval_examples else None,
+            "loss_kind": "zero_one",
+            "train_examples": train_metrics["examples"],
+            "eval_examples": eval_metrics["examples"],
+            "train_loss": train_metrics["loss"],
+            "eval_loss": eval_metrics["loss"],
+            "train_accuracy": train_metrics["accuracy"],
+            "eval_accuracy": eval_metrics["accuracy"],
+            "train_balanced_accuracy": train_metrics["balanced_accuracy"],
+            "eval_balanced_accuracy": eval_metrics["balanced_accuracy"],
+            "train_macro_recall": train_metrics["macro_recall"],
+            "eval_macro_recall": eval_metrics["macro_recall"],
+            "train_action_recall": train_metrics["action_recall"],
+            "eval_action_recall": eval_metrics["action_recall"],
         },
     }
     if include_analysis:
@@ -3145,6 +3181,11 @@ def _discard_linear_payload(
     l2: float,
     include_analysis: bool,
 ) -> dict[str, Any]:
+    def predict(example: DiscardExample) -> TileType:
+        return _predict_discard_model(model_name, model, example)
+
+    train_metrics = _discard_classification_metrics(train_examples, predict)
+    eval_metrics = _discard_classification_metrics(eval_examples, predict)
     payload: dict[str, Any] = {
         "kind": model.kind,
         "feature_dim": model.feature_dim,
@@ -3154,14 +3195,25 @@ def _discard_linear_payload(
             "l2": l2,
         },
         "metrics": {
-            "train_accuracy": model.score(train_examples),
-            "eval_accuracy": model.score(eval_examples) if eval_examples else None,
+            "loss_kind": "zero_one",
+            "train_examples": train_metrics["examples"],
+            "eval_examples": eval_metrics["examples"],
+            "train_loss": train_metrics["loss"],
+            "eval_loss": eval_metrics["loss"],
+            "train_accuracy": train_metrics["accuracy"],
+            "eval_accuracy": eval_metrics["accuracy"],
+            "train_balanced_accuracy": train_metrics["balanced_accuracy"],
+            "eval_balanced_accuracy": eval_metrics["balanced_accuracy"],
+            "train_macro_recall": train_metrics["macro_recall"],
+            "eval_macro_recall": eval_metrics["macro_recall"],
+            "train_action_recall": train_metrics["action_recall"],
+            "eval_action_recall": eval_metrics["action_recall"],
         },
     }
     if include_analysis:
         payload["eval_analysis"] = summarize_discard_predictions(
             eval_examples,
-            lambda example: _predict_discard_model(model_name, model, example),
+            predict,
         )
         payload["weight_summary"] = model.weight_summary()
         payload["feature_summary"] = model.feature_summary(eval_examples)
@@ -3261,6 +3313,48 @@ def _model_eval_accuracy(
     if model is None:
         return None
     return model["metrics"]["eval_accuracy"]
+
+
+def _discard_classification_metrics(
+    examples: Sequence[DiscardExample],
+    predict: Callable[[DiscardExample], TileType],
+) -> dict[str, Any]:
+    correct = 0
+    examples_by_tile = [0] * 34
+    correct_by_tile = [0] * 34
+    for example in examples:
+        if example.action.tile is None:
+            raise ValueError("discard examples must have tile actions")
+        actual = example.action.tile
+        predicted = predict(example)
+        is_correct = predicted == actual
+        correct += int(is_correct)
+        examples_by_tile[actual.index] += 1
+        correct_by_tile[actual.index] += int(is_correct)
+
+    count = len(examples)
+    accuracy = None if count == 0 else correct / count
+    action_recall = {
+        TileType(index).notation: (
+            None
+            if examples_by_tile[index] == 0
+            else correct_by_tile[index] / examples_by_tile[index]
+        )
+        for index in range(34)
+    }
+    macro_recall = _mean_defined(action_recall.values())
+    return {
+        "examples": count,
+        "loss": _zero_one_loss(accuracy),
+        "accuracy": accuracy,
+        "balanced_accuracy": macro_recall,
+        "macro_recall": macro_recall,
+        "action_recall": action_recall,
+    }
+
+
+def _zero_one_loss(accuracy: float | None) -> float | None:
+    return None if accuracy is None else 1.0 - accuracy
 
 
 def _benchmark_report_summary(args: argparse.Namespace) -> int:
@@ -4097,6 +4191,25 @@ def _limit_call_examples(
     raise ValueError(f"unsupported call example limit strategy: {strategy}")
 
 
+def _limit_examples(examples: Sequence[T], limit: int | None) -> list[T]:
+    if limit is None or len(examples) <= limit:
+        return list(examples)
+    return list(examples[:limit])
+
+
+def _collect_limited_examples(
+    examples: Iterable[T],
+    limit: int | None,
+) -> tuple[list[T], int]:
+    selected: list[T] = []
+    total = 0
+    for example in examples:
+        if limit is None or len(selected) < limit:
+            selected.append(example)
+        total += 1
+    return selected, total
+
+
 def _read_call_example_cache(path: Path | None) -> dict[str, Any] | None:
     if path is None or not path.exists():
         return None
@@ -4572,6 +4685,9 @@ def _call_model_payload(
     payload: dict[str, Any] = {
         "kind": model.kind,
         "metrics": {
+            "loss_kind": "zero_one",
+            "train_loss": _zero_one_loss(train_metrics["accuracy"]),
+            "eval_loss": _zero_one_loss(eval_metrics["accuracy"]),
             "train_accuracy": train_metrics["accuracy"],
             "eval_accuracy": eval_metrics["accuracy"],
             "train_balanced_accuracy": train_metrics["balanced_accuracy"],
@@ -4875,6 +4991,8 @@ def _mean_defined(values: Iterable[float | None]) -> float | None:
 
 
 def _benchmark_riichi(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
     riichi_threshold = _validated_probability(args.riichi_threshold, "--riichi-threshold")
     riichi_positive_weight = _validated_positive_float(
         args.riichi_positive_weight,
@@ -4882,7 +5000,10 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
     )
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
-    examples = list(iter_riichi_examples(game))
+    examples, total_examples = _collect_limited_examples(
+        iter_riichi_examples(game),
+        args.example_limit,
+    )
     if not examples:
         raise SystemExit("no riichi examples found")
 
@@ -4958,14 +5079,12 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
     if args.report is not None:
-        discard_examples = list(iter_discard_examples(game))
-        call_examples = list(iter_call_examples(game))
         report = build_riichi_benchmark_report(
             input_paths=args.paths,
             xml_files=dataset.files,
             game=game,
-            discard_examples=len(discard_examples),
-            call_examples=len(call_examples),
+            discard_examples=sum(1 for _ in iter_discard_examples(game)),
+            call_examples=sum(1 for _ in iter_call_examples(game)),
             riichi_examples=len(examples),
             split_seed=args.split_seed,
             eval_fraction=args.eval_fraction,
@@ -4975,6 +5094,8 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
             parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
+        report["riichi_examples_total"] = total_examples
+        report["example_limit"] = args.example_limit
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
@@ -5055,6 +5176,9 @@ def _riichi_model_payload(
     payload: dict[str, Any] = {
         "kind": model.kind,
         "metrics": {
+            "loss_kind": "zero_one",
+            "train_loss": _zero_one_loss(train_metrics["accuracy"]),
+            "eval_loss": _zero_one_loss(eval_metrics["accuracy"]),
             "train_accuracy": train_metrics["accuracy"],
             "eval_accuracy": eval_metrics["accuracy"],
             "train_balanced_accuracy": train_metrics["balanced_accuracy"],
