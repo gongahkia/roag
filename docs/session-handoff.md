@@ -110,8 +110,10 @@ Last updated: 2026-06-13.
   progression for dealer repeat and honba. Added Tenhou-style abortive draw terminals for kyuushu
   kyuuhai, four winds, four riichi, four kans, and triple ron; these use neutral point deltas,
   repeat dealer, increment honba, preserve round wind, and carry riichi sticks into the next round.
-  This is still not hand scoring, full
-  round-continuation semantics, real
+  Added game-end final-result metadata to `next_round_sandbox_environment`: South all-last,
+  West-round sudden death, bankruptcy, final-riichi-stick top-take, return points, oka/uma,
+  deterministic placement, and final ranks are covered for both 4-player and Sanma rulesets.
+  This is still not hand scoring, policy-driven full-match self-play, real
   multi-ron payment validation, complete payment accounting, complete yaku validation, full
   open-hand yaku rules, complete post-riichi kan timing, or exact fu/payment scoring.
   Added a narrow Sanma Kita/pei-nuki sandbox action that records exposed North tiles separately
@@ -326,7 +328,9 @@ Last updated: 2026-06-13.
   double-riichi detection, basic post-riichi discard/call restrictions, basic wait-preserving
   post-riichi closed-kan exceptions, a basic point ledger with riichi deposit/stick accounting,
   declaration-discard deal-in refunds, and honba bonus deltas, a basic next-round dealer/honba transition
-  helper with round-wind dealer-wrap progression, basic ippatsu window metadata, basic
+  helper with round-wind dealer-wrap progression, all-last and West-round sudden-death game-end
+  handling, bankruptcy termination, ending-riichi-stick top-take, and 3p/4p return-point,
+  oka/uma, placement, and final-rank metadata, basic ippatsu window metadata, basic
   chi/pon/minkan calls, a reserved 14-tile dead wall with visible dora/kan-dora indicator metadata,
   basic closed-kan/ankan self-turn actions with dead-wall replacement draws, basic added-kan/kakan
   pon promotions with dead-wall replacement draws, basic rinshan draw-source and winning-rinshan
@@ -347,7 +351,8 @@ Last updated: 2026-06-13.
   basic dealer-aware win payment estimates, visible-dora, kan-dora, riichi-gated ura/kan-ura,
   red-five score-estimate bonus han, basic kazoe-yakuman score estimates, basic yakuman bonus-han
   suppression, tsumo yaku/dora tile-view de-duplication, basic Nagashi mangan wall-exhaustion and
-  next-round progression, and basic live-wall exhaustive-draw tenpai/noten point deltas.
+  next-round progression, basic live-wall exhaustive-draw tenpai/noten point deltas, and
+  final-result metadata for game-end states.
 
 ## Working Rules
 
@@ -376,8 +381,7 @@ Last updated: 2026-06-13.
   training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
   including yaku checks, complete payment/scoring semantics beyond the current basic point-ledger,
   dealer-aware payment, visible/kan/ura/red/Kita dora, kazoe-yakuman limit,
-  yakuman bonus-han suppression, tsumo tile-view de-duplication, Nagashi mangan wall-exhaustion and
-  next-round handling, and next-round dealer/honba/round-wind helper slices, ippatsu scoring, full
+  yakuman bonus-han suppression, tsumo tile-view de-duplication, ippatsu scoring, full
   yaku-aware open/kan hand legality, complete post-riichi kan timing,
   real multi-ron payment handling, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
@@ -915,8 +919,7 @@ Mortal local baseline reconnaissance:
    step is extending the current environment boundary with full call/kan timing, yaku/terminal
    outcome semantics, complete payment/scoring semantics beyond the basic live-wall exhaustive-draw
    tenpai/noten point-delta, dealer-aware win payment, visible/kan/ura/red/Kita dora
-   score-estimate, kazoe-yakuman limit, yakuman bonus-han suppression, Nagashi mangan wall-exhaustion and
-   next-round handling, and next-round dealer/honba/round-wind slices, ippatsu scoring beyond
+   score-estimate, kazoe-yakuman limit, yakuman bonus-han suppression, ippatsu scoring beyond
    narrow ron metadata, full yaku-aware open/kan hand legality,
    complete post-riichi kan timing, real multi-ron payment
    handling, and exact scoring before PPO work.
@@ -929,7 +932,6 @@ Mortal local baseline reconnaissance:
    training, and evaluation are still open.
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics beyond the basic
-    dealer-aware, visible/kan/ura/red/Kita dora, and next-round dealer/honba/round-wind helper
-    slices, ippatsu scoring, full yaku-aware open/kan hand legality, complete post-riichi kan
-    timing, and yaku/scoring semantics should come
-    before policy optimization.
+    dealer-aware, visible/kan/ura/red/Kita dora, ippatsu scoring, full yaku-aware open/kan hand
+    legality, complete post-riichi kan timing, and yaku/scoring semantics should come before policy
+    optimization.

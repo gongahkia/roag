@@ -36,7 +36,9 @@ notes.
   first-turn double-riichi detection, post-riichi discard/call restrictions, basic wait-preserving
   post-riichi closed-kan exceptions, a basic riichi deposit/stick ledger with declaration-discard
   deal-in refunds, basic honba bonus deltas, a basic next-round dealer/honba transition
-  helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
+  helper with round-wind dealer-wrap progression, all-last and West-round sudden-death game-end
+  handling, bankruptcy termination, ending-riichi-stick top-take, and 3p/4p return-point,
+  oka/uma, placement, and final-rank metadata, basic active/winning ippatsu metadata, basic
   closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
   metadata, rinshan draw-source metadata, timing fixtures for rinshan after minkan/ankan/kakan,
   haitei/houtei final live-wall and replacement-draw edges, basic double-riichi yaku metadata, a
@@ -69,8 +71,8 @@ notes.
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.
   It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
-  implementation, complete post-riichi kan timing model,
-  complete round/end-of-game progression model, scoring engine, or RL implementation.
+  implementation, complete post-riichi kan timing model, scoring engine, automated full-match
+  self-play trainer, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.

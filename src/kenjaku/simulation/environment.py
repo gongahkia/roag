@@ -22,6 +22,10 @@ SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
 SANDBOX_RULESETS = ("tenhou-4p", "tenhou-3p")
 SANDBOX_INITIAL_POINTS = 25000
 SANDBOX_3P_INITIAL_POINTS = 35000
+SANDBOX_RETURN_POINTS = 30000
+SANDBOX_3P_RETURN_POINTS = 40000
+SANDBOX_4P_UMA_BY_RANK = (20.0, 10.0, -10.0, -20.0)
+SANDBOX_3P_UMA_BY_RANK = (20.0, 0.0, -20.0)
 RIICHI_DEPOSIT_POINTS = 1000
 HONBA_RON_POINTS = 300
 HONBA_TSUMO_POINTS_PER_LOSER = 100
@@ -41,6 +45,8 @@ SANDBOX_SEAT_WINDS = (
     TileType.parse("N"),
 )
 SANDBOX_INITIAL_ROUND_WIND = SANDBOX_SEAT_WINDS[0]
+SANDBOX_ALL_LAST_ROUND_WIND = SANDBOX_SEAT_WINDS[1]
+SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND = SANDBOX_SEAT_WINDS[2]
 SANDBOX_ROUND_WINDS = SANDBOX_SEAT_WINDS
 SANDBOX_DRAGON_TILES_ORDER = (
     TileType.parse("P"),
@@ -168,6 +174,30 @@ class SandboxScoreEstimate:
 
 
 @dataclass(frozen=True, slots=True)
+class SandboxFinalResult:
+    reason: str
+    points: tuple[int, ...]
+    placement: tuple[int, ...]
+    ranks: tuple[int, ...]
+    return_points: int
+    oka_points: int
+    uma_by_rank: tuple[float, ...]
+    scores: tuple[float, ...]
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "reason": self.reason,
+            "points": list(self.points),
+            "placement": list(self.placement),
+            "ranks": list(self.ranks),
+            "return_points": self.return_points,
+            "oka_points": self.oka_points,
+            "uma_by_rank": list(self.uma_by_rank),
+            "scores": list(self.scores),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SandboxEnvironmentState:
     ruleset: str
     players: int
@@ -222,6 +252,7 @@ class SandboxEnvironmentState:
     terminal_score_estimates: tuple[SandboxScoreEstimate, ...] = ()
     exhaustive_draw_tenpai_seats: tuple[int, ...] = ()
     exhaustive_draw_noten_seats: tuple[int, ...] = ()
+    final_result: SandboxFinalResult | None = None
 
     def __post_init__(self) -> None:
         if self.ruleset not in SANDBOX_RULESET_BY_NAME:
@@ -433,6 +464,19 @@ class SandboxEnvironmentState:
             and (self.exhaustive_draw_tenpai_seats or self.exhaustive_draw_noten_seats)
         ):
             raise ValueError("exhaustive draw seats require wall exhaustion")
+        if self.final_result is not None:
+            if self.terminal_reason is None:
+                raise ValueError("final result requires a terminal state")
+            if len(self.final_result.points) != self.players:
+                raise ValueError("final result point count must match player count")
+            if sorted(self.final_result.placement) != list(range(self.players)):
+                raise ValueError("final result placement must include every seat")
+            if len(self.final_result.ranks) != self.players:
+                raise ValueError("final result rank count must match player count")
+            if len(self.final_result.uma_by_rank) != self.players:
+                raise ValueError("final result uma count must match player count")
+            if len(self.final_result.scores) != self.players:
+                raise ValueError("final result score count must match player count")
 
     def current_hand(self) -> tuple[Tile, ...]:
         return self.hands[self.current_seat]
@@ -523,6 +567,10 @@ class SandboxEnvironmentState:
             ],
             "exhaustive_draw_tenpai_seats": list(self.exhaustive_draw_tenpai_seats),
             "exhaustive_draw_noten_seats": list(self.exhaustive_draw_noten_seats),
+            "game_finished": self.final_result is not None,
+            "final_result": (
+                None if self.final_result is None else self.final_result.to_payload()
+            ),
         }
 
 
@@ -578,6 +626,17 @@ def next_round_sandbox_environment(
         dealer_repeats=dealer_repeats,
         next_dealer=next_dealer,
     )
+    game_end_reason = _sandbox_game_end_reason(
+        state,
+        dealer_repeats=dealer_repeats,
+        next_dealer=next_dealer,
+        next_round_wind=next_round_wind,
+    )
+    if game_end_reason is not None:
+        return _replace_state(
+            state,
+            final_result=_sandbox_final_result(state, reason=game_end_reason),
+        )
     return _new_sandbox_round_state(
         state,
         seed=seed,
@@ -2290,6 +2349,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "terminal_score_estimates": state.terminal_score_estimates,
         "exhaustive_draw_tenpai_seats": state.exhaustive_draw_tenpai_seats,
         "exhaustive_draw_noten_seats": state.exhaustive_draw_noten_seats,
+        "final_result": state.final_result,
     }
     payload.update(updates)
     return SandboxEnvironmentState(**payload)
@@ -2360,6 +2420,104 @@ def _next_round_wind_after_terminal(
         return state.round_wind
     round_index = SANDBOX_ROUND_WINDS.index(state.round_wind)
     return SANDBOX_ROUND_WINDS[(round_index + 1) % len(SANDBOX_ROUND_WINDS)]
+
+
+def _sandbox_game_end_reason(
+    state: SandboxEnvironmentState,
+    *,
+    dealer_repeats: bool,
+    next_dealer: int,
+    next_round_wind: TileType,
+) -> str | None:
+    points = _points_by_seat(state)
+    if any(point < 0 for point in points):
+        return "bankruptcy"
+    if _is_all_last_round(state):
+        if dealer_repeats:
+            if _terminal_can_agari_or_tenpai_yame(state) and _top_seat(points) == state.dealer_seat:
+                return "all_last_dealer_top"
+            return None
+        if _top_points(points) >= _return_points_for_ruleset(state.ruleset):
+            return "all_last_return"
+        return None
+    if state.round_wind == SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND:
+        if dealer_repeats:
+            return None
+        if _top_points(points) >= _return_points_for_ruleset(state.ruleset):
+            return "sudden_death_return"
+        if next_dealer == 0 and next_round_wind != SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND:
+            return "sudden_death_max_round"
+    return None
+
+
+def _sandbox_final_result(
+    state: SandboxEnvironmentState,
+    *,
+    reason: str,
+) -> SandboxFinalResult:
+    points = list(_points_by_seat(state))
+    top_seat = _top_seat(tuple(points))
+    points[top_seat] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
+    final_points = tuple(points)
+    placement = _final_placement(final_points)
+    ranks = [0] * state.players
+    for rank, seat in enumerate(placement, start=1):
+        ranks[seat] = rank
+    return_points = _return_points_for_ruleset(state.ruleset)
+    oka_points = (return_points - _initial_points_for_ruleset(state.ruleset)) * state.players
+    uma_by_rank = _uma_by_rank_for_ruleset(state.ruleset)
+    scores = [0.0] * state.players
+    for rank_index, seat in enumerate(placement):
+        score = (final_points[seat] - return_points) / 1000
+        score += uma_by_rank[rank_index]
+        if rank_index == 0:
+            score += oka_points / 1000
+        scores[seat] = score
+    return SandboxFinalResult(
+        reason=reason,
+        points=final_points,
+        placement=placement,
+        ranks=tuple(ranks),
+        return_points=return_points,
+        oka_points=oka_points,
+        uma_by_rank=uma_by_rank,
+        scores=tuple(scores),
+    )
+
+
+def _is_all_last_round(state: SandboxEnvironmentState) -> bool:
+    return (
+        state.round_wind == SANDBOX_ALL_LAST_ROUND_WIND
+        and state.dealer_seat == state.players - 1
+    )
+
+
+def _terminal_can_agari_or_tenpai_yame(state: SandboxEnvironmentState) -> bool:
+    return state.terminal_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+
+
+def _return_points_for_ruleset(ruleset: str) -> int:
+    if ruleset == TENHOU_3P.name:
+        return SANDBOX_3P_RETURN_POINTS
+    return SANDBOX_RETURN_POINTS
+
+
+def _uma_by_rank_for_ruleset(ruleset: str) -> tuple[float, ...]:
+    if ruleset == TENHOU_3P.name:
+        return SANDBOX_3P_UMA_BY_RANK
+    return SANDBOX_4P_UMA_BY_RANK
+
+
+def _final_placement(points: tuple[int, ...]) -> tuple[int, ...]:
+    return tuple(sorted(range(len(points)), key=lambda seat: (-points[seat], seat)))
+
+
+def _top_seat(points: tuple[int, ...]) -> int:
+    return _final_placement(points)[0]
+
+
+def _top_points(points: tuple[int, ...]) -> int:
+    return points[_top_seat(points)]
 
 
 def _shuffled_wall(rng: random.Random, *, rules: RuleSet) -> list[Tile]:

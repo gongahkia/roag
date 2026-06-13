@@ -1468,6 +1468,220 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(next_round.round_wind, TileType.parse("S"))
         self.assertEqual(next_round.to_payload()["round_wind"], "S")
 
+    def test_next_round_after_south_four_child_win_above_return_finishes_game(
+        self,
+    ) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(32000, 28000, 25000, 14000),
+            riichi_sticks=1,
+            dealer_seat=3,
+            round_wind=TileType.parse("S"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="all-last-end")
+        result = game_end.final_result
+        payload = game_end.to_payload()
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(game_end.terminal_reason, "ron")
+        self.assertTrue(payload["game_finished"])
+        self.assertEqual(result.reason, "all_last_return")
+        self.assertEqual(result.points, (33000, 28000, 25000, 14000))
+        self.assertEqual(result.placement, (0, 1, 2, 3))
+        self.assertEqual(result.ranks, (1, 2, 3, 4))
+        self.assertEqual(result.return_points, 30000)
+        self.assertEqual(result.oka_points, 20000)
+        self.assertEqual(result.uma_by_rank, (20.0, 10.0, -10.0, -20.0))
+        self.assertEqual(result.scores, (43.0, 8.0, -15.0, -36.0))
+        self.assertEqual(payload["final_result"]["points"], [33000, 28000, 25000, 14000])
+        self.assertEqual(payload["final_result"]["scores"], [43.0, 8.0, -15.0, -36.0])
+
+    def test_next_round_after_south_four_without_return_enters_west_round(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(29000, 26000, 24000, 21000),
+            dealer_seat=3,
+            round_wind=TileType.parse("S"),
+        )
+
+        next_round = next_round_sandbox_environment(terminal, seed="west-entry")
+
+        self.assertIsNone(next_round.final_result)
+        self.assertEqual(next_round.dealer_seat, 0)
+        self.assertEqual(next_round.current_seat, 0)
+        self.assertEqual(next_round.round_wind, TileType.parse("W"))
+
+    def test_next_round_after_all_last_dealer_top_stops_on_renchan(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="tsumo",
+            winner_seat=3,
+            winner_seats=(3,),
+            points=(27000, 26000, 19000, 28000),
+            honba=1,
+            dealer_seat=3,
+            round_wind=TileType.parse("S"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="agari-yame")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.reason, "all_last_dealer_top")
+        self.assertEqual(game_end.final_result.placement, (3, 0, 1, 2))
+
+    def test_next_round_after_all_last_dealer_not_top_repeats(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="tsumo",
+            winner_seat=3,
+            winner_seats=(3,),
+            points=(32000, 25000, 15000, 28000),
+            honba=1,
+            dealer_seat=3,
+            round_wind=TileType.parse("S"),
+        )
+
+        next_round = next_round_sandbox_environment(terminal, seed="all-last-renchan")
+
+        self.assertIsNone(next_round.final_result)
+        self.assertEqual(next_round.dealer_seat, 3)
+        self.assertEqual(next_round.current_seat, 3)
+        self.assertEqual(next_round.honba, 2)
+        self.assertEqual(next_round.round_wind, TileType.parse("S"))
+
+    def test_next_round_after_sudden_death_return_finishes_game(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=2,
+            winner_seats=(2,),
+            points=(29000, 28000, 31000, 12000),
+            dealer_seat=1,
+            round_wind=TileType.parse("W"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="sudden-return")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.reason, "sudden_death_return")
+        self.assertEqual(game_end.final_result.placement, (2, 0, 1, 3))
+
+    def test_next_round_after_west_four_without_return_finishes_max_sudden_death(
+        self,
+    ) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(29000, 26000, 24000, 21000),
+            dealer_seat=3,
+            round_wind=TileType.parse("W"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="west-max")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.reason, "sudden_death_max_round")
+        self.assertEqual(game_end.final_result.placement, (0, 1, 2, 3))
+
+    def test_next_round_after_bankruptcy_finishes_game(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=1,
+            winner_seats=(1,),
+            points=(-1000, 51000, 25000, 25000),
+            dealer_seat=0,
+            round_wind=TileType.parse("E"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="bankruptcy")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.reason, "bankruptcy")
+        self.assertEqual(game_end.final_result.placement, (1, 2, 3, 0))
+
+    def test_final_result_tie_breaks_by_initial_seat_order(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((), (), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(30000, 30000, 25000, 15000),
+            dealer_seat=3,
+            round_wind=TileType.parse("S"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="tie-break")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.placement, (0, 1, 2, 3))
+        self.assertEqual(game_end.final_result.ranks, (1, 2, 3, 4))
+        self.assertEqual(game_end.final_result.scores, (40.0, 10.0, -15.0, -35.0))
+
+    def test_sanma_final_result_uses_three_player_return_and_uma(self) -> None:
+        terminal = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(),
+            hands=((), (), ()),
+            terminal_reason="ron",
+            winner_seat=0,
+            winner_seats=(0,),
+            points=(41000, 35000, 29000),
+            dealer_seat=2,
+            round_wind=TileType.parse("S"),
+        )
+
+        game_end = next_round_sandbox_environment(terminal, seed="sanma-final")
+
+        self.assertIsNotNone(game_end.final_result)
+        assert game_end.final_result is not None
+        self.assertEqual(game_end.final_result.reason, "all_last_return")
+        self.assertEqual(game_end.final_result.return_points, 40000)
+        self.assertEqual(game_end.final_result.oka_points, 15000)
+        self.assertEqual(game_end.final_result.uma_by_rank, (20.0, 0.0, -20.0))
+        self.assertEqual(game_end.final_result.placement, (0, 1, 2))
+        self.assertEqual(game_end.final_result.scores, (36.0, -5.0, -31.0))
+
     def test_next_round_after_exhaustive_draw_carries_honba_and_riichi_sticks(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

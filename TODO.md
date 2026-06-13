@@ -210,10 +210,10 @@ semantics.
 
 ### TODO-208 Complete Round And Game Progression
 
-- [ ] Implement East/South/West continuation rules, all-last handling, bankruptcy,
+- [x] Implement East/South/West continuation rules, all-last handling, bankruptcy,
   return points, oka/uma, placement, and final ranking.
-- [ ] Cover 3-player and 4-player differences.
-- [ ] Add tests for dealer repeat, dealer rotation, round wind advance, game end,
+- [x] Cover 3-player and 4-player differences.
+- [x] Add tests for dealer repeat, dealer rotation, round wind advance, game end,
   and negative-score termination.
 
 Done when: a sandbox match can run from East 1 to a final ranked result.

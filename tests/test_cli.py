@@ -69,6 +69,10 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_honba_bonus_accounting: yes", output)
         self.assertIn("sandbox_next_round_transition: yes", output)
         self.assertIn("sandbox_round_wind_progression: yes", output)
+        self.assertIn("sandbox_game_end_final_results: yes", output)
+        self.assertIn("sandbox_all_last_sudden_death_progression: yes", output)
+        self.assertIn("sandbox_bankruptcy_game_end: yes", output)
+        self.assertIn("sandbox_oka_uma_final_scores: yes", output)
         self.assertIn("sandbox_ippatsu_window_tracking: yes", output)
         self.assertIn("sandbox_ankan_action_generation: yes", output)
         self.assertIn("sandbox_ankan_application: yes", output)
@@ -195,6 +199,16 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_round_wind_progression"]
         )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_game_end_final_results"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "sandbox_all_last_sudden_death_progression"
+            ]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_bankruptcy_game_end"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_oka_uma_final_scores"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"]
         )
