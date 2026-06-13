@@ -52,6 +52,9 @@ notes.
   basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
   tenpai/noten point deltas plus basic Nagashi mangan wall-exhaustion and next-round progression.
+  Abortive draws are also modeled for kyuushu kyuuhai, four winds, four riichi, four kans, and
+  triple ron as neutral point terminals that repeat dealer, increment honba, keep round wind, and
+  carry riichi sticks.
   The sandbox also has narrow Sanma
   support: static 3-player tile exclusions, 35,000-point starts, no-chi call filtering,
   North-as-guest-wind yaku filtering, Tenhou's 1m/9m dora indicator wrap, and a basic

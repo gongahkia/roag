@@ -199,11 +199,11 @@ negative cases.
 
 ### TODO-207 Add Abortive Draws
 
-- [ ] Implement kyuushu kyuuhai, four winds, four kans, four riichi, and
+- [x] Implement kyuushu kyuuhai, four winds, four kans, four riichi, and
   triple-ron handling according to the chosen ruleset.
-- [ ] Define whether each draw repeats dealer, increments honba, carries riichi
+- [x] Define whether each draw repeats dealer, increments honba, carries riichi
   sticks, and advances round wind.
-- [ ] Add one next-round progression test for each abortive draw type.
+- [x] Add one next-round progression test for each abortive draw type.
 
 Done when: abortive draws are terminal reasons with explicit point and next-round
 semantics.

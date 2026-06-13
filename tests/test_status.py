@@ -117,6 +117,22 @@ class StatusTests(unittest.TestCase):
                 "sandbox_nagashi_mangan_next_round_progression"
             ]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_abortive_draws"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_kyuushu_kyuuhai_abortive_draw"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_four_winds_abortive_draw"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_four_riichi_abortive_draw"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_four_kans_abortive_draw"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_triple_ron_abortive_draw"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
         )
@@ -233,6 +249,12 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", text)
         self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", text)
+        self.assertIn("sandbox_abortive_draws: yes", text)
+        self.assertIn("sandbox_kyuushu_kyuuhai_abortive_draw: yes", text)
+        self.assertIn("sandbox_four_winds_abortive_draw: yes", text)
+        self.assertIn("sandbox_four_riichi_abortive_draw: yes", text)
+        self.assertIn("sandbox_four_kans_abortive_draw: yes", text)
+        self.assertIn("sandbox_triple_ron_abortive_draw: yes", text)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", text)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", text)
         self.assertIn("sandbox_ura_dora_score_estimates: yes", text)

@@ -104,7 +104,10 @@ Last updated: 2026-06-13.
   bonus han on yakuman estimates, and tsumo yaku/dora tile views no longer duplicate the drawn
   tile. Added basic Nagashi mangan wall-exhaustion handling as mangan tsumo
   when every discard is terminal/honor and no own discard was called, plus win-style next-round
-  progression for dealer repeat and honba. This is still not hand scoring, full
+  progression for dealer repeat and honba. Added Tenhou-style abortive draw terminals for kyuushu
+  kyuuhai, four winds, four riichi, four kans, and triple ron; these use neutral point deltas,
+  repeat dealer, increment honba, preserve round wind, and carry riichi sticks into the next round.
+  This is still not hand scoring, full
   round-continuation semantics, real
   multi-ron payment validation, complete payment accounting, complete yaku validation, full
   open-hand yaku rules, complete post-riichi kan timing, or exact fu/payment scoring.
@@ -308,9 +311,10 @@ Last updated: 2026-06-13.
   `legal_chankan_reaction_actions`, `legal_kita_ron_actions`,
   `legal_kita_reaction_actions`, `legal_call_actions`, `legal_ankan_actions`,
   `legal_kakan_actions`, `legal_kita_actions`, `legal_riichi_actions`,
-  `legal_reaction_actions`, `legal_sandbox_actions`, `apply_discard_action`,
-  `apply_reaction_pass_action`, `apply_call_action`, `apply_ankan_action`, `apply_kakan_action`,
-  `apply_kita_action`, `apply_riichi_action`, `apply_tsumo_action`, `apply_ron_action`,
+  `legal_kyuushu_kyuuhai_actions`, `legal_reaction_actions`, `legal_sandbox_actions`,
+  `apply_discard_action`, `apply_reaction_pass_action`, `apply_call_action`,
+  `apply_ankan_action`, `apply_kakan_action`, `apply_kita_action`, `apply_riichi_action`,
+  `apply_kyuushu_kyuuhai_action`, `apply_tsumo_action`, `apply_ron_action`,
   `apply_ron_actions`, and `pass_pending_discard_reactions`. This is the current simulator boundary
   for future Phase 3 work.
   It only supports draw/discard transitions, pending discard reactions with individual passes,
