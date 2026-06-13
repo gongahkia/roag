@@ -149,7 +149,7 @@ def run_self_play_match_sandbox(
             "call_policy": True,
             "riichi_policy": True,
             "kan_policy": True,
-            "kita_policy": rules.players == 3,
+            "kita_policy": True,
             "ron_policy": True,
             "pass_policy": True,
             "trajectory_states": include_trajectories,

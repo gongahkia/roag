@@ -32,6 +32,13 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["public_benchmark_dashboard"])
         self.assertTrue(payload["capabilities"]["implemented"]["browser_playable_demo"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
+        self.assertTrue(payload["capabilities"]["implemented"]["self_play_match_sandbox"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_match_trajectory_artifacts"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_match_final_placement"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_tsumo_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_pending_discard_reactions"])
@@ -218,6 +225,9 @@ class StatusTests(unittest.TestCase):
         self.assertIn("public_benchmark_dashboard: yes", text)
         self.assertIn("browser_playable_demo: yes", text)
         self.assertIn("self_play_sandbox: yes", text)
+        self.assertIn("self_play_match_sandbox: yes", text)
+        self.assertIn("self_play_match_trajectory_artifacts: yes", text)
+        self.assertIn("self_play_match_final_placement: yes", text)
         self.assertIn("sandbox_legal_discard_environment: yes", text)
         self.assertIn("sandbox_tsumo_action_generation: yes", text)
         self.assertIn("sandbox_pending_discard_reactions: yes", text)

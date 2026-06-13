@@ -3,13 +3,112 @@ from __future__ import annotations
 import unittest
 
 from kenjaku.simulation import (
+    SELF_PLAY_MATCH_REPORT_KIND,
     SELF_PLAY_SANDBOX_REPORT_KIND,
+    format_self_play_match_report,
     format_self_play_sandbox_report,
+    run_self_play_match_sandbox,
     run_self_play_sandbox,
 )
 
 
 class SelfPlaySandboxTests(unittest.TestCase):
+    def test_run_self_play_match_sandbox_completes_four_player_match(self) -> None:
+        report = run_self_play_match_sandbox(
+            games=1,
+            max_rounds=12,
+            max_turns_per_round=512,
+            seed="smoke",
+            ron_policy="pass",
+            include_trajectories=True,
+        )
+        game = report["game_summaries"][0]
+        final_result = game["final_result"]
+        trajectory = game["trajectory"]
+
+        self.assertEqual(report["kind"], SELF_PLAY_MATCH_REPORT_KIND)
+        self.assertEqual(report["games"], 1)
+        self.assertEqual(report["completed_games"], 1)
+        self.assertEqual(report["ruleset"], "tenhou-4p")
+        self.assertEqual(report["players"], 4)
+        self.assertEqual(report["policies"]["discard"], "drawn")
+        self.assertEqual(report["policies"]["ron"], "pass")
+        self.assertEqual(report["final_summary"]["completed_games"], 1)
+        self.assertTrue(report["capabilities"]["multi_round_matches"])
+        self.assertTrue(report["capabilities"]["discard_policy"])
+        self.assertTrue(report["capabilities"]["call_policy"])
+        self.assertTrue(report["capabilities"]["riichi_policy"])
+        self.assertTrue(report["capabilities"]["kan_policy"])
+        self.assertTrue(report["capabilities"]["kita_policy"])
+        self.assertTrue(report["capabilities"]["ron_policy"])
+        self.assertTrue(report["capabilities"]["pass_policy"])
+        self.assertTrue(report["capabilities"]["trajectory_states"])
+        self.assertTrue(report["capabilities"]["trajectory_legal_actions"])
+        self.assertTrue(report["capabilities"]["trajectory_rewards"])
+        self.assertTrue(report["capabilities"]["final_placement"])
+        self.assertTrue(game["completed"])
+        self.assertEqual(game["rounds"], 12)
+        self.assertGreater(game["decisions"], 0)
+        self.assertIsNotNone(final_result)
+        self.assertEqual(len(final_result["points"]), 4)
+        self.assertEqual(len(final_result["placement"]), 4)
+        self.assertEqual(len(final_result["ranks"]), 4)
+        self.assertEqual(len(final_result["scores"]), 4)
+        self.assertEqual(game["final_scores"], final_result["scores"])
+        self.assertEqual(game["final_placement"], final_result["placement"])
+        self.assertEqual(trajectory[-1]["rewards"], final_result["scores"])
+        self.assertIn("state", trajectory[0])
+        self.assertIn("legal_actions", trajectory[0])
+        self.assertIn("chosen_action", trajectory[0])
+        self.assertIn("rewards", trajectory[0])
+        self.assertEqual(
+            {entry["decision_type"] for entry in trajectory},
+            {"discard", "pass"},
+        )
+
+    def test_run_self_play_match_sandbox_supports_sanma_final_results(self) -> None:
+        report = run_self_play_match_sandbox(
+            games=1,
+            max_rounds=9,
+            max_turns_per_round=512,
+            seed="sanma-smoke",
+            ruleset="tenhou-3p",
+            ron_policy="pass",
+        )
+        final_result = report["game_summaries"][0]["final_result"]
+
+        self.assertEqual(report["ruleset"], "tenhou-3p")
+        self.assertEqual(report["players"], 3)
+        self.assertEqual(report["completed_games"], 1)
+        self.assertTrue(report["capabilities"]["kita_policy"])
+        self.assertIsNotNone(final_result)
+        self.assertEqual(final_result["return_points"], 40000)
+        self.assertEqual(final_result["oka_points"], 15000)
+        self.assertEqual(final_result["uma_by_rank"], [20.0, 0.0, -20.0])
+        self.assertEqual(len(final_result["placement"]), 3)
+        self.assertEqual(len(final_result["scores"]), 3)
+
+    def test_self_play_match_text_summary_marks_policies_and_final_scores(self) -> None:
+        report = run_self_play_match_sandbox(
+            games=1,
+            max_rounds=12,
+            max_turns_per_round=512,
+            seed="summary-match",
+            ron_policy="pass",
+        )
+
+        text = format_self_play_match_report(report)
+
+        self.assertIn("games: 1", text)
+        self.assertIn("completed_games: 1", text)
+        self.assertIn("ruleset: tenhou-4p", text)
+        self.assertIn("discard=drawn", text)
+        self.assertIn("ron=pass", text)
+        self.assertIn("final_reasons:", text)
+        self.assertIn("average_final_scores:", text)
+        self.assertIn("multi_round_matches: yes", text)
+        self.assertIn("final_placement: yes", text)
+
     def test_run_self_play_sandbox_is_deterministic(self) -> None:
         first = run_self_play_sandbox(
             episodes=2,
@@ -378,6 +477,43 @@ class SelfPlaySandboxTests(unittest.TestCase):
             run_self_play_sandbox(episodes=1, max_turns=4, seed="bad", policy="bad")
         with self.assertRaisesRegex(ValueError, "unsupported .*ruleset"):
             run_self_play_sandbox(episodes=1, max_turns=4, seed="bad", ruleset="bad")
+        with self.assertRaisesRegex(ValueError, "games must be positive"):
+            run_self_play_match_sandbox(
+                games=0,
+                max_rounds=1,
+                max_turns_per_round=1,
+                seed="bad",
+            )
+        with self.assertRaisesRegex(ValueError, "max rounds must be positive"):
+            run_self_play_match_sandbox(
+                games=1,
+                max_rounds=0,
+                max_turns_per_round=1,
+                seed="bad",
+            )
+        with self.assertRaisesRegex(ValueError, "max turns per round must be positive"):
+            run_self_play_match_sandbox(
+                games=1,
+                max_rounds=1,
+                max_turns_per_round=0,
+                seed="bad",
+            )
+        with self.assertRaisesRegex(ValueError, "unsupported match discard policy"):
+            run_self_play_match_sandbox(
+                games=1,
+                max_rounds=1,
+                max_turns_per_round=1,
+                seed="bad",
+                discard_policy="bad",
+            )
+        with self.assertRaisesRegex(ValueError, "unsupported match ron policy"):
+            run_self_play_match_sandbox(
+                games=1,
+                max_rounds=1,
+                max_turns_per_round=1,
+                seed="bad",
+                ron_policy="bad",
+            )
 
 
 def _excluded_sanma_manzu() -> tuple[str, ...]:

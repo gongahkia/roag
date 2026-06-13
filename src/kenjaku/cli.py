@@ -409,7 +409,7 @@ def build_parser() -> argparse.ArgumentParser:
     self_play_match.add_argument(
         "--max-turns-per-round",
         type=int,
-        default=128,
+        default=512,
         help="maximum action decisions per hand before max-turn termination",
     )
     self_play_match.add_argument(
@@ -1636,6 +1636,37 @@ def _self_play_sandbox(args: argparse.Namespace) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(format_self_play_sandbox_report(report))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _self_play_match_sandbox(args: argparse.Namespace) -> int:
+    try:
+        report = run_self_play_match_sandbox(
+            games=args.games,
+            max_rounds=args.max_rounds,
+            max_turns_per_round=args.max_turns_per_round,
+            seed=args.seed,
+            ruleset=args.ruleset,
+            discard_policy=args.discard_policy,
+            call_policy=args.call_policy,
+            riichi_policy=args.riichi_policy,
+            kan_policy=args.kan_policy,
+            kita_policy=args.kita_policy,
+            ron_policy=args.ron_policy,
+            include_trajectories=args.include_trajectories,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_self_play_match_report(report))
     if args.report is not None:
         print(f"report_path: {args.report}")
     return 0

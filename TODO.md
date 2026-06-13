@@ -233,10 +233,10 @@ reward summaries.
 
 ### TODO-301 Build A Full Self-Play Harness
 
-- [ ] Run complete multi-round matches with 3 or 4 agents until game end.
-- [ ] Support pluggable policies for discard, call, riichi, kan, Kita, ron, and
+- [x] Run complete multi-round matches with 3 or 4 agents until game end.
+- [x] Support pluggable policies for discard, call, riichi, kan, Kita, ron, and
   pass decisions.
-- [ ] Write trajectory artifacts with states, legal actions, chosen actions,
+- [x] Write trajectory artifacts with states, legal actions, chosen actions,
   rewards, terminal reasons, scores, and final placement.
 
 Done when: one command can run at least 100 deterministic fixture-seeded games and

@@ -52,6 +52,9 @@ class CliTests(unittest.TestCase):
         self.assertIn("public_benchmark_dashboard: yes", output)
         self.assertIn("browser_playable_demo: yes", output)
         self.assertIn("self_play_sandbox: yes", output)
+        self.assertIn("self_play_match_sandbox: yes", output)
+        self.assertIn("self_play_match_trajectory_artifacts: yes", output)
+        self.assertIn("self_play_match_final_placement: yes", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
         self.assertIn("sandbox_pending_discard_reactions: yes", output)
@@ -156,6 +159,13 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["public_benchmark_dashboard"])
         self.assertTrue(payload["capabilities"]["implemented"]["browser_playable_demo"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
+        self.assertTrue(payload["capabilities"]["implemented"]["self_play_match_sandbox"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_match_trajectory_artifacts"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["self_play_match_final_placement"]
+        )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]
         )
@@ -789,6 +799,89 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             json_payload["episode_summaries"][0]["selected_rewards"],
             json_payload["episode_summaries"][0]["reward_vectors"]["placement-delta"],
+        )
+
+    def test_self_play_match_sandbox_command_writes_report_and_json(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "self-play-match.json"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "self-play-match-sandbox",
+                        "--games",
+                        "1",
+                        "--max-rounds",
+                        "12",
+                        "--max-turns-per-round",
+                        "512",
+                        "--seed",
+                        "smoke",
+                        "--ron-policy",
+                        "pass",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "self-play-match-sandbox",
+                        "--games",
+                        "1",
+                        "--max-rounds",
+                        "9",
+                        "--max-turns-per-round",
+                        "512",
+                        "--seed",
+                        "sanma-smoke",
+                        "--ruleset",
+                        "tenhou-3p",
+                        "--ron-policy",
+                        "pass",
+                        "--json",
+                    ]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("games: 1", text_stdout.getvalue())
+        self.assertIn("completed_games: 1", text_stdout.getvalue())
+        self.assertIn("ruleset: tenhou-4p", text_stdout.getvalue())
+        self.assertIn("discard=drawn", text_stdout.getvalue())
+        self.assertIn("ron=pass", text_stdout.getvalue())
+        self.assertIn("final_reasons:", text_stdout.getvalue())
+        self.assertIn("average_final_scores:", text_stdout.getvalue())
+        self.assertIn("multi_round_matches: yes", text_stdout.getvalue())
+        self.assertIn("final_placement: yes", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-self-play-match-report-v0")
+        self.assertEqual(report_payload["completed_games"], 1)
+        self.assertEqual(report_payload["ruleset"], "tenhou-4p")
+        self.assertTrue(report_payload["capabilities"]["multi_round_matches"])
+        self.assertTrue(report_payload["capabilities"]["game_end_final_results"])
+        self.assertTrue(report_payload["capabilities"]["discard_policy"])
+        self.assertTrue(report_payload["capabilities"]["call_policy"])
+        self.assertTrue(report_payload["capabilities"]["riichi_policy"])
+        self.assertTrue(report_payload["capabilities"]["kan_policy"])
+        self.assertTrue(report_payload["capabilities"]["kita_policy"])
+        self.assertTrue(report_payload["capabilities"]["ron_policy"])
+        self.assertTrue(report_payload["capabilities"]["pass_policy"])
+        self.assertTrue(report_payload["capabilities"]["final_placement"])
+        self.assertIsNotNone(report_payload["game_summaries"][0]["final_result"])
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-self-play-match-report-v0")
+        self.assertEqual(json_payload["ruleset"], "tenhou-3p")
+        self.assertEqual(json_payload["players"], 3)
+        self.assertEqual(json_payload["completed_games"], 1)
+        self.assertTrue(json_payload["capabilities"]["kita_policy"])
+        self.assertEqual(
+            json_payload["game_summaries"][0]["final_result"]["return_points"],
+            40000,
         )
 
     def test_inspect_tenhou_fixture(self) -> None:

@@ -68,8 +68,9 @@ notes.
   using basic tsumo-loss point transfers plus an eight-rinshan replacement reserve cap. The
   self-play sandbox uses this boundary for
   4-player and static 3-player tile-set draw/discard turn-rotation plus
-  terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
-  policy yet.
+  terminal-outcome plumbing. A separate `self-play-match-sandbox` command can run deterministic
+  multi-round 3-player or 4-player sandbox matches to final placement with pluggable discard, call,
+  riichi, kan, Kita, ron/tsumo, and pass policies plus optional state/action/reward trajectories.
   It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
   implementation, complete post-riichi kan timing model, scoring engine, automated full-match
   self-play trainer, or RL implementation.
@@ -132,6 +133,9 @@ PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
   --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \
   --reward-mode normalized-point-delta --stop-on-tsumo \
   --report runs/fixture-self-play-sandbox.json
+PYTHONPATH=src python3.13 -m kenjaku self-play-match-sandbox \
+  --games 1 --max-rounds 12 --max-turns-per-round 512 \
+  --ron-policy pass --report runs/fixture-self-play-match.json
 
 PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \
   data/fixtures/tenhou --report runs/fixture-defense-risk-summary.json
