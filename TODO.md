@@ -104,6 +104,42 @@ deal-in estimator is bundled.
 Done when: documented reports exist for discard, call, and riichi behavior
 cloning runs and can be summarized by `benchmark-report-summary`.
 
+Progress/blocker: do not retry the monolithic TODO-102 local command on this
+machine. On 2026-06-13 SGT, `benchmark-discard
+data/raw/tenhou/xml/todo-102-bc-6500 --example-limit 125000` repeatedly pushed
+the desktop into Linux low-memory handling before a report was written. The
+structural issue is that current benchmark commands parse the selected Tenhou
+XML directory into one in-memory `TenhouGame` before limiting examples, and the
+report path also recomputes cross-task counts over that retained game. This is a
+pipeline memory-design issue, not evidence that the local data slice is invalid.
+The earlier 130-log TODO-304 export produced 86,003 decision snapshots, so the
+6,500-log TODO-102 slice is likely large enough once the pipeline can stream or
+cache examples safely.
+
+Web-researched references for the safer path:
+
+- Linux OOM behavior: `https://www.kernel.org/doc/gorman/html/understand/understand016.html`
+- PyTorch iterable data loading: `https://docs.pytorch.org/docs/stable/data.html`
+- Python memory allocation tracing: `https://docs.python.org/3/library/tracemalloc.html`
+
+Safer alternatives before completing this TODO:
+
+- Add an explicit streaming behavior-cloning data path: parse XML file-by-file,
+  emit normalized discard/call/riichi examples to ignored JSONL or SQLite shards,
+  and train from those shards without retaining all rounds in memory. For PyTorch
+  models, prefer an `IterableDataset` or equivalent streaming adapter.
+- Split TODO-102 into two commands: `export-bc-examples` to create ignored,
+  resumable per-action shards with counts and parse-failure metadata, then
+  `benchmark-*-from-examples` to train/report from the prebuilt shards.
+- Add a memory diagnostic smoke before any full run: a tiny fixture plus a
+  1,000-log shard under `/usr/bin/time -v` and optional `PYTHONTRACEMALLOC=1`,
+  recording peak RSS and top Python allocation sites in an ignored report.
+- Add a hard memory guard for local experiments, such as a documented cgroup,
+  systemd scope, or `ulimit` wrapper, so failed experiments terminate the
+  training process instead of pressuring the desktop session.
+- Only use cloud GPU or larger-RAM machines after the streaming/cache path
+  exists; more RAM alone would hide the current full-dataset retention bug.
+
 ### TODO-103 Reproduce A Mortal Baseline Boundary
 
 - [ ] Read and document the exact Mortal interface used for comparison.
