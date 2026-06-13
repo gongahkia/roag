@@ -72,10 +72,15 @@ from kenjaku.models import (
     heuristic_deal_in_probabilities,
 )
 from kenjaku.simulation import (
+    SELF_PLAY_MATCH_ACTION_POLICIES,
+    SELF_PLAY_MATCH_DISCARD_POLICIES,
+    SELF_PLAY_MATCH_RON_POLICIES,
     SELF_PLAY_SANDBOX_POLICIES,
     SELF_PLAY_SANDBOX_REWARD_MODES,
     SELF_PLAY_SANDBOX_RULESETS,
+    format_self_play_match_report,
     format_self_play_sandbox_report,
+    run_self_play_match_sandbox,
     run_self_play_sandbox,
 )
 from kenjaku.status import build_status_payload, format_status_text
@@ -384,6 +389,92 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the sandbox report as JSON instead of text",
     )
     self_play.set_defaults(func=_self_play_sandbox)
+
+    self_play_match = subparsers.add_parser(
+        "self-play-match-sandbox",
+        help="run deterministic multi-round sandbox matches to final result",
+    )
+    self_play_match.add_argument(
+        "--games",
+        type=int,
+        default=1,
+        help="number of sandbox matches to simulate",
+    )
+    self_play_match.add_argument(
+        "--max-rounds",
+        type=int,
+        default=32,
+        help="maximum hands per match before reporting an incomplete match",
+    )
+    self_play_match.add_argument(
+        "--max-turns-per-round",
+        type=int,
+        default=128,
+        help="maximum action decisions per hand before max-turn termination",
+    )
+    self_play_match.add_argument(
+        "--seed",
+        default="kenjaku-self-play-match-v0",
+        help="stable seed for deterministic sandbox matches",
+    )
+    self_play_match.add_argument(
+        "--ruleset",
+        choices=SELF_PLAY_SANDBOX_RULESETS,
+        default="tenhou-4p",
+        help="sandbox static tile set and player count",
+    )
+    self_play_match.add_argument(
+        "--discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+        help="discard policy used by every seat",
+    )
+    self_play_match.add_argument(
+        "--call-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="call policy used during pending discard reactions",
+    )
+    self_play_match.add_argument(
+        "--riichi-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="riichi declaration policy used on self turns",
+    )
+    self_play_match.add_argument(
+        "--kan-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="kan policy used on self turns",
+    )
+    self_play_match.add_argument(
+        "--kita-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="Sanma Kita policy used on self turns",
+    )
+    self_play_match.add_argument(
+        "--ron-policy",
+        choices=SELF_PLAY_MATCH_RON_POLICIES,
+        default="win",
+        help="ron/tsumo win policy",
+    )
+    self_play_match.add_argument(
+        "--include-trajectories",
+        action="store_true",
+        help="include state/action/reward trajectories in JSON output",
+    )
+    self_play_match.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON match report artifact",
+    )
+    self_play_match.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the match report as JSON instead of text",
+    )
+    self_play_match.set_defaults(func=_self_play_match_sandbox)
 
     inspect_tenhou = subparsers.add_parser(
         "inspect-tenhou",

@@ -44,11 +44,17 @@ from kenjaku.simulation.environment import (
     resolve_sandbox_ruleset,
 )
 from kenjaku.simulation.self_play import (
+    SELF_PLAY_MATCH_ACTION_POLICIES,
+    SELF_PLAY_MATCH_DISCARD_POLICIES,
+    SELF_PLAY_MATCH_REPORT_KIND,
+    SELF_PLAY_MATCH_RON_POLICIES,
     SELF_PLAY_SANDBOX_POLICIES,
     SELF_PLAY_SANDBOX_REPORT_KIND,
     SELF_PLAY_SANDBOX_REWARD_MODES,
     SELF_PLAY_SANDBOX_RULESETS,
+    format_self_play_match_report,
     format_self_play_sandbox_report,
+    run_self_play_match_sandbox,
     run_self_play_sandbox,
 )
 
@@ -92,12 +98,18 @@ __all__ = [
     "SANDBOX_RULESETS",
     "SandboxEnvironmentState",
     "SandboxFinalResult",
+    "SELF_PLAY_MATCH_ACTION_POLICIES",
+    "SELF_PLAY_MATCH_DISCARD_POLICIES",
+    "SELF_PLAY_MATCH_REPORT_KIND",
+    "SELF_PLAY_MATCH_RON_POLICIES",
     "SELF_PLAY_SANDBOX_POLICIES",
     "SELF_PLAY_SANDBOX_REPORT_KIND",
     "SELF_PLAY_SANDBOX_REWARD_MODES",
     "SELF_PLAY_SANDBOX_RULESETS",
+    "format_self_play_match_report",
     "format_self_play_sandbox_report",
     "HONBA_RON_POINTS",
     "HONBA_TSUMO_POINTS_PER_LOSER",
+    "run_self_play_match_sandbox",
     "run_self_play_sandbox",
 ]

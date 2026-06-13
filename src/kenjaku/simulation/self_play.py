@@ -5,20 +5,33 @@ from dataclasses import dataclass
 from hashlib import blake2b
 from typing import Any
 
-from kenjaku.core import Action, RuleSet, Tile, TileType
+from kenjaku.core import Action, ActionKind, RuleSet, Tile, TileType
 from kenjaku.simulation.environment import (
     SANDBOX_RULESETS,
     SandboxEnvironmentState,
+    apply_ankan_action,
+    apply_call_action,
     apply_discard_action,
+    apply_kakan_action,
+    apply_kita_action,
     apply_reaction_pass_action,
+    apply_riichi_action,
+    apply_ron_action,
+    apply_tsumo_action,
     draw_for_current_seat,
     initial_sandbox_environment,
     legal_discard_actions,
+    legal_sandbox_actions,
+    next_round_sandbox_environment,
     resolve_sandbox_ruleset,
 )
 
 SELF_PLAY_SANDBOX_REPORT_KIND = "kenjaku-self-play-sandbox-report-v0"
+SELF_PLAY_MATCH_REPORT_KIND = "kenjaku-self-play-match-report-v0"
 SELF_PLAY_SANDBOX_POLICIES = ("random", "drawn", "frequency")
+SELF_PLAY_MATCH_DISCARD_POLICIES = SELF_PLAY_SANDBOX_POLICIES
+SELF_PLAY_MATCH_ACTION_POLICIES = ("pass", "first", "random")
+SELF_PLAY_MATCH_RON_POLICIES = ("pass", "win", "first", "random")
 SELF_PLAY_SANDBOX_RULESETS = SANDBOX_RULESETS
 SELF_PLAY_SANDBOX_REWARD_MODES = (
     "terminal",
@@ -44,6 +57,107 @@ class SelfPlaySandboxDecision:
             "discard": self.discard.notation,
             "hand_size_after_discard": self.hand_size_after_discard,
         }
+
+
+def run_self_play_match_sandbox(
+    *,
+    games: int,
+    max_rounds: int,
+    max_turns_per_round: int,
+    seed: str,
+    ruleset: str = "tenhou-4p",
+    discard_policy: str = "drawn",
+    call_policy: str = "pass",
+    riichi_policy: str = "pass",
+    kan_policy: str = "pass",
+    kita_policy: str = "pass",
+    ron_policy: str = "win",
+    include_trajectories: bool = False,
+) -> dict[str, Any]:
+    if games <= 0:
+        raise ValueError("games must be positive")
+    if max_rounds <= 0:
+        raise ValueError("max rounds must be positive")
+    if max_turns_per_round <= 0:
+        raise ValueError("max turns per round must be positive")
+    if discard_policy not in SELF_PLAY_MATCH_DISCARD_POLICIES:
+        raise ValueError("unsupported match discard policy: " + discard_policy)
+    _validate_match_action_policy("call", call_policy)
+    _validate_match_action_policy("riichi", riichi_policy)
+    _validate_match_action_policy("kan", kan_policy)
+    _validate_match_action_policy("kita", kita_policy)
+    if ron_policy not in SELF_PLAY_MATCH_RON_POLICIES:
+        raise ValueError("unsupported match ron policy: " + ron_policy)
+    rules = resolve_sandbox_ruleset(ruleset)
+    policy_counts = [0] * 34
+    policies = {
+        "discard": discard_policy,
+        "call": call_policy,
+        "riichi": riichi_policy,
+        "kan": kan_policy,
+        "kita": kita_policy,
+        "ron": ron_policy,
+        "pass": "pass",
+    }
+    game_payloads: list[dict[str, Any]] = []
+    final_reasons: Counter[str] = Counter()
+    total_decisions = 0
+    total_rounds = 0
+
+    for game_index in range(games):
+        game_seed = _episode_seed(seed, game_index)
+        game = _simulate_match_game(
+            game_index=game_index,
+            seed=game_seed,
+            rules=rules,
+            max_rounds=max_rounds,
+            max_turns_per_round=max_turns_per_round,
+            policies=policies,
+            policy_counts=policy_counts,
+            include_trajectory=include_trajectories,
+        )
+        game_payloads.append(game)
+        total_decisions += int(game["decisions"])
+        total_rounds += int(game["rounds"])
+        final_result = game["final_result"]
+        if final_result is None:
+            final_reasons["incomplete"] += 1
+        else:
+            final_reasons[str(final_result["reason"])] += 1
+
+    return {
+        "kind": SELF_PLAY_MATCH_REPORT_KIND,
+        "seed": seed,
+        "games": games,
+        "completed_games": sum(1 for game in game_payloads if game["completed"]),
+        "max_rounds": max_rounds,
+        "max_turns_per_round": max_turns_per_round,
+        "ruleset": rules.name,
+        "players": rules.players,
+        "policies": policies,
+        "decisions": total_decisions,
+        "average_decisions": total_decisions / games,
+        "rounds": total_rounds,
+        "average_rounds": total_rounds / games,
+        "final_reasons": dict(sorted(final_reasons.items())),
+        "final_summary": _match_final_summary(game_payloads, players=rules.players),
+        "game_summaries": game_payloads,
+        "capabilities": {
+            "multi_round_matches": True,
+            "game_end_final_results": True,
+            "discard_policy": True,
+            "call_policy": True,
+            "riichi_policy": True,
+            "kan_policy": True,
+            "kita_policy": rules.players == 3,
+            "ron_policy": True,
+            "pass_policy": True,
+            "trajectory_states": include_trajectories,
+            "trajectory_legal_actions": include_trajectories,
+            "trajectory_rewards": include_trajectories,
+            "final_placement": True,
+        },
+    }
 
 
 def run_self_play_sandbox(
@@ -199,6 +313,37 @@ def run_self_play_sandbox(
     }
 
 
+def format_self_play_match_report(report: dict[str, Any]) -> str:
+    if report.get("kind") != SELF_PLAY_MATCH_REPORT_KIND:
+        raise ValueError(f"report kind must be {SELF_PLAY_MATCH_REPORT_KIND}")
+    lines = [
+        f"games: {report['games']}",
+        f"completed_games: {report['completed_games']}",
+        f"ruleset: {report['ruleset']}",
+        "policies: "
+        + " ".join(
+            f"{name}={policy}"
+            for name, policy in sorted(report["policies"].items())
+        ),
+        f"rounds: {report['rounds']}",
+        f"average_rounds: {float(report['average_rounds']):.2f}",
+        f"decisions: {report['decisions']}",
+        f"average_decisions: {float(report['average_decisions']):.2f}",
+        "final_reasons: " + _format_counts(report["final_reasons"]),
+        "average_final_scores: "
+        + " ".join(
+            f"{seat}={score:.3f}"
+            for seat, score in enumerate(
+                report["final_summary"]["average_final_scores_by_seat"]
+            )
+        ),
+        "capabilities:",
+    ]
+    for name, enabled in report["capabilities"].items():
+        lines.append(f"  {name}: {'yes' if enabled else 'no'}")
+    return "\n".join(lines)
+
+
 def format_self_play_sandbox_report(report: dict[str, Any]) -> str:
     if report.get("kind") != SELF_PLAY_SANDBOX_REPORT_KIND:
         raise ValueError(f"report kind must be {SELF_PLAY_SANDBOX_REPORT_KIND}")
@@ -226,6 +371,364 @@ def format_self_play_sandbox_report(report: dict[str, Any]) -> str:
     for name, enabled in report["capabilities"].items():
         lines.append(f"  {name}: {'yes' if enabled else 'no'}")
     return "\n".join(lines)
+
+
+def _simulate_match_game(
+    *,
+    game_index: int,
+    seed: int,
+    rules: RuleSet,
+    max_rounds: int,
+    max_turns_per_round: int,
+    policies: dict[str, str],
+    policy_counts: list[int],
+    include_trajectory: bool,
+) -> dict[str, Any]:
+    state = initial_sandbox_environment(ruleset=rules.name, seed=seed)
+    decisions: list[dict[str, Any]] = []
+    round_summaries: list[dict[str, Any]] = []
+
+    for round_index in range(max_rounds):
+        round_decision_start = len(decisions)
+        state = _simulate_match_round(
+            state=state,
+            seed=seed,
+            round_index=round_index,
+            max_turns=max_turns_per_round,
+            policies=policies,
+            policy_counts=policy_counts,
+            decisions=decisions,
+            include_trajectory=include_trajectory,
+        )
+        if state.terminal_reason is None:
+            state = _terminal_max_turns(state)
+        if state.terminal_reason == "max_turns":
+            round_summaries.append(
+                _match_round_summary(
+                    state,
+                    round_index=round_index,
+                    decisions=len(decisions) - round_decision_start,
+                )
+            )
+            break
+
+        advanced = next_round_sandbox_environment(
+            state,
+            seed=f"{seed}:{round_index}",
+        )
+        terminal_state = advanced if advanced.final_result is not None else state
+        round_summaries.append(
+            _match_round_summary(
+                terminal_state,
+                round_index=round_index,
+                decisions=len(decisions) - round_decision_start,
+            )
+        )
+        state = advanced
+        if state.final_result is not None:
+            break
+
+    final_result = None if state.final_result is None else state.final_result.to_payload()
+    final_scores = [] if final_result is None else final_result["scores"]
+    if decisions and final_scores:
+        decisions[-1]["rewards"] = list(final_scores)
+    payload: dict[str, Any] = {
+        "game": game_index,
+        "seed": seed,
+        "completed": final_result is not None,
+        "rounds": len(round_summaries),
+        "decisions": len(decisions),
+        "terminal_reason": state.terminal_reason,
+        "final_result": final_result,
+        "final_points": [] if final_result is None else final_result["points"],
+        "final_placement": [] if final_result is None else final_result["placement"],
+        "final_ranks": [] if final_result is None else final_result["ranks"],
+        "final_scores": final_scores,
+        "round_summaries": round_summaries,
+    }
+    if include_trajectory:
+        payload["trajectory"] = decisions
+    return payload
+
+
+def _simulate_match_round(
+    *,
+    state: SandboxEnvironmentState,
+    seed: int,
+    round_index: int,
+    max_turns: int,
+    policies: dict[str, str],
+    policy_counts: list[int],
+    decisions: list[dict[str, Any]],
+    include_trajectory: bool,
+) -> SandboxEnvironmentState:
+    for step in range(max_turns):
+        if state.terminal_reason is not None:
+            return state
+        if _has_pending_match_reaction(state):
+            seat = state.pending_reaction_seats[0]
+        else:
+            seat = state.current_seat
+            if state.drawn_tile is None and not state.needs_discard:
+                state = draw_for_current_seat(state)
+                if state.terminal_reason is not None:
+                    return state
+        legal_actions = legal_sandbox_actions(state, seat=seat)
+        action = _choose_match_action(
+            state=state,
+            seat=seat,
+            actions=legal_actions,
+            policies=policies,
+            policy_counts=policy_counts,
+            seed=seed,
+            step=round_index * max_turns + step,
+        )
+        if include_trajectory:
+            decisions.append(
+                {
+                    "round": round_index,
+                    "step": step,
+                    "seat": seat,
+                    "decision_type": _match_decision_type(action),
+                    "state": _match_state_payload(state),
+                    "legal_actions": [_action_payload(candidate) for candidate in legal_actions],
+                    "chosen_action": _action_payload(action),
+                    "rewards": [0.0 for _seat in range(state.players)],
+                }
+            )
+        else:
+            decisions.append({})
+        state, discarded = _apply_match_action(state=state, seat=seat, action=action)
+        if discarded is not None:
+            policy_counts[discarded.type.index] += 1
+    return _terminal_max_turns(state)
+
+
+def _choose_match_action(
+    *,
+    state: SandboxEnvironmentState,
+    seat: int,
+    actions: tuple[Action, ...],
+    policies: dict[str, str],
+    policy_counts: list[int],
+    seed: int,
+    step: int,
+) -> Action:
+    if _has_pending_match_reaction(state):
+        ron_actions = _actions_for_kinds(actions, {ActionKind.RON})
+        if ron_actions and policies["ron"] != "pass":
+            return _choose_policy_action(ron_actions, policy=policies["ron"], seed=seed, step=step)
+        call_actions = _actions_for_kinds(
+            actions,
+            {ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN},
+        )
+        if call_actions and policies["call"] != "pass":
+            return _choose_policy_action(
+                call_actions,
+                policy=policies["call"],
+                seed=seed,
+                step=step,
+            )
+        pass_actions = _actions_for_kinds(actions, {ActionKind.PASS})
+        if pass_actions:
+            return pass_actions[0]
+        raise ValueError("pending match reaction has no pass action")
+
+    tsumo_actions = _actions_for_kinds(actions, {ActionKind.TSUMO})
+    if tsumo_actions and policies["ron"] != "pass":
+        return _choose_policy_action(tsumo_actions, policy=policies["ron"], seed=seed, step=step)
+    for decision_type, kinds in (
+        ("kita", {ActionKind.KITA}),
+        ("kan", {ActionKind.ANKAN, ActionKind.KAKAN}),
+        ("riichi", {ActionKind.RIICHI}),
+    ):
+        candidates = _actions_for_kinds(actions, kinds)
+        if candidates and policies[decision_type] != "pass":
+            return _choose_policy_action(
+                candidates,
+                policy=policies[decision_type],
+                seed=seed,
+                step=step,
+            )
+    discard_actions = _actions_for_kinds(actions, {ActionKind.DISCARD})
+    if discard_actions:
+        if policies["discard"] == "drawn":
+            draw = state.drawn_tile
+            if draw is not None:
+                drawn_discards = [
+                    action
+                    for action in discard_actions
+                    if action.tile == draw.type
+                ]
+                if drawn_discards:
+                    return drawn_discards[0]
+        if policies["discard"] == "frequency":
+            best_score = max(
+                policy_counts[action.tile.index]
+                for action in discard_actions
+                if action.tile is not None
+            )
+            candidates = [
+                action
+                for action in discard_actions
+                if action.tile is not None and policy_counts[action.tile.index] == best_score
+            ]
+            return _deterministic_choice(candidates, seed=seed, turn=step)
+        return _deterministic_choice(discard_actions, seed=seed, turn=step)
+    raise ValueError(f"no supported match action for seat {seat}")
+
+
+def _apply_match_action(
+    *,
+    state: SandboxEnvironmentState,
+    seat: int,
+    action: Action,
+) -> tuple[SandboxEnvironmentState, Tile | None]:
+    if action.kind is ActionKind.DISCARD:
+        next_state, discard = apply_discard_action(state, action)
+        return next_state, discard
+    if action.kind is ActionKind.PASS:
+        return apply_reaction_pass_action(state, seat=seat), None
+    if action.kind is ActionKind.RON:
+        return apply_ron_action(state, seat=seat, action=action), None
+    if action.kind is ActionKind.TSUMO:
+        return apply_tsumo_action(state, action), None
+    if action.kind is ActionKind.RIICHI:
+        return apply_riichi_action(state, action), None
+    if action.kind is ActionKind.ANKAN:
+        next_state, _meld = apply_ankan_action(state, action)
+        return next_state, None
+    if action.kind is ActionKind.KAKAN:
+        next_state, _meld = apply_kakan_action(state, action)
+        return next_state, None
+    if action.kind is ActionKind.KITA:
+        return apply_kita_action(state, action), None
+    if action.kind in {ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN}:
+        next_state, _meld = apply_call_action(state, seat=seat, action=action)
+        return next_state, None
+    raise ValueError("unsupported match action kind: " + action.kind.value)
+
+
+def _match_final_summary(
+    games: list[dict[str, Any]],
+    *,
+    players: int,
+) -> dict[str, Any]:
+    completed = [game for game in games if game["final_result"] is not None]
+    score_sums = [0.0] * players
+    rank_sums = [0.0] * players
+    placement_counts = [{rank: 0 for rank in range(1, players + 1)} for _seat in range(players)]
+    for game in completed:
+        final_result = game["final_result"]
+        for seat, score in enumerate(final_result["scores"]):
+            score_sums[seat] += float(score)
+        for seat, rank in enumerate(final_result["ranks"]):
+            rank_sums[seat] += float(rank)
+            placement_counts[seat][int(rank)] += 1
+    denominator = len(completed) or 1
+    return {
+        "completed_games": len(completed),
+        "average_final_scores_by_seat": [
+            score / denominator for score in score_sums
+        ],
+        "average_rank_by_seat": [rank / denominator for rank in rank_sums],
+        "placement_counts_by_seat": placement_counts,
+    }
+
+
+def _match_round_summary(
+    state: SandboxEnvironmentState,
+    *,
+    round_index: int,
+    decisions: int,
+) -> dict[str, Any]:
+    payload = state.to_payload()
+    return {
+        "round": round_index,
+        "terminal_reason": state.terminal_reason,
+        "decisions": decisions,
+        "round_wind": payload["round_wind"],
+        "dealer_seat": state.dealer_seat,
+        "honba": state.honba,
+        "points": payload["points"],
+        "riichi_sticks": state.riichi_sticks,
+        "terminal_point_deltas": payload["terminal_point_deltas"],
+        "final_result": payload["final_result"],
+    }
+
+
+def _match_state_payload(state: SandboxEnvironmentState) -> dict[str, Any]:
+    payload = state.to_payload()
+    return {
+        "turn": payload["turn"],
+        "current_seat": payload["current_seat"],
+        "round_wind": payload["round_wind"],
+        "dealer_seat": payload["dealer_seat"],
+        "honba": payload["honba"],
+        "points": payload["points"],
+        "wall_remaining": payload["wall_remaining"],
+        "drawn_tile": payload["drawn_tile"],
+        "needs_discard": payload["needs_discard"],
+        "pending_reaction_seats": payload["pending_reaction_seats"],
+        "terminal_reason": payload["terminal_reason"],
+    }
+
+
+def _action_payload(action: Action) -> dict[str, Any]:
+    return {
+        "kind": action.kind.value,
+        "tile": None if action.tile is None else action.tile.notation,
+        "tsumogiri": action.tsumogiri,
+        "consumed": [tile.notation for tile in action.consumed],
+    }
+
+
+def _actions_for_kinds(
+    actions: tuple[Action, ...],
+    kinds: set[ActionKind],
+) -> tuple[Action, ...]:
+    return tuple(action for action in actions if action.kind in kinds)
+
+
+def _choose_policy_action(
+    actions: tuple[Action, ...],
+    *,
+    policy: str,
+    seed: int,
+    step: int,
+) -> Action:
+    if policy in {"first", "win"}:
+        return actions[0]
+    return _deterministic_choice(actions, seed=seed, turn=step)
+
+
+def _match_decision_type(action: Action) -> str:
+    if action.kind is ActionKind.DISCARD:
+        return "discard"
+    if action.kind in {ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN}:
+        return "call"
+    if action.kind in {ActionKind.ANKAN, ActionKind.KAKAN}:
+        return "kan"
+    if action.kind is ActionKind.KITA:
+        return "kita"
+    if action.kind is ActionKind.RIICHI:
+        return "riichi"
+    if action.kind in {ActionKind.RON, ActionKind.TSUMO}:
+        return "ron"
+    return "pass"
+
+
+def _has_pending_match_reaction(state: SandboxEnvironmentState) -> bool:
+    return bool(
+        state.pending_discard is not None
+        or state.pending_chankan_tile is not None
+        or state.pending_kita_tile is not None
+    )
+
+
+def _validate_match_action_policy(decision_type: str, policy: str) -> None:
+    if policy not in SELF_PLAY_MATCH_ACTION_POLICIES:
+        raise ValueError(f"unsupported match {decision_type} policy: {policy}")
 
 
 def _simulate_episode(
