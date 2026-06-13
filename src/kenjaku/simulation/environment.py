@@ -106,6 +106,15 @@ SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
 }
+SANDBOX_ABORTIVE_DRAW_REASONS = frozenset(
+    {
+        "kyuushu_kyuuhai",
+        "four_winds",
+        "four_riichi",
+        "four_kans",
+        "triple_ron",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +197,8 @@ class SandboxEnvironmentState:
     pending_chankan_kind: ActionKind | None = None
     pending_kita_tile: Tile | None = None
     pending_kita_seat: int | None = None
+    pending_abortive_draw_reason: str | None = None
+    abortive_draw_after_discard_reason: str | None = None
     pending_reaction_seats: tuple[int, ...] = ()
     temporary_furiten_seats: tuple[int, ...] = ()
     riichi_seats: tuple[int, ...] = ()
@@ -274,8 +285,26 @@ class SandboxEnvironmentState:
             raise ValueError("pending chankan kind must be ankan or kakan")
         if self.pending_kita_tile is None and self.pending_kita_seat is not None:
             raise ValueError("pending kita seat requires a pending kita tile")
+        if (
+            self.pending_abortive_draw_reason is not None
+            and self.pending_abortive_draw_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+        ):
+            raise ValueError("unsupported pending abortive draw reason")
+        if (
+            self.abortive_draw_after_discard_reason is not None
+            and self.abortive_draw_after_discard_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+        ):
+            raise ValueError("unsupported abortive draw after discard reason")
         if pending_windows == 0 and self.pending_reaction_seats:
             raise ValueError("pending reaction seats require a pending reaction window")
+        if self.pending_abortive_draw_reason is not None and self.pending_discard is None:
+            raise ValueError("pending abortive draw requires a pending discard")
+        if (
+            self.abortive_draw_after_discard_reason is not None
+            and self.drawn_tile is None
+            and not self.needs_discard
+        ):
+            raise ValueError("abortive draw after discard requires a pending discard obligation")
         if self.pending_discard is not None:
             if self.pending_discard_seat is None:
                 raise ValueError("pending discard seat is required")
@@ -446,6 +475,8 @@ class SandboxEnvironmentState:
                 None if self.pending_kita_tile is None else self.pending_kita_tile.notation
             ),
             "pending_kita_seat": self.pending_kita_seat,
+            "pending_abortive_draw_reason": self.pending_abortive_draw_reason,
+            "abortive_draw_after_discard_reason": self.abortive_draw_after_discard_reason,
             "pending_reaction_seats": list(self.pending_reaction_seats),
             "temporary_furiten_seats": list(self.temporary_furiten_seats),
             "riichi_seats": list(self.riichi_seats),
@@ -587,6 +618,7 @@ def legal_sandbox_actions(
     include_ankan: bool = True,
     include_kakan: bool = True,
     include_kita: bool = True,
+    include_kyuushu: bool = True,
     include_ron: bool = True,
     include_calls: bool = True,
 ) -> tuple[Action, ...]:
@@ -632,6 +664,8 @@ def legal_sandbox_actions(
             actions.extend(legal_kakan_actions(state))
         if include_kita:
             actions.extend(legal_kita_actions(state))
+        if include_kyuushu:
+            actions.extend(legal_kyuushu_kyuuhai_actions(state))
     actions.extend(legal_discard_actions(state))
     return tuple(actions)
 
@@ -763,6 +797,17 @@ def legal_kita_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     )
 
 
+def legal_kyuushu_kyuuhai_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
+    _require_non_terminal(state)
+    if _has_pending_reaction(state):
+        raise ValueError("cannot declare kyuushu kyuuhai during a pending reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before kyuushu kyuuhai")
+    if not _is_kyuushu_kyuuhai_abortive_draw(state):
+        return ()
+    return (Action(ActionKind.KYUSHU),)
+
+
 def legal_discard_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     _require_non_terminal(state)
     if _has_pending_reaction(state):
@@ -866,6 +911,10 @@ def apply_ankan_action(
         updates=updates,
         seat=state.current_seat,
     )
+    _set_four_kans_abortive_draw_after_discard(
+        updates,
+        melds=tuple(tuple(seat_melds) for seat_melds in melds),
+    )
 
     return _replace_state(state, **updates), meld
 
@@ -925,6 +974,10 @@ def apply_kakan_action(
         hands=hands,
         updates=updates,
         seat=state.current_seat,
+    )
+    _set_four_kans_abortive_draw_after_discard(
+        updates,
+        melds=tuple(tuple(seat_melds) for seat_melds in melds),
     )
 
     return _replace_state(state, **updates), promoted_meld
@@ -1015,6 +1068,10 @@ def apply_discard_action(
     ippatsu_seats = state.ippatsu_seats
     if _is_post_riichi_discard_locked(state, seat=state.current_seat):
         ippatsu_seats = _without_seat(ippatsu_seats, state.current_seat)
+    pending_abortive_draw_reason = _abortive_draw_reason_after_discard(
+        state,
+        discards=tuple(tuple(seat_discards) for seat_discards in discards),
+    )
     next_state = _replace_state(
         state,
         hands=tuple(tuple(player_hand) for player_hand in hands),
@@ -1031,6 +1088,8 @@ def apply_discard_action(
         needs_discard=False,
         pending_discard=discard,
         pending_discard_seat=state.current_seat,
+        pending_abortive_draw_reason=pending_abortive_draw_reason,
+        abortive_draw_after_discard_reason=None,
         pending_reaction_seats=tuple(
             seat for seat in range(state.players) if seat != state.current_seat
         ),
@@ -1041,6 +1100,25 @@ def apply_discard_action(
         ippatsu_seats=ippatsu_seats,
     )
     return next_state, discard
+
+
+def apply_kyuushu_kyuuhai_action(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> SandboxEnvironmentState:
+    _require_non_terminal(state)
+    if _has_pending_reaction(state):
+        raise ValueError("cannot declare kyuushu kyuuhai during a pending reaction")
+    if state.drawn_tile is None or state.needs_discard:
+        raise ValueError("current seat must draw before kyuushu kyuuhai")
+    if action.kind is not ActionKind.KYUSHU:
+        raise ValueError("sandbox environment only supports kyuushu kyuuhai actions here")
+    if action not in legal_kyuushu_kyuuhai_actions(state):
+        raise ValueError("kyuushu kyuuhai action is not legal for this state")
+    return _replace_state(
+        state,
+        **_terminal_abortive_draw_updates(state, reason="kyuushu_kyuuhai"),
+    )
 
 
 def legal_reaction_actions(
@@ -1098,6 +1176,8 @@ def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Ac
     _require_non_terminal(state)
     _require_pending_discard(state)
     _require_reaction_seat(state, seat)
+    if state.pending_abortive_draw_reason is not None:
+        return ()
     pending_discard = _pending_discard(state)
     pending_discard_seat = _pending_discard_seat(state)
     if _is_riichi(state, seat=seat):
@@ -1232,6 +1312,10 @@ def apply_call_action(
             updates=updates,
             seat=seat,
         )
+        _set_four_kans_abortive_draw_after_discard(
+            updates,
+            melds=tuple(tuple(seat_melds) for seat_melds in melds),
+        )
 
     return _replace_state(state, **updates), meld
 
@@ -1285,10 +1369,19 @@ def apply_reaction_pass_action(
             temporary_furiten_seats=temporary_furiten_seats,
             riichi_furiten_seats=riichi_furiten_seats,
         )
+    if state.pending_abortive_draw_reason is not None:
+        return _replace_state(
+            state,
+            **_terminal_abortive_draw_updates(
+                state,
+                reason=state.pending_abortive_draw_reason,
+            ),
+        )
     return _replace_state(
         state,
         pending_discard=None,
         pending_discard_seat=None,
+        pending_abortive_draw_reason=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
         riichi_furiten_seats=riichi_furiten_seats,
@@ -1367,6 +1460,12 @@ def apply_ron_actions(
         key=lambda seat_yaku: winner_priority[seat_yaku[0]],
     )
 
+    if len(winner_seats) == 3:
+        return _replace_state(
+            state,
+            **_terminal_abortive_draw_updates(state, reason="triple_ron"),
+        )
+
     point_updates = _terminal_win_point_updates(
         state,
         winner_seats=tuple(winner_seats),
@@ -1384,6 +1483,8 @@ def apply_ron_actions(
         pending_chankan_kind=None,
         pending_kita_tile=None,
         pending_kita_seat=None,
+        pending_abortive_draw_reason=None,
+        abortive_draw_after_discard_reason=None,
         pending_reaction_seats=(),
         terminal_reason=terminal_reason,
         winner_seat=winner_seats[0],
@@ -1418,10 +1519,19 @@ def pass_pending_discard_reactions(state: SandboxEnvironmentState) -> SandboxEnv
                 riichi_furiten_seats = _with_seat(riichi_furiten_seats, seat)
             else:
                 temporary_furiten_seats = _with_seat(temporary_furiten_seats, seat)
+    if state.pending_abortive_draw_reason is not None:
+        return _replace_state(
+            state,
+            **_terminal_abortive_draw_updates(
+                state,
+                reason=state.pending_abortive_draw_reason,
+            ),
+        )
     return _replace_state(
         state,
         pending_discard=None,
         pending_discard_seat=None,
+        pending_abortive_draw_reason=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
         riichi_furiten_seats=riichi_furiten_seats,
@@ -1833,6 +1943,80 @@ def _post_riichi_ankan_preserves_waits(
     return set(before_waits) == set(after_waits)
 
 
+def _abortive_draw_reason_after_discard(
+    state: SandboxEnvironmentState,
+    *,
+    discards: tuple[tuple[Tile, ...], ...],
+) -> str | None:
+    if state.abortive_draw_after_discard_reason is not None:
+        return state.abortive_draw_after_discard_reason
+    if _is_four_winds_abortive_draw(state, discards=discards):
+        return "four_winds"
+    if _is_four_riichi_abortive_draw(state):
+        return "four_riichi"
+    return None
+
+
+def _is_kyuushu_kyuuhai_abortive_draw(state: SandboxEnvironmentState) -> bool:
+    if state.drawn_tile is None or state.needs_discard:
+        return False
+    first_turn = (state.current_seat - state.dealer_seat) % state.players
+    if state.turn != first_turn:
+        return False
+    if any(_melds_by_seat(state)) or any(_kita_tiles_by_seat(state)):
+        return False
+    terminal_or_honor_types = {
+        tile.type for tile in state.current_hand() if tile.type.is_terminal_or_honor
+    }
+    return len(terminal_or_honor_types) >= 9
+
+
+def _is_four_winds_abortive_draw(
+    state: SandboxEnvironmentState,
+    *,
+    discards: tuple[tuple[Tile, ...], ...],
+) -> bool:
+    if state.players != 4:
+        return False
+    if state.turn + 1 != state.players:
+        return False
+    if any(_melds_by_seat(state)) or any(_kita_tiles_by_seat(state)):
+        return False
+    if len(discards) != state.players or any(len(seat_discards) != 1 for seat_discards in discards):
+        return False
+    discard_types = tuple(seat_discards[0].type for seat_discards in discards)
+    return discard_types[0] in SANDBOX_SEAT_WINDS and len(set(discard_types)) == 1
+
+
+def _is_four_riichi_abortive_draw(state: SandboxEnvironmentState) -> bool:
+    return (
+        state.players == 4
+        and state.current_seat in state.riichi_pending_discard_seats
+        and len(state.riichi_seats) == state.players
+    )
+
+
+def _set_four_kans_abortive_draw_after_discard(
+    updates: dict[str, Any],
+    *,
+    melds: tuple[tuple[Meld, ...], ...],
+) -> None:
+    if updates.get("terminal_reason") is not None:
+        return
+    if _is_four_kans_abortive_draw(melds):
+        updates["abortive_draw_after_discard_reason"] = "four_kans"
+
+
+def _is_four_kans_abortive_draw(melds: tuple[tuple[Meld, ...], ...]) -> bool:
+    kan_seats = tuple(
+        seat
+        for seat, seat_melds in enumerate(melds)
+        for meld in seat_melds
+        if meld.kind in {ActionKind.MINKAN, ActionKind.ANKAN, ActionKind.KAKAN}
+    )
+    return len(kan_seats) >= 4 and len(set(kan_seats)) > 1
+
+
 def _require_non_terminal(state: SandboxEnvironmentState) -> None:
     if state.terminal_reason is not None:
         raise ValueError("environment is already terminal")
@@ -1988,6 +2172,10 @@ def _finish_chankan_reaction_window(
         updates=updates,
         seat=state.current_seat,
     )
+    _set_four_kans_abortive_draw_after_discard(
+        updates,
+        melds=_melds_by_seat(state),
+    )
     return _replace_state(state, **updates)
 
 
@@ -2046,6 +2234,8 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "pending_chankan_kind": state.pending_chankan_kind,
         "pending_kita_tile": state.pending_kita_tile,
         "pending_kita_seat": state.pending_kita_seat,
+        "pending_abortive_draw_reason": state.pending_abortive_draw_reason,
+        "abortive_draw_after_discard_reason": state.abortive_draw_after_discard_reason,
         "pending_reaction_seats": state.pending_reaction_seats,
         "temporary_furiten_seats": state.temporary_furiten_seats,
         "riichi_seats": state.riichi_seats,
@@ -2107,6 +2297,8 @@ def _new_sandbox_round_state(
 
 
 def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
+    if state.terminal_reason in SANDBOX_ABORTIVE_DRAW_REASONS:
+        return True
     if state.terminal_reason in {"ron", "tsumo", "chankan", "nagashi_mangan"}:
         return state.dealer_seat in state.winner_seats
     if state.terminal_reason == "wall_exhausted":
@@ -2115,6 +2307,8 @@ def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
 
 
 def _terminal_carries_honba(state: SandboxEnvironmentState) -> bool:
+    if state.terminal_reason in SANDBOX_ABORTIVE_DRAW_REASONS:
+        return True
     if state.terminal_reason == "wall_exhausted":
         return True
     if state.terminal_reason in {"ron", "tsumo", "chankan", "nagashi_mangan"}:
@@ -2316,6 +2510,50 @@ def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str
         "last_draw_was_final_live_wall": False,
         "exhaustive_draw_tenpai_seats": tenpai_seats,
         "exhaustive_draw_noten_seats": noten_seats,
+    }
+
+
+def _terminal_abortive_draw_updates(
+    state: SandboxEnvironmentState,
+    *,
+    reason: str,
+) -> dict[str, Any]:
+    if reason not in SANDBOX_ABORTIVE_DRAW_REASONS:
+        raise ValueError("unsupported abortive draw reason: " + reason)
+    return {
+        "terminal_reason": reason,
+        "winner_seat": None,
+        "winner_seats": (),
+        "winning_tile": None,
+        "winning_shapes": (),
+        "winning_shapes_by_seat": (),
+        "winning_yaku": (),
+        "winning_yaku_by_seat": (),
+        "winning_ippatsu_seats": (),
+        "winning_rinshan_seats": (),
+        "terminal_rewards": _neutral_rewards(state.players),
+        "terminal_point_deltas": _neutral_point_deltas(state.players),
+        "terminal_score_estimates": (),
+        "drawn_tile": None,
+        "rinshan_draw": False,
+        "last_draw_was_final_live_wall": False,
+        "needs_discard": False,
+        "pending_discard": None,
+        "pending_discard_seat": None,
+        "pending_chankan_tile": None,
+        "pending_chankan_seat": None,
+        "pending_chankan_kind": None,
+        "pending_kita_tile": None,
+        "pending_kita_seat": None,
+        "pending_abortive_draw_reason": None,
+        "abortive_draw_after_discard_reason": None,
+        "pending_reaction_seats": (),
+        "temporary_furiten_seats": (),
+        "riichi_pending_discard_seats": (),
+        "ippatsu_seats": (),
+        "riichi_furiten_seats": (),
+        "exhaustive_draw_tenpai_seats": (),
+        "exhaustive_draw_noten_seats": (),
     }
 
 
