@@ -32,9 +32,10 @@ notes.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
-  seeded riichi-furiten filtering, basic closed-tenpai riichi declaration, basic post-riichi
-  discard/call restrictions, basic wait-preserving post-riichi closed-kan exceptions, a basic
-  riichi deposit/stick ledger, basic honba bonus deltas, a basic next-round dealer/honba transition
+  seeded riichi-furiten filtering, basic closed-tenpai riichi declaration with future-draw gating,
+  first-turn double-riichi detection, post-riichi discard/call restrictions, basic wait-preserving
+  post-riichi closed-kan exceptions, a basic riichi deposit/stick ledger with declaration-discard
+  deal-in refunds, basic honba bonus deltas, a basic next-round dealer/honba transition
   helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
   closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
   metadata, rinshan draw-source metadata, timing fixtures for rinshan after minkan/ankan/kakan,
@@ -67,8 +68,8 @@ notes.
   4-player and static 3-player tile-set draw/discard turn-rotation plus
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.
-  It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
-  validator, complete yaku/scoring implementation, complete post-riichi kan timing model,
+  It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
+  implementation, complete post-riichi kan timing model,
   complete round/end-of-game progression model, scoring engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint

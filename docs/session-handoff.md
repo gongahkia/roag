@@ -69,8 +69,8 @@ Last updated: 2026-06-13.
   Added report-level self-play reward projections for terminal, point-delta, normalized point-delta,
   and placement-delta modes, plus per-mode aggregate summaries and win/deal-in/draw outcome
   counters.
-  Together these are still not a call/ron policy, complete yaku-aware open-hand legality, full
-  riichi/kan timing legality, real scoring, or PPO-ready self-play. Added
+  Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
+  post-riichi kan timing legality, real scoring, or PPO-ready self-play. Added
   individual reaction passes and ron-priority call gating so calls are blocked while any pending
   reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
@@ -79,11 +79,14 @@ Last updated: 2026-06-13.
   Added sandbox discard history plus discard-furiten ron filtering for permanent own-discard
   furiten. Added temporary ron-pass furiten that persists until that seat's next draw. Added seeded
   riichi-furiten filtering for states that already mark `riichi_seats`. Added a basic closed-tenpai
-  riichi declaration action. Added basic post-riichi action restrictions: the declaration discard
-  remains flexible, later riichi turns must tsumogiri the drawn tile, and riichi seats cannot
-  chi/pon/minkan opponent discards. Added a basic point ledger and riichi-stick pool: declaration
-  requires and subtracts a 1000-point deposit, and terminal tsumo/ron transfers the pool to the
-  first recorded winner. Added basic honba bonus deltas: ron applies 300 points per honba from the
+  riichi declaration action. Riichi declarations now require a remaining future live-wall draw and
+  first-turn declarations are tracked as double riichi only before any call or Sanma Kita. Added
+  basic post-riichi action restrictions: the declaration discard remains flexible, later riichi
+  turns must tsumogiri the drawn tile, and riichi seats cannot chi/pon/minkan opponent discards.
+  Added a basic point ledger and riichi-stick pool: declaration requires and subtracts a
+  1000-point deposit, terminal tsumo/ron transfers accepted sticks to the first recorded winner,
+  and ron on the declaration discard refunds the unaccepted stick instead of awarding it. Added
+  basic honba bonus deltas: ron applies 300 points per honba from the
   discarder to each winner, and tsumo applies 100 points per honba from each loser to the winner.
   Added basic ippatsu window tracking: riichi declaration marks active ippatsu, calls clear active
   ippatsu windows, the riichi player's next post-declaration discard expires their window, and
@@ -319,9 +322,10 @@ Last updated: 2026-06-13.
   for future Phase 3 work.
   It only supports draw/discard transitions, pending discard reactions with individual passes,
   ron-priority call gating, discard-furiten, temporary ron-pass furiten, and seeded riichi-furiten
-  filtering, basic closed-tenpai riichi declaration, basic post-riichi discard/call restrictions,
-  basic wait-preserving post-riichi closed-kan exceptions, a basic point ledger with riichi
-  deposit/stick accounting and honba bonus deltas, a basic next-round dealer/honba transition
+  filtering, basic closed-tenpai riichi declaration with future-draw gating, first-turn
+  double-riichi detection, basic post-riichi discard/call restrictions, basic wait-preserving
+  post-riichi closed-kan exceptions, a basic point ledger with riichi deposit/stick accounting,
+  declaration-discard deal-in refunds, and honba bonus deltas, a basic next-round dealer/honba transition
   helper with round-wind dealer-wrap progression, basic ippatsu window metadata, basic
   chi/pon/minkan calls, a reserved 14-tile dead wall with visible dora/kan-dora indicator metadata,
   basic closed-kan/ankan self-turn actions with dead-wall replacement draws, basic added-kan/kakan
@@ -374,8 +378,7 @@ Last updated: 2026-06-13.
   dealer-aware payment, visible/kan/ura/red/Kita dora, kazoe-yakuman limit,
   yakuman bonus-han suppression, tsumo tile-view de-duplication, Nagashi mangan wall-exhaustion and
   next-round handling, and next-round dealer/honba/round-wind helper slices, ippatsu scoring, full
-  yaku-aware open/kan hand legality, complete double-riichi/riichi timing,
-  complete post-riichi kan timing,
+  yaku-aware open/kan hand legality, complete post-riichi kan timing,
   real multi-ron payment handling, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It applies the static tile exclusions, 35,000-point starts, three-seat rotation, a basic
@@ -915,7 +918,7 @@ Mortal local baseline reconnaissance:
    score-estimate, kazoe-yakuman limit, yakuman bonus-han suppression, Nagashi mangan wall-exhaustion and
    next-round handling, and next-round dealer/honba/round-wind slices, ippatsu scoring beyond
    narrow ron metadata, full yaku-aware open/kan hand legality,
-   complete double-riichi/riichi timing, complete post-riichi kan timing, real multi-ron payment
+   complete post-riichi kan timing, real multi-ron payment
    handling, and exact scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,

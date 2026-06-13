@@ -204,6 +204,7 @@ class SandboxEnvironmentState:
     riichi_seats: tuple[int, ...] = ()
     double_riichi_seats: tuple[int, ...] = ()
     riichi_pending_discard_seats: tuple[int, ...] = ()
+    pending_riichi_declaration_discard_seat: int | None = None
     ippatsu_seats: tuple[int, ...] = ()
     riichi_furiten_seats: tuple[int, ...] = ()
     terminal_reason: str | None = None
@@ -358,6 +359,18 @@ class SandboxEnvironmentState:
             raise ValueError("riichi pending discard seats must be unique")
         if any(seat not in self.riichi_seats for seat in self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seats must also be riichi seats")
+        if self.pending_riichi_declaration_discard_seat is not None:
+            if self.pending_discard is None:
+                raise ValueError("pending riichi declaration seat requires a pending discard")
+            if (
+                self.pending_discard_seat
+                != self.pending_riichi_declaration_discard_seat
+            ):
+                raise ValueError("pending riichi declaration seat must match discard seat")
+            if not 0 <= self.pending_riichi_declaration_discard_seat < self.players:
+                raise ValueError("pending riichi declaration seat outside player range")
+            if self.pending_riichi_declaration_discard_seat not in self.riichi_seats:
+                raise ValueError("pending riichi declaration seat must also be riichi")
         if any(not 0 <= seat < self.players for seat in self.ippatsu_seats):
             raise ValueError("ippatsu seat outside player range")
         if len(set(self.ippatsu_seats)) != len(self.ippatsu_seats):
@@ -482,6 +495,9 @@ class SandboxEnvironmentState:
             "riichi_seats": list(self.riichi_seats),
             "double_riichi_seats": list(self.double_riichi_seats),
             "riichi_pending_discard_seats": list(self.riichi_pending_discard_seats),
+            "pending_riichi_declaration_discard_seat": (
+                self.pending_riichi_declaration_discard_seat
+            ),
             "ippatsu_seats": list(self.ippatsu_seats),
             "riichi_furiten_seats": list(self.riichi_furiten_seats),
             "terminal_reason": self.terminal_reason,
@@ -701,6 +717,8 @@ def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     if _melds_by_seat(state)[state.current_seat]:
         return ()
     if _points_by_seat(state)[state.current_seat] < RIICHI_DEPOSIT_POINTS:
+        return ()
+    if not state.wall:
         return ()
     if not _has_riichi_tenpai_discard(state):
         return ()
@@ -1068,6 +1086,11 @@ def apply_discard_action(
     ippatsu_seats = state.ippatsu_seats
     if _is_post_riichi_discard_locked(state, seat=state.current_seat):
         ippatsu_seats = _without_seat(ippatsu_seats, state.current_seat)
+    pending_riichi_declaration_discard_seat = (
+        state.current_seat
+        if state.current_seat in state.riichi_pending_discard_seats
+        else None
+    )
     pending_abortive_draw_reason = _abortive_draw_reason_after_discard(
         state,
         discards=tuple(tuple(seat_discards) for seat_discards in discards),
@@ -1088,6 +1111,7 @@ def apply_discard_action(
         needs_discard=False,
         pending_discard=discard,
         pending_discard_seat=state.current_seat,
+        pending_riichi_declaration_discard_seat=pending_riichi_declaration_discard_seat,
         pending_abortive_draw_reason=pending_abortive_draw_reason,
         abortive_draw_after_discard_reason=None,
         pending_reaction_seats=tuple(
@@ -1301,6 +1325,7 @@ def apply_call_action(
         "needs_discard": action.kind is not ActionKind.MINKAN,
         "pending_discard": None,
         "pending_discard_seat": None,
+        "pending_riichi_declaration_discard_seat": None,
         "pending_reaction_seats": (),
         "ippatsu_seats": (),
     }
@@ -1381,6 +1406,7 @@ def apply_reaction_pass_action(
         state,
         pending_discard=None,
         pending_discard_seat=None,
+        pending_riichi_declaration_discard_seat=None,
         pending_abortive_draw_reason=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
@@ -1473,6 +1499,7 @@ def apply_ron_actions(
         winning_tile=pending_tile,
         win_kind=terminal_reason,
         winning_yaku_by_seat=tuple(winning_yaku_by_seat),
+        riichi_declaration_discard_seat=state.pending_riichi_declaration_discard_seat,
     )
     return _replace_state(
         state,
@@ -1483,6 +1510,7 @@ def apply_ron_actions(
         pending_chankan_kind=None,
         pending_kita_tile=None,
         pending_kita_seat=None,
+        pending_riichi_declaration_discard_seat=None,
         pending_abortive_draw_reason=None,
         abortive_draw_after_discard_reason=None,
         pending_reaction_seats=(),
@@ -1531,6 +1559,7 @@ def pass_pending_discard_reactions(state: SandboxEnvironmentState) -> SandboxEnv
         state,
         pending_discard=None,
         pending_discard_seat=None,
+        pending_riichi_declaration_discard_seat=None,
         pending_abortive_draw_reason=None,
         pending_reaction_seats=(),
         temporary_furiten_seats=temporary_furiten_seats,
@@ -2241,6 +2270,9 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "riichi_seats": state.riichi_seats,
         "double_riichi_seats": state.double_riichi_seats,
         "riichi_pending_discard_seats": state.riichi_pending_discard_seats,
+        "pending_riichi_declaration_discard_seat": (
+            state.pending_riichi_declaration_discard_seat
+        ),
         "ippatsu_seats": state.ippatsu_seats,
         "riichi_furiten_seats": state.riichi_furiten_seats,
         "terminal_reason": state.terminal_reason,
@@ -2385,16 +2417,25 @@ def _terminal_win_point_updates(
     winning_tile: Tile | None,
     win_kind: str,
     winning_yaku_by_seat: tuple[tuple[int, tuple[str, ...]], ...],
+    riichi_declaration_discard_seat: int | None = None,
 ) -> dict[str, Any]:
     before_points = _points_by_seat(state)
     if not winner_seats:
         return {"terminal_point_deltas": _neutral_point_deltas(state.players)}
     points = list(before_points)
+    riichi_sticks_for_winners = state.riichi_sticks
+    if riichi_declaration_discard_seat is not None:
+        points[riichi_declaration_discard_seat] += RIICHI_DEPOSIT_POINTS
+        riichi_sticks_for_winners -= 1
+        if riichi_sticks_for_winners < 0:
+            raise ValueError("pending riichi declaration refund exceeds riichi sticks")
     yaku_by_seat = dict(winning_yaku_by_seat)
     estimates: list[SandboxScoreEstimate] = []
     for winner_index, winner_seat in enumerate(winner_seats):
         riichi_stick_points = (
-            state.riichi_sticks * RIICHI_DEPOSIT_POINTS if winner_index == 0 else 0
+            riichi_sticks_for_winners * RIICHI_DEPOSIT_POINTS
+            if winner_index == 0
+            else 0
         )
         estimate = _sandbox_score_estimate(
             seat=winner_seat,
@@ -2545,6 +2586,7 @@ def _terminal_abortive_draw_updates(
         "pending_chankan_kind": None,
         "pending_kita_tile": None,
         "pending_kita_seat": None,
+        "pending_riichi_declaration_discard_seat": None,
         "pending_abortive_draw_reason": None,
         "abortive_draw_after_discard_reason": None,
         "pending_reaction_seats": (),

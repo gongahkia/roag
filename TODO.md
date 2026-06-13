@@ -178,9 +178,9 @@ described as basic estimates.
 
 ### TODO-205 Complete Riichi Timing
 
-- [ ] Enforce legal first-turn double riichi, normal riichi, ippatsu expiry, and
+- [x] Enforce legal first-turn double riichi, normal riichi, ippatsu expiry, and
   post-riichi discard/kan constraints across calls and abortive draws.
-- [ ] Add tests for four-riichi abortive draw, riichi after calls, riichi with
+- [x] Add tests for four-riichi abortive draw, riichi after calls, riichi with
   insufficient points, and riichi declaration stick accounting.
 
 Done when: riichi timing is modeled in terminal legality, next-round progression,

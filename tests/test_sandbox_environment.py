@@ -630,7 +630,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"),),
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 (),
@@ -681,7 +681,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"),),
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 (),
@@ -702,7 +702,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"),),
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 (),
@@ -734,7 +734,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-3p",
             players=3,
-            wall=(Tile.parse("E"),),
+            wall=(Tile.parse("1p"), Tile.parse("E")),
             hands=(
                 _tiles("1p 2p 3p 4p 5p 6p 7p 8p 9p 1s 2s 3s E"),
                 (),
@@ -753,7 +753,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"),),
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 (),
@@ -769,11 +769,81 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not legal"):
             apply_riichi_action(drawn, Action(ActionKind.RIICHI))
 
-    def test_riichi_sticks_transfer_to_ron_winner(self) -> None:
+    def test_riichi_declaration_requires_future_draw(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
             wall=(Tile.parse("9s"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+
+        self.assertEqual(drawn.drawn_tile, Tile.parse("9s"))
+        self.assertEqual(drawn.wall, ())
+        self.assertEqual(legal_riichi_actions(drawn), ())
+        self.assertNotIn(Action(ActionKind.RIICHI), legal_sandbox_actions(drawn))
+        with self.assertRaisesRegex(ValueError, "not legal"):
+            apply_riichi_action(drawn, Action(ActionKind.RIICHI))
+
+    def test_accepted_riichi_sticks_transfer_to_ron_winner(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("9s"),),
+            points=(
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
+            ),
+            riichi_sticks=1,
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                (),
+                (),
+            ),
+        )
+
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("9s"))
+        terminal = apply_ron_action(
+            reaction_state,
+            seat=1,
+            action=Action(ActionKind.RON, TileType.parse("9s")),
+        )
+
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.riichi_sticks, 0)
+        self.assertEqual(
+            terminal.points,
+            (
+                SANDBOX_INITIAL_POINTS - 1000,
+                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS + 1000,
+                SANDBOX_INITIAL_POINTS,
+                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
+            ),
+        )
+        self.assertEqual(
+            terminal.terminal_point_deltas,
+            (-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0),
+        )
+        self.assertEqual(
+            terminal.terminal_score_estimates[0].riichi_stick_points,
+            RIICHI_DEPOSIT_POINTS,
+        )
+
+    def test_riichi_declaration_discard_ron_refunds_unaccepted_stick(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
@@ -791,13 +861,21 @@ class SandboxEnvironmentTests(unittest.TestCase):
             action=Action(ActionKind.RON, TileType.parse("9s")),
         )
 
+        self.assertEqual(reaction_state.pending_riichi_declaration_discard_seat, 0)
+        self.assertEqual(
+            reaction_state.to_payload()["pending_riichi_declaration_discard_seat"],
+            0,
+        )
+        self.assertEqual(reaction_state.points[0], SANDBOX_INITIAL_POINTS - 1000)
+        self.assertEqual(reaction_state.riichi_sticks, 1)
         self.assertEqual(terminal.terminal_reason, "ron")
         self.assertEqual(terminal.riichi_sticks, 0)
+        self.assertIsNone(terminal.pending_riichi_declaration_discard_seat)
         self.assertEqual(
             terminal.points,
             (
-                SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS - 1000,
-                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS + 1000,
+                SANDBOX_INITIAL_POINTS - 1000,
+                SANDBOX_INITIAL_POINTS + 1000,
                 SANDBOX_INITIAL_POINTS,
                 SANDBOX_INITIAL_POINTS,
             ),
@@ -805,12 +883,13 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
         self.assertEqual(
             terminal.terminal_point_deltas,
-            (-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0),
+            (0, 1000, 0, 0),
         )
         self.assertEqual(
             terminal.to_payload()["terminal_point_deltas"],
-            [-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0],
+            [0, 1000, 0, 0],
         )
+        self.assertEqual(terminal.terminal_score_estimates[0].riichi_stick_points, 0)
 
     def test_honba_bonus_applies_to_ron_point_ledger(self) -> None:
         honba = 2
@@ -1645,7 +1724,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
-            wall=(Tile.parse("9s"),),
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
             points=(24000, 24000, 24000, 25000),
             riichi_sticks=3,
             riichi_seats=(0, 1, 2),
