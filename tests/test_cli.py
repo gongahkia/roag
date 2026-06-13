@@ -1687,6 +1687,135 @@ class CliTests(unittest.TestCase):
         self.assertEqual(comparison["kind"], "kenjaku-decision-snapshot-comparison-v0")
         self.assertEqual(comparison["overall"]["accuracy"], 1.0)
 
+    def test_external_baseline_report_compares_named_prediction_files(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            snapshots = root / "snapshots.jsonl"
+            echo_predictions = root / "echo.jsonl"
+            pass_predictions = root / "pass.jsonl"
+            first_predictions = root / "first.jsonl"
+            report_path = root / "external-baselines.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(snapshots),
+                        "--limit",
+                        "5",
+                    ]
+                )
+                for strategy, output in (
+                    ("echo-actual", echo_predictions),
+                    ("pass", pass_predictions),
+                    ("first-legal", first_predictions),
+                ):
+                    main(
+                        [
+                            "produce-decision-predictions",
+                            str(snapshots),
+                            "--strategy",
+                            strategy,
+                            "--output",
+                            str(output),
+                        ]
+                    )
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "external-baseline-report",
+                        str(snapshots),
+                        "--baseline",
+                        f"kenjaku:echo-actual={echo_predictions}",
+                        "--baseline",
+                        f"mortal-compatible:pass-smoke={pass_predictions}",
+                        "--baseline",
+                        f"akochan-compatible:first-legal-smoke={first_predictions}",
+                        "--min-decisions",
+                        "1",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(json_stdout.getvalue())
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "external-baseline-report",
+                        str(snapshots),
+                        "--baseline",
+                        f"kenjaku:echo-actual={echo_predictions}",
+                        "--baseline",
+                        f"mortal-compatible:pass-smoke={pass_predictions}",
+                        "--baseline",
+                        f"akochan-compatible:first-legal-smoke={first_predictions}",
+                        "--min-decisions",
+                        "1",
+                        "--report",
+                        str(report_path),
+                    ]
+                )
+            saved_report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(text_exit_code, 0)
+        self.assertEqual(payload["kind"], "kenjaku-external-baseline-report-v0")
+        self.assertEqual(payload["protocol"]["comparison_unit"], "decision")
+        self.assertTrue(payload["minimum_satisfied"])
+        self.assertEqual(payload["snapshots"]["snapshots"], 5)
+        self.assertEqual(len(payload["baselines"]), 3)
+        self.assertEqual(payload["baselines"][0]["family"], "kenjaku")
+        self.assertEqual(payload["baselines"][0]["comparable_decisions"], 5)
+        self.assertEqual(payload["baselines"][0]["overall"]["accuracy"], 1.0)
+        self.assertEqual(payload["baselines"][0]["overall"]["accuracy_ci"]["method"], "wilson")
+        self.assertIn("mortal-compatible:pass-smoke", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(saved_report["kind"], "kenjaku-external-baseline-report-v0")
+
+    def test_external_baseline_report_enforces_minimum_decisions(self) -> None:
+        with TemporaryDirectory() as directory:
+            snapshots = Path(directory) / "snapshots.jsonl"
+            predictions = Path(directory) / "predictions.jsonl"
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(snapshots),
+                        "--limit",
+                        "2",
+                    ]
+                )
+                main(
+                    [
+                        "produce-decision-predictions",
+                        str(snapshots),
+                        "--strategy",
+                        "echo-actual",
+                        "--output",
+                        str(predictions),
+                    ]
+                )
+
+            with self.assertRaises(SystemExit) as raised:
+                main(
+                    [
+                        "external-baseline-report",
+                        str(snapshots),
+                        "--baseline",
+                        f"kenjaku:echo-actual={predictions}",
+                        "--min-decisions",
+                        "3",
+                    ]
+                )
+
+        self.assertIn("below minimum comparable decisions", str(raised.exception))
+
     def test_train_discard_baseline_fixture(self) -> None:
         stdout = io.StringIO()
 

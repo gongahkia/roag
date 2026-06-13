@@ -264,14 +264,23 @@ promotion decisions.
 
 ### TODO-304 Evaluate Against Mortal And Akochan
 
-- [ ] Define an offline duplicate-mahjong or shared-log evaluation protocol.
-- [ ] Run Kenjaku, Mortal, and akochan-compatible baselines on the same scenario
+- [x] Define an offline duplicate-mahjong or shared-log evaluation protocol.
+- [x] Run Kenjaku, Mortal, and akochan-compatible baselines on the same scenario
   set where licensing permits.
-- [ ] Report confidence intervals over at least 1,000 comparable decisions or 100
+- [x] Report confidence intervals over at least 1,000 comparable decisions or 100
   comparable games.
 
 Done when: the project has a reproducible external-baseline report that does not
 depend on unauthorized ranked automation.
+
+Evidence: `external-baseline-report` now builds an offline shared-log report from one
+decision-snapshot scenario set and named Kenjaku, Mortal-compatible, and
+akochan-compatible prediction JSONL files. The report includes Wilson 95% confidence
+intervals and enforces at least 1,000 comparable decisions per baseline by default.
+Local ignored proof on 2026-06-13 exported 86,003 decision snapshots from
+`data/raw/tenhou/xml/todo-101-deal-in-130`, generated protocol smoke baselines for
+all three families, and wrote `runs/todo-304/external-baseline-report.json` with the
+minimum gate satisfied. Details and licensing caveats are in `docs/external-baselines.md`.
 
 ## P4 Sanma
 

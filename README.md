@@ -223,12 +223,22 @@ PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
 
 PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-compare \
   runs/decision-snapshots.jsonl runs/decision-predictions.jsonl
+
+PYTHONPATH=src python3.13 -m kenjaku external-baseline-report \
+  runs/decision-snapshots.jsonl \
+  --baseline kenjaku:first-legal=runs/kenjaku-predictions.jsonl \
+  --baseline mortal-compatible:local-producer=runs/mortal-predictions.jsonl \
+  --baseline akochan-compatible:local-producer=runs/akochan-predictions.jsonl \
+  --report runs/external-baseline-report.json
 ```
 
 Stub prediction strategies are for protocol tests only. Real Mortal comparison should remain behind
 a subprocess/data boundary and requires legally usable weights. External producers can be tested
 through `run-external-prediction-producer`, which passes `KENJAKU_SNAPSHOTS` and
 `KENJAKU_PREDICTIONS` to a separate process and then reuses the same prediction comparator.
+`external-baseline-report` compares multiple named prediction files from the same shared snapshots,
+computes Wilson 95% confidence intervals, and requires 1,000 comparable decisions per baseline by
+default.
 
 ## Local Tenhou Data
 

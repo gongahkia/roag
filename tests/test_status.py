@@ -27,6 +27,20 @@ class StatusTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["tenhou_xml_parsing"])
         self.assertTrue(payload["capabilities"]["implemented"]["decision_snapshot_protocol"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["external_baseline_report_protocol"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["external_baseline_confidence_intervals"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["external_baseline_min_decision_gate"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"][
+                "mortal_akochan_compatible_baseline_boundary"
+            ]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["permission_aware_replay_intake"])
         self.assertTrue(payload["capabilities"]["implemented"]["permitted_replay_share_planning"])
         self.assertTrue(payload["capabilities"]["implemented"]["public_benchmark_dashboard"])

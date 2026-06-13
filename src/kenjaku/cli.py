@@ -115,6 +115,12 @@ from kenjaku.training.decision_snapshots import (
     build_decision_snapshots,
     write_decision_snapshots_jsonl,
 )
+from kenjaku.training.external_baselines import (
+    DEFAULT_MINIMUM_COMPARABLE_DECISIONS,
+    build_external_baseline_report,
+    format_external_baseline_report,
+    parse_external_baseline_spec,
+)
 
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -968,6 +974,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the comparison as JSON instead of text",
     )
     snapshot_compare.set_defaults(func=_decision_snapshot_compare)
+
+    external_baselines = subparsers.add_parser(
+        "external-baseline-report",
+        help="build an offline shared-log report for named external baseline predictions",
+    )
+    external_baselines.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file shared by every baseline",
+    )
+    external_baselines.add_argument(
+        "--baseline",
+        action="append",
+        required=True,
+        help=(
+            "baseline prediction JSONL as FAMILY:NAME=PATH; repeat for Kenjaku, "
+            "Mortal-compatible, and akochan-compatible outputs"
+        ),
+    )
+    external_baselines.add_argument(
+        "--min-decisions",
+        type=int,
+        default=DEFAULT_MINIMUM_COMPARABLE_DECISIONS,
+        help=(
+            "minimum comparable decisions required per baseline "
+            f"(default: {DEFAULT_MINIMUM_COMPARABLE_DECISIONS})"
+        ),
+    )
+    external_baselines.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON external-baseline report",
+    )
+    external_baselines.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the report as JSON instead of text",
+    )
+    external_baselines.set_defaults(func=_external_baseline_report)
 
     external_producer = subparsers.add_parser(
         "run-external-prediction-producer",
@@ -2583,6 +2628,31 @@ def _decision_snapshot_compare(args: argparse.Namespace) -> int:
         print(json.dumps(comparison, indent=2, sort_keys=True))
     else:
         print(_format_decision_snapshot_comparison(comparison))
+    return 0
+
+
+def _external_baseline_report(args: argparse.Namespace) -> int:
+    try:
+        specs = [
+            parse_external_baseline_spec(spec)
+            for spec in args.baseline
+        ]
+        report = build_external_baseline_report(
+            args.snapshots,
+            specs,
+            minimum_comparable_decisions=args.min_decisions,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, report)
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_external_baseline_report(report))
+        if args.report is not None:
+            print(f"report_path: {args.report}")
     return 0
 
 

@@ -221,6 +221,16 @@ Last updated: 2026-06-13.
   `KENJAKU_SNAPSHOTS` and `KENJAKU_PREDICTIONS` in the environment, then validates the generated
   JSONL and can write a comparison report. Keep Mortal-specific inference outside Kenjaku behind
   this boundary unless licensing decisions change.
+- `external-baseline-report` builds the higher-level offline shared-log baseline report over one
+  snapshot set and multiple named prediction files. It reports exact-action accuracy, call/riichi
+  binary metrics, Wilson 95% confidence intervals, missing/malformed/duplicate prediction counts,
+  `mjai_events` coverage, and enforces 1,000 comparable decisions per baseline by default.
+- TODO-304 proof on 2026-06-13 used ignored local data at
+  `data/raw/tenhou/xml/todo-101-deal-in-130`, exported 86,003 shared decision snapshots with zero
+  malformed rows, and wrote `runs/todo-304/external-baseline-report.json`. The Mortal-compatible
+  and akochan-compatible entries in that local report are deterministic smoke baselines, not real
+  engine-strength claims; replace their prediction files with real subprocess outputs when legally
+  usable external runtimes and weights are available.
 - `export-decision-snapshots --include-outcome` adds terminal score-delta/win/deal-in/draw labels
   parsed from Tenhou `sc` fields. Default snapshots intentionally omit outcome labels.
 - `train-discard-mlp` trains a small PyTorch masked-logit discard MLP over normalized hand and
