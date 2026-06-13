@@ -42,6 +42,12 @@ from kenjaku.training.discard_features import (
 )
 from kenjaku.training.error_analysis import summarize_discard_predictions
 from kenjaku.training.outcomes import RoundOutcome, round_outcome, round_outcome_payload
+from kenjaku.training.population import (
+    POPULATION_SANDBOX_REPORT_KIND,
+    POPULATION_SANDBOX_SNAPSHOT_KIND,
+    format_population_sandbox_report,
+    train_population_sandbox,
+)
 from kenjaku.training.ppo import (
     PPO_ACTION_DIM,
     PPO_SANDBOX_CHECKPOINT_KIND,
@@ -93,6 +99,7 @@ __all__ = [
     "discard_shanten_delta",
     "evaluate_ppo_sandbox_policy",
     "format_ppo_sandbox_report",
+    "format_population_sandbox_report",
     "has_active_riichi_opponent",
     "iter_call_examples",
     "iter_deal_in_examples",
@@ -103,6 +110,8 @@ __all__ = [
     "max_active_riichi_discards_elapsed",
     "min_active_riichi_discards_elapsed",
     "PPO_ACTION_DIM",
+    "POPULATION_SANDBOX_REPORT_KIND",
+    "POPULATION_SANDBOX_SNAPSHOT_KIND",
     "PPO_SANDBOX_CHECKPOINT_KIND",
     "PPO_SANDBOX_POLICY_KIND",
     "PPO_SANDBOX_REPORT_KIND",
@@ -125,4 +134,5 @@ __all__ = [
     "summarize_defense_risks",
     "summarize_deal_in_examples",
     "train_ppo_sandbox",
+    "train_population_sandbox",
 ]

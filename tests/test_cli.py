@@ -61,6 +61,11 @@ class CliTests(unittest.TestCase):
         self.assertIn("ppo_sandbox_checkpoint_resume: yes", output)
         self.assertIn("ppo_sandbox_training_curves: yes", output)
         self.assertIn("ppo_sandbox_evaluation_summaries: yes", output)
+        self.assertIn("population_sandbox_training_command: yes", output)
+        self.assertIn("population_sandbox_policy_pool: yes", output)
+        self.assertIn("population_sandbox_opponent_sampling: yes", output)
+        self.assertIn("population_sandbox_promotion_criteria: yes", output)
+        self.assertIn("population_sandbox_matchup_metrics: yes", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
         self.assertIn("sandbox_pending_discard_reactions: yes", output)
@@ -178,6 +183,13 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_checkpoint_resume"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_curves"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_evaluation_summaries"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_training_command"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_policy_pool"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_opponent_sampling"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["population_sandbox_promotion_criteria"]
+        )
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_matchup_metrics"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]
         )
@@ -978,6 +990,92 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
         self.assertGreaterEqual(json_payload["training"]["environment_steps"], 8)
+
+    def test_train_population_sandbox_command_writes_report_and_artifacts(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "population.json"
+            output_dir = Path(directory) / "population"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "train-population-sandbox",
+                        "--pool-size",
+                        "4",
+                        "--generations",
+                        "1",
+                        "--candidates-per-generation",
+                        "1",
+                        "--matchups-per-candidate",
+                        "1",
+                        "--total-steps",
+                        "8",
+                        "--max-rounds",
+                        "1",
+                        "--max-turns-per-round",
+                        "8",
+                        "--evaluation-max-rounds",
+                        "1",
+                        "--evaluation-max-turns-per-round",
+                        "8",
+                        "--output-dir",
+                        str(output_dir),
+                        "--report",
+                        str(report),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+            artifact_count = len(list(output_dir.glob("*.json")))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "train-population-sandbox",
+                        "--pool-size",
+                        "4",
+                        "--generations",
+                        "1",
+                        "--candidates-per-generation",
+                        "1",
+                        "--matchups-per-candidate",
+                        "1",
+                        "--total-steps",
+                        "4",
+                        "--max-rounds",
+                        "1",
+                        "--max-turns-per-round",
+                        "4",
+                        "--evaluation-max-rounds",
+                        "1",
+                        "--evaluation-max-turns-per-round",
+                        "4",
+                        "--json",
+                    ]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("pool_size: 4", text_stdout.getvalue())
+        self.assertIn("matchups: 5", text_stdout.getvalue())
+        self.assertIn("promotion_decisions:", text_stdout.getvalue())
+        self.assertIn("output_dir:", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(artifact_count, 5)
+        self.assertEqual(report_payload["kind"], "kenjaku-population-sandbox-report-v0")
+        self.assertEqual(len(report_payload["pool"]), 4)
+        self.assertEqual(len(report_payload["snapshots"]), 5)
+        self.assertEqual(report_payload["matchup_counts"]["total"], 5)
+        self.assertTrue(report_payload["capabilities"]["policy_snapshot_pool"])
+        self.assertTrue(report_payload["capabilities"]["opponent_sampling"])
+        self.assertTrue(report_payload["capabilities"]["promotion_criteria"])
+        self.assertFalse(
+            report_payload["capabilities"]["learned_policy_environment_integration"]
+        )
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-population-sandbox-report-v0")
+        self.assertEqual(json_payload["pool_size"], 4)
 
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()

@@ -634,6 +634,116 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train_ppo.set_defaults(func=_train_ppo_sandbox)
 
+    train_population = subparsers.add_parser(
+        "train-population-sandbox",
+        help="run population-pool PPO snapshot plumbing on sandbox trajectories",
+    )
+    train_population.add_argument(
+        "--pool-size",
+        type=int,
+        default=4,
+        help="number of active policy snapshots to maintain",
+    )
+    train_population.add_argument("--generations", type=int, default=1, help="generations to run")
+    train_population.add_argument(
+        "--candidates-per-generation",
+        type=int,
+        default=1,
+        help="candidate snapshots trained per generation",
+    )
+    train_population.add_argument(
+        "--matchups-per-candidate",
+        type=int,
+        default=2,
+        help="sampled pool matchups per candidate or initial snapshot",
+    )
+    train_population.add_argument(
+        "--total-steps",
+        type=int,
+        default=1024,
+        help="minimum environment decisions per trained snapshot",
+    )
+    train_population.add_argument(
+        "--max-rounds",
+        type=int,
+        default=12,
+        help="maximum hands per PPO training rollout",
+    )
+    train_population.add_argument(
+        "--max-turns-per-round",
+        type=int,
+        default=512,
+        help="maximum action decisions per PPO training hand",
+    )
+    train_population.add_argument(
+        "--seed",
+        default="kenjaku-population-sandbox-v0",
+        help="stable seed for deterministic population training",
+    )
+    train_population.add_argument(
+        "--ruleset",
+        choices=SELF_PLAY_SANDBOX_RULESETS,
+        default="tenhou-4p",
+        help="sandbox static tile set and player count",
+    )
+    train_population.add_argument(
+        "--ppo-epochs",
+        type=int,
+        default=1,
+        help="PPO epochs per snapshot rollout",
+    )
+    train_population.add_argument("--batch-size", type=int, default=64, help="PPO mini-batch size")
+    train_population.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="manual SGD learning rate",
+    )
+    train_population.add_argument(
+        "--hidden-dim",
+        type=int,
+        default=0,
+        help="reserved model width",
+    )
+    train_population.add_argument(
+        "--evaluation-games",
+        type=int,
+        default=1,
+        help="sandbox games per sampled matchup",
+    )
+    train_population.add_argument(
+        "--evaluation-max-rounds",
+        type=int,
+        help="maximum hands per sampled matchup; defaults to --max-rounds",
+    )
+    train_population.add_argument(
+        "--evaluation-max-turns-per-round",
+        type=int,
+        help="maximum decisions per matchup hand; defaults to --max-turns-per-round",
+    )
+    train_population.add_argument(
+        "--promotion-margin",
+        type=float,
+        default=0.0,
+        help="average-score margin required to replace the pool floor",
+    )
+    train_population.add_argument(
+        "--output-dir",
+        type=Path,
+        help="optional directory for population PPO checkpoint artifacts",
+    )
+    train_population.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON population report artifact",
+    )
+    train_population.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the population report as JSON instead of text",
+    )
+    train_population.set_defaults(func=_train_population_sandbox)
+
     inspect_tenhou = subparsers.add_parser(
         "inspect-tenhou",
         help="parse a Tenhou XML file and print Phase 0 dataset counts",
@@ -1883,6 +1993,53 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
         print(json.dumps(result.report, indent=2, sort_keys=True))
     else:
         print(format_ppo_sandbox_report(result.report))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _train_population_sandbox(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.training.population import (
+            format_population_sandbox_report,
+            train_population_sandbox,
+        )
+    except ImportError as error:
+        raise SystemExit("population sandbox trainer dependencies are unavailable") from error
+
+    try:
+        report = train_population_sandbox(
+            pool_size=args.pool_size,
+            generations=args.generations,
+            candidates_per_generation=args.candidates_per_generation,
+            matchups_per_candidate=args.matchups_per_candidate,
+            total_steps=args.total_steps,
+            max_rounds=args.max_rounds,
+            max_turns_per_round=args.max_turns_per_round,
+            seed=args.seed,
+            ruleset=args.ruleset,
+            ppo_epochs=args.ppo_epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            hidden_dim=args.hidden_dim,
+            evaluation_games=args.evaluation_games,
+            evaluation_max_rounds=args.evaluation_max_rounds,
+            evaluation_max_turns_per_round=args.evaluation_max_turns_per_round,
+            promotion_margin=args.promotion_margin,
+            output_dir=args.output_dir,
+        )
+    except (RuntimeError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+
+    if args.report is not None:
+        write_json_report(args.report, report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_population_sandbox_report(report))
+    if args.output_dir is not None:
+        print(f"output_dir: {args.output_dir}")
     if args.report is not None:
         print(f"report_path: {args.report}")
     return 0

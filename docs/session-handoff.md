@@ -324,6 +324,11 @@ Last updated: 2026-06-13.
   JSON checkpoint/resume, training curves, optional behavior-cloning warmup on rollout actions, and
   rollout evaluation summaries. It does not yet feed learned policy actions back into the sandbox
   environment, so treat it as PPO plumbing, not agent-strength evidence.
+- `train-population-sandbox` runs population-pool plumbing over PPO sandbox snapshots and writes
+  `kenjaku-population-sandbox-report-v0` reports. It maintains at least four active checkpoint
+  snapshots, samples opponents from the active pool, reports win rate, average placement, deal-in
+  rate, and average score for sampled matchups, and records promotion/replacement decisions using
+  average score against the pool floor. It still does not feed learned policy actions into gameplay.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_chankan_ron_actions`,
@@ -392,6 +397,8 @@ Last updated: 2026-06-13.
   as agent strength or learned-policy readiness.
 - `train-ppo-sandbox` is enough for the Phase 3 PPO smoke item, but it trains on collected
   trajectories and does not yet control gameplay with the learned policy.
+- `train-population-sandbox` is enough for the Phase 3 population plumbing item, but its matchup
+  metrics are sandbox-policy metrics rather than learned-policy strength metrics.
 - The sandbox environment boundary is intentionally incomplete. Do not build population training or
   strength claims on it until it has full call/kan timing, full ron/tsumo legality including yaku
   checks, complete payment/scoring semantics beyond the current basic point-ledger,
@@ -621,6 +628,13 @@ PYTHONPATH=src python3 -m kenjaku train-ppo-sandbox \
   --max-turns-per-round 512 --ppo-epochs 1 --batch-size 128 \
   --checkpoint runs/fixture-ppo-sandbox-checkpoint.json \
   --report runs/fixture-ppo-sandbox.json
+PYTHONPATH=src python3 -m kenjaku train-population-sandbox \
+  --pool-size 4 --generations 1 --candidates-per-generation 1 \
+  --matchups-per-candidate 1 --total-steps 8 --max-rounds 1 \
+  --max-turns-per-round 8 --evaluation-max-rounds 1 \
+  --evaluation-max-turns-per-round 8 \
+  --output-dir runs/fixture-population-sandbox \
+  --report runs/fixture-population-sandbox.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
@@ -938,8 +952,9 @@ Mortal local baseline reconnaissance:
    live-service fetching out of scope until explicit platform permission exists. Use
    `replay-share-plan` as the local permission/scope check and `replay-public-summary` as the
    sanitized report before demo or redistribution work.
-8. Use `self-play-match-sandbox` for deterministic multi-round self-play plumbing checks and
-   `train-ppo-sandbox` for fixture-scale PPO plumbing checks only. The
+8. Use `self-play-match-sandbox` for deterministic multi-round self-play plumbing checks,
+   `train-ppo-sandbox` for fixture-scale PPO plumbing checks, and `train-population-sandbox` for
+   population-pool plumbing checks only. The
    next real Phase 3 step is extending the current environment boundary with full call/kan timing,
    yaku/terminal outcome semantics, complete payment/scoring semantics beyond the basic
    live-wall exhaustive-draw tenpai/noten point-delta, dealer-aware win payment,

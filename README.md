@@ -73,7 +73,9 @@ notes.
   riichi, kan, Kita, ron/tsumo, and pass policies plus optional state/action/reward trajectories.
   `train-ppo-sandbox` runs a dependency-free fixture-scale PPO smoke trainer over those trajectories
   with policy/value losses, GAE, clipping, entropy regularization, mini-batching, checkpoint/resume,
-  training curves, and evaluation summaries.
+  training curves, and evaluation summaries. `train-population-sandbox` maintains a pool of at
+  least four PPO checkpoint snapshots, samples pool opponents, reports matchup metrics, and records
+  promotion/replacement decisions.
   It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
   implementation, complete post-riichi kan timing model, scoring engine, automated full-match
   learned-policy self-play trainer, or strength-grade RL implementation.
@@ -144,6 +146,13 @@ PYTHONPATH=src python3.13 -m kenjaku train-ppo-sandbox \
   --max-turns-per-round 512 --ppo-epochs 1 --batch-size 128 \
   --checkpoint runs/fixture-ppo-sandbox-checkpoint.json \
   --report runs/fixture-ppo-sandbox.json
+PYTHONPATH=src python3.13 -m kenjaku train-population-sandbox \
+  --pool-size 4 --generations 1 --candidates-per-generation 1 \
+  --matchups-per-candidate 1 --total-steps 8 --max-rounds 1 \
+  --max-turns-per-round 8 --evaluation-max-rounds 1 \
+  --evaluation-max-turns-per-round 8 \
+  --output-dir runs/fixture-population-sandbox \
+  --report runs/fixture-population-sandbox.json
 
 PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \
   data/fixtures/tenhou --report runs/fixture-defense-risk-summary.json

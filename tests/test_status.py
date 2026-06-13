@@ -207,6 +207,11 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_checkpoint_resume"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_curves"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_evaluation_summaries"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_training_command"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_policy_pool"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_opponent_sampling"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_promotion_criteria"])
+        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_matchup_metrics"])
         self.assertFalse(payload["capabilities"]["not_implemented"]["bundled_trained_model"])
         self.assertFalse(
             payload["capabilities"]["not_implemented"][
@@ -312,6 +317,11 @@ class StatusTests(unittest.TestCase):
         self.assertIn("ppo_sandbox_checkpoint_resume: yes", text)
         self.assertIn("ppo_sandbox_training_curves: yes", text)
         self.assertIn("ppo_sandbox_evaluation_summaries: yes", text)
+        self.assertIn("population_sandbox_training_command: yes", text)
+        self.assertIn("population_sandbox_policy_pool: yes", text)
+        self.assertIn("population_sandbox_opponent_sampling: yes", text)
+        self.assertIn("population_sandbox_promotion_criteria: yes", text)
+        self.assertIn("population_sandbox_matchup_metrics: yes", text)
         self.assertIn("bundled_trained_model: no", text)
         self.assertIn("bundled_trained_deal_in_probability_estimator: no", text)
         self.assertIn("transformer_policy: no", text)

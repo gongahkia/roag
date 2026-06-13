@@ -254,10 +254,10 @@ deterministic smoke test in CI-sized runtime.
 
 ### TODO-303 Add Population-Based Training
 
-- [ ] Maintain at least 4 policy snapshots in a training pool.
-- [ ] Sample opponents from the pool and report win rate, average placement,
+- [x] Maintain at least 4 policy snapshots in a training pool.
+- [x] Sample opponents from the pool and report win rate, average placement,
   deal-in rate, and average score.
-- [ ] Add replacement/promotion criteria for stronger agents.
+- [x] Add replacement/promotion criteria for stronger agents.
 
 Done when: one training report shows pool composition, matchup counts, and
 promotion decisions.

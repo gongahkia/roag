@@ -138,6 +138,11 @@ def build_status_payload() -> dict[str, Any]:
                 "ppo_sandbox_checkpoint_resume": True,
                 "ppo_sandbox_training_curves": True,
                 "ppo_sandbox_evaluation_summaries": True,
+                "population_sandbox_training_command": True,
+                "population_sandbox_policy_pool": True,
+                "population_sandbox_opponent_sampling": True,
+                "population_sandbox_promotion_criteria": True,
+                "population_sandbox_matchup_metrics": True,
             },
             "not_implemented": {
                 "bundled_trained_model": False,
