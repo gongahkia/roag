@@ -308,8 +308,8 @@ Last updated: 2026-06-13.
   and `kita_counts`. `--stop-on-tsumo` checks basic closed-hand standard, chiitoitsu, and kokushi
   winning shapes immediately after a synthetic draw.
   It is for plumbing only; it has no call/ron/kan/Kita policy, complete yaku validation, exact
-  scoring, complete payment accounting, complete post-riichi kan timing, PPO, or population
-  training.
+  scoring, complete payment accounting, complete post-riichi kan timing, learned-policy feedback,
+  or population training.
 - `self-play-match-sandbox` runs deterministic multi-round sandbox matches to a final result for
   3-player or 4-player rulesets and writes `kenjaku-self-play-match-report-v0` reports. It exposes
   separate policy knobs for discard, call, riichi, kan, Kita, ron/tsumo, and pass decisions; the
@@ -317,7 +317,13 @@ Last updated: 2026-06-13.
   per-hand terminal reasons, points, final-result metadata, aggregate final-score/rank summaries,
   and optional trajectory rows with state summaries, legal actions, chosen actions, and final-score
   rewards on the last decision. This is a deterministic policy/plumbing harness, not a full-rules
-  strength benchmark or PPO trainer.
+  strength benchmark.
+- `train-ppo-sandbox` runs a dependency-free linear actor-critic PPO smoke trainer over
+  `self-play-match-sandbox` trajectories and writes `kenjaku-ppo-sandbox-report-v0` reports. It
+  includes policy/value losses, GAE, clipped PPO ratios, entropy regularization, mini-batching,
+  JSON checkpoint/resume, training curves, optional behavior-cloning warmup on rollout actions, and
+  rollout evaluation summaries. It does not yet feed learned policy actions back into the sandbox
+  environment, so treat it as PPO plumbing, not agent-strength evidence.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_chankan_ron_actions`,
@@ -383,10 +389,12 @@ Last updated: 2026-06-13.
   sharing implementation.
 - `self-play-match-sandbox` is enough for the Phase 3 harness plumbing item, but it is still a
   deterministic sandbox runner over incomplete rules and simple policies. Do not treat its results
-  as agent strength or PPO readiness.
-- The sandbox environment boundary is intentionally incomplete. Do not build PPO, population
-  training, or strength claims on it until it has full call/kan timing, full ron/tsumo legality
-  including yaku checks, complete payment/scoring semantics beyond the current basic point-ledger,
+  as agent strength or learned-policy readiness.
+- `train-ppo-sandbox` is enough for the Phase 3 PPO smoke item, but it trains on collected
+  trajectories and does not yet control gameplay with the learned policy.
+- The sandbox environment boundary is intentionally incomplete. Do not build population training or
+  strength claims on it until it has full call/kan timing, full ron/tsumo legality including yaku
+  checks, complete payment/scoring semantics beyond the current basic point-ledger,
   dealer-aware payment, visible/kan/ura/red/Kita dora, kazoe-yakuman limit,
   yakuman bonus-han suppression, tsumo tile-view de-duplication, ippatsu scoring, full
   yaku-aware open/kan hand legality, complete post-riichi kan timing,
@@ -608,6 +616,11 @@ PYTHONPATH=src python3 -m kenjaku self-play-sandbox \
 PYTHONPATH=src python3 -m kenjaku self-play-match-sandbox \
   --games 1 --max-rounds 12 --max-turns-per-round 512 \
   --ron-policy pass --report runs/fixture-self-play-match.json
+PYTHONPATH=src python3 -m kenjaku train-ppo-sandbox \
+  --total-steps 1024 --rollout-games 1 --max-rounds 12 \
+  --max-turns-per-round 512 --ppo-epochs 1 --batch-size 128 \
+  --checkpoint runs/fixture-ppo-sandbox-checkpoint.json \
+  --report runs/fixture-ppo-sandbox.json
 PYTHONPATH=src python3 -m kenjaku benchmark-call data/fixtures/tenhou \
   --eval-fraction 0.25 --split-seed fixed --skip-errors \
   --include-weighted \
@@ -925,14 +938,15 @@ Mortal local baseline reconnaissance:
    live-service fetching out of scope until explicit platform permission exists. Use
    `replay-share-plan` as the local permission/scope check and `replay-public-summary` as the
    sanitized report before demo or redistribution work.
-8. Use `self-play-match-sandbox` for deterministic multi-round self-play plumbing checks only. The
+8. Use `self-play-match-sandbox` for deterministic multi-round self-play plumbing checks and
+   `train-ppo-sandbox` for fixture-scale PPO plumbing checks only. The
    next real Phase 3 step is extending the current environment boundary with full call/kan timing,
    yaku/terminal outcome semantics, complete payment/scoring semantics beyond the basic
    live-wall exhaustive-draw tenpai/noten point-delta, dealer-aware win payment,
    visible/kan/ura/red/Kita dora score-estimate, kazoe-yakuman limit, yakuman bonus-han
    suppression, ippatsu scoring beyond narrow ron metadata, full yaku-aware open/kan hand
-   legality, complete post-riichi kan timing, real multi-ron payment handling, and exact scoring
-   before PPO work.
+   legality, complete post-riichi kan timing, real multi-ron payment handling, exact scoring, and
+   learned-policy environment integration before population training or strength claims.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita

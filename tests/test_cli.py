@@ -55,6 +55,12 @@ class CliTests(unittest.TestCase):
         self.assertIn("self_play_match_sandbox: yes", output)
         self.assertIn("self_play_match_trajectory_artifacts: yes", output)
         self.assertIn("self_play_match_final_placement: yes", output)
+        self.assertIn("ppo_sandbox_training_command: yes", output)
+        self.assertIn("ppo_sandbox_policy_value_losses: yes", output)
+        self.assertIn("ppo_sandbox_gae_clipping_entropy: yes", output)
+        self.assertIn("ppo_sandbox_checkpoint_resume: yes", output)
+        self.assertIn("ppo_sandbox_training_curves: yes", output)
+        self.assertIn("ppo_sandbox_evaluation_summaries: yes", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
         self.assertIn("sandbox_pending_discard_reactions: yes", output)
@@ -166,6 +172,12 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_match_final_placement"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_command"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_policy_value_losses"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_gae_clipping_entropy"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_checkpoint_resume"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_curves"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_evaluation_summaries"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"]
         )
@@ -883,6 +895,89 @@ class CliTests(unittest.TestCase):
             json_payload["game_summaries"][0]["final_result"]["return_points"],
             40000,
         )
+
+    def test_train_ppo_sandbox_command_writes_report_checkpoint_and_json(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "ppo.json"
+            checkpoint = Path(directory) / "ppo-checkpoint.json"
+
+            text_stdout = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "train-ppo-sandbox",
+                        "--total-steps",
+                        "16",
+                        "--rollout-games",
+                        "1",
+                        "--max-rounds",
+                        "1",
+                        "--max-turns-per-round",
+                        "16",
+                        "--ppo-epochs",
+                        "1",
+                        "--batch-size",
+                        "8",
+                        "--hidden-dim",
+                        "16",
+                        "--device",
+                        "cpu",
+                        "--model-seed",
+                        "123",
+                        "--report",
+                        str(report),
+                        "--checkpoint",
+                        str(checkpoint),
+                    ]
+                )
+            report_payload = json.loads(report.read_text(encoding="utf-8"))
+
+            json_stdout = io.StringIO()
+            with contextlib.redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "train-ppo-sandbox",
+                        "--total-steps",
+                        "8",
+                        "--rollout-games",
+                        "1",
+                        "--max-rounds",
+                        "1",
+                        "--max-turns-per-round",
+                        "8",
+                        "--ppo-epochs",
+                        "1",
+                        "--batch-size",
+                        "4",
+                        "--hidden-dim",
+                        "16",
+                        "--device",
+                        "cpu",
+                        "--json",
+                    ]
+                )
+            json_payload = json.loads(json_stdout.getvalue())
+            checkpoint_exists = checkpoint.exists()
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertTrue(checkpoint_exists)
+        self.assertIn("environment_steps:", text_stdout.getvalue())
+        self.assertIn("ppo_policy_loss: yes", text_stdout.getvalue())
+        self.assertIn("checkpoint_path:", text_stdout.getvalue())
+        self.assertIn("report_path:", text_stdout.getvalue())
+        self.assertEqual(report_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
+        self.assertGreaterEqual(report_payload["training"]["environment_steps"], 16)
+        self.assertTrue(report_payload["capabilities"]["ppo_policy_loss"])
+        self.assertTrue(report_payload["capabilities"]["ppo_value_loss"])
+        self.assertTrue(report_payload["capabilities"]["gae_advantages"])
+        self.assertTrue(report_payload["capabilities"]["clipped_objective"])
+        self.assertTrue(report_payload["capabilities"]["entropy_regularization"])
+        self.assertTrue(report_payload["capabilities"]["checkpointing"])
+        self.assertTrue(report_payload["capabilities"]["resume_support"])
+        self.assertFalse(report_payload["capabilities"]["learned_policy_environment_integration"])
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
+        self.assertGreaterEqual(json_payload["training"]["environment_steps"], 8)
 
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()

@@ -132,6 +132,12 @@ def build_status_payload() -> dict[str, Any]:
                 "transformer_state_encoder_module": True,
                 "transformer_behavior_cloning_training_command": True,
                 "transformer_anchor_benchmark_command": True,
+                "ppo_sandbox_training_command": True,
+                "ppo_sandbox_policy_value_losses": True,
+                "ppo_sandbox_gae_clipping_entropy": True,
+                "ppo_sandbox_checkpoint_resume": True,
+                "ppo_sandbox_training_curves": True,
+                "ppo_sandbox_evaluation_summaries": True,
             },
             "not_implemented": {
                 "bundled_trained_model": False,

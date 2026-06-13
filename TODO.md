@@ -244,10 +244,10 @@ produce aggregate metrics without illegal state transitions.
 
 ### TODO-302 Implement PPO
 
-- [ ] Add policy/value losses, GAE, clipping, entropy regularization, batching,
+- [x] Add policy/value losses, GAE, clipping, entropy regularization, batching,
   checkpointing, and resume support.
-- [ ] Run a fixture-scale PPO smoke test for at least 1,000 environment steps.
-- [ ] Save training curves and evaluation summaries.
+- [x] Run a fixture-scale PPO smoke test for at least 1,000 environment steps.
+- [x] Save training curves and evaluation summaries.
 
 Done when: PPO can train from random or supervised-initialized weights and pass a
 deterministic smoke test in CI-sized runtime.

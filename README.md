@@ -71,9 +71,12 @@ notes.
   terminal-outcome plumbing. A separate `self-play-match-sandbox` command can run deterministic
   multi-round 3-player or 4-player sandbox matches to final placement with pluggable discard, call,
   riichi, kan, Kita, ron/tsumo, and pass policies plus optional state/action/reward trajectories.
+  `train-ppo-sandbox` runs a dependency-free fixture-scale PPO smoke trainer over those trajectories
+  with policy/value losses, GAE, clipping, entropy regularization, mini-batching, checkpoint/resume,
+  training curves, and evaluation summaries.
   It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
   implementation, complete post-riichi kan timing model, scoring engine, automated full-match
-  self-play trainer, or RL implementation.
+  learned-policy self-play trainer, or strength-grade RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.
@@ -136,6 +139,11 @@ PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
 PYTHONPATH=src python3.13 -m kenjaku self-play-match-sandbox \
   --games 1 --max-rounds 12 --max-turns-per-round 512 \
   --ron-policy pass --report runs/fixture-self-play-match.json
+PYTHONPATH=src python3.13 -m kenjaku train-ppo-sandbox \
+  --total-steps 1024 --rollout-games 1 --max-rounds 12 \
+  --max-turns-per-round 512 --ppo-epochs 1 --batch-size 128 \
+  --checkpoint runs/fixture-ppo-sandbox-checkpoint.json \
+  --report runs/fixture-ppo-sandbox.json
 
 PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \
   data/fixtures/tenhou --report runs/fixture-defense-risk-summary.json

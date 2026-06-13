@@ -201,6 +201,12 @@ class StatusTests(unittest.TestCase):
             ]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["transformer_anchor_benchmark_command"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_command"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_policy_value_losses"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_gae_clipping_entropy"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_checkpoint_resume"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_curves"])
+        self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_evaluation_summaries"])
         self.assertFalse(payload["capabilities"]["not_implemented"]["bundled_trained_model"])
         self.assertFalse(
             payload["capabilities"]["not_implemented"][
@@ -300,6 +306,12 @@ class StatusTests(unittest.TestCase):
         self.assertIn("transformer_state_encoder_module: yes", text)
         self.assertIn("transformer_behavior_cloning_training_command: yes", text)
         self.assertIn("transformer_anchor_benchmark_command: yes", text)
+        self.assertIn("ppo_sandbox_training_command: yes", text)
+        self.assertIn("ppo_sandbox_policy_value_losses: yes", text)
+        self.assertIn("ppo_sandbox_gae_clipping_entropy: yes", text)
+        self.assertIn("ppo_sandbox_checkpoint_resume: yes", text)
+        self.assertIn("ppo_sandbox_training_curves: yes", text)
+        self.assertIn("ppo_sandbox_evaluation_summaries: yes", text)
         self.assertIn("bundled_trained_model: no", text)
         self.assertIn("bundled_trained_deal_in_probability_estimator: no", text)
         self.assertIn("transformer_policy: no", text)

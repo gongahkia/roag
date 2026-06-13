@@ -476,6 +476,164 @@ def build_parser() -> argparse.ArgumentParser:
     )
     self_play_match.set_defaults(func=_self_play_match_sandbox)
 
+    train_ppo = subparsers.add_parser(
+        "train-ppo-sandbox",
+        help="run a fixture-scale PPO smoke trainer on sandbox self-play trajectories",
+    )
+    train_ppo.add_argument(
+        "--total-steps",
+        type=int,
+        default=1024,
+        help="minimum additional environment decisions to train on",
+    )
+    train_ppo.add_argument(
+        "--rollout-games",
+        type=int,
+        default=1,
+        help="sandbox matches collected for each PPO update",
+    )
+    train_ppo.add_argument(
+        "--max-rounds",
+        type=int,
+        default=12,
+        help="maximum hands per collected sandbox match",
+    )
+    train_ppo.add_argument(
+        "--max-turns-per-round",
+        type=int,
+        default=512,
+        help="maximum action decisions per collected hand",
+    )
+    train_ppo.add_argument(
+        "--seed",
+        default="kenjaku-ppo-sandbox-v0",
+        help="stable seed for deterministic PPO rollouts",
+    )
+    train_ppo.add_argument(
+        "--ruleset",
+        choices=SELF_PLAY_SANDBOX_RULESETS,
+        default="tenhou-4p",
+        help="sandbox static tile set and player count",
+    )
+    train_ppo.add_argument(
+        "--rollout-discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+        help="discard policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument(
+        "--rollout-call-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="call policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument(
+        "--rollout-riichi-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="riichi policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument(
+        "--rollout-kan-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="kan policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument(
+        "--rollout-kita-policy",
+        choices=SELF_PLAY_MATCH_ACTION_POLICIES,
+        default="pass",
+        help="Kita policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument(
+        "--rollout-ron-policy",
+        choices=SELF_PLAY_MATCH_RON_POLICIES,
+        default="pass",
+        help="ron/tsumo policy used to collect PPO trajectories",
+    )
+    train_ppo.add_argument("--ppo-epochs", type=int, default=2, help="PPO epochs per rollout")
+    train_ppo.add_argument("--batch-size", type=int, default=64, help="PPO mini-batch size")
+    train_ppo.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.001,
+        help="manual SGD learning rate",
+    )
+    train_ppo.add_argument("--hidden-dim", type=int, default=0, help="reserved model width")
+    train_ppo.add_argument("--gamma", type=float, default=0.99, help="discount factor")
+    train_ppo.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda")
+    train_ppo.add_argument(
+        "--clip-epsilon",
+        type=float,
+        default=0.2,
+        help="PPO probability-ratio clipping epsilon",
+    )
+    train_ppo.add_argument(
+        "--entropy-coef",
+        type=float,
+        default=0.01,
+        help="entropy regularization coefficient",
+    )
+    train_ppo.add_argument(
+        "--value-coef",
+        type=float,
+        default=0.5,
+        help="value loss coefficient",
+    )
+    train_ppo.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=0.5,
+        help="gradient clipping norm",
+    )
+    train_ppo.add_argument(
+        "--reward-scale",
+        type=float,
+        default=100.0,
+        help="divide final-score rewards by this value",
+    )
+    train_ppo.add_argument(
+        "--supervised-warmup-epochs",
+        type=int,
+        default=0,
+        help="optional behavior-cloning warmup epochs on collected rollout actions",
+    )
+    train_ppo.add_argument(
+        "--model-seed",
+        "--torch-seed",
+        dest="torch_seed",
+        type=int,
+        default=0,
+        help="model initialization and mini-batch random seed",
+    )
+    train_ppo.add_argument(
+        "--device",
+        choices=("auto", "cpu"),
+        default="auto",
+        help="dependency-free PPO runs on CPU",
+    )
+    train_ppo.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="optional path for the PPO checkpoint artifact",
+    )
+    train_ppo.add_argument(
+        "--resume",
+        type=Path,
+        help="optional PPO checkpoint path to resume from",
+    )
+    train_ppo.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON PPO report artifact",
+    )
+    train_ppo.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the PPO report as JSON instead of text",
+    )
+    train_ppo.set_defaults(func=_train_ppo_sandbox)
+
     inspect_tenhou = subparsers.add_parser(
         "inspect-tenhou",
         help="parse a Tenhou XML file and print Phase 0 dataset counts",
@@ -1667,6 +1825,64 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(format_self_play_match_report(report))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
+    return 0
+
+
+def _train_ppo_sandbox(args: argparse.Namespace) -> int:
+    try:
+        from kenjaku.training.ppo import (
+            format_ppo_sandbox_report,
+            save_ppo_sandbox_checkpoint,
+            train_ppo_sandbox,
+        )
+    except ImportError as error:
+        raise SystemExit("PPO sandbox trainer dependencies are unavailable") from error
+
+    try:
+        result = train_ppo_sandbox(
+            total_steps=args.total_steps,
+            rollout_games=args.rollout_games,
+            max_rounds=args.max_rounds,
+            max_turns_per_round=args.max_turns_per_round,
+            seed=args.seed,
+            ruleset=args.ruleset,
+            rollout_discard_policy=args.rollout_discard_policy,
+            rollout_call_policy=args.rollout_call_policy,
+            rollout_riichi_policy=args.rollout_riichi_policy,
+            rollout_kan_policy=args.rollout_kan_policy,
+            rollout_kita_policy=args.rollout_kita_policy,
+            rollout_ron_policy=args.rollout_ron_policy,
+            ppo_epochs=args.ppo_epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            hidden_dim=args.hidden_dim,
+            gamma=args.gamma,
+            gae_lambda=args.gae_lambda,
+            clip_epsilon=args.clip_epsilon,
+            entropy_coef=args.entropy_coef,
+            value_coef=args.value_coef,
+            max_grad_norm=args.max_grad_norm,
+            reward_scale=args.reward_scale,
+            supervised_warmup_epochs=args.supervised_warmup_epochs,
+            device=args.device,
+            torch_seed=args.torch_seed,
+            resume_checkpoint=args.resume,
+        )
+    except (RuntimeError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+
+    if args.checkpoint is not None:
+        save_ppo_sandbox_checkpoint(result, args.checkpoint)
+        print(f"checkpoint_path: {args.checkpoint}")
+    if args.report is not None:
+        write_json_report(args.report, result.report)
+
+    if args.json:
+        print(json.dumps(result.report, indent=2, sort_keys=True))
+    else:
+        print(format_ppo_sandbox_report(result.report))
     if args.report is not None:
         print(f"report_path: {args.report}")
     return 0
