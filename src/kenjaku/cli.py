@@ -46,6 +46,7 @@ from kenjaku.io import (
     format_replay_public_summary,
     format_replay_share_plan,
     parse_tenhou_xml_dataset,
+    parse_tenhou_xml_file,
     review_replay_manifest_file,
     tenhou_xml_files,
     write_accepted_replay_intake_jsonl,
@@ -206,6 +207,18 @@ class _CachedCallExamples:
     parse_failures: tuple[TenhouParseFailure, ...]
     game_counts: dict[str, int]
     discard_examples: int
+
+
+@dataclass(frozen=True, slots=True)
+class _StreamedExamples:
+    examples: list[Any]
+    source_files: tuple[Path, ...]
+    parsed_files: tuple[Path, ...]
+    parse_failures: tuple[TenhouParseFailure, ...]
+    game_counts: dict[str, int]
+    source_complete: bool
+    discard_examples: int | None = None
+    call_examples: int | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1322,6 +1335,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="maximum discard examples to use after deterministic reconstruction",
     )
     benchmark_discard.add_argument(
+        "--stream-examples",
+        action="store_true",
+        help=(
+            "collect examples file-by-file and stop at --example-limit instead of "
+            "retaining the full parsed dataset"
+        ),
+    )
+    benchmark_discard.add_argument(
         "--report",
         type=Path,
         help="optional path for a JSON benchmark report artifact",
@@ -1684,6 +1705,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="maximum call examples to keep after deterministic reconstruction order",
     )
     benchmark_call.add_argument(
+        "--stream-examples",
+        action="store_true",
+        help=(
+            "collect examples file-by-file and stop at --example-limit instead of "
+            "retaining the full parsed dataset"
+        ),
+    )
+    benchmark_call.add_argument(
         "--example-limit-strategy",
         choices=CALL_EXAMPLE_LIMIT_STRATEGIES,
         default="prefix",
@@ -1753,6 +1782,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--example-limit",
         type=int,
         help="maximum riichi/pass examples to use after deterministic reconstruction",
+    )
+    benchmark_riichi.add_argument(
+        "--stream-examples",
+        action="store_true",
+        help=(
+            "collect examples file-by-file and stop at --example-limit instead of "
+            "retaining the full parsed dataset"
+        ),
     )
     benchmark_riichi.add_argument(
         "--epochs",
@@ -3209,6 +3246,8 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         raise SystemExit("--max-disagreements must be non-negative")
     if args.example_limit is not None and args.example_limit < 0:
         raise SystemExit("--example-limit must be non-negative")
+    if args.stream_examples and args.example_limit is None:
+        raise SystemExit("--stream-examples requires --example-limit")
     selected_model_names = _parse_discard_benchmark_models(args.models)
     if args.disagreements is not None:
         missing = [
@@ -3220,12 +3259,34 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             raise SystemExit(
                 "--disagreements requires selected models: " + ", ".join(missing)
             )
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
-    game = dataset.game
-    examples, total_examples = _collect_limited_examples(
-        iter_discard_examples(game),
-        args.example_limit,
-    )
+    streamed_examples: _StreamedExamples | None = None
+    game: TenhouGame | None
+    if args.stream_examples:
+        streamed_examples = _collect_streamed_examples(
+            args.paths,
+            example_iter=iter_discard_examples,
+            limit=args.example_limit,
+            skip_errors=args.skip_errors,
+            count_call=True,
+        )
+        game = None
+        dataset_files = streamed_examples.source_files
+        parse_failures = streamed_examples.parse_failures
+        game_counts = streamed_examples.game_counts
+        examples = streamed_examples.examples
+        total_examples = len(examples)
+        call_examples = int(streamed_examples.call_examples or 0)
+    else:
+        dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+        game = dataset.game
+        dataset_files = dataset.files
+        parse_failures = dataset.failures
+        game_counts = None
+        examples, total_examples = _collect_limited_examples(
+            iter_discard_examples(game),
+            args.example_limit,
+        )
+        call_examples = sum(1 for _ in iter_call_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
 
@@ -3272,26 +3333,29 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
     _print_discard_benchmark_metrics(model_payloads)
-    if dataset.failures:
-        print(f"parse_failures: {len(dataset.failures)}")
+    if parse_failures:
+        print(f"parse_failures: {len(parse_failures)}")
     if args.report is not None:
         report = build_discard_benchmark_report_from_models(
             input_paths=args.paths,
-            xml_files=dataset.files,
+            xml_files=dataset_files,
             game=game,
             discard_examples=len(examples),
-            call_examples=sum(1 for _ in iter_call_examples(game)),
+            call_examples=call_examples,
             split_seed=args.split_seed,
             eval_fraction=args.eval_fraction,
             train_examples=len(train_examples),
             eval_examples=len(eval_examples),
             models=model_payloads,
             discard_shanten=summarize_discard_shanten(examples),
-            parse_failures=dataset.failures,
+            parse_failures=parse_failures,
             source=_source_metadata(args),
+            game_counts=game_counts,
         )
         report["discard_examples_total"] = total_examples
         report["example_limit"] = args.example_limit
+        if streamed_examples is not None:
+            _apply_streaming_report_metadata(report, streamed_examples)
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     if args.disagreements is not None:
@@ -4332,6 +4396,10 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
 def _benchmark_call(args: argparse.Namespace) -> int:
     if args.example_limit is not None and args.example_limit < 0:
         raise SystemExit("--example-limit must be non-negative")
+    if args.stream_examples and args.example_limit is None:
+        raise SystemExit("--stream-examples requires --example-limit")
+    if args.stream_examples and args.example_cache is not None:
+        raise SystemExit("--stream-examples cannot be combined with --example-cache")
     if args.epochs < 0:
         raise SystemExit("--epochs must be non-negative")
     call_threshold = _validated_probability(args.call_threshold, "--call-threshold")
@@ -4366,12 +4434,31 @@ def _benchmark_call(args: argparse.Namespace) -> int:
     )
     game: TenhouGame | None = None
     discard_examples_total: int | None = None
+    streamed_examples: _StreamedExamples | None = None
     if cached_examples is not None:
         all_examples = cached_examples.examples
         parse_failures = cached_examples.parse_failures
         game_counts = cached_examples.game_counts
         discard_examples_total = cached_examples.discard_examples
         example_cache_report["hit"] = True
+        example_cache_report["examples"] = len(all_examples)
+    elif args.stream_examples:
+        streamed_examples = _timed_stage(
+            timings,
+            "stream_examples",
+            lambda: _collect_streamed_examples(
+                args.paths,
+                example_iter=iter_call_examples,
+                limit=args.example_limit,
+                skip_errors=args.skip_errors,
+                count_discard=True,
+            ),
+        )
+        dataset_files = streamed_examples.source_files
+        parse_failures = streamed_examples.parse_failures
+        game_counts = streamed_examples.game_counts
+        all_examples = streamed_examples.examples
+        discard_examples_total = int(streamed_examples.discard_examples or 0)
         example_cache_report["examples"] = len(all_examples)
     else:
         dataset = _timed_stage(
@@ -4613,6 +4700,8 @@ def _benchmark_call(args: argparse.Namespace) -> int:
             feature_cache=feature_cache_report if args.feature_cache is not None else None,
             example_cache=example_cache_report if args.example_cache is not None else None,
         )
+        if streamed_examples is not None:
+            _apply_streaming_report_metadata(report, streamed_examples)
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
@@ -4773,6 +4862,117 @@ def _collect_limited_examples(
             selected.append(example)
         total += 1
     return selected, total
+
+
+def _collect_streamed_examples(
+    paths: Sequence[Path],
+    *,
+    example_iter: Callable[[TenhouGame], Iterable[T]],
+    limit: int,
+    skip_errors: bool,
+    count_discard: bool = False,
+    count_call: bool = False,
+) -> _StreamedExamples:
+    source_files = tenhou_xml_files(paths)
+    if limit < 1:
+        raise SystemExit("--example-limit must be at least 1 with --stream-examples")
+    selected: list[Any] = []
+    parsed_files: list[Path] = []
+    parse_failures: list[TenhouParseFailure] = []
+    game_counts = _empty_game_counts()
+    discard_examples = 0 if count_discard else None
+    call_examples = 0 if count_call else None
+
+    for file_index, file in enumerate(source_files):
+        try:
+            game = parse_tenhou_xml_file(file)
+        except Exception as error:
+            if not skip_errors:
+                raise
+            parse_failures.append(
+                TenhouParseFailure(
+                    path=file,
+                    error_type=type(error).__name__,
+                    message=str(error),
+                )
+            )
+            continue
+
+        parsed_files.append(file)
+        _add_game_counts(game_counts, _call_example_cache_game_counts(game))
+        if count_discard:
+            discard_examples = int(discard_examples or 0) + sum(
+                1
+                for _ in iter_discard_examples(game)
+            )
+        if count_call:
+            call_examples = int(call_examples or 0) + sum(
+                1
+                for _ in iter_call_examples(game)
+            )
+
+        for example in example_iter(game):
+            if len(selected) >= limit:
+                return _StreamedExamples(
+                    examples=selected,
+                    source_files=source_files,
+                    parsed_files=tuple(parsed_files),
+                    parse_failures=tuple(parse_failures),
+                    game_counts=game_counts,
+                    source_complete=False,
+                    discard_examples=discard_examples,
+                    call_examples=call_examples,
+                )
+            selected.append(example)
+        if len(selected) >= limit and file_index < len(source_files) - 1:
+            return _StreamedExamples(
+                examples=selected,
+                source_files=source_files,
+                parsed_files=tuple(parsed_files),
+                parse_failures=tuple(parse_failures),
+                game_counts=game_counts,
+                source_complete=False,
+                discard_examples=discard_examples,
+                call_examples=call_examples,
+            )
+
+    return _StreamedExamples(
+        examples=selected,
+        source_files=source_files,
+        parsed_files=tuple(parsed_files),
+        parse_failures=tuple(parse_failures),
+        game_counts=game_counts,
+        source_complete=True,
+        discard_examples=discard_examples,
+        call_examples=call_examples,
+    )
+
+
+def _empty_game_counts() -> dict[str, int]:
+    return {
+        "rounds": 0,
+        "draws": 0,
+        "discards": 0,
+        "reaches": 0,
+        "calls": 0,
+        "wins": 0,
+        "exhaustive_draws": 0,
+    }
+
+
+def _add_game_counts(target: dict[str, int], counts: dict[str, int]) -> None:
+    for key, value in counts.items():
+        target[key] = target.get(key, 0) + int(value)
+
+
+def _apply_streaming_report_metadata(
+    report: dict[str, Any],
+    streamed: _StreamedExamples,
+) -> None:
+    report["streaming_example_limit"] = True
+    report["source_complete"] = streamed.source_complete
+    report["source_xml_file_count"] = len(streamed.source_files)
+    report["parsed_xml_file_count"] = len(streamed.parsed_files)
 
 
 def _read_call_example_cache(path: Path | None) -> dict[str, Any] | None:
@@ -5558,17 +5758,44 @@ def _mean_defined(values: Iterable[float | None]) -> float | None:
 def _benchmark_riichi(args: argparse.Namespace) -> int:
     if args.example_limit is not None and args.example_limit < 0:
         raise SystemExit("--example-limit must be non-negative")
+    if args.stream_examples and args.example_limit is None:
+        raise SystemExit("--stream-examples requires --example-limit")
     riichi_threshold = _validated_probability(args.riichi_threshold, "--riichi-threshold")
     riichi_positive_weight = _validated_positive_float(
         args.riichi_positive_weight,
         "--riichi-positive-weight",
     )
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
-    game = dataset.game
-    examples, total_examples = _collect_limited_examples(
-        iter_riichi_examples(game),
-        args.example_limit,
-    )
+    streamed_examples: _StreamedExamples | None = None
+    game: TenhouGame | None
+    if args.stream_examples:
+        streamed_examples = _collect_streamed_examples(
+            args.paths,
+            example_iter=iter_riichi_examples,
+            limit=args.example_limit,
+            skip_errors=args.skip_errors,
+            count_discard=True,
+            count_call=True,
+        )
+        game = None
+        dataset_files = streamed_examples.source_files
+        parse_failures = streamed_examples.parse_failures
+        game_counts = streamed_examples.game_counts
+        examples = streamed_examples.examples
+        total_examples = len(examples)
+        discard_examples = int(streamed_examples.discard_examples or 0)
+        call_examples = int(streamed_examples.call_examples or 0)
+    else:
+        dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+        game = dataset.game
+        dataset_files = dataset.files
+        parse_failures = dataset.failures
+        game_counts = None
+        examples, total_examples = _collect_limited_examples(
+            iter_riichi_examples(game),
+            args.example_limit,
+        )
+        discard_examples = sum(1 for _ in iter_discard_examples(game))
+        call_examples = sum(1 for _ in iter_call_examples(game))
     if not examples:
         raise SystemExit("no riichi examples found")
 
@@ -5641,26 +5868,29 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
     print(f"train_examples: {len(train_examples)}")
     print(f"eval_examples: {len(eval_examples)}")
     _print_riichi_benchmark_metrics(model_payloads)
-    if dataset.failures:
-        print(f"parse_failures: {len(dataset.failures)}")
+    if parse_failures:
+        print(f"parse_failures: {len(parse_failures)}")
     if args.report is not None:
         report = build_riichi_benchmark_report(
             input_paths=args.paths,
-            xml_files=dataset.files,
+            xml_files=dataset_files,
             game=game,
-            discard_examples=sum(1 for _ in iter_discard_examples(game)),
-            call_examples=sum(1 for _ in iter_call_examples(game)),
+            discard_examples=discard_examples,
+            call_examples=call_examples,
             riichi_examples=len(examples),
             split_seed=args.split_seed,
             eval_fraction=args.eval_fraction,
             train_examples=len(train_examples),
             eval_examples=len(eval_examples),
             models=model_payloads,
-            parse_failures=dataset.failures,
+            parse_failures=parse_failures,
             source=_source_metadata(args),
+            game_counts=game_counts,
         )
         report["riichi_examples_total"] = total_examples
         report["example_limit"] = args.example_limit
+        if streamed_examples is not None:
+            _apply_streaming_report_metadata(report, streamed_examples)
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0

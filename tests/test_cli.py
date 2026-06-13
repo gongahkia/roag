@@ -3124,6 +3124,70 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["split"]["train_examples"], 1)
         self.assertEqual(payload["split"]["eval_examples"], 1)
 
+    def test_streamed_benchmarks_stop_at_example_limit_and_record_prefix(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            discard_report = root / "discard.json"
+            call_report = root / "call.json"
+            riichi_report = root / "riichi.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                discard_exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--models",
+                        "frequency",
+                        "--stream-examples",
+                        "--example-limit",
+                        "2",
+                        "--report",
+                        str(discard_report),
+                    ]
+                )
+                call_exit_code = main(
+                    [
+                        "benchmark-call",
+                        "data/fixtures/tenhou",
+                        "--models",
+                        "call_frequency",
+                        "--stream-examples",
+                        "--example-limit",
+                        "1",
+                        "--report",
+                        str(call_report),
+                    ]
+                )
+                riichi_exit_code = main(
+                    [
+                        "benchmark-riichi",
+                        "data/fixtures/tenhou",
+                        "--stream-examples",
+                        "--example-limit",
+                        "1",
+                        "--report",
+                        str(riichi_report),
+                    ]
+                )
+            discard_payload = json.loads(discard_report.read_text(encoding="utf-8"))
+            call_payload = json.loads(call_report.read_text(encoding="utf-8"))
+            riichi_payload = json.loads(riichi_report.read_text(encoding="utf-8"))
+
+        self.assertEqual(discard_exit_code, 0)
+        self.assertEqual(call_exit_code, 0)
+        self.assertEqual(riichi_exit_code, 0)
+        for payload in (discard_payload, call_payload, riichi_payload):
+            self.assertTrue(payload["streaming_example_limit"])
+            self.assertEqual(payload["source_xml_file_count"], 3)
+            self.assertGreaterEqual(payload["parsed_xml_file_count"], 1)
+            self.assertLessEqual(
+                payload["parsed_xml_file_count"],
+                payload["source_xml_file_count"],
+            )
+        self.assertEqual(discard_payload["discard_examples"], 2)
+        self.assertEqual(call_payload["call_examples"], 1)
+        self.assertEqual(riichi_payload["riichi_examples"], 1)
+
     def test_benchmark_discard_explicit_models(self) -> None:
         stdout = io.StringIO()
 
