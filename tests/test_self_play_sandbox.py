@@ -65,6 +65,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["dead_wall_replacement_draws"])
         self.assertTrue(first["capabilities"]["kan_dora_indicator_metadata"])
         self.assertTrue(first["capabilities"]["rinshan_draw_metadata"])
+        self.assertTrue(first["capabilities"]["endgame_yaku_timing_fixtures"])
         self.assertFalse(first["capabilities"]["sanma_initial_points"])
         self.assertFalse(first["capabilities"]["sanma_no_chi"])
         self.assertFalse(first["capabilities"]["sanma_north_guest_wind"])

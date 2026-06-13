@@ -188,10 +188,10 @@ and scoring tests.
 
 ### TODO-206 Complete Rinshan, Chankan, Haitei, And Houtei
 
-- [ ] Validate rinshan yaku/scoring on all kan replacement paths.
-- [ ] Validate chankan for kakan and kokushi-only ankan, including ippatsu and
+- [x] Validate rinshan yaku/scoring on all kan replacement paths.
+- [x] Validate chankan for kakan and kokushi-only ankan, including ippatsu and
   dora timing.
-- [ ] Validate haitei/houtei after calls, dead-wall draws, replacement draws, and
+- [x] Validate haitei/houtei after calls, dead-wall draws, replacement draws, and
   final live-wall draw/discard.
 
 Done when: each endgame yaku has timing fixtures that cover both positive and

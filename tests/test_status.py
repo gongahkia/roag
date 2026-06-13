@@ -88,6 +88,9 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_rinshan_draw_metadata"]
         )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_endgame_yaku_timing_fixtures"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_win_filter"])
@@ -217,6 +220,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_dead_wall_replacement_draws: yes", text)
         self.assertIn("sandbox_kan_dora_indicator_metadata: yes", text)
         self.assertIn("sandbox_rinshan_draw_metadata: yes", text)
+        self.assertIn("sandbox_endgame_yaku_timing_fixtures: yes", text)
         self.assertIn("sandbox_call_action_generation: yes", text)
         self.assertIn("sandbox_call_application: yes", text)
         self.assertIn("sandbox_basic_yaku_win_filter: yes", text)

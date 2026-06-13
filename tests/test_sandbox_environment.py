@@ -285,6 +285,44 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate.yaku_han, 1)
         self.assertEqual(estimate.han, 1)
 
+    def test_houtei_yaku_allows_open_winner_after_last_live_wall_discard(self) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("7p 7p 7p"),
+            called_tile=Tile.parse("7p"),
+            from_seat=2,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("6m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E S S"),
+                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E"),
+                (),
+                (),
+            ),
+            melds=((), (pon,), (), ()),
+            turn=17,
+        )
+        drawn = draw_for_current_seat(state)
+
+        pending, _discard = apply_discard_action(
+            drawn,
+            Action.discard("6m", tsumogiri=True),
+        )
+        ron = legal_ron_actions(pending, seat=1)[0]
+        terminal = apply_ron_action(pending, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertTrue(pending.last_draw_was_final_live_wall)
+        self.assertEqual(ron, Action(ActionKind.RON, TileType.parse("6m")))
+        self.assertEqual(terminal.terminal_reason, "ron")
+        self.assertEqual(terminal.winning_shapes, ("standard",))
+        self.assertEqual(terminal.winning_yaku, ("houtei",))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.han, 1)
+
     def test_houtei_requires_last_live_wall_draw_discard(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -573,6 +611,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         tsumo_actions = legal_tsumo_actions(after_kan)
         terminal = apply_tsumo_action(after_kan, tsumo_actions[0])
+        estimate = terminal.terminal_score_estimates[0]
 
         self.assertTrue(after_kan.rinshan_draw)
         self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
@@ -581,6 +620,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "rinshan", "yakuhai"))
         self.assertEqual(terminal.winning_rinshan_seats, (0,))
         self.assertEqual(terminal.to_payload()["winning_rinshan_seats"], [0])
+        self.assertEqual(estimate.yaku_han, 3)
+        self.assertEqual(estimate.visible_dora_count, 4)
+        self.assertEqual(estimate.han, 7)
 
     def test_riichi_declaration_is_legal_after_draw_when_discard_leaves_tenpai(self) -> None:
         state = SandboxEnvironmentState(
@@ -2461,6 +2503,49 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(meld.kind, ActionKind.MINKAN)
         self.assertIn(Action.discard("9s"), legal_discard_actions(called))
 
+    def test_rinshan_tsumo_after_minkan_scores_without_haitei_on_final_live_wall(
+        self,
+    ) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("7m 8m 5m"),
+            dora_indicators=(Tile.parse("7m"),),
+            hands=(
+                _tiles("1m 2m 3m 4m 5m 6m 7m 8m 9m 1p 2p 3p 4p"),
+                _tiles("3m 3m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("3m"))
+        minkan = next(
+            action
+            for action in legal_call_actions(reaction_state, seat=1)
+            if action.kind is ActionKind.MINKAN
+        )
+
+        after_kan, meld = apply_call_action(reaction_state, seat=1, action=minkan)
+        tsumo = legal_tsumo_actions(after_kan)[0]
+        terminal = apply_tsumo_action(after_kan, tsumo)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(meld.kind, ActionKind.MINKAN)
+        self.assertEqual(after_kan.wall, ())
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertFalse(after_kan.last_draw_was_final_live_wall)
+        self.assertEqual(after_kan.dora_indicators, _tiles("7m 8m"))
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_yaku, ("rinshan", "yakuhai"))
+        self.assertNotIn("haitei", terminal.winning_yaku)
+        self.assertNotIn("houtei", terminal.winning_yaku)
+        self.assertEqual(terminal.winning_rinshan_seats, (1,))
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.visible_dora_count, 0)
+        self.assertEqual(estimate.han, 2)
+
     def test_ankan_action_uses_simple_replacement_draw(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
@@ -2665,8 +2750,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ruleset="tenhou-4p",
             players=4,
             wall=(Tile.parse("1m"),),
-            dead_wall=_tiles("2m 3m 5s"),
-            dora_indicators=(Tile.parse("2m"),),
+            dead_wall=_tiles("2p 8m 5s"),
+            dora_indicators=(Tile.parse("2p"),),
             hands=(
                 _tiles("1m 1m 1m 1p 2p 3p 1s 2s 3s E E E 5m"),
                 _tiles("9m 1p 9p 1s 9s E E S W N P F C"),
@@ -2685,8 +2770,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(meld.kind, ActionKind.ANKAN)
         self.assertIsNone(pending.drawn_tile)
         self.assertFalse(pending.rinshan_draw)
-        self.assertEqual(pending.dead_wall, _tiles("2m 3m 5s"))
-        self.assertEqual(pending.dora_indicators, _tiles("2m"))
+        self.assertEqual(pending.dead_wall, _tiles("2p 8m 5s"))
+        self.assertEqual(pending.dora_indicators, _tiles("2p"))
         self.assertEqual(pending.pending_chankan_tile, Tile.parse("1m"))
         self.assertEqual(pending.pending_chankan_seat, 0)
         self.assertEqual(pending.pending_chankan_kind, ActionKind.ANKAN)
@@ -2696,6 +2781,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_chankan_ron_actions(pending, seat=1), (ron,))
 
         terminal = apply_ron_action(pending, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
 
         self.assertEqual(terminal.terminal_reason, "chankan")
         self.assertEqual(terminal.winner_seats, (1,))
@@ -2703,6 +2789,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_yaku, ("kokushi", "riichi", "ippatsu", "chankan"))
         self.assertEqual(terminal.winning_ippatsu_seats, (1,))
         self.assertEqual(terminal.ippatsu_seats, ())
+        self.assertEqual(terminal.dora_indicators, _tiles("2p"))
+        self.assertEqual(estimate.visible_dora_count, 0)
+        self.assertEqual(estimate.bonus_han, 0)
         self.assertIsNone(terminal.pending_chankan_kind)
 
     def test_ankan_chankan_rejects_non_kokushi_ron_shape(self) -> None:
@@ -2785,6 +2874,50 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_kan.melds[0], (meld,))
         self.assertIn(Action.discard("8s"), legal_discard_actions(after_kan))
 
+    def test_rinshan_tsumo_after_kakan_scores_without_haitei_on_replacement_draw(
+        self,
+    ) -> None:
+        pon = Meld(
+            ActionKind.PON,
+            _tiles("3m 3m 3m"),
+            called_tile=Tile.parse("3m"),
+            from_seat=3,
+        )
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("3m"),),
+            dead_wall=_tiles("7m 8m 5m"),
+            dora_indicators=(Tile.parse("7m"),),
+            hands=(
+                _tiles("1p 2p 3p 1s 2s 3s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+            melds=((pon,), (), (), ()),
+        )
+        drawn = draw_for_current_seat(state)
+
+        after_kan, meld = apply_kakan_action(drawn, legal_kakan_actions(drawn)[0])
+        tsumo = legal_tsumo_actions(after_kan)[0]
+        terminal = apply_tsumo_action(after_kan, tsumo)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(meld.kind, ActionKind.KAKAN)
+        self.assertEqual(after_kan.wall, ())
+        self.assertTrue(after_kan.rinshan_draw)
+        self.assertFalse(after_kan.last_draw_was_final_live_wall)
+        self.assertEqual(after_kan.dora_indicators, _tiles("7m 8m"))
+        self.assertEqual(terminal.terminal_reason, "tsumo")
+        self.assertEqual(terminal.winning_yaku, ("rinshan", "yakuhai"))
+        self.assertNotIn("haitei", terminal.winning_yaku)
+        self.assertNotIn("houtei", terminal.winning_yaku)
+        self.assertEqual(terminal.winning_rinshan_seats, (0,))
+        self.assertEqual(estimate.yaku_han, 2)
+        self.assertEqual(estimate.visible_dora_count, 0)
+        self.assertEqual(estimate.han, 2)
+
     def test_kakan_opens_chankan_reaction_window_before_replacement_draw(self) -> None:
         pon = Meld(
             ActionKind.PON,
@@ -2840,6 +2973,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_sandbox_actions(pending, seat=1), (ron, Action.pass_()))
 
         terminal = apply_ron_action(pending, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
 
         self.assertEqual(terminal.terminal_reason, "chankan")
         self.assertEqual(terminal.winner_seat, 1)
@@ -2849,6 +2983,10 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_yaku, ("riichi", "ippatsu", "chankan", "yakuhai"))
         self.assertEqual(terminal.winning_ippatsu_seats, (1,))
         self.assertEqual(terminal.ippatsu_seats, ())
+        self.assertEqual(terminal.dora_indicators, _tiles("1m"))
+        self.assertEqual(estimate.yaku_han, 4)
+        self.assertEqual(estimate.visible_dora_count, 0)
+        self.assertEqual(estimate.han, 4)
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
         self.assertIsNone(terminal.pending_chankan_tile)
         self.assertIsNone(terminal.pending_chankan_seat)

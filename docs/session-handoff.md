@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-12.
+Last updated: 2026-06-13.
 
 ## Stop State
 
@@ -58,6 +58,9 @@ Last updated: 2026-06-12.
   chiitoitsu, riichi, double riichi, ippatsu, menzen tsumo, rinshan, haitei, houtei, chankan,
   tanyao, toitoi, honroutou, or a broad honor-triplet yakuhai approximation, and terminal states
   expose `winning_yaku` plus `winning_yaku_by_seat`.
+  Added endgame yaku timing fixtures for rinshan after minkan/ankan/kakan, kakan and kokushi-only
+  ankan chankan with ippatsu and dora timing, open-hand houtei after a final live-wall discard, and
+  replacement-draw cases that must not score haitei/houtei.
   The current yakuhai filter is now narrowed to dragons, the sandbox state's round wind, and the
   winner's dealer-relative seat wind.
   Added terminal point-delta metadata: win terminals expose `terminal_point_deltas` from the current
@@ -66,9 +69,8 @@ Last updated: 2026-06-12.
   Added report-level self-play reward projections for terminal, point-delta, normalized point-delta,
   and placement-delta modes, plus per-mode aggregate summaries and win/deal-in/draw outcome
   counters.
-  Together these are still not a call/ron policy, complete yaku-aware open-hand legality, complete
-  rinshan yaku/scoring semantics, full wall/dead-wall timing validation, full riichi/kan timing
-  legality, real scoring, or PPO-ready self-play. Added
+  Together these are still not a call/ron policy, complete yaku-aware open-hand legality, full
+  riichi/kan timing legality, real scoring, or PPO-ready self-play. Added
   individual reaction passes and ron-priority call gating so calls are blocked while any pending
   reaction seat has legal ron.
   Added basic multi-ron terminal resolution with per-winner metadata and simple sandbox rewards.
@@ -105,9 +107,7 @@ Last updated: 2026-06-12.
   progression for dealer repeat and honba. This is still not hand scoring, full
   round-continuation semantics, real
   multi-ron payment validation, complete payment accounting, complete yaku validation, full
-  open-hand yaku rules, complete rinshan yaku/scoring semantics, full wall/dead-wall timing
-  validation, complete robbing-kan/chankan semantics, complete post-riichi kan timing, or
-  ippatsu scoring.
+  open-hand yaku rules, complete post-riichi kan timing, or exact fu/payment scoring.
   Added a narrow Sanma Kita/pei-nuki sandbox action that records exposed North tiles separately
   from melds, takes a dead-wall replacement draw without revealing kan-dora, allows post-riichi
   Kita only on a drawn North, and counts exposed Kita as bonus han in sandbox score estimates.
@@ -299,10 +299,9 @@ Last updated: 2026-06-12.
   Kita/pei-nuki action plus Kita ron/pass reaction windows; episode summaries include `kita_tiles`
   and `kita_counts`. `--stop-on-tsumo` checks basic closed-hand standard, chiitoitsu, and kokushi
   winning shapes immediately after a synthetic draw.
-  It is for plumbing only; it has no call/ron/kan/Kita policy, complete yaku validation, complete
-  rinshan yaku/scoring semantics, full wall/dead-wall timing validation, complete
-  robbing-kan/chankan handling, scoring, complete payment accounting, complete post-riichi kan
-  timing, PPO, or population training.
+  It is for plumbing only; it has no call/ron/kan/Kita policy, complete yaku validation, exact
+  scoring, complete payment accounting, complete post-riichi kan timing, PPO, or population
+  training.
 - `kenjaku.simulation.environment` exposes `kenjaku-sandbox-environment-v0` state plus
   `initial_sandbox_environment`, `draw_for_current_seat`, `legal_discard_actions`,
   `legal_tsumo_actions`, `legal_ron_actions`, `legal_chankan_ron_actions`,
@@ -371,9 +370,8 @@ Last updated: 2026-06-12.
   dealer-aware payment, visible/kan/ura/red/Kita dora, kazoe-yakuman limit,
   yakuman bonus-han suppression, tsumo tile-view de-duplication, Nagashi mangan wall-exhaustion and
   next-round handling, and next-round dealer/honba/round-wind helper slices, ippatsu scoring, full
-  yaku-aware open/kan hand legality, complete rinshan yaku/scoring semantics, complete
-  haitei/houtei endgame timing, complete double-riichi/riichi timing, full wall/dead-wall timing
-  validation, complete chankan semantics, complete post-riichi kan timing,
+  yaku-aware open/kan hand legality, complete double-riichi/riichi timing,
+  complete post-riichi kan timing,
   real multi-ron payment handling, and validation against real reconstructed games.
 - `self-play-sandbox --ruleset tenhou-3p` is not enough to check off the Phase 5 Sanma ruleset
   item. It applies the static tile exclusions, 35,000-point starts, three-seat rotation, a basic
@@ -913,10 +911,8 @@ Mortal local baseline reconnaissance:
    score-estimate, kazoe-yakuman limit, yakuman bonus-han suppression, Nagashi mangan wall-exhaustion and
    next-round handling, and next-round dealer/honba/round-wind slices, ippatsu scoring beyond
    narrow ron metadata, full yaku-aware open/kan hand legality,
-   complete rinshan yaku/scoring semantics, complete haitei/houtei endgame timing,
-   complete double-riichi/riichi timing, full wall/dead-wall timing validation, complete
-   chankan semantics beyond the basic ippatsu timing
-   slice, complete post-riichi kan timing, real multi-ron payment handling, and scoring before PPO work.
+   complete double-riichi/riichi timing, complete post-riichi kan timing, real multi-ron payment
+   handling, and exact scoring before PPO work.
 9. Use `self-play-sandbox --ruleset tenhou-3p` only to check Sanma sandbox plumbing. Do not mark
    the Phase 5 Sanma ruleset complete just because static tile exclusions, start points, no-chi,
    North guest-wind handling, Kita actions/reactions, 1m/9m dora wrapping, post-pon Kita
@@ -927,7 +923,6 @@ Mortal local baseline reconnaissance:
 10. Extend `kenjaku.simulation.environment` before adding PPO: full call/kan timing, multi-ron
     payment semantics, full ron/tsumo legality, complete payment/scoring semantics beyond the basic
     dealer-aware, visible/kan/ura/red/Kita dora, and next-round dealer/honba/round-wind helper
-    slices, ippatsu scoring, full yaku-aware open/kan hand legality, complete rinshan yaku/scoring
-    semantics, full wall/dead-wall timing validation, complete chankan semantics beyond the basic
-    ippatsu timing slice, complete post-riichi kan timing, and yaku/scoring semantics should come
+    slices, ippatsu scoring, full yaku-aware open/kan hand legality, complete post-riichi kan
+    timing, and yaku/scoring semantics should come
     before policy optimization.

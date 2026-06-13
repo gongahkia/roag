@@ -149,6 +149,7 @@ def run_self_play_sandbox(
             "kan_dora_indicator_metadata": True,
             "rinshan_draw_metadata": True,
             "haitei_houtei_yaku_metadata": True,
+            "endgame_yaku_timing_fixtures": True,
             "double_riichi_yaku_metadata": True,
             "kita_policy": False,
             "kita_ron_reaction_windows": rules.players == 3,

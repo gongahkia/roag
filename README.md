@@ -37,10 +37,10 @@ notes.
   riichi deposit/stick ledger, basic honba bonus deltas, a basic next-round dealer/honba transition
   helper with round-wind dealer-wrap progression, basic active/winning ippatsu metadata, basic
   closed-kan/ankan and added-kan/kakan actions with dead-wall replacement draws, kan-dora indicator
-  metadata, rinshan draw-source metadata, basic haitei/houtei yaku metadata for explicitly final
-  live-wall draws/discards, basic double-riichi yaku metadata, a basic chankan ron/pass window
-  before kakan replacement draw with ippatsu preserved until the reaction resolves plus
-  kokushi-only ankan robbery, individual reaction
+  metadata, rinshan draw-source metadata, timing fixtures for rinshan after minkan/ankan/kakan,
+  haitei/houtei final live-wall and replacement-draw edges, basic double-riichi yaku metadata, a
+  basic chankan ron/pass window before kakan replacement draw with ippatsu preserved until the
+  reaction resolves plus kokushi-only ankan robbery and chankan dora timing fixtures, individual reaction
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
   resolution with turn-priority riichi-stick assignment, basic open/kan
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
@@ -65,9 +65,8 @@ notes.
   terminal-outcome plumbing, auto-passing reaction windows because it has no ron/call/kan/Kita
   policy yet.
   It is not a full riichi/Sanma simulator, complete riichi declaration/accounting model, yaku
-  validator, complete yaku/scoring implementation, complete robbing-kan/chankan model,
-  complete post-riichi kan timing model, complete round/end-of-game progression model, scoring
-  engine, or RL implementation.
+  validator, complete yaku/scoring implementation, complete post-riichi kan timing model,
+  complete round/end-of-game progression model, scoring engine, or RL implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.
