@@ -3188,6 +3188,165 @@ class CliTests(unittest.TestCase):
         self.assertEqual(call_payload["call_examples"], 1)
         self.assertEqual(riichi_payload["riichi_examples"], 1)
 
+    def test_export_bc_examples_and_benchmark_from_shards(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            export_dir = root / "bc-examples"
+            discard_report = root / "discard.json"
+            call_report = root / "call.json"
+            riichi_report = root / "riichi.json"
+
+            export_stdout = io.StringIO()
+            with contextlib.redirect_stdout(export_stdout):
+                export_exit_code = main(
+                    [
+                        "export-bc-examples",
+                        "data/fixtures/tenhou",
+                        "--output-dir",
+                        str(export_dir),
+                        "--shard-size",
+                        "2",
+                        "--source-label",
+                        "fixture-bc-export",
+                    ]
+                )
+            manifest_path = export_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                discard_exit_code = main(
+                    [
+                        "benchmark-discard-from-examples",
+                        str(manifest_path),
+                        "--models",
+                        "frequency",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(discard_report),
+                    ]
+                )
+                call_exit_code = main(
+                    [
+                        "benchmark-call-from-examples",
+                        str(export_dir),
+                        "--models",
+                        "call_frequency",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(call_report),
+                    ]
+                )
+                riichi_exit_code = main(
+                    [
+                        "benchmark-riichi-from-examples",
+                        str(manifest_path),
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(riichi_report),
+                    ]
+                )
+
+            summary_stdout = io.StringIO()
+            with contextlib.redirect_stdout(summary_stdout):
+                summary_exit_code = main(
+                    [
+                        "benchmark-report-summary",
+                        str(discard_report),
+                        str(call_report),
+                        str(riichi_report),
+                    ]
+                )
+            discard_payload = json.loads(discard_report.read_text(encoding="utf-8"))
+            call_payload = json.loads(call_report.read_text(encoding="utf-8"))
+            riichi_payload = json.loads(riichi_report.read_text(encoding="utf-8"))
+
+        self.assertEqual(export_exit_code, 0)
+        self.assertIn("manifest_path:", export_stdout.getvalue())
+        self.assertEqual(manifest["kind"], "kenjaku-bc-example-manifest-v0")
+        self.assertEqual(manifest["source"]["label"], "fixture-bc-export")
+        self.assertEqual(manifest["decision_counts"]["discard"], 4)
+        self.assertEqual(manifest["decision_counts"]["call"], 1)
+        self.assertEqual(manifest["decision_counts"]["riichi"], 3)
+        self.assertGreaterEqual(len(manifest["shards"]), 3)
+        self.assertEqual(discard_exit_code, 0)
+        self.assertEqual(call_exit_code, 0)
+        self.assertEqual(riichi_exit_code, 0)
+        self.assertEqual(discard_payload["kind"], "kenjaku-discard-benchmark-report-v0")
+        self.assertEqual(discard_payload["source"]["label"], "fixture-bc-export")
+        self.assertEqual(discard_payload["discard_examples"], 4)
+        self.assertEqual(discard_payload["bc_example_source"]["source_xml_file_count"], 3)
+        self.assertEqual(discard_payload["models"]["frequency"]["metrics"]["loss_kind"], "zero_one")
+        self.assertEqual(call_payload["kind"], "kenjaku-call-benchmark-report-v0")
+        self.assertEqual(call_payload["call_examples"], 1)
+        self.assertEqual(call_payload["discard_examples"], 4)
+        self.assertEqual(
+            call_payload["models"]["call_frequency"]["metrics"]["loss_kind"],
+            "zero_one",
+        )
+        self.assertEqual(riichi_payload["kind"], "kenjaku-riichi-benchmark-report-v0")
+        self.assertEqual(riichi_payload["riichi_examples"], 3)
+        self.assertEqual(riichi_payload["call_examples"], 1)
+        self.assertEqual(
+            riichi_payload["models"]["riichi_linear"]["metrics"]["loss_kind"],
+            "zero_one",
+        )
+        self.assertEqual(summary_exit_code, 0)
+        self.assertIn("frequency:", summary_stdout.getvalue())
+        self.assertIn("call_frequency:", summary_stdout.getvalue())
+        self.assertIn("riichi_linear:", summary_stdout.getvalue())
+
+    def test_benchmark_from_examples_records_limit_and_total(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            export_dir = root / "bc-examples"
+            report = root / "discard-limit.json"
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                export_exit_code = main(
+                    [
+                        "export-bc-examples",
+                        "data/fixtures/tenhou",
+                        "--output-dir",
+                        str(export_dir),
+                        "--actions",
+                        "discard",
+                    ]
+                )
+                benchmark_exit_code = main(
+                    [
+                        "benchmark-discard-from-examples",
+                        str(export_dir / "manifest.json"),
+                        "--models",
+                        "frequency",
+                        "--eval-fraction",
+                        "0.5",
+                        "--split-seed",
+                        "fixed",
+                        "--example-limit",
+                        "2",
+                        "--report",
+                        str(report),
+                    ]
+                )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(export_exit_code, 0)
+        self.assertEqual(benchmark_exit_code, 0)
+        self.assertEqual(payload["discard_examples"], 2)
+        self.assertEqual(payload["discard_examples_total"], 4)
+        self.assertEqual(payload["example_limit"], 2)
+        self.assertEqual(payload["split"]["train_examples"], 1)
+        self.assertEqual(payload["split"]["eval_examples"], 1)
+
     def test_benchmark_discard_explicit_models(self) -> None:
         stdout = io.StringIO()
 

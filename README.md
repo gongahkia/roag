@@ -251,6 +251,33 @@ The local runbook is in `docs/local-tenhou-eval.md`; data constraints are in `do
 Current useful local commands:
 
 ```bash
+PYTHONPATH=src python3.13 -m kenjaku export-bc-examples \
+  data/raw/tenhou/xml/todo-102-bc-6500 \
+  --output-dir runs/todo-102/bc-examples-v0 \
+  --shard-size 50000 \
+  --source-label tenhou-4p-hanchan-todo-102 \
+  --source-date 2026-06-21
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --models fast --example-limit 125000 \
+  --eval-fraction 0.16 --split-seed todo-102-discard-v0 \
+  --report runs/todo-102/discard-benchmark-from-examples-v0.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-call-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --models fast --example-limit 125000 --example-limit-strategy balanced \
+  --eval-fraction 0.16 --split-seed todo-102-call-v0 \
+  --call-threshold-source train-best \
+  --report runs/todo-102/call-benchmark-from-examples-v0.json
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --example-limit 125000 \
+  --eval-fraction 0.16 --split-seed todo-102-riichi-v0 \
+  --riichi-threshold-source train-best \
+  --report runs/todo-102/riichi-benchmark-from-examples-v0.json
+
 PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
   data/raw/tenhou/xml/4p-hanchan-500 \
   --eval-fraction 0.2 --split-seed tenhou-500-v0 \

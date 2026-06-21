@@ -86,6 +86,9 @@ from kenjaku.simulation import (
 )
 from kenjaku.status import build_status_payload, format_status_text
 from kenjaku.training import (
+    BC_DECISION_TYPES,
+    BcExampleLoad,
+    BcExampleShard,
     CallExample,
     DiscardExample,
     RiichiExample,
@@ -95,6 +98,7 @@ from kenjaku.training import (
     actual_discard_is_genbutsu,
     actual_discard_seen_after_riichi,
     actual_discard_seen_before_riichi,
+    build_bc_manifest,
     candidate_defense_risk,
     deterministic_split,
     discard_shanten_delta,
@@ -103,12 +107,16 @@ from kenjaku.training import (
     iter_deal_in_examples,
     iter_discard_examples,
     iter_riichi_examples,
+    parse_bc_decision_types,
+    read_bc_examples,
     round_outcome,
     summarize_deal_in_examples,
     summarize_defense_risk_outcomes,
     summarize_defense_risks,
     summarize_discard_predictions,
     summarize_discard_shanten,
+    write_bc_example_row,
+    write_bc_manifest,
 )
 from kenjaku.training.decision_snapshots import (
     DECISION_SNAPSHOT_KIND,
@@ -1286,6 +1294,76 @@ def build_parser() -> argparse.ArgumentParser:
     _add_source_args(train_transformer)
     train_transformer.set_defaults(func=_train_discard_transformer)
 
+    export_bc = subparsers.add_parser(
+        "export-bc-examples",
+        help="stream Tenhou XML into behavior-cloning JSONL shards",
+    )
+    export_bc.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    export_bc.add_argument(
+        "--output-dir",
+        required=True,
+        type=Path,
+        help="directory for ignored BC JSONL shards and manifest.json",
+    )
+    export_bc.add_argument(
+        "--actions",
+        default=",".join(BC_DECISION_TYPES),
+        help="comma-separated decision types to export: discard,call,riichi",
+    )
+    export_bc.add_argument(
+        "--shard-size",
+        type=int,
+        default=50000,
+        help="maximum examples per JSONL shard",
+    )
+    export_bc.add_argument(
+        "--limit-per-type",
+        type=int,
+        help="optional maximum examples to export per decision type",
+    )
+    export_bc.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace existing BC shard files in --output-dir",
+    )
+    export_bc.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_source_args(export_bc)
+    export_bc.set_defaults(func=_export_bc_examples)
+
+    benchmark_discard_examples = subparsers.add_parser(
+        "benchmark-discard-from-examples",
+        help="benchmark discard baselines from exported BC JSONL shards",
+    )
+    benchmark_discard_examples.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="BC manifest, JSONL files, or shard directories",
+    )
+    benchmark_discard_examples.add_argument("--epochs", type=int, default=25)
+    benchmark_discard_examples.add_argument("--learning-rate", type=float, default=0.1)
+    benchmark_discard_examples.add_argument("--l2", type=float, default=0.0)
+    benchmark_discard_examples.add_argument(
+        "--models",
+        default="all",
+        help="discard benchmark models: all, fast, or comma-separated model names",
+    )
+    benchmark_discard_examples.add_argument("--eval-fraction", type=float, default=0.2)
+    benchmark_discard_examples.add_argument("--split-seed", default="kenjaku-v0")
+    benchmark_discard_examples.add_argument("--example-limit", type=int)
+    benchmark_discard_examples.add_argument("--report", type=Path)
+    _add_source_args(benchmark_discard_examples)
+    benchmark_discard_examples.set_defaults(func=_benchmark_discard_from_examples)
+
     benchmark_discard = subparsers.add_parser(
         "benchmark-discard",
         help="compare deterministic discard baselines on one train/eval split",
@@ -1757,6 +1835,48 @@ def build_parser() -> argparse.ArgumentParser:
     _add_source_args(benchmark_call)
     benchmark_call.set_defaults(func=_benchmark_call)
 
+    benchmark_call_examples = subparsers.add_parser(
+        "benchmark-call-from-examples",
+        help="benchmark call/pass baselines from exported BC JSONL shards",
+    )
+    benchmark_call_examples.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="BC manifest, JSONL files, or shard directories",
+    )
+    benchmark_call_examples.add_argument("--eval-fraction", type=float, default=0.2)
+    benchmark_call_examples.add_argument("--split-seed", default="kenjaku-v0")
+    benchmark_call_examples.add_argument("--epochs", type=int, default=25)
+    benchmark_call_examples.add_argument("--learning-rate", type=float, default=0.1)
+    benchmark_call_examples.add_argument("--l2", type=float, default=0.0)
+    benchmark_call_examples.add_argument(
+        "--call-threshold",
+        type=float,
+        default=CALL_LINEAR_V1_CALIBRATED_THRESHOLD,
+    )
+    benchmark_call_examples.add_argument(
+        "--call-threshold-source",
+        choices=THRESHOLD_SOURCE_CHOICES,
+        default=THRESHOLD_SOURCE_FIXED,
+    )
+    benchmark_call_examples.add_argument("--models", default="all")
+    benchmark_call_examples.add_argument("--example-limit", type=int)
+    benchmark_call_examples.add_argument(
+        "--example-limit-strategy",
+        choices=CALL_EXAMPLE_LIMIT_STRATEGIES,
+        default="prefix",
+    )
+    benchmark_call_examples.add_argument("--include-weighted", action="store_true")
+    benchmark_call_examples.add_argument(
+        "--call-positive-weight",
+        type=float,
+        default=DEFAULT_POSITIVE_CLASS_WEIGHT,
+    )
+    benchmark_call_examples.add_argument("--report", type=Path)
+    _add_source_args(benchmark_call_examples)
+    benchmark_call_examples.set_defaults(func=_benchmark_call_from_examples)
+
     benchmark_riichi = subparsers.add_parser(
         "benchmark-riichi",
         help="compare deterministic riichi/pass baselines on one train/eval split",
@@ -1844,6 +1964,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(benchmark_riichi)
     benchmark_riichi.set_defaults(func=_benchmark_riichi)
+
+    benchmark_riichi_examples = subparsers.add_parser(
+        "benchmark-riichi-from-examples",
+        help="benchmark riichi/pass baselines from exported BC JSONL shards",
+    )
+    benchmark_riichi_examples.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="BC manifest, JSONL files, or shard directories",
+    )
+    benchmark_riichi_examples.add_argument("--eval-fraction", type=float, default=0.2)
+    benchmark_riichi_examples.add_argument("--split-seed", default="kenjaku-v0")
+    benchmark_riichi_examples.add_argument("--example-limit", type=int)
+    benchmark_riichi_examples.add_argument("--epochs", type=int, default=25)
+    benchmark_riichi_examples.add_argument("--learning-rate", type=float, default=0.1)
+    benchmark_riichi_examples.add_argument("--l2", type=float, default=0.0)
+    benchmark_riichi_examples.add_argument(
+        "--riichi-threshold",
+        type=float,
+        default=RIICHI_LINEAR_CALIBRATED_THRESHOLD,
+    )
+    benchmark_riichi_examples.add_argument(
+        "--riichi-threshold-source",
+        choices=THRESHOLD_SOURCE_CHOICES,
+        default=THRESHOLD_SOURCE_FIXED,
+    )
+    benchmark_riichi_examples.add_argument("--include-weighted", action="store_true")
+    benchmark_riichi_examples.add_argument(
+        "--riichi-positive-weight",
+        type=float,
+        default=DEFAULT_POSITIVE_CLASS_WEIGHT,
+    )
+    benchmark_riichi_examples.add_argument("--report", type=Path)
+    _add_source_args(benchmark_riichi_examples)
+    benchmark_riichi_examples.set_defaults(func=_benchmark_riichi_from_examples)
     return parser
 
 
@@ -2211,6 +2367,234 @@ def _defense_risk_summary(args: argparse.Namespace) -> int:
             print(f"parse_failures: {len(dataset.failures)}")
         if args.report is not None:
             print(f"report_path: {args.report}")
+    return 0
+
+
+def _export_bc_examples(args: argparse.Namespace) -> int:
+    if args.shard_size < 1:
+        raise SystemExit("--shard-size must be at least 1")
+    if args.limit_per_type is not None and args.limit_per_type < 0:
+        raise SystemExit("--limit-per-type must be non-negative")
+    try:
+        decision_types = parse_bc_decision_types(args.actions)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    output_dir = args.output_dir
+    if output_dir.exists() and any(output_dir.iterdir()) and not args.overwrite:
+        raise SystemExit("--output-dir must be empty or use --overwrite")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if args.overwrite:
+        for pattern in ("manifest.json", "discard-*.jsonl", "call-*.jsonl", "riichi-*.jsonl"):
+            for path in output_dir.glob(pattern):
+                if path.is_file():
+                    path.unlink()
+
+    source_files = tenhou_xml_files(args.paths)
+    parsed_files: list[Path] = []
+    parse_failures: list[TenhouParseFailure] = []
+    game_counts = _empty_game_counts()
+    decision_counts = {decision_type: 0 for decision_type in BC_DECISION_TYPES}
+    shard_counts = {decision_type: 0 for decision_type in BC_DECISION_TYPES}
+    shard_indexes = {decision_type: 0 for decision_type in BC_DECISION_TYPES}
+    shard_handles: dict[str, Any] = {}
+    shard_paths: dict[str, Path] = {}
+    shards: list[BcExampleShard] = []
+    source_complete = True
+
+    def close_shard(decision_type: str) -> None:
+        handle = shard_handles.pop(decision_type, None)
+        if handle is None:
+            return
+        handle.close()
+        count = shard_counts[decision_type]
+        if count:
+            shards.append(
+                BcExampleShard(
+                    path=shard_paths[decision_type],
+                    decision_type=decision_type,  # type: ignore[arg-type]
+                    examples=count,
+                ),
+            )
+        shard_counts[decision_type] = 0
+
+    def write_example(
+        decision_type: str,
+        example: DiscardExample | CallExample | RiichiExample,
+        *,
+        source_file: Path,
+        source_file_index: int,
+    ) -> None:
+        limit = args.limit_per_type
+        if limit is not None and decision_counts[decision_type] >= limit:
+            return
+        if decision_type not in shard_handles or shard_counts[decision_type] >= args.shard_size:
+            close_shard(decision_type)
+            shard_path = output_dir / f"{decision_type}-{shard_indexes[decision_type]:05d}.jsonl"
+            shard_indexes[decision_type] += 1
+            shard_paths[decision_type] = shard_path
+            shard_handles[decision_type] = shard_path.open("w", encoding="utf-8")
+        write_bc_example_row(
+            shard_handles[decision_type],
+            decision_type=decision_type,  # type: ignore[arg-type]
+            source_file=source_file,
+            source_file_index=source_file_index,
+            sequence_index=decision_counts[decision_type],
+            example=example,
+        )
+        decision_counts[decision_type] += 1
+        shard_counts[decision_type] += 1
+
+    try:
+        for file_index, file in enumerate(source_files):
+            if _bc_export_limits_reached(decision_types, decision_counts, args.limit_per_type):
+                source_complete = False
+                break
+            try:
+                game = parse_tenhou_xml_file(file)
+            except Exception as error:
+                if not args.skip_errors:
+                    raise
+                parse_failures.append(
+                    TenhouParseFailure(
+                        path=file,
+                        error_type=type(error).__name__,
+                        message=str(error),
+                    )
+                )
+                continue
+
+            parsed_files.append(file)
+            _add_game_counts(game_counts, _call_example_cache_game_counts(game))
+            if "discard" in decision_types:
+                for example in iter_discard_examples(game):
+                    write_example(
+                        "discard",
+                        example,
+                        source_file=file,
+                        source_file_index=file_index,
+                    )
+            if "call" in decision_types:
+                for example in iter_call_examples(game):
+                    write_example("call", example, source_file=file, source_file_index=file_index)
+            if "riichi" in decision_types:
+                for example in iter_riichi_examples(game):
+                    write_example("riichi", example, source_file=file, source_file_index=file_index)
+    finally:
+        for decision_type in tuple(shard_handles):
+            close_shard(decision_type)
+
+    if _bc_export_limits_reached(decision_types, decision_counts, args.limit_per_type):
+        source_complete = False
+
+    manifest = build_bc_manifest(
+        input_paths=args.paths,
+        xml_files=source_files,
+        parsed_files=parsed_files,
+        parse_failures=parse_failures,
+        game_counts=game_counts,
+        decision_counts=decision_counts,
+        shards=shards,
+        source=_source_metadata(args),
+        output_dir=output_dir,
+        shard_size=args.shard_size,
+        source_complete=source_complete,
+    )
+    manifest_path = output_dir / "manifest.json"
+    write_bc_manifest(manifest_path, manifest)
+
+    print(f"manifest_path: {manifest_path}")
+    print(f"xml_files: {len(source_files)}")
+    print(f"parsed_xml_files: {len(parsed_files)}")
+    for decision_type in BC_DECISION_TYPES:
+        print(f"{decision_type}_examples: {decision_counts[decision_type]}")
+    if parse_failures:
+        print(f"parse_failures: {len(parse_failures)}")
+    return 0
+
+
+def _bc_export_limits_reached(
+    decision_types: Sequence[str],
+    decision_counts: dict[str, int],
+    limit: int | None,
+) -> bool:
+    if limit is None:
+        return False
+    return all(decision_counts[decision_type] >= limit for decision_type in decision_types)
+
+
+def _benchmark_discard_from_examples(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
+    selected_model_names = _parse_discard_benchmark_models(args.models)
+    load = _read_bc_example_load(args.paths, decision_type="discard", limit=args.example_limit)
+    examples = load.examples
+    if not examples:
+        raise SystemExit("no discard examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    model_payloads: dict[str, dict[str, Any]] = {}
+    if "frequency" in selected_model_names:
+        frequency_model = DiscardFrequencyBaseline.fit(train_examples)
+        model_payloads["frequency"] = _discard_frequency_payload(
+            frequency_model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            include_analysis=args.report is not None,
+        )
+    for model_name in selected_model_names:
+        if model_name not in DISCARD_LINEAR_FEATURE_PROFILES:
+            continue
+        model = DiscardLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile=DISCARD_LINEAR_FEATURE_PROFILES[model_name],
+        )
+        model_payloads[model_name] = _discard_linear_payload(
+            model_name,
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            include_analysis=args.report is not None,
+        )
+
+    print(f"examples: {len(examples)}")
+    if len(examples) != load.total_examples:
+        print(f"source_examples: {load.total_examples}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_discard_benchmark_metrics(model_payloads)
+    if args.report is not None:
+        report = build_discard_benchmark_report_from_models(
+            input_paths=args.paths,
+            xml_files=load.source_files,
+            game=None,
+            game_counts=_bc_game_counts(load),
+            discard_examples=len(examples),
+            call_examples=_bc_decision_count(load, "call"),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            discard_shanten=summarize_discard_shanten(examples),
+            parse_failures=load.parse_failures,
+            source=_bc_source_metadata(args, load),
+        )
+        report["discard_examples_total"] = load.total_examples
+        report["example_limit"] = args.example_limit
+        _apply_bc_example_report_metadata(report, load)
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
     return 0
 
 
@@ -4393,6 +4777,135 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
     return "correct_model", "wrong_model"
 
 
+def _benchmark_call_from_examples(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
+    if args.epochs < 0:
+        raise SystemExit("--epochs must be non-negative")
+    call_threshold = _validated_probability(args.call_threshold, "--call-threshold")
+    call_positive_weight = _validated_positive_float(
+        args.call_positive_weight,
+        "--call-positive-weight",
+    )
+    selected_model_names = _parse_call_benchmark_models(
+        args.models,
+        include_weighted=args.include_weighted,
+    )
+    load_limit = args.example_limit if args.example_limit_strategy == "prefix" else None
+    load = _read_bc_example_load(args.paths, decision_type="call", limit=load_limit)
+    all_examples = load.examples
+    examples = _limit_call_examples(
+        all_examples,
+        args.example_limit,
+        strategy=args.example_limit_strategy,
+    )
+    if not examples:
+        raise SystemExit("no call examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    call_models: dict[
+        str,
+        CallFrequencyBaseline | CallLegalFrequencyBaseline | CallLinearModel,
+    ] = {}
+    prepared_splits_by_profile: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
+
+    def prepared_split(feature_profile: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+        prepared = prepared_splits_by_profile.get(feature_profile)
+        if prepared is None:
+            prepared = (
+                CallLinearModel.prepare_examples_for_profile(
+                    train_examples,
+                    feature_profile=feature_profile,
+                ),
+                CallLinearModel.prepare_examples_for_profile(
+                    eval_examples,
+                    feature_profile=feature_profile,
+                ),
+            )
+            prepared_splits_by_profile[feature_profile] = prepared
+        return prepared
+
+    if "call_frequency" in selected_model_names:
+        call_models["call_frequency"] = CallFrequencyBaseline.fit(train_examples)
+    if "call_legal_frequency" in selected_model_names:
+        call_models["call_legal_frequency"] = CallLegalFrequencyBaseline.fit(train_examples)
+    if "call_linear" in selected_model_names:
+        train_prepared, _ = prepared_split("v0")
+        call_models["call_linear"] = CallLinearModel.fit_prepared(
+            train_prepared,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile="v0",
+        )
+    if (
+        "call_linear_v1" in selected_model_names
+        or "call_linear_v1_calibrated" in selected_model_names
+    ):
+        train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
+        call_models["call_linear_v1"] = CallLinearModel.fit_prepared(
+            train_prepared,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+        )
+    if CALL_BENCHMARK_WEIGHTED_MODEL in selected_model_names:
+        train_prepared, _ = prepared_split(CALL_LINEAR_V1_FEATURE_PROFILE)
+        call_models["call_linear_v1_weighted"] = CallLinearModel.fit_prepared(
+            train_prepared,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            feature_profile=CALL_LINEAR_V1_FEATURE_PROFILE,
+            positive_class_weight=call_positive_weight,
+        )
+
+    model_payloads = _call_model_payloads(
+        selected_model_names=selected_model_names,
+        call_models=call_models,
+        prepared_split=prepared_split,
+        train_examples=train_examples,
+        eval_examples=eval_examples,
+        threshold_source=args.call_threshold_source,
+        fixed_threshold=call_threshold,
+    )
+
+    print(f"examples: {len(examples)}")
+    if len(examples) != load.total_examples:
+        print(f"source_examples: {load.total_examples}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_call_benchmark_metrics(model_payloads)
+    if args.report is not None:
+        report = build_call_benchmark_report(
+            input_paths=args.paths,
+            xml_files=load.source_files,
+            game=None,
+            game_counts=_bc_game_counts(load),
+            discard_examples=_bc_decision_count(load, "discard"),
+            call_examples=len(examples),
+            call_examples_total=load.total_examples,
+            example_limit=args.example_limit,
+            example_limit_strategy=args.example_limit_strategy,
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            parse_failures=load.parse_failures,
+            source=_bc_source_metadata(args, load),
+        )
+        _apply_bc_example_report_metadata(report, load)
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
 def _benchmark_call(args: argparse.Namespace) -> int:
     if args.example_limit is not None and args.example_limit < 0:
         raise SystemExit("--example-limit must be non-negative")
@@ -4963,6 +5476,56 @@ def _empty_game_counts() -> dict[str, int]:
 def _add_game_counts(target: dict[str, int], counts: dict[str, int]) -> None:
     for key, value in counts.items():
         target[key] = target.get(key, 0) + int(value)
+
+
+def _read_bc_example_load(
+    paths: Sequence[Path],
+    *,
+    decision_type: str,
+    limit: int | None,
+) -> BcExampleLoad:
+    try:
+        return read_bc_examples(
+            paths,
+            decision_type=decision_type,  # type: ignore[arg-type]
+            limit=limit,
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise SystemExit(str(error)) from error
+
+
+def _bc_game_counts(load: BcExampleLoad) -> dict[str, int]:
+    counts = _empty_game_counts()
+    _add_game_counts(counts, load.game_counts)
+    return counts
+
+
+def _bc_decision_count(load: BcExampleLoad, decision_type: str) -> int:
+    return int(load.decision_counts.get(decision_type, 0))
+
+
+def _bc_source_metadata(
+    args: argparse.Namespace,
+    load: BcExampleLoad,
+) -> dict[str, str | None]:
+    source = _source_metadata(args)
+    return {
+        "label": source["label"] or load.source.get("label"),
+        "command": source["command"] or load.source.get("command"),
+        "date": source["date"] or load.source.get("date"),
+    }
+
+
+def _apply_bc_example_report_metadata(report: dict[str, Any], load: BcExampleLoad) -> None:
+    report["bc_example_source"] = {
+        "manifest_paths": [str(path) for path in load.manifest_paths],
+        "jsonl_file_count": len(load.example_files),
+        "source_xml_file_count": len(load.source_files),
+        "decision_counts": {
+            decision_type: int(load.decision_counts.get(decision_type, 0))
+            for decision_type in BC_DECISION_TYPES
+        },
+    }
 
 
 def _apply_streaming_report_metadata(
@@ -5753,6 +6316,117 @@ def _mean_defined(values: Iterable[float | None]) -> float | None:
     if not defined:
         return None
     return sum(defined) / len(defined)
+
+
+def _benchmark_riichi_from_examples(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
+    if args.epochs < 0:
+        raise SystemExit("--epochs must be non-negative")
+    riichi_threshold = _validated_probability(args.riichi_threshold, "--riichi-threshold")
+    riichi_positive_weight = _validated_positive_float(
+        args.riichi_positive_weight,
+        "--riichi-positive-weight",
+    )
+    load = _read_bc_example_load(args.paths, decision_type="riichi", limit=args.example_limit)
+    examples = load.examples
+    if not examples:
+        raise SystemExit("no riichi examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    riichi_models = {
+        "riichi_frequency": RiichiFrequencyBaseline.fit(train_examples),
+        "riichi_linear": RiichiLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+        ),
+    }
+    if args.include_weighted:
+        riichi_models["riichi_linear_weighted"] = RiichiLinearModel.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            l2=args.l2,
+            positive_class_weight=riichi_positive_weight,
+        )
+
+    model_payloads: dict[str, dict[str, Any]] = {}
+    prepared_examples: dict[str, tuple[tuple[Any, ...], tuple[Any, ...]]] = {}
+    for model_name, model in riichi_models.items():
+        if isinstance(model, RiichiLinearModel):
+            prepared_examples[model_name] = (
+                model.prepare_examples(train_examples),
+                model.prepare_examples(eval_examples),
+            )
+    for model_name, model in riichi_models.items():
+        train_prepared = None
+        eval_prepared = None
+        if isinstance(model, RiichiLinearModel):
+            train_prepared, eval_prepared = prepared_examples[model_name]
+        model_payloads[model_name] = _riichi_model_payload(
+            model,
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+            train_prepared=train_prepared,
+            eval_prepared=eval_prepared,
+        )
+        if model_name == "riichi_linear":
+            threshold, threshold_source = _selected_policy_threshold(
+                source=args.riichi_threshold_source,
+                fixed_threshold=riichi_threshold,
+                calibration=model_payloads[model_name].get("calibration", {}),
+            )
+            train_prepared, eval_prepared = prepared_examples[model_name]
+            model_payloads["riichi_linear_calibrated"] = _riichi_model_payload(
+                model,
+                train_examples=train_examples,
+                eval_examples=eval_examples,
+                prepared_predict=_riichi_threshold_prepared_predictor(model, threshold),
+                policy=_threshold_policy_metadata(
+                    target="riichi",
+                    base_model=model_name,
+                    threshold=threshold,
+                    threshold_source=threshold_source,
+                ),
+                train_prepared=train_prepared,
+                eval_prepared=eval_prepared,
+            )
+
+    print(f"examples: {len(examples)}")
+    if len(examples) != load.total_examples:
+        print(f"source_examples: {load.total_examples}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_riichi_benchmark_metrics(model_payloads)
+    if args.report is not None:
+        report = build_riichi_benchmark_report(
+            input_paths=args.paths,
+            xml_files=load.source_files,
+            game=None,
+            game_counts=_bc_game_counts(load),
+            discard_examples=_bc_decision_count(load, "discard"),
+            call_examples=_bc_decision_count(load, "call"),
+            riichi_examples=len(examples),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            parse_failures=load.parse_failures,
+            source=_bc_source_metadata(args, load),
+        )
+        report["riichi_examples_total"] = load.total_examples
+        report["example_limit"] = args.example_limit
+        _apply_bc_example_report_metadata(report, load)
+        write_json_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
 
 
 def _benchmark_riichi(args: argparse.Namespace) -> int:

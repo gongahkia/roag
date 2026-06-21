@@ -237,6 +237,75 @@ Use `run-external-prediction-producer` for subprocess-based producer checks; the
 `KENJAKU_SNAPSHOTS`, writes `KENJAKU_PREDICTIONS`, and remains outside Kenjaku's dependency/license
 boundary.
 
+## TODO-102 Behavior-Cloning Shards
+
+Use `export-bc-examples` before large discard/call/riichi behavior-cloning runs. It parses Tenhou
+XML one file at a time, writes ignored per-action JSONL shards, and records source XML counts, game
+counts, parse failures, and shard paths in `manifest.json`. The benchmark-from-examples commands
+then train from those shards without retaining a full parsed `TenhouGame`.
+
+```bash
+PYTHONPATH=src python3.13 -m kenjaku export-bc-examples \
+  data/raw/tenhou/xml/todo-102-bc-6500 \
+  --output-dir runs/todo-102/bc-examples-v0 \
+  --shard-size 50000 \
+  --source-label tenhou-4p-hanchan-todo-102 \
+  --source-date 2026-06-21 \
+  --source-command "python -m kenjaku export-bc-examples data/raw/tenhou/xml/todo-102-bc-6500 --output-dir runs/todo-102/bc-examples-v0 --shard-size 50000"
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --models fast \
+  --example-limit 125000 \
+  --eval-fraction 0.16 \
+  --split-seed todo-102-discard-v0 \
+  --report runs/todo-102/discard-benchmark-from-examples-v0.json \
+  --source-label tenhou-4p-hanchan-todo-102 \
+  --source-date 2026-06-21
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-call-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --models fast \
+  --example-limit 125000 \
+  --example-limit-strategy balanced \
+  --eval-fraction 0.16 \
+  --split-seed todo-102-call-v0 \
+  --call-threshold-source train-best \
+  --report runs/todo-102/call-benchmark-from-examples-v0.json \
+  --source-label tenhou-4p-hanchan-todo-102 \
+  --source-date 2026-06-21
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-riichi-from-examples \
+  runs/todo-102/bc-examples-v0/manifest.json \
+  --example-limit 125000 \
+  --eval-fraction 0.16 \
+  --split-seed todo-102-riichi-v0 \
+  --riichi-threshold-source train-best \
+  --report runs/todo-102/riichi-benchmark-from-examples-v0.json \
+  --source-label tenhou-4p-hanchan-todo-102 \
+  --source-date 2026-06-21
+
+PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
+  runs/todo-102/discard-benchmark-from-examples-v0.json \
+  runs/todo-102/call-benchmark-from-examples-v0.json \
+  runs/todo-102/riichi-benchmark-from-examples-v0.json
+```
+
+For a local memory smoke on macOS, wrap the export or benchmark command with `/usr/bin/time -l` and
+write stdout/stderr into ignored run logs:
+
+```bash
+/usr/bin/time -l env PYTHONPATH=src python3.13 -m kenjaku export-bc-examples \
+  data/raw/tenhou/xml/todo-102-bc-6500 \
+  --output-dir runs/todo-102/bc-examples-memory-smoke \
+  --shard-size 50000 \
+  > runs/todo-102/export-bc-examples-memory-smoke.log 2>&1
+```
+
+The fixture proof for this path is covered by CLI tests that export discard/call/riichi shards from
+`data/fixtures/tenhou`, train each `benchmark-*-from-examples` command, and summarize the resulting
+reports. Do not mark TODO-102 complete until ignored real-slice reports meet the size gates.
+
 ## TODO-101 Deal-In Estimator Run
 
 The TODO-101 local run used an ignored 130-log current-year 4-player hanchan export produced from

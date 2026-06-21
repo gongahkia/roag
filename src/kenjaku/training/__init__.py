@@ -1,5 +1,19 @@
 """Training-data adapters and example builders."""
 
+from kenjaku.training.bc_examples import (
+    BC_DECISION_TYPES,
+    BC_EXAMPLE_MANIFEST_KIND,
+    BC_EXAMPLE_ROW_KIND,
+    BcExampleLoad,
+    BcExampleShard,
+    bc_example_from_payload,
+    bc_example_to_payload,
+    build_bc_manifest,
+    parse_bc_decision_types,
+    read_bc_examples,
+    write_bc_example_row,
+    write_bc_manifest,
+)
 from kenjaku.training.call_examples import CallExample, iter_call_examples
 from kenjaku.training.deal_in import (
     DEAL_IN_LABEL_SOURCE,
@@ -72,6 +86,11 @@ from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 from kenjaku.training.splits import deterministic_split
 
 __all__ = [
+    "BC_DECISION_TYPES",
+    "BC_EXAMPLE_MANIFEST_KIND",
+    "BC_EXAMPLE_ROW_KIND",
+    "BcExampleLoad",
+    "BcExampleShard",
     "CallExample",
     "collect_ppo_sandbox_rollout",
     "actual_discard_has_kabe",
@@ -82,6 +101,9 @@ __all__ = [
     "actual_discard_seen_after_riichi",
     "actual_discard_seen_before_riichi",
     "active_riichi_opponents",
+    "bc_example_from_payload",
+    "bc_example_to_payload",
+    "build_bc_manifest",
     "candidate_has_kabe",
     "candidate_has_one_chance",
     "candidate_has_suji",
@@ -105,6 +127,7 @@ __all__ = [
     "iter_deal_in_examples",
     "iter_discard_examples",
     "iter_riichi_examples",
+    "parse_bc_decision_types",
     "legal_candidate_defense_risks",
     "load_ppo_sandbox_checkpoint",
     "max_active_riichi_discards_elapsed",
@@ -119,6 +142,7 @@ __all__ = [
     "ppo_action_index",
     "ppo_legal_action_mask",
     "ppo_state_features",
+    "read_bc_examples",
     "RiichiExample",
     "RoundOutcome",
     "SandboxLinearPpoActorCritic",
@@ -135,4 +159,6 @@ __all__ = [
     "summarize_deal_in_examples",
     "train_ppo_sandbox",
     "train_population_sandbox",
+    "write_bc_example_row",
+    "write_bc_manifest",
 ]

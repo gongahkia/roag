@@ -104,8 +104,8 @@ deal-in estimator is bundled.
 Done when: documented reports exist for discard, call, and riichi behavior
 cloning runs and can be summarized by `benchmark-report-summary`.
 
-Progress/blocker: do not retry the monolithic TODO-102 local command on this
-machine. On 2026-06-13 SGT, `benchmark-discard
+Progress: do not retry the monolithic TODO-102 local command on this machine.
+On 2026-06-13 SGT, `benchmark-discard
 data/raw/tenhou/xml/todo-102-bc-6500 --example-limit 125000` repeatedly pushed
 the desktop into Linux low-memory handling before a report was written. The
 structural issue is that current benchmark commands parse the selected Tenhou
@@ -116,23 +116,31 @@ The earlier 130-log TODO-304 export produced 86,003 decision snapshots, so the
 6,500-log TODO-102 slice is likely large enough once the pipeline can stream or
 cache examples safely.
 
+On 2026-06-21 SGT, the safer pipeline was implemented and fixture-tested:
+`export-bc-examples` parses Tenhou XML file-by-file into ignored
+discard/call/riichi JSONL shards plus `manifest.json`, and
+`benchmark-discard-from-examples`, `benchmark-call-from-examples`, and
+`benchmark-riichi-from-examples` train/report from those shards. Fixture tests
+cover shard export, report JSON for all three decision types, example-limit
+accounting, and `benchmark-report-summary` compatibility. The real local
+TODO-102 reports remain open until the ignored 6,500-log slice is exported and
+the size gates above are met.
+
 Web-researched references for the safer path:
 
 - Linux OOM behavior: `https://www.kernel.org/doc/gorman/html/understand/understand016.html`
 - PyTorch iterable data loading: `https://docs.pytorch.org/docs/stable/data.html`
 - Python memory allocation tracing: `https://docs.python.org/3/library/tracemalloc.html`
 
-Safer alternatives before completing this TODO:
+Safer path before completing this TODO:
 
-- Add an explicit streaming behavior-cloning data path: parse XML file-by-file,
-  emit normalized discard/call/riichi examples to ignored JSONL or SQLite shards,
-  and train from those shards without retaining all rounds in memory. For PyTorch
-  models, prefer an `IterableDataset` or equivalent streaming adapter.
-- Split TODO-102 into two commands: `export-bc-examples` to create ignored,
-  resumable per-action shards with counts and parse-failure metadata, then
-  `benchmark-*-from-examples` to train/report from the prebuilt shards.
+- Use `export-bc-examples` to create ignored, resumable per-action JSONL shards
+  with counts and parse-failure metadata, then `benchmark-*-from-examples` to
+  train/report from the prebuilt shards. For future PyTorch model runs, prefer
+  an `IterableDataset` or equivalent streaming adapter over loading all rows.
 - Add a memory diagnostic smoke before any full run: a tiny fixture plus a
-  1,000-log shard under `/usr/bin/time -v` and optional `PYTHONTRACEMALLOC=1`,
+  1,000-log shard under `/usr/bin/time -l` on macOS and optional
+  `PYTHONTRACEMALLOC=1`,
   recording peak RSS and top Python allocation sites in an ignored report.
 - Add a hard memory guard for local experiments, such as a documented cgroup,
   systemd scope, or `ulimit` wrapper, so failed experiments terminate the
