@@ -1,0 +1,369 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black
+}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\sloppy
+
+\title{Kenjaku: A Local-First Riichi Mahjong Replay-Analysis Toolkit}
+\author{gongahkia}
+\date{Draft built from repository source on 2026-07-07}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Riichi mahjong is a multi-player imperfect-information game whose research workflows often depend
+on replay logs, external engines, and platform-specific data constraints. Kenjaku is a local-first
+Python toolkit that narrows the current goal to reproducible replay analysis: parsing local Tenhou
+XML, reconstructing supervised decision examples, training small baseline models, exporting neutral
+decision snapshots, comparing prediction files, and documenting permission boundaries. This draft
+does not claim playing strength, production readiness, exact scoring, or complete Sanma coverage.
+Instead, it documents the current architecture and the evidence that is tracked in the repository:
+348 unit tests with 15 skips, fixture-only launch media, a fixture benchmark dashboard, and runbooks
+for ignored local experiments. The main contribution is therefore an auditable workflow boundary for
+future mahjong-AI research rather than a final agent.
+\end{abstract}
+
+\section{Introduction}
+
+Riichi mahjong replay analysis targets the reconstruction and evaluation of player decisions from
+game logs. This setting is useful for supervised policy learning, post-game review, benchmark
+reporting, and model comparison, but it is hard to make public and reproducible because real replay
+logs may carry platform, redistribution, and player-data restrictions. Kenjaku addresses this
+workflow problem by separating checked-in code and synthetic fixtures from ignored local replay
+exports, reports, and model artifacts.
+
+The strongest published mahjong systems and public engines show that the game is a serious
+imperfect-information AI benchmark. Suphx demonstrated deep reinforcement learning for mahjong,
+including global reward prediction, oracle guiding, and run-time policy adaptation
+\cite{suphx-arxiv}. Mortal and akochan provide practical Japanese-mahjong engine baselines and
+review tooling \cite{mortal-docs,mortal-github,akochan-github,mjai-reviewer}. More recent projects
+such as MahjongLM and Mahjax explore language-model-style mahjong rollouts and GPU-accelerated JAX
+simulation \cite{mahjonglm-github,mahjonglm-hf,mahjax-arxiv,mahjax-github}. These systems motivate
+Kenjaku's long-term direction, but they also make a boundary problem visible: a repository that
+wants to compare against external engines must avoid copying incompatible code, importing weights
+without review, or presenting live-service automation as a default workflow.
+
+Kenjaku's current contribution is a compliance-aware research harness. The toolkit implements a
+small but test-covered path from local XML to decision examples, snapshot JSONL, prediction
+comparison, browser demo artifacts, and sandbox experiments. The external-baseline path is
+deliberately process-based: real Mortal-compatible or akochan-compatible predictors are expected to
+run outside Kenjaku and communicate through neutral JSONL files. The data path is similarly
+conservative: raw Tenhou XML, downloaded databases, checkpoints, and generated reports stay under
+ignored directories unless release terms are reviewed.
+
+The evidence in this draft is intentionally modest. The repository contains synthetic Tenhou
+fixtures, public-safe launch media generated from those fixtures, and local runbooks for larger
+ignored experiments. It does not contain TODO-601 final evaluations, real engine-strength Mortal or
+akochan outputs, or a trained release checkpoint. All claims below are scoped to tracked artifacts
+and commands, and missing evidence is listed as future work rather than implied performance.
+
+\section{Related Work}
+
+\paragraph{Deep reinforcement learning for mahjong.}
+Suphx is the most important published reference for high-strength mahjong AI in this report. The
+paper frames mahjong as a multi-player imperfect-information challenge and reports a deep-RL system
+with global reward prediction, oracle guiding, and run-time policy adaptation
+\cite{suphx-arxiv}. Kenjaku does not reproduce Suphx and does not claim comparable strength; it
+uses Suphx as the research context for why replay data, evaluation protocols, and platform
+boundaries matter.
+
+\paragraph{Open-source riichi engines and review systems.}
+Mortal describes itself as a free open-source Japanese-mahjong AI powered by deep reinforcement
+learning, with documentation and a GitHub implementation \cite{mortal-docs,mortal-github}. akochan
+is another Japanese-mahjong AI implementation \cite{akochan-github}, and mjai-reviewer exposes a
+review workflow around mjai-compatible engines including Mortal and akochan
+\cite{mjai-reviewer}. Kenjaku's distinction is not engine strength; it is the neutral snapshot and
+subprocess boundary documented in \href{../external-baselines.md}{docs/external-baselines.md}.
+
+\paragraph{Simulation and representation frameworks.}
+Mahjax presents a fully vectorized JAX environment for large-scale riichi-mahjong rollout on GPUs
+\cite{mahjax-arxiv,mahjax-github}. Mjx is another open-source mahjong framework for AI research
+\cite{mjx-cog}. MahjongLM explores mahjong language models and rollout datasets
+\cite{mahjonglm-github,mahjonglm-hf}. Kenjaku is complementary: it is currently a Python replay
+analysis and baseline-reporting toolkit, not a high-throughput simulator or language-model
+training stack.
+
+\paragraph{Replay data and platform constraints.}
+Tenhou publishes manuals and service pages, and its reporting page includes a category for
+unauthorized AI players \cite{tenhou-manual,tenhou-report}. Local Tenhou workflows can also use
+external downloader tooling such as houou-logs \cite{houou-logs}, but Kenjaku treats downloaded
+databases and exported XML as local-only artifacts. This policy is tracked in
+\href{../data-policy.md}{docs/data-policy.md} and \href{../local-tenhou-eval.md}{docs/local-tenhou-eval.md}.
+
+\section{Method}
+
+\subsection{Workflow Overview}
+
+Kenjaku represents the current replay-analysis workflow as a sequence of narrow, inspectable
+modules. Given local Tenhou XML, it parses game events, reconstructs draw/discard/call/riichi
+decision examples, trains small baselines, exports neutral decision snapshots, and compares
+prediction JSONL files keyed by stable row identifiers. The CLI also writes public-safe replay
+summaries, static browser-demo assets, benchmark dashboards, and sandbox reports.
+
+The central design choice is that every module has a data-boundary role. Parser and reconstruction
+code can be tested on synthetic fixtures. Larger local datasets remain ignored. External engines
+communicate through subprocesses and JSONL rather than through imported code. Public artifacts
+summarize aggregate metrics or synthetic fixtures rather than raw private replays.
+
+\subsection{Data Governance}
+
+Kenjaku separates source-code reproducibility from data redistribution. The repository permits
+small synthetic fixtures under \texttt{data/fixtures/}; raw Tenhou exports, downloader databases,
+processed shards, reports, and model checkpoints belong under ignored paths such as \texttt{data/raw/},
+\texttt{runs/}, and \texttt{models/}. The replay-intake commands require a manifest with platform,
+URI, intended uses, and permission status before any row enters an analysis queue.
+
+This module is necessary because replay logs are not just model inputs. They can contain platform
+references, player-derived data, and redistribution constraints. The advantage of the manifest gate
+is that it makes permission scope part of the artifact pipeline, not a side note in a README.
+
+\subsection{Decision Reconstruction And Snapshots}
+
+Kenjaku reconstructs supervised examples for discard, call/pass, and riichi/pass decisions from
+local Tenhou XML. It then exports decision snapshots containing stable \texttt{row\_id} values,
+legal actions, observed actions, reconstruction fields, and a minimal mjai-style event prefix. The
+snapshot format is intentionally neutral: a Kenjaku model, a deterministic stub, or an external
+producer can write prediction JSONL without sharing code.
+
+This design supports fairer comparison work because every producer reads the same rows and returns
+the same action schema. It also avoids future-outcome leakage by excluding terminal labels by
+default and requiring an explicit outcome flag when such labels are needed for analysis.
+
+\subsection{Baselines, Reports, And Dashboard Artifacts}
+
+The current repository contains dependency-free frequency and linear baselines for discard, call,
+riichi, and deal-in experiments, plus PyTorch model scaffolding for discard MLP and transformer
+policy experiments. Benchmark reports preserve train/eval counts, split metadata, metric
+definitions, feature summaries, calibration diagnostics where implemented, and source-command
+metadata. The public dashboard converts report JSON into a static HTML page with metric definitions
+and explicit live-ladder exclusions.
+
+The baseline layer is not presented as a strong agent. Its purpose is to validate data plumbing,
+metric computation, and artifact structure before larger ignored local runs and external-engine
+comparisons.
+
+\subsection{Training Commands And Ablation Hooks}
+
+Kenjaku's training commands are intentionally small and report-oriented. The dependency-free
+discard benchmark can compare frequency, raw-count linear, shanten-aware linear, risk-context
+linear, defense-context linear, and defense-context-v1 variants on one deterministic split. Call
+and riichi benchmarks expose threshold calibration and weighted variants. Neural commands train a
+small discard MLP or a transformer discard policy head when PyTorch is available.
+
+These commands provide ablation hooks rather than final ablation evidence. A meaningful ablation
+requires a permitted dataset slice and enough held-out decisions; the fixture dashboard only proves
+that the model-family rows and ablation fields render. TODO-601 must replace this smoke evidence
+with final supervised, self-play, Sanma, and interpretability tables before strength claims are
+valid.
+
+\subsection{External-Engine Boundary}
+
+The external-baseline path uses a subprocess boundary. Kenjaku sets \texttt{KENJAKU\_SNAPSHOTS}
+and \texttt{KENJAKU\_PREDICTIONS}; an external producer writes prediction rows; Kenjaku validates
+and compares those rows. This design is meant for Mortal-compatible, akochan-compatible, or other
+producers whose code, license, weights, or runtime artifacts should remain outside the repository.
+
+This module is necessary because importing AGPL or otherwise constrained engine code would change
+Kenjaku's licensing and redistribution surface. A separate process keeps the comparison protocol
+usable while preserving legal and architectural separation.
+
+\section{Experiments And Evidence}
+
+\subsection{Tracked Verification}
+
+The strongest tracked verification is the unit-test suite and the fixture-only launch-media run.
+On 2026-07-07, the repository passed \texttt{python3.13 -m ruff check .},
+\texttt{PYTHONPATH=src python3.13 -m compileall -q src tests}, and
+\texttt{PYTHONPATH=src python3.13 -m unittest discover -s tests}. The unittest run executed 348
+tests with 15 skipped tests. The launch-media run generated
+\href{../media/replay-analysis.mp4}{docs/media/replay-analysis.mp4},
+\href{../media/browser-demo.mp4}{docs/media/browser-demo.mp4}, and
+\href{../media/benchmark-summary.png}{docs/media/benchmark-summary.png} from synthetic fixtures.
+
+\begin{table}[t]
+\centering
+\caption{Fixture-only launch-media evidence generated from \texttt{data/fixtures/tenhou}. These
+numbers are smoke evidence for artifact wiring, not model-strength evidence.}
+\label{tab:launch-evidence}
+\begin{tabular}{L{0.38\linewidth}L{0.46\linewidth}}
+\toprule
+Artifact & Verified content \\
+\midrule
+Replay-analysis clip & 8 valid decision snapshots, 0 malformed rows, 4 discard decisions, 1 call decision, 3 riichi decisions, 8 mjai-event prefixes present. \\
+Prediction comparison & 8 echo-actual predictions, 0 missing predictions, 0 malformed predictions, 1.0000 overall accuracy by construction. \\
+Benchmark dashboard image & Fixture discard benchmark with 4 examples, 3 train examples, 1 eval example, and four fast baseline rows. \\
+Browser-demo clip & Rendered local browser demo page generated by \texttt{kenjaku browser-demo --no-serve}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Fixture Benchmark}
+
+The checked launch-media benchmark uses \texttt{data/fixtures/tenhou} and runs the fast discard
+models: frequency, linear, risk-context linear, and defense-context linear. All four rows report
+1.0000 eval accuracy on a one-example eval split, while train accuracy varies from 0.3333 to
+1.0000. This result is useful only as a dashboard and metric-smoke artifact. It is too small for
+model selection, claims about playing strength, or claims about defense feature value.
+
+\subsection{Ablation Scope}
+
+The fixture report includes ablation fields for risk-context lift over the linear model and
+defense-context lift over the risk-context model. In the fixture run, both eval lifts are +0.0000
+because the eval split has one example and every fast model predicts it correctly. This confirms
+that ablation fields are present in the report schema, but it does not establish causal value for
+any feature family.
+
+\subsection{Ignored Local Runs}
+
+The repository records larger local workflows in runbooks rather than checking in restricted data.
+\href{../local-tenhou-eval.md}{docs/local-tenhou-eval.md} gives commands for Tenhou XML exports,
+discard/call/riichi benchmarks, decision snapshots, disagreement reports, and dashboard generation.
+\href{../external-baselines.md}{docs/external-baselines.md} records a prior ignored external
+baseline smoke over 86,003 shared decision snapshots, but explicitly labels Mortal-compatible and
+akochan-compatible entries as deterministic protocol baselines rather than real engine-strength
+outputs. These notes support reproducibility planning, not public benchmark claims.
+
+\section{Compliance And Data Policy}
+
+Kenjaku's public release policy has four rules. First, raw replay data and processed datasets that
+can reconstruct restricted logs stay out of git. Second, platform-specific replay intake must pass
+through manifest review before analysis. Third, public demo artifacts must avoid raw private replay
+URLs and private player/account data. Fourth, live-service automation remains out of scope unless a
+platform grants explicit permission for the exact integration.
+
+This policy is not just legal caution; it is part of the experimental method. Without it, model
+metrics could be hard to reproduce publicly, impossible to audit, or unsafe to redistribute. The
+current repository therefore prefers synthetic fixtures, source commands, ignored local artifacts,
+and aggregate summaries over checked-in raw logs.
+
+\section{Limitations}
+
+Kenjaku is not a trained production mahjong agent. The repository does not bundle a strong policy,
+does not contain final TODO-601 evaluation tables, does not include real Mortal or akochan
+engine-strength comparisons, and does not claim to match or exceed supervised baselines. The
+current dashboard image is generated from four fixture examples, so it is a smoke artifact only.
+
+Rules coverage is also incomplete. The sandbox contains substantial plumbing for riichi, furiten,
+kan timing, several yaku metadata paths, abortive draws, and narrow Sanma support, but it is not an
+exact fu/han scoring engine and not a complete Tenhou Sanma implementation. The README and status
+command intentionally preserve these negative claims.
+
+\section{Claim-Evidence Map}
+
+\begin{table}[h]
+\centering
+\caption{Major claims in this draft and the tracked evidence that supports or limits them.}
+\label{tab:claim-evidence}
+\begin{tabular}{L{0.30\linewidth}L{0.43\linewidth}L{0.15\linewidth}}
+\toprule
+Claim & Evidence & Status \\
+\midrule
+Kenjaku is local-first and avoids raw replay redistribution. & \href{../data-policy.md}{docs/data-policy.md}, \href{../local-tenhou-eval.md}{docs/local-tenhou-eval.md}, and \href{../../data/README.md}{data/README.md}. & Supported \\
+The CLI can generate fixture launch media and a benchmark dashboard. & \href{../launch-media.md}{docs/launch-media.md} and tracked media under \href{../media/}{docs/media/}. & Supported \\
+The fixture snapshot path emits 8 valid rows with 0 malformed rows. & \href{../launch-media.md}{docs/launch-media.md}; reproduced with \texttt{export-decision-snapshots} and \texttt{decision-snapshot-summary}. & Supported \\
+The repository has broad unit-test coverage for current primitives and commands. & 2026-07-07 local run: 348 tests, 15 skipped; command recorded in README launch evidence. & Supported \\
+Kenjaku has a neutral external-baseline boundary. & \href{../external-baselines.md}{docs/external-baselines.md} and CLI commands \texttt{run-external-prediction-producer} and \texttt{external-baseline-report}. & Supported \\
+Kenjaku is a strong mahjong-playing agent. & No bundled strong policy or final evaluation artifact exists. & Not claimed \\
+Kenjaku matches Mortal or akochan. & Real engine-strength producer outputs are not tracked. & Not claimed \\
+Kenjaku has exact scoring and complete Sanma rules. & Open GitHub issues TODO-203 and TODO-401 remain. & Not claimed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Self-Review}
+
+\paragraph{Contribution.}
+The draft contributes a documented, compliance-aware replay-analysis workflow, not a new
+mahjong-strength result. This is a meaningful systems contribution for the repository, but it would
+not be sufficient as a standalone research paper without TODO-601 final evaluations.
+
+\paragraph{Writing clarity.}
+The method is reproducible from listed CLI commands and tracked docs. The main terminology is
+stable: ``local-first'', ``decision snapshots'', ``external producer'', and ``public-safe
+artifacts''.
+
+\paragraph{Experimental strength.}
+The tracked experiments are weak by design. Fixture evidence validates wiring, media generation,
+and report structure only. The paper explicitly avoids strength claims.
+
+\paragraph{Evaluation completeness.}
+Final supervised, self-play, Sanma, and interpretability evaluations are missing. Issue TODO-601
+must provide reproducible tables before this draft can become a final technical report.
+
+\paragraph{Method design soundness.}
+The conservative data and subprocess boundaries add friction, but they reduce licensing and
+redistribution risk. The main unresolved design question is how to run real external baselines
+without importing constrained code or weights.
+
+\section{Conclusion}
+
+Kenjaku currently provides a reproducible local workflow for riichi mahjong replay analysis rather
+than a complete mahjong agent. Its core idea is to keep parsing, reconstruction, snapshots,
+baseline reports, dashboards, and public-safe artifacts auditable while keeping raw replay data and
+external engines outside the repository. The tracked evidence supports this workflow boundary, but
+not playing strength. The next step is TODO-601: freeze permitted dataset slices, run final
+supervised and sandbox evaluations, replace smoke baselines with real external producer outputs
+where legally usable, and update this report with reproducible tables.
+
+\begin{thebibliography}{99}
+
+\bibitem{suphx-arxiv}
+Junjie Li, Sotetsu Koyamada, Qiwei Ye, Guoqing Liu, Chao Wang, Ruihan Yang, Li Zhao, Tao Qin,
+Tie-Yan Liu, and Hsiao-Wuen Hon. ``Suphx: Mastering Mahjong with Deep Reinforcement Learning.''
+arXiv:2003.13590, 2020. \url{https://arxiv.org/abs/2003.13590}.
+
+\bibitem{mortal-docs}
+Mortal documentation. \url{https://mortal.ekyu.moe/}.
+
+\bibitem{mortal-github}
+Equim-chan. Mortal GitHub repository. \url{https://github.com/Equim-chan/Mortal}.
+
+\bibitem{akochan-github}
+critter-mj. akochan GitHub repository. \url{https://github.com/critter-mj/akochan}.
+
+\bibitem{mjai-reviewer}
+Equim-chan. mjai-reviewer GitHub repository. \url{https://github.com/Equim-chan/mjai-reviewer}.
+
+\bibitem{mahjonglm-github}
+Mitsuhiro Taniguchi. MahjongLM GitHub repository. \url{https://github.com/MitsuhiroTaniguchi/MahjongLM}.
+
+\bibitem{mahjonglm-hf}
+mitsutani. MahjongLM collection on Hugging Face. \url{https://huggingface.co/collections/mitsutani/mahjonglm}.
+
+\bibitem{mahjax-arxiv}
+Soichiro Nishimori et al. ``Mahjax: A GPU-Accelerated Mahjong Simulator for Reinforcement Learning
+in JAX.'' arXiv, 2026. \url{https://arxiv.org/html/2605.20577v1}.
+
+\bibitem{mahjax-github}
+nissymori. Mahjax GitHub repository. \url{https://github.com/nissymori/mahjax}.
+
+\bibitem{mjx-cog}
+``Mjx: A framework for Mahjong AI research.'' IEEE Conference on Games, 2022.
+\url{https://dl.acm.org/doi/10.1109/CoG51982.2022.9893712}.
+
+\bibitem{tenhou-manual}
+Tenhou manual. \url{https://tenhou.net/man/}.
+
+\bibitem{tenhou-report}
+Tenhou report page. \url{https://tenhou.net/stat/vt/0/}.
+
+\bibitem{houou-logs}
+Apricot-S. houou-logs GitHub repository. \url{https://github.com/Apricot-S/houou-logs}.
+
+\end{thebibliography}
+
+\end{document}
