@@ -158,6 +158,21 @@ DISCARD_LINEAR_FEATURE_PROFILES = {
     "defense_context_linear": DEFENSE_CONTEXT_FEATURE_PROFILE,
     "defense_context_v1_linear": DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
 }
+FEATURE_IMPORTANCE_KIND = "kenjaku-feature-importance-v0"
+FEATURE_IMPORTANCE_MODEL_ALIASES = {
+    "raw_count": "raw_count_linear",
+    "raw_count_linear": "raw_count_linear",
+    "linear": "linear",
+    "shanten": "linear",
+    "risk_context": "risk_context_linear",
+    "risk_context_linear": "risk_context_linear",
+    "defense_context": "defense_context_linear",
+    "defense_context_linear": "defense_context_linear",
+    "defense_context_v1": "defense_context_v1_linear",
+    "defense_context_v1_linear": "defense_context_v1_linear",
+    "deal_in": "deal_in",
+    "deal_in_linear": "deal_in",
+}
 DISAGREEMENT_REQUIRED_MODELS = (
     "risk_context_linear",
     "defense_context_linear",
@@ -1005,6 +1020,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="HTML document title",
     )
     interpretability_overlay.set_defaults(func=_interpretability_overlay)
+
+    feature_importance = subparsers.add_parser(
+        "feature-importance",
+        help="rank linear-model features from a benchmark report",
+    )
+    feature_importance.add_argument(
+        "model",
+        type=Path,
+        help="benchmark report JSON with weight_summary and feature_summary blocks",
+    )
+    feature_importance.add_argument(
+        "--profile",
+        required=True,
+        help="linear profile/model: RISK_CONTEXT, DEFENSE_CONTEXT, raw_count, deal_in",
+    )
+    feature_importance.add_argument(
+        "--top-k",
+        type=int,
+        default=20,
+        help="maximum ranked features to emit",
+    )
+    feature_importance.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="feature-importance JSON output path",
+    )
+    feature_importance.set_defaults(func=_feature_importance)
 
     produce_predictions = subparsers.add_parser(
         "produce-decision-predictions",
@@ -3024,6 +3067,159 @@ def _interpretability_overlay(args: argparse.Namespace) -> int:
     print(f"malformed_snapshot_rows: {stats['malformed_rows']}")
     print(f"output_path: {args.output}")
     return 0
+
+
+def _feature_importance(args: argparse.Namespace) -> int:
+    if args.top_k <= 0:
+        raise SystemExit("--top-k must be positive")
+    try:
+        report = json.loads(args.model.read_text(encoding="utf-8"))
+        payload = _build_feature_importance_report(
+            report,
+            source_path=args.model,
+            profile=args.profile,
+            top_k=args.top_k,
+        )
+    except (OSError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    write_json_report(args.output, payload)
+    print(f"model: {payload['model_name']}")
+    print(f"profile: {payload['profile']}")
+    print(f"ranked_features: {len(payload['rankings'])}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _build_feature_importance_report(
+    report: Any,
+    *,
+    source_path: Path,
+    profile: str,
+    top_k: int,
+) -> dict[str, Any]:
+    if not isinstance(report, dict):
+        raise ValueError("feature importance input must be a JSON object")
+    model_name = _feature_importance_model_name(profile)
+    model_payload = _feature_importance_model_payload(report, model_name)
+    weight_rows = _feature_importance_weight_rows(model_payload)
+    feature_rows = _feature_importance_feature_rows(model_payload)
+    if len(weight_rows) != len(feature_rows):
+        raise ValueError("weight and feature summaries have different feature counts")
+
+    rankings: list[dict[str, Any]] = []
+    for weight_row, feature_row in zip(weight_rows, feature_rows, strict=True):
+        weight_index = int(weight_row["index"])
+        feature_index = int(feature_row["index"])
+        weight_name = str(weight_row["name"])
+        feature_name = str(feature_row["name"])
+        if weight_index != feature_index or weight_name != feature_name:
+            raise ValueError("weight and feature summaries are not aligned")
+        weight_value, weight_metric = _feature_importance_weight(weight_row)
+        mean_value = _required_float(feature_row.get("mean"), "feature mean")
+        rankings.append(
+            {
+                "index": feature_index,
+                "name": feature_name,
+                "importance": abs(weight_value * mean_value),
+                "weight": weight_value,
+                "weight_metric": weight_metric,
+                "mean_feature_value": mean_value,
+                "mean_abs_feature_value": _optional_float(feature_row.get("mean_abs")),
+                "nonzero_rate": _optional_float(feature_row.get("nonzero_rate")),
+            }
+        )
+
+    rankings.sort(key=lambda row: (-float(row["importance"]), int(row["index"])))
+    rankings = rankings[:top_k]
+    for rank, row in enumerate(rankings, start=1):
+        row["rank"] = rank
+
+    return {
+        "kind": FEATURE_IMPORTANCE_KIND,
+        "source": {
+            "path": str(source_path),
+            "report_kind": report.get("kind"),
+        },
+        "profile": profile,
+        "model_name": model_name,
+        "feature_count": len(feature_rows),
+        "top_k": top_k,
+        "ranking_formula": "abs(weight * mean_feature_value)",
+        "rankings": rankings,
+    }
+
+
+def _feature_importance_model_name(profile: str) -> str:
+    normalized = profile.strip().lower().replace("-", "_")
+    try:
+        return FEATURE_IMPORTANCE_MODEL_ALIASES[normalized]
+    except KeyError as error:
+        raise ValueError(f"unsupported feature importance profile: {profile}") from error
+
+
+def _feature_importance_model_payload(report: dict[str, Any], model_name: str) -> dict[str, Any]:
+    if model_name == "deal_in":
+        if report.get("kind") != DEAL_IN_BENCHMARK_REPORT_KIND:
+            raise ValueError("deal_in feature importance requires a deal-in benchmark report")
+        diagnostics = report.get("model_diagnostics")
+        if not isinstance(diagnostics, dict):
+            raise ValueError("deal-in report missing model_diagnostics")
+        return {
+            "weight_summary": diagnostics.get("weights"),
+            "feature_summary": diagnostics.get("features"),
+        }
+
+    models = report.get("models")
+    if not isinstance(models, dict):
+        raise ValueError("feature importance input missing models")
+    model_payload = models.get(model_name)
+    if not isinstance(model_payload, dict):
+        raise ValueError(f"report missing model profile: {model_name}")
+    return model_payload
+
+
+def _feature_importance_weight_rows(model_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    summary = model_payload.get("weight_summary")
+    if not isinstance(summary, dict):
+        raise ValueError("model payload missing weight_summary")
+    rows = summary.get("features")
+    if not isinstance(rows, list):
+        raise ValueError("model payload missing per-feature weights; regenerate the report")
+    if not all(isinstance(row, dict) for row in rows):
+        raise ValueError("weight_summary features must be objects")
+    return rows
+
+
+def _feature_importance_feature_rows(model_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    summary = model_payload.get("feature_summary")
+    if not isinstance(summary, dict):
+        raise ValueError("model payload missing feature_summary")
+    rows = summary.get("features")
+    if not isinstance(rows, list):
+        raise ValueError("model payload missing feature_summary features")
+    if not all(isinstance(row, dict) for row in rows):
+        raise ValueError("feature_summary features must be objects")
+    return rows
+
+
+def _feature_importance_weight(row: dict[str, Any]) -> tuple[float, str]:
+    if "weight" in row:
+        return _required_float(row["weight"], "feature weight"), "weight"
+    return _required_float(row.get("mean_abs"), "feature mean_abs weight"), "mean_abs"
+
+
+def _required_float(value: Any, name: str) -> float:
+    if not isinstance(value, int | float):
+        raise ValueError(f"{name} must be numeric")
+    return float(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    if not isinstance(value, int | float):
+        raise ValueError("optional metric must be numeric or null")
+    return float(value)
 
 
 def _build_decision_snapshot_summary(paths: Sequence[Path]) -> dict[str, Any]:

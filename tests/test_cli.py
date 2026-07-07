@@ -2827,6 +2827,56 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["discard_shanten"]["examples"], 4)
         self.assertEqual(payload["parse_failures"]["count"], 0)
 
+    def test_feature_importance_ranks_linear_report_features(self) -> None:
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "benchmark.json"
+            importance = Path(directory) / "importance.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                benchmark_exit_code = main(
+                    [
+                        "benchmark-discard",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "1",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--report",
+                        str(report),
+                    ]
+                )
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                importance_exit_code = main(
+                    [
+                        "feature-importance",
+                        str(report),
+                        "--profile",
+                        "RISK_CONTEXT",
+                        "--top-k",
+                        "5",
+                        "--output",
+                        str(importance),
+                    ]
+                )
+            payload = json.loads(importance.read_text(encoding="utf-8"))
+
+        self.assertEqual(benchmark_exit_code, 0)
+        self.assertEqual(importance_exit_code, 0)
+        self.assertIn("model: risk_context_linear", stdout.getvalue())
+        self.assertEqual(payload["kind"], "kenjaku-feature-importance-v0")
+        self.assertEqual(payload["model_name"], "risk_context_linear")
+        self.assertEqual(payload["top_k"], 5)
+        self.assertEqual(len(payload["rankings"]), 5)
+        self.assertEqual(payload["rankings"][0]["rank"], 1)
+        self.assertGreaterEqual(
+            payload["rankings"][0]["importance"],
+            payload["rankings"][-1]["importance"],
+        )
+        self.assertIn("mean_feature_value", payload["rankings"][0])
+
     def test_benchmark_report_summary_outputs_text_and_json(self) -> None:
         with TemporaryDirectory() as directory:
             report = Path(directory) / "benchmark.json"

@@ -345,8 +345,17 @@ class DiscardLinearModel:
         return _feature_names(_feature_profile(feature_profile))
 
     def weight_summary(self) -> dict[str, Any]:
+        names = self.feature_names
         return {
             "feature_count": self.feature_dim,
+            "features": [
+                {
+                    "index": index,
+                    "name": name,
+                    **_numeric_summary(row[index] for row in self.weights),
+                }
+                for index, name in enumerate(names)
+            ],
             "overall": _numeric_summary(
                 weight
                 for row in self.weights
