@@ -96,6 +96,9 @@ notes.
   bundled yet.
 - `benchmark-discard-transformer`, which compares the transformer policy head against frequency,
   risk-context linear, and defense-context linear anchors on the same split.
+- Public release planning lives in `docs/public-release.md`; it records the selected release name,
+  canonical URL, channel owners, draft launch posts, outreach targets, and naming-risk checks while
+  keeping public claims limited to verified local artifacts.
 
 ## Quickstart
 
