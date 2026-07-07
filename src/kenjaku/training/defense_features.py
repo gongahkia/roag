@@ -74,6 +74,12 @@ def actual_discard_has_sotogawa(example: DiscardExample) -> bool:
     return candidate_has_sotogawa(example, example.action.tile)
 
 
+def actual_discard_is_tsumogiri(example: DiscardExample) -> bool:
+    if example.action.tile is None:
+        raise ValueError("discard examples must have tile actions")
+    return example.discard_is_tsumogiri
+
+
 def candidate_is_genbutsu(example: DiscardExample, tile: TileType | int) -> bool:
     tile_index = _tile_index(tile)
     return any(

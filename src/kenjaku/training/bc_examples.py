@@ -320,6 +320,7 @@ def _discard_example_to_payload(example: DiscardExample) -> dict[str, Any]:
         "hand_counts": list(example.hand_counts),
         "visible_counts": list(example.visible_counts),
         "action": _action_to_payload(example.action),
+        "discard_is_tsumogiri": example.discard_is_tsumogiri,
         "active_riichi_seats": list(example.active_riichi_seats),
         "river_counts_by_seat": _nested_ints_to_payload(example.river_counts_by_seat),
         "seat_turn_index": example.seat_turn_index,
@@ -341,6 +342,7 @@ def _discard_example_to_payload(example: DiscardExample) -> dict[str, Any]:
 
 
 def _discard_example_from_payload(payload: dict[str, Any]) -> DiscardExample:
+    action = _action_from_payload(payload.get("action"))
     return DiscardExample(
         round_index=int(payload["round_index"]),
         event_index=int(payload["event_index"]),
@@ -349,7 +351,8 @@ def _discard_example_from_payload(payload: dict[str, Any]) -> DiscardExample:
         scores=_int_tuple(payload, "scores"),
         hand_counts=_tile_counts_from_payload(payload, "hand_counts"),
         visible_counts=_tile_counts_from_payload(payload, "visible_counts"),
-        action=_action_from_payload(payload.get("action")),
+        action=action,
+        discard_is_tsumogiri=bool(payload.get("discard_is_tsumogiri", action.tsumogiri)),
         active_riichi_seats=_bool_tuple(payload.get("active_riichi_seats", [])),
         river_counts_by_seat=_nested_counts_from_payload(payload, "river_counts_by_seat"),
         seat_turn_index=int(payload.get("seat_turn_index", 0)),

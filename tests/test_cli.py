@@ -1388,7 +1388,7 @@ class CliTests(unittest.TestCase):
             payload = json.loads(json_stdout.getvalue())
 
         self.assertEqual(text_exit_code, 0)
-        self.assertIn("model: deal-in-linear-v0 feature_dim=25", text_stdout.getvalue())
+        self.assertIn("model: deal-in-linear-v0 feature_dim=26", text_stdout.getvalue())
         self.assertIn("calibration: target=deal_in", text_stdout.getvalue())
         self.assertIn("heuristic_eval:", text_stdout.getvalue())
         self.assertIn("eval_brier_score_vs_heuristic:", text_stdout.getvalue())
@@ -3261,9 +3261,17 @@ class CliTests(unittest.TestCase):
                         "--source-label",
                         "fixture-bc-export",
                     ]
-                )
+            )
             manifest_path = export_dir / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            discard_shard = next(
+                shard
+                for shard in manifest["shards"]
+                if shard["decision_type"] == "discard"
+            )
+            first_discard_row = json.loads(
+                (export_dir / discard_shard["path"]).read_text(encoding="utf-8").splitlines()[0],
+            )
 
             with contextlib.redirect_stdout(io.StringIO()):
                 discard_exit_code = main(
@@ -3329,6 +3337,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(manifest["decision_counts"]["call"], 1)
         self.assertEqual(manifest["decision_counts"]["riichi"], 3)
         self.assertGreaterEqual(len(manifest["shards"]), 3)
+        self.assertIsInstance(first_discard_row["example"]["discard_is_tsumogiri"], bool)
+        self.assertEqual(
+            first_discard_row["example"]["discard_is_tsumogiri"],
+            first_discard_row["example"]["action"]["tsumogiri"],
+        )
         self.assertEqual(discard_exit_code, 0)
         self.assertEqual(call_exit_code, 0)
         self.assertEqual(riichi_exit_code, 0)

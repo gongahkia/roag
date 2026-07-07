@@ -39,6 +39,7 @@ class DealInLinearModelTests(unittest.TestCase):
 
         self.assertEqual(model.kind, DEAL_IN_LINEAR_MODEL_KIND)
         self.assertEqual(model.feature_dim, DEAL_IN_LINEAR_FEATURE_DIM)
+        self.assertIn("discard_is_tsumogiri", model.feature_names)
         self.assertGreater(
             model.predict_probability(dangerous),
             model.predict_probability(safe),
@@ -71,6 +72,31 @@ class DealInLinearModelTests(unittest.TestCase):
         self.assertEqual(metrics["accuracy"], 1.0)
         self.assertLess(heuristic[0], heuristic[1])
 
+    def test_feature_summary_counts_tsumogiri_discards(self) -> None:
+        draw_discard = _deal_in_example(
+            dealt_in=False,
+            hand=["4m", "5m"],
+            discard="4m",
+            opponent_river=["4m"],
+            tsumogiri=True,
+        )
+        hand_discard = _deal_in_example(
+            dealt_in=True,
+            hand=["5m", "6m"],
+            discard="5m",
+            opponent_river=["1m"],
+        )
+        model = DealInLinearModel.fit([draw_discard, hand_discard], epochs=0)
+
+        feature = next(
+            feature
+            for feature in model.feature_summary([draw_discard, hand_discard])["features"]
+            if feature["name"] == "discard_is_tsumogiri"
+        )
+
+        self.assertEqual(feature["nonzero"], 1)
+        self.assertEqual(feature["mean"], 0.5)
+
     def test_round_trips_model_payload(self) -> None:
         example = _deal_in_example(
             dealt_in=False,
@@ -83,6 +109,7 @@ class DealInLinearModelTests(unittest.TestCase):
         restored = DealInLinearModel.from_dict(model.to_dict())
 
         self.assertEqual(restored.kind, DEAL_IN_LINEAR_MODEL_KIND)
+        self.assertEqual(restored.feature_dim, DEAL_IN_LINEAR_FEATURE_DIM)
         self.assertEqual(restored.weights, model.weights)
         with TemporaryDirectory() as directory:
             path = Path(directory) / "deal-in.json"
@@ -97,6 +124,7 @@ def _deal_in_example(
     hand: list[str],
     discard: str,
     opponent_river: list[str],
+    tsumogiri: bool = False,
 ) -> DealInExample:
     hand_tiles = tuple(Tile.parse(tile) for tile in hand)
     river_tiles = tuple(Tile.parse(tile) for tile in opponent_river)
@@ -110,7 +138,8 @@ def _deal_in_example(
             scores=(25000, 25000, 25000, 25000),
             hand_counts=tile_counts(hand_tiles),
             visible_counts=tile_counts((*hand_tiles, *river_tiles)),
-            action=Action.discard(TileType.parse(discard)),
+            action=Action.discard(TileType.parse(discard), tsumogiri=tsumogiri),
+            discard_is_tsumogiri=tsumogiri,
             active_riichi_seats=(False, True, False, False),
             river_counts_by_seat=tuple(tile_counts(river) for river in rivers_by_seat),
             seat_turn_index=8,

@@ -6,6 +6,7 @@ from kenjaku.core import Action, Tile, TileType, tile_counts
 from kenjaku.training import (
     DiscardExample,
     active_riichi_opponents,
+    actual_discard_is_tsumogiri,
     candidate_has_kabe,
     candidate_has_one_chance,
     candidate_has_sotogawa,
@@ -63,12 +64,17 @@ class DefenseFeatureTests(unittest.TestCase):
         self.assertFalse(candidate_has_sotogawa(example, TileType.parse("4m")))
         self.assertFalse(candidate_has_sotogawa(example, TileType.parse("E")))
 
+    def test_actual_discard_tracks_tsumogiri(self) -> None:
+        self.assertTrue(actual_discard_is_tsumogiri(_example(tsumogiri=True)))
+        self.assertFalse(actual_discard_is_tsumogiri(_example(tsumogiri=False)))
+
 
 def _example(
     *,
     opponent_river: list[str] | None = None,
     visible_tiles: list[str] | None = None,
     riichi_turn: int | None = 0,
+    tsumogiri: bool = False,
 ) -> DiscardExample:
     hand = tuple(Tile.parse(tile) for tile in ["1m", "2m"])
     opponent_river_tiles = tuple(Tile.parse(tile) for tile in opponent_river or [])
@@ -88,7 +94,8 @@ def _example(
         scores=(25000, 25000, 25000, 25000),
         hand_counts=tile_counts(hand),
         visible_counts=tile_counts((*hand, *opponent_river_tiles, *visible)),
-        action=Action.discard("1m"),
+        action=Action.discard("1m", tsumogiri=tsumogiri),
+        discard_is_tsumogiri=tsumogiri,
         active_riichi_seats=(False, True, False, False),
         river_counts_by_seat=river_counts_by_seat,
         rivers_by_seat=rivers_by_seat,

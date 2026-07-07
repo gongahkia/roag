@@ -22,7 +22,9 @@ class DiscardExampleTests(unittest.TestCase):
         self.assertEqual(sum(examples[0].hand_counts), 14)
         self.assertEqual(examples[0].action.tile, TileType.parse("7p"))
         self.assertTrue(examples[0].action.tsumogiri)
+        self.assertTrue(examples[0].discard_is_tsumogiri)
         self.assertEqual(examples[1].event_index, 3)
+        self.assertFalse(examples[1].discard_is_tsumogiri)
 
     def test_visible_counts_are_perspective_scoped(self) -> None:
         game = parse_tenhou_xml_file(FIXTURE)

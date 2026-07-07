@@ -11,6 +11,7 @@ from kenjaku.core import TileType
 from kenjaku.training.deal_in import DealInExample
 from kenjaku.training.defense_features import (
     active_riichi_opponents,
+    actual_discard_is_tsumogiri,
     candidate_has_kabe,
     candidate_has_one_chance,
     candidate_has_sotogawa,
@@ -39,6 +40,7 @@ DEAL_IN_LINEAR_FEATURE_NAMES = (
     "candidate_visible_count",
     "candidate_unseen_count",
     "candidate_hand_count",
+    "discard_is_tsumogiri",
     "candidate_terminal_or_honor",
     "candidate_honor",
     "candidate_terminal",
@@ -335,6 +337,7 @@ def _features_for_example(example: DealInExample) -> tuple[float, ...]:
         visible_count / 4.0,
         unseen_count / 4.0,
         discard.hand_counts[tile.index] / 4.0,
+        1.0 if actual_discard_is_tsumogiri(discard) else 0.0,
         1.0 if tile.is_terminal_or_honor else 0.0,
         1.0 if tile.is_honor else 0.0,
         1.0 if tile.is_terminal else 0.0,

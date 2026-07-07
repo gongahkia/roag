@@ -28,6 +28,7 @@ class DiscardExample:
     hand_counts: tuple[int, ...]
     visible_counts: tuple[int, ...]
     action: Action
+    discard_is_tsumogiri: bool = False
     active_riichi_seats: tuple[bool, ...] = ()
     river_counts_by_seat: tuple[tuple[int, ...], ...] = ()
     seat_turn_index: int = 0
@@ -79,6 +80,7 @@ def iter_discard_examples(game: TenhouGame) -> Iterator[DiscardExample]:
                     hand_counts=tile_counts(state.hands[event.seat]),
                     visible_counts=tile_counts(visible_tiles),
                     action=event.action,
+                    discard_is_tsumogiri=event.tsumogiri,
                     active_riichi_seats=tuple(state.active_riichi),
                     river_counts_by_seat=state.river_counts_by_seat(),
                     seat_turn_index=state.discard_counts_by_seat[event.seat],
