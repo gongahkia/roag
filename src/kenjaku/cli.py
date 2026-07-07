@@ -94,6 +94,10 @@ from kenjaku.replay_viewer import (
     write_self_play_match_trajectory_jsonl,
     write_self_play_replay_viewer_html,
 )
+from kenjaku.safety_advisor import (
+    build_safety_advisor_report,
+    format_safety_advisor_text,
+)
 from kenjaku.simulation import (
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
@@ -996,6 +1000,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(defense_risk)
     defense_risk.set_defaults(func=_defense_risk_summary)
+
+    safety_advisor = subparsers.add_parser(
+        "safety-advisor",
+        help="rank hand tiles by riichi-defense safety signals",
+    )
+    safety_advisor.add_argument("--hand", required=True, help="candidate hand tiles")
+    safety_advisor.add_argument(
+        "--river",
+        required=True,
+        help="active opponent river tiles",
+    )
+    safety_advisor.add_argument(
+        "--active-riichi",
+        required=True,
+        help="comma-separated active riichi seats, e.g. 1,3",
+    )
+    safety_advisor.add_argument("--seat", type=int, default=0, help="self seat 0..3")
+    safety_advisor.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="output format",
+    )
+    safety_advisor.set_defaults(func=_safety_advisor)
 
     deal_in = subparsers.add_parser(
         "benchmark-deal-in",
@@ -3390,6 +3418,23 @@ def _benchmark_discard_from_examples(args: argparse.Namespace) -> int:
         _apply_bc_example_report_metadata(report, load)
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
+    return 0
+
+
+def _safety_advisor(args: argparse.Namespace) -> int:
+    try:
+        report = build_safety_advisor_report(
+            hand=args.hand,
+            river=args.river,
+            active_riichi=args.active_riichi,
+            seat=args.seat,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if args.output == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_safety_advisor_text(report))
     return 0
 
 
