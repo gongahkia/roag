@@ -141,6 +141,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_sanma_kita_action: yes", output)
         self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", output)
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", output)
+        self.assertIn("opponent_shape_baseline: yes", output)
         self.assertIn("deal_in_estimator_training_command: yes", output)
         self.assertIn("deal_in_estimator_threshold_calibration: yes", output)
         self.assertIn("transformer_state_encoder_module: yes", output)
@@ -369,6 +370,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_resolution"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["opponent_shape_baseline"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )

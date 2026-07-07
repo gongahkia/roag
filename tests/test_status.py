@@ -205,6 +205,7 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_resolution"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["heuristic_defense_risk_scoring"])
+        self.assertTrue(payload["capabilities"]["implemented"]["opponent_shape_baseline"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )
@@ -331,6 +332,7 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_sanma_kita_ron_reaction_window: yes", text)
         self.assertIn("sandbox_sanma_kita_ron_resolution: yes", text)
         self.assertIn("heuristic_defense_risk_scoring: yes", text)
+        self.assertIn("opponent_shape_baseline: yes", text)
         self.assertIn("deal_in_estimator_training_command: yes", text)
         self.assertIn("deal_in_estimator_threshold_calibration: yes", text)
         self.assertIn("transformer_state_encoder_module: yes", text)

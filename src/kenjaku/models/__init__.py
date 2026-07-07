@@ -40,6 +40,11 @@ from kenjaku.models.linear_riichi import (
     RIICHI_LINEAR_MODEL_KIND,
     RiichiLinearModel,
 )
+from kenjaku.models.opponent_shape import (
+    OPPONENT_SHAPE_BASELINE_KIND,
+    OPPONENT_SHAPE_YAKU,
+    OpponentShapeBaseline,
+)
 from kenjaku.models.riichi_frequency import (
     RIICHI_DECISION_KINDS,
     RIICHI_FREQUENCY_MODEL_KIND,
@@ -68,6 +73,9 @@ __all__ = [
     "DiscardLinearModel",
     "DEFENSE_CONTEXT_FEATURE_PROFILE",
     "DEFENSE_CONTEXT_V1_FEATURE_PROFILE",
+    "OPPONENT_SHAPE_BASELINE_KIND",
+    "OPPONENT_SHAPE_YAKU",
+    "OpponentShapeBaseline",
     "RAW_COUNT_FEATURE_PROFILE",
     "RIICHI_DECISION_KINDS",
     "RIICHI_FREQUENCY_MODEL_KIND",

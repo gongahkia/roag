@@ -137,6 +137,7 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_sanma_kita_ron_resolution": True,
                 "discard_mlp_training_command": True,
                 "heuristic_defense_risk_scoring": True,
+                "opponent_shape_baseline": True,
                 "deal_in_estimator_training_command": True,
                 "deal_in_estimator_threshold_calibration": True,
                 "transformer_state_encoder_module": True,
