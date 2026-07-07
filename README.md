@@ -154,6 +154,19 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 
 Use a supported Python version: `>=3.11,<3.14`.
 
+After the first PyPI release is published:
+
+```bash
+python3.13 -m pip install kenjaku
+python3.13 -m pip install "kenjaku[ml]"
+kenjaku --version
+```
+
+The plain install covers dependency-free parsing, sandbox, snapshot, report, and baseline paths.
+Use `kenjaku[ml]` for PyTorch MLP and transformer commands.
+
+From a source checkout:
+
 ```bash
 python3.13 -m pip install -e ".[dev]"
 PYTHONPATH=src python3.13 -m unittest discover -s tests
