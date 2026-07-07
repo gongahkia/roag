@@ -2583,8 +2583,12 @@ class CliTests(unittest.TestCase):
                         "--source-label",
                         "fixture-mlp-benchmark",
                     ]
-                )
+            )
             payload = json.loads(report.read_text(encoding="utf-8"))
+            summary_stdout = io.StringIO()
+            with contextlib.redirect_stdout(summary_stdout):
+                summary_exit_code = main(["benchmark-report-summary", str(report)])
+            summary_text = summary_stdout.getvalue()
 
         self.assertEqual(exit_code, 0)
         self.assertIn("discard_mlp_best_eval_accuracy:", stdout.getvalue())
@@ -2600,13 +2604,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["models"]["discard_mlp"]["hidden_dim"], 8)
         self.assertEqual(payload["models"]["discard_mlp"]["training"]["device"], "cpu")
         self.assertIn("mlp_eval_accuracy_lift_over_defense_context", payload["deltas"])
-
-        summary_stdout = io.StringIO()
-        with contextlib.redirect_stdout(summary_stdout):
-            summary_exit_code = main(["benchmark-report-summary", str(report)])
         self.assertEqual(summary_exit_code, 0)
-        self.assertIn("discard_mlp: eval=", summary_stdout.getvalue())
-        self.assertIn("deltas:", summary_stdout.getvalue())
+        self.assertIn("discard_mlp: eval=", summary_text)
+        self.assertIn("deltas:", summary_text)
 
     def test_benchmark_discard_writes_report_artifact(self) -> None:
         stdout = io.StringIO()

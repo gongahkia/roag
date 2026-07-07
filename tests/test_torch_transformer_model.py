@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from kenjaku.io import parse_tenhou_xml_file
+from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.training import iter_discard_examples
 
 try:
@@ -30,7 +30,7 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 
-FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
+FIXTURE = Path("data/fixtures/tenhou")
 
 
 @unittest.skipUnless(TORCH_AVAILABLE, "PyTorch is not available")
@@ -145,7 +145,7 @@ class TorchTransformerModelTests(unittest.TestCase):
 
 
 def _discard_examples():
-    return list(iter_discard_examples(parse_tenhou_xml_file(FIXTURE)))
+    return list(iter_discard_examples(parse_tenhou_xml_dataset([FIXTURE]).game))
 
 
 if __name__ == "__main__":
