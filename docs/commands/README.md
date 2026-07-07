@@ -2,12 +2,13 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 38 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 38 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 39 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 39 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
 - [`browser-demo`](browser-demo.md) - Generate the static browser-playable demo and optionally serve it locally.
+- [`serve`](serve.md) - Serve a local artifact directory with an auto-generated landing page.
 - [`replay-intake-review`](replay-intake-review.md) - Validate a permission-aware replay intake manifest before local analysis.
 - [`replay-share-plan`](replay-share-plan.md) - Plan whether accepted replay intake rows can be used for a demo or redistribution.
 - [`replay-public-summary`](replay-public-summary.md) - Build a public-safe replay summary from accepted replay intake rows.

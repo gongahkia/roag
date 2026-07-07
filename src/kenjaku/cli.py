@@ -15,6 +15,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import perf_counter
 from typing import Any, TypeVar
+from urllib.parse import quote
 
 from kenjaku import __version__
 from kenjaku.browser_demo import write_browser_demo
@@ -232,6 +233,26 @@ DECISION_SNAPSHOT_COMPARISON_KIND = "kenjaku-decision-snapshot-comparison-v0"
 DEMO_FIXTURE_SOURCE = Path("data/fixtures/tenhou")
 DEMO_SOURCE_DATE = "fixture-demo-v0"
 DEMO_GENERATED_AT = "fixture-demo-v0"
+ARTIFACT_TYPE_LABELS = {
+    ".html": ("HTML", "page"),
+    ".json": ("JSON", "data"),
+    ".jsonl": ("JSONL", "data"),
+    ".mp4": ("MP4", "video"),
+    ".png": ("IMG", "image"),
+    ".jpg": ("IMG", "image"),
+    ".jpeg": ("IMG", "image"),
+    ".gif": ("IMG", "image"),
+    ".webp": ("IMG", "image"),
+    ".svg": ("SVG", "image"),
+    ".css": ("CSS", "style"),
+    ".js": ("JS", "script"),
+    ".txt": ("TXT", "text"),
+    ".md": ("MD", "text"),
+    ".csv": ("CSV", "table"),
+    ".tsv": ("TSV", "table"),
+    ".pt": ("PT", "model"),
+    ".pth": ("PTH", "model"),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +273,15 @@ class _StreamedExamples:
     source_complete: bool
     discard_examples: int | None = None
     call_examples: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ArtifactDashboardEntry:
+    rel_path: Path
+    type_label: str
+    type_name: str
+    size: int
+    modified_at: str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -312,6 +342,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="write the demo assets without starting an HTTP server",
     )
     browser_demo.set_defaults(func=_browser_demo)
+
+    serve = subparsers.add_parser(
+        "serve",
+        help="serve a local artifact directory with a generated landing page",
+    )
+    serve.add_argument(
+        "--dir",
+        dest="directory",
+        type=Path,
+        default=Path("runs"),
+        help="artifact directory to index and serve",
+    )
+    serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="host to bind when serving artifacts",
+    )
+    serve.add_argument(
+        "--port",
+        type=int,
+        default=8766,
+        help="port to bind when serving artifacts",
+    )
+    serve.add_argument(
+        "--title",
+        default="Kenjaku Artifact Dashboard",
+        help="landing page title",
+    )
+    serve.add_argument(
+        "--no-serve",
+        action="store_true",
+        help="write index.html without starting an HTTP server",
+    )
+    serve.set_defaults(func=_serve_artifacts)
 
     replay_intake = subparsers.add_parser(
         "replay-intake-review",
@@ -2316,6 +2380,211 @@ def _browser_demo(args: argparse.Namespace) -> int:
     finally:
         server.server_close()
     return 0
+
+
+def _serve_artifacts(args: argparse.Namespace) -> int:
+    if not 0 <= args.port <= 65535:
+        raise SystemExit("--port must be between 0 and 65535")
+
+    root = args.directory
+    if root.exists() and not root.is_dir():
+        raise SystemExit(f"--dir is not a directory: {root}")
+    root.mkdir(parents=True, exist_ok=True)
+
+    index_path = root / "index.html"
+    artifacts = _discover_dashboard_artifacts(root, index_path=index_path)
+    _write_artifact_dashboard_index(
+        index_path,
+        title=args.title,
+        artifacts=artifacts,
+    )
+    print(f"wrote artifact dashboard: {index_path}")
+
+    if args.no_serve:
+        print(f"open: {index_path}")
+        return 0
+
+    handler = partial(
+        SimpleHTTPRequestHandler,
+        directory=str(root.resolve()),
+    )
+    server = ThreadingHTTPServer((args.host, args.port), handler)
+    host, port = server.server_address[:2]
+    print(f"serving artifacts: http://{host}:{port}/")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopped artifact server")
+    finally:
+        server.server_close()
+    return 0
+
+
+def _discover_dashboard_artifacts(
+    root: Path,
+    *,
+    index_path: Path,
+) -> list[_ArtifactDashboardEntry]:
+    root = root.resolve()
+    index_path = index_path.resolve()
+    entries: list[_ArtifactDashboardEntry] = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().lower()):
+        if not path.is_file() or path.resolve() == index_path:
+            continue
+        rel_path = path.resolve().relative_to(root)
+        stat = path.stat()
+        type_label, type_name = _artifact_dashboard_type(path)
+        entries.append(
+            _ArtifactDashboardEntry(
+                rel_path=rel_path,
+                type_label=type_label,
+                type_name=type_name,
+                size=stat.st_size,
+                modified_at=_format_artifact_timestamp(stat.st_mtime),
+            )
+        )
+    return entries
+
+
+def _artifact_dashboard_type(path: Path) -> tuple[str, str]:
+    suffix = path.suffix.lower()
+    if suffix in ARTIFACT_TYPE_LABELS:
+        return ARTIFACT_TYPE_LABELS[suffix]
+    if suffix:
+        label = suffix[1:].upper()[:8]
+        return label, "file"
+    return "FILE", "file"
+
+
+def _format_artifact_timestamp(timestamp: float) -> str:
+    return (
+        datetime.fromtimestamp(timestamp, UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _format_artifact_size(size: int) -> str:
+    if size < 1024:
+        return f"{size} B"
+    value = float(size)
+    for unit in ("KB", "MB", "GB", "TB"):
+        value /= 1024
+        if value < 1024 or unit == "TB":
+            return f"{value:.1f} {unit}"
+    return f"{value:.1f} TB"
+
+
+def _write_artifact_dashboard_index(
+    path: Path,
+    *,
+    title: str,
+    artifacts: Sequence[_ArtifactDashboardEntry],
+) -> None:
+    generated_at = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
+    artifact_count = len(artifacts)
+    type_count = len({artifact.type_label for artifact in artifacts})
+    if artifacts:
+        items = "\n".join(_format_artifact_dashboard_item(item) for item in artifacts)
+    else:
+        items = '        <p class="empty">No artifacts found.</p>'
+
+    path.write_text(
+        f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{escape(title)}</title>
+    <style>
+      body {{
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        color: #18202a;
+        background: #f5f7f8;
+      }}
+      main {{
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 40px 24px;
+      }}
+      header {{ margin-bottom: 24px; }}
+      h1 {{ margin: 0 0 8px; font-size: 2rem; }}
+      p {{ margin: 0; color: #4d5965; }}
+      .list {{ display: grid; gap: 10px; }}
+      .artifact {{
+        display: grid;
+        grid-template-columns: 72px 1fr auto;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 14px;
+        border: 1px solid #d9e0e6;
+        border-radius: 8px;
+        background: #fff;
+        color: inherit;
+        text-decoration: none;
+      }}
+      .artifact:hover {{ border-color: #8ab4d8; }}
+      .type-icon {{
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 48px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: #eaf2f8;
+        color: #174d78;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }}
+      .path {{ overflow-wrap: anywhere; font-weight: 600; }}
+      .meta {{ color: #64707d; font-size: 0.9rem; white-space: nowrap; }}
+      .empty {{
+        padding: 16px;
+        border: 1px dashed #b8c3cc;
+        border-radius: 8px;
+        background: #fff;
+      }}
+      @media (max-width: 680px) {{
+        .artifact {{ grid-template-columns: 64px 1fr; }}
+        .meta {{ grid-column: 2; white-space: normal; }}
+      }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>{escape(title)}</h1>
+        <p>{artifact_count} artifacts, {type_count} types. Generated {generated_at}.</p>
+      </header>
+      <section class="list" aria-label="Artifacts">
+{items}
+      </section>
+    </main>
+  </body>
+</html>
+""",
+        encoding="utf-8",
+    )
+
+
+def _format_artifact_dashboard_item(artifact: _ArtifactDashboardEntry) -> str:
+    rel_path = artifact.rel_path.as_posix()
+    href = escape(quote(rel_path, safe="/"), quote=True)
+    meta = (
+        f"{artifact.type_name} | "
+        f"{_format_artifact_size(artifact.size)} | "
+        f"{artifact.modified_at}"
+    )
+    return (
+        f'        <a class="artifact" href="{href}">'
+        f'<span class="type-icon">{escape(artifact.type_label)}</span>'
+        f'<span class="path">{escape(rel_path)}</span>'
+        f'<span class="meta">{escape(meta)}</span></a>'
+    )
 
 
 def _replay_intake_review(args: argparse.Namespace) -> int:

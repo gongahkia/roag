@@ -430,6 +430,35 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("private", index_html + styles_css + demo_js)
         self.assertNotIn("replay", index_html.lower() + styles_css.lower() + demo_js.lower())
 
+    def test_serve_writes_artifact_dashboard_without_serving(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / "runs"
+            (root / "nested path").mkdir(parents=True)
+            (root / "page.html").write_text("<h1>report</h1>", encoding="utf-8")
+            (root / "report.json").write_text("{}", encoding="utf-8")
+            (root / "video.mp4").write_bytes(b"mp4")
+            (root / "nested path" / "data.jsonl").write_text("{}", encoding="utf-8")
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(["serve", "--dir", str(root), "--no-serve"])
+
+            index_html = (root / "index.html").read_text(encoding="utf-8")
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("wrote artifact dashboard:", stdout.getvalue())
+        self.assertIn("open:", stdout.getvalue())
+        self.assertIn("Kenjaku Artifact Dashboard", index_html)
+        self.assertIn('href="page.html"', index_html)
+        self.assertIn('href="report.json"', index_html)
+        self.assertIn('href="video.mp4"', index_html)
+        self.assertIn('href="nested%20path/data.jsonl"', index_html)
+        self.assertIn(">HTML<", index_html)
+        self.assertIn(">JSON<", index_html)
+        self.assertIn(">MP4<", index_html)
+        self.assertIn(">JSONL<", index_html)
+        self.assertNotIn('href="index.html"', index_html)
+
     def test_demo_writes_fixture_quickstart_artifacts(self) -> None:
         with TemporaryDirectory() as directory:
             output_dir = Path(directory) / "demo"
