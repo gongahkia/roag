@@ -3500,6 +3500,31 @@ class CliTests(unittest.TestCase):
         self.assertIn("call_frequency:", summary_stdout.getvalue())
         self.assertIn("riichi_linear:", summary_stdout.getvalue())
 
+    def test_export_bc_examples_records_parse_failures_while_streaming(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            broken = root / "broken.xml"
+            export_dir = root / "bc-examples"
+            broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "export-bc-examples",
+                        "data/fixtures/tenhou/minimal_4p.xml",
+                        str(broken),
+                        "--output-dir",
+                        str(export_dir),
+                        "--skip-errors",
+                    ]
+                )
+            manifest = json.loads((export_dir / "manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(manifest["parsed_xml_file_count"], 1)
+        self.assertEqual(len(manifest["parse_failures"]), 1)
+        self.assertEqual(manifest["parse_failures"][0]["error_type"], "ValueError")
+
     def test_benchmark_from_examples_records_limit_and_total(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

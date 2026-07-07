@@ -46,8 +46,8 @@ from kenjaku.io import (
     format_replay_intake_review,
     format_replay_public_summary,
     format_replay_share_plan,
+    iter_tenhou_xml_dataset_files,
     parse_tenhou_xml_dataset,
-    parse_tenhou_xml_file,
     review_replay_manifest_file,
     tenhou_xml_files,
     write_accepted_replay_intake_jsonl,
@@ -2704,25 +2704,24 @@ def _export_bc_examples(args: argparse.Namespace) -> int:
         decision_counts[decision_type] += 1
         shard_counts[decision_type] += 1
 
+    parsed_iter = iter_tenhou_xml_dataset_files(
+        source_files,
+        skip_errors=args.skip_errors,
+        failures=parse_failures,
+    )
     try:
-        for file_index, file in enumerate(source_files):
+        while True:
             if _bc_export_limits_reached(decision_types, decision_counts, args.limit_per_type):
                 source_complete = False
                 break
             try:
-                game = parse_tenhou_xml_file(file)
-            except Exception as error:
-                if not args.skip_errors:
-                    raise
-                parse_failures.append(
-                    TenhouParseFailure(
-                        path=file,
-                        error_type=type(error).__name__,
-                        message=str(error),
-                    )
-                )
-                continue
+                parsed = next(parsed_iter)
+            except StopIteration:
+                break
 
+            file = parsed.path
+            file_index = parsed.file_index
+            game = parsed.game
             parsed_files.append(file)
             _add_game_counts(game_counts, _call_example_cache_game_counts(game))
             if "discard" in decision_types:
@@ -6247,20 +6246,14 @@ def _collect_streamed_examples(
     discard_examples = 0 if count_discard else None
     call_examples = 0 if count_call else None
 
-    for file_index, file in enumerate(source_files):
-        try:
-            game = parse_tenhou_xml_file(file)
-        except Exception as error:
-            if not skip_errors:
-                raise
-            parse_failures.append(
-                TenhouParseFailure(
-                    path=file,
-                    error_type=type(error).__name__,
-                    message=str(error),
-                )
-            )
-            continue
+    for parsed in iter_tenhou_xml_dataset_files(
+        source_files,
+        skip_errors=skip_errors,
+        failures=parse_failures,
+    ):
+        file_index = parsed.file_index
+        file = parsed.path
+        game = parsed.game
 
         parsed_files.append(file)
         _add_game_counts(game_counts, _call_example_cache_game_counts(game))

@@ -22,7 +22,10 @@ from kenjaku.io.replay_manifest import (
 )
 from kenjaku.io.tenhou_dataset import (
     TenhouDataset,
+    TenhouDatasetFile,
     TenhouParseFailure,
+    iter_tenhou_xml_dataset,
+    iter_tenhou_xml_dataset_files,
     parse_tenhou_xml_dataset,
     parse_tenhou_xml_paths,
     tenhou_xml_files,
@@ -47,6 +50,7 @@ __all__ = [
     "TenhouAgari",
     "TenhouCall",
     "TenhouDataset",
+    "TenhouDatasetFile",
     "TenhouDiscard",
     "TenhouDraw",
     "TenhouEvent",
@@ -72,6 +76,8 @@ __all__ = [
     "format_replay_intake_review",
     "format_replay_public_summary",
     "format_replay_share_plan",
+    "iter_tenhou_xml_dataset",
+    "iter_tenhou_xml_dataset_files",
     "parse_tenhou_xml",
     "parse_tenhou_xml_file",
     "parse_tenhou_xml_dataset",

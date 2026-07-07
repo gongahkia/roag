@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +19,13 @@ class TenhouDataset:
     game: TenhouGame
     files: tuple[Path, ...]
     failures: tuple[TenhouParseFailure, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class TenhouDatasetFile:
+    path: Path
+    file_index: int
+    game: TenhouGame
 
 
 def tenhou_xml_files(paths: Sequence[str | Path]) -> tuple[Path, ...]:
@@ -43,6 +50,43 @@ def parse_tenhou_xml_paths(paths: Sequence[str | Path]) -> TenhouGame:
     return parse_tenhou_xml_dataset(paths).game
 
 
+def iter_tenhou_xml_dataset(
+    paths: Sequence[str | Path],
+    *,
+    skip_errors: bool = False,
+) -> Iterator[TenhouGame]:
+    for parsed in iter_tenhou_xml_dataset_files(paths, skip_errors=skip_errors):
+        yield parsed.game
+
+
+def iter_tenhou_xml_dataset_files(
+    paths: Sequence[str | Path],
+    *,
+    skip_errors: bool = False,
+    failures: list[TenhouParseFailure] | None = None,
+) -> Iterator[TenhouDatasetFile]:
+    files = tenhou_xml_files(paths)
+    if not files:
+        raise ValueError("no Tenhou XML files found")
+
+    for file_index, file in enumerate(files):
+        try:
+            game = parse_tenhou_xml_file(file)
+        except Exception as error:
+            if not skip_errors:
+                raise
+            if failures is not None:
+                failures.append(
+                    TenhouParseFailure(
+                        path=file,
+                        error_type=type(error).__name__,
+                        message=str(error),
+                    )
+                )
+            continue
+        yield TenhouDatasetFile(path=file, file_index=file_index, game=game)
+
+
 def parse_tenhou_xml_dataset(
     paths: Sequence[str | Path],
     *,
@@ -54,19 +98,12 @@ def parse_tenhou_xml_dataset(
 
     rounds = []
     failures: list[TenhouParseFailure] = []
-    for file in files:
-        try:
-            rounds.extend(parse_tenhou_xml_file(file).rounds)
-        except Exception as error:
-            if not skip_errors:
-                raise
-            failures.append(
-                TenhouParseFailure(
-                    path=file,
-                    error_type=type(error).__name__,
-                    message=str(error),
-                )
-            )
+    for parsed in iter_tenhou_xml_dataset_files(
+        files,
+        skip_errors=skip_errors,
+        failures=failures,
+    ):
+        rounds.extend(parsed.game.rounds)
     return TenhouDataset(
         game=TenhouGame(rounds=tuple(rounds)),
         files=files,
