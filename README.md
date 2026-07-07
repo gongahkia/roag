@@ -217,6 +217,9 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
   data/fixtures/tenhou --epochs 3 --models fast \
   --report runs/fixture-discard-benchmark.json \
   --disagreements runs/fixture-disagreements.json
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
+  data/fixtures/synthetic-bc \
+  --report runs/synthetic-bc-discard-benchmark.json
 
 PYTHONPATH=src python3.13 -m kenjaku benchmark-call \
   data/fixtures/tenhou --models fast --example-limit 1 \

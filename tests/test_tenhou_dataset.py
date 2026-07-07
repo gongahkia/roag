@@ -13,6 +13,7 @@ from kenjaku.io import (
 )
 
 FIXTURE_DIR = Path("data/fixtures/tenhou")
+SYNTHETIC_BC_FIXTURE_DIR = Path("data/fixtures/synthetic-bc")
 MINIMAL_FIXTURE = FIXTURE_DIR / "minimal_4p.xml"
 EVENTS_FIXTURE = FIXTURE_DIR / "events_4p.xml"
 
@@ -65,6 +66,14 @@ class TenhouDatasetTests(unittest.TestCase):
             games = list(iter_tenhou_xml_dataset([MINIMAL_FIXTURE, broken], skip_errors=True))
 
         self.assertEqual([len(game.rounds) for game in games], [1])
+
+    def test_synthetic_bc_fixture_is_nontrivial_and_small(self) -> None:
+        dataset = parse_tenhou_xml_dataset([SYNTHETIC_BC_FIXTURE_DIR])
+
+        self.assertEqual(len(dataset.files), 200)
+        self.assertEqual(len(dataset.game.rounds), 200)
+        self.assertEqual(sum(len(round_.discards) for round_ in dataset.game.rounds), 3200)
+        self.assertLess(sum(path.stat().st_size for path in dataset.files), 3 * 1024 * 1024)
 
     def test_strict_parse_failures_still_raise(self) -> None:
         with TemporaryDirectory() as directory:
