@@ -21,6 +21,7 @@ try:
         evaluate_discard_transformer,
         predict_discard_tiles,
         train_discard_transformer,
+        transformer_legal_mask,
         transformer_state_payload,
         transformer_state_tensor,
     )
@@ -103,6 +104,24 @@ class TorchTransformerModelTests(unittest.TestCase):
         self.assertLess(float(logits[0, 0].detach()), -1.0e8)
         self.assertGreater(float(logits[0, 5].detach()), -1.0e8)
 
+    def test_discard_policy_value_head_returns_logits_and_value(self) -> None:
+        config = MahjongTransformerConfig(
+            model_dim=16,
+            num_heads=4,
+            num_layers=1,
+            feedforward_dim=32,
+            dropout=0.0,
+        )
+        policy = DiscardTransformerPolicy(config, value_head=True)
+        state = transformer_state_tensor(_discard_examples()[0])
+        legal_mask = transformer_legal_mask(_discard_examples()[0])
+
+        logits, value = policy(state, legal_mask)
+
+        self.assertTrue(policy.has_value_head)
+        self.assertEqual(tuple(logits.shape), (1, TRANSFORMER_TILE_TYPES))
+        self.assertEqual(tuple(value.shape), (1,))
+
     def test_train_evaluate_and_predict_transformer(self) -> None:
         config = MahjongTransformerConfig(
             model_dim=16,
@@ -142,6 +161,36 @@ class TorchTransformerModelTests(unittest.TestCase):
         self.assertEqual(result.train_metrics["examples"], 3)
         self.assertEqual(metrics["examples"], 1)
         self.assertEqual(len(predictions), 1)
+
+    def test_train_transformer_can_enable_value_head(self) -> None:
+        config = MahjongTransformerConfig(
+            model_dim=16,
+            num_heads=4,
+            num_layers=1,
+            feedforward_dim=32,
+            dropout=0.0,
+        )
+        examples = _discard_examples()
+
+        result = train_discard_transformer(
+            examples[:3],
+            examples[3:],
+            config=config,
+            epochs=0,
+            batch_size=2,
+            learning_rate=0.001,
+            device="cpu",
+            seed=123,
+            value_head=True,
+        )
+        state = torch.stack([transformer_state_tensor(example) for example in examples[3:]])
+        legal_mask = torch.stack([transformer_legal_mask(example) for example in examples[3:]])
+        logits, value = result.model(state, legal_mask)
+
+        self.assertTrue(result.model.has_value_head)
+        self.assertEqual(tuple(logits.shape), (1, TRANSFORMER_TILE_TYPES))
+        self.assertEqual(tuple(value.shape), (1,))
+        self.assertEqual(result.train_metrics["examples"], 3)
 
 
 def _discard_examples():

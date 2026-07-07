@@ -2130,6 +2130,7 @@ class CliTests(unittest.TestCase):
                         "32",
                         "--dropout",
                         "0.0",
+                        "--value-head",
                         "--eval-fraction",
                         "0.25",
                         "--split-seed",
@@ -2150,6 +2151,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("device: cpu", stdout.getvalue())
         self.assertIn("model: discard-transformer-policy-v0", stdout.getvalue())
         self.assertIn("encoder: mahjong-transformer-encoder-v0", stdout.getvalue())
+        self.assertIn("value_head: yes", stdout.getvalue())
         self.assertIn("input_tokens: 152", stdout.getvalue())
         self.assertIn("report_path:", stdout.getvalue())
         self.assertEqual(payload["kind"], "kenjaku-discard-transformer-report-v0")
@@ -2160,6 +2162,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["model"]["kind"], "discard-transformer-policy-v0")
         self.assertEqual(payload["model"]["encoder_kind"], "mahjong-transformer-encoder-v0")
         self.assertEqual(payload["model"]["input_tokens"], 152)
+        self.assertTrue(payload["model"]["value_head"])
         self.assertEqual(payload["model"]["config"]["model_dim"], 16)
         self.assertEqual(payload["model"]["config"]["num_layers"], 1)
         self.assertEqual(payload["training"]["device"], "cpu")

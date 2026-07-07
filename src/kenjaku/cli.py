@@ -1308,6 +1308,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="transformer dropout",
     )
     train_transformer.add_argument(
+        "--value-head",
+        action="store_true",
+        help="enable an auxiliary scalar value head",
+    )
+    train_transformer.add_argument(
         "--eval-fraction",
         type=float,
         default=0.2,
@@ -1643,6 +1648,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.1,
         help="transformer dropout",
+    )
+    benchmark_transformer.add_argument(
+        "--value-head",
+        action="store_true",
+        help="enable an auxiliary scalar value head",
     )
     benchmark_transformer.add_argument(
         "--linear-epochs",
@@ -3747,6 +3757,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
             learning_rate=args.learning_rate,
             device=args.device,
             seed=args.seed,
+            value_head=args.value_head,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -3757,6 +3768,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
     print(f"device: {result.device}")
     print(f"model: {result.model.kind}")
     print(f"encoder: {result.model.encoder.kind}")
+    print(f"value_head: {'yes' if result.model.has_value_head else 'no'}")
     print(f"input_tokens: {result.model.input_tokens}")
     print(f"train_accuracy: {_format_optional_accuracy(result.train_metrics['accuracy'])}")
     print(f"eval_accuracy: {_format_optional_accuracy(result.eval_metrics['accuracy'])}")
@@ -3789,6 +3801,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
             encoder_kind=result.model.encoder.kind,
             input_tokens=result.model.input_tokens,
             output_dim=result.model.output_dim,
+            value_head=result.model.has_value_head,
             model_config=transformer_config_payload(result.model.encoder.config),
             epochs=args.epochs,
             batch_size=args.batch_size,
@@ -4143,6 +4156,7 @@ def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
             learning_rate=args.learning_rate,
             device=args.device,
             seed=args.seed,
+            value_head=args.value_head,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -4193,6 +4207,7 @@ def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
             learning_rate=args.learning_rate,
             seed=args.seed,
             config=transformer_config_payload(transformer_result.model.encoder.config),
+            value_head=transformer_result.model.has_value_head,
         ),
     }
 
@@ -4284,12 +4299,14 @@ def _discard_transformer_benchmark_payload(
     learning_rate: float,
     seed: int,
     config: dict[str, int | float],
+    value_head: bool,
 ) -> dict[str, Any]:
     return {
         "kind": result.model.kind,
         "encoder_kind": result.model.encoder.kind,
         "input_tokens": result.model.input_tokens,
         "output_dim": result.model.output_dim,
+        "value_head": value_head,
         "config": config,
         "training": {
             "epochs": epochs,

@@ -139,21 +139,35 @@ class MahjongStateTransformerEncoder(nn.Module):
 class DiscardTransformerPolicy(nn.Module):
     """Masked-logit discard policy head over the mahjong transformer encoder."""
 
-    def __init__(self, config: MahjongTransformerConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: MahjongTransformerConfig | None = None,
+        *,
+        value_head: bool = False,
+    ) -> None:
         super().__init__()
         self.kind = DISCARD_TRANSFORMER_POLICY_KIND
         self.encoder = MahjongStateTransformerEncoder(config)
         self.output_dim = TRANSFORMER_TILE_TYPES
         self.input_tokens = TRANSFORMER_TOKEN_COUNT
+        self.has_value_head = value_head
         self.policy_head = nn.Linear(self.encoder.config.model_dim, self.output_dim)
+        self.value_head = (
+            nn.Linear(self.encoder.config.model_dim, 1)
+            if self.has_value_head
+            else None
+        )
 
-    def forward(self, state_values: Tensor, legal_mask: Tensor) -> Tensor:
+    def forward(self, state_values: Tensor, legal_mask: Tensor) -> Tensor | tuple[Tensor, Tensor]:
         pooled = self.encoder.pooled(state_values)
         if pooled.ndim == 1:
             pooled = pooled.unsqueeze(0)
         legal_mask = _batched_legal_mask(legal_mask, batch_size=pooled.shape[0])
         logits = self.policy_head(pooled)
-        return logits.masked_fill(~legal_mask.to(logits.device), -1.0e9)
+        masked_logits = logits.masked_fill(~legal_mask.to(logits.device), -1.0e9)
+        if self.value_head is None:
+            return masked_logits
+        return masked_logits, self.value_head(pooled).squeeze(-1)
 
 
 class DiscardTransformerTensorDataset(Dataset):
@@ -218,6 +232,7 @@ def train_discard_transformer(
     learning_rate: float,
     device: str = "auto",
     seed: int = 0,
+    value_head: bool = False,
 ) -> DiscardTransformerTrainingResult:
     if not train_examples:
         raise ValueError("no train examples found")
@@ -233,7 +248,7 @@ def train_discard_transformer(
     if resolved_device.type == "cuda":
         torch.cuda.manual_seed_all(seed)
 
-    model = DiscardTransformerPolicy(config).to(resolved_device)
+    model = DiscardTransformerPolicy(config, value_head=value_head).to(resolved_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     train_loader = discard_transformer_data_loader(
         train_examples,
@@ -300,7 +315,7 @@ def train_discard_transformer(
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)
             optimizer.zero_grad(set_to_none=True)
-            loss = F.cross_entropy(model(state, legal_mask), target)
+            loss = F.cross_entropy(_policy_logits(model(state, legal_mask)), target)
             loss.backward()
             optimizer.step()
         record_epoch(epoch)
@@ -342,6 +357,7 @@ def save_discard_transformer_checkpoint(
                 "encoder_kind": result.model.encoder.kind,
                 "input_tokens": result.model.input_tokens,
                 "output_dim": result.model.output_dim,
+                "value_head": result.model.has_value_head,
                 "config": transformer_config_payload(result.model.encoder.config),
             },
             "training": {
@@ -387,7 +403,7 @@ def evaluate_discard_transformer(
             state = state.to(resolved_device)
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)
-            logits = model(state, legal_mask)
+            logits = _policy_logits(model(state, legal_mask))
             loss = F.cross_entropy(logits, target, reduction="sum")
             total_loss += float(loss.detach().cpu())
             total_correct += int((logits.argmax(dim=1) == target).sum().detach().cpu())
@@ -414,7 +430,8 @@ def predict_discard_tiles(
     model.eval()
     with torch.no_grad():
         for state, legal_mask, _target in loader:
-            logits = model(state.to(resolved_device), legal_mask.to(resolved_device))
+            output = model(state.to(resolved_device), legal_mask.to(resolved_device))
+            logits = _policy_logits(output)
             predictions.extend(TileType(int(index)) for index in logits.argmax(dim=1).cpu())
     return predictions
 
@@ -544,6 +561,12 @@ def _selection_key(row: dict[str, Any], *, split: str) -> tuple[float, float, in
     accuracy_key = float(accuracy) if accuracy is not None else float("-inf")
     loss_key = -float(loss) if loss is not None else float("-inf")
     return (accuracy_key, loss_key, -int(row["epoch"]))
+
+
+def _policy_logits(output: Tensor | tuple[Tensor, Tensor]) -> Tensor:
+    if isinstance(output, tuple):
+        return output[0]
+    return output
 
 
 def _snapshot_model_state(model: DiscardTransformerPolicy) -> dict[str, Tensor]:

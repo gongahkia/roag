@@ -575,6 +575,7 @@ def build_discard_transformer_report(
     parse_failures: Sequence[TenhouParseFailure],
     checkpoint_path: Path | None,
     source: dict[str, str | None],
+    value_head: bool = False,
 ) -> dict[str, Any]:
     return {
         "kind": DISCARD_TRANSFORMER_REPORT_KIND,
@@ -595,6 +596,7 @@ def build_discard_transformer_report(
             "encoder_kind": encoder_kind,
             "input_tokens": input_tokens,
             "output_dim": output_dim,
+            "value_head": value_head,
             "config": model_config,
         },
         "training": {
@@ -1637,6 +1639,7 @@ def _summarize_discard_transformer_benchmark_report(
                 "encoder_kind": model_payload.get("encoder_kind"),
                 "input_tokens": model_payload.get("input_tokens"),
                 "output_dim": model_payload.get("output_dim"),
+                "value_head": model_payload.get("value_head", False),
                 "config": model_payload.get("config", {}),
                 "training": _mlp_training_summary(model_payload["training"]),
                 "metrics": _mlp_metrics_summary(model_payload["metrics"]),
