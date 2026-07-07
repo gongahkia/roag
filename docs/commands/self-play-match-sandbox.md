@@ -12,17 +12,18 @@ No replay input; match state is generated from the selected ruleset and seed.
 
 ## Outputs
 
-Text or JSON match report, plus optional trajectory data.
+Text or JSON match report, plus optional embedded trajectory data and flattened trajectory JSONL.
 
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku self-play-match-sandbox --games 2 --ruleset tenhou-4p --report runs/self-play-match.json --json
+PYTHONPATH=src python3.13 -m kenjaku self-play-match-sandbox --games 2 --ruleset tenhou-4p --report runs/self-play-match.json --trajectory-jsonl runs/self-play-match-trajectory.jsonl --json
 ```
 
 ## Gotchas
 
 - `--include-trajectories` can make reports much larger.
+- `--trajectory-jsonl` forces trajectory capture and writes one turn row per line.
 - Policy choices are simple sandbox policies, not trained agents.
 
 ## Help
@@ -40,6 +41,7 @@ usage: kenjaku self-play-match-sandbox [-h] [--games GAMES]
                                        [--kita-policy {pass,first,random}]
                                        [--ron-policy {pass,win,first,random}]
                                        [--include-trajectories]
+                                       [--trajectory-jsonl TRAJECTORY_JSONL]
                                        [--report REPORT] [--json]
 
 options:
@@ -69,6 +71,9 @@ options:
   --include-trajectories
                         include state/action/reward trajectories in JSON
                         output
+  --trajectory-jsonl TRAJECTORY_JSONL
+                        optional JSONL output for flattened match trajectory
+                        rows
   --report REPORT       optional path for a JSON match report artifact
   --json                emit the match report as JSON instead of text
 ```

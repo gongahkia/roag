@@ -903,6 +903,8 @@ class CliTests(unittest.TestCase):
     def test_self_play_match_sandbox_command_writes_report_and_json(self) -> None:
         with TemporaryDirectory() as directory:
             report = Path(directory) / "self-play-match.json"
+            trajectory = Path(directory) / "self-play-match-trajectory.jsonl"
+            viewer = Path(directory) / "viewer.html"
 
             text_stdout = io.StringIO()
             with contextlib.redirect_stdout(text_stdout):
@@ -921,9 +923,27 @@ class CliTests(unittest.TestCase):
                         "pass",
                         "--report",
                         str(report),
+                        "--trajectory-jsonl",
+                        str(trajectory),
                     ]
                 )
             report_payload = json.loads(report.read_text(encoding="utf-8"))
+            trajectory_rows = [
+                json.loads(line)
+                for line in trajectory.read_text(encoding="utf-8").splitlines()
+            ]
+
+            viewer_stdout = io.StringIO()
+            with contextlib.redirect_stdout(viewer_stdout):
+                viewer_exit_code = main(
+                    [
+                        "replay-viewer",
+                        str(trajectory),
+                        "--output",
+                        str(viewer),
+                    ]
+                )
+            viewer_html = viewer.read_text(encoding="utf-8")
 
             json_stdout = io.StringIO()
             with contextlib.redirect_stdout(json_stdout):
@@ -970,8 +990,23 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["kita_policy"])
         self.assertTrue(report_payload["capabilities"]["ron_policy"])
         self.assertTrue(report_payload["capabilities"]["pass_policy"])
+        self.assertTrue(report_payload["capabilities"]["trajectory_states"])
         self.assertTrue(report_payload["capabilities"]["final_placement"])
         self.assertIsNotNone(report_payload["game_summaries"][0]["final_result"])
+        self.assertGreater(len(trajectory_rows), 0)
+        self.assertEqual(
+            trajectory_rows[0]["kind"],
+            "kenjaku-self-play-match-trajectory-row-v0",
+        )
+        self.assertIn("hands", trajectory_rows[0]["state"])
+        self.assertIn("trajectory_path:", text_stdout.getvalue())
+        self.assertIn("trajectory_rows:", text_stdout.getvalue())
+        self.assertEqual(viewer_exit_code, 0)
+        self.assertIn("trajectory_rows:", viewer_stdout.getvalue())
+        self.assertIn("Kenjaku Self-Play Replay Viewer", viewer_html)
+        self.assertIn('id="timeline"', viewer_html)
+        self.assertIn('id="hand-toggles"', viewer_html)
+        self.assertIn("window.KenjakuReplayViewer", viewer_html)
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["kind"], "kenjaku-self-play-match-report-v0")
         self.assertEqual(json_payload["ruleset"], "tenhou-3p")

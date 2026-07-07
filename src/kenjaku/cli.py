@@ -74,6 +74,11 @@ from kenjaku.models import (
     evaluate_deal_in_probabilities,
     heuristic_deal_in_probabilities,
 )
+from kenjaku.replay_viewer import (
+    read_self_play_trajectory_jsonl,
+    write_self_play_match_trajectory_jsonl,
+    write_self_play_replay_viewer_html,
+)
 from kenjaku.simulation import (
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
@@ -457,6 +462,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     replay_public_summary.set_defaults(func=_replay_public_summary)
 
+    replay_viewer = subparsers.add_parser(
+        "replay-viewer",
+        help="render a self-play trajectory JSONL as a turn-by-turn HTML viewer",
+    )
+    replay_viewer.add_argument(
+        "trajectory_jsonl",
+        type=Path,
+        help="self-play trajectory JSONL from self-play-match-sandbox",
+    )
+    replay_viewer.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="HTML viewer output path",
+    )
+    replay_viewer.add_argument(
+        "--title",
+        default="Kenjaku Self-Play Replay Viewer",
+        help="HTML document title",
+    )
+    replay_viewer.set_defaults(func=_replay_viewer)
+
     self_play = subparsers.add_parser(
         "self-play-sandbox",
         help="run a deterministic offline draw/discard self-play sandbox",
@@ -591,6 +618,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-trajectories",
         action="store_true",
         help="include state/action/reward trajectories in JSON output",
+    )
+    self_play_match.add_argument(
+        "--trajectory-jsonl",
+        type=Path,
+        help="optional JSONL output for flattened match trajectory rows",
     )
     self_play_match.add_argument(
         "--report",
@@ -2648,6 +2680,18 @@ def _replay_public_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def _replay_viewer(args: argparse.Namespace) -> int:
+    try:
+        rows = read_self_play_trajectory_jsonl(args.trajectory_jsonl)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise SystemExit(str(error)) from error
+
+    write_self_play_replay_viewer_html(args.output, rows, title=args.title)
+    print(f"trajectory_rows: {len(rows)}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
 def _self_play_sandbox(args: argparse.Namespace) -> int:
     try:
         report = run_self_play_sandbox(
@@ -2676,6 +2720,7 @@ def _self_play_sandbox(args: argparse.Namespace) -> int:
 
 
 def _self_play_match_sandbox(args: argparse.Namespace) -> int:
+    include_trajectories = args.include_trajectories or args.trajectory_jsonl is not None
     try:
         report = run_self_play_match_sandbox(
             games=args.games,
@@ -2689,13 +2734,20 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
             kan_policy=args.kan_policy,
             kita_policy=args.kita_policy,
             ron_policy=args.ron_policy,
-            include_trajectories=args.include_trajectories,
+            include_trajectories=include_trajectories,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
         write_json_report(args.report, report)
+    if args.trajectory_jsonl is not None:
+        trajectory_rows = write_self_play_match_trajectory_jsonl(
+            args.trajectory_jsonl,
+            report,
+        )
+    else:
+        trajectory_rows = None
 
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
@@ -2703,6 +2755,9 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
         print(format_self_play_match_report(report))
     if args.report is not None:
         print(f"report_path: {args.report}")
+    if args.trajectory_jsonl is not None:
+        print(f"trajectory_path: {args.trajectory_jsonl}")
+        print(f"trajectory_rows: {trajectory_rows}")
     return 0
 
 

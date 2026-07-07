@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 39 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 39 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 40 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 40 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -12,6 +12,7 @@ covers all 39 commands present in `kenjaku --help` so the docs match the impleme
 - [`replay-intake-review`](replay-intake-review.md) - Validate a permission-aware replay intake manifest before local analysis.
 - [`replay-share-plan`](replay-share-plan.md) - Plan whether accepted replay intake rows can be used for a demo or redistribution.
 - [`replay-public-summary`](replay-public-summary.md) - Build a public-safe replay summary from accepted replay intake rows.
+- [`replay-viewer`](replay-viewer.md) - Render self-play trajectory JSONL as a turn-by-turn HTML viewer.
 - [`self-play-sandbox`](self-play-sandbox.md) - Run deterministic offline draw/discard sandbox episodes.
 - [`self-play-match-sandbox`](self-play-match-sandbox.md) - Run deterministic multi-round sandbox matches to a final placement result.
 - [`train-ppo-sandbox`](train-ppo-sandbox.md) - Run a fixture-scale dependency-free PPO smoke trainer over sandbox trajectories.
