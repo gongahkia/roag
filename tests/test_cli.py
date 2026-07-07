@@ -428,6 +428,34 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("private", index_html + styles_css + demo_js)
         self.assertNotIn("replay", index_html.lower() + styles_css.lower() + demo_js.lower())
 
+    def test_demo_writes_fixture_quickstart_artifacts(self) -> None:
+        with TemporaryDirectory() as directory:
+            output_dir = Path(directory) / "demo"
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(["demo", "--output-dir", str(output_dir)])
+
+            index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+            manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            comparison = json.loads(
+                (output_dir / "snapshot-comparison.json").read_text(encoding="utf-8")
+            )
+            benchmark = json.loads(
+                (output_dir / "discard-benchmark.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Open", stdout.getvalue())
+        self.assertIn("browser-demo/index.html", index_html)
+        self.assertIn("benchmark-dashboard/index.html", index_html)
+        self.assertEqual(manifest["kind"], "kenjaku-demo-manifest-v0")
+        self.assertEqual(manifest["snapshot_count"], 8)
+        self.assertEqual(manifest["prediction_count"], 8)
+        self.assertEqual(comparison["overall"]["accuracy"], 1.0)
+        self.assertEqual(benchmark["kind"], "kenjaku-discard-benchmark-report-v0")
+        self.assertEqual(tuple(benchmark["models"]), ("frequency",))
+
     def test_replay_intake_review_outputs_text_json_report_and_accepted_queue(self) -> None:
         manifest_payload = {
             "kind": "kenjaku-replay-manifest-v0",

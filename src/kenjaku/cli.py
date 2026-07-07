@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
 from hashlib import blake2b
+from html import escape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import perf_counter
@@ -212,6 +213,9 @@ CALL_EXAMPLE_LIMIT_STRATEGIES = ("prefix", "balanced")
 CALL_EXAMPLE_CACHE_KIND = "kenjaku-call-example-cache-v0"
 CALL_FEATURE_CACHE_KIND = "kenjaku-call-feature-cache-v0"
 DECISION_SNAPSHOT_COMPARISON_KIND = "kenjaku-decision-snapshot-comparison-v0"
+DEMO_FIXTURE_SOURCE = Path("data/fixtures/tenhou")
+DEMO_SOURCE_DATE = "fixture-demo-v0"
+DEMO_GENERATED_AT = "fixture-demo-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +256,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit status as JSON instead of text",
     )
     status.set_defaults(func=_status)
+
+    demo = subparsers.add_parser(
+        "demo",
+        help="run the fixture quickstart and write a linked artifact landing page",
+    )
+    demo.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("runs/demo"),
+        help="directory for generated demo artifacts",
+    )
+    demo.set_defaults(func=_demo)
 
     browser_demo = subparsers.add_parser(
         "browser-demo",
@@ -2063,6 +2079,112 @@ def _status(args: argparse.Namespace) -> int:
         return 0
 
     print(format_status_text(payload))
+    return 0
+
+
+def _demo(args: argparse.Namespace) -> int:
+    output_dir = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source = {
+        "label": "fixture-demo",
+        "command": f"kenjaku demo --output-dir {output_dir}",
+        "date": DEMO_SOURCE_DATE,
+    }
+    browser_dir = output_dir / "browser-demo"
+    dashboard_path = output_dir / "benchmark-dashboard" / "index.html"
+    snapshots_path = output_dir / "decision-snapshots.jsonl"
+    summary_path = output_dir / "decision-snapshot-summary.json"
+    predictions_path = output_dir / "decision-predictions.jsonl"
+    comparison_path = output_dir / "snapshot-comparison.json"
+    benchmark_path = output_dir / "discard-benchmark.json"
+    manifest_path = output_dir / "manifest.json"
+    landing_path = output_dir / "index.html"
+
+    browser_manifest = write_browser_demo(browser_dir)
+    dataset = parse_tenhou_xml_dataset([DEMO_FIXTURE_SOURCE], skip_errors=False)
+    snapshots = build_decision_snapshots(
+        dataset.game,
+        decision_types=DECISION_SNAPSHOT_TYPES,
+        limit=20,
+        source=source,
+        input_paths=[DEMO_FIXTURE_SOURCE],
+        xml_file_count=len(dataset.files),
+        include_outcome=False,
+    )
+    snapshot_count = write_decision_snapshots_jsonl(snapshots_path, snapshots)
+    summary = _build_decision_snapshot_summary([snapshots_path])
+    write_json_report(summary_path, summary)
+    prediction_stats = _write_stub_decision_predictions(
+        snapshots_path=snapshots_path,
+        output_path=predictions_path,
+        strategy="echo-actual",
+    )
+    comparison = _build_decision_snapshot_comparison(snapshots_path, predictions_path)
+    write_json_report(comparison_path, comparison)
+
+    _benchmark_discard(
+        argparse.Namespace(
+            paths=[DEMO_FIXTURE_SOURCE],
+            epochs=25,
+            learning_rate=0.1,
+            l2=0.0,
+            models="frequency",
+            eval_fraction=0.2,
+            split_seed="kenjaku-demo-v0",
+            example_limit=None,
+            stream_examples=False,
+            report=benchmark_path,
+            disagreements=None,
+            max_disagreements=100,
+            skip_errors=False,
+            source_label=source["label"],
+            source_command=source["command"],
+            source_date=source["date"],
+        )
+    )
+    dashboard = build_public_benchmark_dashboard(
+        [benchmark_path],
+        version=__version__,
+        generated_at=DEMO_GENERATED_AT,
+        title="Kenjaku Fixture Demo",
+    )
+    dashboard_path.parent.mkdir(parents=True, exist_ok=True)
+    dashboard_path.write_text(
+        format_public_benchmark_dashboard_html(
+            dashboard,
+            link_base_dir=dashboard_path.parent.resolve(),
+        ),
+        encoding="utf-8",
+    )
+
+    artifacts = {
+        "landing_page": landing_path,
+        "browser_demo": Path(browser_manifest["entrypoint"]),
+        "decision_snapshots": snapshots_path,
+        "decision_snapshot_summary": summary_path,
+        "decision_predictions": predictions_path,
+        "snapshot_comparison": comparison_path,
+        "discard_benchmark": benchmark_path,
+        "benchmark_dashboard": dashboard_path,
+    }
+    manifest = {
+        "kind": "kenjaku-demo-manifest-v0",
+        "version": __version__,
+        "source": source,
+        "fixture_source": str(DEMO_FIXTURE_SOURCE),
+        "snapshot_count": snapshot_count,
+        "prediction_count": prediction_stats["predictions"],
+        "artifacts": {
+            name: _artifact_link(path, output_dir=output_dir)
+            for name, path in artifacts.items()
+        },
+    }
+    write_json_report(manifest_path, manifest)
+    artifacts["manifest"] = manifest_path
+    _write_demo_landing_page(landing_path, artifacts, output_dir=output_dir)
+
+    print(f"wrote demo: {landing_path}")
+    print(f"Open {landing_path}")
     return 0
 
 
@@ -4462,6 +4584,57 @@ def _benchmark_dashboard(args: argparse.Namespace) -> int:
     output.write_text(html, encoding="utf-8")
     print(f"wrote public benchmark dashboard: {output}")
     return 0
+
+
+def _write_demo_landing_page(
+    path: Path,
+    artifacts: dict[str, Path],
+    *,
+    output_dir: Path,
+) -> None:
+    items = "\n".join(
+        (
+            f'        <li><a href="{escape(_artifact_link(artifact_path, output_dir=output_dir))}">'
+            f"{escape(label.replace('_', ' ').title())}</a></li>"
+        )
+        for label, artifact_path in artifacts.items()
+    )
+    path.write_text(
+        f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kenjaku Fixture Demo</title>
+    <style>
+      body {{ margin: 0; font-family: system-ui, sans-serif; color: #18202a; background: #f5f7f8; }}
+      main {{ max-width: 760px; margin: 0 auto; padding: 40px 24px; }}
+      h1 {{ margin: 0 0 12px; font-size: 2rem; }}
+      p {{ margin: 0 0 24px; color: #4d5965; }}
+      ul {{ padding-left: 20px; line-height: 1.9; }}
+      a {{ color: #0958a5; }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Kenjaku Fixture Demo</h1>
+      <p>Generated from checked-in synthetic fixtures.</p>
+      <ul>
+{items}
+      </ul>
+    </main>
+  </body>
+</html>
+""",
+        encoding="utf-8",
+    )
+
+
+def _artifact_link(path: Path, *, output_dir: Path) -> str:
+    try:
+        return path.relative_to(output_dir).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _disagreement_report_summary(args: argparse.Namespace) -> int:
