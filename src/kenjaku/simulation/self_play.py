@@ -280,6 +280,8 @@ def run_self_play_sandbox(
             "riichi_furiten_ron_filter": True,
             "basic_yaku_win_filter": True,
             "basic_yaku_metadata": True,
+            "expanded_yaku_legality": True,
+            "unsupported_yaku_list": True,
             "yakuhai_seat_round_dragon_filter": True,
             "toitoi_yaku_metadata": True,
             "honroutou_yaku_metadata": True,

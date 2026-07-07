@@ -15,9 +15,13 @@ from kenjaku.core import (
     ScoreResult,
     Tile,
     TileType,
+    calculate_fu,
+    detect_yaku,
     score_riichi_hand,
     shanten_for_tiles,
     winning_hand_shapes_for_tiles,
+    yaku_han_for_names,
+    yakuman_multiplier_for_names,
 )
 
 SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
@@ -60,8 +64,15 @@ SANDBOX_DRAGON_TILES = frozenset(
 )
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
+    "chanta": 2,
+    "chinitsu": 6,
     "double_riichi": 2,
+    "honitsu": 3,
+    "iipeikou": 1,
+    "ittsu": 2,
+    "junchan": 3,
     "nagashi_mangan": 5,
+    "pinfu": 1,
     "riichi": 1,
     "ippatsu": 1,
     "menzen_tsumo": 1,
@@ -73,6 +84,11 @@ SANDBOX_YAKU_HAN = {
     "tanyao": 1,
     "toitoi": 2,
     "yakuhai": 1,
+    "sanankou": 2,
+    "sankantsu": 2,
+    "sanshoku_doujun": 2,
+    "sanshoku_doukou": 2,
+    "shousangen": 2,
 }
 SANDBOX_LIMIT_BASE_POINTS = {
     "mangan": 2000,
@@ -1814,7 +1830,6 @@ def _winning_yaku_for_state(
 ) -> tuple[str, ...]:
     yaku: list[str] = []
     melds = _melds_by_seat(state)[seat]
-    full_tiles = _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
 
     if "kokushi" in shapes:
         yaku.append("kokushi")
@@ -1836,21 +1851,24 @@ def _winning_yaku_for_state(
         yaku.append("houtei")
     if win_kind == "chankan":
         yaku.append("chankan")
-    if _is_tanyao_yaku(full_tiles):
-        yaku.append("tanyao")
-    if _has_sandbox_yakuhai(
-        full_tiles,
-        ruleset=state.ruleset,
-        seat=seat,
-        dealer_seat=state.dealer_seat,
+    for result in detect_yaku(
+        state.hands[seat],
+        winning_tile=winning_tile,
+        win_kind=win_kind,
+        melds=melds,
+        seat_wind=_sandbox_seat_wind(
+            seat=seat,
+            dealer_seat=state.dealer_seat,
+            players=state.players,
+        ),
         round_wind=state.round_wind,
-        players=state.players,
+        tenhou=_is_tenhou_yaku(state, seat=seat, win_kind=win_kind),
+        chiihou=_is_chiihou_yaku(state, seat=seat, win_kind=win_kind),
     ):
-        yaku.append("yakuhai")
-    if _is_toitoi_yaku(full_tiles, melds=melds, shapes=shapes):
-        yaku.append("toitoi")
-    if _is_honroutou_yaku(full_tiles, shapes=shapes):
-        yaku.append("honroutou")
+        if "kokushi" in shapes and result.name not in {"tenhou", "chiihou"}:
+            continue
+        if result.name == "yakuhai" or result.name not in yaku:
+            yaku.append(result.name)
     return tuple(yaku)
 
 
@@ -1886,6 +1904,52 @@ def _is_houtei_discard(state: SandboxEnvironmentState) -> bool:
         and state.pending_discard is not None
         and not state.wall
     )
+
+
+def _is_tenhou_yaku(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    win_kind: str,
+) -> bool:
+    return (
+        win_kind == "tsumo"
+        and seat == state.dealer_seat
+        and state.current_seat == seat
+        and state.turn == 0
+        and state.drawn_tile is not None
+        and not state.rinshan_draw
+        and len(state.wall) == _initial_live_wall_after_draw(state, seat=seat)
+        and not any(_melds_by_seat(state))
+        and not any(_kita_tiles_by_seat(state))
+        and not any(_discards_by_seat(state))
+    )
+
+
+def _is_chiihou_yaku(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    win_kind: str,
+) -> bool:
+    return (
+        win_kind == "tsumo"
+        and seat != state.dealer_seat
+        and state.current_seat == seat
+        and state.drawn_tile is not None
+        and not state.rinshan_draw
+        and len(state.wall) == _initial_live_wall_after_draw(state, seat=seat)
+        and not _discards_by_seat(state)[seat]
+        and not any(_melds_by_seat(state))
+        and not any(_kita_tiles_by_seat(state))
+    )
+
+
+def _initial_live_wall_after_draw(state: SandboxEnvironmentState, *, seat: int) -> int:
+    rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
+    relative_seat = (seat - state.dealer_seat) % state.players
+    draws = relative_seat + 1
+    return sum(rules.type_counts) - (state.players * 13) - SANDBOX_DEAD_WALL_TILES - draws
 
 
 def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
@@ -2603,6 +2667,20 @@ def _terminal_win_point_updates(
             is_dealer=winner_seat == state.dealer_seat,
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
+            yaku_han=_sandbox_yaku_han(
+                yaku_by_seat.get(winner_seat, ()),
+                is_closed=_is_closed_hand_for_yaku(_melds_by_seat(state)[winner_seat]),
+            ),
+            yakuman_multiplier=yakuman_multiplier_for_names(
+                yaku_by_seat.get(winner_seat, ())
+            ),
+            fu=_sandbox_fu_for_win(
+                state,
+                seat=winner_seat,
+                winning_tile=winning_tile,
+                win_kind=win_kind,
+                yaku=yaku_by_seat.get(winner_seat, ()),
+            ),
             visible_dora_count=_visible_dora_count(
                 state,
                 seat=winner_seat,
@@ -2862,6 +2940,43 @@ def _red_dora_count(
     )
 
 
+def _sandbox_yaku_han(yaku: tuple[str, ...], *, is_closed: bool) -> int:
+    return yaku_han_for_names(yaku, is_closed=is_closed)
+
+
+def _sandbox_fu_for_win(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int,
+    winning_tile: Tile | None,
+    win_kind: str,
+    yaku: tuple[str, ...],
+) -> int | None:
+    if yakuman_multiplier_for_names(yaku) > 0 or "nagashi_mangan" in yaku:
+        return None
+    if "chiitoitsu" in yaku:
+        return 25
+    scoring_tile = winning_tile or state.drawn_tile
+    if scoring_tile is None:
+        return 30
+    concealed_tiles = state.hands[seat]
+    if winning_tile is not None:
+        concealed_tiles = (*concealed_tiles, winning_tile)
+    return calculate_fu(
+        concealed_tiles,
+        winning_tile=scoring_tile,
+        win_kind=win_kind,
+        melds=_melds_by_seat(state)[seat],
+        seat_wind=_sandbox_seat_wind(
+            seat=seat,
+            dealer_seat=state.dealer_seat,
+            players=state.players,
+        ),
+        round_wind=state.round_wind,
+        yaku=yaku,
+    ).fu
+
+
 def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
     if (
         ruleset == TENHOU_3P.name
@@ -2890,6 +3005,9 @@ def _sandbox_score_estimate(
     is_dealer: bool,
     win_kind: str,
     yaku: tuple[str, ...],
+    yaku_han: int,
+    yakuman_multiplier: int,
+    fu: int | None,
     visible_dora_count: int,
     ura_dora_count: int,
     red_dora_count: int,
@@ -2917,10 +3035,10 @@ def _sandbox_score_estimate(
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
             score=score,
-        )
-    if "kokushi" in yaku:
+    )
+    if yakuman_multiplier > 0:
         score = score_riichi_hand(
-            yaku_han=13,
+            yaku_han=13 * yakuman_multiplier,
             bonus_han=0,
             fu=None,
             is_dealer=is_dealer,
@@ -2928,7 +3046,7 @@ def _sandbox_score_estimate(
             honba=honba,
             riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
             players=players,
-            yakuman_multiplier=1,
+            yakuman_multiplier=yakuman_multiplier,
         )
         return _score_estimate_from_result(
             seat=seat,
@@ -2940,8 +3058,6 @@ def _sandbox_score_estimate(
             score=score,
         )
 
-    yaku_han = sum(SANDBOX_YAKU_HAN.get(yaku_name, 0) for yaku_name in yaku)
-    fu = 25 if "chiitoitsu" in yaku else 30
     score = score_riichi_hand(
         yaku_han=yaku_han,
         bonus_han=bonus_han,

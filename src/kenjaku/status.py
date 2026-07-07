@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from kenjaku import __version__
+from kenjaku.core import SUPPORTED_YAKU_NAMES, UNSUPPORTED_YAKU_NAMES
 
 STATUS_KIND = "kenjaku-status-v0"
 SUPPORTED_PYTHON = ">=3.11,<3.14"
@@ -94,6 +95,8 @@ def build_status_payload() -> dict[str, Any]:
                 "sandbox_call_application": True,
                 "sandbox_basic_yaku_win_filter": True,
                 "sandbox_basic_yaku_metadata": True,
+                "sandbox_expanded_yaku_legality": True,
+                "sandbox_unsupported_yaku_list": True,
                 "sandbox_yakuhai_seat_round_dragon_filter": True,
                 "sandbox_toitoi_yaku_metadata": True,
                 "sandbox_honroutou_yaku_metadata": True,
@@ -161,6 +164,8 @@ def build_status_payload() -> dict[str, Any]:
                 "full_rules_self_play_harness": False,
                 "live_ladder_automation": False,
             },
+            "supported_yaku": SUPPORTED_YAKU_NAMES,
+            "unsupported_yaku": UNSUPPORTED_YAKU_NAMES,
         },
     }
 
@@ -192,6 +197,8 @@ def format_status_text(payload: dict[str, Any]) -> str:
         f"  {name}: {_format_bool(enabled)}"
         for name, enabled in capabilities["not_implemented"].items()
     )
+    lines.append("unsupported_yaku:")
+    lines.extend(f"  {name}" for name in capabilities["unsupported_yaku"])
     return "\n".join(lines)
 
 

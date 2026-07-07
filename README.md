@@ -8,9 +8,9 @@ local prediction artifacts. Live ladder automation is intentionally out of scope
 grants explicit permission.
 
 The repo is not yet a transformer agent, RL system, complete Sanma implementation, or complete yaku
-validator. It now includes an exact fu/han payment scorer; yaku coverage remains intentionally
-narrow. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running handoff
-notes.
+validator. It now includes an exact fu/han payment scorer and expanded yaku detector; unsupported
+yaku are listed in `kenjaku status`. See `TODO.md` and `docs/session-handoff.md` for the research
+backlog and running handoff notes.
 
 ## Launch Evidence
 
@@ -72,7 +72,8 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   HTML/CSS/JS assets, can be served by the CLI, and does not require or embed raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
-  validation.
+  validation; unsupported yaku currently include ryanpeikou, renhou, open riichi, daisharin, and
+  daichisei.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
@@ -90,8 +91,9 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   reaction resolves plus kokushi-only ankan robbery and chankan dora timing fixtures, individual reaction
   passes, ron-priority call gating, discard/call/tsumo/ron application, basic multi-ron terminal
   resolution with turn-priority riichi-stick assignment, basic open/kan
-  standard-shape win detection, a basic sandbox yaku filter/metadata layer with
-  dragon/round-wind/seat-wind yakuhai filtering plus toitoi and honroutou, selectable self-play
+  standard-shape win detection, an expanded sandbox yaku filter/metadata layer covering pinfu,
+  iipeikou, sanshoku, ittsuu, chanta/junchan, triplet/kan yaku, flush yaku, major yakuman, tenhou,
+  chiihou, duplicate yakuhai, and open-value reduction, selectable self-play
   reward projections for terminal, point-delta, normalized point-delta, and placement-delta modes,
   plus terminal point-delta and score-estimate metadata backed by an exact fu/han payment scorer,
   including dealer-aware win payments,

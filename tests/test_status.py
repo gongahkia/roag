@@ -126,6 +126,8 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_call_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_win_filter"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_metadata"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_expanded_yaku_legality"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_unsupported_yaku_list"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_yakuhai_seat_round_dragon_filter"]
         )
@@ -294,6 +296,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_call_application: yes", text)
         self.assertIn("sandbox_basic_yaku_win_filter: yes", text)
         self.assertIn("sandbox_basic_yaku_metadata: yes", text)
+        self.assertIn("sandbox_expanded_yaku_legality: yes", text)
+        self.assertIn("sandbox_unsupported_yaku_list: yes", text)
         self.assertIn("sandbox_yakuhai_seat_round_dragon_filter: yes", text)
         self.assertIn("sandbox_toitoi_yaku_metadata: yes", text)
         self.assertIn("sandbox_honroutou_yaku_metadata: yes", text)
@@ -302,6 +306,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_exhaustive_draw_tenpai_noten_payments: yes", text)
         self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", text)
         self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", text)
+        self.assertIn("unsupported_yaku:", text)
+        self.assertIn("  ryanpeikou", text)
         self.assertIn("sandbox_abortive_draws: yes", text)
         self.assertIn("sandbox_kyuushu_kyuuhai_abortive_draw: yes", text)
         self.assertIn("sandbox_four_winds_abortive_draw: yes", text)

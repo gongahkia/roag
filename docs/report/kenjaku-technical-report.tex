@@ -32,7 +32,7 @@ XML, reconstructing supervised decision examples, training small baseline models
 decision snapshots, comparing prediction files, and documenting permission boundaries. This draft
 does not claim playing strength, production readiness, complete yaku validation, or complete Sanma coverage.
 Instead, it documents the current architecture and the evidence that is tracked in the repository:
-355 unit tests with 15 skips, fixture-only launch media, a fixture benchmark dashboard, and runbooks
+360 unit tests with 15 skips, fixture-only launch media, a fixture benchmark dashboard, and runbooks
 for ignored local experiments. The main contribution is therefore an auditable workflow boundary for
 future mahjong-AI research rather than a final agent.
 \end{abstract}
@@ -259,9 +259,11 @@ current dashboard image is generated from four fixture examples, so it is a smok
 
 Rules coverage is also incomplete. The sandbox contains substantial plumbing for riichi, furiten,
 kan timing, several yaku metadata paths, abortive draws, narrow Sanma support, and an exact fu/han
-payment scorer, but it is not a complete yaku validator and not a complete Tenhou Sanma
-implementation. The README and status command intentionally preserve those negative claims.
+payment scorer with expanded yaku legality, but it is not a complete yaku validator and not a
+complete Tenhou Sanma implementation. The README and status command intentionally preserve those
+negative claims and list unsupported yaku explicitly.
 
+\clearpage
 \section{Claim-Evidence Map}
 
 \begin{table}[h]
@@ -275,12 +277,13 @@ Claim & Evidence & Status \\
 Kenjaku is local-first and avoids raw replay redistribution. & \href{../data-policy.md}{docs/data-policy.md}, \href{../local-tenhou-eval.md}{docs/local-tenhou-eval.md}, and \href{../../data/README.md}{data/README.md}. & Supported \\
 The CLI can generate fixture launch media and a benchmark dashboard. & \href{../launch-media.md}{docs/launch-media.md} and tracked media under \href{../media/}{docs/media/}. & Supported \\
 The fixture snapshot path emits 8 valid rows with 0 malformed rows. & \href{../launch-media.md}{docs/launch-media.md}; reproduced with \texttt{export-decision-snapshots} and \texttt{decision-snapshot-summary}. & Supported \\
-The repository has broad unit-test coverage for current primitives and commands. & 2026-07-07 local run: 355 tests, 15 skipped; command recorded in README launch evidence. & Supported \\
+The repository has broad unit-test coverage for current primitives and commands. & 2026-07-07 local run: 360 tests, 15 skipped; command recorded in README launch evidence. & Supported \\
 Kenjaku has exact fu/han payment scoring. & \texttt{src/kenjaku/core/scoring.py}, \texttt{tests/test\_core\_scoring.py}, and status capability \texttt{full\_scoring\_engine}. & Supported \\
+Kenjaku has expanded yaku legality. & \texttt{src/kenjaku/core/yaku.py}, \texttt{tests/test\_core\_yaku.py}, and status unsupported-yaku list. & Supported \\
 Kenjaku has a neutral external-baseline boundary. & \href{../external-baselines.md}{docs/external-baselines.md} and CLI commands \texttt{run-external-prediction-producer} and \texttt{external-baseline-report}. & Supported \\
 Kenjaku is a strong mahjong-playing agent. & No bundled strong policy or final evaluation artifact exists. & Not claimed \\
 Kenjaku matches Mortal or akochan. & Real engine-strength producer outputs are not tracked. & Not claimed \\
-Kenjaku has complete yaku validation and complete Sanma rules. & Open GitHub issues TODO-202 and TODO-401 remain. & Not claimed \\
+Kenjaku has complete yaku validation and complete Sanma rules. & Unsupported yaku remain listed in status, and open GitHub issue TODO-401 remains. & Not claimed \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -29,6 +29,20 @@ from kenjaku.core.shanten import (
 )
 from kenjaku.core.state import Discard, Meld, PlayerState, RoundState
 from kenjaku.core.tiles import Tile, TileType, all_tile_types, tile_counts
+from kenjaku.core.yaku import (
+    SUPPORTED_YAKU_NAMES,
+    UNSUPPORTED_YAKU_NAMES,
+    YAKU_CLOSED_ONLY,
+    YAKU_DEFINITIONS,
+    YAKU_OPEN_ALLOWED,
+    YAKU_OPEN_REDUCED,
+    YAKUMAN_YAKU_NAMES,
+    YakuDefinition,
+    YakuResult,
+    detect_yaku,
+    yaku_han_for_names,
+    yakuman_multiplier_for_names,
+)
 
 __all__ = [
     "Action",
@@ -37,6 +51,7 @@ __all__ = [
     "ceil_to_hundred",
     "chiitoitsu_shanten",
     "Discard",
+    "detect_yaku",
     "FuCalculation",
     "FuComponent",
     "honba_payment_for_win",
@@ -60,7 +75,18 @@ __all__ = [
     "shanten_for_tiles",
     "standard_shanten",
     "tile_counts",
+    "SUPPORTED_YAKU_NAMES",
+    "UNSUPPORTED_YAKU_NAMES",
     "WINNING_HAND_SHAPES",
     "winning_hand_shapes",
     "winning_hand_shapes_for_tiles",
+    "YAKU_CLOSED_ONLY",
+    "YAKU_DEFINITIONS",
+    "YAKU_OPEN_ALLOWED",
+    "YAKU_OPEN_REDUCED",
+    "YAKUMAN_YAKU_NAMES",
+    "yakuman_multiplier_for_names",
+    "YakuDefinition",
+    "yaku_han_for_names",
+    "YakuResult",
 ]

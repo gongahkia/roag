@@ -155,7 +155,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -172,14 +172,14 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(drawn.winning_yaku_by_seat, ((0, ("menzen_tsumo", "yakuhai")),))
         self.assertEqual(drawn.winning_rinshan_seats, ())
         self.assertEqual(drawn.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
-        self.assertEqual(drawn.terminal_point_deltas, (3000, -1000, -1000, -1000))
+        self.assertEqual(drawn.terminal_point_deltas, (3900, -1300, -1300, -1300))
         self.assertEqual(drawn.terminal_score_estimates[0].yaku_han, 2)
         self.assertEqual(drawn.terminal_score_estimates[0].bonus_han, 0)
         self.assertEqual(drawn.terminal_score_estimates[0].han, 2)
         self.assertEqual(drawn.to_payload()["terminal_rewards"], [1.0, -1 / 3, -1 / 3, -1 / 3])
         self.assertEqual(
             drawn.to_payload()["terminal_point_deltas"],
-            [3000, -1000, -1000, -1000],
+            [3900, -1300, -1300, -1300],
         )
         self.assertEqual(drawn.to_payload()["winning_yaku"], ["menzen_tsumo", "yakuhai"])
         self.assertEqual(
@@ -196,7 +196,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -216,7 +216,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.winning_rinshan_seats, ())
         self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "yakuhai"))
         self.assertEqual(terminal.terminal_rewards, (1.0, -1 / 3, -1 / 3, -1 / 3))
-        self.assertEqual(terminal.terminal_point_deltas, (3000, -1000, -1000, -1000))
+        self.assertEqual(terminal.terminal_point_deltas, (3900, -1300, -1300, -1300))
 
     def test_haitei_yaku_allows_open_last_live_wall_tsumo(self) -> None:
         chi = Meld(
@@ -230,7 +230,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("6m"),),
             hands=(
-                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E"),
+                _tiles("1p 2p 3p 2s 3s 4s 4m 5m E E"),
                 (),
                 (),
                 (),
@@ -261,8 +261,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("6m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E S S"),
-                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E 7p 8p 9p"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E S S"),
+                _tiles("1p 2p 3p 2s 3s 4s 4m 5m E E 7p 8p 9p"),
                 (),
                 (),
             ),
@@ -299,8 +299,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("6m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E S S"),
-                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E S S"),
+                _tiles("1p 2p 3p 2s 3s 4s 4m 5m E E"),
                 (),
                 (),
             ),
@@ -331,8 +331,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("6m 1m 2m 3m 1p 2p 3p 1s 2s 3s E E S"),
-                _tiles("1p 2p 3p 1s 2s 3s 4m 5m E E 7p 8p 9p"),
+                _tiles("6m 1m 2m 3m 1p 2p 3p 2s 3s 4s E E S"),
+                _tiles("1p 2p 3p 2s 3s 4s 4m 5m E E 7p 8p 9p"),
                 (),
                 (),
             ),
@@ -351,7 +351,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s 4m 5m 6m E E"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s 4m 5m 6m E E"),
                 (),
                 (),
                 (),
@@ -373,7 +373,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m 5m"),
                 (),
                 (),
                 (),
@@ -443,7 +443,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 _tiles("1p 2p 3p 1s 2s 3s E E E 5m"),
                 (),
                 (),
@@ -490,9 +490,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(tsumo_actions, (Action(ActionKind.TSUMO),))
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winning_shapes, ("standard",))
-        self.assertEqual(terminal.winning_yaku, ("toitoi",))
-        self.assertEqual(estimate.yaku_han, 2)
-        self.assertEqual(estimate.han, 2)
+        self.assertEqual(terminal.winning_yaku, ("toitoi", "sanankou"))
+        self.assertEqual(estimate.yaku_han, 4)
+        self.assertEqual(estimate.han, 4)
 
     def test_toitoi_rejects_standard_hand_with_sequence(self) -> None:
         pon = Meld(
@@ -544,8 +544,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
 
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.winning_shapes, ("standard",))
-        self.assertEqual(terminal.winning_yaku, ("toitoi", "honroutou"))
-        self.assertEqual(estimate.yaku_han, 4)
+        self.assertEqual(terminal.winning_yaku, ("toitoi", "sanankou", "honroutou"))
+        self.assertEqual(estimate.yaku_han, 6)
 
     def test_honroutou_scores_with_chiitoitsu_shape(self) -> None:
         state = SandboxEnvironmentState(
@@ -592,7 +592,9 @@ class SandboxEnvironmentTests(unittest.TestCase):
         drawn = draw_for_current_seat(state)
         terminal = apply_tsumo_action(drawn, legal_tsumo_actions(drawn)[0])
 
-        self.assertEqual(terminal.winning_yaku, ("toitoi",))
+        self.assertIn("toitoi", terminal.winning_yaku)
+        self.assertIn("chinroutou", terminal.winning_yaku)
+        self.assertNotIn("honroutou", terminal.winning_yaku)
 
     def test_rinshan_tsumo_after_ankan_uses_kan_meld_for_standard_shape(self) -> None:
         state = SandboxEnvironmentState(
@@ -632,7 +634,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -683,7 +685,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -704,7 +706,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -755,7 +757,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -775,8 +777,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("9s"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 9s"),
                 (),
                 (),
             ),
@@ -804,8 +806,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             ),
             riichi_sticks=1,
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 9s"),
                 (),
                 (),
             ),
@@ -824,15 +826,15 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             terminal.points,
             (
-                SANDBOX_INITIAL_POINTS - 1000,
-                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS + 1000,
+                SANDBOX_INITIAL_POINTS - 1300,
+                SANDBOX_INITIAL_POINTS + RIICHI_DEPOSIT_POINTS + 1300,
                 SANDBOX_INITIAL_POINTS,
                 SANDBOX_INITIAL_POINTS - RIICHI_DEPOSIT_POINTS,
             ),
         )
         self.assertEqual(
             terminal.terminal_point_deltas,
-            (-1000, RIICHI_DEPOSIT_POINTS + 1000, 0, 0),
+            (-1300, RIICHI_DEPOSIT_POINTS + 1300, 0, 0),
         )
         self.assertEqual(
             terminal.terminal_score_estimates[0].riichi_stick_points,
@@ -845,8 +847,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("1m"), Tile.parse("9s")),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 9s"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 9s"),
                 (),
                 (),
             ),
@@ -874,8 +876,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             terminal.points,
             (
-                SANDBOX_INITIAL_POINTS - 1000,
-                SANDBOX_INITIAL_POINTS + 1000,
+                SANDBOX_INITIAL_POINTS - 1300,
+                SANDBOX_INITIAL_POINTS + 1300,
                 SANDBOX_INITIAL_POINTS,
                 SANDBOX_INITIAL_POINTS,
             ),
@@ -883,11 +885,11 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(terminal.to_payload()["riichi_sticks"], 0)
         self.assertEqual(
             terminal.terminal_point_deltas,
-            (0, 1000, 0, 0),
+            (-300, 1300, 0, 0),
         )
         self.assertEqual(
             terminal.to_payload()["terminal_point_deltas"],
-            [0, 1000, 0, 0],
+            [-300, 1300, 0, 0],
         )
         self.assertEqual(terminal.terminal_score_estimates[0].riichi_stick_points, 0)
 
@@ -899,7 +901,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -913,7 +915,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             seat=1,
             action=Action(ActionKind.RON, TileType.parse("5m")),
         )
-        payment = 1000 + honba * HONBA_RON_POINTS
+        payment = 1300 + honba * HONBA_RON_POINTS
 
         self.assertEqual(terminal.terminal_reason, "ron")
         self.assertEqual(terminal.honba, honba)
@@ -932,7 +934,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -942,7 +944,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         drawn = draw_for_current_seat(state)
         terminal = apply_tsumo_action(drawn, Action(ActionKind.TSUMO))
-        payment = 1000 + honba * HONBA_TSUMO_POINTS_PER_LOSER
+        payment = 1300 + honba * HONBA_TSUMO_POINTS_PER_LOSER
 
         self.assertEqual(terminal.terminal_reason, "tsumo")
         self.assertEqual(terminal.honba, honba)
@@ -967,7 +969,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(),
             hands=(
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -986,14 +988,14 @@ class SandboxEnvironmentTests(unittest.TestCase):
         estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
 
         self.assertEqual(terminal.terminal_reason, "ron")
-        self.assertEqual(terminal.terminal_point_deltas, (-1500, 1500, 0, 0))
-        self.assertEqual(terminal.points, (23500, 26500, 25000, 25000))
+        self.assertEqual(terminal.terminal_point_deltas, (-2000, 2000, 0, 0))
+        self.assertEqual(terminal.points, (23000, 27000, 25000, 25000))
         self.assertTrue(estimate.is_dealer)
-        self.assertEqual(estimate.ron_payment, 1500)
+        self.assertEqual(estimate.ron_payment, 2000)
         self.assertIsNone(estimate.tsumo_child_payment)
         self.assertIsNone(estimate.tsumo_dealer_payment)
         self.assertTrue(estimate_payload["is_dealer"])
-        self.assertEqual(estimate_payload["ron_payment"], 1500)
+        self.assertEqual(estimate_payload["ron_payment"], 2000)
         self.assertIsNone(estimate_payload["tsumo_child_payment"])
         self.assertIsNone(estimate_payload["tsumo_dealer_payment"])
 
@@ -1004,7 +1006,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -1018,16 +1020,16 @@ class SandboxEnvironmentTests(unittest.TestCase):
         estimate_payload = terminal.to_payload()["terminal_score_estimates"][0]
 
         self.assertEqual(terminal.terminal_reason, "tsumo")
-        self.assertEqual(terminal.terminal_point_deltas, (-1000, 2000, -500, -500))
-        self.assertEqual(terminal.points, (24000, 27000, 24500, 24500))
+        self.assertEqual(terminal.terminal_point_deltas, (-1300, 2700, -700, -700))
+        self.assertEqual(terminal.points, (23700, 27700, 24300, 24300))
         self.assertFalse(estimate.is_dealer)
-        self.assertEqual(estimate.tsumo_child_payment, 500)
-        self.assertEqual(estimate.tsumo_dealer_payment, 1000)
-        self.assertEqual(estimate.tsumo_payment_per_loser, 500)
+        self.assertEqual(estimate.tsumo_child_payment, 700)
+        self.assertEqual(estimate.tsumo_dealer_payment, 1300)
+        self.assertEqual(estimate.tsumo_payment_per_loser, 700)
         self.assertFalse(estimate_payload["is_dealer"])
-        self.assertEqual(estimate_payload["tsumo_child_payment"], 500)
-        self.assertEqual(estimate_payload["tsumo_dealer_payment"], 1000)
-        self.assertEqual(estimate_payload["tsumo_payment_per_loser"], 500)
+        self.assertEqual(estimate_payload["tsumo_child_payment"], 700)
+        self.assertEqual(estimate_payload["tsumo_dealer_payment"], 1300)
+        self.assertEqual(estimate_payload["tsumo_payment_per_loser"], 700)
 
     def test_sanma_tsumo_uses_tsumo_loss_point_estimates(self) -> None:
         nondealer_state = SandboxEnvironmentState(
@@ -1036,7 +1038,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5p"),),
             hands=(
                 (),
-                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5p"),
+                _tiles("1p 2p 3p 2s 3s 4s 7s 8s 9s E E E 5p"),
                 (),
             ),
             current_seat=1,
@@ -1047,7 +1049,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=3,
             wall=(Tile.parse("5p"),),
             hands=(
-                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5p"),
+                _tiles("1p 2p 3p 2s 3s 4s 7s 8s 9s E E E 5p"),
                 (),
                 (),
             ),
@@ -1067,16 +1069,16 @@ class SandboxEnvironmentTests(unittest.TestCase):
         dealer_estimate = dealer_terminal.terminal_score_estimates[0]
 
         self.assertEqual(nondealer_terminal.terminal_reason, "tsumo")
-        self.assertEqual(nondealer_terminal.terminal_point_deltas, (-1000, 1500, -500))
-        self.assertEqual(nondealer_terminal.points, (34000, 36500, 34500))
+        self.assertEqual(nondealer_terminal.terminal_point_deltas, (-1300, 2000, -700))
+        self.assertEqual(nondealer_terminal.points, (33700, 37000, 34300))
         self.assertFalse(nondealer_estimate.is_dealer)
-        self.assertEqual(nondealer_estimate.tsumo_child_payment, 500)
-        self.assertEqual(nondealer_estimate.tsumo_dealer_payment, 1000)
+        self.assertEqual(nondealer_estimate.tsumo_child_payment, 700)
+        self.assertEqual(nondealer_estimate.tsumo_dealer_payment, 1300)
         self.assertEqual(dealer_terminal.terminal_reason, "tsumo")
-        self.assertEqual(dealer_terminal.terminal_point_deltas, (2000, -1000, -1000))
-        self.assertEqual(dealer_terminal.points, (37000, 34000, 34000))
+        self.assertEqual(dealer_terminal.terminal_point_deltas, (2600, -1300, -1300))
+        self.assertEqual(dealer_terminal.points, (37600, 33700, 33700))
         self.assertTrue(dealer_estimate.is_dealer)
-        self.assertEqual(dealer_estimate.tsumo_child_payment, 1000)
+        self.assertEqual(dealer_estimate.tsumo_child_payment, 1300)
         self.assertIsNone(dealer_estimate.tsumo_dealer_payment)
 
     def test_visible_dora_counts_as_score_estimate_bonus_han(self) -> None:
@@ -1087,7 +1089,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dead_wall=(Tile.parse("9m"),),
             dora_indicators=(Tile.parse("9m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -1119,7 +1121,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dead_wall=(Tile.parse("4m"),),
             dora_indicators=(Tile.parse("4m"),),
             hands=(
-                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m"),
+                _tiles("1p 2p 3p 2s 3s 4s 7s 8s 9s E E E 5m 5m"),
                 (),
                 (),
                 (),
@@ -1143,7 +1145,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dora_indicators=(Tile.parse("9m"),),
             ura_dora_indicators=(Tile.parse("4m"),),
             hands=(
-                _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m"),
+                _tiles("1p 2p 3p 2s 3s 4s 7s 8s 9s E E E 5m 5m"),
                 (),
                 (),
                 (),
@@ -1176,7 +1178,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(riichi_payload["bonus_han"], 2)
 
     def test_kan_ura_counts_only_for_revealed_kan_dora_slots(self) -> None:
-        hand = _tiles("1p 2p 3p 1s 2s 3s 7s 8s 9s E E E 5m 5m")
+        hand = _tiles("1p 2p 3p 2s 3s 4s 7s 8s 9s E E E 5m 5m")
         first_slot_state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
@@ -1268,7 +1270,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
                     dora_indicators=(Tile.parse(indicator),),
                     hands=(
                         _tiles(
-                            "1p 2p 3p 1s 2s 3s 7s 8s 9s "
+                            "1p 2p 3p 2s 3s 4s 7s 8s 9s "
                             f"E E E {dora} {dora}"
                         ),
                         (),
@@ -1291,7 +1293,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 0m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 0m"),
                 (),
                 (),
                 (),
@@ -1324,7 +1326,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dead_wall=dora_indicators,
             dora_indicators=dora_indicators,
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -1388,7 +1390,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(Tile.parse("5m"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
                 (),
@@ -1421,7 +1423,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5m 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -1692,7 +1694,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             honba=2,
             dealer_seat=0,
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E 5m 6m"),
                 _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
                 _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
                 _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
@@ -1720,7 +1722,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dealer_seat=0,
             hands=(
                 _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E 5m 6m"),
                 _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
                 _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
             ),
@@ -1950,7 +1952,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
                 (),
                 (),
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
             ),
         )
         drawn = draw_for_current_seat(state)
@@ -2055,8 +2057,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dealer_seat=0,
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s W W W 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                _tiles("2m 3m 4m 2p 3p 4p 3s 4s 5s W W W 5m"),
                 _tiles("3m 4m 5m 3p 4p 5p 3s 4s 5s P P P 5m"),
             ),
         )
@@ -2092,7 +2094,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             hands=(
                 (),
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s S S S 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s S S S 5m"),
                 (),
             ),
             pending_discard=Tile.parse("5m"),
@@ -2118,7 +2120,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(),
             hands=(
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2138,7 +2140,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m 5m"),
                 (),
                 (),
                 (),
@@ -2162,7 +2164,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 9s"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m 9s"),
                 (),
                 (),
                 (),
@@ -2194,7 +2196,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(after_discard.pending_discard, Tile.parse("9s"))
 
     def test_riichi_declaration_rejects_open_or_non_tenpai_or_wrong_phase(self) -> None:
-        base_hand = _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m")
+        base_hand = _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m")
         open_state = SandboxEnvironmentState(
             ruleset="tenhou-4p",
             players=4,
@@ -2248,7 +2250,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2286,7 +2288,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
-                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 2s 3s 4s 5m"),
+                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 3s 4s 5s 5m"),
                 (),
                 (),
             ),
@@ -2298,6 +2300,64 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(legal_ron_actions(reaction_state, seat=1), ())
         with self.assertRaisesRegex(ValueError, "no recognized sandbox yaku"):
             apply_ron_action(reaction_state, seat=1, action=ron)
+
+    def test_pinfu_ron_can_be_only_yaku(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("8m"),),
+            hands=(
+                _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
+                _tiles("1m 2m 3m 2p 3p 4p 4s 5s 6s 6m 7m 5p 5p"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("8m"))
+        ron = Action(ActionKind.RON, TileType.parse("8m"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), (ron,))
+
+        terminal = apply_ron_action(reaction_state, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.winning_yaku, ("pinfu",))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.fu, 30)
+        self.assertEqual(estimate.ron_payment, 1000)
+
+    def test_open_sanshoku_ron_scores_reduced_han(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("E"),),
+            hands=(
+                _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
+                _tiles("5m 5m 5m E"),
+                (),
+                (),
+            ),
+            melds=(
+                (),
+                (_chi("1m 2m 3m"), _chi("1p 2p 3p"), _chi("1s 2s 3s")),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("E"))
+        ron = Action(ActionKind.RON, TileType.parse("E"))
+
+        self.assertEqual(legal_ron_actions(reaction_state, seat=1), (ron,))
+
+        terminal = apply_ron_action(reaction_state, seat=1, action=ron)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.winning_yaku, ("sanshoku_doujun",))
+        self.assertEqual(estimate.yaku_han, 1)
+        self.assertEqual(estimate.fu, 30)
+        self.assertEqual(estimate.ron_payment, 1000)
 
     def test_sanma_north_triplet_is_not_yakuhai_when_used_in_hand(self) -> None:
         state = SandboxEnvironmentState(
@@ -2325,7 +2385,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("2m 3m 4m 5p 6p 7p 8s 9s E S W N P"),
-                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 2s 3s 4s 5m"),
+                _tiles("1m 1m 1m 2m 3m 4m 2p 3p 4p 3s 4s 5s 5m"),
                 (),
                 (),
             ),
@@ -2349,7 +2409,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             players=4,
             wall=(),
             hands=(
-                _tiles("1m 2m 3m 7m 8m 9m 1p 2p 3p 1s 2s 3s 5p"),
+                _tiles("1m 2m 3m 7m 8m 9m 1p 2p 3p 2s 3s 4s 5p"),
                 (),
                 (),
                 (),
@@ -2391,7 +2451,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("9s"), Tile.parse("5m")),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2431,7 +2491,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("9s"), Tile.parse("5m")),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2472,7 +2532,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("9s"),),
             hands=(
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2498,7 +2558,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("9s"),),
             hands=(
                 (),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2570,8 +2630,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
-                _tiles("2m 3m 4m 2p 3p 4p 2s 3s 4s W W W 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                _tiles("2m 3m 4m 2p 3p 4p 3s 4s 5s W W W 5m"),
                 (),
             ),
             riichi_sticks=1,
@@ -2602,7 +2662,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(terminal.terminal_rewards, (-2.0, 1.0, 1.0, 0.0))
         self.assertEqual(terminal.riichi_sticks, 0)
-        self.assertEqual(terminal.terminal_point_deltas, (-2000, 2000, 1000, 0))
+        self.assertEqual(terminal.terminal_point_deltas, (-2600, 2300, 1300, 0))
         self.assertEqual(
             tuple(estimate.seat for estimate in terminal.terminal_score_estimates),
             (1, 2),
@@ -2617,7 +2677,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
         payload = terminal.to_payload()
         self.assertEqual(payload["winner_seats"], [1, 2])
         self.assertEqual(payload["riichi_sticks"], 0)
-        self.assertEqual(payload["terminal_point_deltas"], [-2000, 2000, 1000, 0])
+        self.assertEqual(payload["terminal_point_deltas"], [-2600, 2300, 1300, 0])
         self.assertEqual(
             payload["winning_shapes_by_seat"],
             [{"seat": 1, "shapes": ["standard"]}, {"seat": 2, "shapes": ["standard"]}],
@@ -2655,7 +2715,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(Tile.parse("5m"),),
             hands=(
                 _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -2964,7 +3024,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             hands=(
                 _tiles("3m 1p 1p 2p 3p 4p 5p 6p 7p 8p 9p E S"),
                 _tiles("1m 2m 4m 5m 6p 7p 8p 1s 2s 3s E S W"),
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 3m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 3m"),
                 (),
             ),
         )
@@ -3745,7 +3805,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             wall=(),
             points=(25000, 25000, 25000, 25000),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E 5m 6m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E 5m 6m"),
                 _tiles("1m 1m 9m 9m 1p 9p 1s 9s E S W P F"),
                 _tiles("2m 2m 8m 8m 2p 8p 2s 8s E S W P F"),
                 _tiles("3m 3m 7m 7m 3p 7p 3s 7s E S W P F"),
@@ -4251,7 +4311,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             dead_wall=_tiles("1p 5m"),
             dora_indicators=(Tile.parse("1p"),),
             hands=(
-                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
                 (),
                 (),
             ),
@@ -4309,6 +4369,11 @@ def _kan_meld(kind: ActionKind, tile: str) -> Meld:
         called_tile=None if kind is ActionKind.ANKAN else parsed,
         from_seat=None if kind is ActionKind.ANKAN else 0,
     )
+
+
+def _chi(text: str) -> Meld:
+    tiles = _tiles(text)
+    return Meld(ActionKind.CHI, tiles, called_tile=tiles[0], from_seat=0)
 
 
 def _tiles(text: str) -> tuple[Tile, ...]:
