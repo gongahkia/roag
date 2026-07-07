@@ -1298,6 +1298,9 @@ def legal_call_actions(state: SandboxEnvironmentState, *, seat: int) -> tuple[Ac
             )
         )
 
+    if pending_discard.type in SANDBOX_RULESET_BY_NAME[state.ruleset].excluded_tile_types:
+        return tuple(actions)
+
     matching = counts[pending_discard.type.index]
     if matching >= 2:
         actions.append(

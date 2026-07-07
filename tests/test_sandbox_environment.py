@@ -2917,6 +2917,66 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not legal"):
             apply_call_action(state, seat=1, action=chi)
 
+    def test_sanma_call_reactions_allow_one_and_nine_manzu_pon_and_minkan(self) -> None:
+        for tile in ("1m", "9m"):
+            with self.subTest(tile=tile):
+                state = SandboxEnvironmentState(
+                    ruleset="tenhou-3p",
+                    players=3,
+                    wall=(),
+                    hands=(
+                        (),
+                        _tiles(f"{tile} {tile} {tile} 1p 2p 3p 4p 5p 6p 1s 2s 3s E"),
+                        (),
+                    ),
+                    pending_discard=Tile.parse(tile),
+                    pending_discard_seat=0,
+                    pending_reaction_seats=(1,),
+                )
+                pon = Action(
+                    ActionKind.PON,
+                    TileType.parse(tile),
+                    consumed=(Tile.parse(tile), Tile.parse(tile)),
+                )
+                minkan = Action(
+                    ActionKind.MINKAN,
+                    TileType.parse(tile),
+                    consumed=(Tile.parse(tile), Tile.parse(tile), Tile.parse(tile)),
+                )
+
+                self.assertEqual(legal_call_actions(state, seat=1), (pon, minkan))
+                self.assertEqual(
+                    legal_reaction_actions(state, seat=1),
+                    (pon, minkan, Action.pass_()),
+                )
+
+    def test_sanma_call_reactions_disallow_excluded_manzu_calls(self) -> None:
+        for tile in _excluded_sanma_manzu():
+            with self.subTest(tile=tile):
+                state = SandboxEnvironmentState(
+                    ruleset="tenhou-3p",
+                    players=3,
+                    wall=(),
+                    hands=(
+                        (),
+                        _tiles(f"{tile} {tile} {tile} 1p 2p 3p 4p 5p 6p 1s 2s 3s E"),
+                        (),
+                    ),
+                    pending_discard=Tile.parse(tile),
+                    pending_discard_seat=0,
+                    pending_reaction_seats=(1,),
+                )
+                pon = Action(
+                    ActionKind.PON,
+                    TileType.parse(tile),
+                    consumed=(Tile.parse(tile), Tile.parse(tile)),
+                )
+
+                self.assertEqual(legal_call_actions(state, seat=1), ())
+                self.assertEqual(legal_reaction_actions(state, seat=1), (Action.pass_(),))
+                with self.assertRaisesRegex(ValueError, "not legal"):
+                    apply_call_action(state, seat=1, action=pon)
+
     def test_sanma_kita_is_not_legal_immediately_after_pon(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-3p",
