@@ -1,0 +1,1549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Kenjaku Interpretability Overlay</title>
+<style>
+:root{color-scheme:light;--ink:#1b1f24;--muted:#57606a;--line:#d0d7de;--bg:#f6f8fa;--accent:#0969da}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 48px}
+h1{margin:0 0 16px;font-size:28px;line-height:1.15}
+h2{margin:0;font-size:16px}
+.summary,.decision{background:#fff;border:1px solid var(--line);border-radius:8px}
+.summary,.decision{margin:0 0 12px;padding:14px}
+.summary dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 8px}
+.summary dt{color:var(--muted);font-size:12px;text-transform:uppercase}
+.summary dd{margin:2px 0 0;font-weight:650}
+.summary p{margin:0;color:var(--muted)}
+.decision header{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px}
+.decision p{margin:0;color:var(--muted)}
+code{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}
+th,td{border-top:1px solid var(--line);padding:8px;text-align:left}
+th,td{vertical-align:top;word-break:break-word}
+th{color:var(--muted);font-size:12px;font-weight:650}
+td:nth-child(1){font-weight:700;color:var(--accent)}
+@media(max-width:760px){main{width:calc(100% - 20px);padding-top:18px}}
+@media(max-width:760px){.summary dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){th,td{padding:6px;font-size:12px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Kenjaku Interpretability Overlay</h1>
+<section class="summary">
+<dl>
+<div><dt>Decisions</dt><dd>100</dd></div>
+<div><dt>Policy</dt><dd>heuristic-discard-overlay-v0</dd></div>
+<div><dt>Top alternatives</dt><dd>3</dd></div>
+<div><dt>Sources</dt><dd>synthetic-interpretability-local=100</dd></div>
+</dl>
+<p>Heuristic probabilities, deal-in risk, and point impact are audit signals, not calibrated engine-strength claims.</p>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 1</h2>
+<p>round=0 event=3 seat=0 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e3:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>19.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>2p</td><td>18.1%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+<tr><td>4p</td><td>18.1%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 2</h2>
+<p>round=0 event=5 seat=1 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e5:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>2p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 3</h2>
+<p>round=0 event=7 seat=2 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e7:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5p</td><td>43.1%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>2p</td><td>14.5%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>13.0%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 4</h2>
+<p>round=0 event=9 seat=3 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e9:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5p</td><td>43.1%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>2p</td><td>14.5%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>13.0%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 5</h2>
+<p>round=0 event=11 seat=0 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e11:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>23.0%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>21.3%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+<tr><td>6p</td><td>21.3%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 6</h2>
+<p>round=0 event=13 seat=1 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e13:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>6p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 7</h2>
+<p>round=0 event=15 seat=2 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e15:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6p</td><td>49.0%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>1p</td><td>14.8%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>13.7%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 8</h2>
+<p>round=0 event=17 seat=3 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e17:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6p</td><td>49.0%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>1p</td><td>14.8%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>13.7%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 9</h2>
+<p>round=0 event=19 seat=0 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e19:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>22.9%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>21.2%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+<tr><td>7p</td><td>21.2%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 10</h2>
+<p>round=0 event=21 seat=1 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e21:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>7p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 11</h2>
+<p>round=0 event=23 seat=2 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e23:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 12</h2>
+<p>round=0 event=25 seat=3 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e25:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 13</h2>
+<p>round=0 event=27 seat=0 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e27:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>8p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 14</h2>
+<p>round=0 event=29 seat=1 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e29:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>8p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 15</h2>
+<p>round=0 event=31 seat=2 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e31:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 16</h2>
+<p>round=0 event=33 seat=3 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e33:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 17</h2>
+<p>round=0 event=35 seat=0 actual=9p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e35:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9p</td><td>24.8%</td><td>0</td><td>40.0%</td><td>-3200</td><td>1 active riichi opponent(s), few visible copies, suji candidate, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>23.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>20.7%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 18</h2>
+<p>round=0 event=37 seat=1 actual=9p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e37:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>9p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 19</h2>
+<p>round=0 event=39 seat=2 actual=9p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e39:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 20</h2>
+<p>round=0 event=41 seat=3 actual=9p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e41:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 21</h2>
+<p>round=0 event=43 seat=0 actual=1s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e43:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1s</td><td>25.3%</td><td>0</td><td>39.0%</td><td>-3120</td><td>1 active riichi opponent(s), terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>22.8%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>20.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 22</h2>
+<p>round=0 event=45 seat=1 actual=1s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e45:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>1s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 23</h2>
+<p>round=0 event=47 seat=2 actual=1s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e47:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 24</h2>
+<p>round=0 event=49 seat=3 actual=1s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e49:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 25</h2>
+<p>round=0 event=51 seat=0 actual=2s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e51:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>2s</td><td>20.3%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 26</h2>
+<p>round=0 event=53 seat=1 actual=2s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e53:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>2s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 27</h2>
+<p>round=0 event=55 seat=2 actual=2s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e55:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>2s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 28</h2>
+<p>round=0 event=57 seat=3 actual=2s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e57:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>2s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 29</h2>
+<p>round=0 event=59 seat=0 actual=3s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e59:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>3s</td><td>20.3%</td><td>0</td><td>50.0%</td><td>-4000</td><td>1 active riichi opponent(s), few visible copies</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 30</h2>
+<p>round=0 event=61 seat=1 actual=3s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e61:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>3s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 31</h2>
+<p>round=0 event=63 seat=2 actual=3s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e63:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>3s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 32</h2>
+<p>round=0 event=65 seat=3 actual=3s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e65:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>3s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 33</h2>
+<p>round=0 event=67 seat=0 actual=4s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e67:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>4s</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 34</h2>
+<p>round=0 event=69 seat=1 actual=4s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e69:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 35</h2>
+<p>round=0 event=71 seat=2 actual=4s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e71:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 36</h2>
+<p>round=0 event=73 seat=3 actual=4s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e73:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 37</h2>
+<p>round=0 event=75 seat=0 actual=5s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e75:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>5s</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 38</h2>
+<p>round=0 event=77 seat=1 actual=5s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e77:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>5s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 39</h2>
+<p>round=0 event=79 seat=2 actual=5s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e79:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 40</h2>
+<p>round=0 event=81 seat=3 actual=5s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e81:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 41</h2>
+<p>round=0 event=83 seat=0 actual=6s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e83:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>6s</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 42</h2>
+<p>round=0 event=85 seat=1 actual=6s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e85:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>6s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 43</h2>
+<p>round=0 event=87 seat=2 actual=6s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e87:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 44</h2>
+<p>round=0 event=89 seat=3 actual=6s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e89:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 45</h2>
+<p>round=0 event=91 seat=0 actual=7s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e91:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>7s</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 46</h2>
+<p>round=0 event=93 seat=1 actual=7s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e93:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>7s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 47</h2>
+<p>round=0 event=95 seat=2 actual=7s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e95:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 48</h2>
+<p>round=0 event=97 seat=3 actual=7s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e97:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 49</h2>
+<p>round=0 event=99 seat=0 actual=8s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e99:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>8s</td><td>23.4%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.1%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 50</h2>
+<p>round=0 event=101 seat=1 actual=8s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e101:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>8s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 51</h2>
+<p>round=0 event=103 seat=2 actual=8s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e103:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 52</h2>
+<p>round=0 event=105 seat=3 actual=8s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e105:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 53</h2>
+<p>round=0 event=107 seat=0 actual=9s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e107:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9s</td><td>24.8%</td><td>0</td><td>40.0%</td><td>-3200</td><td>1 active riichi opponent(s), few visible copies, suji candidate, terminal/honor adjustment</td></tr>
+<tr><td>4p</td><td>23.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>20.7%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 54</h2>
+<p>round=0 event=109 seat=1 actual=9s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e109:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>9s</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 55</h2>
+<p>round=0 event=111 seat=2 actual=9s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e111:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 56</h2>
+<p>round=0 event=113 seat=3 actual=9s shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e113:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>9s</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 57</h2>
+<p>round=0 event=115 seat=0 actual=E shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e115:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>E</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 58</h2>
+<p>round=0 event=117 seat=1 actual=E shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e117:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>E</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 59</h2>
+<p>round=0 event=119 seat=2 actual=E shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e119:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>E</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 60</h2>
+<p>round=0 event=121 seat=3 actual=E shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e121:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>E</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 61</h2>
+<p>round=0 event=123 seat=0 actual=S shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e123:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>S</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 62</h2>
+<p>round=0 event=125 seat=1 actual=S shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e125:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>S</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 63</h2>
+<p>round=0 event=127 seat=2 actual=S shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e127:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>S</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 64</h2>
+<p>round=0 event=129 seat=3 actual=S shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e129:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>S</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 65</h2>
+<p>round=0 event=131 seat=0 actual=W shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e131:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>W</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 66</h2>
+<p>round=0 event=133 seat=1 actual=W shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e133:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>W</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 67</h2>
+<p>round=0 event=135 seat=2 actual=W shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e135:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>W</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 68</h2>
+<p>round=0 event=137 seat=3 actual=W shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e137:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>W</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 69</h2>
+<p>round=0 event=139 seat=0 actual=N shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e139:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>N</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 70</h2>
+<p>round=0 event=141 seat=1 actual=N shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e141:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>N</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 71</h2>
+<p>round=0 event=143 seat=2 actual=N shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e143:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>N</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 72</h2>
+<p>round=0 event=145 seat=3 actual=N shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e145:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>N</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 73</h2>
+<p>round=0 event=147 seat=0 actual=P shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e147:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>P</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 74</h2>
+<p>round=0 event=149 seat=1 actual=P shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e149:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>P</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 75</h2>
+<p>round=0 event=151 seat=2 actual=P shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e151:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>P</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 76</h2>
+<p>round=0 event=153 seat=3 actual=P shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e153:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>P</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 77</h2>
+<p>round=0 event=155 seat=0 actual=F shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e155:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>F</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 78</h2>
+<p>round=0 event=157 seat=1 actual=F shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e157:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>F</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 79</h2>
+<p>round=0 event=159 seat=2 actual=F shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e159:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>F</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 80</h2>
+<p>round=0 event=161 seat=3 actual=F shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e161:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>F</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 81</h2>
+<p>round=0 event=163 seat=0 actual=C shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e163:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>4p</td><td>24.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+<tr><td>C</td><td>21.6%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 82</h2>
+<p>round=0 event=165 seat=1 actual=C shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e165:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>C</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 83</h2>
+<p>round=0 event=167 seat=2 actual=C shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e167:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>C</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 84</h2>
+<p>round=0 event=169 seat=3 actual=C shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e169:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>C</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 85</h2>
+<p>round=0 event=171 seat=0 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e171:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5p</td><td>41.9%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>2p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>4p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 86</h2>
+<p>round=0 event=173 seat=1 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e173:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>2p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>18.4%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 87</h2>
+<p>round=0 event=175 seat=2 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e175:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5p</td><td>41.9%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>2p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>4p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 88</h2>
+<p>round=0 event=177 seat=3 actual=5p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e177:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>5p</td><td>41.9%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>2p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>4p</td><td>14.1%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 89</h2>
+<p>round=0 event=179 seat=0 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e179:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 90</h2>
+<p>round=0 event=181 seat=1 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e181:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>6p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 91</h2>
+<p>round=0 event=183 seat=2 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e183:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 92</h2>
+<p>round=0 event=185 seat=3 actual=6p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e185:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>6p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 93</h2>
+<p>round=0 event=187 seat=0 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e187:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 94</h2>
+<p>round=0 event=189 seat=1 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e189:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>7p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 95</h2>
+<p>round=0 event=191 seat=2 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e191:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 96</h2>
+<p>round=0 event=193 seat=3 actual=7p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e193:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>7p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 97</h2>
+<p>round=0 event=195 seat=0 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e195:discard:s0</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 98</h2>
+<p>round=0 event=197 seat=1 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e197:discard:s1</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>1p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>4p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+<tr><td>8p</td><td>21.9%</td><td>0</td><td>3.0%</td><td>-240</td><td>no active riichi opponent</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 99</h2>
+<p>round=0 event=199 seat=2 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e199:discard:s2</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+<section class="decision">
+<header>
+<h2>Decision 100</h2>
+<p>round=0 event=201 seat=3 actual=8p shanten=0</p>
+<code>97c7d132c0a9c8d8:r0:e201:discard:s3</code>
+</header>
+<table>
+<thead><tr><th>Tile</th><th>Policy probability</th><th>Shanten delta</th><th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>8p</td><td>47.7%</td><td>0</td><td>1.0%</td><td>-80</td><td>genbutsu against active riichi</td></tr>
+<tr><td>4p</td><td>16.0%</td><td>0</td><td>43.0%</td><td>-3440</td><td>1 active riichi opponent(s), few visible copies, suji candidate</td></tr>
+<tr><td>1p</td><td>14.4%</td><td>0</td><td>47.0%</td><td>-3760</td><td>1 active riichi opponent(s), few visible copies, terminal/honor adjustment</td></tr>
+</tbody>
+</table>
+</section>
+</main>
+</body>
+</html>

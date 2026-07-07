@@ -18,9 +18,10 @@ Fixture-only launch media generated on 2026-07-07:
 - Replay-analysis clip: `docs/media/replay-analysis.mp4`
 - Browser-demo clip: `docs/media/browser-demo.mp4`
 - Benchmark summary image: `docs/media/benchmark-summary.png`
+- Interpretability overlay HTML: `docs/media/interpretability-overlay.html`
 
-These artifacts use only `data/fixtures/tenhou`; they do not include raw private replay data,
-player/account data, model weights, or live ladder data.
+These artifacts use only `data/fixtures/tenhou` plus generated local synthetic replay exports; they
+do not include raw private replay data, player/account data, model weights, or live ladder data.
 
 Exact reproduction commands:
 
@@ -49,6 +50,7 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard \
 ```
 
 Capture and encoding commands are recorded in `docs/launch-media.md`.
+Interpretability overlay generation is recorded in `docs/interpretability-overlay.md`.
 
 ## Current State
 
@@ -58,6 +60,8 @@ Capture and encoding commands are recorded in `docs/launch-media.md`.
 - Dependency-free frequency and linear baselines with deterministic train/eval splits, calibration
   reports, feature summaries, and local-only disagreement diagnostics.
 - Neutral decision snapshot JSONL export plus prediction JSONL comparison.
+- Discard interpretability overlay rendering from local decision snapshots, with top-3 heuristic
+  alternatives, shanten delta, estimated deal-in risk, and expected point impact per decision.
 - Permission-aware replay manifest review with accepted-item JSONL output for offline replay
   analysis queues. It validates consent/provenance gates but does not fetch from live services.
 - Offline replay share planning plus public-safe replay summary generation for accepted intake
@@ -265,6 +269,9 @@ PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
 
 PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-compare \
   runs/decision-snapshots.jsonl runs/decision-predictions.jsonl
+
+PYTHONPATH=src python3.13 -m kenjaku interpretability-overlay \
+  runs/decision-snapshots.jsonl --output runs/interpretability-overlay.html
 
 PYTHONPATH=src python3.13 -m kenjaku external-baseline-report \
   runs/decision-snapshots.jsonl \

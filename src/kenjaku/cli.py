@@ -130,6 +130,11 @@ from kenjaku.training.external_baselines import (
     format_external_baseline_report,
     parse_external_baseline_spec,
 )
+from kenjaku.training.interpretability_overlay import (
+    build_interpretability_overlay,
+    read_interpretability_snapshots,
+    write_interpretability_overlay_html,
+)
 
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -951,6 +956,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the summary as JSON instead of text",
     )
     snapshot_summary.set_defaults(func=_decision_snapshot_summary)
+
+    interpretability_overlay = subparsers.add_parser(
+        "interpretability-overlay",
+        help="render discard interpretability HTML from decision snapshot JSONL",
+    )
+    interpretability_overlay.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file",
+    )
+    interpretability_overlay.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="HTML output path",
+    )
+    interpretability_overlay.add_argument(
+        "--limit",
+        type=int,
+        help="maximum discard decisions to render",
+    )
+    interpretability_overlay.add_argument(
+        "--min-decisions",
+        type=int,
+        default=0,
+        help="fail unless at least this many discard decisions render",
+    )
+    interpretability_overlay.add_argument(
+        "--title",
+        default="Kenjaku Interpretability Overlay",
+        help="HTML document title",
+    )
+    interpretability_overlay.set_defaults(func=_interpretability_overlay)
 
     produce_predictions = subparsers.add_parser(
         "produce-decision-predictions",
@@ -2827,6 +2865,32 @@ def _decision_snapshot_summary(args: argparse.Namespace) -> int:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
         print(_format_decision_snapshot_summary(summary))
+    return 0
+
+
+def _interpretability_overlay(args: argparse.Namespace) -> int:
+    if args.limit is not None and args.limit < 0:
+        raise SystemExit("--limit must be non-negative")
+    if args.min_decisions < 0:
+        raise SystemExit("--min-decisions must be non-negative")
+    try:
+        snapshots, stats = read_interpretability_snapshots(
+            args.snapshots,
+            limit=args.limit,
+        )
+        report = build_interpretability_overlay(
+            snapshots,
+            title=args.title,
+            min_decisions=args.min_decisions,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    write_interpretability_overlay_html(args.output, report)
+    print(f"decisions: {report['decision_count']}")
+    print(f"policy_kind: {report['policy_kind']}")
+    print(f"skipped_snapshot_rows: {stats['skipped_rows']}")
+    print(f"malformed_snapshot_rows: {stats['malformed_rows']}")
+    print(f"output_path: {args.output}")
     return 0
 
 
