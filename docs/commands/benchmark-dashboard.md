@@ -4,26 +4,27 @@ Generated from `argparse` help and reviewed on 2026-07-07.
 
 ## Purpose
 
-Build a static public dashboard from benchmark JSON reports.
+Build a static public dashboard comparing one or more benchmark JSON reports.
 
 ## Inputs
 
-Benchmark report JSON files.
+One or more benchmark report JSON files.
 
 ## Outputs
 
-Static HTML dashboard at `--output`.
+Static HTML dashboard at `--output` with a sortable report-comparison table and per-report detail sections.
 
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard runs/discard-benchmark.json --output runs/benchmark-dashboard/index.html --title "Kenjaku Fixture Benchmark"
+PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard runs/*.json --output runs/benchmark-dashboard/index.html --title "Kenjaku Fixture Benchmark"
 ```
 
 ## Gotchas
 
 - The dashboard reflects only supplied reports.
 - Use public-safe reports for any committed or shared dashboard.
+- The comparison table sorts in-browser and includes diff highlights against the best supplied eval score.
 
 ## Help
 

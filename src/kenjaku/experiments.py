@@ -894,6 +894,7 @@ def format_public_benchmark_dashboard_html(
         _dashboard_metric_definition_item(definition)
         for definition in dashboard["metric_definitions"]
     )
+    comparison = _dashboard_comparison_section(dashboard["summary"]["reports"])
     reports = "\n".join(
         _dashboard_report_section(report, link_base_dir=link_base_dir)
         for report in dashboard["summary"]["reports"]
@@ -904,6 +905,7 @@ def format_public_benchmark_dashboard_html(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
   <title>{title}</title>
   <style>
     :root {{
@@ -915,6 +917,8 @@ def format_public_benchmark_dashboard_html(
       --panel: #ffffff;
       --accent: #0f766e;
       --accent-soft: #d9f4ee;
+      --warn: #a15c07;
+      --good: #0f766e;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -986,7 +990,19 @@ def format_public_benchmark_dashboard_html(
       vertical-align: top;
     }}
     th {{ color: var(--muted); font-size: 12px; text-transform: uppercase; }}
+    th button {{
+      all: unset;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      text-transform: uppercase;
+    }}
     .model-kind, .muted {{ color: var(--muted); }}
+    .diff-best {{ color: var(--good); font-weight: 700; }}
+    .diff-down {{ color: var(--warn); font-weight: 700; }}
+    .sparkline {{ width: 96px; height: 24px; display: block; }}
+    .sparkline path {{ fill: none; stroke: var(--accent); stroke-width: 2; }}
+    .sparkline circle {{ fill: var(--accent); }}
     .artifact-list {{ margin: 8px 0 0; padding-left: 18px; }}
     .metric-definitions {{
       display: grid;
@@ -1028,9 +1044,13 @@ def format_public_benchmark_dashboard_html(
         {metric_definitions}
       </dl>
     </section>
+    {comparison}
     {reports}
   </main>
   <footer>Generated at {generated_at}</footer>
+  <script>
+{_dashboard_sort_script()}
+  </script>
 </body>
 </html>
 """
@@ -1043,6 +1063,257 @@ def _dashboard_metric_definition_item(definition: dict[str, Any]) -> str:
         f"<dd>{_html_text(definition['definition'])}</dd>"
         "</div>"
     )
+
+
+def _dashboard_comparison_section(reports: Sequence[dict[str, Any]]) -> str:
+    rows = _dashboard_comparison_rows(reports)
+    best_eval_accuracy = _max_numeric([row["best_eval_accuracy"] for row in rows])
+    headers = "\n".join(
+        [
+            _dashboard_sortable_header(0, "Report", "text"),
+            _dashboard_sortable_header(1, "Target", "text"),
+            _dashboard_sortable_header(2, "Eval Examples", "number"),
+            _dashboard_sortable_header(3, "Best Model", "text"),
+            _dashboard_sortable_header(4, "Best Eval", "number"),
+            _dashboard_sortable_header(5, "Vs Best", "number"),
+            _dashboard_sortable_header(6, "Balanced", "number"),
+            _dashboard_sortable_header(7, "Recall", "number"),
+            _dashboard_sortable_header(8, "Models", "number"),
+            "<th>Eval Sparkline</th>",
+        ]
+    )
+    body = "\n".join(
+        _dashboard_comparison_row(row, best_eval_accuracy=best_eval_accuracy)
+        for row in rows
+    )
+    return f"""
+    <section>
+      <h2>Report Comparison</h2>
+      <p class="muted">
+        Side-by-side summary across supplied benchmark reports. Click a column
+        header to sort.
+      </p>
+      <table id="comparison-table">
+        <thead>
+          <tr>
+            {headers}
+          </tr>
+        </thead>
+        <tbody>
+          {body}
+        </tbody>
+      </table>
+    </section>
+"""
+
+
+def _dashboard_sortable_header(column: int, label: str, sort_type: str) -> str:
+    return (
+        "<th>"
+        f'<button type="button" data-sort-column="{column}" '
+        f'data-sort-type="{sort_type}">{_html_text(label)}</button>'
+        "</th>"
+    )
+
+
+def _dashboard_comparison_rows(reports: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for index, report in enumerate(reports, start=1):
+        model_rows = _dashboard_model_rows(report)
+        best_model = _dashboard_best_model_row(model_rows)
+        source = report.get("source", {})
+        source_label = source.get("label") if isinstance(source, dict) else None
+        source_date = source.get("date") if isinstance(source, dict) else None
+        eval_values = [
+            value
+            for value in (_numeric(row.get("eval_accuracy")) for row in model_rows)
+            if value is not None
+        ]
+        rows.append(
+            {
+                "report": f"Report {index}" if not source_label else str(source_label),
+                "source_date": source_date or "unknown",
+                "path": report["path"],
+                "target": report["target"],
+                "eval_examples": _dashboard_eval_examples(report),
+                "best_model": best_model.get("name"),
+                "best_eval_accuracy": best_model.get("eval_accuracy"),
+                "balanced_accuracy": best_model.get("balanced_accuracy"),
+                "target_recall": best_model.get("target_recall"),
+                "model_count": len(model_rows),
+                "sparkline_values": eval_values,
+            }
+        )
+    return rows
+
+
+def _dashboard_best_model_row(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    best: dict[str, Any] = {}
+    best_score: tuple[float, float] | None = None
+    for row in rows:
+        eval_accuracy = _numeric(row.get("eval_accuracy"))
+        if eval_accuracy is None:
+            continue
+        balanced = _numeric(row.get("balanced_accuracy")) or -1.0
+        score = (eval_accuracy, balanced)
+        if best_score is None or score > best_score:
+            best = row
+            best_score = score
+    return best
+
+
+def _dashboard_comparison_row(
+    row: dict[str, Any],
+    *,
+    best_eval_accuracy: float | None,
+) -> str:
+    best_eval = _numeric(row.get("best_eval_accuracy"))
+    diff = (
+        None
+        if best_eval is None or best_eval_accuracy is None
+        else best_eval - best_eval_accuracy
+    )
+    diff_class = _dashboard_diff_class(diff)
+    return (
+        "<tr>"
+        f'<td data-sort="{_html_text(row["report"])}">'
+        f"{_html_text(row['report'])}<br>"
+        f'<span class="muted">{_html_text(row["source_date"])}</span><br>'
+        f'<span class="muted">{_html_text(Path(str(row["path"])).name)}</span></td>'
+        f'<td data-sort="{_html_text(row["target"])}">{_html_text(row["target"])}</td>'
+        f'<td data-sort="{_sort_value(row["eval_examples"])}">'
+        f"{_html_metric(row['eval_examples'])}</td>"
+        f'<td data-sort="{_html_text(row["best_model"] or "")}">'
+        f"{_html_text(row['best_model'] or 'n/a')}</td>"
+        f'<td data-sort="{_sort_value(best_eval)}">{_html_metric(best_eval)}</td>'
+        f'<td class="{diff_class}" data-sort="{_sort_value(diff)}">'
+        f"{_dashboard_diff_text(diff)}</td>"
+        f'<td data-sort="{_sort_value(row["balanced_accuracy"])}">'
+        f"{_html_metric(row['balanced_accuracy'])}</td>"
+        f'<td data-sort="{_sort_value(row["target_recall"])}">'
+        f"{_html_metric(row['target_recall'])}</td>"
+        f'<td data-sort="{_sort_value(row["model_count"])}">'
+        f"{_html_metric(row['model_count'])}</td>"
+        f"<td>{_dashboard_sparkline(row['sparkline_values'])}</td>"
+        "</tr>"
+    )
+
+
+def _dashboard_eval_examples(report: dict[str, Any]) -> int | None:
+    split = report.get("split")
+    if isinstance(split, dict) and isinstance(split.get("eval_examples"), int):
+        return split["eval_examples"]
+    metrics = report.get("metrics")
+    if isinstance(metrics, dict):
+        eval_metrics = metrics.get("eval")
+        if isinstance(eval_metrics, dict) and isinstance(eval_metrics.get("examples"), int):
+            return eval_metrics["examples"]
+    return None
+
+
+def _dashboard_sparkline(values: Sequence[float]) -> str:
+    if not values:
+        return '<span class="muted">n/a</span>'
+    width = 96
+    height = 24
+    if len(values) == 1:
+        x = width // 2
+        y = height // 2
+        return (
+            f'<svg class="sparkline" viewBox="0 0 {width} {height}" '
+            'role="img" aria-label="single model eval score">'
+            f'<circle cx="{x}" cy="{y}" r="3"></circle></svg>'
+        )
+    low = min(values)
+    high = max(values)
+    span = high - low
+    points = []
+    for index, value in enumerate(values):
+        x = index * (width - 4) / (len(values) - 1) + 2
+        y = height / 2 if span == 0 else height - 2 - ((value - low) / span) * (height - 4)
+        points.append(f"{x:.1f},{y:.1f}")
+    return (
+        f'<svg class="sparkline" viewBox="0 0 {width} {height}" '
+        'role="img" aria-label="model eval score sparkline">'
+        f'<path d="M {" L ".join(points)}"></path></svg>'
+    )
+
+
+def _dashboard_diff_class(diff: float | None) -> str:
+    if diff is None:
+        return "muted"
+    if abs(diff) < 0.0005:
+        return "diff-best"
+    return "diff-down"
+
+
+def _dashboard_diff_text(diff: float | None) -> str:
+    if diff is None:
+        return "n/a"
+    if abs(diff) < 0.0005:
+        return "best"
+    return _format_optional_delta(diff)
+
+
+def _max_numeric(values: Sequence[Any]) -> float | None:
+    numeric_values = [_numeric(value) for value in values]
+    defined = [value for value in numeric_values if value is not None]
+    return None if not defined else max(defined)
+
+
+def _numeric(value: Any) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _sort_value(value: Any) -> str:
+    numeric = _numeric(value)
+    if numeric is None:
+        return ""
+    return f"{numeric:.12f}"
+
+
+def _dashboard_sort_script() -> str:
+    return r"""
+(() => {
+  const table = document.getElementById("comparison-table");
+  if (!table) {
+    return;
+  }
+  const body = table.tBodies[0];
+  for (const button of table.querySelectorAll("[data-sort-column]")) {
+    button.addEventListener("click", () => {
+      const column = Number(button.dataset.sortColumn);
+      const type = button.dataset.sortType || "text";
+      const current = button.dataset.sortDirection === "asc" ? "desc" : "asc";
+      button.dataset.sortDirection = current;
+      const rows = Array.from(body.rows);
+      rows.sort((left, right) => {
+        const leftValue = left.cells[column]?.dataset.sort || "";
+        const rightValue = right.cells[column]?.dataset.sort || "";
+        if (type === "number") {
+          return compareNumber(leftValue, rightValue, current);
+        }
+        return compareText(leftValue, rightValue, current);
+      });
+      for (const row of rows) {
+        body.appendChild(row);
+      }
+    });
+  }
+})();
+
+function compareNumber(left, right, direction) {
+  const leftNumber = left === "" ? Number.NEGATIVE_INFINITY : Number(left);
+  const rightNumber = right === "" ? Number.NEGATIVE_INFINITY : Number(right);
+  const result = leftNumber - rightNumber;
+  return direction === "asc" ? result : -result;
+}
+
+function compareText(left, right, direction) {
+  const result = left.localeCompare(right, undefined, {numeric: true});
+  return direction === "asc" ? result : -result;
+}
+""".strip()
 
 
 def _dashboard_report_section(
