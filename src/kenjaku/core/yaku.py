@@ -82,6 +82,7 @@ YAKU_DEFINITIONS = {
     "iipeikou": YakuDefinition("iipeikou", 1, None, YAKU_CLOSED_ONLY),
     "double_riichi": YakuDefinition("double_riichi", 2, None, YAKU_CLOSED_ONLY),
     "chiitoitsu": YakuDefinition("chiitoitsu", 2, None, YAKU_CLOSED_ONLY),
+    "ryanpeikou": YakuDefinition("ryanpeikou", 3, None, YAKU_CLOSED_ONLY),
     "tanyao": YakuDefinition("tanyao", 1, 1, YAKU_OPEN_ALLOWED),
     "yakuhai": YakuDefinition("yakuhai", 1, 1, YAKU_OPEN_ALLOWED),
     "rinshan": YakuDefinition("rinshan", 1, 1, YAKU_OPEN_ALLOWED),
@@ -117,7 +118,6 @@ YAKU_DEFINITIONS = {
 
 SUPPORTED_YAKU_NAMES = tuple(YAKU_DEFINITIONS)
 UNSUPPORTED_YAKU_NAMES = (
-    "ryanpeikou",
     "renhou",
     "open_riichi",
     "daisharin",
@@ -221,8 +221,11 @@ def _standard_yaku_names(
         for grouping in groupings
     ):
         names.append("pinfu")
-    if is_closed and any(_has_iipeikou(grouping) for grouping in groupings):
-        names.append("iipeikou")
+    if is_closed:
+        if any(_has_ryanpeikou(grouping) for grouping in groupings):
+            names.append("ryanpeikou")
+        elif any(_has_iipeikou(grouping) for grouping in groupings):
+            names.append("iipeikou")
     if any(_has_sanshoku_doujun(grouping) for grouping in groupings):
         names.append("sanshoku_doujun")
     if any(_has_sanshoku_doukou(grouping) for grouping in groupings):
@@ -380,10 +383,18 @@ def _is_pinfu_grouping(
 
 
 def _has_iipeikou(grouping: tuple[_Group, ...]) -> bool:
+    return _identical_sequence_pair_count(grouping) == 1
+
+
+def _has_ryanpeikou(grouping: tuple[_Group, ...]) -> bool:
+    return _identical_sequence_pair_count(grouping) >= 2
+
+
+def _identical_sequence_pair_count(grouping: tuple[_Group, ...]) -> int:
     sequence_counts = Counter(
         group.tiles for group in grouping if group.is_sequence and group.concealed
     )
-    return sum(1 for count in sequence_counts.values() if count >= 2) == 1
+    return sum(count // 2 for count in sequence_counts.values())
 
 
 def _has_sanshoku_doujun(grouping: tuple[_Group, ...]) -> bool:

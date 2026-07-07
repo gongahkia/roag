@@ -129,6 +129,8 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_basic_yaku_metadata"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_expanded_yaku_legality"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_unsupported_yaku_list"])
+        self.assertIn("ryanpeikou", payload["capabilities"]["supported_yaku"])
+        self.assertNotIn("ryanpeikou", payload["capabilities"]["unsupported_yaku"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_yakuhai_seat_round_dragon_filter"]
         )
@@ -309,7 +311,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_nagashi_mangan_wall_exhaustion: yes", text)
         self.assertIn("sandbox_nagashi_mangan_next_round_progression: yes", text)
         self.assertIn("unsupported_yaku:", text)
-        self.assertIn("  ryanpeikou", text)
+        self.assertIn("  renhou", text)
+        self.assertNotIn("  ryanpeikou", text)
         self.assertIn("sandbox_abortive_draws: yes", text)
         self.assertIn("sandbox_kyuushu_kyuuhai_abortive_draw: yes", text)
         self.assertIn("sandbox_four_winds_abortive_draw: yes", text)

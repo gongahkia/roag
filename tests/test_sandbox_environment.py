@@ -190,6 +190,27 @@ class SandboxEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already terminal"):
             legal_discard_actions(drawn)
 
+    def test_ryanpeikou_tsumo_yaku_metadata_flows_to_score_estimate(self) -> None:
+        state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5p"),),
+            hands=(
+                _tiles("1m 2m 3m 1m 2m 3m 2m 3m 4m 2m 3m 4m 5p"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        terminal = draw_for_current_seat(state, stop_on_tsumo=True)
+        estimate = terminal.terminal_score_estimates[0]
+
+        self.assertEqual(terminal.winning_yaku, ("menzen_tsumo", "ryanpeikou"))
+        self.assertEqual(estimate.yaku, ("menzen_tsumo", "ryanpeikou"))
+        self.assertEqual(estimate.yaku_han, 4)
+        self.assertNotIn("iipeikou", terminal.winning_yaku)
+
     def test_tsumo_is_a_legal_action_before_terminal_application(self) -> None:
         state = SandboxEnvironmentState(
             ruleset="tenhou-4p",

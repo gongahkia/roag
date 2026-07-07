@@ -72,8 +72,7 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   HTML/CSS/JS assets, can be served by the CLI, and does not require or embed raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
-  validation; unsupported yaku currently include ryanpeikou, renhou, open riichi, daisharin, and
-  daichisei.
+  validation; unsupported yaku currently include renhou, open riichi, daisharin, and daichisei.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
