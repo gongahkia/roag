@@ -12,8 +12,10 @@ from kenjaku.core import (
     ActionKind,
     Meld,
     RuleSet,
+    ScoreResult,
     Tile,
     TileType,
+    score_riichi_hand,
     shanten_for_tiles,
     winning_hand_shapes_for_tiles,
 )
@@ -36,7 +38,7 @@ SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = (
     SANDBOX_DEAD_WALL_TILES - SANDBOX_3P_REPLACEMENT_TILES
 )
 SANDBOX_INITIAL_DORA_INDICATORS = 1
-SANDBOX_SCORE_PAYMENT_MODEL = "sandbox-dealer-aware-rounded-v1"
+SANDBOX_SCORE_PAYMENT_MODEL = "exact-riichi-score-v0"
 SANDBOX_KITA_TILE = TileType.parse("N")
 SANDBOX_SEAT_WINDS = (
     TileType.parse("E"),
@@ -2597,6 +2599,7 @@ def _terminal_win_point_updates(
         )
         estimate = _sandbox_score_estimate(
             seat=winner_seat,
+            players=state.players,
             is_dealer=winner_seat == state.dealer_seat,
             win_kind=win_kind,
             yaku=yaku_by_seat.get(winner_seat, ()),
@@ -2883,6 +2886,7 @@ def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
 def _sandbox_score_estimate(
     *,
     seat: int,
+    players: int,
     is_dealer: bool,
     win_kind: str,
     yaku: tuple[str, ...],
@@ -2895,133 +2899,101 @@ def _sandbox_score_estimate(
 ) -> SandboxScoreEstimate:
     bonus_han = visible_dora_count + ura_dora_count + red_dora_count + kita_dora_count
     if "nagashi_mangan" in yaku:
-        return SandboxScoreEstimate(
-            seat=seat,
-            win_kind=win_kind,
-            yaku=yaku,
+        score = score_riichi_hand(
             yaku_han=SANDBOX_YAKU_HAN["nagashi_mangan"],
             bonus_han=0,
+            fu=30,
+            is_dealer=is_dealer,
+            win_kind=win_kind,
+            honba=honba,
+            riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+            players=players,
+        )
+        return _score_estimate_from_result(
+            seat=seat,
+            yaku=yaku,
             visible_dora_count=visible_dora_count,
             ura_dora_count=ura_dora_count,
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
-            han=SANDBOX_YAKU_HAN["nagashi_mangan"],
-            fu=None,
-            limit="mangan",
-            base_points=SANDBOX_LIMIT_BASE_POINTS["mangan"],
-            is_dealer=is_dealer,
-            ron_payment=None,
-            tsumo_payment_per_loser=_sandbox_limit_tsumo_child_payment(
-                limit="mangan",
-                is_dealer=is_dealer,
-            ),
-            tsumo_child_payment=_sandbox_limit_tsumo_child_payment(
-                limit="mangan",
-                is_dealer=is_dealer,
-            ),
-            tsumo_dealer_payment=_sandbox_limit_tsumo_dealer_payment(
-                limit="mangan",
-                is_dealer=is_dealer,
-            ),
-            honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
-            riichi_stick_points=riichi_stick_points,
+            score=score,
         )
     if "kokushi" in yaku:
-        scoring_bonus_han = 0
-        ron_payment = (
-            _sandbox_limit_ron_payment(limit="yakuman", is_dealer=is_dealer)
-            if win_kind != "tsumo"
-            else None
-        )
-        tsumo_child_payment = (
-            _sandbox_limit_tsumo_child_payment(limit="yakuman", is_dealer=is_dealer)
-            if win_kind == "tsumo"
-            else None
-        )
-        tsumo_dealer_payment = (
-            _sandbox_limit_tsumo_dealer_payment(limit="yakuman", is_dealer=is_dealer)
-            if win_kind == "tsumo"
-            else None
-        )
-        return SandboxScoreEstimate(
-            seat=seat,
-            win_kind=win_kind,
-            yaku=yaku,
+        score = score_riichi_hand(
             yaku_han=13,
-            bonus_han=scoring_bonus_han,
+            bonus_han=0,
+            fu=None,
+            is_dealer=is_dealer,
+            win_kind=win_kind,
+            honba=honba,
+            riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+            players=players,
+            yakuman_multiplier=1,
+        )
+        return _score_estimate_from_result(
+            seat=seat,
+            yaku=yaku,
             visible_dora_count=visible_dora_count,
             ura_dora_count=ura_dora_count,
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
-            han=13,
-            fu=None,
-            limit="yakuman",
-            base_points=SANDBOX_LIMIT_BASE_POINTS["yakuman"],
-            is_dealer=is_dealer,
-            ron_payment=ron_payment,
-            tsumo_payment_per_loser=tsumo_child_payment,
-            tsumo_child_payment=tsumo_child_payment,
-            tsumo_dealer_payment=tsumo_dealer_payment,
-            honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
-            riichi_stick_points=riichi_stick_points,
+            score=score,
         )
 
     yaku_han = sum(SANDBOX_YAKU_HAN.get(yaku_name, 0) for yaku_name in yaku)
-    han = yaku_han + bonus_han
     fu = 25 if "chiitoitsu" in yaku else 30
-    base_points = fu * (2 ** (han + 2))
-    limit = _sandbox_score_limit(han=han, base_points=base_points)
-    if limit is not None:
-        base_points = SANDBOX_LIMIT_BASE_POINTS[limit]
-        ron_payment = (
-            _sandbox_limit_ron_payment(limit=limit, is_dealer=is_dealer)
-            if win_kind != "tsumo"
-            else None
-        )
-        tsumo_child_payment = (
-            _sandbox_limit_tsumo_child_payment(limit=limit, is_dealer=is_dealer)
-            if win_kind == "tsumo"
-            else None
-        )
-        tsumo_dealer_payment = (
-            _sandbox_limit_tsumo_dealer_payment(limit=limit, is_dealer=is_dealer)
-            if win_kind == "tsumo"
-            else None
-        )
-    else:
-        ron_payment = (
-            _ceil_to_hundred(base_points * (6 if is_dealer else 4))
-            if win_kind != "tsumo"
-            else None
-        )
-        tsumo_child_payment = None
-        tsumo_dealer_payment = None
-        if win_kind == "tsumo":
-            tsumo_child_payment = _ceil_to_hundred(base_points * (2 if is_dealer else 1))
-            tsumo_dealer_payment = (
-                None if is_dealer else _ceil_to_hundred(base_points * 2)
-            )
-    return SandboxScoreEstimate(
-        seat=seat,
-        win_kind=win_kind,
-        yaku=yaku,
+    score = score_riichi_hand(
         yaku_han=yaku_han,
         bonus_han=bonus_han,
+        fu=fu,
+        is_dealer=is_dealer,
+        win_kind=win_kind,
+        honba=honba,
+        riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+        players=players,
+    )
+    return _score_estimate_from_result(
+        seat=seat,
+        yaku=yaku,
         visible_dora_count=visible_dora_count,
         ura_dora_count=ura_dora_count,
         red_dora_count=red_dora_count,
         kita_dora_count=kita_dora_count,
-        han=han,
-        fu=fu,
-        limit=limit,
-        base_points=base_points,
-        is_dealer=is_dealer,
-        ron_payment=ron_payment,
-        tsumo_payment_per_loser=tsumo_child_payment,
-        tsumo_child_payment=tsumo_child_payment,
-        tsumo_dealer_payment=tsumo_dealer_payment,
-        honba_payment=_sandbox_honba_payment(win_kind=win_kind, honba=honba),
-        riichi_stick_points=riichi_stick_points,
+        score=score,
+    )
+
+
+def _score_estimate_from_result(
+    *,
+    seat: int,
+    yaku: tuple[str, ...],
+    visible_dora_count: int,
+    ura_dora_count: int,
+    red_dora_count: int,
+    kita_dora_count: int,
+    score: ScoreResult,
+) -> SandboxScoreEstimate:
+    return SandboxScoreEstimate(
+        seat=seat,
+        win_kind=score.win_kind,
+        yaku=yaku,
+        yaku_han=score.yaku_han,
+        bonus_han=score.bonus_han,
+        visible_dora_count=visible_dora_count,
+        ura_dora_count=ura_dora_count,
+        red_dora_count=red_dora_count,
+        kita_dora_count=kita_dora_count,
+        han=score.han,
+        fu=score.fu,
+        limit=score.limit,
+        base_points=score.base_points,
+        is_dealer=score.is_dealer,
+        ron_payment=score.ron_payment,
+        tsumo_payment_per_loser=score.tsumo_payment_per_loser,
+        tsumo_child_payment=score.tsumo_child_payment,
+        tsumo_dealer_payment=score.tsumo_dealer_payment,
+        honba_payment=score.honba_payment,
+        riichi_stick_points=score.riichi_stick_points,
     )
 
 

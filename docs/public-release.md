@@ -80,7 +80,8 @@ Verified scope:
 - no bundled trained strong policy
 - no live ladder automation
 - no raw replay data or private player/account data
-- no complete yaku/scoring engine
+- exact fu/han payment scoring is implemented
+- no complete yaku validator
 - no complete Sanma ruleset
 
 Reproduce the local smoke checks:
@@ -144,7 +145,7 @@ Non-scope:
 - no bundled trained strong policy
 - no raw replay data or model weights
 - no live ladder automation
-- no complete yaku/scoring engine yet
+- no complete yaku validator yet
 
 I would value feedback on the data-policy boundaries, benchmark reporting, and what public-safe
 demo artifacts would be most useful for riichi players/researchers.
@@ -205,6 +206,6 @@ Data policy: https://github.com/gongahkia/kenjaku/blob/main/docs/data-policy.md
 - Say "offline research toolkit", not "mahjong AI agent".
 - Say "baseline reports", not "strength".
 - Say "public-safe summary", not "shared replay".
-- Say "sandbox score estimates", not "exact scoring".
+- Say "exact fu/han payment scorer", not "complete yaku validator".
 - Say "narrow Sanma plumbing", not "complete Sanma rules".
 - Link any metric claim to a dated local report path.

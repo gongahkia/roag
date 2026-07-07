@@ -121,6 +121,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("sandbox_four_kans_abortive_draw: yes", output)
         self.assertIn("sandbox_triple_ron_abortive_draw: yes", output)
         self.assertIn("sandbox_dealer_aware_win_payments: yes", output)
+        self.assertIn("exact_fu_han_scoring: yes", output)
+        self.assertIn("full_scoring_engine: yes", output)
         self.assertIn("sandbox_visible_dora_score_estimates: yes", output)
         self.assertIn("sandbox_ura_dora_score_estimates: yes", output)
         self.assertIn("sandbox_red_dora_score_estimates: yes", output)
@@ -321,6 +323,8 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["exact_fu_han_scoring"])
+        self.assertTrue(payload["capabilities"]["implemented"]["full_scoring_engine"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
         )
@@ -739,6 +743,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("four_kans_abortive_draw: yes", text_stdout.getvalue())
         self.assertIn("triple_ron_abortive_draw: yes", text_stdout.getvalue())
         self.assertIn("dealer_aware_win_payments: yes", text_stdout.getvalue())
+        self.assertIn("exact_fu_han_scoring: yes", text_stdout.getvalue())
+        self.assertIn("full_scoring_engine: yes", text_stdout.getvalue())
         self.assertIn("visible_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("ura_dora_score_estimates: yes", text_stdout.getvalue())
         self.assertIn("red_dora_score_estimates: yes", text_stdout.getvalue())
@@ -803,6 +809,8 @@ class CliTests(unittest.TestCase):
         self.assertTrue(report_payload["capabilities"]["four_kans_abortive_draw"])
         self.assertTrue(report_payload["capabilities"]["triple_ron_abortive_draw"])
         self.assertTrue(report_payload["capabilities"]["dealer_aware_win_payments"])
+        self.assertTrue(report_payload["capabilities"]["exact_fu_han_scoring"])
+        self.assertTrue(report_payload["capabilities"]["full_scoring_engine"])
         self.assertTrue(report_payload["capabilities"]["visible_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["ura_dora_score_estimates"])
         self.assertTrue(report_payload["capabilities"]["red_dora_score_estimates"])

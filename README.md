@@ -7,8 +7,9 @@ decision points, train small supervised baselines, export neutral decision snaps
 local prediction artifacts. Live ladder automation is intentionally out of scope unless a platform
 grants explicit permission.
 
-The repo is not yet a transformer agent, RL system, complete Sanma implementation, or full scoring
-engine. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running handoff
+The repo is not yet a transformer agent, RL system, complete Sanma implementation, or complete yaku
+validator. It now includes an exact fu/han payment scorer; yaku coverage remains intentionally
+narrow. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running handoff
 notes.
 
 ## Launch Evidence
@@ -71,7 +72,7 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   HTML/CSS/JS assets, can be served by the CLI, and does not require or embed raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
-  validation or scoring.
+  validation.
 - A reusable sandbox environment boundary with deterministic initial state, draw transitions, legal
   discard actions and discard history, pending-discard reaction windows, legal chi/pon/minkan call
   actions, legal closed-hand tsumo/ron actions, discard-furiten, temporary ron-pass furiten, and
@@ -92,8 +93,8 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   standard-shape win detection, a basic sandbox yaku filter/metadata layer with
   dragon/round-wind/seat-wind yakuhai filtering plus toitoi and honroutou, selectable self-play
   reward projections for terminal, point-delta, normalized point-delta, and placement-delta modes,
-  plus terminal point-delta and score-estimate metadata, including basic
-  dealer-aware win payments,
+  plus terminal point-delta and score-estimate metadata backed by an exact fu/han payment scorer,
+  including dealer-aware win payments,
   visible-dora, kan-dora, riichi-gated ura/kan-ura, red-five, and Kita bonus han,
   basic kazoe-yakuman limits, yakuman bonus-han suppression, tsumo
   yaku/dora tile views that do not duplicate the drawn tile, and basic live-wall exhaustive-draw
@@ -119,9 +120,9 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   training curves, and evaluation summaries. `train-population-sandbox` maintains a pool of at
   least four PPO checkpoint snapshots, samples pool opponents, reports matchup metrics, and records
   promotion/replacement decisions.
-  It is not a full riichi/Sanma simulator, complete yaku validator, complete yaku/scoring
-  implementation, complete post-riichi kan timing model, scoring engine, automated full-match
-  learned-policy self-play trainer, or strength-grade RL implementation.
+  It is not a full riichi/Sanma simulator, complete yaku validator, complete post-riichi kan timing
+  model, automated full-match learned-policy self-play trainer, or strength-grade RL
+  implementation.
 - Local-only Mortal reconnaissance documented behind an AGPL-safe subprocess/data boundary.
 - A PyTorch discard MLP baseline with per-epoch validation history and optional best-checkpoint
   artifacts for validating the next supervised-learning path.

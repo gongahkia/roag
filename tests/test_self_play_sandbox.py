@@ -201,6 +201,8 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertTrue(first["capabilities"]["four_kans_abortive_draw"])
         self.assertTrue(first["capabilities"]["triple_ron_abortive_draw"])
         self.assertTrue(first["capabilities"]["dealer_aware_win_payments"])
+        self.assertTrue(first["capabilities"]["exact_fu_han_scoring"])
+        self.assertTrue(first["capabilities"]["full_scoring_engine"])
         self.assertTrue(first["capabilities"]["visible_dora_score_estimates"])
         self.assertTrue(first["capabilities"]["ura_dora_score_estimates"])
         self.assertTrue(first["capabilities"]["red_dora_score_estimates"])
@@ -398,7 +400,9 @@ class SelfPlaySandboxTests(unittest.TestCase):
         self.assertIn("visible_dora_score_estimates: yes", text)
         self.assertIn("ura_dora_score_estimates: yes", text)
         self.assertIn("red_dora_score_estimates: yes", text)
-        self.assertIn("scoring: no", text)
+        self.assertIn("exact_fu_han_scoring: yes", text)
+        self.assertIn("full_scoring_engine: yes", text)
+        self.assertIn("scoring: yes", text)
         self.assertIn("ppo: no", text)
 
     def test_stop_on_tsumo_adds_terminal_metadata(self) -> None:

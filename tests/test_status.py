@@ -167,6 +167,8 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
         )
+        self.assertTrue(payload["capabilities"]["implemented"]["exact_fu_han_scoring"])
+        self.assertTrue(payload["capabilities"]["implemented"]["full_scoring_engine"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
         )
@@ -259,6 +261,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("sandbox_individual_reaction_passes: yes", text)
         self.assertIn("sandbox_ron_action_generation: yes", text)
         self.assertIn("sandbox_ron_priority_reactions: yes", text)
+        self.assertIn("exact_fu_han_scoring: yes", text)
+        self.assertIn("full_scoring_engine: yes", text)
         self.assertIn("sandbox_multi_ron_resolution: yes", text)
         self.assertIn("sandbox_discard_furiten_ron_filter: yes", text)
         self.assertIn("sandbox_temporary_furiten_ron_filter: yes", text)
