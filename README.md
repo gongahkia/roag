@@ -296,6 +296,7 @@ under ignored paths such as `data/raw/`, `runs/`, and `models/`. Do not commit d
 logs or processed datasets that can reconstruct restricted source logs.
 
 The local runbook is in `docs/local-tenhou-eval.md`; data constraints are in `docs/data-policy.md`.
+Sanma training data source status is in `docs/sanma-training-data-report.md`.
 
 Current useful local commands:
 
