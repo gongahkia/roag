@@ -142,6 +142,10 @@ from kenjaku.training.interpretability_overlay import (
     read_interpretability_snapshots,
     write_interpretability_overlay_html,
 )
+from kenjaku.training_dashboard import (
+    build_training_dashboard,
+    format_training_dashboard_html,
+)
 
 DISCARD_BENCHMARK_MODEL_ORDER = (
     "frequency",
@@ -903,6 +907,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the population report as JSON instead of text",
     )
     train_population.set_defaults(func=_train_population_sandbox)
+
+    training_dashboard = subparsers.add_parser(
+        "training-dashboard",
+        help="build a static dashboard from training metrics JSONL files",
+    )
+    training_dashboard.add_argument(
+        "metrics_jsonl",
+        nargs="+",
+        type=Path,
+        help="training epoch metrics JSONL files",
+    )
+    training_dashboard.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="path to the static HTML dashboard to write",
+    )
+    training_dashboard.add_argument(
+        "--title",
+        default="Kenjaku Training Dashboard",
+        help="dashboard page title",
+    )
+    training_dashboard.set_defaults(func=_training_dashboard)
 
     inspect_tenhou = subparsers.add_parser(
         "inspect-tenhou",
@@ -2863,6 +2890,32 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
         print(f"output_dir: {args.output_dir}")
     if args.report is not None:
         print(f"report_path: {args.report}")
+    return 0
+
+
+def _training_dashboard(args: argparse.Namespace) -> int:
+    generated_at = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
+    try:
+        dashboard = build_training_dashboard(
+            args.metrics_jsonl,
+            version=__version__,
+            generated_at=generated_at,
+            title=args.title,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    output = args.output
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        format_training_dashboard_html(
+            dashboard,
+            link_base_dir=output.parent.resolve(),
+        ),
+        encoding="utf-8",
+    )
+    print(f"wrote training dashboard: {output}")
     return 0
 
 

@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 40 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 40 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 41 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 41 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -17,6 +17,7 @@ covers all 40 commands present in `kenjaku --help` so the docs match the impleme
 - [`self-play-match-sandbox`](self-play-match-sandbox.md) - Run deterministic multi-round sandbox matches to a final placement result.
 - [`train-ppo-sandbox`](train-ppo-sandbox.md) - Run a fixture-scale dependency-free PPO smoke trainer over sandbox trajectories.
 - [`train-population-sandbox`](train-population-sandbox.md) - Exercise population-pool PPO snapshot training and promotion plumbing.
+- [`training-dashboard`](training-dashboard.md) - Build a static dashboard from training metrics JSONL files.
 - [`inspect-tenhou`](inspect-tenhou.md) - Parse Tenhou XML inputs and print dataset-level counts.
 - [`defense-risk-summary`](defense-risk-summary.md) - Summarize heuristic discard danger scores from Tenhou XML decisions.
 - [`benchmark-deal-in`](benchmark-deal-in.md) - Train and evaluate a small direct ron-discard probability estimator.

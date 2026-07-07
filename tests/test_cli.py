@@ -1187,6 +1187,109 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_payload["kind"], "kenjaku-population-sandbox-report-v0")
         self.assertEqual(json_payload["pool_size"], 4)
 
+    def test_training_dashboard_writes_static_html_from_metrics_jsonl(self) -> None:
+        def write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
+            path.write_text(
+                "\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_a = root / "mlp-a.metrics.jsonl"
+            run_b = root / "transformer-b.metrics.jsonl"
+            output = root / "dashboards" / "training" / "index.html"
+            write_jsonl(
+                run_a,
+                [
+                    {
+                        "run_id": "mlp-a",
+                        "epoch": 1,
+                        "metrics": {
+                            "train_loss": 1.4,
+                            "eval_loss": 1.6,
+                            "eval_accuracy": 0.25,
+                            "epoch_seconds": 3.5,
+                        },
+                        "hyperparameters": {
+                            "learning_rate": 0.001,
+                            "batch_size": 8,
+                            "model": "discard-mlp-v0",
+                        },
+                    },
+                    {
+                        "run_id": "mlp-a",
+                        "epoch": 2,
+                        "metrics": {
+                            "train_loss": 1.1,
+                            "eval_loss": 1.3,
+                            "eval_accuracy": 0.5,
+                            "epoch_seconds": 3.2,
+                        },
+                        "hyperparameters": {
+                            "learning_rate": 0.001,
+                            "batch_size": 8,
+                            "model": "discard-mlp-v0",
+                        },
+                    },
+                ],
+            )
+            write_jsonl(
+                run_b,
+                [
+                    {
+                        "run_id": "transformer-b",
+                        "epoch": 1,
+                        "metrics": {
+                            "train_loss": 1.5,
+                            "eval_loss": 1.4,
+                            "eval_accuracy": 0.75,
+                            "epoch_seconds": 7.0,
+                        },
+                        "hyperparameters": {
+                            "learning_rate": 0.0005,
+                            "batch_size": 4,
+                            "model": "discard-transformer-policy-v0",
+                        },
+                    }
+                ],
+            )
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "training-dashboard",
+                        str(run_a),
+                        str(run_b),
+                        "--output",
+                        str(output),
+                        "--title",
+                        "Fixture Training Runs",
+                    ]
+                )
+            html = output.read_text(encoding="utf-8")
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("wrote training dashboard:", stdout.getvalue())
+        self.assertIn("Fixture Training Runs", html)
+        self.assertIn("No browser network access required", html)
+        self.assertIn("mlp-a", html)
+        self.assertIn("transformer-b", html)
+        self.assertIn("mlp-a.metrics.jsonl", html)
+        self.assertIn("Train Loss", html)
+        self.assertIn("Eval Loss", html)
+        self.assertIn("Accuracy", html)
+        self.assertIn("Epoch Time", html)
+        self.assertIn("Learning Rate", html)
+        self.assertIn("discard-transformer-policy-v0", html)
+        self.assertIn("data-sort-column", html)
+        self.assertIn('aria-label="train_loss chart"', html)
+        self.assertIn('aria-label="eval_loss chart"', html)
+        self.assertIn('aria-label="eval_accuracy chart"', html)
+        self.assertIn('aria-label="epoch_seconds chart"', html)
+        self.assertIn("<polyline", html)
+
     def test_inspect_tenhou_fixture(self) -> None:
         stdout = io.StringIO()
 
