@@ -8,6 +8,7 @@ local prediction artifacts. Live ladder automation is intentionally out of scope
 grants explicit permission.
 See [docs/positioning.md](docs/positioning.md) for how Kenjaku differs from adjacent Mahjong AI,
 review, and simulator projects.
+Per-command CLI runbooks live under [docs/commands](docs/commands/README.md).
 
 The repo is not yet a transformer agent, RL system, complete Sanma implementation, or complete yaku
 validator. It now includes an exact fu/han payment scorer and expanded yaku detector; unsupported
