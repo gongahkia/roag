@@ -59,6 +59,7 @@ from kenjaku.models import (
     DEAL_IN_LINEAR_MODEL_KIND,
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
+    PLACEMENT_DISCLAIMER,
     RAW_COUNT_FEATURE_PROFILE,
     RIICHI_DECISION_KINDS,
     RISK_CONTEXT_FEATURE_PROFILE,
@@ -69,10 +70,18 @@ from kenjaku.models import (
     DealInLinearModel,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
+    PlacementModel,
     RiichiFrequencyBaseline,
     RiichiLinearModel,
+    build_placement_checkpoint_metadata,
     evaluate_deal_in_probabilities,
+    format_placement_probability_text,
+    format_placement_training_report,
     heuristic_deal_in_probabilities,
+    parse_kyoku,
+    parse_scores,
+    placement_examples_from_paths,
+    placement_probability_payload,
 )
 from kenjaku.replay_viewer import (
     read_self_play_trajectory_jsonl,
@@ -1055,6 +1064,79 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_source_args(deal_in)
     deal_in.set_defaults(func=_benchmark_deal_in)
+
+    train_placement = subparsers.add_parser(
+        "train-placement",
+        help="train a sandbox final-placement probability estimator",
+    )
+    train_placement.add_argument(
+        "--data",
+        nargs="+",
+        type=Path,
+        required=True,
+        help="Tenhou XML files or directories",
+    )
+    train_placement.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="path for the placement checkpoint JSON",
+    )
+    train_placement.add_argument(
+        "--epochs",
+        type=int,
+        default=50,
+        help="training epochs for the placement estimator",
+    )
+    train_placement.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.05,
+        help="softmax estimator learning rate",
+    )
+    train_placement.add_argument(
+        "--l2",
+        type=float,
+        default=0.0,
+        help="L2 regularization strength",
+    )
+    train_placement.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the training checkpoint metadata as JSON instead of text",
+    )
+    train_placement.set_defaults(func=_train_placement)
+
+    placement_probability = subparsers.add_parser(
+        "placement-probability",
+        help="estimate final-placement probabilities from current scores and round state",
+    )
+    placement_probability.add_argument(
+        "--model",
+        type=Path,
+        help="optional placement checkpoint JSON from train-placement",
+    )
+    placement_probability.add_argument(
+        "--scores",
+        required=True,
+        help="comma-separated current scores for seats 0..3",
+    )
+    placement_probability.add_argument(
+        "--kyoku",
+        required=True,
+        help="round label such as E1, E4, S1, or South-2",
+    )
+    placement_probability.add_argument("--honba", type=int, default=0, help="honba count")
+    placement_probability.add_argument("--kyotaku", type=int, default=0, help="riichi stick count")
+    placement_probability.add_argument("--dealer", type=int, default=0, help="dealer seat 0..3")
+    placement_probability.add_argument("--seat", type=int, default=0, help="seat to estimate 0..3")
+    placement_probability.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="output format",
+    )
+    placement_probability.set_defaults(func=_placement_probability)
 
     export_snapshots = subparsers.add_parser(
         "export-decision-snapshots",
@@ -3377,6 +3459,79 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
             print(f"parse_failures: {len(dataset.failures)}")
         if args.report is not None:
             print(f"report_path: {args.report}")
+    return 0
+
+
+def _train_placement(args: argparse.Namespace) -> int:
+    if args.epochs < 0:
+        raise SystemExit("--epochs must be non-negative")
+    if args.learning_rate <= 0:
+        raise SystemExit("--learning-rate must be positive")
+    if args.l2 < 0:
+        raise SystemExit("--l2 must be non-negative")
+    try:
+        examples = placement_examples_from_paths(args.data)
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    if not examples:
+        raise SystemExit("no four-player placement examples found")
+    model = PlacementModel.fit(
+        examples,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        l2=args.l2,
+    )
+    metadata = build_placement_checkpoint_metadata(
+        examples=examples,
+        model=model,
+        input_paths=args.data,
+    )
+    model.save(args.output, metadata=metadata)
+    if args.json:
+        payload = {
+            "kind": "kenjaku-placement-training-report-v0",
+            "checkpoint_path": str(args.output),
+            "metadata": metadata,
+            "model": model.to_dict(),
+            "disclaimer": PLACEMENT_DISCLAIMER,
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(
+            format_placement_training_report(
+                checkpoint_path=args.output,
+                metadata=metadata,
+            )
+        )
+    return 0
+
+
+def _placement_probability(args: argparse.Namespace) -> int:
+    try:
+        scores = parse_scores(args.scores)
+        round_wind, kyoku = parse_kyoku(args.kyoku)
+        model = (
+            PlacementModel.load(args.model)
+            if args.model is not None
+            else PlacementModel.default()
+        )
+        payload = placement_probability_payload(
+            model,
+            scores=scores,
+            round_wind=round_wind,
+            kyoku=kyoku,
+            honba=args.honba,
+            kyotaku=args.kyotaku,
+            dealer=args.dealer,
+            seat=args.seat,
+            model_path=args.model,
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    if args.output == "json":
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(format_placement_probability_text(payload))
     return 0
 
 

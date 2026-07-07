@@ -78,6 +78,11 @@ TenhouEvent = (
 
 @dataclass(frozen=True, slots=True)
 class TenhouRound:
+    round_index: int
+    round_wind: int
+    kyoku: int
+    honba: int
+    kyotaku: int
     dealer: int
     scores: tuple[int, ...]
     starting_hands: tuple[tuple[Tile, ...], ...]
@@ -104,6 +109,11 @@ class _ParsedEvent:
 
 @dataclass(slots=True)
 class _RoundBuilder:
+    round_index: int
+    round_wind: int
+    kyoku: int
+    honba: int
+    kyotaku: int
     dealer: int
     scores: tuple[int, ...]
     starting_hands: tuple[tuple[Tile, ...], ...]
@@ -119,6 +129,11 @@ class _RoundBuilder:
 
     def freeze(self) -> TenhouRound:
         return TenhouRound(
+            round_index=self.round_index,
+            round_wind=self.round_wind,
+            kyoku=self.kyoku,
+            honba=self.honba,
+            kyotaku=self.kyotaku,
             dealer=self.dealer,
             scores=self.scores,
             starting_hands=self.starting_hands,
@@ -270,7 +285,13 @@ class _TenhouEventParser(HTMLParser):
 
 
 def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
+    round_index, honba, kyotaku = _parse_seed_state(event.attrib.get("seed"))
     return _RoundBuilder(
+        round_index=round_index,
+        round_wind=round_index // 4,
+        kyoku=round_index % 4 + 1,
+        honba=honba,
+        kyotaku=kyotaku,
         dealer=_required_int(event, "oya"),
         scores=_parse_scores(_required_attr(event, "ten")),
         starting_hands=tuple(_parse_hand(_required_attr(event, f"hai{seat}")) for seat in range(4)),
@@ -284,6 +305,16 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         events=[],
         last_draws={},
     )
+
+
+def _parse_seed_state(seed: str | None) -> tuple[int, int, int]:
+    if not seed:
+        return (0, 0, 0)
+    values = [int(value) for value in seed.split(",") if value]
+    round_index = values[0] if len(values) > 0 else 0
+    honba = values[1] if len(values) > 1 else 0
+    kyotaku = values[2] if len(values) > 2 else 0
+    return (round_index, honba, kyotaku)
 
 
 def _parse_scores(raw_scores: str) -> tuple[int, ...]:

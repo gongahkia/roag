@@ -1528,6 +1528,58 @@ class CliTests(unittest.TestCase):
         self.assertEqual(json_payload["label_summary"]["examples"], 4)
         self.assertEqual(json_payload["calibration"]["target"], "deal_in")
 
+    def test_train_placement_and_probability_commands(self) -> None:
+        with TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "placement.json"
+
+            train_stdout = io.StringIO()
+            with contextlib.redirect_stdout(train_stdout):
+                train_exit_code = main(
+                    [
+                        "train-placement",
+                        "--data",
+                        "data/fixtures/tenhou",
+                        "--output",
+                        str(checkpoint),
+                        "--epochs",
+                        "3",
+                    ]
+                )
+            checkpoint_payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+
+            probability_stdout = io.StringIO()
+            with contextlib.redirect_stdout(probability_stdout):
+                probability_exit_code = main(
+                    [
+                        "placement-probability",
+                        "--model",
+                        str(checkpoint),
+                        "--scores",
+                        "25000,25000,25000,25000",
+                        "--kyoku",
+                        "E1",
+                        "--output",
+                        "json",
+                    ]
+                )
+            probability_payload = json.loads(probability_stdout.getvalue())
+
+        self.assertEqual(train_exit_code, 0)
+        self.assertIn("examples: 12", train_stdout.getvalue())
+        self.assertIn("checkpoint_path:", train_stdout.getvalue())
+        self.assertIn("sandbox estimate, not published placement stats", train_stdout.getvalue())
+        self.assertEqual(checkpoint_payload["kind"], "kenjaku-placement-checkpoint-v0")
+        self.assertEqual(checkpoint_payload["metadata"]["examples"], 12)
+        self.assertEqual(checkpoint_payload["model"]["kind"], "kenjaku-placement-linear-v0")
+        self.assertEqual(probability_exit_code, 0)
+        self.assertEqual(probability_payload["kind"], "kenjaku-placement-probability-v0")
+        self.assertEqual(len(probability_payload["probabilities"]), 4)
+        self.assertAlmostEqual(sum(probability_payload["probabilities"]), 1.0)
+        self.assertEqual(
+            probability_payload["disclaimer"],
+            "sandbox estimate, not published placement stats",
+        )
+
     def test_benchmark_report_summary_supports_deal_in_reports(self) -> None:
         with TemporaryDirectory() as directory:
             report = Path(directory) / "deal-in.json"
