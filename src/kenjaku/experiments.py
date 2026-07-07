@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import quote
 
 from kenjaku.io import TenhouGame, TenhouParseFailure
+from kenjaku.training.history import normalize_training_history
 
 CALL_BENCHMARK_REPORT_KIND = "kenjaku-call-benchmark-report-v0"
 BENCHMARK_SUMMARY_KIND = "kenjaku-benchmark-summary-v0"
@@ -247,6 +248,12 @@ def build_discard_mlp_report(
             "eval": eval_metrics,
             "best": best_metrics,
         },
+        "training_history": normalize_training_history(
+            history,
+            step_key="epoch",
+            step_unit="epoch",
+            metric_roots=("metrics",),
+        ),
         "discard_shanten": discard_shanten,
         "parse_failures": _parse_failure_payload(parse_failures),
         "artifacts": {
@@ -605,6 +612,12 @@ def build_discard_transformer_report(
             "eval": eval_metrics,
             "best": best_metrics,
         },
+        "training_history": normalize_training_history(
+            history,
+            step_key="epoch",
+            step_unit="epoch",
+            metric_roots=("metrics",),
+        ),
         "discard_shanten": discard_shanten,
         "parse_failures": _parse_failure_payload(parse_failures),
         "artifacts": {

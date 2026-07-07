@@ -11,6 +11,7 @@ from typing import Any
 
 from kenjaku.core import TileType
 from kenjaku.simulation import run_self_play_match_sandbox
+from kenjaku.training.history import normalize_training_history
 
 PPO_SANDBOX_POLICY_KIND = "sandbox-linear-ppo-actor-critic-v0"
 PPO_SANDBOX_REPORT_KIND = "kenjaku-ppo-sandbox-report-v0"
@@ -1050,6 +1051,12 @@ def _ppo_report(
             "final": final_metrics,
             "evaluation": final_eval,
         },
+        "training_history": normalize_training_history(
+            history,
+            step_key="update",
+            step_unit="update",
+            metric_roots=("losses", "evaluation"),
+        ),
         "training_curves": _training_curves(history),
         "capabilities": {
             "ppo_policy_loss": True,
