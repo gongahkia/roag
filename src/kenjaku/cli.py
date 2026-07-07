@@ -159,6 +159,7 @@ DISCARD_LINEAR_FEATURE_PROFILES = {
     "defense_context_v1_linear": DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
 }
 FEATURE_IMPORTANCE_KIND = "kenjaku-feature-importance-v0"
+TRANSFORMER_ATTENTION_OVERLAY_KIND = "kenjaku-transformer-attention-overlay-v0"
 FEATURE_IMPORTANCE_MODEL_ALIASES = {
     "raw_count": "raw_count_linear",
     "raw_count_linear": "raw_count_linear",
@@ -1020,6 +1021,51 @@ def build_parser() -> argparse.ArgumentParser:
         help="HTML document title",
     )
     interpretability_overlay.set_defaults(func=_interpretability_overlay)
+
+    transformer_attention = subparsers.add_parser(
+        "transformer-attention-overlay",
+        help="render transformer attention heatmaps from checkpoint and discard snapshots",
+    )
+    transformer_attention.add_argument(
+        "checkpoint",
+        type=Path,
+        help="discard transformer checkpoint path",
+    )
+    transformer_attention.add_argument(
+        "snapshots",
+        type=Path,
+        help="decision snapshot JSONL file",
+    )
+    transformer_attention.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="HTML output path",
+    )
+    transformer_attention.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="maximum discard decisions to render",
+    )
+    transformer_attention.add_argument(
+        "--max-heads",
+        type=int,
+        default=4,
+        help="maximum attention heads per layer to render",
+    )
+    transformer_attention.add_argument(
+        "--device",
+        choices=("auto", "cpu", "mps", "cuda"),
+        default="cpu",
+        help="checkpoint inference device",
+    )
+    transformer_attention.add_argument(
+        "--title",
+        default="Kenjaku Transformer Attention Overlay",
+        help="HTML document title",
+    )
+    transformer_attention.set_defaults(func=_transformer_attention_overlay)
 
     feature_importance = subparsers.add_parser(
         "feature-importance",
@@ -3067,6 +3113,361 @@ def _interpretability_overlay(args: argparse.Namespace) -> int:
     print(f"malformed_snapshot_rows: {stats['malformed_rows']}")
     print(f"output_path: {args.output}")
     return 0
+
+
+def _transformer_attention_overlay(args: argparse.Namespace) -> int:
+    if args.limit is not None and args.limit < 0:
+        raise SystemExit("--limit must be non-negative")
+    if args.max_heads <= 0:
+        raise SystemExit("--max-heads must be positive")
+    try:
+        from kenjaku.models.torch_discard import resolve_torch_device
+        from kenjaku.models.torch_transformer import (
+            load_discard_transformer_checkpoint,
+            transformer_state_payload,
+            transformer_state_tensor,
+        )
+    except ImportError as error:
+        raise SystemExit("PyTorch is required for transformer-attention-overlay") from error
+
+    try:
+        device = resolve_torch_device(args.device)
+        model = load_discard_transformer_checkpoint(args.checkpoint, device=device)
+        snapshots, stats = read_interpretability_snapshots(args.snapshots, limit=args.limit)
+        report = _build_transformer_attention_overlay(
+            model,
+            snapshots,
+            title=args.title,
+            max_heads=args.max_heads,
+            device=device,
+            state_tensor=transformer_state_tensor,
+            state_payload=transformer_state_payload,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(_format_transformer_attention_overlay_html(report), encoding="utf-8")
+    print(f"decisions: {report['decision_count']}")
+    print(f"layers: {report['layer_count']}")
+    print(f"heads_rendered_per_layer: {report['heads_rendered_per_layer']}")
+    print(f"skipped_snapshot_rows: {stats['skipped_rows']}")
+    print(f"malformed_snapshot_rows: {stats['malformed_rows']}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _build_transformer_attention_overlay(
+    model: Any,
+    snapshots: Sequence[dict[str, Any]],
+    *,
+    title: str,
+    max_heads: int,
+    device: Any,
+    state_tensor: Callable[[DiscardExample], Any],
+    state_payload: Callable[[DiscardExample], dict[str, Any]],
+) -> dict[str, Any]:
+    decisions: list[dict[str, Any]] = []
+    malformed_snapshots = 0
+    for index, snapshot in enumerate(snapshots):
+        try:
+            example = _discard_example_from_snapshot(snapshot)
+        except ValueError:
+            malformed_snapshots += 1
+            continue
+        token_payload = state_payload(example)
+        tokens = token_payload["tokens"]
+        weights = model.attention_weights(state_tensor(example).to(device))
+        layer_reports = [
+            _attention_layer_report(layer_index, layer_weights, tokens, max_heads=max_heads)
+            for layer_index, layer_weights in enumerate(weights)
+        ]
+        decisions.append(
+            {
+                "index": index,
+                "row_id": snapshot.get("row_id") if isinstance(snapshot.get("row_id"), str) else "",
+                "round_index": snapshot.get("round_index"),
+                "event_index": snapshot.get("event_index"),
+                "seat": snapshot.get("seat"),
+                "actual_discard": _actual_discard_tile(snapshot),
+                "layers": layer_reports,
+            }
+        )
+
+    layer_count = len(decisions[0]["layers"]) if decisions else 0
+    heads_rendered = (
+        len(decisions[0]["layers"][0]["heads"])
+        if decisions and decisions[0]["layers"]
+        else 0
+    )
+    return {
+        "kind": TRANSFORMER_ATTENTION_OVERLAY_KIND,
+        "title": title,
+        "policy_kind": model.kind,
+        "encoder_kind": model.encoder.kind,
+        "decision_count": len(decisions),
+        "malformed_snapshots": malformed_snapshots,
+        "layer_count": layer_count,
+        "heads_rendered_per_layer": heads_rendered,
+        "public_artifact": True,
+        "disclaimer": (
+            "Attention weights are model internals for debugging, not causal explanations "
+            "or playing-strength claims."
+        ),
+        "decisions": decisions,
+    }
+
+
+def _attention_layer_report(
+    layer_index: int,
+    layer_weights: Any,
+    tokens: Sequence[dict[str, Any]],
+    *,
+    max_heads: int,
+) -> dict[str, Any]:
+    weights = layer_weights.detach().cpu()
+    if weights.ndim == 4:
+        weights = weights[0]
+    heads = []
+    for head_index in range(min(max_heads, int(weights.shape[0]))):
+        key_attention = weights[head_index].mean(dim=0)
+        values = [float(value) for value in key_attention]
+        heads.append(
+            {
+                "head": head_index,
+                "token_attention": [
+                    {
+                        "index": token_index,
+                        "label": _attention_token_label(tokens[token_index]),
+                        "value": values[token_index],
+                    }
+                    for token_index in range(len(values))
+                ],
+                "top_tokens": _top_attention_tokens(values, tokens, limit=8),
+            }
+        )
+    return {"layer": layer_index, "heads": heads}
+
+
+def _top_attention_tokens(
+    values: Sequence[float],
+    tokens: Sequence[dict[str, Any]],
+    *,
+    limit: int,
+) -> list[dict[str, Any]]:
+    top_indices = sorted(range(len(values)), key=lambda index: (-values[index], index))[:limit]
+    return [
+        {
+            "index": index,
+            "label": _attention_token_label(tokens[index]),
+            "value": values[index],
+        }
+        for index in top_indices
+    ]
+
+
+def _attention_token_label(token: dict[str, Any]) -> str:
+    token_type = str(token.get("token_type", "token"))
+    tile = token.get("tile")
+    seat = token.get("seat")
+    if isinstance(tile, str):
+        return f"{token_type}:{tile}"
+    if isinstance(seat, int):
+        return f"{token_type}:seat{seat}"
+    return token_type
+
+
+def _format_transformer_attention_overlay_html(report: dict[str, Any]) -> str:
+    title = escape(str(report.get("title", "Kenjaku Transformer Attention Overlay")))
+    parts = [
+        "<!doctype html>",
+        '<html lang="en">',
+        "<head>",
+        '<meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        '<link rel="icon" href="data:,">',
+        f"<title>{title}</title>",
+        "<style>",
+        _attention_overlay_css(),
+        "</style>",
+        "</head>",
+        "<body>",
+        "<main>",
+        f"<h1>{title}</h1>",
+        '<section class="summary">',
+        f"<div><dt>Policy</dt><dd>{escape(str(report.get('policy_kind', 'unknown')))}</dd></div>",
+        f"<div><dt>Encoder</dt><dd>{escape(str(report.get('encoder_kind', 'unknown')))}</dd></div>",
+        f"<div><dt>Decisions</dt><dd>{int(report.get('decision_count', 0))}</dd></div>",
+        f"<div><dt>Layers</dt><dd>{int(report.get('layer_count', 0))}</dd></div>",
+        "</section>",
+        f"<p class=\"disclaimer\">{escape(str(report.get('disclaimer', '')))}</p>",
+    ]
+    for decision in report.get("decisions", []):
+        if isinstance(decision, dict):
+            parts.append(_attention_decision_html(decision))
+    parts.extend(["</main>", "</body>", "</html>"])
+    return "\n".join(parts)
+
+
+def _attention_decision_html(decision: dict[str, Any]) -> str:
+    heading = (
+        f"Decision {int(decision.get('index', 0)) + 1}: "
+        f"discard {escape(str(decision.get('actual_discard') or 'unknown'))}"
+    )
+    parts = [
+        '<section class="decision">',
+        f"<h2>{heading}</h2>",
+        '<p class="meta">'
+        f"row={escape(str(decision.get('row_id', '')))} "
+        f"round={escape(str(decision.get('round_index', '')))} "
+        f"event={escape(str(decision.get('event_index', '')))} "
+        f"seat={escape(str(decision.get('seat', '')))}</p>",
+    ]
+    for layer in decision.get("layers", []):
+        if isinstance(layer, dict):
+            parts.append(_attention_layer_html(layer))
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
+def _attention_layer_html(layer: dict[str, Any]) -> str:
+    parts = [f"<h3>Layer {int(layer.get('layer', 0))}</h3>"]
+    for head in layer.get("heads", []):
+        if isinstance(head, dict):
+            parts.append(_attention_head_html(head))
+    return "\n".join(parts)
+
+
+def _attention_head_html(head: dict[str, Any]) -> str:
+    cells = []
+    values = head.get("token_attention")
+    if isinstance(values, list):
+        max_value = max(
+            (float(item.get("value", 0.0)) for item in values if isinstance(item, dict)),
+            default=0.0,
+        )
+        for item in values:
+            if not isinstance(item, dict):
+                continue
+            value = float(item.get("value", 0.0))
+            intensity = 0.0 if max_value <= 0.0 else value / max_value
+            cells.append(
+                '<span class="cell" '
+                f'title="{escape(str(item.get("label", "")))} {value:.4f}" '
+                f'style="--a:{intensity:.4f}"></span>'
+            )
+    top = head.get("top_tokens")
+    top_text = ""
+    if isinstance(top, list):
+        top_text = ", ".join(
+            f"{item.get('label')}={float(item.get('value', 0.0)):.4f}"
+            for item in top
+            if isinstance(item, dict)
+        )
+    return (
+        '<div class="head">'
+        f"<h4>Head {int(head.get('head', 0))}</h4>"
+        f'<div class="heatmap">{"".join(cells)}</div>'
+        f'<p class="top">{escape(top_text)}</p>'
+        "</div>"
+    )
+
+
+def _attention_overlay_css() -> str:
+    return """
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body { margin: 0; background: #f7f8fb; color: #15171c; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 28px; margin: 0 0 16px; }
+h2 { font-size: 18px; margin: 0 0 8px; }
+h3 { font-size: 15px; margin: 18px 0 8px; }
+h4 { font-size: 13px; margin: 0 0 6px; }
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.summary div, .decision {
+  background: #fff;
+  border: 1px solid #d9dde7;
+  border-radius: 8px;
+  padding: 12px;
+}
+dt { color: #5c6472; font-size: 12px; }
+dd { margin: 2px 0 0; font-weight: 700; }
+.disclaimer, .meta, .top { color: #5c6472; font-size: 12px; }
+.decision { margin-top: 14px; }
+.head { margin: 10px 0; }
+.heatmap { display: grid; grid-template-columns: repeat(38, minmax(6px, 1fr)); gap: 2px; }
+.cell {
+  aspect-ratio: 1;
+  background: color-mix(in srgb, #2563eb calc(var(--a) * 100%), #edf2ff);
+  border-radius: 2px;
+}
+""".strip()
+
+
+def _discard_example_from_snapshot(snapshot: dict[str, Any]) -> DiscardExample:
+    if snapshot.get("decision_type") != "discard":
+        raise ValueError("snapshot is not a discard decision")
+    hand_counts = _int_tuple_from_snapshot(snapshot, "hand_counts", length=34)
+    visible_counts = _int_tuple_from_snapshot(snapshot, "visible_counts", length=34)
+    action_tile = _actual_discard_tile(snapshot)
+    if action_tile is None:
+        raise ValueError("discard snapshot missing actual discard tile")
+    return DiscardExample(
+        round_index=int(snapshot.get("round_index", 0)),
+        event_index=int(snapshot.get("event_index", 0)),
+        seat=int(snapshot.get("seat", 0)),
+        dealer=int(snapshot.get("dealer", 0)),
+        scores=_int_tuple_from_snapshot(snapshot, "scores"),
+        hand_counts=hand_counts,
+        visible_counts=visible_counts,
+        action=Action.discard(action_tile),
+        active_riichi_seats=tuple(bool(value) for value in snapshot.get("active_riichi_seats", [])),
+        river_counts_by_seat=_nested_int_tuple_from_snapshot(snapshot, "river_counts_by_seat"),
+        dora_indicators=tuple(
+            Tile.parse(str(tile))
+            for tile in snapshot.get("dora_indicators", [])
+            if isinstance(tile, str)
+        ),
+    )
+
+
+def _actual_discard_tile(snapshot: dict[str, Any]) -> str | None:
+    actual_action = snapshot.get("actual_action")
+    if isinstance(actual_action, dict) and isinstance(actual_action.get("tile"), str):
+        return str(actual_action["tile"])
+    return None
+
+
+def _int_tuple_from_snapshot(
+    snapshot: dict[str, Any],
+    key: str,
+    *,
+    length: int | None = None,
+) -> tuple[int, ...]:
+    value = snapshot.get(key)
+    if not isinstance(value, list):
+        raise ValueError(f"snapshot missing {key}")
+    result = tuple(int(item) for item in value)
+    if length is not None and len(result) != length:
+        raise ValueError(f"snapshot {key} must have {length} entries")
+    return result
+
+
+def _nested_int_tuple_from_snapshot(
+    snapshot: dict[str, Any],
+    key: str,
+) -> tuple[tuple[int, ...], ...]:
+    value = snapshot.get(key, [])
+    if not isinstance(value, list):
+        raise ValueError(f"snapshot {key} must be a list")
+    return tuple(tuple(int(item) for item in row) for row in value if isinstance(row, list))
 
 
 def _feature_importance(args: argparse.Namespace) -> int:

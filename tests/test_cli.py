@@ -2175,6 +2175,84 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["eval"]["examples"], 1)
         self.assertIsNone(payload["artifacts"]["checkpoint_path"])
 
+    def test_transformer_attention_overlay_writes_html(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("PyTorch is not available")
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = root / "transformer.pt"
+            snapshots = root / "snapshots.jsonl"
+            output = root / "attention.html"
+            with contextlib.redirect_stdout(io.StringIO()):
+                train_exit_code = main(
+                    [
+                        "train-discard-transformer",
+                        "data/fixtures/tenhou",
+                        "--epochs",
+                        "0",
+                        "--batch-size",
+                        "2",
+                        "--model-dim",
+                        "16",
+                        "--num-heads",
+                        "4",
+                        "--num-layers",
+                        "1",
+                        "--feedforward-dim",
+                        "32",
+                        "--dropout",
+                        "0.0",
+                        "--eval-fraction",
+                        "0.25",
+                        "--split-seed",
+                        "fixed",
+                        "--seed",
+                        "123",
+                        "--device",
+                        "cpu",
+                        "--checkpoint",
+                        str(checkpoint),
+                    ]
+                )
+                snapshot_exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        "data/fixtures/tenhou",
+                        "--decision-types",
+                        "discard",
+                        "--limit",
+                        "1",
+                        "--output",
+                        str(snapshots),
+                    ]
+                )
+            with contextlib.redirect_stdout(stdout):
+                overlay_exit_code = main(
+                    [
+                        "transformer-attention-overlay",
+                        str(checkpoint),
+                        str(snapshots),
+                        "--output",
+                        str(output),
+                        "--limit",
+                        "1",
+                        "--max-heads",
+                        "2",
+                        "--device",
+                        "cpu",
+                    ]
+                )
+            html = output.read_text(encoding="utf-8")
+
+        self.assertEqual(train_exit_code, 0)
+        self.assertEqual(snapshot_exit_code, 0)
+        self.assertEqual(overlay_exit_code, 0)
+        self.assertIn("decisions: 1", stdout.getvalue())
+        self.assertIn("Kenjaku Transformer Attention Overlay", html)
+        self.assertIn("Head 0", html)
+
     def test_benchmark_report_summary_supports_synthetic_transformer_report(self) -> None:
         report_payload = {
             "kind": "kenjaku-discard-transformer-report-v0",

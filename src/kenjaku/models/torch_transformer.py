@@ -109,6 +109,45 @@ class MahjongStateTransformerEncoder(nn.Module):
         self.encoder = nn.TransformerEncoder(layer, num_layers=self.config.num_layers)
 
     def forward(self, state_values: Tensor) -> Tensor:
+        x, squeeze = self._embedded_tokens(state_values)
+        encoded = self.encoder(x)
+        return encoded.squeeze(0) if squeeze else encoded
+
+    def pooled(self, state_values: Tensor) -> Tensor:
+        encoded = self.forward(state_values)
+        if encoded.ndim == 2:
+            return encoded.mean(dim=0)
+        return encoded.mean(dim=1)
+
+    def attention_weights(self, state_values: Tensor) -> list[Tensor]:
+        x, squeeze = self._embedded_tokens(state_values)
+        weights: list[Tensor] = []
+        for layer in self.encoder.layers:
+            if layer.norm_first:
+                attention_input = layer.norm1(x)
+                attention_output, layer_weights = layer.self_attn(
+                    attention_input,
+                    attention_input,
+                    attention_input,
+                    need_weights=True,
+                    average_attn_weights=False,
+                )
+                x = x + layer.dropout1(attention_output)
+                x = x + layer._ff_block(layer.norm2(x))
+            else:
+                attention_output, layer_weights = layer.self_attn(
+                    x,
+                    x,
+                    x,
+                    need_weights=True,
+                    average_attn_weights=False,
+                )
+                x = layer.norm1(x + layer.dropout1(attention_output))
+                x = layer.norm2(x + layer._ff_block(x))
+            weights.append(layer_weights.squeeze(0) if squeeze else layer_weights)
+        return weights
+
+    def _embedded_tokens(self, state_values: Tensor) -> tuple[Tensor, bool]:
         state_values, squeeze = _batched_state_values(state_values)
         batch_size = state_values.shape[0]
         positions = torch.arange(
@@ -119,21 +158,13 @@ class MahjongStateTransformerEncoder(nn.Module):
         token_type_ids = self.token_type_ids.to(state_values.device).expand(batch_size, -1)
         tile_ids = self.tile_ids.to(state_values.device).expand(batch_size, -1)
         seat_ids = self.seat_ids.to(state_values.device).expand(batch_size, -1)
-        x = (
+        return (
             self.value_projection(state_values.unsqueeze(-1))
             + self.token_type_embedding(token_type_ids)
             + self.tile_embedding(tile_ids)
             + self.seat_embedding(seat_ids)
             + self.position_embedding(positions).unsqueeze(0)
-        )
-        encoded = self.encoder(x)
-        return encoded.squeeze(0) if squeeze else encoded
-
-    def pooled(self, state_values: Tensor) -> Tensor:
-        encoded = self.forward(state_values)
-        if encoded.ndim == 2:
-            return encoded.mean(dim=0)
-        return encoded.mean(dim=1)
+        ), squeeze
 
 
 class DiscardTransformerPolicy(nn.Module):
@@ -168,6 +199,9 @@ class DiscardTransformerPolicy(nn.Module):
         if self.value_head is None:
             return masked_logits
         return masked_logits, self.value_head(pooled).squeeze(-1)
+
+    def attention_weights(self, state_values: Tensor) -> list[Tensor]:
+        return self.encoder.attention_weights(state_values)
 
 
 class DiscardTransformerTensorDataset(Dataset):
@@ -381,6 +415,40 @@ def save_discard_transformer_checkpoint(
         },
         checkpoint_path,
     )
+
+
+def load_discard_transformer_checkpoint(
+    path: str | Path,
+    *,
+    device: str | torch.device = "cpu",
+) -> DiscardTransformerPolicy:
+    checkpoint_path = Path(path)
+    resolved_device = torch.device(device)
+    payload = torch.load(checkpoint_path, map_location=resolved_device)
+    if not isinstance(payload, dict) or payload.get("kind") != DISCARD_TRANSFORMER_CHECKPOINT_KIND:
+        raise ValueError("not a discard transformer checkpoint")
+    model_payload = payload.get("model")
+    if not isinstance(model_payload, dict):
+        raise ValueError("checkpoint missing model metadata")
+    config_payload = model_payload.get("config")
+    if not isinstance(config_payload, dict):
+        raise ValueError("checkpoint missing transformer config")
+    model = DiscardTransformerPolicy(
+        MahjongTransformerConfig(
+            model_dim=int(config_payload["model_dim"]),
+            num_heads=int(config_payload["num_heads"]),
+            num_layers=int(config_payload["num_layers"]),
+            feedforward_dim=int(config_payload["feedforward_dim"]),
+            dropout=float(config_payload["dropout"]),
+        ),
+        value_head=bool(model_payload.get("value_head", False)),
+    ).to(resolved_device)
+    state_dict = payload.get("model_state_dict")
+    if not isinstance(state_dict, dict):
+        raise ValueError("checkpoint missing model_state_dict")
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
 
 
 def evaluate_discard_transformer(

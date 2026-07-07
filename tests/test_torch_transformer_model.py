@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kenjaku.io import parse_tenhou_xml_dataset
 from kenjaku.training import iter_discard_examples
@@ -19,7 +20,9 @@ try:
         MahjongStateTransformerEncoder,
         MahjongTransformerConfig,
         evaluate_discard_transformer,
+        load_discard_transformer_checkpoint,
         predict_discard_tiles,
+        save_discard_transformer_checkpoint,
         train_discard_transformer,
         transformer_legal_mask,
         transformer_state_payload,
@@ -83,6 +86,25 @@ class TorchTransformerModelTests(unittest.TestCase):
             (len(_discard_examples()), TRANSFORMER_TOKEN_COUNT, 16),
         )
         self.assertEqual(tuple(pooled.shape), (len(_discard_examples()), 16))
+
+    def test_encoder_exposes_attention_weights_by_layer_and_head(self) -> None:
+        config = MahjongTransformerConfig(
+            model_dim=16,
+            num_heads=4,
+            num_layers=1,
+            feedforward_dim=32,
+            dropout=0.0,
+        )
+        encoder = MahjongStateTransformerEncoder(config)
+        state = transformer_state_tensor(_discard_examples()[0])
+
+        weights = encoder.attention_weights(state)
+
+        self.assertEqual(len(weights), 1)
+        self.assertEqual(
+            tuple(weights[0].shape),
+            (4, TRANSFORMER_TOKEN_COUNT, TRANSFORMER_TOKEN_COUNT),
+        )
 
     def test_discard_policy_masks_illegal_tiles(self) -> None:
         config = MahjongTransformerConfig(
@@ -191,6 +213,46 @@ class TorchTransformerModelTests(unittest.TestCase):
         self.assertEqual(tuple(logits.shape), (1, TRANSFORMER_TILE_TYPES))
         self.assertEqual(tuple(value.shape), (1,))
         self.assertEqual(result.train_metrics["examples"], 3)
+
+    def test_checkpoint_round_trip_preserves_value_head_for_attention(self) -> None:
+        config = MahjongTransformerConfig(
+            model_dim=16,
+            num_heads=4,
+            num_layers=1,
+            feedforward_dim=32,
+            dropout=0.0,
+        )
+        examples = _discard_examples()
+        result = train_discard_transformer(
+            examples[:3],
+            examples[3:],
+            config=config,
+            epochs=0,
+            batch_size=2,
+            learning_rate=0.001,
+            device="cpu",
+            seed=123,
+            value_head=True,
+        )
+
+        with TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "transformer.pt"
+            save_discard_transformer_checkpoint(
+                result,
+                checkpoint,
+                epochs=0,
+                batch_size=2,
+                learning_rate=0.001,
+                eval_fraction=0.25,
+                split_seed="fixed",
+                seed=123,
+            )
+            loaded = load_discard_transformer_checkpoint(checkpoint, device="cpu")
+
+        weights = loaded.attention_weights(transformer_state_tensor(examples[0]))
+
+        self.assertTrue(loaded.has_value_head)
+        self.assertEqual(len(weights), 1)
 
 
 def _discard_examples():
