@@ -15,6 +15,7 @@ MAX_PYTHON_EXCLUSIVE = (3, 14)
 
 
 def build_status_payload() -> dict[str, Any]:
+    """Use shipped surface names in implemented and omit stale aliases from not_implemented."""
     return {
         "kind": STATUS_KIND,
         "version": __version__,
@@ -159,7 +160,6 @@ def build_status_payload() -> dict[str, Any]:
                 "transformer_policy": False,
                 "rl_self_play": False,
                 "sanma_ruleset": False,
-                "browser_demo": False,
                 "automatic_replay_posting": False,
                 "full_rules_self_play_harness": False,
                 "live_ladder_automation": False,

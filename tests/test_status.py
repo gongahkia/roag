@@ -45,6 +45,7 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["permitted_replay_share_planning"])
         self.assertTrue(payload["capabilities"]["implemented"]["public_benchmark_dashboard"])
         self.assertTrue(payload["capabilities"]["implemented"]["browser_playable_demo"])
+        self.assertNotIn("browser_demo", payload["capabilities"]["not_implemented"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_sandbox"])
         self.assertTrue(payload["capabilities"]["implemented"]["self_play_match_sandbox"])
         self.assertTrue(
