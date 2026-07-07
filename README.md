@@ -222,6 +222,9 @@ PYTHONPATH=src python3.13 -m kenjaku train-population-sandbox \
 
 PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary \
   data/fixtures/tenhou --report runs/fixture-defense-risk-summary.json
+PYTHONPATH=src python3.13 -m kenjaku analyze-hand \
+  --hand "234m 567p 22s 6z 6z 6z" --drawn 1m \
+  --seat 0 --round E --dora 5p --output text
 
 PYTHONPATH=src python3.13 -m kenjaku benchmark-deal-in \
   data/fixtures/tenhou --epochs 2 --report runs/fixture-deal-in-benchmark.json

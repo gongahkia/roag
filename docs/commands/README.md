@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 43 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 43 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 44 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 44 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -23,6 +23,7 @@ covers all 43 commands present in `kenjaku --help` so the docs match the impleme
 - [`benchmark-deal-in`](benchmark-deal-in.md) - Train and evaluate a small direct ron-discard probability estimator.
 - [`train-placement`](train-placement.md) - Train a sandbox final-placement probability estimator.
 - [`placement-probability`](placement-probability.md) - Estimate final-placement probabilities from current scores and round state.
+- [`analyze-hand`](analyze-hand.md) - Rank discard candidates for one hand position.
 - [`export-decision-snapshots`](export-decision-snapshots.md) - Export neutral decision snapshots for shared offline prediction/evaluation protocols.
 - [`decision-snapshot-summary`](decision-snapshot-summary.md) - Summarize one or more decision snapshot JSONL exports.
 - [`interpretability-overlay`](interpretability-overlay.md) - Render a discard interpretability HTML page from decision snapshots.

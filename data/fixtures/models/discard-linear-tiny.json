@@ -1,0 +1,11 @@
+{
+  "kind": "kenjaku-analyze-hand-tiny-linear-v0",
+  "model_kind": "discard-linear-raw-count-v0",
+  "feature_profile": "raw-count",
+  "feature_dim": 69,
+  "epochs": 0,
+  "learning_rate": 0.1,
+  "l2": 0.0,
+  "weights": "zeros",
+  "disclaimer": "fixture smoke checkpoint; not a trained production policy"
+}

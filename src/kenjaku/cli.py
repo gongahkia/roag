@@ -39,6 +39,11 @@ from kenjaku.experiments import (
     format_public_benchmark_dashboard_html,
     write_json_report,
 )
+from kenjaku.hand_analysis import (
+    build_hand_analysis,
+    format_hand_analysis_html,
+    format_hand_analysis_text,
+)
 from kenjaku.io import (
     TenhouGame,
     TenhouParseFailure,
@@ -1137,6 +1142,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="output format",
     )
     placement_probability.set_defaults(func=_placement_probability)
+
+    analyze_hand = subparsers.add_parser(
+        "analyze-hand",
+        help="rank discard candidates for a single hand position",
+    )
+    analyze_hand.add_argument("--hand", required=True, help="hand tiles, e.g. '234m 567p 22s'")
+    analyze_hand.add_argument("--drawn", required=True, help="drawn tile")
+    analyze_hand.add_argument("--seat", type=int, required=True, help="seat 0..3")
+    analyze_hand.add_argument(
+        "--round",
+        dest="round_wind",
+        required=True,
+        help="round wind: E, S, W, N, East, South, West, or North",
+    )
+    analyze_hand.add_argument(
+        "--dora",
+        action="append",
+        default=[],
+        help="dora indicator tile; repeat for multiple indicators",
+    )
+    analyze_hand.add_argument(
+        "--model",
+        type=Path,
+        help="optional discard linear checkpoint JSON",
+    )
+    analyze_hand.add_argument(
+        "--output",
+        choices=("text", "json", "html"),
+        default="text",
+        help="output format",
+    )
+    analyze_hand.set_defaults(func=_analyze_hand)
 
     export_snapshots = subparsers.add_parser(
         "export-decision-snapshots",
@@ -3532,6 +3569,28 @@ def _placement_probability(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(format_placement_probability_text(payload))
+    return 0
+
+
+def _analyze_hand(args: argparse.Namespace) -> int:
+    try:
+        payload = build_hand_analysis(
+            hand=args.hand,
+            drawn=args.drawn,
+            seat=args.seat,
+            round_wind=args.round_wind,
+            dora=args.dora,
+            model_path=args.model,
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+
+    if args.output == "json":
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    elif args.output == "html":
+        print(format_hand_analysis_html(payload))
+    else:
+        print(format_hand_analysis_text(payload))
     return 0
 
 
