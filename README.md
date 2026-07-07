@@ -6,6 +6,8 @@ Kenjaku currently focuses on a compliant local Tenhou workflow: parse XML logs, 
 decision points, train small supervised baselines, export neutral decision snapshots, and compare
 local prediction artifacts. Live ladder automation is intentionally out of scope unless a platform
 grants explicit permission.
+See [docs/positioning.md](docs/positioning.md) for how Kenjaku differs from adjacent Mahjong AI,
+review, and simulator projects.
 
 The repo is not yet a transformer agent, RL system, complete Sanma implementation, or complete yaku
 validator. It now includes an exact fu/han payment scorer and expanded yaku detector; unsupported
