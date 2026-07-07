@@ -11,6 +11,45 @@ The repo is not yet a transformer agent, RL system, complete Sanma implementatio
 engine. See `TODO.md` and `docs/session-handoff.md` for the research backlog and running handoff
 notes.
 
+## Launch Evidence
+
+Fixture-only launch media generated on 2026-07-07:
+
+- Replay-analysis clip: `docs/media/replay-analysis.mp4`
+- Browser-demo clip: `docs/media/browser-demo.mp4`
+- Benchmark summary image: `docs/media/benchmark-summary.png`
+
+These artifacts use only `data/fixtures/tenhou`; they do not include raw private replay data,
+player/account data, model weights, or live ladder data.
+
+Exact reproduction commands:
+
+```bash
+mkdir -p runs/launch-media docs/media
+PYTHONPATH=src python3.13 -m kenjaku browser-demo \
+  --output-dir runs/launch-media/browser-demo --no-serve
+PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
+  data/fixtures/tenhou --output runs/launch-media/decision-snapshots.jsonl --limit 20
+PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
+  runs/launch-media/decision-snapshots.jsonl --strategy echo-actual \
+  --output runs/launch-media/decision-predictions.jsonl
+PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-summary \
+  runs/launch-media/decision-snapshots.jsonl
+PYTHONPATH=src python3.13 -m kenjaku decision-snapshot-compare \
+  runs/launch-media/decision-snapshots.jsonl runs/launch-media/decision-predictions.jsonl
+PYTHONPATH=src python3.13 -m kenjaku benchmark-discard \
+  data/fixtures/tenhou --epochs 3 --models fast \
+  --report runs/launch-media/fixture-discard-benchmark.json
+PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
+  runs/launch-media/fixture-discard-benchmark.json
+PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard \
+  runs/launch-media/fixture-discard-benchmark.json \
+  --output runs/launch-media/benchmark-dashboard/index.html \
+  --title "Kenjaku Fixture Benchmark Summary"
+```
+
+Capture and encoding commands are recorded in `docs/launch-media.md`.
+
 ## Current State
 
 - Tested tile/action/state primitives, 4-player Tenhou XML parsing, exact Tenhou meld decoding,
