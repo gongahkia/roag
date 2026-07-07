@@ -260,6 +260,34 @@ def save_discard_mlp_checkpoint(
     )
 
 
+def load_discard_mlp_checkpoint(
+    path: str | Path,
+    *,
+    device: str | torch.device = "cpu",
+) -> DiscardMlp:
+    checkpoint_path = Path(path)
+    resolved_device = torch.device(device)
+    try:
+        payload = torch.load(checkpoint_path, map_location=resolved_device, weights_only=True)
+    except TypeError:
+        payload = torch.load(checkpoint_path, map_location=resolved_device)
+    if not isinstance(payload, dict) or payload.get("kind") != DISCARD_MLP_CHECKPOINT_KIND:
+        raise ValueError("not a discard MLP checkpoint")
+    model_payload = payload.get("model")
+    if not isinstance(model_payload, dict):
+        raise ValueError("checkpoint missing model metadata")
+    model = DiscardMlp(
+        input_dim=int(model_payload.get("input_dim", DISCARD_MLP_INPUT_DIM)),
+        hidden_dim=int(model_payload["hidden_dim"]),
+    ).to(resolved_device)
+    state_dict = payload.get("model_state_dict")
+    if not isinstance(state_dict, dict):
+        raise ValueError("checkpoint missing model_state_dict")
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
+
+
 def evaluate_discard_mlp(
     model: DiscardMlp,
     examples: Sequence[DiscardExample],

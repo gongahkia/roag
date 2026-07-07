@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from math import exp
+from pathlib import Path
+from typing import Any
 
 from kenjaku.core import ActionKind, all_tile_types, shanten
 from kenjaku.models.riichi_frequency import RIICHI_DECISION_KINDS
@@ -128,6 +131,47 @@ class RiichiLinearModel:
     @property
     def feature_names(self) -> tuple[str, ...]:
         return RIICHI_LINEAR_FEATURE_NAMES
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "feature_dim": self.feature_dim,
+            "epochs": self.epochs,
+            "learning_rate": self.learning_rate,
+            "l2": self.l2,
+            "positive_class_weight": self.positive_class_weight,
+            "weights": [list(row) for row in self.weights],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> RiichiLinearModel:
+        if payload.get("kind") != RIICHI_LINEAR_MODEL_KIND:
+            raise ValueError("unsupported riichi linear model kind")
+        if payload.get("feature_dim") != RIICHI_LINEAR_FEATURE_DIM:
+            raise ValueError("unsupported riichi linear model feature dimension")
+        weights_payload = payload.get("weights")
+        if not isinstance(weights_payload, list):
+            raise ValueError("model payload missing weights")
+        return cls(
+            weights=tuple(_parse_weight_row(row) for row in weights_payload),
+            epochs=int(payload["epochs"]),
+            learning_rate=float(payload["learning_rate"]),
+            l2=float(payload.get("l2", 0.0)),
+            positive_class_weight=float(payload.get("positive_class_weight", 1.0)),
+        )
+
+    def save(self, path: str | Path) -> None:
+        Path(path).write_text(
+            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> RiichiLinearModel:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("model artifact must contain a JSON object")
+        return cls.from_dict(payload)
 
     def predict(self, example: RiichiExample) -> ActionKind:
         logits = self.logits_for_example(example)
@@ -330,3 +374,9 @@ def _kind_index(kind: ActionKind) -> int:
     if kind not in RIICHI_DECISION_KINDS:
         raise ValueError(f"unsupported riichi decision kind: {kind.value}")
     return RIICHI_DECISION_KINDS.index(kind)
+
+
+def _parse_weight_row(row: Any) -> tuple[float, ...]:
+    if not isinstance(row, list):
+        raise ValueError("model weight rows must be lists")
+    return tuple(float(value) for value in row)

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from math import exp
+from pathlib import Path
+from typing import Any
 
 from kenjaku.core import ActionKind, TileType, all_tile_types, shanten
 from kenjaku.models.call_frequency import CALL_DECISION_KINDS
@@ -219,6 +222,52 @@ class CallLinearModel:
     @property
     def feature_names(self) -> tuple[str, ...]:
         return _feature_profile(self.feature_profile).feature_names
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "feature_profile": self.feature_profile,
+            "feature_dim": self.feature_dim,
+            "epochs": self.epochs,
+            "learning_rate": self.learning_rate,
+            "l2": self.l2,
+            "positive_class_weight": self.positive_class_weight,
+            "weights": [list(row) for row in self.weights],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> CallLinearModel:
+        profile = _feature_profile_for_kind(payload.get("kind"))
+        if profile is None:
+            raise ValueError("unsupported call linear model kind")
+        if payload.get("feature_dim") != profile.feature_dim:
+            raise ValueError("unsupported call linear model feature dimension")
+        if payload.get("feature_profile", profile.name) != profile.name:
+            raise ValueError("call linear model kind/profile mismatch")
+        weights_payload = payload.get("weights")
+        if not isinstance(weights_payload, list):
+            raise ValueError("model payload missing weights")
+        return cls(
+            weights=tuple(_parse_weight_row(row) for row in weights_payload),
+            epochs=int(payload["epochs"]),
+            learning_rate=float(payload["learning_rate"]),
+            l2=float(payload.get("l2", 0.0)),
+            feature_profile=profile.name,
+            positive_class_weight=float(payload.get("positive_class_weight", 1.0)),
+        )
+
+    def save(self, path: str | Path) -> None:
+        Path(path).write_text(
+            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> CallLinearModel:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("model artifact must contain a JSON object")
+        return cls.from_dict(payload)
 
     @staticmethod
     def feature_names_for_profile(feature_profile: str) -> tuple[str, ...]:
@@ -652,3 +701,16 @@ def _feature_profile(name: str) -> _FeatureProfile:
         return _FEATURE_PROFILES[name]
     except KeyError as exc:
         raise ValueError(f"unsupported call linear feature profile: {name}") from exc
+
+
+def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
+    for profile in _FEATURE_PROFILES.values():
+        if profile.model_kind == kind:
+            return profile
+    return None
+
+
+def _parse_weight_row(row: Any) -> tuple[float, ...]:
+    if not isinstance(row, list):
+        raise ValueError("model weight rows must be lists")
+    return tuple(float(value) for value in row)

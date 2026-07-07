@@ -88,6 +88,7 @@ from kenjaku.models import (
     placement_examples_from_paths,
     placement_probability_payload,
 )
+from kenjaku.prediction import PREDICT_MODEL_TYPES, write_model_predictions
 from kenjaku.replay_viewer import (
     read_self_play_trajectory_jsonl,
     write_self_play_match_trajectory_jsonl,
@@ -1359,6 +1360,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="stub prediction strategy; protocol tests only",
     )
     produce_predictions.set_defaults(func=_produce_decision_predictions)
+
+    predict = subparsers.add_parser(
+        "predict",
+        help="run batch model inference over decision snapshot JSONL",
+    )
+    predict.add_argument(
+        "--snapshots",
+        type=Path,
+        required=True,
+        help="decision snapshot JSONL file",
+    )
+    predict.add_argument(
+        "--model",
+        choices=PREDICT_MODEL_TYPES,
+        required=True,
+        help="model family to run",
+    )
+    predict.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="model checkpoint path; required except for frequency",
+    )
+    predict.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="prediction JSONL output path",
+    )
+    predict.add_argument(
+        "--device",
+        default="cpu",
+        help="PyTorch inference device for mlp-discard or transformer-discard",
+    )
+    predict.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="PyTorch inference batch size",
+    )
+    predict.set_defaults(func=_predict)
 
     snapshot_compare = subparsers.add_parser(
         "decision-snapshot-compare",
@@ -4343,6 +4384,26 @@ def _produce_decision_predictions(args: argparse.Namespace) -> int:
     print(f"strategy: {args.strategy}")
     print(f"predictions: {stats['predictions']}")
     print(f"malformed_snapshot_rows: {stats['malformed_snapshot_rows']}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _predict(args: argparse.Namespace) -> int:
+    try:
+        stats = write_model_predictions(
+            snapshots_path=args.snapshots,
+            output_path=args.output,
+            model_type=args.model,
+            checkpoint_path=args.checkpoint,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    print(f"model: {args.model}")
+    print(f"predictions: {stats['predictions']}")
+    print(f"malformed_snapshot_rows: {stats['malformed_snapshot_rows']}")
+    print(f"unsupported_snapshot_rows: {stats['unsupported_snapshot_rows']}")
     print(f"output_path: {args.output}")
     return 0
 

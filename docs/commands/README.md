@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 44 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 44 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 45 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 45 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -30,6 +30,7 @@ covers all 44 commands present in `kenjaku --help` so the docs match the impleme
 - [`transformer-attention-overlay`](transformer-attention-overlay.md) - Render transformer attention heatmaps from a discard transformer checkpoint.
 - [`feature-importance`](feature-importance.md) - Rank linear-model features from a benchmark report.
 - [`produce-decision-predictions`](produce-decision-predictions.md) - Write stub prediction rows for decision snapshot protocol tests.
+- [`predict`](predict.md) - Run batch model inference over decision snapshots.
 - [`decision-snapshot-compare`](decision-snapshot-compare.md) - Compare neutral snapshots against prediction JSONL keyed by `row_id`.
 - [`external-baseline-report`](external-baseline-report.md) - Build a shared-log report across named external baseline prediction files.
 - [`run-external-prediction-producer`](run-external-prediction-producer.md) - Run a separate process that converts snapshots into prediction JSONL.
