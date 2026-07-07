@@ -4,11 +4,16 @@
 synthetic Tenhou-style export. The artifact contains only derived decision metadata and heuristic
 audit scores; it does not render source XML paths or raw private replay data.
 
+The viewer stores decisions in an embedded JSON payload and renders 100 decisions per page in the
+browser. Client-side controls filter by round, seat, actual discard tile, and shanten-delta bin;
+the search box matches hand patterns and dora indicators.
+
 The overlay reports, per decision:
 
 - top 3 discard alternatives
 - policy probability from `heuristic-discard-overlay-v0`
 - post-discard shanten delta
+- hand pattern and dora indicators for local search
 - estimated deal-in risk from active-riichi, river, and visible-count signals
 - expected point impact from `-shanten_delta * 1200 - deal_in_risk * 8000`
 

@@ -4,7 +4,7 @@ Generated from `argparse` help and reviewed on 2026-07-07.
 
 ## Purpose
 
-Render a discard interpretability HTML page from decision snapshots.
+Render a paginated discard interpretability HTML page from decision snapshots.
 
 ## Inputs
 
@@ -12,7 +12,7 @@ Decision snapshot JSONL containing discard decisions.
 
 ## Outputs
 
-HTML file at `--output`.
+HTML file at `--output` with 100 decisions per page plus client-side filters and search.
 
 ## Example
 
@@ -24,6 +24,7 @@ PYTHONPATH=src python3.13 -m kenjaku interpretability-overlay runs/decision-snap
 
 - Use `--min-decisions` when a report must fail on empty snapshot input.
 - The overlay uses heuristic alternatives, not guaranteed optimal actions.
+- Search matches hand pattern and dora indicators; filters cover round, seat, discard tile, and shanten-delta bin.
 
 ## Help
 

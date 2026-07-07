@@ -15,6 +15,7 @@ from kenjaku.training.decision_snapshots import DECISION_SNAPSHOT_KIND
 INTERPRETABILITY_OVERLAY_KIND = "kenjaku-interpretability-overlay-v0"
 INTERPRETABILITY_POLICY_KIND = "heuristic-discard-overlay-v0"
 TOP_ALTERNATIVES = 3
+OVERLAY_PAGE_SIZE = 100
 
 
 def read_interpretability_snapshots(
@@ -85,6 +86,7 @@ def build_interpretability_overlay(
         "title": title,
         "policy_kind": INTERPRETABILITY_POLICY_KIND,
         "top_alternatives_per_decision": TOP_ALTERNATIVES,
+        "page_size": OVERLAY_PAGE_SIZE,
         "decision_count": len(decisions),
         "malformed_snapshots": malformed_snapshots,
         "source_labels": dict(sorted(source_labels.items())),
@@ -107,6 +109,7 @@ def format_interpretability_overlay_html(report: dict[str, Any]) -> str:
     title = escape(str(report.get("title", "Kenjaku Interpretability Overlay")))
     decisions = report.get("decisions")
     decision_items = decisions if isinstance(decisions, list) else []
+    payload = _overlay_json_payload(report, decision_items)
     parts = [
         "<!doctype html>",
         '<html lang="en">',
@@ -125,9 +128,13 @@ def format_interpretability_overlay_html(report: dict[str, Any]) -> str:
         '<section class="summary">',
         _summary_html(report),
         "</section>",
+        _controls_html(),
+        '<section id="decision-list" class="decision-list" aria-live="polite"></section>',
+        f'<script id="overlay-data" type="application/json">{payload}</script>',
+        "<script>",
+        _overlay_js(),
+        "</script>",
     ]
-    for decision in decision_items:
-        parts.append(_decision_html(decision))
     parts.extend(["</main>", "</body>", "</html>"])
     return "\n".join(parts)
 
@@ -176,6 +183,15 @@ def _decision_overlay(snapshot: dict[str, Any], *, index: int) -> dict[str, Any]
         if isinstance(actual_action, dict) and isinstance(actual_action.get("tile"), str)
         else None
     )
+    actual_candidate = next(
+        (candidate for candidate in candidates if candidate["tile"] == actual_tile),
+        None,
+    )
+    actual_shanten_delta = (
+        None if actual_candidate is None else actual_candidate.get("shanten_delta")
+    )
+    dora_indicators = _string_list(snapshot.get("dora_indicators"))
+    hand_tiles = _tile_names_from_counts(hand_counts)
     return {
         "index": index,
         "row_id": snapshot.get("row_id") if isinstance(snapshot.get("row_id"), str) else "",
@@ -184,6 +200,11 @@ def _decision_overlay(snapshot: dict[str, Any], *, index: int) -> dict[str, Any]
         "seat": seat,
         "actual_discard": actual_tile,
         "current_shanten": current_shanten,
+        "actual_shanten_delta": actual_shanten_delta,
+        "shanten_delta_bin": _shanten_delta_bin(actual_shanten_delta),
+        "hand_tiles": hand_tiles,
+        "hand_pattern": " ".join(hand_tiles),
+        "dora_indicators": dora_indicators,
         "top_alternatives": candidates[:TOP_ALTERNATIVES],
     }
 
@@ -324,6 +345,29 @@ def _counts(value: Any) -> tuple[int, ...] | None:
     return tuple(value)
 
 
+def _tile_names_from_counts(counts: Sequence[int]) -> list[str]:
+    names: list[str] = []
+    for index, count in enumerate(counts):
+        names.extend(TileType(index).notation for _ in range(count))
+    return names
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _shanten_delta_bin(value: Any) -> str:
+    if not isinstance(value, int):
+        return "unknown"
+    if value < 0:
+        return "improves"
+    if value > 0:
+        return "worsens"
+    return "same"
+
+
 def _river_counts(value: Any) -> tuple[tuple[int, ...], ...]:
     if not isinstance(value, list):
         return ()
@@ -395,6 +439,8 @@ def _summary_html(report: dict[str, Any]) -> str:
             f"{escape(str(report.get('policy_kind', 'unknown')))}</dd></div>",
             "<div><dt>Top alternatives</dt><dd>"
             f"{int(report.get('top_alternatives_per_decision', 0))}</dd></div>",
+            "<div><dt>Page size</dt><dd>"
+            f"{int(report.get('page_size', OVERLAY_PAGE_SIZE))}</dd></div>",
             f"<div><dt>Sources</dt><dd>{source_text}</dd></div>",
             "</dl>",
             f"<p>{escape(str(report.get('disclaimer', '')))}</p>",
@@ -402,66 +448,219 @@ def _summary_html(report: dict[str, Any]) -> str:
     )
 
 
-def _decision_html(decision: dict[str, Any]) -> str:
-    alternatives = decision.get("top_alternatives")
-    rows = [
-        _alternative_html(alternative)
-        for alternative in alternatives
-        if isinstance(alternative, dict)
-    ] if isinstance(alternatives, list) else []
+def _controls_html() -> str:
     return "\n".join(
         [
-            '<section class="decision">',
-            "<header>",
-            f"<h2>Decision {int(decision.get('index', 0)) + 1}</h2>",
-            (
-                "<p>"
-                f"round={escape(str(decision.get('round_index')))} "
-                f"event={escape(str(decision.get('event_index')))} "
-                f"seat={escape(str(decision.get('seat')))} "
-                f"actual={escape(str(decision.get('actual_discard')))} "
-                f"shanten={escape(str(decision.get('current_shanten')))}"
-                "</p>"
-            ),
-            f"<code>{escape(str(decision.get('row_id', '')))}</code>",
-            "</header>",
-            "<table>",
-            "<thead><tr>"
-            "<th>Tile</th><th>Policy probability</th><th>Shanten delta</th>"
-            "<th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th>"
-            "</tr></thead>",
-            "<tbody>",
-            *rows,
-            "</tbody>",
-            "</table>",
+            '<section class="controls" aria-label="Filters">',
+            "<label>Search"
+            '<input id="search" type="search" placeholder="hand pattern or dora tile">'
+            "</label>",
+            "<label>Round<select id=\"round-filter\"></select></label>",
+            "<label>Seat<select id=\"seat-filter\"></select></label>",
+            "<label>Discard<select id=\"tile-filter\"></select></label>",
+            "<label>Shanten<select id=\"shanten-filter\"></select></label>",
+            "</section>",
+            '<section class="pager" aria-label="Pagination">',
+            '<button id="prev-page" type="button">Prev</button>',
+            '<span id="page-info"></span>',
+            '<button id="next-page" type="button">Next</button>',
+            '<span id="result-count"></span>',
             "</section>",
         ]
     )
 
 
-def _alternative_html(alternative: dict[str, Any]) -> str:
-    reasons = alternative.get("risk_reasons")
-    reason_text = ", ".join(str(reason) for reason in reasons) if isinstance(reasons, list) else ""
+def _overlay_json_payload(
+    report: dict[str, Any],
+    decisions: Sequence[Any],
+) -> str:
+    payload = {
+        "page_size": int(report.get("page_size", OVERLAY_PAGE_SIZE)),
+        "decisions": decisions,
+    }
     return (
-        "<tr>"
-        f"<td>{escape(str(alternative.get('tile')))}</td>"
-        f"<td>{_format_percent(alternative.get('policy_probability'))}</td>"
-        f"<td>{escape(str(alternative.get('shanten_delta')))}</td>"
-        f"<td>{_format_percent(alternative.get('estimated_deal_in_risk'))}</td>"
-        f"<td>{_format_points(alternative.get('expected_point_impact'))}</td>"
-        f"<td>{escape(reason_text)}</td>"
-        "</tr>"
+        json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
     )
 
 
-def _format_percent(value: Any) -> str:
-    return "" if not isinstance(value, float) else f"{value:.1%}"
+def _overlay_js() -> str:
+    return r"""
+const data = JSON.parse(document.getElementById("overlay-data").textContent);
+const pageSize = data.page_size || 100;
+const decisions = Array.isArray(data.decisions) ? data.decisions : [];
+const state = {page: 1, filtered: decisions.slice()};
+const controls = {
+  search: document.getElementById("search"),
+  round: document.getElementById("round-filter"),
+  seat: document.getElementById("seat-filter"),
+  tile: document.getElementById("tile-filter"),
+  shanten: document.getElementById("shanten-filter"),
+  prev: document.getElementById("prev-page"),
+  next: document.getElementById("next-page"),
+  pageInfo: document.getElementById("page-info"),
+  resultCount: document.getElementById("result-count"),
+  list: document.getElementById("decision-list")
+};
 
+function field(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
 
-def _format_points(value: Any) -> str:
-    if not isinstance(value, int):
-        return ""
-    return f"{value:+d}"
+function unique(values) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => {
+    return a.localeCompare(b, undefined, {numeric: true});
+  });
+}
+
+function fillSelect(select, label, values) {
+  select.innerHTML = `<option value="">All ${label}</option>`;
+  for (const value of values) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  }
+}
+
+function initFilters() {
+  fillSelect(controls.round, "rounds", unique(decisions.map(d => field(d.round_index))));
+  fillSelect(controls.seat, "seats", unique(decisions.map(d => field(d.seat))));
+  fillSelect(controls.tile, "discards", unique(decisions.map(d => field(d.actual_discard))));
+  fillSelect(controls.shanten, "shanten bins", ["improves", "same", "worsens", "unknown"]);
+}
+
+function matchesSearch(decision, query) {
+  if (!query) {
+    return true;
+  }
+  const dora = Array.isArray(decision.dora_indicators)
+    ? decision.dora_indicators.join(" ")
+    : "";
+  return `${field(decision.hand_pattern)} ${dora}`.toLowerCase().includes(query);
+}
+
+function applyFilters() {
+  const query = controls.search.value.trim().toLowerCase();
+  state.filtered = decisions.filter(decision => {
+    return matchesSearch(decision, query)
+      && (!controls.round.value || field(decision.round_index) === controls.round.value)
+      && (!controls.seat.value || field(decision.seat) === controls.seat.value)
+      && (!controls.tile.value || field(decision.actual_discard) === controls.tile.value)
+      && (!controls.shanten.value || field(decision.shanten_delta_bin) === controls.shanten.value);
+  });
+  state.page = 1;
+  render();
+}
+
+function render() {
+  const pages = Math.max(1, Math.ceil(state.filtered.length / pageSize));
+  state.page = Math.min(Math.max(1, state.page), pages);
+  const start = (state.page - 1) * pageSize;
+  const pageItems = state.filtered.slice(start, start + pageSize);
+  controls.list.innerHTML = pageItems.map(renderDecision).join("");
+  controls.pageInfo.textContent = `Page ${state.page} of ${pages}`;
+  controls.resultCount.textContent = `${state.filtered.length} matching decisions`;
+  controls.prev.disabled = state.page <= 1;
+  controls.next.disabled = state.page >= pages;
+}
+
+function renderDecision(decision) {
+  const alternatives = Array.isArray(decision.top_alternatives)
+    ? decision.top_alternatives
+    : [];
+  const rows = alternatives.length
+    ? alternatives.map(renderAlternative).join("")
+    : '<tr><td colspan="6">No alternatives</td></tr>';
+  const dora = Array.isArray(decision.dora_indicators)
+    ? decision.dora_indicators.join(" ")
+    : "";
+  return `<section class="decision">
+    <header>
+      <h2>Decision ${Number(decision.index || 0) + 1}</h2>
+      <p>
+        round=${escapeHtml(field(decision.round_index))}
+        event=${escapeHtml(field(decision.event_index))}
+        seat=${escapeHtml(field(decision.seat))}
+        actual=${escapeHtml(field(decision.actual_discard))}
+        shanten=${escapeHtml(field(decision.current_shanten))}
+        delta=${escapeHtml(field(decision.actual_shanten_delta))}
+      </p>
+      <p>hand=${escapeHtml(field(decision.hand_pattern))}</p>
+      <p>dora=${escapeHtml(dora || "none")}</p>
+      <code>${escapeHtml(field(decision.row_id))}</code>
+    </header>
+    <table>
+      <thead><tr>
+        <th>Tile</th><th>Policy probability</th><th>Shanten delta</th>
+        <th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </section>`;
+}
+
+function renderAlternative(alternative) {
+  const reasons = Array.isArray(alternative.risk_reasons)
+    ? alternative.risk_reasons.join(", ")
+    : "";
+  return `<tr>
+    <td>${escapeHtml(field(alternative.tile))}</td>
+    <td>${formatPercent(alternative.policy_probability)}</td>
+    <td>${escapeHtml(field(alternative.shanten_delta))}</td>
+    <td>${formatPercent(alternative.estimated_deal_in_risk)}</td>
+    <td>${formatPoints(alternative.expected_point_impact)}</td>
+    <td>${escapeHtml(reasons)}</td>
+  </tr>`;
+}
+
+function formatPercent(value) {
+  return typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "";
+}
+
+function formatPoints(value) {
+  if (!Number.isInteger(value)) {
+    return "";
+  }
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[character];
+  });
+}
+
+const filterControls = [
+  controls.search,
+  controls.round,
+  controls.seat,
+  controls.tile,
+  controls.shanten
+];
+for (const control of filterControls) {
+  control.addEventListener("input", applyFilters);
+}
+controls.prev.addEventListener("click", () => {
+  state.page -= 1;
+  render();
+});
+controls.next.addEventListener("click", () => {
+  state.page += 1;
+  render();
+});
+
+initFilters();
+render();
+""".strip()
 
 
 def _overlay_css() -> str:
@@ -473,12 +672,26 @@ body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 48px}
 h1{margin:0 0 16px;font-size:28px;line-height:1.15}
 h2{margin:0;font-size:16px}
-.summary,.decision{background:#fff;border:1px solid var(--line);border-radius:8px}
-.summary,.decision{margin:0 0 12px;padding:14px}
-.summary dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 8px}
+.summary,.controls,.pager,.decision{background:#fff;border:1px solid var(--line);border-radius:8px}
+.summary,.controls,.pager,.decision{margin:0 0 12px;padding:14px}
+.summary dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.summary dl{gap:10px;margin:0 0 8px}
 .summary dt{color:var(--muted);font-size:12px;text-transform:uppercase}
 .summary dd{margin:2px 0 0;font-weight:650}
 .summary p{margin:0;color:var(--muted)}
+.controls{display:grid;grid-template-columns:2fr repeat(4,minmax(120px,1fr));gap:10px}
+.controls label{display:grid;gap:4px;color:var(--muted);font-size:12px;font-weight:650}
+input,select,button{font:inherit}
+input,select{width:100%;min-height:34px;border:1px solid var(--line)}
+input,select{border-radius:6px;padding:6px 8px}
+.pager{display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:1}
+button{min-height:34px;border:1px solid var(--line);border-radius:6px;background:#fff}
+button{padding:6px 10px}
+button:not(:disabled){cursor:pointer;color:var(--accent)}
+button:disabled{color:#8c959f;background:#f6f8fa}
+#page-info{font-weight:650}
+#result-count{margin-left:auto;color:var(--muted)}
+.decision-list{min-height:180px}
 .decision header{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px}
 .decision p{margin:0;color:var(--muted)}
 code{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
@@ -489,5 +702,9 @@ th{color:var(--muted);font-size:12px;font-weight:650}
 td:nth-child(1){font-weight:700;color:var(--accent)}
 @media(max-width:760px){main{width:calc(100% - 20px);padding-top:18px}}
 @media(max-width:760px){.summary dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.controls{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.controls label:first-child{grid-column:1/-1}}
+@media(max-width:760px){.pager{position:static;flex-wrap:wrap}}
+@media(max-width:760px){#result-count{width:100%;margin-left:0}}
 @media(max-width:760px){th,td{padding:6px;font-size:12px}}
 """.strip()
