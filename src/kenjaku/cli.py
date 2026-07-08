@@ -103,6 +103,7 @@ from kenjaku.repro_report import (
     configure_report_provenance,
     format_repro_report_text,
 )
+from kenjaku.reproducibility import pin_seeds
 from kenjaku.review_game import build_review_game_report, write_review_game_html
 from kenjaku.safety_advisor import (
     build_safety_advisor_report,
@@ -331,6 +332,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Riichi mahjong AI research toolkit.",
     )
     parser.add_argument("--version", action="store_true", help="print version and exit")
+    parser.add_argument(
+        "--global-seed",
+        help="seed Python, NumPy, and PyTorch RNGs before running a subcommand",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     status = subparsers.add_parser(
@@ -2595,6 +2600,8 @@ def main(argv: list[str] | None = None) -> int:
     effective_argv = sys.argv[1:] if argv is None else argv
     configure_report_provenance(["kenjaku", *effective_argv])
     args = parser.parse_args(argv)
+    if args.global_seed is not None:
+        pin_seeds(args.global_seed)
 
     if args.version:
         print(f"kenjaku {__version__}")
@@ -3040,6 +3047,7 @@ def _replay_viewer(args: argparse.Namespace) -> int:
 
 
 def _self_play_sandbox(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         report = run_self_play_sandbox(
             episodes=args.episodes,
@@ -3067,6 +3075,7 @@ def _self_play_sandbox(args: argparse.Namespace) -> int:
 
 
 def _self_play_match_sandbox(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     include_trajectories = args.include_trajectories or args.trajectory_jsonl is not None
     try:
         report = run_self_play_match_sandbox(
@@ -3109,6 +3118,7 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
 
 
 def _train_ppo_sandbox(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.training.ppo import (
             format_ppo_sandbox_report,
@@ -3167,6 +3177,7 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
 
 
 def _train_population_sandbox(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.training.population import (
             format_population_sandbox_report,
@@ -5097,6 +5108,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
 
 
 def _train_discard_mlp(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.models.torch_discard import (
             require_torch,
@@ -5192,6 +5204,7 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
 
 
 def _train_discard_transformer(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import (
@@ -5431,6 +5444,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
 
 
 def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.models.torch_discard import (
             require_torch,
@@ -5581,6 +5595,7 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
 
 
 def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
     try:
         from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import (

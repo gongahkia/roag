@@ -5,6 +5,9 @@ Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 The CLI currently exposes 50 subcommands. Issue #57 mentioned 35 commands; this index
 covers all 50 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
+Root options apply before the subcommand; use `--global-seed SEED` to seed Python, NumPy,
+and PyTorch RNGs before command execution.
+
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`repro-report`](repro-report.md) - Verify report provenance against the current checkout.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
