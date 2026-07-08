@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from kenjaku.core import TileType, shanten, tile_counts
+from kenjaku.frontend_static import (
+    html_document,
+    motion_primitives_css,
+    static_base_css,
+    theme_css,
+)
 from kenjaku.io import (
     TenhouCall,
     TenhouDiscard,
@@ -114,38 +120,64 @@ def write_review_game_html(path: str | Path, report: dict[str, Any]) -> None:
 
 def format_review_game_html(report: dict[str, Any]) -> str:
     title = f"Kenjaku Review Game - player {report.get('player')}"
-    payload = json.dumps(report, separators=(",", ":"), sort_keys=True)
+    payload = _json_script_payload(report)
     raw_rounds = report.get("rounds")
     raw_decisions = report.get("decisions")
     raw_summary = report.get("summary")
     rounds = cast(list[Any], raw_rounds) if isinstance(raw_rounds, list) else []
     decisions = cast(list[Any], raw_decisions) if isinstance(raw_decisions, list) else []
     summary = cast(dict[str, Any], raw_summary) if isinstance(raw_summary, dict) else {}
-    return "\n".join(
+    visible_decisions = [decision for decision in decisions[:80] if isinstance(decision, dict)]
+    decision_note = (
+        ""
+        if len(decisions) <= len(visible_decisions)
+        else (
+            f'<p class="muted">Showing first {len(visible_decisions)} '
+            f"of {len(decisions)} decisions.</p>"
+        )
+    )
+    body = "\n".join(
         [
-            "<!doctype html>",
-            '<html lang="en">',
-            "<head>",
-            '<meta charset="utf-8">',
-            '<meta name="viewport" content="width=device-width, initial-scale=1">',
-            f"<title>{escape(title)}</title>",
-            "<style>",
-            _review_css(),
-            "</style>",
-            "</head>",
-            "<body>",
-            "<main>",
+            '<main class="review-shell">',
+            '<header class="review-header">',
             f"<h1>{escape(title)}</h1>",
+            f'<span class="kj-score-chip">Model {escape(str(report.get("model")))}</span>',
+            "</header>",
             _summary_html(summary),
-            "<h2>Rounds</h2>",
+            '<section class="rounds-panel kj-panel">',
+            "<h2>Round Timeline</h2>",
+            '<div class="round-grid">',
             *(_round_html(round_) for round_ in rounds if isinstance(round_, dict)),
-            "<h2>Decisions</h2>",
-            *(_decision_html(decision) for decision in decisions if isinstance(decision, dict)),
-            f'<script id="review-data" type="application/json">{escape(payload)}</script>',
+            "</div>",
+            "</section>",
+            (
+                f'<section class="decision-list" data-total-decisions="{len(decisions)}" '
+                f'data-rendered-decisions="{len(visible_decisions)}">'
+            ),
+            "<h2>Decision Review</h2>",
+            decision_note,
+            '<div class="decision-grid">',
+            *(_decision_html(decision) for decision in visible_decisions),
+            "</div>",
+            "</section>",
+            f'<script id="review-data" type="application/json">{payload}</script>',
             "</main>",
-            "</body>",
-            "</html>",
         ]
+    )
+    return html_document(
+        title=title,
+        body_html=body,
+        inline_css=(static_base_css(), theme_css(), motion_primitives_css(), _review_css()),
+        body_class="review-page kj-arcade-shell",
+    )
+
+
+def _json_script_payload(payload: dict[str, Any]) -> str:
+    return (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
     )
 
 
@@ -320,26 +352,44 @@ def _round_summary(game: TenhouGame, round_index: int, player: int) -> dict[str,
 
 
 def _summary_html(summary: dict[str, Any]) -> str:
-    return (
-        '<section class="summary">'
-        f"<p>Rounds: {escape(str(summary.get('rounds', 0)))}</p>"
-        f"<p>Decisions: {escape(str(summary.get('decisions', 0)))}</p>"
-        f"<p>Matches model: {escape(_rate_text(summary.get('matches_model_rate')))}</p>"
-        f"<p>Expected value delta: {escape(_number_text(summary.get('expected_value_delta')))}</p>"
-        "</section>"
+    items = (
+        ("Rounds", summary.get("rounds", 0)),
+        ("Decisions", summary.get("decisions", 0)),
+        ("Matches model", _rate_text(summary.get("matches_model_rate"))),
+        ("Expected value delta", _number_text(summary.get("expected_value_delta"))),
     )
+    body = "".join(
+        '<div class="summary-card">'
+        f"<dt>{escape(label)}</dt>"
+        f"<dd>{escape(str(value))}</dd>"
+        "</div>"
+        for label, value in items
+    )
+    return '<section class="summary kj-panel" aria-label="Review summary">' + body + "</section>"
 
 
 def _round_html(round_: dict[str, Any]) -> str:
+    hand_tiles = _tile_spans(_string_list(round_.get("hand")))
+    discard_tiles = _tile_spans(_event_tiles(round_.get("discards")))
+    discard_body = discard_tiles or '<span class="muted">none</span>'
+    calls_chip = (
+        f'<span class="kj-chip">Calls {escape(str(len(_list(round_.get("calls")))))}</span>'
+    )
+    riichi_chip = (
+        f'<span class="kj-chip">Riichi '
+        f'{escape(str(len(_list(round_.get("riichi_timing")))))}</span>'
+    )
     return (
-        '<section class="round">'
+        '<section class="round kj-card">'
         f"<h3>Round {escape(str(round_.get('round_index')))}</h3>"
-        f"<p>Hand: {escape(' '.join(_string_list(round_.get('hand'))))}</p>"
-        f"<p>Discards: {escape(' '.join(_event_tiles(round_.get('discards'))))}</p>"
-        f"<p>Calls: {escape(str(len(_list(round_.get('calls')))))}</p>"
-        "<p>Riichi timing: "
-        f"{escape(', '.join(str(value) for value in _list(round_.get('riichi_timing'))))}"
-        "</p>"
+        '<p class="meta">Starting hand</p>'
+        f'<div class="tile-row">{hand_tiles}</div>'
+        '<p class="meta">Discards</p>'
+        f'<div class="tile-row">{discard_body}</div>'
+        '<div class="round-stats">'
+        f"{calls_chip}"
+        f"{riichi_chip}"
+        "</div>"
         "</section>"
     )
 
@@ -348,41 +398,80 @@ def _decision_html(decision: dict[str, Any]) -> str:
     alternatives = decision.get("top_alternatives")
     alternative_items = alternatives if isinstance(alternatives, list) else []
     rows = "".join(
-        f"<li>{escape(str(item.get('tile')))} "
-        f"score={escape(_number_text(item.get('model_score')))} "
-        f"risk={escape(_number_text(item.get('deal_in_risk')))} "
-        f"impact={escape(_number_text(item.get('expected_point_impact')))}</li>"
+        '<li class="alternative-card">'
+        f'<span class="tile kj-tile {_tile_class(str(item.get("tile")))}">'
+        f'{escape(str(item.get("tile")))}</span>'
+        f"<span>score={escape(_number_text(item.get('model_score')))}</span>"
+        f"<span>risk={escape(_number_text(item.get('deal_in_risk')))}</span>"
+        f"<span>impact={escape(_number_text(item.get('expected_point_impact')))}</span>"
+        "</li>"
         for item in alternative_items
         if isinstance(item, dict)
     )
     chosen = decision.get("chosen_action")
     chosen_tile = chosen.get("tile") if isinstance(chosen, dict) else None
     return (
-        '<section class="decision">'
+        '<section class="decision kj-card">'
         f"<h3>Event {escape(str(decision.get('event_index')))}</h3>"
-        f"<p>Chosen: {escape(str(chosen_tile))}</p>"
-        f"<p>Model top: {escape(str(decision.get('model_top_tile')))}</p>"
-        f"<p>Matches model: {escape(str(decision.get('matches_model')))}</p>"
-        f"<p>Shanten delta: {escape(str(_dict_value(decision.get('shanten'), 'delta')))}</p>"
-        f"<p>Deal-in risk: {escape(_number_text(decision.get('deal_in_risk')))}</p>"
-        "<p>Expected point impact: "
-        f"{escape(_number_text(decision.get('expected_point_impact')))}</p>"
-        f"<ol>{rows}</ol>"
+        '<div class="decision-beats">'
+        f'<span class="kj-action-badge">Chosen {escape(str(chosen_tile))}</span>'
+        f'<span class="kj-action-badge">Model {escape(str(decision.get("model_top_tile")))}</span>'
+        f'<span class="kj-action-badge">Match {escape(str(decision.get("matches_model")))}</span>'
+        "</div>"
+        '<dl class="decision-metrics">'
+        "<div><dt>Shanten delta</dt><dd>"
+        f"{escape(str(_dict_value(decision.get('shanten'), 'delta')))}</dd></div>"
+        "<div><dt>Deal-in risk</dt><dd>"
+        f"{escape(_number_text(decision.get('deal_in_risk')))}</dd></div>"
+        "<div><dt>Expected point impact</dt><dd>"
+        f"{escape(_number_text(decision.get('expected_point_impact')))}</dd></div>"
+        "</dl>"
+        f'<ol class="alternative-list">{rows}</ol>'
         "</section>"
     )
 
 
 def _review_css() -> str:
     return """
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;color:#1c1c1a}
-body{background:#f7f7f4}
-main{max-width:1120px;margin:0 auto;padding:24px}
-h1,h2,h3{margin:0 0 10px}
+.review-shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:24px 0 44px}
+.review-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+h1,h2,h3,p,dl,dd,ol{margin:0}
+h1{font-size:30px;line-height:1.1}
+h2{font-size:20px}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
-.summary{gap:8px;margin:16px 0}
-.summary p,.round,.decision{border:1px solid #d6d3ca;background:#fff;padding:12px;border-radius:6px}
-.round,.decision{margin:10px 0}
-ol{margin:8px 0 0;padding-left:24px}
+.summary{gap:10px;margin:14px 0;padding:12px}
+.summary-card{border:1px solid rgba(215,220,232,.12)}
+.summary-card{border-radius:var(--kj-radius-sm);padding:10px}
+.summary-card dt,.meta{color:var(--kj-card-muted);font-size:12px}
+.summary-card dt,.meta{font-weight:800;text-transform:uppercase}
+.summary-card dd{margin-top:4px;color:var(--kj-action-strong);font-size:20px;font-weight:900}
+.rounds-panel{margin:14px 0;padding:12px}
+.round-grid,.decision-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.round,.decision{display:grid;gap:10px;padding:12px;min-width:0}
+.tile-row{display:flex;flex-wrap:wrap;gap:4px;min-height:34px}
+.tile{width:30px;height:38px;min-width:30px;min-height:38px;font-size:13px}
+.tile-man{color:var(--kj-tile-man)}
+.tile-pin{color:var(--kj-tile-pin)}
+.tile-sou{color:var(--kj-tile-sou)}
+.tile-honor{color:var(--kj-tile-honor)}
+.round-stats,.decision-beats{display:flex;flex-wrap:wrap;gap:6px}
+.decision-list{margin-top:14px}
+.decision-list h2{margin-bottom:8px}
+.decision-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.decision-metrics div{border-top:1px solid rgba(215,220,232,.14);padding-top:8px}
+.decision-metrics dt{color:var(--kj-card-muted);font-size:12px}
+.decision-metrics dt{font-weight:800;text-transform:uppercase}
+.decision-metrics dd{margin-top:4px}
+.alternative-list{display:grid;gap:6px;list-style:none;padding:0}
+.alternative-card{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr))}
+.alternative-card{align-items:center;gap:8px;font-size:13px}
+.muted{color:var(--kj-card-muted)}
+@media(max-width:720px){
+  .review-shell{width:calc(100% - 20px);padding-top:14px}
+  .review-header{align-items:flex-start;flex-direction:column}
+  .decision-metrics{grid-template-columns:1fr}
+  .alternative-card{grid-template-columns:1fr}
+}
 """.strip()
 
 
@@ -392,6 +481,22 @@ def _event_tiles(value: Any) -> list[str]:
         for item in _list(value)
         if isinstance(item, dict) and isinstance(item.get("tile"), str)
     ]
+
+
+def _tile_spans(tiles: list[str]) -> str:
+    return "".join(
+        f'<span class="tile kj-tile {_tile_class(tile)}">{escape(tile)}</span>' for tile in tiles
+    )
+
+
+def _tile_class(tile: str) -> str:
+    if tile.endswith("m"):
+        return "tile-man"
+    if tile.endswith("p"):
+        return "tile-pin"
+    if tile.endswith("s"):
+        return "tile-sou"
+    return "tile-honor"
 
 
 def _string_list(value: Any) -> list[str]:

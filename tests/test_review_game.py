@@ -58,6 +58,11 @@ class ReviewGameTests(unittest.TestCase):
                 self.assertIn("<!doctype html>", html)
                 self.assertIn('id="review-data"', html)
                 self.assertIn("Expected value delta", html)
+                self.assertIn("review-shell", html)
+                self.assertIn("Round Timeline", html)
+                self.assertIn("decision-list", html)
+                self.assertIn("data-total-decisions", html)
+                self.assertIn("kj-action-badge", html)
                 self.assertIn("decisions:", stdout.getvalue())
 
     def test_review_game_supports_linear_checkpoint(self) -> None:
