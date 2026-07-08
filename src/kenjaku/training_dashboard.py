@@ -8,6 +8,17 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+from kenjaku.frontend_static import (
+    html_attr,
+    html_document,
+    html_text,
+    line_chart_svg,
+    sortable_header,
+    sortable_table_script,
+    static_base_css,
+    summary_item,
+)
+
 TRAINING_DASHBOARD_KIND = "kenjaku-training-dashboard-v0"
 STEP_KEYS = ("epoch", "update", "step", "iteration")
 RUN_ID_KEYS = ("run_id", "run", "experiment", "experiment_id", "name")
@@ -122,138 +133,7 @@ def format_training_dashboard_html(
         link_base_dir=link_base_dir,
     )
     run_sections = "\n".join(_run_section(run) for run in runs)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,">
-  <title>{title}</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --bg: #f6f8f9;
-      --text: #18212b;
-      --muted: #66717e;
-      --line: #d9e0e6;
-      --panel: #ffffff;
-      --accent: #0f766e;
-      --accent-2: #b42318;
-      --accent-3: #946200;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font: 15px/1.48 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }}
-    header, main, footer {{
-      width: min(1180px, calc(100% - 32px));
-      margin: 0 auto;
-    }}
-    header {{ padding: 34px 0 16px; }}
-    h1 {{ margin: 0 0 8px; font-size: 32px; line-height: 1.15; letter-spacing: 0; }}
-    h2 {{ margin: 0 0 12px; font-size: 22px; letter-spacing: 0; }}
-    h3 {{ margin: 0 0 10px; font-size: 17px; letter-spacing: 0; }}
-    p {{ margin: 0 0 10px; }}
-    a {{ color: var(--accent); }}
-    section {{
-      margin: 22px 0;
-      padding-top: 20px;
-      border-top: 1px solid var(--line);
-    }}
-    .eyebrow {{
-      margin-bottom: 8px;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }}
-    .muted {{ color: var(--muted); }}
-    .summary-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 12px 18px;
-    }}
-    .summary-item {{
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--line);
-    }}
-    .summary-item dt {{
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }}
-    .summary-item dd {{ margin: 4px 0 0; }}
-    table {{
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 14px;
-    }}
-    th, td {{
-      padding: 9px 8px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }}
-    th {{ color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: uppercase; }}
-    th button {{
-      all: unset;
-      cursor: pointer;
-      color: inherit;
-      font: inherit;
-      text-transform: uppercase;
-    }}
-    .metric {{
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }}
-    .charts {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
-    }}
-    .chart {{
-      margin: 0;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-    }}
-    .chart figcaption {{
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }}
-    .chart svg {{
-      display: block;
-      width: 100%;
-      height: auto;
-    }}
-    .axis {{ stroke: #b7c0ca; stroke-width: 1; }}
-    .grid {{ stroke: #e5eaef; stroke-width: 1; }}
-    .line {{ fill: none; stroke: var(--accent); stroke-width: 2.4; }}
-    .line-alt {{ stroke: var(--accent-2); }}
-    .line-time {{ stroke: var(--accent-3); }}
-    .dot {{ fill: var(--accent); }}
-    footer {{ padding: 8px 0 34px; color: var(--muted); }}
-    @media (max-width: 760px) {{
-      header, main, footer {{ width: min(100% - 20px, 1180px); }}
-      h1 {{ font-size: 27px; }}
-      section {{ overflow-x: auto; }}
-      table {{ min-width: 860px; }}
-      .chart {{ min-width: 260px; }}
-    }}
-  </style>
-</head>
-<body>
+    body = f"""
   <header>
     <p class="eyebrow">Kenjaku {version}</p>
     <h1>{title}</h1>
@@ -267,12 +147,131 @@ def format_training_dashboard_html(
     {run_sections}
   </main>
   <footer>Generated at {generated_at}</footer>
-  <script>
-{_sort_script()}
-  </script>
-</body>
-</html>
 """
+    return html_document(
+        title=str(dashboard["title"]),
+        body_html=body,
+        inline_css=(static_base_css(), _TRAINING_DASHBOARD_CSS),
+        inline_script=sortable_table_script("training-runs-table"),
+        body_class="training-dashboard",
+    )
+
+
+_TRAINING_DASHBOARD_CSS = """
+:root {
+      color-scheme: light;
+      --bg: #f6f8f9;
+      --text: #18212b;
+      --muted: #66717e;
+      --line: #d9e0e6;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-2: #b42318;
+      --accent-3: #946200;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.48 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header, main, footer {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    header { padding: 34px 0 16px; }
+    h1 { margin: 0 0 8px; font-size: 32px; line-height: 1.15; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 22px; letter-spacing: 0; }
+    h3 { margin: 0 0 10px; font-size: 17px; letter-spacing: 0; }
+    p { margin: 0 0 10px; }
+    a { color: var(--accent); }
+    section {
+      margin: 22px 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .muted { color: var(--muted); }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px 18px;
+    }
+    .summary-item {
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .summary-item dt {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .summary-item dd { margin: 4px 0 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: uppercase; }
+    .metric {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .chart {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .chart figcaption {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .chart svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .axis { stroke: #b7c0ca; stroke-width: 1; }
+    .grid { stroke: #e5eaef; stroke-width: 1; }
+    .line { fill: none; stroke: var(--accent); stroke-width: 2.4; }
+    .line-alt { stroke: var(--accent-2); }
+    .line-time { stroke: var(--accent-3); }
+    .dot { fill: var(--accent); }
+    footer { padding: 8px 0 34px; color: var(--muted); }
+    @media (max-width: 760px) {
+      header, main, footer { width: min(100% - 20px, 1180px); }
+      h1 { font-size: 27px; }
+      section { overflow-x: auto; }
+      table { min-width: 860px; }
+      .chart { min-width: 260px; }
+    }
+""".strip()
 
 
 def _training_runs(paths: Sequence[Path]) -> list[dict[str, Any]]:
@@ -628,63 +627,12 @@ def _chart_figure(run: dict[str, Any], metric: str) -> str:
 
 
 def _line_chart(points: Sequence[dict[str, float]], *, metric: str) -> str:
-    width = 440
-    height = 180
-    left = 42
-    right = 12
-    top = 14
-    bottom = 30
-    if not points:
-        return ""
-    xs = [point["step"] for point in points]
-    ys = [point["value"] for point in points]
-    min_x, max_x = min(xs), max(xs)
-    min_y, max_y = min(ys), max(ys)
-    x_span = max_x - min_x
-    y_span = max_y - min_y
-
-    def sx(value: float) -> float:
-        return left + ((value - min_x) / x_span) * (width - left - right) if x_span else width / 2
-
-    def sy(value: float) -> float:
-        return (
-            top + (height - top - bottom) / 2
-            if not y_span
-            else (height - bottom - ((value - min_y) / y_span) * (height - top - bottom))
-        )
-
-    coords = [(sx(point["step"]), sy(point["value"])) for point in points]
-    path = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
     line_class = _line_class(metric)
-    if len(coords) == 1:
-        shape = (
-            f'<circle class="dot" cx="{coords[0][0]:.1f}" cy="{coords[0][1]:.1f}" r="4"></circle>'
-        )
-    else:
-        shape = f'<polyline class="line {line_class}" points="{path}"></polyline>'
-    min_x_text = _html_text(_format_number(min_x))
-    max_x_text = _html_text(_format_number(max_x))
-    min_y_text = _html_text(_format_number(min_y))
-    max_y_text = _html_text(_format_number(max_y))
-    x2 = width - right
-    y2 = height - bottom
-    max_x_label = (
-        f'<text x="{x2}" y="{height - 8}" fill="#66717e" '
-        f'font-size="11" text-anchor="end">{max_x_text}</text>'
+    return line_chart_svg(
+        [(point["step"], point["value"]) for point in points],
+        label=f"{metric} chart",
+        line_class=f"line {line_class}".strip(),
     )
-    return f"""
-        <svg viewBox="0 0 {width} {height}" role="img" aria-label="{_html_attr(metric)} chart">
-          <line class="grid" x1="{left}" y1="{top}" x2="{width - right}" y2="{top}"></line>
-          <line class="grid" x1="{left}" y1="{y2}" x2="{x2}" y2="{y2}"></line>
-          <line class="axis" x1="{left}" y1="{top}" x2="{left}" y2="{height - bottom}"></line>
-          <line class="axis" x1="{left}" y1="{y2}" x2="{x2}" y2="{y2}"></line>
-          {shape}
-          <text x="{left}" y="{height - 8}" fill="#66717e" font-size="11">{min_x_text}</text>
-          {max_x_label}
-          <text x="4" y="{top + 4}" fill="#66717e" font-size="11">{max_y_text}</text>
-          <text x="4" y="{y2}" fill="#66717e" font-size="11">{min_y_text}</text>
-        </svg>
-"""
 
 
 def _line_class(metric: str) -> str:
@@ -696,17 +644,11 @@ def _line_class(metric: str) -> str:
 
 
 def _summary_item(label: str, value: str) -> str:
-    return (
-        f'<div class="summary-item"><dt>{_html_text(label)}</dt><dd>{_html_text(value)}</dd></div>'
-    )
+    return summary_item(label, value)
 
 
 def _sortable_header(column: int, label: str, sort_type: str) -> str:
-    return (
-        "<th>"
-        f'<button type="button" data-sort-column="{column}" data-sort-type="{sort_type}">'
-        f"{_html_text(label)}</button></th>"
-    )
+    return sortable_header(column, label, sort_type)
 
 
 def _source_link(path: str, *, link_base_dir: Path | None) -> str:
@@ -768,52 +710,8 @@ def _fragment(run_id: str, source_path: str) -> str:
 
 
 def _html_text(value: Any) -> str:
-    return escape(str(value), quote=True)
+    return html_text(value)
 
 
 def _html_attr(value: Any) -> str:
-    return escape(str(value), quote=True)
-
-
-def _sort_script() -> str:
-    return r"""
-(() => {
-  const table = document.getElementById("training-runs-table");
-  if (!table) {
-    return;
-  }
-  const body = table.tBodies[0];
-  for (const button of table.querySelectorAll("[data-sort-column]")) {
-    button.addEventListener("click", () => {
-      const column = Number(button.dataset.sortColumn);
-      const type = button.dataset.sortType || "text";
-      const direction = button.dataset.sortDirection === "asc" ? "desc" : "asc";
-      button.dataset.sortDirection = direction;
-      const rows = Array.from(body.rows);
-      rows.sort((left, right) => {
-        const leftValue = left.cells[column]?.dataset.sort || "";
-        const rightValue = right.cells[column]?.dataset.sort || "";
-        if (type === "number") {
-          return compareNumber(leftValue, rightValue, direction);
-        }
-        return compareText(leftValue, rightValue, direction);
-      });
-      for (const row of rows) {
-        body.appendChild(row);
-      }
-    });
-  }
-})();
-
-function compareNumber(left, right, direction) {
-  const leftNumber = left === "" ? Number.NEGATIVE_INFINITY : Number(left);
-  const rightNumber = right === "" ? Number.NEGATIVE_INFINITY : Number(right);
-  const result = leftNumber - rightNumber;
-  return direction === "asc" ? result : -result;
-}
-
-function compareText(left, right, direction) {
-  const result = left.localeCompare(right, undefined, {numeric: true});
-  return direction === "asc" ? result : -result;
-}
-""".strip()
+    return html_attr(value)

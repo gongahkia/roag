@@ -5,6 +5,8 @@ from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
+from kenjaku.frontend_static import html_document
+
 BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
 BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js")
 FIXTURE_WALL_SEED = "kenjaku-browser-demo-wall-v0"
@@ -54,15 +56,7 @@ def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
     }
 
 
-_INDEX_HTML = """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kenjaku Browser Demo</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+_INDEX_BODY_HTML = """
   <main class="demo-shell">
     <section class="table-view" aria-label="Mahjong table">
       <div class="table-status">
@@ -125,10 +119,15 @@ _INDEX_HTML = """<!doctype html>
       </section>
     </aside>
   </main>
-  <script src="demo.js"></script>
-</body>
-</html>
 """
+
+
+_INDEX_HTML = html_document(
+    title="Kenjaku Browser Demo",
+    body_html=_INDEX_BODY_HTML,
+    stylesheets=("styles.css",),
+    scripts=("demo.js",),
+)
 
 
 _STYLES_CSS = """* {

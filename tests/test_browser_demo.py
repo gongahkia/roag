@@ -50,6 +50,7 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertEqual(result["kind"], BROWSER_DEMO_KIND)
         self.assertEqual([Path(path).name for path in result["files"]], list(BROWSER_DEMO_FILES))
         self.assertTrue(html.startswith("<!doctype html>"))
+        self.assertIn("kenjaku-static-frontend-helpers-v0", html)
         self.assertIn('href="styles.css"', html)
         self.assertIn('src="demo.js"', html)
         for contents in (html, css, js):
