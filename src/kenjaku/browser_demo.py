@@ -5,16 +5,35 @@ from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
+from kenjaku.core import TileType, all_tile_types
 from kenjaku.frontend_static import (
     html_document,
     motion_primitives_css,
     motion_primitives_script,
     theme_css,
 )
+from kenjaku.training.ppo import (
+    PPO_ACTION_DIM,
+    PPO_ACTION_KIND_OFFSETS,
+    PPO_DECISION_TYPES,
+    PPO_KYUSHU_ACTION_INDEX,
+    PPO_PASS_ACTION_INDEX,
+    PPO_RIICHI_ACTION_INDEX,
+    PPO_SANDBOX_POLICY_KIND,
+    PPO_STATE_DIM,
+    PPO_TSUMO_ACTION_INDEX,
+    ppo_action_index,
+    ppo_legal_action_mask,
+    ppo_state_features,
+)
 
 BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
-BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js")
+BROWSER_DEMO_POLICY_KIND = "kenjaku-browser-demo-ppo-policy-v0"
+BROWSER_DEMO_MANIFEST_KIND = "kenjaku-browser-demo-manifest-v0"
+BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js", "policy.json", "manifest.json")
 FIXTURE_WALL_SEED = "kenjaku-browser-demo-wall-v0"
+DEMO_POLICY_EXPORT_SEED = "kenjaku-browser-demo-ppo-export-v0"
+_DRAWN_TILE_FEATURE_OFFSET = 17
 _FIXTURE_WALL_POOL = (
     "5p",
     "9s",
@@ -43,13 +62,176 @@ def fixture_wall(seed: str = FIXTURE_WALL_SEED) -> tuple[str, ...]:
     return tuple(tile for _key, tile in sorted(keyed_tiles))
 
 
+def browser_demo_policy() -> dict[str, Any]:
+    tile_types = tuple(tile.notation for tile in all_tile_types())
+    bias = [-0.42 for _action in range(PPO_ACTION_DIM)]
+    sparse_weights: list[dict[str, int | float]] = []
+
+    for tile_type in all_tile_types():
+        action_index = PPO_ACTION_KIND_OFFSETS["discard"] + tile_type.index
+        bias[action_index] = _discard_bias(tile_type)
+        sparse_weights.append(
+            {
+                "action": action_index,
+                "feature": _DRAWN_TILE_FEATURE_OFFSET + tile_type.index,
+                "value": 0.18,
+            }
+        )
+        sparse_weights.append({"action": action_index, "feature": 6, "value": 0.08})
+
+    bias[PPO_PASS_ACTION_INDEX] = -0.2
+    bias[PPO_TSUMO_ACTION_INDEX] = 0.35
+    bias[PPO_RIICHI_ACTION_INDEX] = 0.1
+    bias[PPO_KYUSHU_ACTION_INDEX] = -0.1
+
+    verification_entry = _demo_policy_verification_entry()
+    legal_actions = _discard_actions(verification_entry["state"]["hands"][0])
+    logits = browser_demo_policy_logits(verification_entry, legal_actions, bias, sparse_weights)
+    selected_action_index = max(range(len(logits)), key=logits.__getitem__)
+    return {
+        "kind": BROWSER_DEMO_POLICY_KIND,
+        "seed": DEMO_POLICY_EXPORT_SEED,
+        "description": "Static browser export for the Kenjaku sandbox PPO policy interface.",
+        "model": {
+            "policy_kind": PPO_SANDBOX_POLICY_KIND,
+            "input_dim": PPO_STATE_DIM,
+            "hidden_dim": 0,
+            "action_dim": PPO_ACTION_DIM,
+            "decision_types": list(PPO_DECISION_TYPES),
+        },
+        "tiles": list(tile_types),
+        "actions": {
+            "kind_offsets": PPO_ACTION_KIND_OFFSETS,
+            "special_indices": {
+                "pass": PPO_PASS_ACTION_INDEX,
+                "tsumo": PPO_TSUMO_ACTION_INDEX,
+                "riichi": PPO_RIICHI_ACTION_INDEX,
+                "kyushu": PPO_KYUSHU_ACTION_INDEX,
+            },
+        },
+        "training": {
+            "environment": "sandbox",
+            "export": "deterministic fixture-safe browser policy",
+            "checkpoint": "embedded",
+        },
+        "model_state": {
+            "format": "linear-sparse-v0",
+            "bias": bias,
+            "weights": sparse_weights,
+            "value_bias": 0.0,
+            "value_weights": [],
+        },
+        "verification": {
+            "entry": verification_entry,
+            "legal_actions": legal_actions,
+            "selected_action_index": selected_action_index,
+            "selected_action": _action_from_index(selected_action_index),
+        },
+    }
+
+
+def browser_demo_policy_logits(
+    entry: dict[str, Any],
+    legal_actions: list[dict[str, str]],
+    bias: list[float] | None = None,
+    sparse_weights: list[dict[str, int | float]] | None = None,
+) -> list[float]:
+    if bias is None or sparse_weights is None:
+        payload = browser_demo_policy()
+        model_state = payload["model_state"]
+        bias = list(model_state["bias"])
+        sparse_weights = list(model_state["weights"])
+    features = ppo_state_features(entry)
+    mask = ppo_legal_action_mask(legal_actions)
+    logits = [-1.0e9 for _action in range(PPO_ACTION_DIM)]
+    for action, legal in enumerate(mask):
+        if legal:
+            logits[action] = float(bias[action])
+    for weight in sparse_weights:
+        action = int(weight["action"])
+        if mask[action]:
+            logits[action] += float(weight["value"]) * features[int(weight["feature"])]
+    return logits
+
+
+def _discard_bias(tile_type: TileType) -> float:
+    if tile_type.is_honor:
+        return 0.42
+    if tile_type.is_terminal:
+        return 0.26
+    if tile_type.rank in {2, 8}:
+        return 0.08
+    if tile_type.rank in {3, 7}:
+        return -0.02
+    if tile_type.rank in {4, 6}:
+        return -0.08
+    return -0.16
+
+
+def _discard_actions(hand: list[str]) -> list[dict[str, str]]:
+    return [{"kind": "discard", "tile": tile} for tile in dict.fromkeys(hand)]
+
+
+def _demo_policy_verification_entry() -> dict[str, Any]:
+    return {
+        "decision_type": "discard",
+        "seat": 0,
+        "state": {
+            "turn": 1,
+            "current_seat": 0,
+            "round_wind": "E",
+            "dealer_seat": 0,
+            "honba": 0,
+            "points": [25000, 25000, 25000, 25000],
+            "hands": [
+                ["1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1p", "1p", "E", "E", "P"],
+                [],
+                [],
+                [],
+            ],
+            "wall_remaining": len(fixture_wall()) - 1,
+            "drawn_tile": "P",
+            "needs_discard": True,
+            "pending_reaction_seats": [],
+        },
+    }
+
+
+def _action_from_index(action_index: int) -> dict[str, str]:
+    for kind, offset in PPO_ACTION_KIND_OFFSETS.items():
+        if offset <= action_index < offset + 34:
+            return {"kind": kind, "tile": TileType(action_index - offset).notation}
+    special_actions = {
+        PPO_PASS_ACTION_INDEX: "pass",
+        PPO_TSUMO_ACTION_INDEX: "tsumo",
+        PPO_RIICHI_ACTION_INDEX: "riichi",
+        PPO_KYUSHU_ACTION_INDEX: "kyushu",
+    }
+    return {"kind": special_actions[action_index]}
+
+
 def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
     target_dir = Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
+    policy = browser_demo_policy()
+    manifest = {
+        "kind": BROWSER_DEMO_MANIFEST_KIND,
+        "demo_kind": BROWSER_DEMO_KIND,
+        "entrypoint": "index.html",
+        "assets": list(BROWSER_DEMO_FILES),
+        "policy": {
+            "kind": policy["kind"],
+            "policy_kind": policy["model"]["policy_kind"],
+            "input_dim": policy["model"]["input_dim"],
+            "action_dim": policy["model"]["action_dim"],
+        },
+    }
     files = {
         "index.html": _INDEX_HTML,
         "styles.css": _STYLES_CSS,
-        "demo.js": _DEMO_JS,
+        "demo.js": _demo_js(policy),
+        "policy.json": json.dumps(policy, indent=2, sort_keys=True) + "\n",
+        "manifest.json": json.dumps(manifest, indent=2, sort_keys=True) + "\n",
     }
     for filename, contents in files.items():
         (target_dir / filename).write_text(contents, encoding="utf-8")
@@ -81,6 +263,10 @@ _INDEX_BODY_HTML = """
           <p class="label">Turn</p>
           <p id="turn-label">You</p>
         </div>
+        <div class="hud-chip kj-chip">
+          <p class="label">Mode</p>
+          <p id="mode-label">Autoplay</p>
+        </div>
       </div>
 
       <div class="table-arena">
@@ -95,6 +281,36 @@ _INDEX_BODY_HTML = """
             <div class="center-stack">
               <p class="label">Terminal Result</p>
               <p id="terminal-result" class="result-text">In progress</p>
+              <div class="mode-controls" aria-label="Demo controls">
+                <button
+                  id="autoplay-button"
+                  class="action-button mode-button kj-action-badge kj-motion-lift kj-motion-press"
+                  type="button"
+                >
+                  Autoplay
+                </button>
+                <button
+                  id="user-mode-button"
+                  class="action-button mode-button kj-action-badge kj-motion-lift kj-motion-press"
+                  type="button"
+                >
+                  User vs Model
+                </button>
+                <button
+                  id="pause-button"
+                  class="action-button mode-button kj-action-badge kj-motion-lift kj-motion-press"
+                  type="button"
+                >
+                  Pause
+                </button>
+                <button
+                  id="step-button"
+                  class="action-button mode-button kj-action-badge kj-motion-lift kj-motion-press"
+                  type="button"
+                >
+                  Step
+                </button>
+              </div>
               <button
                 id="restart-button"
                 class="action-button kj-action-badge kj-motion-lift kj-motion-press"
@@ -131,6 +347,23 @@ _INDEX_BODY_HTML = """
       <section class="side-card kj-card">
         <h1>Kenjaku Demo</h1>
         <dl id="scoreboard" class="scoreboard"></dl>
+      </section>
+      <section class="side-card kj-card policy-panel">
+        <h2>Policy</h2>
+        <dl class="policy-grid">
+          <div class="policy-row">
+            <dt>Export</dt>
+            <dd id="policy-export">Loading</dd>
+          </div>
+          <div class="policy-row">
+            <dt>Decision</dt>
+            <dd id="policy-decision">None</dd>
+          </div>
+          <div class="policy-row">
+            <dt>Confidence</dt>
+            <dd id="policy-confidence">0%</dd>
+          </div>
+        </dl>
       </section>
       <section class="side-card kj-card">
         <h2>Discards</h2>
