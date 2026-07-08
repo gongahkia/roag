@@ -38,8 +38,7 @@ def build_decision_snapshots(
     include_outcome: bool = False,
 ) -> list[dict[str, Any]]:
     selected_types = tuple(
-        _validate_decision_type(decision_type)
-        for decision_type in decision_types
+        _validate_decision_type(decision_type) for decision_type in decision_types
     )
     if limit is not None and limit < 0:
         raise ValueError("limit must be non-negative")
@@ -239,8 +238,7 @@ def _base_snapshot(
         "dora_indicators": [_tile_payload(tile) for tile in round_.dora_indicators],
         "active_riichi_seats": list(getattr(example, "active_riichi_seats", ())),
         "river_counts_by_seat": [
-            list(counts)
-            for counts in getattr(example, "river_counts_by_seat", ())
+            list(counts) for counts in getattr(example, "river_counts_by_seat", ())
         ],
         "mjai_events": _mjai_events_prefix(
             game,
@@ -325,10 +323,7 @@ def _mjai_start_kyoku(round_: TenhouRound, round_index: int) -> dict[str, Any]:
         "kyotaku": 0,
         "oya": round_.dealer,
         "scores": list(round_.scores),
-        "tehais": [
-            [_mjai_tile(tile) for tile in hand]
-            for hand in round_.starting_hands
-        ],
+        "tehais": [[_mjai_tile(tile) for tile in hand] for hand in round_.starting_hands],
     }
     if round_.dora_indicators:
         payload["dora_marker"] = _mjai_tile(round_.dora_indicators[0])

@@ -85,14 +85,10 @@ def review_replay_manifest(
     accepted = [decision for decision in decisions if decision.accepted]
     rejected = [decision for decision in decisions if not decision.accepted]
     platforms = Counter(
-        decision.item.platform
-        for decision in decisions
-        if decision.item is not None
+        decision.item.platform for decision in decisions if decision.item is not None
     )
     permission_statuses = Counter(
-        decision.item.permission_status
-        for decision in decisions
-        if decision.item is not None
+        decision.item.permission_status for decision in decisions if decision.item is not None
     )
     return {
         "kind": REPLAY_INTAKE_REVIEW_KIND,
@@ -260,8 +256,7 @@ def build_replay_share_plan(
         raise ValueError("share intent must be one of: " + ", ".join(SHARE_INTENTS))
 
     decisions = [
-        _replay_share_decision(row, index=index, intent=intent)
-        for index, row in enumerate(rows)
+        _replay_share_decision(row, index=index, intent=intent) for index, row in enumerate(rows)
     ]
     shareable = [decision for decision in decisions if decision["shareable"]]
     blocked = [decision for decision in decisions if not decision["shareable"]]
@@ -405,9 +400,7 @@ def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, An
     permission = row.get("permission")
     intended_uses = _safe_string_tuple(row.get("intended_uses"))
     permission_scope = (
-        _safe_string_tuple(permission.get("scope"))
-        if isinstance(permission, dict)
-        else ()
+        _safe_string_tuple(permission.get("scope")) if isinstance(permission, dict) else ()
     )
     reasons: list[str] = []
     if intent not in intended_uses:

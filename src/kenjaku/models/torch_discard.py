@@ -414,10 +414,7 @@ def _selection_key(row: dict[str, Any], *, split: str) -> tuple[float, float, in
 
 
 def _snapshot_model_state(model: Any) -> dict[str, Any]:
-    return {
-        name: value.detach().cpu().clone()
-        for name, value in model.state_dict().items()
-    }
+    return {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
 
 
 def _state_tensor(example: DiscardExample) -> Any:

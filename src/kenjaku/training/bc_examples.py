@@ -324,16 +324,12 @@ def _discard_example_to_payload(example: DiscardExample) -> dict[str, Any]:
         "active_riichi_seats": list(example.active_riichi_seats),
         "river_counts_by_seat": _nested_ints_to_payload(example.river_counts_by_seat),
         "seat_turn_index": example.seat_turn_index,
-        "rivers_by_seat": [
-            [tile.notation for tile in river]
-            for river in example.rivers_by_seat
-        ],
+        "rivers_by_seat": [[tile.notation for tile in river] for river in example.rivers_by_seat],
         "riichi_declared_turns": list(example.riichi_declared_turns),
         "riichi_declared_event_indices": list(example.riichi_declared_event_indices),
         "meld_counts_by_seat": _nested_ints_to_payload(example.meld_counts_by_seat),
         "meld_tiles_by_seat": [
-            [tile.notation for tile in meld_tiles]
-            for meld_tiles in example.meld_tiles_by_seat
+            [tile.notation for tile in meld_tiles] for meld_tiles in example.meld_tiles_by_seat
         ],
         "dora_indicators": [tile.notation for tile in example.dora_indicators],
         "last_discard_tsumogiri_by_seat": list(example.last_discard_tsumogiri_by_seat),
@@ -399,8 +395,7 @@ def _call_example_from_payload(payload: dict[str, Any]) -> CallExample:
         scores=_int_tuple(payload, "scores"),
         discarded_tile=Tile.parse(str(payload["discarded_tile"])),
         legal_call_kinds=tuple(
-            ActionKind(str(kind))
-            for kind in _required_list(payload, "legal_call_kinds")
+            ActionKind(str(kind)) for kind in _required_list(payload, "legal_call_kinds")
         ),
         hand_counts=_tile_counts_from_payload(payload, "hand_counts"),
         visible_counts=_tile_counts_from_payload(payload, "visible_counts"),

@@ -22,12 +22,14 @@ ml = [
 dev = [
   "build",
   "coverage[toml]",
+  "pre-commit",
   "ruff",
   "twine",
 ]
 dev-ml = [
   "build",
   "coverage[toml]",
+  "pre-commit",
   "ruff",
   "torch",
   "twine",

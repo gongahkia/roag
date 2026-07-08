@@ -80,11 +80,7 @@ def build_safety_advisor_report(
         "hand_tiles": [tile.notation for tile in hand_tiles],
         "river_tiles": [tile.notation for tile in river_tiles],
         "seat": seat,
-        "active_riichi_seats": [
-            index
-            for index, is_active in enumerate(active)
-            if is_active
-        ],
+        "active_riichi_seats": [index for index, is_active in enumerate(active) if is_active],
         "disclaimer": SAFETY_ADVISOR_DISCLAIMER,
         "candidates": candidates,
     }
@@ -112,8 +108,7 @@ def format_safety_advisor_text(report: dict[str, Any]) -> str:
     lines = [
         f"hand: {' '.join(_string_list(report.get('hand_tiles')))}",
         f"river: {' '.join(_string_list(report.get('river_tiles')))}",
-        "active_riichi: "
-        + ",".join(str(seat) for seat in report.get("active_riichi_seats", [])),
+        "active_riichi: " + ",".join(str(seat) for seat in report.get("active_riichi_seats", [])),
         "candidates:",
     ]
     for candidate in report.get("candidates", []):

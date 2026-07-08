@@ -1290,10 +1290,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
                     dead_wall=(Tile.parse(indicator),),
                     dora_indicators=(Tile.parse(indicator),),
                     hands=(
-                        _tiles(
-                            "1p 2p 3p 2s 3s 4s 7s 8s 9s "
-                            f"E E E {dora} {dora}"
-                        ),
+                        _tiles(f"1p 2p 3p 2s 3s 4s 7s 8s 9s E E E {dora} {dora}"),
                         (),
                         (),
                     ),
@@ -2689,10 +2686,7 @@ class SandboxEnvironmentTests(unittest.TestCase):
             (1, 2),
         )
         self.assertEqual(
-            tuple(
-                estimate.riichi_stick_points
-                for estimate in terminal.terminal_score_estimates
-            ),
+            tuple(estimate.riichi_stick_points for estimate in terminal.terminal_score_estimates),
             (1000, 0),
         )
         payload = terminal.to_payload()

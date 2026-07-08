@@ -129,10 +129,7 @@ class SandboxLinearPpoActorCritic:
         }
 
     def load_state_dict(self, state: dict[str, Any]) -> None:
-        self.policy_weights = [
-            [float(value) for value in row]
-            for row in state["policy_weights"]
-        ]
+        self.policy_weights = [[float(value) for value in row] for row in state["policy_weights"]]
         self.policy_bias = [float(value) for value in state["policy_bias"]]
         self.value_weights = [float(value) for value in state["value_weights"]]
         self.value_bias = float(state["value_bias"])
@@ -438,8 +435,7 @@ def ppo_state_features(entry: dict[str, Any]) -> list[float]:
     round_wind_one_hot = [1.0 if round_wind == wind else 0.0 for wind in ("E", "S", "W", "N")]
     decision_type = str(entry.get("decision_type", "pass"))
     decision_one_hot = [
-        1.0 if decision_type == candidate else 0.0
-        for candidate in PPO_DECISION_TYPES
+        1.0 if decision_type == candidate else 0.0 for candidate in PPO_DECISION_TYPES
     ]
     pending_reactions = state.get("pending_reaction_seats", [])
     features = [
@@ -640,10 +636,7 @@ def _rollout_arrays(rollout: SandboxPpoRollout) -> dict[str, Any]:
         "actions": [transition.action_index for transition in rollout.transitions],
         "rewards": [transition.reward for transition in rollout.transitions],
         "dones": [transition.done for transition in rollout.transitions],
-        "sequence_keys": [
-            (transition.game, transition.seat)
-            for transition in rollout.transitions
-        ],
+        "sequence_keys": [(transition.game, transition.seat) for transition in rollout.transitions],
     }
 
 
@@ -784,8 +777,10 @@ def _run_ppo_update(
                         float(candidate == action) - probabilities[candidate]
                     )
                     if entropy_coef:
-                        grad_logit += entropy_coef * probabilities[candidate] * (
-                            log_probs[candidate] + entropy
+                        grad_logit += (
+                            entropy_coef
+                            * probabilities[candidate]
+                            * (log_probs[candidate] + entropy)
                         )
                     _accumulate_policy_gradient(gradients, state, candidate, grad_logit)
                 value_coeff = 2.0 * value_coef * value_error
@@ -804,12 +799,7 @@ def _run_ppo_update(
                 batch_size=len(indices),
                 max_grad_norm=max_grad_norm,
             )
-            metrics.append(
-                {
-                    key: value / len(indices)
-                    for key, value in batch_metrics.items()
-                }
-            )
+            metrics.append({key: value / len(indices) for key, value in batch_metrics.items()})
     mean = _mean_metric_rows(metrics)
     mean["batches"] = float(len(metrics))
     return mean
@@ -818,8 +808,7 @@ def _run_ppo_update(
 def _empty_gradients(model: SandboxLinearPpoActorCritic) -> dict[str, Any]:
     return {
         "policy_weights": [
-            [0.0 for _feature in range(model.input_dim)]
-            for _action in range(model.action_dim)
+            [0.0 for _feature in range(model.input_dim)] for _action in range(model.action_dim)
         ],
         "policy_bias": [0.0 for _action in range(model.action_dim)],
         "value_weights": [0.0 for _feature in range(model.input_dim)],
@@ -923,10 +912,7 @@ def _minibatch_indices(
 ) -> list[list[int]]:
     indices = list(range(size))
     random.Random(seed).shuffle(indices)
-    return [
-        indices[start : start + batch_size]
-        for start in range(0, size, batch_size)
-    ]
+    return [indices[start : start + batch_size] for start in range(0, size, batch_size)]
 
 
 def _empty_metric_row() -> dict[str, float]:
@@ -944,10 +930,7 @@ def _mean_metric_rows(rows: Sequence[dict[str, float]]) -> dict[str, float]:
     if not rows:
         return _empty_metric_row()
     keys = rows[0].keys()
-    return {
-        key: sum(row[key] for row in rows) / len(rows)
-        for key in keys
-    }
+    return {key: sum(row[key] for row in rows) / len(rows) for key in keys}
 
 
 def _explained_variance(values: Sequence[float], returns: Sequence[float]) -> float | None:
@@ -959,9 +942,7 @@ def _explained_variance(values: Sequence[float], returns: Sequence[float]) -> fl
         return None
     residuals = [target - value for target, value in zip(returns, values, strict=True)]
     mean_residual = sum(residuals) / len(residuals)
-    residual_variance = (
-        sum((value - mean_residual) ** 2 for value in residuals) / len(residuals)
-    )
+    residual_variance = sum((value - mean_residual) ** 2 for value in residuals) / len(residuals)
     return 1.0 - residual_variance / variance
 
 

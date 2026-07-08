@@ -12,6 +12,7 @@ Use Python `>=3.11,<3.14`. Local examples use Homebrew `python3.13`.
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
+pre-commit install
 PYTHONPATH=src python -m kenjaku --version
 ```
 
@@ -25,6 +26,7 @@ Run the narrowest relevant tests first, then the standard checks before opening 
 PYTHONPATH=src python3.13 -m unittest discover -s tests
 PYTHONPATH=src python3.13 -m compileall -q src tests scripts
 python3.13 -m ruff check .
+pre-commit run --all-files
 ```
 
 Pyright is not pinned in `pyproject.toml` yet. If available locally, run the current target scope:

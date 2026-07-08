@@ -38,9 +38,7 @@ HONBA_TSUMO_POINTS_PER_LOSER = 100
 SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = 3000
 SANDBOX_DEAD_WALL_TILES = 14
 SANDBOX_3P_REPLACEMENT_TILES = 8
-SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = (
-    SANDBOX_DEAD_WALL_TILES - SANDBOX_3P_REPLACEMENT_TILES
-)
+SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = SANDBOX_DEAD_WALL_TILES - SANDBOX_3P_REPLACEMENT_TILES
 SANDBOX_INITIAL_DORA_INDICATORS = 1
 SANDBOX_SCORE_PAYMENT_MODEL = "exact-riichi-score-v0"
 SANDBOX_KITA_TILE = TileType.parse("N")
@@ -59,9 +57,7 @@ SANDBOX_DRAGON_TILES_ORDER = (
     TileType.parse("F"),
     TileType.parse("C"),
 )
-SANDBOX_DRAGON_TILES = frozenset(
-    SANDBOX_DRAGON_TILES_ORDER
-)
+SANDBOX_DRAGON_TILES = frozenset(SANDBOX_DRAGON_TILES_ORDER)
 SANDBOX_YAKU_HAN = {
     "chiitoitsu": 2,
     "chanta": 2,
@@ -402,19 +398,14 @@ class SandboxEnvironmentState:
             raise ValueError("double riichi seats must also be riichi seats")
         if any(not 0 <= seat < self.players for seat in self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seat outside player range")
-        if len(set(self.riichi_pending_discard_seats)) != len(
-            self.riichi_pending_discard_seats
-        ):
+        if len(set(self.riichi_pending_discard_seats)) != len(self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seats must be unique")
         if any(seat not in self.riichi_seats for seat in self.riichi_pending_discard_seats):
             raise ValueError("riichi pending discard seats must also be riichi seats")
         if self.pending_riichi_declaration_discard_seat is not None:
             if self.pending_discard is None:
                 raise ValueError("pending riichi declaration seat requires a pending discard")
-            if (
-                self.pending_discard_seat
-                != self.pending_riichi_declaration_discard_seat
-            ):
+            if self.pending_discard_seat != self.pending_riichi_declaration_discard_seat:
                 raise ValueError("pending riichi declaration seat must match discard seat")
             if not 0 <= self.pending_riichi_declaration_discard_seat < self.players:
                 raise ValueError("pending riichi declaration seat outside player range")
@@ -459,27 +450,21 @@ class SandboxEnvironmentState:
         if any(not 0 <= estimate.seat < self.players for estimate in self.terminal_score_estimates):
             raise ValueError("terminal score estimate seat outside player range")
         if any(
-            estimate.seat not in self.winner_seats
-            for estimate in self.terminal_score_estimates
+            estimate.seat not in self.winner_seats for estimate in self.terminal_score_estimates
         ):
             raise ValueError("terminal score estimate seats must also be winner seats")
         if any(not 0 <= seat < self.players for seat in self.exhaustive_draw_tenpai_seats):
             raise ValueError("exhaustive draw tenpai seat outside player range")
-        if len(set(self.exhaustive_draw_tenpai_seats)) != len(
-            self.exhaustive_draw_tenpai_seats
-        ):
+        if len(set(self.exhaustive_draw_tenpai_seats)) != len(self.exhaustive_draw_tenpai_seats):
             raise ValueError("exhaustive draw tenpai seats must be unique")
         if any(not 0 <= seat < self.players for seat in self.exhaustive_draw_noten_seats):
             raise ValueError("exhaustive draw noten seat outside player range")
-        if len(set(self.exhaustive_draw_noten_seats)) != len(
-            self.exhaustive_draw_noten_seats
-        ):
+        if len(set(self.exhaustive_draw_noten_seats)) != len(self.exhaustive_draw_noten_seats):
             raise ValueError("exhaustive draw noten seats must be unique")
         if set(self.exhaustive_draw_tenpai_seats) & set(self.exhaustive_draw_noten_seats):
             raise ValueError("exhaustive draw tenpai and noten seats cannot overlap")
-        if (
-            self.terminal_reason != "wall_exhausted"
-            and (self.exhaustive_draw_tenpai_seats or self.exhaustive_draw_noten_seats)
+        if self.terminal_reason != "wall_exhausted" and (
+            self.exhaustive_draw_tenpai_seats or self.exhaustive_draw_noten_seats
         ):
             raise ValueError("exhaustive draw seats require wall exhaustion")
         if self.final_result is not None:
@@ -512,9 +497,7 @@ class SandboxEnvironmentState:
             "wall_remaining": len(self.wall),
             "dead_wall_remaining": len(self.dead_wall),
             "dora_indicators": [tile.notation for tile in self.dora_indicators],
-            "ura_dora_indicators": [
-                tile.notation for tile in self.ura_dora_indicators
-            ],
+            "ura_dora_indicators": [tile.notation for tile in self.ura_dora_indicators],
             "hand_sizes": self.hand_sizes(),
             "points": list(_points_by_seat(self)),
             "riichi_sticks": self.riichi_sticks,
@@ -527,8 +510,7 @@ class SandboxEnvironmentState:
             ],
             "melds": _meld_payloads(self),
             "kita_tiles": [
-                [tile.notation for tile in seat_tiles]
-                for seat_tiles in _kita_tiles_by_seat(self)
+                [tile.notation for tile in seat_tiles] for seat_tiles in _kita_tiles_by_seat(self)
             ],
             "kita_counts": [len(seat_tiles) for seat_tiles in _kita_tiles_by_seat(self)],
             "drawn_tile": None if self.drawn_tile is None else self.drawn_tile.notation,
@@ -573,8 +555,7 @@ class SandboxEnvironmentState:
             ],
             "winning_yaku": list(self.winning_yaku),
             "winning_yaku_by_seat": [
-                {"seat": seat, "yaku": list(yaku)}
-                for seat, yaku in self.winning_yaku_by_seat
+                {"seat": seat, "yaku": list(yaku)} for seat, yaku in self.winning_yaku_by_seat
             ],
             "winning_ippatsu_seats": list(self.winning_ippatsu_seats),
             "winning_rinshan_seats": list(self.winning_rinshan_seats),
@@ -586,9 +567,7 @@ class SandboxEnvironmentState:
             "exhaustive_draw_tenpai_seats": list(self.exhaustive_draw_tenpai_seats),
             "exhaustive_draw_noten_seats": list(self.exhaustive_draw_noten_seats),
             "game_finished": self.final_result is not None,
-            "final_result": (
-                None if self.final_result is None else self.final_result.to_payload()
-            ),
+            "final_result": (None if self.final_result is None else self.final_result.to_payload()),
         }
 
 
@@ -600,10 +579,7 @@ def initial_sandbox_environment(
     rules = resolve_sandbox_ruleset(ruleset)
     rng = random.Random(_seed_int(seed))
     wall = _shuffled_wall(rng, rules=rules)
-    hands = tuple(
-        tuple(wall.pop() for _tile in range(13))
-        for _seat in range(rules.players)
-    )
+    hands = tuple(tuple(wall.pop() for _tile in range(13)) for _seat in range(rules.players))
     dead_wall = tuple(wall.pop() for _tile in range(SANDBOX_DEAD_WALL_TILES))
     return SandboxEnvironmentState(
         ruleset=rules.name,
@@ -633,11 +609,7 @@ def next_round_sandbox_environment(
     if state.terminal_reason == "max_turns":
         raise ValueError("cannot advance artificial max-turn terminal")
     dealer_repeats = _dealer_repeats_after_terminal(state)
-    next_dealer = (
-        state.dealer_seat
-        if dealer_repeats
-        else (state.dealer_seat + 1) % state.players
-    )
+    next_dealer = state.dealer_seat if dealer_repeats else (state.dealer_seat + 1) % state.players
     next_honba = state.honba + 1 if _terminal_carries_honba(state) else 0
     next_round_wind = _next_round_wind_after_terminal(
         state,
@@ -1164,9 +1136,7 @@ def apply_discard_action(
     if _is_post_riichi_discard_locked(state, seat=state.current_seat):
         ippatsu_seats = _without_seat(ippatsu_seats, state.current_seat)
     pending_riichi_declaration_discard_seat = (
-        state.current_seat
-        if state.current_seat in state.riichi_pending_discard_seats
-        else None
+        state.current_seat if state.current_seat in state.riichi_pending_discard_seats else None
     )
     pending_abortive_draw_reason = _abortive_draw_reason_after_discard(
         state,
@@ -1602,9 +1572,7 @@ def apply_ron_actions(
         winning_shapes_by_seat=tuple(winning_shapes_by_seat),
         winning_yaku=winning_yaku_by_seat[0][1],
         winning_yaku_by_seat=tuple(winning_yaku_by_seat),
-        winning_ippatsu_seats=tuple(
-            seat for seat in winner_seats if seat in state.ippatsu_seats
-        ),
+        winning_ippatsu_seats=tuple(seat for seat in winner_seats if seat in state.ippatsu_seats),
         winning_rinshan_seats=(),
         ippatsu_seats=(),
         terminal_rewards=_multi_ron_rewards(
@@ -1903,9 +1871,7 @@ def _is_haitei_draw(state: SandboxEnvironmentState) -> bool:
 
 def _is_houtei_discard(state: SandboxEnvironmentState) -> bool:
     return (
-        state.last_draw_was_final_live_wall
-        and state.pending_discard is not None
-        and not state.wall
+        state.last_draw_was_final_live_wall and state.pending_discard is not None and not state.wall
     )
 
 
@@ -1994,9 +1960,7 @@ def _is_toitoi_yaku(
     if any(meld.kind is ActionKind.CHI for meld in melds):
         return False
     positive_counts = tuple(count for count in _hand_type_counts(tiles) if count > 0)
-    return positive_counts.count(2) == 1 and all(
-        count in {2, 3, 4} for count in positive_counts
-    )
+    return positive_counts.count(2) == 1 and all(count in {2, 3, 4} for count in positive_counts)
 
 
 def _is_honroutou_yaku(
@@ -2233,9 +2197,7 @@ def _legal_kokushi_ron_seats_for_tile(
     candidate_seats: tuple[int, ...],
 ) -> tuple[int, ...]:
     return tuple(
-        seat
-        for seat in candidate_seats
-        if _can_kokushi_ron_tile(state, seat=seat, tile=tile)
+        seat for seat in candidate_seats if _can_kokushi_ron_tile(state, seat=seat, tile=tile)
     )
 
 
@@ -2398,9 +2360,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "riichi_seats": state.riichi_seats,
         "double_riichi_seats": state.double_riichi_seats,
         "riichi_pending_discard_seats": state.riichi_pending_discard_seats,
-        "pending_riichi_declaration_discard_seat": (
-            state.pending_riichi_declaration_discard_seat
-        ),
+        "pending_riichi_declaration_discard_seat": (state.pending_riichi_declaration_discard_seat),
         "ippatsu_seats": state.ippatsu_seats,
         "riichi_furiten_seats": state.riichi_furiten_seats,
         "terminal_reason": state.terminal_reason,
@@ -2556,8 +2516,7 @@ def _sandbox_final_result(
 
 def _is_all_last_round(state: SandboxEnvironmentState) -> bool:
     return (
-        state.round_wind == SANDBOX_ALL_LAST_ROUND_WIND
-        and state.dealer_seat == state.players - 1
+        state.round_wind == SANDBOX_ALL_LAST_ROUND_WIND and state.dealer_seat == state.players - 1
     )
 
 
@@ -2660,9 +2619,7 @@ def _terminal_win_point_updates(
     estimates: list[SandboxScoreEstimate] = []
     for winner_index, winner_seat in enumerate(winner_seats):
         riichi_stick_points = (
-            riichi_sticks_for_winners * RIICHI_DEPOSIT_POINTS
-            if winner_index == 0
-            else 0
+            riichi_sticks_for_winners * RIICHI_DEPOSIT_POINTS if winner_index == 0 else 0
         )
         estimate = _sandbox_score_estimate(
             seat=winner_seat,
@@ -2674,9 +2631,7 @@ def _terminal_win_point_updates(
                 yaku_by_seat.get(winner_seat, ()),
                 is_closed=_is_closed_hand_for_yaku(_melds_by_seat(state)[winner_seat]),
             ),
-            yakuman_multiplier=yakuman_multiplier_for_names(
-                yaku_by_seat.get(winner_seat, ())
-            ),
+            yakuman_multiplier=yakuman_multiplier_for_names(yaku_by_seat.get(winner_seat, ())),
             fu=_sandbox_fu_for_win(
                 state,
                 seat=winner_seat,
@@ -2713,10 +2668,7 @@ def _terminal_win_point_updates(
                 if seat == winner_seat:
                     continue
                 payment = child_payment
-                if (
-                    seat == state.dealer_seat
-                    and estimate.tsumo_dealer_payment is not None
-                ):
+                if seat == state.dealer_seat and estimate.tsumo_dealer_payment is not None:
                     payment = estimate.tsumo_dealer_payment
                 total_payment = payment + estimate.honba_payment
                 points[seat] -= total_payment
@@ -2745,9 +2697,7 @@ def _terminal_win_point_updates(
 def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str, Any]:
     nagashi_seats = _nagashi_mangan_seats(state)
     if nagashi_seats:
-        winning_yaku_by_seat = tuple(
-            (seat, ("nagashi_mangan",)) for seat in nagashi_seats
-        )
+        winning_yaku_by_seat = tuple((seat, ("nagashi_mangan",)) for seat in nagashi_seats)
         point_updates = _terminal_win_point_updates(
             state,
             winner_seats=nagashi_seats,
@@ -2767,9 +2717,7 @@ def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str
             "winning_ippatsu_seats": (),
             "winning_rinshan_seats": (),
             "ippatsu_seats": (),
-            "terminal_rewards": _point_delta_rewards(
-                point_updates["terminal_point_deltas"]
-            ),
+            "terminal_rewards": _point_delta_rewards(point_updates["terminal_point_deltas"]),
             "last_draw_was_final_live_wall": False,
             "exhaustive_draw_tenpai_seats": (),
             "exhaustive_draw_noten_seats": (),
@@ -2858,9 +2806,7 @@ def _nagashi_mangan_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
 
 
 def _exhaustive_draw_tenpai_seats(state: SandboxEnvironmentState) -> tuple[int, ...]:
-    return tuple(
-        seat for seat in range(state.players) if _winning_wait_types(state, seat=seat)
-    )
+    return tuple(seat for seat in range(state.players) if _winning_wait_types(state, seat=seat))
 
 
 def _exhaustive_draw_point_deltas(
@@ -2920,9 +2866,7 @@ def _dora_count_for_indicators(
         return 0
     dora_type_counts = [0] * 34
     for indicator in indicators:
-        dora_type_counts[
-            _dora_type_for_indicator(indicator.type, ruleset=state.ruleset).index
-        ] += 1
+        dora_type_counts[_dora_type_for_indicator(indicator.type, ruleset=state.ruleset).index] += 1
     return sum(
         dora_type_counts[tile.type.index]
         for tile in _full_yaku_tiles(state, seat=seat, winning_tile=winning_tile)
@@ -2981,11 +2925,7 @@ def _sandbox_fu_for_win(
 
 
 def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
-    if (
-        ruleset == TENHOU_3P.name
-        and indicator.suit == "m"
-        and indicator.rank in {1, 9}
-    ):
+    if ruleset == TENHOU_3P.name and indicator.suit == "m" and indicator.rank in {1, 9}:
         return TileType.parse("9m" if indicator.rank == 1 else "1m")
     if indicator.suit in {"m", "p", "s"}:
         rank = indicator.rank
@@ -2996,9 +2936,7 @@ def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
         wind_index = SANDBOX_SEAT_WINDS.index(indicator)
         return SANDBOX_SEAT_WINDS[(wind_index + 1) % len(SANDBOX_SEAT_WINDS)]
     dragon_index = SANDBOX_DRAGON_TILES_ORDER.index(indicator)
-    return SANDBOX_DRAGON_TILES_ORDER[
-        (dragon_index + 1) % len(SANDBOX_DRAGON_TILES_ORDER)
-    ]
+    return SANDBOX_DRAGON_TILES_ORDER[(dragon_index + 1) % len(SANDBOX_DRAGON_TILES_ORDER)]
 
 
 def _sandbox_score_estimate(
@@ -3038,7 +2976,7 @@ def _sandbox_score_estimate(
             red_dora_count=red_dora_count,
             kita_dora_count=kita_dora_count,
             score=score,
-    )
+        )
     if yakuman_multiplier > 0:
         score = score_riichi_hand(
             yaku_han=13 * yakuman_multiplier,
@@ -3330,9 +3268,7 @@ def _winning_wait_types_for_hand_and_melds(
     hand: tuple[Tile, ...],
     melds: tuple[Meld, ...],
 ) -> tuple[TileType, ...]:
-    owned_counts = _hand_type_counts(
-        (*hand, *(tile for meld in melds for tile in meld.tiles))
-    )
+    owned_counts = _hand_type_counts((*hand, *(tile for meld in melds for tile in meld.tiles)))
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
     waits: list[TileType] = []
     for tile_type in rules.tile_types:

@@ -37,11 +37,7 @@ def _record_metrics(row: Mapping[str, Any], metric_roots: Sequence[str]) -> dict
         value = row.get(metric_roots[0])
         if isinstance(value, Mapping):
             return dict(value)
-    return {
-        metric_root: row[metric_root]
-        for metric_root in metric_roots
-        if metric_root in row
-    }
+    return {metric_root: row[metric_root] for metric_root in metric_roots if metric_root in row}
 
 
 def _numeric_leaves(

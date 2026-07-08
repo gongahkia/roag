@@ -90,12 +90,8 @@ def summarize_discard_predictions(
         suji_bucket = "yes" if actual_discard_has_suji(example) else "no"
         kabe_bucket = "yes" if actual_discard_has_kabe(example) else "no"
         one_chance_bucket = "yes" if actual_discard_has_one_chance(example) else "no"
-        seen_before_riichi_bucket = (
-            "yes" if actual_discard_seen_before_riichi(example) else "no"
-        )
-        seen_after_riichi_bucket = (
-            "yes" if actual_discard_seen_after_riichi(example) else "no"
-        )
+        seen_before_riichi_bucket = "yes" if actual_discard_seen_before_riichi(example) else "no"
+        seen_after_riichi_bucket = "yes" if actual_discard_seen_after_riichi(example) else "no"
 
         _record(buckets["overall"], correct)
         _record(buckets["by_shanten_delta"][shanten_bucket], correct)
@@ -142,18 +138,12 @@ def _finalize(value: Any) -> Any:
             "accuracy": None if examples == 0 else correct / examples,
         }
     if isinstance(value, dict):
-        return {
-            key: _finalize(child)
-            for key, child in value.items()
-        }
+        return {key: _finalize(child) for key, child in value.items()}
     return value
 
 
 def _is_bucket(value: Any) -> bool:
-    return (
-        isinstance(value, dict)
-        and set(value) == {"examples", "correct", "accuracy"}
-    )
+    return isinstance(value, dict) and set(value) == {"examples", "correct", "accuracy"}
 
 
 def _shanten_bucket(example: DiscardExample) -> str:

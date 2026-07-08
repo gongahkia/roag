@@ -196,9 +196,7 @@ class CallLinearModel:
                     learning_rate=learning_rate,
                     l2=l2,
                     example_weight=(
-                        positive_class_weight
-                        if example.target != ActionKind.PASS
-                        else 1.0
+                        positive_class_weight if example.target != ActionKind.PASS else 1.0
                     ),
                 )
 
@@ -384,8 +382,7 @@ def _prepare_example(example: CallExample, *, profile: _FeatureProfile) -> _Prep
     return _PreparedCallExample(
         target=example.action.kind,
         features_by_kind={
-            kind: _features_for_candidate(example, kind, profile=profile)
-            for kind in candidates
+            kind: _features_for_candidate(example, kind, profile=profile) for kind in candidates
         },
     )
 
@@ -420,8 +417,7 @@ def _features_for_candidate(
     features.extend(1.0 if kind == candidate else 0.0 for candidate in CALL_DECISION_KINDS)
     features.extend(1.0 if index == discarded_index else 0.0 for index in range(34))
     features.extend(
-        1.0 if call_kind in example.legal_call_kinds else 0.0
-        for call_kind in _NON_PASS_CALL_KINDS
+        1.0 if call_kind in example.legal_call_kinds else 0.0 for call_kind in _NON_PASS_CALL_KINDS
     )
     features.append(len(example.legal_call_kinds) / len(_NON_PASS_CALL_KINDS))
     features.extend(count / 4.0 for count in example.hand_counts)
@@ -671,15 +667,9 @@ def _apply_update(
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
     max_logit = max(logits.values())
-    exp_values = {
-        kind: exp(logit - max_logit)
-        for kind, logit in logits.items()
-    }
+    exp_values = {kind: exp(logit - max_logit) for kind, logit in logits.items()}
     total = sum(exp_values.values())
-    return {
-        kind: value / total
-        for kind, value in exp_values.items()
-    }
+    return {kind: value / total for kind, value in exp_values.items()}
 
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:

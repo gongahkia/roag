@@ -76,11 +76,7 @@ def build_hand_analysis(
     parsed_round_wind = _parse_round_wind(round_wind)
     hand_tiles = parse_hand_tiles(hand)
     drawn_tile = parse_one_tile(drawn, label="drawn")
-    dora_tiles = tuple(
-        tile
-        for dora_item in dora
-        for tile in parse_hand_tiles(dora_item)
-    )
+    dora_tiles = tuple(tile for dora_item in dora for tile in parse_hand_tiles(dora_item))
     full_hand = (*hand_tiles, drawn_tile)
     if len(full_hand) > 14:
         raise ValueError("hand plus drawn tile cannot exceed 14 tiles")
@@ -270,9 +266,7 @@ def _rank_candidates(
         candidates,
         key=lambda candidate: (
             -float(candidate["policy_probability"]),
-            99
-            if candidate["resulting_shanten"] is None
-            else int(candidate["resulting_shanten"]),
+            99 if candidate["resulting_shanten"] is None else int(candidate["resulting_shanten"]),
             float(candidate["estimated_deal_in_risk"]),
             str(candidate["tile"]),
         ),

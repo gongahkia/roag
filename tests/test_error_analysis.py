@@ -17,9 +17,7 @@ class DiscardErrorAnalysisTests(unittest.TestCase):
         summary = summarize_discard_predictions(
             examples,
             lambda example: (
-                example.action.tile
-                if example.event_index != 50
-                else TileType.parse("1m")
+                example.action.tile if example.event_index != 50 else TileType.parse("1m")
             ),
         )
 

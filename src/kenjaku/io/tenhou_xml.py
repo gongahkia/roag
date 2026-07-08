@@ -71,9 +71,7 @@ class TenhouRyuukyoku:
     score_deltas: tuple[int, ...] | None = None
 
 
-TenhouEvent = (
-    TenhouDraw | TenhouDiscard | TenhouReach | TenhouCall | TenhouAgari | TenhouRyuukyoku
-)
+TenhouEvent = TenhouDraw | TenhouDiscard | TenhouReach | TenhouCall | TenhouAgari | TenhouRyuukyoku
 
 
 @dataclass(frozen=True, slots=True)

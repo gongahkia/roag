@@ -106,9 +106,7 @@ class RiichiLinearModel:
                     learning_rate=learning_rate,
                     l2=l2,
                     example_weight=(
-                        positive_class_weight
-                        if example.target == ActionKind.RIICHI
-                        else 1.0
+                        positive_class_weight if example.target == ActionKind.RIICHI else 1.0
                     ),
                 )
 
@@ -226,8 +224,7 @@ def _prepare_example(example: RiichiExample) -> _PreparedRiichiExample:
     return _PreparedRiichiExample(
         target=example.action.kind,
         features_by_kind={
-            kind: _features_for_candidate(example, kind)
-            for kind in RIICHI_DECISION_KINDS
+            kind: _features_for_candidate(example, kind) for kind in RIICHI_DECISION_KINDS
         },
     )
 
@@ -244,9 +241,7 @@ def _features_for_candidate(example: RiichiExample, kind: ActionKind) -> tuple[f
     )
     self_river_count = _river_count(example, example.seat)
     opponent_river_count = sum(
-        _river_count(example, seat)
-        for seat in range(players)
-        if seat != example.seat
+        _river_count(example, seat) for seat in range(players) if seat != example.seat
     )
     hand_total = max(1, sum(example.hand_counts))
     hand_shanten = _safe_shanten(example.hand_counts)
@@ -351,15 +346,9 @@ def _apply_update(
 
 def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
     max_logit = max(logits.values())
-    exp_values = {
-        kind: exp(logit - max_logit)
-        for kind, logit in logits.items()
-    }
+    exp_values = {kind: exp(logit - max_logit) for kind, logit in logits.items()}
     total = sum(exp_values.values())
-    return {
-        kind: value / total
-        for kind, value in exp_values.items()
-    }
+    return {kind: value / total for kind, value in exp_values.items()}
 
 
 def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:

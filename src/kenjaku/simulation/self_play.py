@@ -325,10 +325,7 @@ def format_self_play_match_report(report: dict[str, Any]) -> str:
         f"completed_games: {report['completed_games']}",
         f"ruleset: {report['ruleset']}",
         "policies: "
-        + " ".join(
-            f"{name}={policy}"
-            for name, policy in sorted(report["policies"].items())
-        ),
+        + " ".join(f"{name}={policy}" for name, policy in sorted(report["policies"].items())),
         f"rounds: {report['rounds']}",
         f"average_rounds: {float(report['average_rounds']):.2f}",
         f"decisions: {report['decisions']}",
@@ -337,9 +334,7 @@ def format_self_play_match_report(report: dict[str, Any]) -> str:
         "average_final_scores: "
         + " ".join(
             f"{seat}={score:.3f}"
-            for seat, score in enumerate(
-                report["final_summary"]["average_final_scores_by_seat"]
-            )
+            for seat, score in enumerate(report["final_summary"]["average_final_scores_by_seat"])
         ),
         "capabilities:",
     ]
@@ -367,9 +362,8 @@ def format_self_play_sandbox_report(report: dict[str, Any]) -> str:
             f"{seat}={reward:.3f}"
             for seat, reward in enumerate(report["reward_summary"]["average_reward_by_seat"])
         ),
-        "seat_decisions: " + " ".join(
-            f"{seat}={count}" for seat, count in enumerate(report["seat_decisions"])
-        ),
+        "seat_decisions: "
+        + " ".join(f"{seat}={count}" for seat, count in enumerate(report["seat_decisions"])),
         "capabilities:",
     ]
     for name, enabled in report["capabilities"].items():
@@ -559,11 +553,7 @@ def _choose_match_action(
         if policies["discard"] == "drawn":
             draw = state.drawn_tile
             if draw is not None:
-                drawn_discards = [
-                    action
-                    for action in discard_actions
-                    if action.tile == draw.type
-                ]
+                drawn_discards = [action for action in discard_actions if action.tile == draw.type]
                 if drawn_discards:
                     return drawn_discards[0]
         if policies["discard"] == "frequency":
@@ -632,9 +622,7 @@ def _match_final_summary(
     denominator = len(completed) or 1
     return {
         "completed_games": len(completed),
-        "average_final_scores_by_seat": [
-            score / denominator for score in score_sums
-        ],
+        "average_final_scores_by_seat": [score / denominator for score in score_sums],
         "average_rank_by_seat": [rank / denominator for rank in rank_sums],
         "placement_counts_by_seat": placement_counts,
     }
@@ -803,13 +791,11 @@ def _simulate_episode(
         "winning_tile": None if state.winning_tile is None else state.winning_tile.notation,
         "winning_shapes": list(state.winning_shapes),
         "winning_shapes_by_seat": [
-            {"seat": seat, "shapes": list(shapes)}
-            for seat, shapes in state.winning_shapes_by_seat
+            {"seat": seat, "shapes": list(shapes)} for seat, shapes in state.winning_shapes_by_seat
         ],
         "winning_yaku": list(state.winning_yaku),
         "winning_yaku_by_seat": [
-            {"seat": seat, "yaku": list(yaku)}
-            for seat, yaku in state.winning_yaku_by_seat
+            {"seat": seat, "yaku": list(yaku)} for seat, yaku in state.winning_yaku_by_seat
         ],
         "terminal_rewards": list(state.terminal_rewards),
         "terminal_point_deltas": list(state.terminal_point_deltas),
@@ -872,10 +858,7 @@ def _episode_reward_payload(state: SandboxEnvironmentState) -> dict[str, Any]:
         "raw_point_delta": list(raw_point_delta),
         "normalized_point_delta": list(normalized_point_delta),
         "placement_delta": list(placement_delta),
-        "win_events": [
-            1 if seat in state.winner_seats else 0
-            for seat in range(state.players)
-        ],
+        "win_events": [1 if seat in state.winner_seats else 0 for seat in range(state.players)],
         "deal_in_events": list(_deal_in_events(state, raw_point_delta)),
         "draw_outcome": _draw_outcome(state),
         "reward_vectors": reward_vectors,
@@ -904,9 +887,7 @@ def _reward_summaries(
             "mode": mode,
             "episodes": episode_count,
             "reward_sum_by_seat": reward_sum,
-            "average_reward_by_seat": [
-                reward / episode_count for reward in reward_sum
-            ],
+            "average_reward_by_seat": [reward / episode_count for reward in reward_sum],
             "mean_abs_reward": total_abs_reward / (episode_count * players),
             "nonzero_episodes": nonzero_episodes,
         }
@@ -1103,11 +1084,7 @@ def _episode_seed(seed: str, episode_index: int) -> int:
 
 
 def _tile_count_payload(counts: list[int]) -> dict[str, int]:
-    return {
-        TileType(tile_type).notation: count
-        for tile_type, count in enumerate(counts)
-        if count
-    }
+    return {TileType(tile_type).notation: count for tile_type, count in enumerate(counts) if count}
 
 
 def _format_counts(counts: dict[str, int]) -> str:

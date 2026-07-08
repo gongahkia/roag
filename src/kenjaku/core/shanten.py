@@ -36,9 +36,10 @@ def shanten_for_tiles(tiles: Iterable[Tile | TileType]) -> int:
 def standard_shanten(counts: Sequence[int]) -> int:
     checked = _validate_counts(counts)
     best = 8
-    pair_candidates: tuple[int | None, ...] = (None, *(
-        index for index, count in enumerate(checked) if count >= 2
-    ))
+    pair_candidates: tuple[int | None, ...] = (
+        None,
+        *(index for index, count in enumerate(checked) if count >= 2),
+    )
 
     for pair_index in pair_candidates:
         working = list(checked)
@@ -145,9 +146,7 @@ def _can_sequence(counts: tuple[int, ...], tile_index: int) -> bool:
 
 def _can_taatsu(counts: tuple[int, ...], tile_index: int, *, offset: int) -> bool:
     return (
-        _is_suited(tile_index)
-        and tile_index % 9 <= 8 - offset
-        and counts[tile_index + offset] > 0
+        _is_suited(tile_index) and tile_index % 9 <= 8 - offset and counts[tile_index + offset] > 0
     )
 
 

@@ -25,9 +25,7 @@ class ExternalBaselineSpec:
 
 def parse_external_baseline_spec(value: str) -> ExternalBaselineSpec:
     if "=" not in value:
-        raise ValueError(
-            "baseline spec must be FAMILY:NAME=PATH or NAME=PATH"
-        )
+        raise ValueError("baseline spec must be FAMILY:NAME=PATH or NAME=PATH")
     raw_label, raw_path = value.split("=", 1)
     label = raw_label.strip()
     path = Path(raw_path.strip())
@@ -62,10 +60,7 @@ def build_external_baseline_report(
         raise ValueError("at least one --baseline is required")
 
     snapshots, snapshot_stats = _read_decision_snapshots(snapshots_path)
-    baselines = [
-        _build_baseline_section(snapshots, spec)
-        for spec in baseline_specs
-    ]
+    baselines = [_build_baseline_section(snapshots, spec) for spec in baseline_specs]
     short_baselines = [
         f"{baseline['family']}:{baseline['name']}"
         for baseline in baselines
@@ -111,10 +106,7 @@ def format_external_baseline_report(report: dict[str, Any]) -> str:
         f"malformed_snapshot_rows: {snapshots['malformed_rows']}",
         f"mjai_events: present={snapshots['mjai_events']['present']} "
         f"missing={snapshots['mjai_events']['missing']}",
-        (
-            "minimum_comparable_decisions: "
-            f"{protocol['minimum_comparable_decisions']}"
-        ),
+        (f"minimum_comparable_decisions: {protocol['minimum_comparable_decisions']}"),
         f"minimum_satisfied: {_yes_no(report['minimum_satisfied'])}",
         "baselines:",
     ]
@@ -323,8 +315,7 @@ def _prediction_is_legal(
     if not isinstance(legal_actions, list):
         return False
     return any(
-        isinstance(action, dict)
-        and _normalized_action(action) == predicted_action
+        isinstance(action, dict) and _normalized_action(action) == predicted_action
         for action in legal_actions
     )
 

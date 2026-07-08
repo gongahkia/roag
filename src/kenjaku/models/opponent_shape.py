@@ -55,9 +55,7 @@ class OpponentShapeBaseline:
             ),
             "yakuhai": 0.8 + 1.8 * features["honor_kept_rate"],
             "iipeikou": (
-                0.7
-                + 0.7 * (1.0 - features["duplicate_rate"])
-                + 0.4 * features["suit_balance"]
+                0.7 + 0.7 * (1.0 - features["duplicate_rate"]) + 0.4 * features["suit_balance"]
             ),
             "sanshoku_doujun": (
                 0.7 + 0.8 * features["suit_balance"] + 0.2 * features["middle_discard_rate"]
@@ -67,11 +65,7 @@ class OpponentShapeBaseline:
                 + 1.1 * features["suit_avoidance"]
                 + 0.4 * features["terminal_honor_discard_rate"]
             ),
-            "honitsu": (
-                0.5
-                + 2.0 * features["suit_avoidance"]
-                + 0.8 * features["honor_kept_rate"]
-            ),
+            "honitsu": (0.5 + 2.0 * features["suit_avoidance"] + 0.8 * features["honor_kept_rate"]),
             "chiitoitsu": (
                 0.5 + 1.5 * features["duplicate_rate"] + 0.4 * features["honor_kept_rate"]
             ),
@@ -83,10 +77,7 @@ class OpponentShapeBaseline:
             ),
         }
         total = sum(max(self.min_score, raw_scores[name]) for name in OPPONENT_SHAPE_YAKU)
-        return {
-            name: max(self.min_score, raw_scores[name]) / total
-            for name in OPPONENT_SHAPE_YAKU
-        }
+        return {name: max(self.min_score, raw_scores[name]) / total for name in OPPONENT_SHAPE_YAKU}
 
     def predict_for_seat(self, example: DiscardExample, seat: int) -> dict[str, float]:
         if seat < 0 or seat >= len(example.rivers_by_seat):

@@ -278,10 +278,7 @@ class PredictCliTests(unittest.TestCase):
         return json.loads(stdout.getvalue())
 
     def _prediction_rows(self, path: Path) -> list[dict[str, object]]:
-        return [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-        ]
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
     def _write_discard_linear_checkpoint(self, path: Path) -> None:
         model = DiscardLinearModel(
@@ -294,10 +291,7 @@ class PredictCliTests(unittest.TestCase):
 
     def _write_call_linear_checkpoint(self, path: Path) -> None:
         model = CallLinearModel(
-            weights=tuple(
-                tuple([0.0] * CALL_LINEAR_FEATURE_DIM)
-                for _ in CALL_DECISION_KINDS
-            ),
+            weights=tuple(tuple([0.0] * CALL_LINEAR_FEATURE_DIM) for _ in CALL_DECISION_KINDS),
             epochs=0,
             learning_rate=0.1,
         )
@@ -305,10 +299,7 @@ class PredictCliTests(unittest.TestCase):
 
     def _write_riichi_linear_checkpoint(self, path: Path) -> None:
         model = RiichiLinearModel(
-            weights=tuple(
-                tuple([0.0] * RIICHI_LINEAR_FEATURE_DIM)
-                for _ in RIICHI_DECISION_KINDS
-            ),
+            weights=tuple(tuple([0.0] * RIICHI_LINEAR_FEATURE_DIM) for _ in RIICHI_DECISION_KINDS),
             epochs=1,
             learning_rate=0.1,
         )

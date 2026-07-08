@@ -176,9 +176,7 @@ def _active_riichi_discards_elapsed(example: DiscardExample) -> tuple[int, ...]:
         if riichi_turn is None:
             continue
         river_length = (
-            len(example.rivers_by_seat[seat])
-            if seat < len(example.rivers_by_seat)
-            else 0
+            len(example.rivers_by_seat[seat]) if seat < len(example.rivers_by_seat) else 0
         )
         elapsed.append(max(0, river_length - riichi_turn))
     return tuple(elapsed)

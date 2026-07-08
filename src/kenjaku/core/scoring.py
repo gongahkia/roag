@@ -356,8 +356,7 @@ def _meld_groupings(
         working[first] -= 3
         group = _Group("triplet", (first, first, first))
         results.extend(
-            (group, *child)
-            for child in _meld_groupings(tuple(working), melds_needed - 1)
+            (group, *child) for child in _meld_groupings(tuple(working), melds_needed - 1)
         )
     if _can_sequence(counts, first):
         working = list(counts)
@@ -365,8 +364,7 @@ def _meld_groupings(
             working[index] -= 1
         group = _Group("sequence", (first, first + 1, first + 2))
         results.extend(
-            (group, *child)
-            for child in _meld_groupings(tuple(working), melds_needed - 1)
+            (group, *child) for child in _meld_groupings(tuple(working), melds_needed - 1)
         )
     return tuple(results)
 

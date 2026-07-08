@@ -190,9 +190,7 @@ def _torch_transformer_classes() -> tuple[Any, Any, Any]:
             self.has_value_head = value_head
             self.policy_head = nn.Linear(self.encoder.config.model_dim, self.output_dim)
             self.value_head = (
-                nn.Linear(self.encoder.config.model_dim, 1)
-                if self.has_value_head
-                else None
+                nn.Linear(self.encoder.config.model_dim, 1) if self.has_value_head else None
             )
 
         def forward(self, state_values: Any, legal_mask: Any) -> Any:
@@ -676,10 +674,7 @@ def _policy_logits(output: Any) -> Any:
 
 
 def _snapshot_model_state(model: Any) -> dict[str, Any]:
-    return {
-        name: value.detach().cpu().clone()
-        for name, value in model.state_dict().items()
-    }
+    return {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
 
 
 def _token_type_name(token_type: int) -> str:

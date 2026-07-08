@@ -207,9 +207,7 @@ def summarize_defense_risk_outcomes(
             buckets["eventual_draw"].append(score)
         if score.active_riichi_opponents:
             buckets[
-                "active_riichi_eventual_deal_in"
-                if deal_in
-                else "active_riichi_no_eventual_deal_in"
+                "active_riichi_eventual_deal_in" if deal_in else "active_riichi_no_eventual_deal_in"
             ].append(score)
 
     return {
@@ -218,10 +216,7 @@ def summarize_defense_risk_outcomes(
         "labeled_examples": labeled_examples,
         "missing_outcomes": missing_outcomes,
         "calibrated_probability": False,
-        "buckets": {
-            name: _risk_distribution(scores)
-            for name, scores in buckets.items()
-        },
+        "buckets": {name: _risk_distribution(scores) for name, scores in buckets.items()},
     }
 
 

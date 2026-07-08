@@ -232,9 +232,7 @@ def _candidate_overlay(
     after_counts[tile_type.index] -= 1
     next_shanten = _safe_shanten(tuple(after_counts))
     shanten_delta = (
-        None
-        if current_shanten is None or next_shanten is None
-        else next_shanten - current_shanten
+        None if current_shanten is None or next_shanten is None else next_shanten - current_shanten
     )
     risk, reasons = _estimated_deal_in_risk(snapshot, tile_type, visible_counts)
     expected_point_impact = _expected_point_impact(shanten_delta, risk)
@@ -327,10 +325,7 @@ def _safe_shanten(counts: Sequence[int]) -> int | None:
 
 
 def _is_discard_snapshot(value: Any) -> bool:
-    return (
-        _is_decision_snapshot(value)
-        and value.get("decision_type") == "discard"
-    )
+    return _is_decision_snapshot(value) and value.get("decision_type") == "discard"
 
 
 def _is_decision_snapshot(value: Any) -> bool:
@@ -426,8 +421,7 @@ def _summary_html(report: dict[str, Any]) -> str:
     source_labels = report.get("source_labels")
     if isinstance(source_labels, dict) and source_labels:
         source_text = ", ".join(
-            f"{escape(str(label))}={count}"
-            for label, count in sorted(source_labels.items())
+            f"{escape(str(label))}={count}" for label, count in sorted(source_labels.items())
         )
     else:
         source_text = "unknown=0"
@@ -455,10 +449,10 @@ def _controls_html() -> str:
             "<label>Search"
             '<input id="search" type="search" placeholder="hand pattern or dora tile">'
             "</label>",
-            "<label>Round<select id=\"round-filter\"></select></label>",
-            "<label>Seat<select id=\"seat-filter\"></select></label>",
-            "<label>Discard<select id=\"tile-filter\"></select></label>",
-            "<label>Shanten<select id=\"shanten-filter\"></select></label>",
+            '<label>Round<select id="round-filter"></select></label>',
+            '<label>Seat<select id="seat-filter"></select></label>',
+            '<label>Discard<select id="tile-filter"></select></label>',
+            '<label>Shanten<select id="shanten-filter"></select></label>',
             "</section>",
             '<section class="pager" aria-label="Pagination">',
             '<button id="prev-page" type="button">Prev</button>',

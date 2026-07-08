@@ -103,10 +103,7 @@ _FEATURE_PROFILES = {
         includes_defense_context_v1=True,
     ),
 }
-_FEATURE_PROFILES_BY_KIND = {
-    profile.model_kind: profile
-    for profile in _FEATURE_PROFILES.values()
-}
+_FEATURE_PROFILES_BY_KIND = {profile.model_kind: profile for profile in _FEATURE_PROFILES.values()}
 _TILE_FEATURE_NAMES = tuple(tile_type.notation for tile_type in all_tile_types())
 _RAW_FEATURE_NAMES = (
     "bias",
@@ -356,11 +353,7 @@ class DiscardLinearModel:
                 }
                 for index, name in enumerate(names)
             ],
-            "overall": _numeric_summary(
-                weight
-                for row in self.weights
-                for weight in row
-            ),
+            "overall": _numeric_summary(weight for row in self.weights for weight in row),
             "outputs": [
                 {
                     "index": tile_type.index,
@@ -400,9 +393,7 @@ class DiscardLinearModel:
                     "index": index,
                     "name": name,
                     "nonzero": nonzero[index],
-                    "nonzero_rate": (
-                        None if vector_count == 0 else nonzero[index] / vector_count
-                    ),
+                    "nonzero_rate": (None if vector_count == 0 else nonzero[index] / vector_count),
                     "mean": None if vector_count == 0 else sums[index] / vector_count,
                     "mean_abs": None if vector_count == 0 else sum_abs[index] / vector_count,
                     "max_abs": None if vector_count == 0 else max_abs[index],
@@ -923,10 +914,7 @@ def _seen_after_active_fraction(
     denominator: int,
 ) -> float:
     return (
-        sum(
-            _river_has_tile_from_riichi(example, seat, tile_index)
-            for seat in active_opponents
-        )
+        sum(_river_has_tile_from_riichi(example, seat, tile_index) for seat in active_opponents)
         / denominator
     )
 
@@ -938,10 +926,7 @@ def _seen_before_active_fraction(
     denominator: int,
 ) -> float:
     return (
-        sum(
-            _river_has_tile_before_riichi(example, seat, tile_index)
-            for seat in active_opponents
-        )
+        sum(_river_has_tile_before_riichi(example, seat, tile_index) for seat in active_opponents)
         / denominator
     )
 
@@ -1097,8 +1082,7 @@ def _logits(
 ) -> dict[int, float]:
     return {
         tile_index: sum(
-            weight * feature
-            for weight, feature in zip(weights[tile_index], features, strict=True)
+            weight * feature for weight, feature in zip(weights[tile_index], features, strict=True)
         )
         for tile_index, features in features_by_tile.items()
     }
@@ -1106,15 +1090,9 @@ def _logits(
 
 def _softmax(logits: dict[int, float]) -> dict[int, float]:
     max_logit = max(logits.values())
-    exp_values = {
-        tile_index: exp(logit - max_logit)
-        for tile_index, logit in logits.items()
-    }
+    exp_values = {tile_index: exp(logit - max_logit) for tile_index, logit in logits.items()}
     denominator = sum(exp_values.values())
-    return {
-        tile_index: value / denominator
-        for tile_index, value in exp_values.items()
-    }
+    return {tile_index: value / denominator for tile_index, value in exp_values.items()}
 
 
 def _parse_weight_row(row: Any) -> tuple[float, ...]:

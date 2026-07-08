@@ -37,10 +37,7 @@ class CallFrequencyBaseline:
         return CALL_FREQUENCY_MODEL_KIND
 
     def count_by_kind(self) -> dict[str, int]:
-        return {
-            kind.value: self.counts[index]
-            for index, kind in enumerate(CALL_DECISION_KINDS)
-        }
+        return {kind.value: self.counts[index] for index, kind in enumerate(CALL_DECISION_KINDS)}
 
     def predict(self, example: CallExample) -> ActionKind:
         candidates = (ActionKind.PASS, *example.legal_call_kinds)
@@ -79,10 +76,7 @@ class CallLegalFrequencyBaseline:
         return CALL_LEGAL_FREQUENCY_MODEL_KIND
 
     def count_by_kind(self) -> dict[str, int]:
-        return {
-            kind.value: self.counts[index]
-            for index, kind in enumerate(CALL_DECISION_KINDS)
-        }
+        return {kind.value: self.counts[index] for index, kind in enumerate(CALL_DECISION_KINDS)}
 
     def predict(self, example: CallExample) -> ActionKind:
         if not example.legal_call_kinds:

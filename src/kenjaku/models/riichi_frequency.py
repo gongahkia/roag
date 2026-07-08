@@ -31,10 +31,7 @@ class RiichiFrequencyBaseline:
         return RIICHI_FREQUENCY_MODEL_KIND
 
     def count_by_kind(self) -> dict[str, int]:
-        return {
-            kind.value: self.counts[index]
-            for index, kind in enumerate(RIICHI_DECISION_KINDS)
-        }
+        return {kind.value: self.counts[index] for index, kind in enumerate(RIICHI_DECISION_KINDS)}
 
     def predict(self, example: RiichiExample) -> ActionKind:
         return max(

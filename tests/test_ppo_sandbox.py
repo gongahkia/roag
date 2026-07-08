@@ -36,9 +36,7 @@ class PpoSandboxTests(unittest.TestCase):
         self.assertTrue(transition.legal_mask[transition.action_index])
         self.assertEqual(
             transition.action_index,
-            ppo_action_index(
-                rollout.report["game_summaries"][0]["trajectory"][0]["chosen_action"]
-            ),
+            ppo_action_index(rollout.report["game_summaries"][0]["trajectory"][0]["chosen_action"]),
         )
         self.assertGreater(len(rollout.transitions), 0)
 

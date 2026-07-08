@@ -22,10 +22,7 @@ class SafetyAdvisorTests(unittest.TestCase):
             river="1m 4m 4p 4p 4p 4p 4s 4s 4s",
             active_riichi="1",
         )
-        by_tile = {
-            candidate["tile"]: candidate
-            for candidate in report["candidates"]
-        }
+        by_tile = {candidate["tile"]: candidate for candidate in report["candidates"]}
 
         self.assertEqual(report["kind"], "kenjaku-safety-advisor-v0")
         self.assertEqual(report["candidates"][0]["tile"], "1m")

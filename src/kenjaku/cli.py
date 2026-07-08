@@ -2586,8 +2586,7 @@ def _demo(args: argparse.Namespace) -> int:
         "snapshot_count": snapshot_count,
         "prediction_count": prediction_stats["predictions"],
         "artifacts": {
-            name: _artifact_link(path, output_dir=output_dir)
-            for name, path in artifacts.items()
+            name: _artifact_link(path, output_dir=output_dir) for name, path in artifacts.items()
         },
     }
     write_json_report(manifest_path, manifest)
@@ -2730,9 +2729,7 @@ def _write_artifact_dashboard_index(
     title: str,
     artifacts: Sequence[_ArtifactDashboardEntry],
 ) -> None:
-    generated_at = (
-        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    )
+    generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     artifact_count = len(artifacts)
     type_count = len({artifact.type_label for artifact in artifacts})
     if artifacts:
@@ -2822,11 +2819,7 @@ def _write_artifact_dashboard_index(
 def _format_artifact_dashboard_item(artifact: _ArtifactDashboardEntry) -> str:
     rel_path = artifact.rel_path.as_posix()
     href = escape(quote(rel_path, safe="/"), quote=True)
-    meta = (
-        f"{artifact.type_name} | "
-        f"{_format_artifact_size(artifact.size)} | "
-        f"{artifact.modified_at}"
-    )
+    meta = f"{artifact.type_name} | {_format_artifact_size(artifact.size)} | {artifact.modified_at}"
     return (
         f'        <a class="artifact" href="{href}">'
         f'<span class="type-icon">{escape(artifact.type_label)}</span>'
@@ -3083,9 +3076,7 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
 
 
 def _training_dashboard(args: argparse.Namespace) -> int:
-    generated_at = (
-        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    )
+    generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     try:
         dashboard = build_training_dashboard(
             args.metrics_jsonl,
@@ -3635,9 +3626,7 @@ def _placement_probability(args: argparse.Namespace) -> int:
         scores = parse_scores(args.scores)
         round_wind, kyoku = parse_kyoku(args.kyoku)
         model = (
-            PlacementModel.load(args.model)
-            if args.model is not None
-            else PlacementModel.default()
+            PlacementModel.load(args.model) if args.model is not None else PlacementModel.default()
         )
         payload = placement_probability_payload(
             model,
@@ -3877,9 +3866,7 @@ def _build_transformer_attention_overlay(
 
     layer_count = len(decisions[0]["layers"]) if decisions else 0
     heads_rendered = (
-        len(decisions[0]["layers"][0]["heads"])
-        if decisions and decisions[0]["layers"]
-        else 0
+        len(decisions[0]["layers"][0]["heads"]) if decisions and decisions[0]["layers"] else 0
     )
     return {
         "kind": TRANSFORMER_ATTENTION_OVERLAY_KIND,
@@ -3981,7 +3968,7 @@ def _format_transformer_attention_overlay_html(report: dict[str, Any]) -> str:
         f"<div><dt>Decisions</dt><dd>{int(report.get('decision_count', 0))}</dd></div>",
         f"<div><dt>Layers</dt><dd>{int(report.get('layer_count', 0))}</dd></div>",
         "</section>",
-        f"<p class=\"disclaimer\">{escape(str(report.get('disclaimer', '')))}</p>",
+        f'<p class="disclaimer">{escape(str(report.get("disclaimer", "")))}</p>',
     ]
     for decision in report.get("decisions", []):
         if isinstance(decision, dict):
@@ -4417,11 +4404,7 @@ def _format_decision_snapshot_summary(summary: dict[str, Any]) -> str:
     for source, count in summary["sources"].items():
         lines.append(f"  {source}: {count}")
     mjai_events = summary["mjai_events"]
-    lines.append(
-        "mjai_events: "
-        f"present={mjai_events['present']} "
-        f"missing={mjai_events['missing']}"
-    )
+    lines.append(f"mjai_events: present={mjai_events['present']} missing={mjai_events['missing']}")
     return "\n".join(lines)
 
 
@@ -4470,10 +4453,13 @@ def _write_stub_decision_predictions(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     predictions = 0
     malformed = 0
-    with snapshots_path.open(encoding="utf-8") as source, output_path.open(
-        "w",
-        encoding="utf-8",
-    ) as target:
+    with (
+        snapshots_path.open(encoding="utf-8") as source,
+        output_path.open(
+            "w",
+            encoding="utf-8",
+        ) as target,
+    ):
         for line in source:
             try:
                 snapshot = json.loads(line)
@@ -4548,10 +4534,7 @@ def _decision_snapshot_compare(args: argparse.Namespace) -> int:
 
 def _external_baseline_report(args: argparse.Namespace) -> int:
     try:
-        specs = [
-            parse_external_baseline_spec(spec)
-            for spec in args.baseline
-        ]
+        specs = [parse_external_baseline_spec(spec) for spec in args.baseline]
         report = build_external_baseline_report(
             args.snapshots,
             specs,
@@ -4730,9 +4713,8 @@ def _actions_match(
     actual_action: dict[str, Any],
     predicted_action: dict[str, Any] | None,
 ) -> bool:
-    return (
-        predicted_action is not None
-        and _normalized_action(actual_action) == _normalized_action(predicted_action)
+    return predicted_action is not None and _normalized_action(actual_action) == _normalized_action(
+        predicted_action
     )
 
 
@@ -4786,9 +4768,8 @@ def _record_binary_comparison(
     predicted_action: dict[str, Any] | None,
 ) -> None:
     actual_positive = _action_is_positive(actual_action, target=target)
-    predicted_positive = (
-        predicted_action is not None
-        and _action_is_positive(predicted_action, target=target)
+    predicted_positive = predicted_action is not None and _action_is_positive(
+        predicted_action, target=target
     )
     bucket["examples"] += 1
     if actual_positive and predicted_positive:
@@ -5147,9 +5128,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             if model_name not in selected_model_names
         ]
         if missing:
-            raise SystemExit(
-                "--disagreements requires selected models: " + ", ".join(missing)
-            )
+            raise SystemExit("--disagreements requires selected models: " + ", ".join(missing))
     streamed_examples: _StreamedExamples | None = None
     game: TenhouGame | None
     if args.stream_examples:
@@ -5371,10 +5350,7 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
     for model_name in ("frequency", "risk_context_linear", "defense_context_linear"):
         metrics = model_payloads[model_name]["metrics"]
         print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
-        print(
-            f"{model_name}_eval_accuracy: "
-            f"{_format_optional_accuracy(metrics['eval_accuracy'])}"
-        )
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(metrics['eval_accuracy'])}")
     print(
         "discard_mlp_train_accuracy: "
         f"{_format_optional_accuracy(mlp_result.train_metrics['accuracy'])}"
@@ -5536,10 +5512,7 @@ def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
     for model_name in ("frequency", "risk_context_linear", "defense_context_linear"):
         metrics = model_payloads[model_name]["metrics"]
         print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
-        print(
-            f"{model_name}_eval_accuracy: "
-            f"{_format_optional_accuracy(metrics['eval_accuracy'])}"
-        )
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(metrics['eval_accuracy'])}")
     print(
         "discard_transformer_train_accuracy: "
         f"{_format_optional_accuracy(transformer_result.train_metrics['accuracy'])}"
@@ -5902,9 +5875,7 @@ def _benchmark_report_summary(args: argparse.Namespace) -> int:
 
 def _benchmark_dashboard(args: argparse.Namespace) -> int:
     output = args.output
-    generated_at = (
-        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    )
+    generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     dashboard = build_public_benchmark_dashboard(
         args.reports,
         version=__version__,
@@ -6076,8 +6047,7 @@ def _format_disagreement_item(
     buckets = item.get("defense_buckets", {})
     if isinstance(buckets, dict) and buckets:
         bucket_parts = [
-            f"{name}={'yes' if enabled else 'no'}"
-            for name, enabled in sorted(buckets.items())
+            f"{name}={'yes' if enabled else 'no'}" for name, enabled in sorted(buckets.items())
         ]
         lines.append("     buckets: " + ", ".join(bucket_parts))
     defense_risk = _format_disagreement_defense_risk(item, correct_model, wrong_model)
@@ -6087,8 +6057,7 @@ def _format_disagreement_item(
         tags = _disagreement_item_tags(item, correct_model=correct_model, wrong_model=wrong_model)
         lines.append("     tags: " + ", ".join(tags))
     logit_parts = [
-        _format_top_logits(item, model_name)
-        for model_name in (correct_model, wrong_model)
+        _format_top_logits(item, model_name) for model_name in (correct_model, wrong_model)
     ]
     logit_parts = [part for part in logit_parts if part]
     if logit_parts:
@@ -6260,14 +6229,13 @@ def _disagreement_close_logit(
     predictions = item.get("predictions", {})
     if not isinstance(predictions, dict):
         predictions = {}
-    return (
-        _model_actual_margin_is_close(item, correct_model, actual)
-        or _model_error_margin_is_close(
-            item,
-            wrong_model,
-            actual,
-            prediction=predictions.get(wrong_model),
-        )
+    return _model_actual_margin_is_close(
+        item, correct_model, actual
+    ) or _model_error_margin_is_close(
+        item,
+        wrong_model,
+        actual,
+        prediction=predictions.get(wrong_model),
     )
 
 
@@ -6331,10 +6299,7 @@ def _format_top_logits(item: dict[str, Any], model_name: str) -> str:
     if not parsed:
         return ""
     top = sorted(parsed, key=lambda value: (-value[1], value[0]))[:3]
-    return f"{model_name} " + " ".join(
-        f"{tile}={logit:.4f}"
-        for tile, logit in top
-    )
+    return f"{model_name} " + " ".join(f"{tile}={logit:.4f}" for tile, logit in top)
 
 
 def _disagreement_category_models(category_name: str) -> tuple[str, str]:
@@ -6981,14 +6946,10 @@ def _collect_streamed_examples(
         _add_game_counts(game_counts, _call_example_cache_game_counts(game))
         if count_discard:
             discard_examples = int(discard_examples or 0) + sum(
-                1
-                for _ in iter_discard_examples(game)
+                1 for _ in iter_discard_examples(game)
             )
         if count_call:
-            call_examples = int(call_examples or 0) + sum(
-                1
-                for _ in iter_call_examples(game)
-            )
+            call_examples = int(call_examples or 0) + sum(1 for _ in iter_call_examples(game))
 
         for example in example_iter(game):
             if len(selected) >= limit:
@@ -7120,10 +7081,7 @@ def _call_example_cache_key(
 ) -> dict[str, Any]:
     return {
         "input_paths": [str(path) for path in args.paths],
-        "xml_files": [
-            _call_example_cache_file_key(path)
-            for path in dataset_files
-        ],
+        "xml_files": [_call_example_cache_file_key(path) for path in dataset_files],
         "skip_errors": bool(args.skip_errors),
     }
 
@@ -7184,18 +7142,9 @@ def _call_example_cache_entry(
         if not isinstance(game_counts_payload, dict):
             raise ValueError("call example cache game_counts must be an object")
         return _CachedCallExamples(
-            examples=[
-                _call_example_from_payload(item)
-                for item in examples_payload
-            ],
-            parse_failures=tuple(
-                _parse_failure_from_payload(item)
-                for item in failures_payload
-            ),
-            game_counts={
-                key: int(value)
-                for key, value in game_counts_payload.items()
-            },
+            examples=[_call_example_from_payload(item) for item in examples_payload],
+            parse_failures=tuple(_parse_failure_from_payload(item) for item in failures_payload),
+            game_counts={key: int(value) for key, value in game_counts_payload.items()},
             discard_examples=discard_examples,
         )
     except (KeyError, TypeError, ValueError):
@@ -7270,8 +7219,7 @@ def _call_example_from_payload(payload: Any) -> CallExample:
         scores=tuple(int(score) for score in _required_list(payload, "scores")),
         discarded_tile=Tile.parse(str(payload["discarded_tile"])),
         legal_call_kinds=tuple(
-            ActionKind(str(kind))
-            for kind in _required_list(payload, "legal_call_kinds")
+            ActionKind(str(kind)) for kind in _required_list(payload, "legal_call_kinds")
         ),
         hand_counts=_tile_counts_from_payload(payload, "hand_counts"),
         visible_counts=_tile_counts_from_payload(payload, "visible_counts"),
@@ -7297,10 +7245,7 @@ def _action_from_call_example_cache_payload(payload: Any) -> Action:
     tile = None
     if payload.get("tile") is not None:
         tile = TileType.parse(str(payload["tile"]))
-    consumed = tuple(
-        Tile.parse(str(tile))
-        for tile in payload.get("consumed", [])
-    )
+    consumed = tuple(Tile.parse(str(tile)) for tile in payload.get("consumed", []))
     return Action(
         kind=kind,
         tile=tile,
@@ -7549,14 +7494,10 @@ def _call_model_payload(
 ) -> dict[str, Any]:
     if isinstance(model, CallLinearModel):
         train_prepared = (
-            model.prepare_examples(train_examples)
-            if train_prepared is None
-            else train_prepared
+            model.prepare_examples(train_examples) if train_prepared is None else train_prepared
         )
         eval_prepared = (
-            model.prepare_examples(eval_examples)
-            if eval_prepared is None
-            else eval_prepared
+            model.prepare_examples(eval_examples) if eval_prepared is None else eval_prepared
         )
         train_analysis = _summarize_call_predictions_from_prepared(
             train_examples,
@@ -7683,16 +7624,10 @@ def _summarize_call_prediction_results(
             "pass": _empty_call_bucket(),
             "call": _empty_call_bucket(),
         },
-        "by_actual_action": {
-            kind.value: _empty_call_bucket()
-            for kind in CALL_DECISION_KINDS
-        },
+        "by_actual_action": {kind.value: _empty_call_bucket() for kind in CALL_DECISION_KINDS},
         "by_legal_call_kinds": {},
     }
-    action_distribution = {
-        kind.value: 0
-        for kind in CALL_DECISION_KINDS
-    }
+    action_distribution = {kind.value: 0 for kind in CALL_DECISION_KINDS}
 
     for example, prediction in zip(examples, predictions, strict=True):
         actual = example.action.kind
@@ -8181,14 +8116,10 @@ def _riichi_model_payload(
 ) -> dict[str, Any]:
     if isinstance(model, RiichiLinearModel):
         train_prepared = (
-            model.prepare_examples(train_examples)
-            if train_prepared is None
-            else train_prepared
+            model.prepare_examples(train_examples) if train_prepared is None else train_prepared
         )
         eval_prepared = (
-            model.prepare_examples(eval_examples)
-            if eval_prepared is None
-            else eval_prepared
+            model.prepare_examples(eval_examples) if eval_prepared is None else eval_prepared
         )
         train_analysis = _summarize_riichi_predictions_from_prepared(
             train_examples,
@@ -8308,15 +8239,9 @@ def _summarize_riichi_prediction_results(
 ) -> dict[str, Any]:
     buckets: dict[str, Any] = {
         "overall": _empty_call_bucket(),
-        "by_actual_action": {
-            kind.value: _empty_call_bucket()
-            for kind in RIICHI_DECISION_KINDS
-        },
+        "by_actual_action": {kind.value: _empty_call_bucket() for kind in RIICHI_DECISION_KINDS},
     }
-    action_distribution = {
-        kind.value: 0
-        for kind in RIICHI_DECISION_KINDS
-    }
+    action_distribution = {kind.value: 0 for kind in RIICHI_DECISION_KINDS}
 
     for example, prediction in zip(examples, predictions, strict=True):
         actual = example.action.kind
@@ -8399,18 +8324,12 @@ def _finalize_call_buckets(value: Any) -> Any:
             "accuracy": None if examples == 0 else correct / examples,
         }
     if isinstance(value, dict):
-        return {
-            key: _finalize_call_buckets(child)
-            for key, child in value.items()
-        }
+        return {key: _finalize_call_buckets(child) for key, child in value.items()}
     return value
 
 
 def _is_call_bucket(value: Any) -> bool:
-    return (
-        isinstance(value, dict)
-        and set(value) == {"examples", "correct", "accuracy"}
-    )
+    return isinstance(value, dict) and set(value) == {"examples", "correct", "accuracy"}
 
 
 def _build_disagreement_report(
@@ -8449,20 +8368,16 @@ def _build_disagreement_report(
         record: dict[str, object] | None = None
         category_matches = {
             "risk_correct_defense_wrong": (
-                correct["risk_context_linear"]
-                and not correct["defense_context_linear"]
+                correct["risk_context_linear"] and not correct["defense_context_linear"]
             ),
             "risk_correct_defense_v1_wrong": (
-                correct["risk_context_linear"]
-                and not correct["defense_context_v1_linear"]
+                correct["risk_context_linear"] and not correct["defense_context_v1_linear"]
             ),
             "defense_correct_risk_wrong": (
-                correct["defense_context_linear"]
-                and not correct["risk_context_linear"]
+                correct["defense_context_linear"] and not correct["risk_context_linear"]
             ),
             "defense_v1_correct_risk_wrong": (
-                correct["defense_context_v1_linear"]
-                and not correct["risk_context_linear"]
+                correct["defense_context_v1_linear"] and not correct["risk_context_linear"]
             ),
         }
         for category, matches in category_matches.items():
@@ -8508,8 +8423,7 @@ def _disagreement_record(
         "scores": list(example.scores),
         "actual_discard": example.action.tile.notation,
         "predictions": {
-            model_name: tile_type.notation
-            for model_name, tile_type in predictions.items()
+            model_name: tile_type.notation for model_name, tile_type in predictions.items()
         },
         "correct": correct,
         "shanten_delta": {
@@ -8537,8 +8451,7 @@ def _disagreement_record(
         "last_discard_tsumogiri_by_seat": list(example.last_discard_tsumogiri_by_seat),
         "ippatsu_active_seats": list(example.ippatsu_active_seats),
         "candidate_logits": {
-            model_name: _logits_payload(logits)
-            for model_name, logits in logits_by_model.items()
+            model_name: _logits_payload(logits) for model_name, logits in logits_by_model.items()
         },
     }
 

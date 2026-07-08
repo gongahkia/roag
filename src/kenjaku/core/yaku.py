@@ -200,9 +200,7 @@ def yaku_han_for_names(names: Iterable[str], *, is_closed: bool) -> int:
 
 def yakuman_multiplier_for_names(names: Iterable[str]) -> int:
     return sum(
-        YAKU_DEFINITIONS[name].yakuman_multiplier
-        for name in names
-        if name in YAKU_DEFINITIONS
+        YAKU_DEFINITIONS[name].yakuman_multiplier for name in names if name in YAKU_DEFINITIONS
     )
 
 
@@ -217,8 +215,7 @@ def _standard_yaku_names(
 ) -> tuple[str, ...]:
     names: list[str] = []
     if any(
-        _is_pinfu_grouping(grouping, winning_tile, seat_wind, round_wind)
-        for grouping in groupings
+        _is_pinfu_grouping(grouping, winning_tile, seat_wind, round_wind) for grouping in groupings
     ):
         names.append("pinfu")
     if is_closed:
@@ -335,8 +332,7 @@ def _meld_groupings(
         working[first] -= 3
         group = _Group("triplet", (first, first, first), True)
         results.extend(
-            (group, *child)
-            for child in _meld_groupings(tuple(working), melds_needed - 1)
+            (group, *child) for child in _meld_groupings(tuple(working), melds_needed - 1)
         )
     if _can_sequence(counts, first):
         working = list(counts)
@@ -344,8 +340,7 @@ def _meld_groupings(
             working[index] -= 1
         group = _Group("sequence", (first, first + 1, first + 2), True)
         results.extend(
-            (group, *child)
-            for child in _meld_groupings(tuple(working), melds_needed - 1)
+            (group, *child) for child in _meld_groupings(tuple(working), melds_needed - 1)
         )
     return tuple(results)
 
@@ -599,11 +594,7 @@ def _quad_count(grouping: tuple[_Group, ...]) -> int:
 
 
 def _typed_triplet_count(grouping: tuple[_Group, ...], tile_types: frozenset[TileType]) -> int:
-    return sum(
-        1
-        for group in grouping
-        if group.is_triplet_like and group.tile_type in tile_types
-    )
+    return sum(1 for group in grouping if group.is_triplet_like and group.tile_type in tile_types)
 
 
 def _wait_fu(grouping: tuple[_Group, ...], winning_tile: TileType) -> int:

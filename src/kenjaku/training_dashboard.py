@@ -569,8 +569,7 @@ def _comparison_row(
     for column in hparam_columns:
         value = run["hparams"].get(column)
         cells.append(
-            f'<td data-sort="{_html_attr(_sort_text(value))}">'
-            f"{_html_text(_display(value))}</td>"
+            f'<td data-sort="{_html_attr(_sort_text(value))}">{_html_text(_display(value))}</td>'
         )
     return f"<tr>{''.join(cells)}</tr>"
 
@@ -590,8 +589,8 @@ def _run_section(run: dict[str, Any]) -> str:
         )
     )
     return f"""
-    <section id="{_html_attr(run['fragment'])}">
-      <h2>{_html_text(run['id'])}</h2>
+    <section id="{_html_attr(run["fragment"])}">
+      <h2>{_html_text(run["id"])}</h2>
       <dl class="summary-grid">
         {overview}
       </dl>
@@ -648,8 +647,10 @@ def _line_chart(points: Sequence[dict[str, float]], *, metric: str) -> str:
         return left + ((value - min_x) / x_span) * (width - left - right) if x_span else width / 2
 
     def sy(value: float) -> float:
-        return top + (height - top - bottom) / 2 if not y_span else (
-            height - bottom - ((value - min_y) / y_span) * (height - top - bottom)
+        return (
+            top + (height - top - bottom) / 2
+            if not y_span
+            else (height - bottom - ((value - min_y) / y_span) * (height - top - bottom))
         )
 
     coords = [(sx(point["step"]), sy(point["value"])) for point in points]
@@ -657,8 +658,7 @@ def _line_chart(points: Sequence[dict[str, float]], *, metric: str) -> str:
     line_class = _line_class(metric)
     if len(coords) == 1:
         shape = (
-            f'<circle class="dot" cx="{coords[0][0]:.1f}" '
-            f'cy="{coords[0][1]:.1f}" r="4"></circle>'
+            f'<circle class="dot" cx="{coords[0][0]:.1f}" cy="{coords[0][1]:.1f}" r="4"></circle>'
         )
     else:
         shape = f'<polyline class="line {line_class}" points="{path}"></polyline>'
@@ -697,10 +697,7 @@ def _line_class(metric: str) -> str:
 
 def _summary_item(label: str, value: str) -> str:
     return (
-        '<div class="summary-item">'
-        f"<dt>{_html_text(label)}</dt>"
-        f"<dd>{_html_text(value)}</dd>"
-        "</div>"
+        f'<div class="summary-item"><dt>{_html_text(label)}</dt><dd>{_html_text(value)}</dd></div>'
     )
 
 

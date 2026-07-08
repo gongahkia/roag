@@ -63,10 +63,13 @@ def write_model_predictions(
     predictions = 0
     malformed = 0
     unsupported = 0
-    with snapshots_path.open(encoding="utf-8") as source, output_path.open(
-        "w",
-        encoding="utf-8",
-    ) as target:
+    with (
+        snapshots_path.open(encoding="utf-8") as source,
+        output_path.open(
+            "w",
+            encoding="utf-8",
+        ) as target,
+    ):
         for line in source:
             try:
                 snapshot = json.loads(line)
@@ -447,10 +450,7 @@ def _optional_counts(payload: dict[str, Any], key: str, length: int) -> tuple[in
 def _river_counts(value: Any) -> tuple[tuple[int, ...], ...]:
     if not isinstance(value, list):
         return ()
-    return tuple(
-        _counts(row, length=34, label="river_counts_by_seat")
-        for row in value
-    )
+    return tuple(_counts(row, length=34, label="river_counts_by_seat") for row in value)
 
 
 def _tiles(value: Any) -> tuple[Tile, ...]:

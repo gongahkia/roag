@@ -210,9 +210,7 @@ class PlacementModel:
         if payload.get("kind") not in {PLACEMENT_MODEL_KIND, PLACEMENT_CHECKPOINT_KIND}:
             raise ValueError("unsupported placement model kind")
         model_payload = (
-            payload.get("model")
-            if payload.get("kind") == PLACEMENT_CHECKPOINT_KIND
-            else payload
+            payload.get("model") if payload.get("kind") == PLACEMENT_CHECKPOINT_KIND else payload
         )
         if not isinstance(model_payload, dict):
             raise ValueError("placement checkpoint missing model object")
@@ -224,9 +222,7 @@ class PlacementModel:
         if not isinstance(weights_payload, list):
             raise ValueError("placement model missing weights")
         weights = tuple(
-            tuple(float(value) for value in row)
-            for row in weights_payload
-            if isinstance(row, list)
+            tuple(float(value) for value in row) for row in weights_payload if isinstance(row, list)
         )
         return cls(
             weights=weights,
@@ -489,9 +485,7 @@ def _round_end_scores(
         if round_.ryuukyoku.scores is not None and len(round_.ryuukyoku.scores) == 4:
             return _scores4(round_.ryuukyoku.scores)
         if round_.ryuukyoku.score_deltas is not None and len(round_.ryuukyoku.score_deltas) == 4:
-            return tuple(
-                scores[index] + round_.ryuukyoku.score_deltas[index] for index in range(4)
-            )
+            return tuple(scores[index] + round_.ryuukyoku.score_deltas[index] for index in range(4))
     return scores
 
 

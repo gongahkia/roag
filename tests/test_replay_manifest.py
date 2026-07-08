@@ -35,11 +35,7 @@ class ReplayManifestTests(unittest.TestCase):
         self.assertEqual(review["rejected"], 4)
         self.assertEqual(review["platforms"]["mahjong_soul"], 3)
         self.assertEqual(review["permission_statuses"]["user_provided"], 2)
-        accepted_ids = [
-            decision["id"]
-            for decision in review["decisions"]
-            if decision["accepted"]
-        ]
+        accepted_ids = [decision["id"] for decision in review["decisions"] if decision["accepted"]]
         self.assertEqual(accepted_ids, ["synthetic-training", "mjs-explicit-analysis"])
         rejected = {
             decision["id"]: decision["reasons"]
@@ -69,10 +65,7 @@ class ReplayManifestTests(unittest.TestCase):
 
             review = review_replay_manifest_file(manifest)
             write_accepted_replay_intake_jsonl(accepted, review)
-            rows = [
-                json.loads(line)
-                for line in accepted.read_text(encoding="utf-8").splitlines()
-            ]
+            rows = [json.loads(line) for line in accepted.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(review["manifest_path"], str(manifest))
         self.assertEqual(len(rows), 2)

@@ -61,9 +61,7 @@ def summarize_deal_in_examples(
     positives = sum(1 for example in examples if example.dealt_in)
     active_examples = sum(1 for example in examples if active_riichi_opponents(example.discard))
     active_positives = sum(
-        1
-        for example in examples
-        if example.dealt_in and active_riichi_opponents(example.discard)
+        1 for example in examples if example.dealt_in and active_riichi_opponents(example.discard)
     )
     outcome_kinds = Counter(example.outcome_kind for example in examples)
     return {

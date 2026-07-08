@@ -22,9 +22,7 @@ DISCARD_DISAGREEMENT_SUMMARY_KIND = "kenjaku-discard-disagreement-summary-v0"
 DISCARD_LINEAR_REPORT_KIND = "kenjaku-discard-linear-report-v0"
 DISCARD_MLP_BENCHMARK_REPORT_KIND = "kenjaku-discard-mlp-benchmark-report-v0"
 DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
-DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND = (
-    "kenjaku-discard-transformer-benchmark-report-v0"
-)
+DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND = "kenjaku-discard-transformer-benchmark-report-v0"
 DISCARD_TRANSFORMER_REPORT_KIND = "kenjaku-discard-transformer-report-v0"
 PUBLIC_BENCHMARK_DASHBOARD_KIND = "kenjaku-public-benchmark-dashboard-v0"
 RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
@@ -737,9 +735,7 @@ def build_call_benchmark_report(
         "discard_examples": discard_examples,
         "call_examples": call_examples,
         "call_examples_total": (
-            call_examples
-            if call_examples_total is None
-            else call_examples_total
+            call_examples if call_examples_total is None else call_examples_total
         ),
         "example_limit": example_limit,
         "example_limit_strategy": example_limit_strategy,
@@ -804,10 +800,7 @@ def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
 
 
 def build_discard_benchmark_summary(paths: Sequence[Path]) -> dict[str, Any]:
-    reports = [
-        _summarize_benchmark_report(path, _read_json_report(path))
-        for path in paths
-    ]
+    reports = [_summarize_benchmark_report(path, _read_json_report(path)) for path in paths]
     summary_kind = (
         DISCARD_BENCHMARK_SUMMARY_KIND
         if all(str(report["target"]).startswith("discard") for report in reports)
@@ -1083,8 +1076,7 @@ def _dashboard_comparison_section(reports: Sequence[dict[str, Any]]) -> str:
         ]
     )
     body = "\n".join(
-        _dashboard_comparison_row(row, best_eval_accuracy=best_eval_accuracy)
-        for row in rows
+        _dashboard_comparison_row(row, best_eval_accuracy=best_eval_accuracy) for row in rows
     )
     return f"""
     <section>
@@ -1169,9 +1161,7 @@ def _dashboard_comparison_row(
 ) -> str:
     best_eval = _numeric(row.get("best_eval_accuracy"))
     diff = (
-        None
-        if best_eval is None or best_eval_accuracy is None
-        else best_eval - best_eval_accuracy
+        None if best_eval is None or best_eval_accuracy is None else best_eval - best_eval_accuracy
     )
     diff_class = _dashboard_diff_class(diff)
     return (
@@ -1341,14 +1331,12 @@ def _dashboard_report_section(
     )
     selected_policy = _dashboard_selected_policy(report)
     selected_policy_block = (
-        f'<p class="muted">{_html_text(selected_policy)}</p>'
-        if selected_policy is not None
-        else ""
+        f'<p class="muted">{_html_text(selected_policy)}</p>' if selected_policy is not None else ""
     )
 
     return f"""
     <section>
-      <h2>{_html_text(report['target'].replace('_', ' ').title())}</h2>
+      <h2>{_html_text(report["target"].replace("_", " ").title())}</h2>
       <dl class="summary-grid">
         {overview_rows}
       </dl>
@@ -1383,10 +1371,7 @@ def _dashboard_report_section(
 
 def _dashboard_summary_item(label: str, value: str) -> str:
     return (
-        '<div class="summary-item">'
-        f"<dt>{_html_text(label)}</dt>"
-        f"<dd>{_html_text(value)}</dd>"
-        "</div>"
+        f'<div class="summary-item"><dt>{_html_text(label)}</dt><dd>{_html_text(value)}</dd></div>'
     )
 
 
@@ -1435,8 +1420,7 @@ def _dashboard_model_rows(report: dict[str, Any]) -> list[dict[str, Any]]:
                 "best_eval_accuracy": None,
                 "eval_loss": None,
                 "notes": (
-                    f"feature_dim={model.get('feature_dim')} "
-                    f"threshold={training.get('threshold')}"
+                    f"feature_dim={model.get('feature_dim')} threshold={training.get('threshold')}"
                 ),
             }
         ]
@@ -1551,10 +1535,7 @@ def _dashboard_artifact_item(
         quote(link_target.replace("\\", "/"), safe="/:#?&=%._~+-"),
         quote=True,
     )
-    return (
-        f'<li>{_html_text(name)}: '
-        f'<a href="{href}">{_html_text(link_target)}</a></li>'
-    )
+    return f'<li>{_html_text(name)}: <a href="{href}">{_html_text(link_target)}</a></li>'
 
 
 def _dashboard_link_target(path: str, *, link_base_dir: Path | None) -> str:
@@ -1585,8 +1566,7 @@ def build_discard_disagreement_summary(paths: Sequence[Path]) -> dict[str, Any]:
     return {
         "kind": DISCARD_DISAGREEMENT_SUMMARY_KIND,
         "reports": [
-            _summarize_discard_disagreement_report(path, _read_json_report(path))
-            for path in paths
+            _summarize_discard_disagreement_report(path, _read_json_report(path)) for path in paths
         ],
     }
 
@@ -1601,13 +1581,11 @@ def format_discard_disagreement_summary(summary: dict[str, Any]) -> str:
             lines.append("")
         lines.append(f"report: {report['path']}")
         lines.append(
-            f"examples: {report['examples']} eval, "
-            f"max_per_category={report['max_per_category']}"
+            f"examples: {report['examples']} eval, max_per_category={report['max_per_category']}"
         )
         for category_name, category in report["categories"].items():
             lines.append(
-                f"{category_name}: count={category['count']} "
-                f"stored={category['stored_items']}"
+                f"{category_name}: count={category['count']} stored={category['stored_items']}"
             )
             bucket_parts = [
                 f"{name}={stats['true']}/{stats['examples']}"
@@ -1746,15 +1724,9 @@ def _summarize_binary_benchmark_report(
             "eval_balanced_accuracy": metrics.get("eval_balanced_accuracy"),
             "eval_pass_recall": metrics.get("eval_pass_recall"),
             recall_key: metrics.get(recall_key),
-            "policy_threshold": (
-                policy.get("threshold")
-                if isinstance(policy, dict)
-                else None
-            ),
+            "policy_threshold": (policy.get("threshold") if isinstance(policy, dict) else None),
             "policy_threshold_source": (
-                policy.get("threshold_source")
-                if isinstance(policy, dict)
-                else None
+                policy.get("threshold_source") if isinstance(policy, dict) else None
             ),
             "train_best_threshold": _calibration_best_threshold(calibration, "train"),
             "eval_best_threshold": _calibration_best_threshold(calibration, "eval"),
@@ -2560,11 +2532,7 @@ def _correct_model_margin(
     logits = _item_logits(item, model_name)
     if actual not in logits or len(logits) < 2:
         return None
-    best_other = max(
-        logit
-        for tile, logit in logits.items()
-        if tile != actual
-    )
+    best_other = max(logit for tile, logit in logits.items() if tile != actual)
     return logits[actual] - best_other
 
 

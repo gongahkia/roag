@@ -30,9 +30,7 @@ class StatusTests(unittest.TestCase):
         )
         self.assertTrue(payload["capabilities"]["implemented"]["tenhou_xml_parsing"])
         self.assertTrue(payload["capabilities"]["implemented"]["decision_snapshot_protocol"])
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["external_baseline_report_protocol"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["external_baseline_report_protocol"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["external_baseline_confidence_intervals"]
         )
@@ -40,9 +38,7 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["external_baseline_min_decision_gate"]
         )
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "mortal_akochan_compatible_baseline_boundary"
-            ]
+            payload["capabilities"]["implemented"]["mortal_akochan_compatible_baseline_boundary"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["permission_aware_replay_intake"])
         self.assertTrue(payload["capabilities"]["implemented"]["permitted_replay_share_planning"])
@@ -54,13 +50,13 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_match_trajectory_artifacts"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["self_play_match_final_placement"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["self_play_match_final_placement"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_legal_discard_environment"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_tsumo_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_pending_discard_reactions"])
-        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_individual_reaction_passes"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["sandbox_individual_reaction_passes"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ron_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ron_priority_reactions"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_multi_ron_resolution"])
@@ -70,43 +66,25 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_temporary_furiten_ron_filter"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_riichi_furiten_ron_filter"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_riichi_declaration_action"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_riichi_furiten_ron_filter"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_riichi_declaration_action"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_post_riichi_action_restrictions"]
         )
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "sandbox_post_riichi_closed_kan_exceptions"
-            ]
+            payload["capabilities"]["implemented"]["sandbox_post_riichi_closed_kan_exceptions"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_riichi_deposit_accounting"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_honba_bonus_accounting"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_riichi_deposit_accounting"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_honba_bonus_accounting"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_next_round_transition"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_round_wind_progression"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_game_end_final_results"])
         self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_round_wind_progression"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_game_end_final_results"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "sandbox_all_last_sudden_death_progression"
-            ]
+            payload["capabilities"]["implemented"]["sandbox_all_last_sudden_death_progression"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_bankruptcy_game_end"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_oka_uma_final_scores"])
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ippatsu_window_tracking"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_action_generation"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ankan_application"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_kakan_action_generation"])
@@ -120,9 +98,7 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_kan_dora_indicator_metadata"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_rinshan_draw_metadata"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_rinshan_draw_metadata"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_endgame_yaku_timing_fixtures"]
         )
@@ -144,52 +120,32 @@ class StatusTests(unittest.TestCase):
             payload["capabilities"]["implemented"]["sandbox_terminal_point_delta_metadata"]
         )
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "sandbox_exhaustive_draw_tenpai_noten_payments"
-            ]
+            payload["capabilities"]["implemented"]["sandbox_exhaustive_draw_tenpai_noten_payments"]
         )
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_nagashi_mangan_wall_exhaustion"]
         )
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "sandbox_nagashi_mangan_next_round_progression"
-            ]
+            payload["capabilities"]["implemented"]["sandbox_nagashi_mangan_next_round_progression"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_abortive_draws"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_kyuushu_kyuuhai_abortive_draw"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_four_winds_abortive_draw"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_four_riichi_abortive_draw"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_four_kans_abortive_draw"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_triple_ron_abortive_draw"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_four_winds_abortive_draw"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_four_riichi_abortive_draw"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_four_kans_abortive_draw"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_triple_ron_abortive_draw"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_dealer_aware_win_payments"])
         self.assertTrue(payload["capabilities"]["implemented"]["exact_fu_han_scoring"])
         self.assertTrue(payload["capabilities"]["implemented"]["full_scoring_engine"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_visible_dora_score_estimates"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_ura_dora_score_estimates"]
-        )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_red_dora_score_estimates"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_ura_dora_score_estimates"])
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_red_dora_score_estimates"])
         self.assertTrue(payload["capabilities"]["implemented"]["basic_winning_hand_detection"])
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_open_meld_win_detection"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["self_play_sandbox_tsumo_termination"]
         )
@@ -198,45 +154,47 @@ class StatusTests(unittest.TestCase):
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_initial_points"])
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_no_chi"])
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "sandbox_sanma_north_guest_wind_yaku_filter"
-            ]
+            payload["capabilities"]["implemented"]["sandbox_sanma_north_guest_wind_yaku_filter"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_action"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_reaction_window"]
         )
-        self.assertTrue(
-            payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_resolution"]
-        )
+        self.assertTrue(payload["capabilities"]["implemented"]["sandbox_sanma_kita_ron_resolution"])
         self.assertTrue(payload["capabilities"]["implemented"]["heuristic_defense_risk_scoring"])
         self.assertTrue(payload["capabilities"]["implemented"]["opponent_shape_baseline"])
         self.assertTrue(
             payload["capabilities"]["implemented"]["deal_in_estimator_training_command"]
         )
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "deal_in_estimator_threshold_calibration"
-            ]
+            payload["capabilities"]["implemented"]["deal_in_estimator_threshold_calibration"]
         )
         self.assertTrue(payload["capabilities"]["implemented"]["transformer_state_encoder_module"])
         self.assertTrue(
-            payload["capabilities"]["implemented"][
-                "transformer_behavior_cloning_training_command"
-            ]
+            payload["capabilities"]["implemented"]["transformer_behavior_cloning_training_command"]
         )
-        self.assertTrue(payload["capabilities"]["implemented"]["transformer_anchor_benchmark_command"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["transformer_anchor_benchmark_command"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_command"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_policy_value_losses"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_gae_clipping_entropy"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_checkpoint_resume"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_training_curves"])
         self.assertTrue(payload["capabilities"]["implemented"]["ppo_sandbox_evaluation_summaries"])
-        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_training_command"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["population_sandbox_training_command"]
+        )
         self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_policy_pool"])
-        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_opponent_sampling"])
-        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_promotion_criteria"])
-        self.assertTrue(payload["capabilities"]["implemented"]["population_sandbox_matchup_metrics"])
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["population_sandbox_opponent_sampling"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["population_sandbox_promotion_criteria"]
+        )
+        self.assertTrue(
+            payload["capabilities"]["implemented"]["population_sandbox_matchup_metrics"]
+        )
         self.assertFalse(payload["capabilities"]["not_implemented"]["bundled_trained_model"])
         self.assertFalse(
             payload["capabilities"]["not_implemented"][
