@@ -49,10 +49,15 @@ class BrowserCommandTests(CliCommandTests):
         with TemporaryDirectory() as directory:
             root = Path(directory) / "runs"
             (root / "nested path").mkdir(parents=True)
+            (root / "benchmark-dashboard").mkdir(parents=True)
             (root / "page.html").write_text("<h1>report</h1>", encoding="utf-8")
             (root / "report.json").write_text("{}", encoding="utf-8")
             (root / "video.mp4").write_bytes(b"mp4")
             (root / "nested path" / "data.jsonl").write_text("{}", encoding="utf-8")
+            (root / "benchmark-dashboard" / "index.html").write_text(
+                "<h1>bench</h1>",
+                encoding="utf-8",
+            )
             stdout = io.StringIO()
 
             with contextlib.redirect_stdout(stdout):
@@ -64,14 +69,24 @@ class BrowserCommandTests(CliCommandTests):
         self.assertIn("wrote artifact dashboard:", stdout.getvalue())
         self.assertIn("open:", stdout.getvalue())
         self.assertIn("Kenjaku Artifact Dashboard", index_html)
+        self.assertIn("serve-index kj-arcade-shell", index_html)
+        self.assertIn("kenjaku arcade-card theme v0", index_html)
+        self.assertIn("Quick Links", index_html)
+        self.assertIn("Benchmark Dashboard", index_html)
+        self.assertIn("Data Files", index_html)
+        self.assertIn("nested path", index_html)
         self.assertIn('href="page.html"', index_html)
         self.assertIn('href="report.json"', index_html)
         self.assertIn('href="video.mp4"', index_html)
+        self.assertIn('href="benchmark-dashboard/index.html"', index_html)
         self.assertIn('href="nested%20path/data.jsonl"', index_html)
         self.assertIn(">HTML<", index_html)
         self.assertIn(">JSON<", index_html)
         self.assertIn(">MP4<", index_html)
         self.assertIn(">JSONL<", index_html)
+        self.assertIn("page |", index_html)
+        self.assertIn("data |", index_html)
+        self.assertIn("video | 3 B |", index_html)
         self.assertNotIn('href="index.html"', index_html)
 
     def test_demo_writes_fixture_quickstart_artifacts(self) -> None:

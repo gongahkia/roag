@@ -43,6 +43,7 @@ from kenjaku.experiments import (
 from kenjaku.experiments import (
     write_json_report as _write_json_report_file,
 )
+from kenjaku.frontend_static import html_document, motion_primitives_css, static_base_css, theme_css
 from kenjaku.hand_analysis import (
     build_hand_analysis,
     format_hand_analysis_html,
@@ -300,6 +301,13 @@ ARTIFACT_TYPE_LABELS = {
     ".tsv": ("TSV", "table"),
     ".pt": ("PT", "model"),
     ".pth": ("PTH", "model"),
+}
+ARTIFACT_DASHBOARD_KNOWN_VIEWERS = {
+    "benchmark-dashboard/index.html": "Benchmark Dashboard",
+    "browser-demo/index.html": "Browser Demo",
+    "replay-viewer/index.html": "Replay Viewer",
+    "review-game/index.html": "Review Game",
+    "training-dashboard/index.html": "Training Dashboard",
 }
 
 
@@ -2942,6 +2950,194 @@ def _format_artifact_size(size: int) -> str:
     return f"{value:.1f} TB"
 
 
+_ARTIFACT_DASHBOARD_CSS = """
+:root {
+      color-scheme: dark;
+      --bg: var(--kj-bg-void);
+      --text: var(--kj-score-neutral);
+      --muted: rgba(215, 220, 232, 0.72);
+      --line: rgba(215, 220, 232, 0.16);
+      --panel: rgba(13, 17, 29, 0.72);
+      --panel-soft: rgba(8, 10, 18, 0.36);
+      --accent: var(--kj-action);
+      --badge: var(--kj-chip-gold);
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.48 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header, main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    header { padding: 34px 0 12px; }
+    h1 { margin: 0 0 16px; font-size: 32px; line-height: 1.15; letter-spacing: 0; }
+    h2 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    p { margin: 0; color: var(--muted); }
+    a { color: inherit; }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 0;
+    }
+    .summary-card {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-sm);
+      background: var(--panel-soft);
+      box-shadow: var(--kj-shadow-hard);
+    }
+    .summary-card dt {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .summary-card dd {
+      margin: 4px 0 0;
+      font-size: 18px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .quick-links, .artifact-groups {
+      margin: 24px 0;
+    }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    .artifact-group {
+      margin: 18px 0 22px;
+    }
+    .group-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+    .group-heading h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+    .group-count {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .artifact-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .artifact-grid--quick {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .artifact {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 66px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-md);
+      background: var(--panel);
+      box-shadow: var(--kj-shadow-hard);
+      text-decoration: none;
+      transition:
+        transform var(--kj-motion-fast) var(--kj-ease-snap),
+        border-color var(--kj-motion-fast) var(--kj-ease-snap),
+        filter var(--kj-motion-fast) var(--kj-ease-snap);
+    }
+    .artifact:hover {
+      border-color: rgba(103, 214, 255, 0.54);
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+    }
+    .artifact--quick {
+      border-color: rgba(255, 200, 87, 0.36);
+      background: linear-gradient(180deg, rgba(255, 200, 87, 0.14), var(--panel));
+    }
+    .type-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 50px;
+      min-height: 30px;
+      border: 1px solid rgba(255, 200, 87, 0.52);
+      border-radius: var(--kj-radius-sm);
+      background: rgba(255, 200, 87, 0.16);
+      color: var(--badge);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .artifact-main {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .path {
+      overflow-wrap: anywhere;
+      font-weight: 800;
+    }
+    .path-sub {
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .empty {
+      padding: 16px;
+      border: 1px dashed rgba(215, 220, 232, 0.28);
+      border-radius: var(--kj-radius-md);
+      background: var(--panel-soft);
+      color: var(--muted);
+    }
+    @media (max-width: 760px) {
+      header, main { width: min(100% - 20px, 1180px); }
+      h1 { font-size: 27px; }
+      .section-heading,
+      .group-heading {
+        align-items: start;
+        flex-direction: column;
+      }
+      .artifact,
+      .artifact-grid--quick {
+        grid-template-columns: 1fr;
+      }
+      .artifact {
+        align-items: start;
+      }
+      .meta {
+        text-align: left;
+        white-space: normal;
+      }
+    }
+""".strip()
+
+
 def _write_artifact_dashboard_index(
     path: Path,
     *,
@@ -2951,100 +3147,164 @@ def _write_artifact_dashboard_index(
     generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     artifact_count = len(artifacts)
     type_count = len({artifact.type_label for artifact in artifacts})
-    if artifacts:
-        items = "\n".join(_format_artifact_dashboard_item(item) for item in artifacts)
-    else:
-        items = '        <p class="empty">No artifacts found.</p>'
-
-    path.write_text(
-        f"""<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{escape(title)}</title>
-    <style>
-      body {{
-        margin: 0;
-        font-family: system-ui, sans-serif;
-        color: #18202a;
-        background: #f5f7f8;
-      }}
-      main {{
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 40px 24px;
-      }}
-      header {{ margin-bottom: 24px; }}
-      h1 {{ margin: 0 0 8px; font-size: 2rem; }}
-      p {{ margin: 0; color: #4d5965; }}
-      .list {{ display: grid; gap: 10px; }}
-      .artifact {{
-        display: grid;
-        grid-template-columns: 72px 1fr auto;
-        gap: 14px;
-        align-items: center;
-        padding: 12px 14px;
-        border: 1px solid #d9e0e6;
-        border-radius: 8px;
-        background: #fff;
-        color: inherit;
-        text-decoration: none;
-      }}
-      .artifact:hover {{ border-color: #8ab4d8; }}
-      .type-icon {{
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        min-width: 48px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        background: #eaf2f8;
-        color: #174d78;
-        font-size: 0.78rem;
-        font-weight: 700;
-      }}
-      .path {{ overflow-wrap: anywhere; font-weight: 600; }}
-      .meta {{ color: #64707d; font-size: 0.9rem; white-space: nowrap; }}
-      .empty {{
-        padding: 16px;
-        border: 1px dashed #b8c3cc;
-        border-radius: 8px;
-        background: #fff;
-      }}
-      @media (max-width: 680px) {{
-        .artifact {{ grid-template-columns: 64px 1fr; }}
-        .meta {{ grid-column: 2; white-space: normal; }}
-      }}
-    </style>
-  </head>
-  <body>
-    <main>
-      <header>
-        <h1>{escape(title)}</h1>
-        <p>{artifact_count} artifacts, {type_count} types. Generated {generated_at}.</p>
-      </header>
-      <section class="list" aria-label="Artifacts">
-{items}
+    group_count = len(_group_artifact_dashboard_entries(artifacts))
+    quick_links = _artifact_dashboard_quick_links(artifacts)
+    if quick_links:
+        quick_link_items = "\n".join(
+            _format_artifact_dashboard_quick_link(item) for item in quick_links
+        )
+        quick_links_html = f"""
+      <section class="quick-links" aria-label="Quick links">
+        <div class="section-heading">
+          <h2>Quick Links</h2>
+          <p>Known local viewer outputs.</p>
+        </div>
+        <div class="artifact-grid artifact-grid--quick">
+{quick_link_items}
+        </div>
       </section>
-    </main>
-  </body>
-</html>
-""",
-        encoding="utf-8",
+"""
+    else:
+        quick_links_html = ""
+    if artifacts:
+        items = "\n".join(
+            _format_artifact_dashboard_group(label, group_artifacts)
+            for label, group_artifacts in _group_artifact_dashboard_entries(artifacts).items()
+        )
+    else:
+        items = '      <p class="empty">No artifacts found.</p>'
+
+    body = f"""
+  <header>
+    <p class="eyebrow">Kenjaku local</p>
+    <h1>{escape(title)}</h1>
+    <dl class="summary-grid">
+      <div class="summary-card"><dt>Artifacts</dt><dd>{artifact_count}</dd></div>
+      <div class="summary-card"><dt>Types</dt><dd>{type_count}</dd></div>
+      <div class="summary-card"><dt>Groups</dt><dd>{group_count}</dd></div>
+      <div class="summary-card"><dt>Generated</dt><dd>{escape(generated_at)}</dd></div>
+    </dl>
+  </header>
+  <main>
+{quick_links_html}
+    <section class="artifact-groups" aria-label="Artifacts">
+      <div class="section-heading">
+        <h2>Artifacts</h2>
+        <p>Local files under {escape(path.parent.as_posix())}.</p>
+      </div>
+{items}
+    </section>
+  </main>
+"""
+    html = html_document(
+        title=title,
+        body_html=body,
+        inline_css=(
+            static_base_css(),
+            theme_css(),
+            motion_primitives_css(),
+            _ARTIFACT_DASHBOARD_CSS,
+        ),
+        body_class="serve-index kj-arcade-shell",
     )
+    path.write_text(html, encoding="utf-8")
 
 
 def _format_artifact_dashboard_item(artifact: _ArtifactDashboardEntry) -> str:
+    return _format_artifact_dashboard_link(
+        artifact,
+        class_name="artifact",
+        label=artifact.rel_path.as_posix(),
+    )
+
+
+def _group_artifact_dashboard_entries(
+    artifacts: Sequence[_ArtifactDashboardEntry],
+) -> dict[str, list[_ArtifactDashboardEntry]]:
+    grouped: dict[str, list[_ArtifactDashboardEntry]] = {}
+    for artifact in artifacts:
+        grouped.setdefault(_artifact_dashboard_group_label(artifact), []).append(artifact)
+    return grouped
+
+
+def _artifact_dashboard_group_label(artifact: _ArtifactDashboardEntry) -> str:
+    parts = artifact.rel_path.parts
+    if len(parts) > 1:
+        return parts[0]
+    return f"{artifact.type_name.title()} Files"
+
+
+def _artifact_dashboard_quick_links(
+    artifacts: Sequence[_ArtifactDashboardEntry],
+) -> list[_ArtifactDashboardEntry]:
+    return [artifact for artifact in artifacts if _artifact_dashboard_quick_label(artifact)]
+
+
+def _artifact_dashboard_quick_label(artifact: _ArtifactDashboardEntry) -> str | None:
+    rel_path = artifact.rel_path.as_posix()
+    if rel_path in ARTIFACT_DASHBOARD_KNOWN_VIEWERS:
+        return ARTIFACT_DASHBOARD_KNOWN_VIEWERS[rel_path]
+    if artifact.type_label == "HTML" and artifact.rel_path.name == "index.html":
+        parts = artifact.rel_path.parts
+        if len(parts) > 1:
+            return _artifact_dashboard_title(parts[-2])
+    return None
+
+
+def _artifact_dashboard_title(value: str) -> str:
+    return value.replace("_", "-").replace("-", " ").title()
+
+
+def _format_artifact_dashboard_group(
+    label: str,
+    artifacts: Sequence[_ArtifactDashboardEntry],
+) -> str:
+    count = len(artifacts)
+    items = "\n".join(_format_artifact_dashboard_item(item) for item in artifacts)
+    return f"""
+      <section class="artifact-group" aria-label="{escape(label, quote=True)}">
+        <div class="group-heading">
+          <h3>{escape(label)}</h3>
+          <span class="group-count">{count} {_plural(count, "artifact")}</span>
+        </div>
+        <div class="artifact-grid">
+{items}
+        </div>
+      </section>
+"""
+
+
+def _format_artifact_dashboard_quick_link(artifact: _ArtifactDashboardEntry) -> str:
+    label = _artifact_dashboard_quick_label(artifact)
+    if label is None:
+        label = artifact.rel_path.as_posix()
+    return _format_artifact_dashboard_link(
+        artifact,
+        class_name="artifact artifact--quick",
+        label=label,
+    )
+
+
+def _format_artifact_dashboard_link(
+    artifact: _ArtifactDashboardEntry,
+    *,
+    class_name: str,
+    label: str,
+) -> str:
     rel_path = artifact.rel_path.as_posix()
     href = escape(quote(rel_path, safe="/"), quote=True)
     meta = f"{artifact.type_name} | {_format_artifact_size(artifact.size)} | {artifact.modified_at}"
+    subpath = "" if label == rel_path else f'<span class="path-sub">{escape(rel_path)}</span>'
     return (
-        f'        <a class="artifact" href="{href}">'
+        f'        <a class="{escape(class_name, quote=True)}" href="{href}">'
         f'<span class="type-icon">{escape(artifact.type_label)}</span>'
-        f'<span class="path">{escape(rel_path)}</span>'
+        f'<span class="artifact-main"><span class="path">{escape(label)}</span>{subpath}</span>'
         f'<span class="meta">{escape(meta)}</span></a>'
     )
+
+
+def _plural(count: int, singular: str) -> str:
+    return singular if count == 1 else f"{singular}s"
 
 
 def _replay_intake_review(args: argparse.Namespace) -> int:
