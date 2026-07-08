@@ -25,6 +25,7 @@ class FrontendStaticTests(unittest.TestCase):
 
         self.assertTrue(html.startswith("<!doctype html>"))
         self.assertIn(FRONTEND_STATIC_HELPERS_VERSION, html)
+        self.assertIn('rel="icon" href="data:,"', html)
         self.assertIn("<title>Fixture &lt;Title&gt;</title>", html)
         self.assertIn('href="styles.css"', html)
         self.assertIn('src="demo.js"', html)

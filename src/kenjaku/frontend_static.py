@@ -123,6 +123,7 @@ def html_document(
                 f'  <meta name="generator" content="{FRONTEND_STATIC_HELPERS_VERSION}; '
                 f'{KENJAKU_ARCADE_THEME_VERSION}">'
             ),
+            '  <link rel="icon" href="data:,">',
             f"  <title>{html_text(title)}</title>",
             stylesheet_tags,
             style_block,

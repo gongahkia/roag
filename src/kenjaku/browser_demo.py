@@ -5,7 +5,7 @@ from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
-from kenjaku.frontend_static import html_document
+from kenjaku.frontend_static import html_document, theme_css
 
 BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
 BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js")
@@ -58,62 +58,80 @@ def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
 
 _INDEX_BODY_HTML = """
   <main class="demo-shell">
-    <section class="table-view" aria-label="Mahjong table">
-      <div class="table-status">
-        <div>
+    <section class="table-view kj-table-surface" aria-label="Mahjong table">
+      <div class="table-hud kj-hud" aria-label="Round status">
+        <div class="hud-chip kj-chip">
           <p class="label">Round</p>
           <p id="round-label">East 1</p>
         </div>
-        <div>
+        <div class="hud-chip kj-chip">
           <p class="label">Dora</p>
-          <div id="dora-tile" class="tile tile-honor">P</div>
+          <div id="dora-tile" class="tile kj-tile tile-honor">P</div>
         </div>
-        <div>
+        <div class="hud-chip kj-chip">
           <p class="label">Wall</p>
           <p><span id="wall-count">0</span> tiles</p>
         </div>
-        <div>
+        <div class="hud-chip kj-chip">
           <p class="label">Turn</p>
           <p id="turn-label">You</p>
         </div>
       </div>
 
-      <div class="opponents" id="opponents"></div>
+      <div class="table-arena">
+        <div class="opponents" id="opponents"></div>
 
-      <div class="center-lane">
-        <div>
-          <p class="label">Terminal Result</p>
-          <p id="terminal-result">In progress</p>
+        <div class="table-core">
+          <div class="table-zone wall-zone">
+            <p class="label">Wall Counter</p>
+            <strong id="wall-meter">0</strong>
+          </div>
+          <div class="table-center" aria-label="Hand state">
+            <div class="center-stack">
+              <p class="label">Terminal Result</p>
+              <p id="terminal-result" class="result-text">In progress</p>
+              <button id="restart-button" class="action-button kj-action-badge" type="button">
+                Restart Hand
+              </button>
+            </div>
+          </div>
+          <div class="table-zone call-zone">
+            <p class="label">Call Zone</p>
+            <strong id="call-zone-summary">No open calls</strong>
+          </div>
         </div>
-        <button id="restart-button" type="button">Restart Hand</button>
-      </div>
 
-      <div class="player-area">
-        <div>
-          <p class="label">Your Hand</p>
+        <div class="player-console kj-panel">
+          <div class="console-header">
+            <div>
+              <p class="label">Your Hand</p>
+              <strong>Discard rail</strong>
+            </div>
+            <span id="live-delta" class="score-chip kj-score-chip">+0</span>
+          </div>
           <div id="player-hand" class="hand-row"></div>
-        </div>
-        <div>
-          <p class="label">Legal Actions</p>
-          <div id="legal-actions" class="action-row"></div>
+          <div class="action-strip">
+            <p class="label">Legal Actions</p>
+            <div id="legal-actions" class="action-rail"></div>
+          </div>
         </div>
       </div>
     </section>
 
     <aside class="side-panel" aria-label="Game log">
-      <section>
+      <section class="side-card kj-card">
         <h1>Kenjaku Demo</h1>
         <dl id="scoreboard" class="scoreboard"></dl>
       </section>
-      <section>
+      <section class="side-card kj-card">
         <h2>Discards</h2>
         <div id="discard-grid" class="discard-grid"></div>
       </section>
-      <section>
+      <section class="side-card kj-card">
         <h2>Calls</h2>
         <div id="call-grid" class="call-grid"></div>
       </section>
-      <section>
+      <section class="side-card kj-card">
         <h2>Log</h2>
         <ol id="event-log" class="event-log"></ol>
       </section>
@@ -130,53 +148,38 @@ _INDEX_HTML = html_document(
 )
 
 
-_STYLES_CSS = """* {
+_STYLES_CSS = theme_css() + """
+
+* {
   box-sizing: border-box;
 }
 
-:root {
-  color-scheme: light;
-  --felt: #0f6a4f;
-  --felt-dark: #084534;
-  --surface: #f7f7f3;
-  --panel: #ffffff;
-  --ink: #17202a;
-  --muted: #60707f;
-  --line: #d8ded8;
-  --pin: #bb2d3b;
-  --sou: #157347;
-  --man: #1d4ed8;
-  --honor: #6f42c1;
-  --accent: #c77800;
+html {
+  background: var(--kj-bg-void);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: #e9ece6;
-  color: var(--ink);
+  background: var(--kj-bg-void);
+  color: var(--kj-score-neutral);
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button {
-  border: 0;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #ffffff;
-  cursor: pointer;
   font: inherit;
-  font-weight: 700;
-  padding: 9px 12px;
 }
 
 button:disabled {
-  cursor: default;
-  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 h1,
 h2,
-p {
+p,
+dl,
+dd,
+ol {
   margin: 0;
 }
 
@@ -190,43 +193,67 @@ h2 {
 
 .demo-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
   min-height: 100vh;
-  padding: 18px;
+  padding: 16px;
 }
 
 .table-view {
+  position: relative;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 16px;
-  min-height: calc(100vh - 36px);
-  border-radius: 8px;
-  background: var(--felt);
-  box-shadow: inset 0 0 0 6px var(--felt-dark);
-  color: #ffffff;
-  padding: 22px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: calc(100vh - 32px);
+  overflow: hidden;
+  padding: 18px;
 }
 
-.table-status,
+.table-view::before {
+  position: absolute;
+  inset: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  content: "";
+  pointer-events: none;
+}
+
+.table-hud,
+.table-arena,
 .opponents,
-.player-area,
-.center-lane {
+.player-console,
+.action-strip {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
-.table-status {
+.table-hud {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: relative;
+  z-index: 1;
 }
 
-.table-status > div,
-.center-lane,
-.player-area {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.14);
-  padding: 12px;
+.hud-chip {
+  justify-content: space-between;
+  min-width: 0;
+  border-radius: var(--kj-radius-sm);
+  background: rgba(8, 10, 18, 0.5);
+  color: var(--kj-score-neutral);
+}
+
+.hud-chip p:last-child,
+.hud-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-arena {
+  align-content: start;
+  grid-template-rows: auto auto auto;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .opponents {
@@ -234,53 +261,136 @@ h2 {
 }
 
 .opponent-seat {
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.18);
-  padding: 12px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(215, 220, 232, 0.16);
+  border-radius: var(--kj-radius-md);
+  background: rgba(8, 10, 18, 0.44);
+  padding: 10px;
 }
 
 .opponent-meta {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.center-lane {
-  align-items: center;
-  grid-template-columns: 1fr auto;
-  min-height: 120px;
+.seat-name,
+.seat-counter {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.player-area {
-  grid-template-columns: 1fr;
+.table-core {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(180px, 1.2fr) minmax(110px, 0.8fr);
+  gap: 12px;
+  margin: clamp(16px, 6vh, 74px) 0;
+  min-height: 220px;
+}
+
+.table-zone,
+.table-center {
+  min-width: 0;
+  border: 1px solid rgba(215, 220, 232, 0.16);
+  border-radius: var(--kj-radius-md);
+  background: rgba(8, 10, 18, 0.34);
+  padding: 12px;
+}
+
+.table-zone {
+  display: grid;
+  gap: 8px;
+  min-height: 112px;
+  align-content: center;
+}
+
+.table-zone strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.table-center {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  text-align: center;
+}
+
+.center-stack {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.result-text {
+  color: var(--kj-action-strong);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.action-button {
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.action-button.is-blocked {
+  border-color: rgba(89, 96, 111, 0.66);
+  color: var(--kj-disabled);
+  filter: grayscale(0.35);
+}
+
+.player-console {
+  border-color: rgba(215, 220, 232, 0.18);
+  background: rgba(13, 17, 29, 0.72);
+  padding: 12px;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.console-header strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-chip {
+  white-space: nowrap;
 }
 
 .side-panel {
   display: grid;
   align-content: start;
   gap: 12px;
+  min-width: 0;
 }
 
-.side-panel section {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  padding: 14px;
+.side-card {
+  padding: 12px;
 }
 
 .label {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(215, 220, 232, 0.72);
   font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.side-panel .label {
-  color: var(--muted);
-}
-
 .hand-row,
-.action-row,
+.action-rail,
 .discard-row,
 .call-row {
   display: flex;
@@ -289,38 +399,58 @@ h2 {
   margin-top: 8px;
 }
 
+.hand-row {
+  min-height: 58px;
+}
+
+.action-rail {
+  min-height: 42px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+}
+
 .tile {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 36px;
   height: 50px;
-  border: 1px solid #c6c9c2;
-  border-radius: 5px;
-  background: var(--surface);
-  box-shadow: 0 2px 0 #c9cbc5;
-  color: var(--ink);
-  font-weight: 800;
+  min-width: 36px;
+  min-height: 50px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .tile-button {
+  cursor: pointer;
   padding: 0;
 }
 
+.tile-button.is-legal {
+  border-color: var(--kj-action);
+}
+
+.tile-button.is-selected {
+  transform: translateY(-4px);
+}
+
+.tile-button.is-blocked,
+.tile-button:disabled {
+  opacity: 0.52;
+  transform: none;
+}
+
 .tile-man {
-  color: var(--man);
+  color: var(--kj-tile-man);
 }
 
 .tile-pin {
-  color: var(--pin);
+  color: var(--kj-tile-pin);
 }
 
 .tile-sou {
-  color: var(--sou);
+  color: var(--kj-tile-sou);
 }
 
 .tile-honor {
-  color: var(--honor);
+  color: var(--kj-tile-honor);
 }
 
 .scoreboard {
@@ -339,6 +469,7 @@ h2 {
 }
 
 .score-row {
+  align-items: center;
   grid-template-columns: 1fr auto;
 }
 
@@ -363,10 +494,10 @@ h2 {
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--kj-card-muted);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 980px) {
   .demo-shell {
     grid-template-columns: 1fr;
   }
@@ -376,18 +507,50 @@ h2 {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 680px) {
   .demo-shell {
+    gap: 10px;
     padding: 10px;
   }
 
-  .table-status,
-  .opponents {
-    grid-template-columns: 1fr;
+  .table-view {
+    padding: 12px;
   }
 
-  .center-lane {
+  .table-hud,
+  .opponents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table-core {
     grid-template-columns: 1fr;
+    margin: 10px 0;
+    min-height: 0;
+  }
+
+  .table-zone {
+    min-height: 76px;
+  }
+
+  .table-zone strong {
+    font-size: 21px;
+  }
+
+  .table-center {
+    min-height: 124px;
+  }
+
+  .result-text {
+    font-size: 23px;
+  }
+
+  .console-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .side-panel {
+    gap: 10px;
   }
 }
 """
@@ -513,8 +676,11 @@ function render() {
 
 function renderStatus() {
   text("wall-count", state.wall.length);
+  text("wall-meter", state.wall.length);
   text("turn-label", state.terminal ? "Terminal" : SEATS[state.currentSeat]);
   text("terminal-result", state.terminal || "In progress");
+  text("live-delta", scoreDeltaLabel());
+  text("call-zone-summary", callSummaryLabel());
   document.getElementById("dora-tile").textContent = DORA_INDICATOR;
 }
 
@@ -522,14 +688,14 @@ function renderOpponents() {
   const container = document.getElementById("opponents");
   container.replaceChildren(...[1, 2, 3].map((seat) => {
     const panel = document.createElement("section");
-    panel.className = "opponent-seat";
+    panel.className = "opponent-seat kj-card";
     panel.innerHTML = `
       <div class="opponent-meta">
-        <strong>${SEATS[seat]}</strong>
-        <span>${state.hands[seat].length} tiles</span>
+        <strong class="seat-name">${SEATS[seat]}</strong>
+        <span class="seat-counter">${state.hands[seat].length} tiles</span>
       </div>
       <p class="label">Score</p>
-      <p>${state.scores[seat].toLocaleString()}</p>
+      <p class="score-chip kj-score-chip">${state.scores[seat].toLocaleString()}</p>
     `;
     return panel;
   }));
@@ -538,11 +704,20 @@ function renderOpponents() {
 function renderHand() {
   const container = document.getElementById("player-hand");
   container.replaceChildren(...state.hands[0].map((tile, index) => {
+    const legal = state.currentSeat === 0 && !state.terminal;
+    const selected = legal && index === state.hands[0].length - 1 && state.drawnTile === tile;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `tile tile-button ${tileClass(tile)}`;
+    button.className = [
+      "tile",
+      "tile-button",
+      "kj-tile",
+      tileClass(tile),
+      legal ? "is-legal" : "is-blocked",
+      selected ? "is-selected" : "",
+    ].filter(Boolean).join(" ");
     button.textContent = tile;
-    button.disabled = state.currentSeat !== 0 || Boolean(state.terminal);
+    button.disabled = !legal;
     button.addEventListener("click", () => discardTile(index));
     return button;
   }));
@@ -552,17 +727,17 @@ function renderActions() {
   const container = document.getElementById("legal-actions");
   container.replaceChildren();
   if (state.terminal) {
-    container.appendChild(textNode("Hand complete"));
+    container.appendChild(actionNode("Hand complete", { disabled: true, blocked: true }));
     return;
   }
   if (state.currentSeat !== 0) {
-    container.appendChild(textNode(`${SEATS[state.currentSeat]} is acting`));
+    container.appendChild(
+      actionNode(`${SEATS[state.currentSeat]} is acting`, { disabled: true, blocked: true })
+    );
     return;
   }
   state.hands[0].forEach((tile, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = `Discard ${tile}`;
+    const button = actionNode(`Discard ${tile}`, { legal: true });
     button.addEventListener("click", () => discardTile(index));
     container.appendChild(button);
   });
@@ -573,7 +748,10 @@ function renderScores() {
   scoreboard.replaceChildren(...SEATS.map((seatName, seat) => {
     const row = document.createElement("div");
     row.className = "score-row";
-    row.innerHTML = `<dt>${seatName}</dt><dd>${state.scores[seat].toLocaleString()}</dd>`;
+    row.innerHTML = `
+      <dt class="seat-name">${seatName}</dt>
+      <dd class="score-chip kj-score-chip">${state.scores[seat].toLocaleString()}</dd>
+    `;
     return row;
   }));
 }
@@ -624,7 +802,7 @@ function renderLog() {
 
 function renderTile(tile) {
   const node = document.createElement("span");
-  node.className = `tile ${tileClass(tile)}`;
+  node.className = `tile kj-tile ${tileClass(tile)}`;
   node.textContent = tile;
   return node;
 }
@@ -650,6 +828,33 @@ function textNode(value) {
   const span = document.createElement("span");
   span.textContent = value;
   return span;
+}
+
+function actionNode(label, options = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = [
+    "action-button",
+    "kj-action-badge",
+    options.legal ? "is-legal" : "",
+    options.blocked ? "is-blocked" : "",
+  ].filter(Boolean).join(" ");
+  button.textContent = label;
+  button.disabled = Boolean(options.disabled);
+  if (options.disabled) {
+    button.setAttribute("aria-disabled", "true");
+  }
+  return button;
+}
+
+function scoreDeltaLabel() {
+  const delta = state.scores[0] - INITIAL_SCORES[0];
+  return `${delta >= 0 ? "+" : ""}${delta.toLocaleString()}`;
+}
+
+function callSummaryLabel() {
+  const calls = state.calls.reduce((count, seatCalls) => count + seatCalls.length, 0);
+  return calls === 0 ? "No open calls" : `${calls} open calls`;
 }
 
 document.getElementById("restart-button").addEventListener("click", startHand);

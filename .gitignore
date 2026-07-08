@@ -22,3 +22,5 @@ env/
 /models/
 /runs/
 /wandb/
+
+.playwright-cli/

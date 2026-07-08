@@ -32,7 +32,8 @@ class _AssetParser(HTMLParser):
             self.ids.add(values["id"])
         if "class" in values and values["class"] is not None:
             self.classes.update(values["class"].split())
-        if tag == "link" and values.get("href") is not None:
+        rel = values.get("rel") or ""
+        if tag == "link" and "stylesheet" in rel.split() and values.get("href") is not None:
             self.links.append(str(values["href"]))
         if tag == "script" and values.get("src") is not None:
             self.scripts.append(str(values["src"]))
@@ -53,9 +54,13 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn("kenjaku-static-frontend-helpers-v0", html)
         self.assertIn('href="styles.css"', html)
         self.assertIn('src="demo.js"', html)
+        self.assertIn("kj-table-surface", html)
+        self.assertIn("action-rail", html)
         for contents in (html, css, js):
             self.assertNotIn(directory, contents)
             self.assertNotIn("file://", contents)
+            self.assertNotIn("http://", contents)
+            self.assertNotIn("https://", contents)
 
     def test_html_assets_and_css_selectors_resolve(self) -> None:
         with TemporaryDirectory() as directory:
@@ -71,8 +76,49 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertEqual(parser.scripts, ["demo.js"])
         selector_names = _css_selector_names(css)
         source_names = set(re.findall(r"[A-Za-z][A-Za-z0-9_-]+", html + js))
-        missing = sorted(name for name in selector_names if name not in source_names)
+        optional_shared = {"is-disabled", "is-error"}
+        missing = sorted(
+            name
+            for name in selector_names
+            if name not in source_names
+            and not name.startswith("kj-")
+            and name not in optional_shared
+        )
         self.assertEqual(missing, [])
+
+    def test_arcade_table_dom_hooks_exist(self) -> None:
+        with TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            write_browser_demo(output_dir)
+            html = (output_dir / "index.html").read_text(encoding="utf-8")
+
+        parser = _AssetParser()
+        parser.feed(html)
+        self.assertGreaterEqual(
+            parser.ids,
+            {
+                "wall-meter",
+                "call-zone-summary",
+                "live-delta",
+                "player-hand",
+                "legal-actions",
+                "scoreboard",
+                "discard-grid",
+                "call-grid",
+                "event-log",
+            },
+        )
+        self.assertGreaterEqual(
+            parser.classes,
+            {
+                "table-hud",
+                "table-core",
+                "table-center",
+                "player-console",
+                "action-rail",
+                "score-chip",
+            },
+        )
 
     def test_demo_javascript_parses(self) -> None:
         node = shutil.which("node")
