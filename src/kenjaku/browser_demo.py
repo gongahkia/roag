@@ -470,7 +470,7 @@ h2 {
 }
 
 .table-hud {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   position: relative;
   z-index: 1;
 }
@@ -569,6 +569,17 @@ h2 {
   gap: 12px;
 }
 
+.mode-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mode-button {
+  min-width: 72px;
+}
+
 .result-text {
   color: var(--kj-action-strong);
   font-size: 28px;
@@ -579,6 +590,11 @@ h2 {
 .action-button {
   min-height: 34px;
   cursor: pointer;
+}
+
+.action-button.is-active {
+  border-color: var(--kj-action-strong);
+  color: var(--kj-action-strong);
 }
 
 .action-button.is-blocked {
@@ -621,6 +637,32 @@ h2 {
 
 .side-card {
   padding: 12px;
+}
+
+.policy-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.policy-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.policy-row dt {
+  color: rgba(215, 220, 232, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.policy-row dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .label {
