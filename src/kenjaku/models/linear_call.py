@@ -8,86 +8,29 @@ from math import exp
 from pathlib import Path
 from typing import Any, cast
 
-from kenjaku.core import ActionKind, TileType, all_tile_types, shanten
-from kenjaku.models.call_frequency import CALL_DECISION_KINDS
+from kenjaku.core import ActionKind, TileType, shanten
+from kenjaku.features import call as call_features
+from kenjaku.features.call import (
+    FeatureProfile as _FeatureProfile,
+)
+from kenjaku.features.call import (
+    feature_profile as _feature_profile,
+)
+from kenjaku.features.call import (
+    feature_profile_for_kind as _feature_profile_for_kind,
+)
 from kenjaku.training import CallExample
 
-CALL_LINEAR_V0_FEATURE_PROFILE = "v0"
-CALL_LINEAR_V1_FEATURE_PROFILE = "v1"
-CALL_LINEAR_MODEL_KIND = "call-linear-v0"
-CALL_LINEAR_V1_MODEL_KIND = "call-linear-v1"
-
+CALL_DECISION_KINDS = call_features.CALL_DECISION_KINDS
+CALL_LINEAR_FEATURE_DIM = call_features.CALL_LINEAR_FEATURE_DIM
+CALL_LINEAR_FEATURE_NAMES = call_features.CALL_LINEAR_FEATURE_NAMES
+CALL_LINEAR_MODEL_KIND = call_features.CALL_LINEAR_MODEL_KIND
+CALL_LINEAR_V0_FEATURE_PROFILE = call_features.CALL_LINEAR_V0_FEATURE_PROFILE
+CALL_LINEAR_V1_FEATURE_DIM = call_features.CALL_LINEAR_V1_FEATURE_DIM
+CALL_LINEAR_V1_FEATURE_NAMES = call_features.CALL_LINEAR_V1_FEATURE_NAMES
+CALL_LINEAR_V1_FEATURE_PROFILE = call_features.CALL_LINEAR_V1_FEATURE_PROFILE
+CALL_LINEAR_V1_MODEL_KIND = call_features.CALL_LINEAR_V1_MODEL_KIND
 _NON_PASS_CALL_KINDS = (ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN)
-_TILE_FEATURE_NAMES = tuple(tile_type.notation for tile_type in all_tile_types())
-_CALL_LINEAR_V0_FEATURE_NAMES = (
-    "bias",
-    *(f"candidate_{kind.value}" for kind in CALL_DECISION_KINDS),
-    *(f"discarded_{name}" for name in _TILE_FEATURE_NAMES),
-    *(f"legal_{kind.value}" for kind in _NON_PASS_CALL_KINDS),
-    "legal_call_kind_count",
-    *(f"hand_count_{name}" for name in _TILE_FEATURE_NAMES),
-    *(f"visible_count_{name}" for name in _TILE_FEATURE_NAMES),
-    "discarded_tile_hand_count",
-    "from_left",
-    "from_across",
-    "from_right",
-    "seat_is_dealer",
-    "from_seat_is_dealer",
-    "before_shanten",
-    "after_shanten_proxy",
-    "shanten_delta_proxy",
-)
-CALL_LINEAR_FEATURE_NAMES = _CALL_LINEAR_V0_FEATURE_NAMES
-CALL_LINEAR_FEATURE_DIM = len(CALL_LINEAR_FEATURE_NAMES)
-_CALL_LINEAR_V1_EXTRA_FEATURE_NAMES = (
-    "candidate_non_pass",
-    "candidate_chi_left",
-    "candidate_chi_middle",
-    "candidate_chi_right",
-    "candidate_consumed_fraction",
-    "after_call_tile_count",
-    "shanten_improved_proxy",
-    "shanten_same_proxy",
-    "shanten_worsened_proxy",
-    "before_ukeire_proxy",
-    "after_ukeire_proxy",
-    "ukeire_delta_proxy",
-    "discarded_visible_count",
-    "discarded_unseen_count",
-    "discarded_is_honor",
-    "discarded_is_terminal",
-    "discarded_is_terminal_or_honor",
-)
-CALL_LINEAR_V1_FEATURE_NAMES = (
-    *_CALL_LINEAR_V0_FEATURE_NAMES,
-    *_CALL_LINEAR_V1_EXTRA_FEATURE_NAMES,
-)
-CALL_LINEAR_V1_FEATURE_DIM = len(CALL_LINEAR_V1_FEATURE_NAMES)
-
-
-@dataclass(frozen=True, slots=True)
-class _FeatureProfile:
-    name: str
-    model_kind: str
-    feature_names: tuple[str, ...]
-
-    @property
-    def feature_dim(self) -> int:
-        return len(self.feature_names)
-
-
-_FEATURE_PROFILES = {
-    CALL_LINEAR_V0_FEATURE_PROFILE: _FeatureProfile(
-        name=CALL_LINEAR_V0_FEATURE_PROFILE,
-        model_kind=CALL_LINEAR_MODEL_KIND,
-        feature_names=CALL_LINEAR_FEATURE_NAMES,
-    ),
-    CALL_LINEAR_V1_FEATURE_PROFILE: _FeatureProfile(
-        name=CALL_LINEAR_V1_FEATURE_PROFILE,
-        model_kind=CALL_LINEAR_V1_MODEL_KIND,
-        feature_names=CALL_LINEAR_V1_FEATURE_NAMES,
-    ),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -672,20 +615,6 @@ def _kind_index(kind: ActionKind) -> int:
     if kind not in CALL_DECISION_KINDS:
         raise ValueError(f"unsupported call decision kind: {kind.value}")
     return CALL_DECISION_KINDS.index(kind)
-
-
-def _feature_profile(name: str) -> _FeatureProfile:
-    try:
-        return _FEATURE_PROFILES[name]
-    except KeyError as exc:
-        raise ValueError(f"unsupported call linear feature profile: {name}") from exc
-
-
-def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
-    for profile in _FEATURE_PROFILES.values():
-        if profile.model_kind == kind:
-            return profile
-    return None
 
 
 def _parse_weight_row(row: Any) -> tuple[float, ...]:

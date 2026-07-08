@@ -3,16 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kenjaku.core import ActionKind
+from kenjaku.features.call import CALL_DECISION_KINDS
 from kenjaku.training import CallExample
 
 CALL_FREQUENCY_MODEL_KIND = "call-frequency-v0"
 CALL_LEGAL_FREQUENCY_MODEL_KIND = "call-legal-frequency-v0"
-CALL_DECISION_KINDS = (
-    ActionKind.PASS,
-    ActionKind.CHI,
-    ActionKind.PON,
-    ActionKind.MINKAN,
-)
 
 
 @dataclass(frozen=True, slots=True)

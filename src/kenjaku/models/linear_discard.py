@@ -8,6 +8,19 @@ from pathlib import Path
 from typing import Any, cast
 
 from kenjaku.core import Action, Tile, TileType, all_tile_types, shanten
+from kenjaku.features import discard as discard_features
+from kenjaku.features.discard import (
+    FeatureProfile as _FeatureProfile,
+)
+from kenjaku.features.discard import (
+    feature_names as _feature_names,
+)
+from kenjaku.features.discard import (
+    feature_profile as _feature_profile,
+)
+from kenjaku.features.discard import (
+    feature_profile_for_kind as _feature_profile_for_kind,
+)
 from kenjaku.training import DiscardExample
 from kenjaku.training.defense_features import (
     candidate_has_kabe,
@@ -22,146 +35,27 @@ from kenjaku.training.defense_features import (
     min_active_riichi_discards_elapsed,
 )
 
-RAW_COUNT_FEATURE_PROFILE = "raw-count"
-SHANTEN_FEATURE_PROFILE = "shanten"
-RISK_CONTEXT_FEATURE_PROFILE = "risk-context"
-DEFENSE_CONTEXT_FEATURE_PROFILE = "defense-context"
-DEFENSE_CONTEXT_V1_FEATURE_PROFILE = "defense-context-v1"
-RAW_COUNT_FEATURE_DIM = 69
-RAW_COUNT_MODEL_KIND = "discard-linear-raw-count-v0"
-FEATURE_DIM = 76
-MODEL_KIND = "discard-linear-v1"
-RISK_CONTEXT_FEATURE_DIM = 86
-RISK_CONTEXT_MODEL_KIND = "discard-linear-risk-context-v0"
-DEFENSE_CONTEXT_FEATURE_DIM = 98
-DEFENSE_CONTEXT_MODEL_KIND = "discard-linear-defense-context-v0"
-DEFENSE_CONTEXT_V1_FEATURE_DIM = 112
-DEFENSE_CONTEXT_V1_MODEL_KIND = "discard-linear-defense-context-v1"
-
-
-@dataclass(frozen=True, slots=True)
-class _FeatureProfile:
-    name: str
-    model_kind: str
-    feature_dim: int
-    includes_tile_efficiency: bool
-    includes_risk_context: bool
-    includes_defense_context: bool
-    includes_defense_context_v1: bool
+DEFENSE_CONTEXT_FEATURE_DIM = discard_features.DEFENSE_CONTEXT_FEATURE_DIM
+DEFENSE_CONTEXT_FEATURE_PROFILE = discard_features.DEFENSE_CONTEXT_FEATURE_PROFILE
+DEFENSE_CONTEXT_MODEL_KIND = discard_features.DEFENSE_CONTEXT_MODEL_KIND
+DEFENSE_CONTEXT_V1_FEATURE_DIM = discard_features.DEFENSE_CONTEXT_V1_FEATURE_DIM
+DEFENSE_CONTEXT_V1_FEATURE_PROFILE = discard_features.DEFENSE_CONTEXT_V1_FEATURE_PROFILE
+DEFENSE_CONTEXT_V1_MODEL_KIND = discard_features.DEFENSE_CONTEXT_V1_MODEL_KIND
+FEATURE_DIM = discard_features.FEATURE_DIM
+MODEL_KIND = discard_features.MODEL_KIND
+RAW_COUNT_FEATURE_DIM = discard_features.RAW_COUNT_FEATURE_DIM
+RAW_COUNT_FEATURE_PROFILE = discard_features.RAW_COUNT_FEATURE_PROFILE
+RAW_COUNT_MODEL_KIND = discard_features.RAW_COUNT_MODEL_KIND
+RISK_CONTEXT_FEATURE_DIM = discard_features.RISK_CONTEXT_FEATURE_DIM
+RISK_CONTEXT_FEATURE_PROFILE = discard_features.RISK_CONTEXT_FEATURE_PROFILE
+RISK_CONTEXT_MODEL_KIND = discard_features.RISK_CONTEXT_MODEL_KIND
+SHANTEN_FEATURE_PROFILE = discard_features.SHANTEN_FEATURE_PROFILE
 
 
 @dataclass(frozen=True, slots=True)
 class _PreparedExample:
     target: int
     features_by_tile: dict[int, tuple[float, ...]]
-
-
-_FEATURE_PROFILES = {
-    RAW_COUNT_FEATURE_PROFILE: _FeatureProfile(
-        name=RAW_COUNT_FEATURE_PROFILE,
-        model_kind=RAW_COUNT_MODEL_KIND,
-        feature_dim=RAW_COUNT_FEATURE_DIM,
-        includes_tile_efficiency=False,
-        includes_risk_context=False,
-        includes_defense_context=False,
-        includes_defense_context_v1=False,
-    ),
-    SHANTEN_FEATURE_PROFILE: _FeatureProfile(
-        name=SHANTEN_FEATURE_PROFILE,
-        model_kind=MODEL_KIND,
-        feature_dim=FEATURE_DIM,
-        includes_tile_efficiency=True,
-        includes_risk_context=False,
-        includes_defense_context=False,
-        includes_defense_context_v1=False,
-    ),
-    RISK_CONTEXT_FEATURE_PROFILE: _FeatureProfile(
-        name=RISK_CONTEXT_FEATURE_PROFILE,
-        model_kind=RISK_CONTEXT_MODEL_KIND,
-        feature_dim=RISK_CONTEXT_FEATURE_DIM,
-        includes_tile_efficiency=True,
-        includes_risk_context=True,
-        includes_defense_context=False,
-        includes_defense_context_v1=False,
-    ),
-    DEFENSE_CONTEXT_FEATURE_PROFILE: _FeatureProfile(
-        name=DEFENSE_CONTEXT_FEATURE_PROFILE,
-        model_kind=DEFENSE_CONTEXT_MODEL_KIND,
-        feature_dim=DEFENSE_CONTEXT_FEATURE_DIM,
-        includes_tile_efficiency=True,
-        includes_risk_context=True,
-        includes_defense_context=True,
-        includes_defense_context_v1=False,
-    ),
-    DEFENSE_CONTEXT_V1_FEATURE_PROFILE: _FeatureProfile(
-        name=DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
-        model_kind=DEFENSE_CONTEXT_V1_MODEL_KIND,
-        feature_dim=DEFENSE_CONTEXT_V1_FEATURE_DIM,
-        includes_tile_efficiency=True,
-        includes_risk_context=True,
-        includes_defense_context=True,
-        includes_defense_context_v1=True,
-    ),
-}
-_FEATURE_PROFILES_BY_KIND = {profile.model_kind: profile for profile in _FEATURE_PROFILES.values()}
-_TILE_FEATURE_NAMES = tuple(tile_type.notation for tile_type in all_tile_types())
-_RAW_FEATURE_NAMES = (
-    "bias",
-    *(f"hand_count_{name}" for name in _TILE_FEATURE_NAMES),
-    *(f"visible_count_{name}" for name in _TILE_FEATURE_NAMES),
-)
-_TILE_EFFICIENCY_FEATURE_NAMES = (
-    *_RAW_FEATURE_NAMES,
-    "candidate_hand_count",
-    "candidate_visible_count",
-    "candidate_terminal_or_honor",
-    "before_shanten",
-    "after_shanten",
-    "shanten_delta",
-    "shanten_preserved_or_improved",
-)
-_RISK_CONTEXT_FEATURE_NAMES = (
-    "self_riichi_active",
-    "active_riichi_opponent_fraction",
-    "has_active_riichi_opponent",
-    "candidate_active_riichi_river_count",
-    "candidate_seen_by_active_riichi",
-    "candidate_opponent_river_count",
-    "candidate_seen_by_any_opponent",
-    "candidate_self_river_count",
-    "candidate_all_river_count",
-    "candidate_unseen_under_active_riichi",
-)
-_DEFENSE_CONTEXT_FEATURE_NAMES = (
-    "candidate_genbutsu",
-    "candidate_suji",
-    "candidate_kabe",
-    "candidate_one_chance",
-    "candidate_seen_after_riichi",
-    "candidate_seen_before_riichi",
-    "active_riichi_max_elapsed_fraction",
-    "active_riichi_min_elapsed_fraction",
-    "candidate_basic_safe",
-    "candidate_unseen_unsafe_under_riichi",
-    "candidate_honor",
-    "candidate_terminal",
-)
-_DEFENSE_CONTEXT_V1_FEATURE_NAMES = (
-    "candidate_genbutsu_active_fraction",
-    "candidate_suji_active_fraction",
-    "candidate_seen_after_active_fraction",
-    "candidate_seen_before_active_fraction",
-    "candidate_kabe_adjacent_wall_fraction",
-    "candidate_one_chance_adjacent_fraction",
-    "candidate_sotogawa",
-    "candidate_terminal_honor_unseen_under_active_riichi",
-    "candidate_unseen_non_safe_under_active_riichi",
-    "candidate_dora",
-    "candidate_visible_dora_indicator",
-    "active_ippatsu_fraction",
-    "active_tsumogiri_fraction",
-    "opponent_meld_tile_fraction",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1139,33 +1033,6 @@ def _river_count(
     if len(counts) != 34:
         raise ValueError("river count rows must have length 34")
     return counts[tile_index]
-
-
-def _feature_profile(name: str) -> _FeatureProfile:
-    try:
-        return _FEATURE_PROFILES[name]
-    except KeyError as exc:
-        raise ValueError(f"unsupported discard linear feature profile: {name}") from exc
-
-
-def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
-    return _FEATURE_PROFILES_BY_KIND.get(kind)
-
-
-def _feature_names(profile: _FeatureProfile) -> tuple[str, ...]:
-    if profile.name == RAW_COUNT_FEATURE_PROFILE:
-        names = _RAW_FEATURE_NAMES
-    else:
-        names = _TILE_EFFICIENCY_FEATURE_NAMES
-        if profile.includes_risk_context:
-            names = (*names, *_RISK_CONTEXT_FEATURE_NAMES)
-        if profile.includes_defense_context:
-            names = (*names, *_DEFENSE_CONTEXT_FEATURE_NAMES)
-        if profile.includes_defense_context_v1:
-            names = (*names, *_DEFENSE_CONTEXT_V1_FEATURE_NAMES)
-    if len(names) != profile.feature_dim:
-        raise ValueError("feature names must match feature dimension")
-    return names
 
 
 def _numeric_summary(values: Iterable[float]) -> dict[str, float | int]:
