@@ -61,6 +61,8 @@ PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanch
 PYTHONPATH=src python3 -m kenjaku benchmark-report-summary \
   runs/discard-benchmark-local-report.json
 
+PYTHONPATH=src python3 -m kenjaku repro-report runs/discard-benchmark-local-report.json --strict
+
 PYTHONPATH=src python3 -m kenjaku benchmark-discard data/raw/tenhou/xml/4p-hanchan \
   --epochs 3 \
   --learning-rate 0.05 \

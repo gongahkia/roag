@@ -2,10 +2,11 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 49 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 49 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 50 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 50 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
+- [`repro-report`](repro-report.md) - Verify report provenance against the current checkout.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
 - [`browser-demo`](browser-demo.md) - Generate the static browser-playable demo and optionally serve it locally.
 - [`serve`](serve.md) - Serve a local artifact directory with an auto-generated landing page.

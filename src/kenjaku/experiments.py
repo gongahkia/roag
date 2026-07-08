@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import quote
 
 from kenjaku.io import TenhouGame, TenhouParseFailure
+from kenjaku.repro_report import build_report_provenance
 from kenjaku.training.history import normalize_training_history
 
 CALL_BENCHMARK_REPORT_KIND = "kenjaku-call-benchmark-report-v0"
@@ -793,8 +794,10 @@ def build_riichi_benchmark_report(
 def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
     report_path = Path(path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_payload = dict(payload)
+    report_payload["provenance"] = build_report_provenance()
     report_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(report_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 

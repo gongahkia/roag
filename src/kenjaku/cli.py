@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -96,6 +97,11 @@ from kenjaku.replay_viewer import (
     read_self_play_trajectory_jsonl,
     write_self_play_match_trajectory_jsonl,
     write_self_play_replay_viewer_html,
+)
+from kenjaku.repro_report import (
+    build_repro_report,
+    configure_report_provenance,
+    format_repro_report_text,
 )
 from kenjaku.review_game import build_review_game_report, write_review_game_html
 from kenjaku.safety_advisor import (
@@ -337,6 +343,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit status as JSON instead of text",
     )
     status.set_defaults(func=_status)
+
+    repro_report = subparsers.add_parser(
+        "repro-report",
+        help="verify report provenance against the current checkout",
+    )
+    repro_report.add_argument(
+        "path",
+        type=Path,
+        help="JSON report path to verify",
+    )
+    repro_report.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit non-zero when provenance is missing or mismatched",
+    )
+    repro_report.add_argument(
+        "--json",
+        action="store_true",
+        help="emit verification result as JSON instead of text",
+    )
+    repro_report.set_defaults(func=_repro_report)
 
     demo = subparsers.add_parser(
         "demo",
@@ -2565,6 +2592,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    effective_argv = sys.argv[1:] if argv is None else argv
+    configure_report_provenance(["kenjaku", *effective_argv])
     args = parser.parse_args(argv)
 
     if args.version:
@@ -2586,6 +2615,20 @@ def _status(args: argparse.Namespace) -> int:
 
     print(format_status_text(payload))
     return 0
+
+
+def _repro_report(args: argparse.Namespace) -> int:
+    try:
+        report = build_repro_report(args.path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_repro_report_text(report))
+    return report["strict_exit_code"] if args.strict else 0
 
 
 def _demo(args: argparse.Namespace) -> int:

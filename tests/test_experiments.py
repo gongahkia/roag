@@ -255,7 +255,22 @@ class ExperimentReportTests(unittest.TestCase):
             write_json_report(path, {"kind": "unit", "value": 1})
             payload = json.loads(path.read_text(encoding="utf-8"))
 
-        self.assertEqual(payload, {"kind": "unit", "value": 1})
+        self.assertEqual(payload["kind"], "unit")
+        self.assertEqual(payload["value"], 1)
+        self.assertEqual(
+            set(payload["provenance"]),
+            {
+                "argv",
+                "duration_seconds",
+                "git_commit",
+                "git_dirty",
+                "kenjaku_version",
+                "python_version",
+                "started_at",
+            },
+        )
+        self.assertIsInstance(payload["provenance"]["git_dirty"], bool)
+        self.assertGreaterEqual(payload["provenance"]["duration_seconds"], 0.0)
 
     def test_discard_benchmark_summary_handles_empty_input(self) -> None:
         summary = build_discard_benchmark_summary([])
