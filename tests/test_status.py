@@ -21,6 +21,9 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(payload["stage"], "offline research toolkit")
         self.assertFalse(payload["trained_model"]["bundled"])
         self.assertEqual(payload["environment"]["supported_python"], SUPPORTED_PYTHON)
+        self.assertEqual(payload["environment"]["pytorch_extra"], "kenjaku[ml]")
+        self.assertIn("train-discard-mlp", payload["environment"]["pytorch_commands"])
+        self.assertIn("train-discard-transformer", payload["environment"]["pytorch_commands"])
         self.assertEqual(
             payload["environment"]["current_python_supported"],
             MIN_PYTHON <= python_parts < MAX_PYTHON_EXCLUSIVE,
@@ -252,6 +255,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("stage: offline research toolkit", text)
         self.assertIn("trained_model: not bundled", text)
         self.assertIn("current_python_supported:", text)
+        self.assertIn("pytorch_extra: kenjaku[ml]", text)
+        self.assertIn("pytorch_commands: train-discard-mlp", text)
         self.assertIn("tenhou_xml_parsing: yes", text)
         self.assertIn("permission_aware_replay_intake: yes", text)
         self.assertIn("permitted_replay_share_planning: yes", text)

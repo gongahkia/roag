@@ -12,6 +12,14 @@ STATUS_KIND = "kenjaku-status-v0"
 SUPPORTED_PYTHON = ">=3.11,<3.14"
 MIN_PYTHON = (3, 11)
 MAX_PYTHON_EXCLUSIVE = (3, 14)
+PYTORCH_EXTRA = "kenjaku[ml]"
+PYTORCH_COMMANDS = (
+    "train-discard-mlp",
+    "benchmark-discard-mlp",
+    "train-discard-transformer",
+    "benchmark-discard-transformer",
+    "transformer-attention-overlay",
+)
 
 
 def build_status_payload() -> dict[str, Any]:
@@ -30,6 +38,8 @@ def build_status_payload() -> dict[str, Any]:
             "supported_python": SUPPORTED_PYTHON,
             "current_python_supported": _current_python_supported(),
             "pytorch_available": importlib.util.find_spec("torch") is not None,
+            "pytorch_extra": PYTORCH_EXTRA,
+            "pytorch_commands": list(PYTORCH_COMMANDS),
         },
         "local_artifacts": {
             "data_raw": Path("data/raw").exists(),
@@ -184,6 +194,8 @@ def format_status_text(payload: dict[str, Any]) -> str:
         f"supported_python: {environment['supported_python']}",
         f"current_python_supported: {_format_bool(environment['current_python_supported'])}",
         f"pytorch: {_format_bool(environment['pytorch_available'])}",
+        f"pytorch_extra: {environment['pytorch_extra']}",
+        "pytorch_commands: " + ", ".join(environment["pytorch_commands"]),
         f"local_raw_data: {_format_bool(local_artifacts['data_raw'])}",
         f"local_reports: {_format_bool(local_artifacts['runs'])}",
         f"local_models: {_format_bool(local_artifacts['models'])}",

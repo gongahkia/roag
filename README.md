@@ -176,6 +176,8 @@ PYTHONPATH=src python3.13 -m kenjaku --version
 PYTHONPATH=src python3.13 -m kenjaku status
 ```
 
+Use `python3.13 -m pip install -e ".[dev-ml]"` when working on PyTorch MLP or
+transformer commands.
 If you are working from this checkout without installing the package, keep `PYTHONPATH=src`.
 
 ## Fixture Smokes

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
+import importlib
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any
-
-import torch
-from torch import Tensor, nn
-from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
 
 from kenjaku.core import TileType
 from kenjaku.training import DiscardExample
@@ -18,59 +15,94 @@ DISCARD_MLP_OUTPUT_DIM = 34
 DISCARD_MLP_MODEL_KIND = "discard-mlp-v0"
 DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
 DISCARD_MLP_CHECKPOINT_KIND = "kenjaku-discard-mlp-checkpoint-v0"
+TORCH_EXTRA_HINT = "install with `pip install kenjaku[ml]`"
+TORCH_REQUIRED_MESSAGE = f"PyTorch is required; {TORCH_EXTRA_HINT}"
 
 
-class DiscardTensorDataset(Dataset):
-    """Torch dataset for supervised discard decisions."""
-
-    def __init__(self, examples: Sequence[DiscardExample]) -> None:
-        self.examples = list(examples)
-
-    def __len__(self) -> int:
-        return len(self.examples)
-
-    def __getitem__(self, index: int) -> tuple[Tensor, Tensor, Tensor]:
-        example = self.examples[index]
-        target = example.action.tile
-        if target is None:
-            raise ValueError("discard examples must have a target tile")
-        state = _state_tensor(example)
-        legal_mask = torch.tensor(
-            [count > 0 for count in example.hand_counts],
-            dtype=torch.bool,
-        )
-        target_index = torch.tensor(target.index, dtype=torch.long)
-        return state, legal_mask, target_index
+def require_torch() -> Any:
+    return _require_torch_modules()[0]
 
 
-class DiscardMlp(nn.Module):
-    """Small masked-logit MLP for discard tile classification."""
+def _require_torch_modules() -> tuple[Any, Any, Any, Any, Any]:
+    try:
+        torch = importlib.import_module("torch")
+        nn = importlib.import_module("torch.nn")
+        functional = importlib.import_module("torch.nn.functional")
+        data = importlib.import_module("torch.utils.data")
+    except ImportError as error:
+        raise ImportError(TORCH_REQUIRED_MESSAGE) from error
+    return torch, nn, functional, data.DataLoader, data.Dataset
 
-    def __init__(
-        self,
-        *,
-        input_dim: int = DISCARD_MLP_INPUT_DIM,
-        hidden_dim: int = 128,
-    ) -> None:
-        super().__init__()
-        self.kind = DISCARD_MLP_MODEL_KIND
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.output_dim = DISCARD_MLP_OUTPUT_DIM
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, DISCARD_MLP_OUTPUT_DIM),
-        )
 
-    def forward(self, state: Tensor, legal_mask: Tensor) -> Tensor:
-        logits = self.net(state)
-        return logits.masked_fill(~legal_mask, -1.0e9)
+@cache
+def _torch_discard_classes() -> tuple[Any, Any]:
+    torch, nn, _functional, _data_loader, dataset_base = _require_torch_modules()
+
+    class DiscardTensorDataset(dataset_base):
+        """Torch dataset for supervised discard decisions."""
+
+        __module__ = __name__
+
+        def __init__(self, examples: Sequence[DiscardExample]) -> None:
+            self.examples = list(examples)
+
+        def __len__(self) -> int:
+            return len(self.examples)
+
+        def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+            example = self.examples[index]
+            target = example.action.tile
+            if target is None:
+                raise ValueError("discard examples must have a target tile")
+            state = _state_tensor(example)
+            legal_mask = torch.tensor(
+                [count > 0 for count in example.hand_counts],
+                dtype=torch.bool,
+            )
+            target_index = torch.tensor(target.index, dtype=torch.long)
+            return state, legal_mask, target_index
+
+    class DiscardMlp(nn.Module):
+        """Small masked-logit MLP for discard tile classification."""
+
+        __module__ = __name__
+
+        def __init__(
+            self,
+            *,
+            input_dim: int = DISCARD_MLP_INPUT_DIM,
+            hidden_dim: int = 128,
+        ) -> None:
+            super().__init__()
+            self.kind = DISCARD_MLP_MODEL_KIND
+            self.input_dim = input_dim
+            self.hidden_dim = hidden_dim
+            self.output_dim = DISCARD_MLP_OUTPUT_DIM
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, DISCARD_MLP_OUTPUT_DIM),
+            )
+
+        def forward(self, state: Any, legal_mask: Any) -> Any:
+            logits = self.net(state)
+            return logits.masked_fill(~legal_mask, -1.0e9)
+
+    globals()["DiscardTensorDataset"] = DiscardTensorDataset
+    globals()["DiscardMlp"] = DiscardMlp
+    return DiscardMlp, DiscardTensorDataset
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"DiscardMlp", "DiscardTensorDataset"}:
+        discard_mlp, dataset = _torch_discard_classes()
+        return discard_mlp if name == "DiscardMlp" else dataset
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass(slots=True)
 class DiscardMlpTrainingResult:
-    model: DiscardMlp
+    model: Any
     device: str
     train_metrics: dict[str, int | float | None]
     eval_metrics: dict[str, int | float | None]
@@ -78,7 +110,7 @@ class DiscardMlpTrainingResult:
     best_epoch: int
     selection_split: str
     best_metrics: dict[str, dict[str, int | float | None]]
-    best_model_state: dict[str, Tensor]
+    best_model_state: dict[str, Any]
 
 
 def discard_data_loader(
@@ -87,11 +119,13 @@ def discard_data_loader(
     batch_size: int,
     shuffle: bool = False,
     seed: int = 0,
-) -> DataLoader:
-    dataset = DiscardTensorDataset(examples)
+) -> Any:
+    torch, _nn, _functional, data_loader, _dataset_base = _require_torch_modules()
+    _discard_mlp, dataset_class = _torch_discard_classes()
+    dataset = dataset_class(examples)
     generator = torch.Generator()
     generator.manual_seed(seed)
-    return DataLoader(
+    return data_loader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
@@ -110,6 +144,8 @@ def train_discard_mlp(
     device: str = "auto",
     seed: int = 0,
 ) -> DiscardMlpTrainingResult:
+    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
+    discard_mlp_class, _dataset_class = _torch_discard_classes()
     if not train_examples:
         raise ValueError("no train examples found")
     if epochs < 0:
@@ -126,7 +162,7 @@ def train_discard_mlp(
     if resolved_device.type == "cuda":
         torch.cuda.manual_seed_all(seed)
 
-    model = DiscardMlp(hidden_dim=hidden_dim).to(resolved_device)
+    model = discard_mlp_class(hidden_dim=hidden_dim).to(resolved_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     train_loader = discard_data_loader(
@@ -140,7 +176,7 @@ def train_discard_mlp(
     best_key: tuple[float, float, int] | None = None
     best_epoch = 0
     best_metrics: dict[str, dict[str, int | float | None]] = {}
-    best_model_state: dict[str, Tensor] = {}
+    best_model_state: dict[str, Any] = {}
     final_train_metrics: dict[str, int | float | None] | None = None
     final_eval_metrics: dict[str, int | float | None] | None = None
 
@@ -194,7 +230,7 @@ def train_discard_mlp(
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)
             optimizer.zero_grad(set_to_none=True)
-            loss = F.cross_entropy(model(state, legal_mask), target)
+            loss = functional.cross_entropy(model(state, legal_mask), target)
             loss.backward()
             optimizer.step()
         record_epoch(epoch)
@@ -226,6 +262,7 @@ def save_discard_mlp_checkpoint(
     split_seed: str,
     seed: int,
 ) -> None:
+    torch = require_torch()
     checkpoint_path = Path(path)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
@@ -263,8 +300,10 @@ def save_discard_mlp_checkpoint(
 def load_discard_mlp_checkpoint(
     path: str | Path,
     *,
-    device: str | torch.device = "cpu",
-) -> DiscardMlp:
+    device: Any = "cpu",
+) -> Any:
+    torch = require_torch()
+    discard_mlp_class, _dataset_class = _torch_discard_classes()
     checkpoint_path = Path(path)
     resolved_device = torch.device(device)
     try:
@@ -276,7 +315,7 @@ def load_discard_mlp_checkpoint(
     model_payload = payload.get("model")
     if not isinstance(model_payload, dict):
         raise ValueError("checkpoint missing model metadata")
-    model = DiscardMlp(
+    model = discard_mlp_class(
         input_dim=int(model_payload.get("input_dim", DISCARD_MLP_INPUT_DIM)),
         hidden_dim=int(model_payload["hidden_dim"]),
     ).to(resolved_device)
@@ -289,12 +328,13 @@ def load_discard_mlp_checkpoint(
 
 
 def evaluate_discard_mlp(
-    model: DiscardMlp,
+    model: Any,
     examples: Sequence[DiscardExample],
     *,
     batch_size: int,
-    device: str | torch.device,
+    device: Any,
 ) -> dict[str, int | float | None]:
+    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
     if not examples:
         return {"examples": 0, "loss": None, "accuracy": None}
     resolved_device = torch.device(device)
@@ -309,7 +349,7 @@ def evaluate_discard_mlp(
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)
             logits = model(state, legal_mask)
-            loss = F.cross_entropy(logits, target, reduction="sum")
+            loss = functional.cross_entropy(logits, target, reduction="sum")
             total_loss += float(loss.detach().cpu())
             total_correct += int((logits.argmax(dim=1) == target).sum().detach().cpu())
             total_examples += int(target.numel())
@@ -321,12 +361,13 @@ def evaluate_discard_mlp(
 
 
 def predict_discard_tiles(
-    model: DiscardMlp,
+    model: Any,
     examples: Sequence[DiscardExample],
     *,
     batch_size: int,
-    device: str | torch.device,
+    device: Any,
 ) -> list[TileType]:
+    torch = require_torch()
     if not examples:
         return []
     resolved_device = torch.device(device)
@@ -340,7 +381,8 @@ def predict_discard_tiles(
     return predictions
 
 
-def resolve_torch_device(requested: str) -> torch.device:
+def resolve_torch_device(requested: str) -> Any:
+    torch = require_torch()
     if requested == "auto":
         if torch.cuda.is_available():
             return torch.device("cuda")
@@ -371,14 +413,15 @@ def _selection_key(row: dict[str, Any], *, split: str) -> tuple[float, float, in
     return (accuracy_key, loss_key, -int(row["epoch"]))
 
 
-def _snapshot_model_state(model: DiscardMlp) -> dict[str, Tensor]:
+def _snapshot_model_state(model: Any) -> dict[str, Any]:
     return {
         name: value.detach().cpu().clone()
         for name, value in model.state_dict().items()
     }
 
 
-def _state_tensor(example: DiscardExample) -> Tensor:
+def _state_tensor(example: DiscardExample) -> Any:
+    torch = require_torch()
     values = [
         *(count / 4.0 for count in example.hand_counts),
         *(count / 4.0 for count in example.visible_counts),

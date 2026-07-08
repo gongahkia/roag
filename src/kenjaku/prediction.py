@@ -19,6 +19,7 @@ from kenjaku.training import CallExample, DiscardExample, RiichiExample
 from kenjaku.training.deal_in import DealInExample
 from kenjaku.training.decision_snapshots import DECISION_SNAPSHOT_KIND
 
+TORCH_EXTRA_HINT = "install with `pip install kenjaku[ml]`"
 PREDICT_MODEL_TYPES = (
     "frequency",
     "linear-discard",
@@ -226,9 +227,13 @@ def _deal_in_prediction(
 
 def _predict_mlp_discard(snapshot: dict[str, Any], predictor: _Predictor) -> TileType:
     try:
-        from kenjaku.models.torch_discard import predict_discard_tiles
+        from kenjaku.models.torch_discard import predict_discard_tiles, require_torch
+
+        require_torch()
     except ImportError as error:
-        raise ValueError("PyTorch is required for --model mlp-discard") from error
+        raise ValueError(
+            f"PyTorch is required for --model mlp-discard; {TORCH_EXTRA_HINT}"
+        ) from error
     example = _discard_example_from_snapshot(snapshot)
     return predict_discard_tiles(
         predictor.model,
@@ -240,9 +245,14 @@ def _predict_mlp_discard(snapshot: dict[str, Any], predictor: _Predictor) -> Til
 
 def _predict_transformer_discard(snapshot: dict[str, Any], predictor: _Predictor) -> TileType:
     try:
+        from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import predict_discard_tiles
+
+        require_torch()
     except ImportError as error:
-        raise ValueError("PyTorch is required for --model transformer-discard") from error
+        raise ValueError(
+            f"PyTorch is required for --model transformer-discard; {TORCH_EXTRA_HINT}"
+        ) from error
     example = _discard_example_from_snapshot(snapshot)
     return predict_discard_tiles(
         predictor.model,
@@ -254,17 +264,26 @@ def _predict_transformer_discard(snapshot: dict[str, Any], predictor: _Predictor
 
 def _load_mlp_checkpoint(path: Path, *, device: str) -> Any:
     try:
-        from kenjaku.models.torch_discard import load_discard_mlp_checkpoint
+        from kenjaku.models.torch_discard import load_discard_mlp_checkpoint, require_torch
+
+        require_torch()
     except ImportError as error:
-        raise ValueError("PyTorch is required for --model mlp-discard") from error
+        raise ValueError(
+            f"PyTorch is required for --model mlp-discard; {TORCH_EXTRA_HINT}"
+        ) from error
     return load_discard_mlp_checkpoint(path, device=device)
 
 
 def _load_transformer_checkpoint(path: Path, *, device: str) -> Any:
     try:
+        from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import load_discard_transformer_checkpoint
+
+        require_torch()
     except ImportError as error:
-        raise ValueError("PyTorch is required for --model transformer-discard") from error
+        raise ValueError(
+            f"PyTorch is required for --model transformer-discard; {TORCH_EXTRA_HINT}"
+        ) from error
     return load_discard_transformer_checkpoint(path, device=device)
 
 

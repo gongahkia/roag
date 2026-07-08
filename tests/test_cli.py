@@ -5,10 +5,12 @@ import importlib.util
 import io
 import json
 import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from kenjaku.cli import (
     _call_example_from_payload,
@@ -66,6 +68,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("population_sandbox_opponent_sampling: yes", output)
         self.assertIn("population_sandbox_promotion_criteria: yes", output)
         self.assertIn("population_sandbox_matchup_metrics: yes", output)
+        self.assertIn("pytorch_extra: kenjaku[ml]", output)
+        self.assertIn("pytorch_commands: train-discard-mlp", output)
         self.assertIn("sandbox_legal_discard_environment: yes", output)
         self.assertIn("sandbox_tsumo_action_generation: yes", output)
         self.assertIn("sandbox_pending_discard_reactions: yes", output)
@@ -154,6 +158,54 @@ class CliTests(unittest.TestCase):
         self.assertIn("sanma_ruleset: no", output)
         self.assertIn("rl_self_play: no", output)
         self.assertIn("live_ladder_automation: no", output)
+
+    def test_torch_modules_import_without_torch_installed(self) -> None:
+        code = """
+import importlib.abc
+import sys
+sys.path.insert(0, "src")
+
+class BlockTorch(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "torch" or fullname.startswith("torch."):
+            raise ImportError("blocked torch")
+        return None
+
+sys.meta_path.insert(0, BlockTorch())
+import kenjaku.models.torch_discard
+import kenjaku.models.torch_transformer
+print("ok")
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            check=False,
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "ok")
+
+    def test_train_discard_mlp_without_torch_reports_ml_extra(self) -> None:
+        original_import_module = importlib.import_module
+
+        def fake_import_module(name: str, package: str | None = None):
+            if name == "torch" or name.startswith("torch."):
+                raise ImportError("blocked torch")
+            return original_import_module(name, package)
+
+        with (
+            mock.patch("importlib.import_module", side_effect=fake_import_module),
+            self.assertRaises(SystemExit) as context,
+        ):
+            main(["train-discard-mlp", "data/fixtures/tenhou", "--epochs", "0"])
+
+        self.assertEqual(
+            str(context.exception),
+            "PyTorch is required for train-discard-mlp; "
+            "install with `pip install kenjaku[ml]`",
+        )
 
     def test_status_json_reports_current_project_stage(self) -> None:
         stdout = io.StringIO()

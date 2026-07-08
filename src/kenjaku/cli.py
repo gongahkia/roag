@@ -230,6 +230,7 @@ CALL_LINEAR_V1_CALIBRATED_THRESHOLD = 0.40
 RIICHI_LINEAR_CALIBRATED_THRESHOLD = 0.95
 DEFAULT_POSITIVE_CLASS_WEIGHT = 2.0
 DEFAULT_DEAL_IN_POSITIVE_CLASS_WEIGHT = 5.0
+TORCH_EXTRA_HINT = "install with `pip install kenjaku[ml]`"
 T = TypeVar("T")
 TResult = TypeVar("TResult")
 CALL_BENCHMARK_DEFAULT_MODELS = (
@@ -3797,14 +3798,18 @@ def _transformer_attention_overlay(args: argparse.Namespace) -> int:
     if args.max_heads <= 0:
         raise SystemExit("--max-heads must be positive")
     try:
-        from kenjaku.models.torch_discard import resolve_torch_device
+        from kenjaku.models.torch_discard import require_torch, resolve_torch_device
         from kenjaku.models.torch_transformer import (
             load_discard_transformer_checkpoint,
             transformer_state_payload,
             transformer_state_tensor,
         )
+
+        require_torch()
     except ImportError as error:
-        raise SystemExit("PyTorch is required for transformer-attention-overlay") from error
+        raise SystemExit(
+            f"PyTorch is required for transformer-attention-overlay; {TORCH_EXTRA_HINT}"
+        ) from error
 
     try:
         device = resolve_torch_device(args.device)
@@ -4924,11 +4929,16 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
 def _train_discard_mlp(args: argparse.Namespace) -> int:
     try:
         from kenjaku.models.torch_discard import (
+            require_torch,
             save_discard_mlp_checkpoint,
             train_discard_mlp,
         )
+
+        require_torch()
     except ImportError as error:
-        raise SystemExit("PyTorch is required for train-discard-mlp") from error
+        raise SystemExit(
+            f"PyTorch is required for train-discard-mlp; {TORCH_EXTRA_HINT}"
+        ) from error
 
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
@@ -5013,14 +5023,19 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
 
 def _train_discard_transformer(args: argparse.Namespace) -> int:
     try:
+        from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import (
             MahjongTransformerConfig,
             save_discard_transformer_checkpoint,
             train_discard_transformer,
             transformer_config_payload,
         )
+
+        require_torch()
     except ImportError as error:
-        raise SystemExit("PyTorch is required for train-discard-transformer") from error
+        raise SystemExit(
+            f"PyTorch is required for train-discard-transformer; {TORCH_EXTRA_HINT}"
+        ) from error
 
     dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
     game = dataset.game
@@ -5248,11 +5263,16 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
 def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
     try:
         from kenjaku.models.torch_discard import (
+            require_torch,
             save_discard_mlp_checkpoint,
             train_discard_mlp,
         )
+
+        require_torch()
     except ImportError as error:
-        raise SystemExit("PyTorch is required for benchmark-discard-mlp") from error
+        raise SystemExit(
+            f"PyTorch is required for benchmark-discard-mlp; {TORCH_EXTRA_HINT}"
+        ) from error
 
     if args.linear_epochs <= 0:
         raise SystemExit("--linear-epochs must be positive")
@@ -5395,14 +5415,19 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
 
 def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
     try:
+        from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import (
             MahjongTransformerConfig,
             save_discard_transformer_checkpoint,
             train_discard_transformer,
             transformer_config_payload,
         )
+
+        require_torch()
     except ImportError as error:
-        raise SystemExit("PyTorch is required for benchmark-discard-transformer") from error
+        raise SystemExit(
+            f"PyTorch is required for benchmark-discard-transformer; {TORCH_EXTRA_HINT}"
+        ) from error
 
     if args.linear_epochs <= 0:
         raise SystemExit("--linear-epochs must be positive")

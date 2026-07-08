@@ -23,6 +23,12 @@ dev = [
   "build",
   "coverage[toml]",
   "ruff",
+  "twine",
+]
+dev-ml = [
+  "build",
+  "coverage[toml]",
+  "ruff",
   "torch",
   "twine",
 ]
