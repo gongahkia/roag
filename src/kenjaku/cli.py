@@ -45,6 +45,7 @@ from kenjaku.hand_analysis import (
     format_hand_analysis_text,
 )
 from kenjaku.io import (
+    TenhouDataset,
     TenhouGame,
     TenhouParseFailure,
     build_replay_public_summary_file,
@@ -971,6 +972,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(inspect_tenhou)
     _add_source_args(inspect_tenhou)
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
 
@@ -999,6 +1001,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(defense_risk)
     _add_source_args(defense_risk)
     defense_risk.set_defaults(func=_defense_risk_summary)
 
@@ -1097,6 +1100,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(deal_in)
     _add_source_args(deal_in)
     deal_in.set_defaults(func=_benchmark_deal_in)
 
@@ -1140,6 +1144,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="emit the training checkpoint metadata as JSON instead of text",
     )
+    _add_parse_cache_arg(train_placement)
     train_placement.set_defaults(func=_train_placement)
 
     placement_probability = subparsers.add_parser(
@@ -1241,6 +1246,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="include terminal score-delta labels; opt-in to avoid future outcome leakage",
     )
+    _add_parse_cache_arg(export_snapshots)
     _add_source_args(export_snapshots)
     export_snapshots.set_defaults(func=_export_decision_snapshots)
 
@@ -1541,6 +1547,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip files that fail Tenhou XML parsing",
     )
+    _add_parse_cache_arg(train_baseline)
     train_baseline.set_defaults(func=_train_discard_baseline)
 
     train_linear = subparsers.add_parser(
@@ -1587,6 +1594,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(train_linear)
     _add_source_args(train_linear)
     train_linear.set_defaults(func=_train_discard_linear)
 
@@ -1652,6 +1660,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(train_mlp)
     _add_source_args(train_mlp)
     train_mlp.set_defaults(func=_train_discard_mlp)
 
@@ -1751,6 +1760,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(train_transformer)
     _add_source_args(train_transformer)
     train_transformer.set_defaults(func=_train_discard_transformer)
 
@@ -1796,6 +1806,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(export_bc)
     _add_source_args(export_bc)
     export_bc.set_defaults(func=_export_bc_examples)
 
@@ -1901,6 +1912,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(benchmark_discard)
     _add_source_args(benchmark_discard)
     benchmark_discard.set_defaults(func=_benchmark_discard)
 
@@ -1989,6 +2001,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(benchmark_mlp)
     _add_source_args(benchmark_mlp)
     benchmark_mlp.set_defaults(func=_benchmark_discard_mlp)
 
@@ -2111,6 +2124,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(benchmark_transformer)
     _add_source_args(benchmark_transformer)
     benchmark_transformer.set_defaults(func=_benchmark_discard_transformer)
 
@@ -2297,6 +2311,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(benchmark_call)
     _add_source_args(benchmark_call)
     benchmark_call.set_defaults(func=_benchmark_call)
 
@@ -2427,6 +2442,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="record parse failures and continue with successfully parsed files",
     )
+    _add_parse_cache_arg(benchmark_riichi)
     _add_source_args(benchmark_riichi)
     benchmark_riichi.set_defaults(func=_benchmark_riichi)
 
@@ -3100,7 +3116,7 @@ def _training_dashboard(args: argparse.Namespace) -> int:
 
 
 def _inspect_tenhou(args: argparse.Namespace) -> int:
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     discards = sum(len(round_.discards) for round_ in game.rounds)
     discard_examples = list(iter_discard_examples(game))
@@ -3129,7 +3145,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
 
 
 def _defense_risk_summary(args: argparse.Namespace) -> int:
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     examples = list(iter_discard_examples(dataset.game))
     summary = summarize_defense_risks(examples)
     outcomes = tuple(round_outcome(round_) for round_ in dataset.game.rounds)
@@ -3265,6 +3281,7 @@ def _export_bc_examples(args: argparse.Namespace) -> int:
         source_files,
         skip_errors=args.skip_errors,
         failures=parse_failures,
+        parse_cache_dir=_parse_cache_dir(args),
     )
     try:
         while True:
@@ -3443,7 +3460,7 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
         "--positive-class-weight",
     )
 
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     examples = tuple(
         iter_deal_in_examples(
             dataset.game,
@@ -3585,7 +3602,7 @@ def _train_placement(args: argparse.Namespace) -> int:
     if args.l2 < 0:
         raise SystemExit("--l2 must be non-negative")
     try:
-        examples = placement_examples_from_paths(args.data)
+        examples = placement_examples_from_paths(args.data, parse_cache_dir=_parse_cache_dir(args))
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(str(error)) from error
     if not examples:
@@ -3712,7 +3729,7 @@ def _export_decision_snapshots(args: argparse.Namespace) -> int:
     if args.limit is not None and args.limit < 0:
         raise SystemExit("--limit must be non-negative")
     decision_types = _parse_decision_snapshot_types(args.decision_types)
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     snapshots = build_decision_snapshots(
         dataset.game,
         decision_types=decision_types,
@@ -4838,7 +4855,7 @@ def _format_decision_snapshot_comparison(comparison: dict[str, Any]) -> str:
 
 
 def _train_discard_baseline(args: argparse.Namespace) -> int:
-    game = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors).game
+    game = _parse_tenhou_dataset_from_args(args).game
     examples = list(iter_discard_examples(game))
     if not examples:
         raise SystemExit("no discard examples found")
@@ -4851,7 +4868,7 @@ def _train_discard_baseline(args: argparse.Namespace) -> int:
 
 
 def _train_discard_linear(args: argparse.Namespace) -> int:
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
@@ -4921,7 +4938,7 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
             f"PyTorch is required for train-discard-mlp; {TORCH_EXTRA_HINT}"
         ) from error
 
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
@@ -5018,7 +5035,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
             f"PyTorch is required for train-discard-transformer; {TORCH_EXTRA_HINT}"
         ) from error
 
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
@@ -5137,6 +5154,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             example_iter=iter_discard_examples,
             limit=args.example_limit,
             skip_errors=args.skip_errors,
+            parse_cache_dir=_parse_cache_dir(args),
             count_call=True,
         )
         game = None
@@ -5147,7 +5165,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         total_examples = len(examples)
         call_examples = int(streamed_examples.call_examples or 0)
     else:
-        dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+        dataset = _parse_tenhou_dataset_from_args(args)
         game = dataset.game
         dataset_files = dataset.files
         parse_failures = dataset.failures
@@ -5255,7 +5273,7 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
 
     if args.linear_epochs <= 0:
         raise SystemExit("--linear-epochs must be positive")
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
@@ -5407,7 +5425,7 @@ def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
 
     if args.linear_epochs <= 0:
         raise SystemExit("--linear-epochs must be positive")
-    dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+    dataset = _parse_tenhou_dataset_from_args(args)
     game = dataset.game
     examples = list(iter_discard_examples(game))
     if not examples:
@@ -6501,6 +6519,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
                 example_iter=iter_call_examples,
                 limit=args.example_limit,
                 skip_errors=args.skip_errors,
+                parse_cache_dir=_parse_cache_dir(args),
                 count_discard=True,
             ),
         )
@@ -6514,7 +6533,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         dataset = _timed_stage(
             timings,
             "parse",
-            lambda: parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors),
+            lambda: _parse_tenhou_dataset_from_args(args),
         )
         game = dataset.game
         dataset_files = dataset.files
@@ -6920,6 +6939,7 @@ def _collect_streamed_examples(
     example_iter: Callable[[TenhouGame], Iterable[T]],
     limit: int,
     skip_errors: bool,
+    parse_cache_dir: str | Path | None = None,
     count_discard: bool = False,
     count_call: bool = False,
 ) -> _StreamedExamples:
@@ -6937,6 +6957,7 @@ def _collect_streamed_examples(
         source_files,
         skip_errors=skip_errors,
         failures=parse_failures,
+        parse_cache_dir=parse_cache_dir,
     ):
         file_index = parsed.file_index
         file = parsed.path
@@ -7948,6 +7969,7 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
             example_iter=iter_riichi_examples,
             limit=args.example_limit,
             skip_errors=args.skip_errors,
+            parse_cache_dir=_parse_cache_dir(args),
             count_discard=True,
             count_call=True,
         )
@@ -7960,7 +7982,7 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
         discard_examples = int(streamed_examples.discard_examples or 0)
         call_examples = int(streamed_examples.call_examples or 0)
     else:
-        dataset = parse_tenhou_xml_dataset(args.paths, skip_errors=args.skip_errors)
+        dataset = _parse_tenhou_dataset_from_args(args)
         game = dataset.game
         dataset_files = dataset.files
         parse_failures = dataset.failures
@@ -8506,6 +8528,26 @@ def _logits_payload(logits: dict[TileType, float]) -> list[dict[str, float | str
         }
         for tile_type in sorted(logits)
     ]
+
+
+def _add_parse_cache_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--parse-cache",
+        type=Path,
+        help="directory for opt-in content-addressed Tenhou XML parse cache",
+    )
+
+
+def _parse_tenhou_dataset_from_args(args: argparse.Namespace) -> TenhouDataset:
+    return parse_tenhou_xml_dataset(
+        args.paths,
+        skip_errors=args.skip_errors,
+        parse_cache_dir=_parse_cache_dir(args),
+    )
+
+
+def _parse_cache_dir(args: argparse.Namespace) -> Path | None:
+    return getattr(args, "parse_cache", None)
 
 
 def _add_source_args(parser: argparse.ArgumentParser) -> None:

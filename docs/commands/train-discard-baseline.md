@@ -28,12 +28,17 @@ PYTHONPATH=src python3.13 -m kenjaku train-discard-baseline data/fixtures/tenhou
 ## Help
 
 ```text
-usage: kenjaku train-discard-baseline [-h] [--skip-errors] paths [paths ...]
+usage: kenjaku train-discard-baseline [-h] [--skip-errors]
+                                      [--parse-cache PARSE_CACHE]
+                                      paths [paths ...]
 
 positional arguments:
-  paths          Tenhou XML files or directories
+  paths                 Tenhou XML files or directories
 
 options:
-  -h, --help     show this help message and exit
-  --skip-errors  skip files that fail Tenhou XML parsing
+  -h, --help            show this help message and exit
+  --skip-errors         skip files that fail Tenhou XML parsing
+  --parse-cache PARSE_CACHE
+                        directory for opt-in content-addressed Tenhou XML
+                        parse cache
 ```

@@ -33,6 +33,7 @@ usage: kenjaku export-bc-examples [-h] --output-dir OUTPUT_DIR
                                   [--shard-size SHARD_SIZE]
                                   [--limit-per-type LIMIT_PER_TYPE]
                                   [--overwrite] [--skip-errors]
+                                  [--parse-cache PARSE_CACHE]
                                   [--source-label SOURCE_LABEL]
                                   [--source-command SOURCE_COMMAND]
                                   [--source-date SOURCE_DATE]
@@ -55,6 +56,9 @@ options:
   --overwrite           replace existing BC shard files in --output-dir
   --skip-errors         record parse failures and continue with successfully
                         parsed files
+  --parse-cache PARSE_CACHE
+                        directory for opt-in content-addressed Tenhou XML
+                        parse cache
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

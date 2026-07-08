@@ -273,9 +273,13 @@ class _PreparedPlacementExample:
         )
 
 
-def placement_examples_from_paths(paths: Sequence[str | Path]) -> tuple[PlacementExample, ...]:
+def placement_examples_from_paths(
+    paths: Sequence[str | Path],
+    *,
+    parse_cache_dir: str | Path | None = None,
+) -> tuple[PlacementExample, ...]:
     examples: list[PlacementExample] = []
-    for parsed in iter_tenhou_xml_dataset_files(paths):
+    for parsed in iter_tenhou_xml_dataset_files(paths, parse_cache_dir=parse_cache_dir):
         examples.extend(placement_examples_from_game(parsed.game))
     return tuple(examples)
 

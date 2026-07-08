@@ -43,6 +43,7 @@ usage: kenjaku benchmark-call [-h] [--eval-fraction EVAL_FRACTION]
                               [--include-weighted]
                               [--call-positive-weight CALL_POSITIVE_WEIGHT]
                               [--report REPORT] [--skip-errors]
+                              [--parse-cache PARSE_CACHE]
                               [--source-label SOURCE_LABEL]
                               [--source-command SOURCE_COMMAND]
                               [--source-date SOURCE_DATE]
@@ -94,6 +95,9 @@ options:
                         artifact
   --skip-errors         record parse failures and continue with successfully
                         parsed files
+  --parse-cache PARSE_CACHE
+                        directory for opt-in content-addressed Tenhou XML
+                        parse cache
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

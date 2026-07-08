@@ -32,6 +32,7 @@ usage: kenjaku export-decision-snapshots [-h] --output OUTPUT
                                          [--decision-types DECISION_TYPES]
                                          [--limit LIMIT] [--skip-errors]
                                          [--include-outcome]
+                                         [--parse-cache PARSE_CACHE]
                                          [--source-label SOURCE_LABEL]
                                          [--source-command SOURCE_COMMAND]
                                          [--source-date SOURCE_DATE]
@@ -51,6 +52,9 @@ options:
                         parsed files
   --include-outcome     include terminal score-delta labels; opt-in to avoid
                         future outcome leakage
+  --parse-cache PARSE_CACHE
+                        directory for opt-in content-addressed Tenhou XML
+                        parse cache
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

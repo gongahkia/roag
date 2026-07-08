@@ -33,7 +33,7 @@ PYTHONPATH=src python3.13 -m kenjaku train-placement --data data/fixtures/tenhou
 usage: kenjaku train-placement [-h] --data DATA [DATA ...] --output OUTPUT
                                [--epochs EPOCHS]
                                [--learning-rate LEARNING_RATE] [--l2 L2]
-                               [--json]
+                               [--json] [--parse-cache PARSE_CACHE]
 
 options:
   -h, --help            show this help message and exit
@@ -46,4 +46,7 @@ options:
   --l2 L2               L2 regularization strength
   --json                emit the training checkpoint metadata as JSON instead
                         of text
+  --parse-cache PARSE_CACHE
+                        directory for opt-in content-addressed Tenhou XML
+                        parse cache
 ```

@@ -1,5 +1,6 @@
 """Input/output adapters for external mahjong formats."""
 
+from kenjaku.io.parse_cache import parse_tenhou_xml_file_cached
 from kenjaku.io.replay_manifest import (
     REPLAY_INTAKE_ACCEPTED_ITEM_KIND,
     REPLAY_INTAKE_REVIEW_KIND,
@@ -79,6 +80,7 @@ __all__ = [
     "iter_tenhou_xml_dataset",
     "iter_tenhou_xml_dataset_files",
     "parse_tenhou_xml",
+    "parse_tenhou_xml_file_cached",
     "parse_tenhou_xml_file",
     "parse_tenhou_xml_dataset",
     "parse_tenhou_xml_paths",
