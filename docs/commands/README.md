@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 48 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 48 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 49 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 49 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -30,6 +30,7 @@ covers all 48 commands present in `kenjaku --help` so the docs match the impleme
 - [`export-decision-snapshots`](export-decision-snapshots.md) - Export neutral decision snapshots for shared offline prediction/evaluation protocols.
 - [`decision-snapshot-summary`](decision-snapshot-summary.md) - Summarize one or more decision snapshot JSONL exports.
 - [`interpretability-overlay`](interpretability-overlay.md) - Render a discard interpretability HTML page from decision snapshots.
+- [`review-game`](review-game.md) - Render a per-player offline review HTML report from one Tenhou XML.
 - [`transformer-attention-overlay`](transformer-attention-overlay.md) - Render transformer attention heatmaps from a discard transformer checkpoint.
 - [`feature-importance`](feature-importance.md) - Rank linear-model features from a benchmark report.
 - [`produce-decision-predictions`](produce-decision-predictions.md) - Write stub prediction rows for decision snapshot protocol tests.

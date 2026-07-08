@@ -97,6 +97,7 @@ from kenjaku.replay_viewer import (
     write_self_play_match_trajectory_jsonl,
     write_self_play_replay_viewer_html,
 )
+from kenjaku.review_game import build_review_game_report, write_review_game_html
 from kenjaku.safety_advisor import (
     build_safety_advisor_report,
     format_safety_advisor_text,
@@ -1363,6 +1364,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="HTML document title",
     )
     interpretability_overlay.set_defaults(func=_interpretability_overlay)
+
+    review_game = subparsers.add_parser(
+        "review-game",
+        help="render a per-player offline review HTML report from one Tenhou XML",
+    )
+    review_game.add_argument("input_xml", type=Path, help="Tenhou XML file")
+    review_game.add_argument("--player", type=int, required=True, help="seat id to review")
+    review_game.add_argument(
+        "--model",
+        required=True,
+        help="frequency or discard linear checkpoint path",
+    )
+    review_game.add_argument("--output", type=Path, required=True, help="HTML report path")
+    review_game.set_defaults(func=_review_game)
 
     transformer_attention = subparsers.add_parser(
         "transformer-attention-overlay",
@@ -3890,6 +3905,24 @@ def _interpretability_overlay(args: argparse.Namespace) -> int:
     print(f"policy_kind: {report['policy_kind']}")
     print(f"skipped_snapshot_rows: {stats['skipped_rows']}")
     print(f"malformed_snapshot_rows: {stats['malformed_rows']}")
+    print(f"output_path: {args.output}")
+    return 0
+
+
+def _review_game(args: argparse.Namespace) -> int:
+    try:
+        report = build_review_game_report(
+            args.input_xml,
+            player=args.player,
+            model=args.model,
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    write_review_game_html(args.output, report)
+    summary = report["summary"]
+    print(f"rounds: {summary['rounds']}")
+    print(f"decisions: {summary['decisions']}")
+    print(f"matches_model: {summary['matches_model']}")
     print(f"output_path: {args.output}")
     return 0
 

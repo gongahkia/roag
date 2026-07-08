@@ -69,6 +69,8 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 - Full-file Tenhou XML to MJAI `.mjson` export for local replay interoperability.
 - Discard interpretability overlay rendering from local decision snapshots, with top-3 heuristic
   alternatives, shanten delta, estimated deal-in risk, and expected point impact per decision.
+- Per-player offline game review HTML via `review-game`, combining round summaries, model-ranked
+  discard alternatives, shanten deltas, heuristic deal-in risk, and expected point impact.
 - Permission-aware replay manifest review with accepted-item JSONL output for offline replay
   analysis queues. It validates consent/provenance gates but does not fetch from live services.
 - Offline replay share planning plus public-safe replay summary generation for accepted intake
