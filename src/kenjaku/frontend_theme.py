@@ -46,6 +46,9 @@ KENJAKU_ARCADE_THEME_CSS = """
   --kj-radius-sm: 4px;
   --kj-radius-md: 6px;
   --kj-radius-lg: 8px;
+  --kj-breakpoint-mobile: 760px;
+  --kj-min-control: 34px;
+  --kj-readable-muted: rgba(215, 220, 232, 0.72);
   --kj-motion-fast: 90ms;
   --kj-motion-normal: 160ms;
   --kj-motion-slow: 260ms;
@@ -76,6 +79,8 @@ KENJAKU_ARCADE_THEME_CSS = """
   border: 1px solid rgba(215, 220, 232, 0.16);
   border-radius: var(--kj-radius-md);
   box-shadow: var(--kj-shadow-hard);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kj-tile {
@@ -139,6 +144,9 @@ KENJAKU_ARCADE_THEME_CSS = """
   color: var(--kj-chip-gold);
   font-weight: 800;
   padding: 4px 8px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kj-action-badge {
@@ -152,9 +160,19 @@ KENJAKU_ARCADE_THEME_CSS = """
   color: var(--kj-action);
   font-weight: 800;
   padding: 4px 9px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   transition:
     transform var(--kj-motion-fast) var(--kj-ease-snap),
     background var(--kj-motion-fast) var(--kj-ease-snap);
+}
+
+.kj-control,
+input,
+select,
+textarea {
+  min-height: var(--kj-min-control);
 }
 
 .kj-action-badge.is-selected,
@@ -188,7 +206,11 @@ button:disabled {
 .kj-action-badge:focus-visible,
 .kj-tile:focus-visible,
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 3px solid var(--kj-focus-ring);
   outline-offset: 3px;
 }
@@ -202,8 +224,52 @@ a:focus-visible {
 
   .kj-tile,
   .kj-card,
-  .kj-action-badge {
+  .kj-action-badge,
+  .kj-chip,
+  .kj-score-chip {
+    animation: none;
     transition: none;
+    transform: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --kj-readable-muted: #f2f5ff;
+    --kj-shadow-glow: 0 0 0 2px var(--kj-focus-ring);
+  }
+
+  .kj-card,
+  .kj-panel,
+  .kj-tile,
+  .kj-chip,
+  .kj-score-chip,
+  .kj-action-badge {
+    border-width: 2px;
+  }
+
+  .kj-focusable:focus-visible,
+  .kj-action-badge:focus-visible,
+  .kj-tile:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline-width: 4px;
+  }
+}
+
+@media (max-width: 760px) {
+  .kj-hud {
+    align-items: stretch;
+  }
+
+  .kj-action-badge,
+  .kj-chip,
+  .kj-score-chip {
+    justify-content: center;
   }
 }
 """.strip()
@@ -242,5 +308,29 @@ def kenjaku_arcade_theme_contract() -> dict[str, Any]:
         "integration": {
             "shape": "theme-only; existing generated HTML data contracts do not change",
             "network": "self-contained CSS; no browser network dependency",
+        },
+        "responsive": {
+            "mobile_width": "390px smoke target",
+            "desktop_width": "1280px smoke target",
+            "breakpoint": "760px",
+            "text_overflow": "use overflow-wrap:anywhere or kj-static-truncate for dense labels",
+        },
+        "accessibility": {
+            "focus": "visible focus ring for links, buttons, form controls, and tabindex surfaces",
+            "motion": (
+                "prefers-reduced-motion disables nonessential animation and transform effects"
+            ),
+            "contrast": "prefers-contrast: more increases focus and component border weight",
+            "controls": "interactive controls keep at least 34px height",
+        },
+        "browser_support": {
+            "baseline": "latest Safari, Chrome, Firefox, and Edge",
+            "features": (
+                "CSS grid, flexbox, focus-visible, prefers-reduced-motion, prefers-contrast"
+            ),
+            "fallback": (
+                "static HTML remains readable if optional motion or contrast media "
+                "queries are ignored"
+            ),
         },
     }

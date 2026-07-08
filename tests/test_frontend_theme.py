@@ -17,6 +17,9 @@ class FrontendThemeTests(unittest.TestCase):
             "--kj-card",
             "--kj-chip-gold",
             "--kj-focus-ring",
+            "--kj-breakpoint-mobile",
+            "--kj-min-control",
+            "--kj-readable-muted",
             "--kj-motion-fast",
             ".kj-table-surface",
             ".kj-tile",
@@ -28,6 +31,9 @@ class FrontendThemeTests(unittest.TestCase):
             ".kj-state--error",
             ".kj-score--positive",
             "prefers-reduced-motion",
+            "prefers-contrast: more",
+            "overflow-wrap: anywhere",
+            "input:focus-visible",
         ]
         for token in required:
             with self.subTest(token=token):
@@ -45,6 +51,8 @@ class FrontendThemeTests(unittest.TestCase):
         self.assertIn("button:disabled", css)
         self.assertIn(".kj-tile.is-error", css)
         self.assertIn(".kj-state--danger", css)
+        self.assertIn("--kj-min-control", css)
+        self.assertIn("outline-width: 4px", css)
 
     def test_contract_lists_frontend_refresh_surfaces(self) -> None:
         contract = kenjaku_arcade_theme_contract()
@@ -65,6 +73,12 @@ class FrontendThemeTests(unittest.TestCase):
             contract["integration"]["network"],
             "self-contained CSS; no browser network dependency",
         )
+        self.assertEqual(contract["responsive"]["breakpoint"], "760px")
+        self.assertIn("390px", contract["responsive"]["mobile_width"])
+        self.assertIn("focus ring", contract["accessibility"]["focus"])
+        self.assertIn("prefers-reduced-motion", contract["accessibility"]["motion"])
+        self.assertIn("prefers-contrast", contract["accessibility"]["contrast"])
+        self.assertIn("Safari", contract["browser_support"]["baseline"])
 
     def test_ip_note_rejects_balatro_asset_and_clone_usage(self) -> None:
         note = KENJAKU_ARCADE_THEME_IP_NOTE.lower()

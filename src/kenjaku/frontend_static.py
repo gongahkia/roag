@@ -13,8 +13,28 @@ _REMOTE_PREFIXES = ("http://", "https://", "//")
 _NETWORK_TOKENS = ("http://", "https://", "@import")
 
 BASE_STATIC_CSS = """
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 * {
   box-sizing: border-box;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 .kj-static-wrap {
@@ -58,9 +78,49 @@ BASE_STATIC_CSS = """
   text-transform: uppercase;
 }
 
+.kj-sort-button:focus-visible {
+  outline: 3px solid var(--kj-focus-ring, #0969da);
+  outline-offset: 3px;
+}
+
+.kj-static-fit {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kj-static-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kj-static-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kj-static-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 @media (max-width: 760px) {
   .kj-static-wrap {
     width: min(100% - 20px, 1180px);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .kj-badge {
+    border-width: 2px;
+  }
+
+  .kj-sort-button:focus-visible {
+    outline-width: 4px;
   }
 }
 """.strip()

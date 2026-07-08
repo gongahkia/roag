@@ -49,6 +49,14 @@ class FrontendStaticTests(unittest.TestCase):
         self.assertIn(".kj-static-wrap", css)
         self.assertIn(".kj-badge", css)
         self.assertIn(".kj-sort-button", css)
+        self.assertIn(".kj-sort-button:focus-visible", css)
+        self.assertIn(".kj-static-fit", css)
+        self.assertIn("overflow-wrap: anywhere", css)
+        self.assertIn(".kj-static-truncate", css)
+        self.assertIn("text-overflow: ellipsis", css)
+        self.assertIn(".kj-static-scroll", css)
+        self.assertIn("overflow-x: auto", css)
+        self.assertIn("prefers-contrast: more", css)
 
     def test_motion_primitives_are_named_reduced_motion_safe_and_network_free(self) -> None:
         css = motion_primitives_css()

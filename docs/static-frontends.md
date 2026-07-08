@@ -12,11 +12,15 @@ Use it for new static viewers instead of hand-writing repeated document shells, 
 - `badge(...)`: escaped status badge markup.
 - `summary_item(...)`: escaped `dt`/`dd` summary item markup.
 - `line_chart_svg(...)`: dependency-free inline SVG line chart.
+- CSS utilities: `kj-static-fit`, `kj-static-truncate`, `kj-static-scroll`, and `kj-static-control-row` for dense responsive layouts.
 
 ## Rules
 
 - Keep generated pages self-contained, or reference local assets copied beside the HTML.
 - Do not add browser `http://`, `https://`, or `@import` dependencies.
+- Keep text and controls bounded at mobile widths with helper overflow utilities or local section scroll wrappers.
+- Preserve visible `:focus-visible` states for keyboard navigation.
+- Cover reduced-motion and high-contrast hooks when adding shared CSS.
 - Keep data contracts in generator modules; helpers should only handle static markup, CSS, and client-side presentation glue.
 - Add a focused test for each new consumer proving it uses the shared helper metadata or helper output.
 
