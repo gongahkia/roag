@@ -13,10 +13,12 @@ from kenjaku.frontend_static import (
     html_document,
     html_text,
     line_chart_svg,
+    motion_primitives_css,
     sortable_header,
     sortable_table_script,
     static_base_css,
     summary_item,
+    theme_css,
 )
 
 TRAINING_DASHBOARD_KIND = "kenjaku-training-dashboard-v0"
@@ -151,23 +153,28 @@ def format_training_dashboard_html(
     return html_document(
         title=str(dashboard["title"]),
         body_html=body,
-        inline_css=(static_base_css(), _TRAINING_DASHBOARD_CSS),
+        inline_css=(
+            static_base_css(),
+            theme_css(),
+            motion_primitives_css(),
+            _TRAINING_DASHBOARD_CSS,
+        ),
         inline_script=sortable_table_script("training-runs-table"),
-        body_class="training-dashboard",
+        body_class="training-dashboard kj-arcade-shell",
     )
 
 
 _TRAINING_DASHBOARD_CSS = """
 :root {
-      color-scheme: light;
-      --bg: #f6f8f9;
-      --text: #18212b;
-      --muted: #66717e;
-      --line: #d9e0e6;
-      --panel: #ffffff;
-      --accent: #0f766e;
-      --accent-2: #b42318;
-      --accent-3: #946200;
+      color-scheme: dark;
+      --bg: var(--kj-bg-void);
+      --text: var(--kj-score-neutral);
+      --muted: rgba(215, 220, 232, 0.72);
+      --line: rgba(215, 220, 232, 0.16);
+      --panel: var(--kj-surface);
+      --accent: var(--kj-action);
+      --accent-2: var(--kj-score-negative);
+      --accent-3: var(--kj-chip-gold);
     }
     body {
       margin: 0;
@@ -187,8 +194,11 @@ _TRAINING_DASHBOARD_CSS = """
     a { color: var(--accent); }
     section {
       margin: 22px 0;
-      padding-top: 20px;
-      border-top: 1px solid var(--line);
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-lg);
+      background: rgba(13, 17, 29, 0.72);
+      box-shadow: var(--kj-shadow-hard);
     }
     .eyebrow {
       margin-bottom: 8px;
@@ -205,8 +215,9 @@ _TRAINING_DASHBOARD_CSS = """
       gap: 12px 18px;
     }
     .summary-item {
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--line);
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-sm);
+      padding: 10px;
     }
     .summary-item dt {
       color: var(--muted);
@@ -220,6 +231,7 @@ _TRAINING_DASHBOARD_CSS = """
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      background: rgba(8, 10, 18, 0.34);
       font-size: 14px;
     }
     th, td {
@@ -228,10 +240,20 @@ _TRAINING_DASHBOARD_CSS = """
       text-align: left;
       vertical-align: top;
     }
-    th { color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: uppercase; }
+    th {
+      background: rgba(103, 214, 255, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
     .metric {
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+    }
+    .metric-missing {
+      color: var(--kj-disabled);
+      font-style: italic;
     }
     .charts {
       display: grid;
@@ -243,7 +265,7 @@ _TRAINING_DASHBOARD_CSS = """
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--panel);
+      background: rgba(8, 10, 18, 0.4);
     }
     .chart figcaption {
       display: flex;
@@ -257,8 +279,8 @@ _TRAINING_DASHBOARD_CSS = """
       width: 100%;
       height: auto;
     }
-    .axis { stroke: #b7c0ca; stroke-width: 1; }
-    .grid { stroke: #e5eaef; stroke-width: 1; }
+    .axis { stroke: rgba(215, 220, 232, 0.42); stroke-width: 1; }
+    .grid { stroke: rgba(215, 220, 232, 0.16); stroke-width: 1; }
     .line { fill: none; stroke: var(--accent); stroke-width: 2.4; }
     .line-alt { stroke: var(--accent-2); }
     .line-time { stroke: var(--accent-3); }
@@ -632,6 +654,7 @@ def _line_chart(points: Sequence[dict[str, float]], *, metric: str) -> str:
         [(point["step"], point["value"]) for point in points],
         label=f"{metric} chart",
         line_class=f"line {line_class}".strip(),
+        text_fill="#aeb8c8",
     )
 
 
@@ -670,8 +693,9 @@ def _link_target(path: str, *, link_base_dir: Path | None) -> str:
 
 
 def _metric_cell(value: Any) -> str:
+    class_name = "metric metric-missing" if value is None else "metric"
     return (
-        f'<td class="metric" data-sort="{_html_attr(_sort_number(value))}">'
+        f'<td class="{class_name}" data-sort="{_html_attr(_sort_number(value))}">'
         f"{_html_text(_format_number(value))}</td>"
     )
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote
 
+from kenjaku.frontend_static import motion_primitives_css, static_base_css, theme_css
 from kenjaku.io import TenhouGame, TenhouParseFailure
 from kenjaku.repro_report import build_report_provenance
 from kenjaku.training.history import normalize_training_history
@@ -908,17 +909,20 @@ def format_public_benchmark_dashboard_html(
   <link rel="icon" href="data:,">
   <title>{title}</title>
   <style>
+{static_base_css()}
+{theme_css()}
+{motion_primitives_css()}
     :root {{
-      color-scheme: light;
-      --bg: #f7f8fa;
-      --text: #17202a;
-      --muted: #5d6875;
-      --line: #d9dee5;
-      --panel: #ffffff;
-      --accent: #0f766e;
-      --accent-soft: #d9f4ee;
-      --warn: #a15c07;
-      --good: #0f766e;
+      color-scheme: dark;
+      --bg: var(--kj-bg-void);
+      --text: var(--kj-score-neutral);
+      --muted: rgba(215, 220, 232, 0.72);
+      --line: rgba(215, 220, 232, 0.16);
+      --panel: var(--kj-surface);
+      --accent: var(--kj-action);
+      --accent-soft: rgba(103, 214, 255, 0.14);
+      --warn: var(--kj-warning);
+      --good: var(--kj-score-positive);
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -949,17 +953,18 @@ def format_public_benchmark_dashboard_html(
     .notice {{
       margin: 18px 0 0;
       padding: 12px 14px;
-      border: 1px solid #a9d9d1;
-      border-radius: 8px;
+      border: 1px solid rgba(103, 214, 255, 0.42);
+      border-radius: var(--kj-radius-lg);
       background: var(--accent-soft);
-      color: #164e46;
+      color: var(--kj-action);
     }}
     section {{
       margin: 22px 0;
       padding: 22px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--panel);
+      background: rgba(13, 17, 29, 0.72);
+      box-shadow: var(--kj-shadow-hard);
     }}
     .summary-grid {{
       display: grid;
@@ -967,8 +972,10 @@ def format_public_benchmark_dashboard_html(
       gap: 10px;
     }}
     .summary-item {{
-      padding: 10px 0;
-      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-sm);
+      background: rgba(8, 10, 18, 0.28);
     }}
     .summary-item dt {{
       color: var(--muted);
@@ -981,6 +988,7 @@ def format_public_benchmark_dashboard_html(
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      background: rgba(8, 10, 18, 0.34);
       font-size: 14px;
     }}
     th, td {{
@@ -989,7 +997,12 @@ def format_public_benchmark_dashboard_html(
       text-align: left;
       vertical-align: top;
     }}
-    th {{ color: var(--muted); font-size: 12px; text-transform: uppercase; }}
+    th {{
+      background: rgba(103, 214, 255, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }}
     th button {{
       all: unset;
       cursor: pointer;
@@ -1000,6 +1013,7 @@ def format_public_benchmark_dashboard_html(
     .model-kind, .muted {{ color: var(--muted); }}
     .diff-best {{ color: var(--good); font-weight: 700; }}
     .diff-down {{ color: var(--warn); font-weight: 700; }}
+    .metric-missing {{ color: var(--kj-disabled); font-style: italic; }}
     .sparkline {{ width: 96px; height: 24px; display: block; }}
     .sparkline path {{ fill: none; stroke: var(--accent); stroke-width: 2; }}
     .sparkline circle {{ fill: var(--accent); }}
@@ -1010,8 +1024,10 @@ def format_public_benchmark_dashboard_html(
       gap: 12px;
     }}
     .metric-definitions div {{
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--kj-radius-sm);
+      background: rgba(8, 10, 18, 0.28);
     }}
     .metric-definitions dt {{ font-weight: 700; }}
     .metric-definitions dd {{ margin: 4px 0 0; color: var(--muted); }}
@@ -1024,7 +1040,7 @@ def format_public_benchmark_dashboard_html(
     }}
   </style>
 </head>
-<body>
+<body class="benchmark-dashboard kj-arcade-shell">
   <header>
     <p class="eyebrow">Kenjaku {version}</p>
     <h1>{title}</h1>
@@ -1559,7 +1575,7 @@ def _dashboard_link_target(path: str, *, link_base_dir: Path | None) -> str:
 
 def _html_metric(value: Any) -> str:
     if value is None:
-        return "n/a"
+        return '<span class="metric-missing">n/a</span>'
     if isinstance(value, (int, float)):
         return _html_text(_format_optional_float(float(value)))
     return _html_text(value)
