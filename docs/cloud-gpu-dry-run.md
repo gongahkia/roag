@@ -34,8 +34,8 @@ machine and falls back locally.
 
 ## Local Fallback Smoke
 
-Local fallback was run on 2026-06-13 SGT in this workspace after creating an ignored `.venv` with
-PyTorch. There was no local CUDA or MPS backend available.
+Local fallback was first run on 2026-06-13 SGT in this workspace after creating an ignored `.venv`
+with PyTorch. A fresh local smoke on 2026-07-08 SGT found no CUDA backend but did find MPS.
 
 ```bash
 uv run --python /usr/bin/python3.11 python -c \
@@ -46,22 +46,21 @@ Observed output:
 
 ```text
 cuda_available False
-mps_available False
+mps_available True
 ```
 
-Fallback training command:
+Current fallback training command:
 
 ```bash
-/usr/bin/time -f 'wall_clock_seconds: %e' \
-  uv run --python /usr/bin/python3.11 python -m kenjaku train-discard-transformer \
+/usr/bin/time -p env PYTHONPATH=src python3 -m kenjaku train-discard-transformer \
   data/fixtures/tenhou \
   --epochs 1 --batch-size 2 --device auto \
   --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 \
-  --checkpoint runs/todo-003/local-fixture-discard-transformer.pt \
-  --report runs/todo-003/local-fixture-discard-transformer.json \
-  --source-label fixture-local-auto-device \
-  --source-date 2026-06-13 \
-  --source-command "python -m kenjaku train-discard-transformer data/fixtures/tenhou --epochs 1 --batch-size 2 --device auto --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 --checkpoint runs/todo-003/local-fixture-discard-transformer.pt --report runs/todo-003/local-fixture-discard-transformer.json"
+  --checkpoint runs/todo-003/local-fixture-discard-transformer-2026-07-08.pt \
+  --report runs/todo-003/local-fixture-discard-transformer-2026-07-08.json \
+  --source-label fixture-local-auto-device-2026-07-08 \
+  --source-date 2026-07-08 \
+  --source-command "python -m kenjaku train-discard-transformer data/fixtures/tenhou --epochs 1 --batch-size 2 --device auto --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 --checkpoint runs/todo-003/local-fixture-discard-transformer-2026-07-08.pt --report runs/todo-003/local-fixture-discard-transformer-2026-07-08.json"
 ```
 
 Observed output:
@@ -70,22 +69,25 @@ Observed output:
 examples: 4
 train_examples: 3
 eval_examples: 1
-device: cpu
+device: mps
 model: discard-transformer-policy-v0
 encoder: mahjong-transformer-encoder-v0
 input_tokens: 152
 train_accuracy: 0.0000
 eval_accuracy: 0.0000
-checkpoint_path: runs/todo-003/local-fixture-discard-transformer.pt
-report_path: runs/todo-003/local-fixture-discard-transformer.json
-wall_clock_seconds: 9.30
+checkpoint_path: runs/todo-003/local-fixture-discard-transformer-2026-07-08.pt
+report_path: runs/todo-003/local-fixture-discard-transformer-2026-07-08.json
+real 7.57
 ```
 
-The local report path and checkpoint path are ignored. This proves the fallback side of TODO-003,
-not the required cloud GPU side.
+The local report path and checkpoint path are ignored. `benchmark-report-summary` read the report
+successfully and showed 4 total examples, 3 train examples, 1 eval example, device `mps`, and
+eval accuracy `0.0000`. This proves the local fallback side of TODO-003, not the required cloud GPU
+side.
 
 ## Current Blocker
 
-As of 2026-06-13 SGT, this environment had no `runpodctl`, Lambda Cloud CLI, `aws`, `gcloud`, or
-`az` command on `PATH`, and no relevant provider API tokens in the environment. A cloud GPU run
-still requires provider credentials or an already-provisioned GPU shell.
+As of 2026-07-08 SGT, this environment had no `runpodctl`, Lambda Cloud CLI, `aws`, `gcloud`, `az`,
+or `nvidia-smi` command on `PATH`, and no `RUNPOD_API_KEY`, `LAMBDA_API_KEY`, `AWS_ACCESS_KEY_ID`,
+`GOOGLE_APPLICATION_CREDENTIALS`, or `AZURE_CLIENT_ID` in the environment. A cloud GPU run still
+requires provider credentials or an already-provisioned GPU shell.
