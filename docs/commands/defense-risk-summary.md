@@ -30,7 +30,7 @@ PYTHONPATH=src python3.13 -m kenjaku defense-risk-summary data/fixtures/tenhou -
 ```text
 usage: kenjaku defense-risk-summary [-h] [--report REPORT] [--json]
                                     [--skip-errors]
-                                    [--parse-cache PARSE_CACHE]
+                                    [--parse-cache PARSE_CACHE] [--jobs JOBS]
                                     [--source-label SOURCE_LABEL]
                                     [--source-command SOURCE_COMMAND]
                                     [--source-date SOURCE_DATE]
@@ -48,6 +48,7 @@ options:
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache
+  --jobs JOBS           parallel Tenhou XML parse worker processes
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

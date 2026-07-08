@@ -45,12 +45,14 @@ def parse_tenhou_xml_dataset(  # stable since 0.2.0
     *,
     skip_errors: bool = False,
     parse_cache_dir: str | Path | None = None,
+    jobs: int = 1,
 ) -> _io.TenhouDataset:
     """Parse Tenhou XML files into one dataset object."""
     return _io.parse_tenhou_xml_dataset(
         paths,
         skip_errors=skip_errors,
         parse_cache_dir=parse_cache_dir,
+        jobs=jobs,
     )
 
 

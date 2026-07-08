@@ -51,6 +51,14 @@ def parse_tenhou_xml_file_cached(path: str | Path, cache_dir: str | Path) -> Ten
     return game
 
 
+def tenhou_game_payload(game: TenhouGame) -> dict[str, Any]:
+    return _game_payload(game)
+
+
+def tenhou_game_from_payload(payload: Any) -> TenhouGame:
+    return _game_from_payload(payload)
+
+
 def _cache_payload(game: TenhouGame, *, source_digest: str) -> dict[str, Any]:
     return {
         "kind": CACHE_KIND,

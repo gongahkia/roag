@@ -34,6 +34,7 @@ usage: kenjaku train-placement [-h] --data DATA [DATA ...] --output OUTPUT
                                [--epochs EPOCHS]
                                [--learning-rate LEARNING_RATE] [--l2 L2]
                                [--json] [--parse-cache PARSE_CACHE]
+                               [--jobs JOBS]
 
 options:
   -h, --help            show this help message and exit
@@ -49,4 +50,5 @@ options:
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache
+  --jobs JOBS           parallel Tenhou XML parse worker processes
 ```

@@ -30,6 +30,7 @@ PYTHONPATH=src python3.13 -m kenjaku train-discard-baseline data/fixtures/tenhou
 ```text
 usage: kenjaku train-discard-baseline [-h] [--skip-errors]
                                       [--parse-cache PARSE_CACHE]
+                                      [--jobs JOBS]
                                       paths [paths ...]
 
 positional arguments:
@@ -41,4 +42,5 @@ options:
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache
+  --jobs JOBS           parallel Tenhou XML parse worker processes
 ```

@@ -45,12 +45,40 @@ class TenhouDatasetTests(unittest.TestCase):
         self.assertEqual([item.path for item in parsed], list(expected_paths))
         self.assertEqual([len(item.game.rounds) for item in parsed], [1, 1])
 
+    def test_parallel_iterator_preserves_source_order(self) -> None:
+        sequential = list(iter_tenhou_xml_dataset_files([FIXTURE_DIR]))
+        parallel = list(iter_tenhou_xml_dataset_files([FIXTURE_DIR], jobs=2))
+
+        self.assertEqual([item.file_index for item in parallel], [0, 1, 2])
+        self.assertEqual([item.path for item in parallel], [item.path for item in sequential])
+        self.assertEqual(
+            [len(item.game.rounds) for item in parallel],
+            [len(item.game.rounds) for item in sequential],
+        )
+
     def test_records_parse_failures_when_requested(self) -> None:
         with TemporaryDirectory() as directory:
             broken = Path(directory) / "broken.xml"
             broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
 
             dataset = parse_tenhou_xml_dataset([MINIMAL_FIXTURE, broken], skip_errors=True)
+
+        self.assertEqual(len(dataset.game.rounds), 1)
+        self.assertEqual(len(dataset.files), 2)
+        self.assertEqual(len(dataset.failures), 1)
+        self.assertEqual(dataset.failures[0].path, broken.resolve())
+        self.assertEqual(dataset.failures[0].error_type, "ValueError")
+
+    def test_parallel_parse_records_failures_when_requested(self) -> None:
+        with TemporaryDirectory() as directory:
+            broken = Path(directory) / "broken.xml"
+            broken.write_text("<mjloggm><INIT /></mjloggm>", encoding="utf-8")
+
+            dataset = parse_tenhou_xml_dataset(
+                [MINIMAL_FIXTURE, broken],
+                skip_errors=True,
+                jobs=2,
+            )
 
         self.assertEqual(len(dataset.game.rounds), 1)
         self.assertEqual(len(dataset.files), 2)
@@ -86,6 +114,10 @@ class TenhouDatasetTests(unittest.TestCase):
     def test_rejects_empty_directories(self) -> None:
         with TemporaryDirectory() as directory, self.assertRaises(ValueError):
             parse_tenhou_xml_paths([Path(directory)])
+
+    def test_rejects_non_positive_jobs(self) -> None:
+        with self.assertRaisesRegex(ValueError, "jobs"):
+            parse_tenhou_xml_dataset([MINIMAL_FIXTURE], jobs=0)
 
 
 if __name__ == "__main__":

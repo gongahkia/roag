@@ -38,7 +38,7 @@ usage: kenjaku benchmark-discard [-h] [--epochs EPOCHS]
                                  [--disagreements DISAGREEMENTS]
                                  [--max-disagreements MAX_DISAGREEMENTS]
                                  [--skip-errors] [--parse-cache PARSE_CACHE]
-                                 [--source-label SOURCE_LABEL]
+                                 [--jobs JOBS] [--source-label SOURCE_LABEL]
                                  [--source-command SOURCE_COMMAND]
                                  [--source-date SOURCE_DATE]
                                  paths [paths ...]
@@ -77,6 +77,7 @@ options:
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache
+  --jobs JOBS           parallel Tenhou XML parse worker processes
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

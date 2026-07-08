@@ -8,6 +8,7 @@ from contextlib import redirect_stdout
 from hashlib import blake2b
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, cast
 from unittest import mock
 
 from kenjaku.cli import build_parser, main
@@ -127,7 +128,9 @@ class TenhouParseCacheTests(unittest.TestCase):
 
     def test_parse_cache_flag_is_available_on_xml_parsing_commands(self) -> None:
         parser = build_parser()
-        subparsers = next(action for action in parser._actions if action.dest == "command")
+        subparsers = cast(
+            Any, next(action for action in parser._actions if action.dest == "command")
+        )
         commands = (
             "inspect-tenhou",
             "defense-risk-summary",
@@ -154,6 +157,36 @@ class TenhouParseCacheTests(unittest.TestCase):
                         "--parse-cache" in action.option_strings
                         for action in command_parser._actions
                     )
+                )
+
+    def test_jobs_flag_is_available_on_xml_parsing_commands(self) -> None:
+        parser = build_parser()
+        subparsers = cast(
+            Any, next(action for action in parser._actions if action.dest == "command")
+        )
+        commands = (
+            "inspect-tenhou",
+            "defense-risk-summary",
+            "benchmark-deal-in",
+            "train-placement",
+            "export-decision-snapshots",
+            "train-discard-baseline",
+            "train-discard-linear",
+            "train-discard-mlp",
+            "train-discard-transformer",
+            "export-bc-examples",
+            "benchmark-discard",
+            "benchmark-discard-mlp",
+            "benchmark-discard-transformer",
+            "benchmark-call",
+            "benchmark-riichi",
+        )
+
+        for command in commands:
+            with self.subTest(command=command):
+                command_parser = subparsers.choices[command]
+                self.assertTrue(
+                    any("--jobs" in action.option_strings for action in command_parser._actions)
                 )
 
     def test_inspect_tenhou_uses_parse_cache_flag(self) -> None:

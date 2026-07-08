@@ -34,7 +34,7 @@ usage: kenjaku train-discard-linear [-h] [--epochs EPOCHS]
                                     [--split-seed SPLIT_SEED]
                                     [--output OUTPUT] [--report REPORT]
                                     [--skip-errors]
-                                    [--parse-cache PARSE_CACHE]
+                                    [--parse-cache PARSE_CACHE] [--jobs JOBS]
                                     [--source-label SOURCE_LABEL]
                                     [--source-command SOURCE_COMMAND]
                                     [--source-date SOURCE_DATE]
@@ -61,6 +61,7 @@ options:
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache
+  --jobs JOBS           parallel Tenhou XML parse worker processes
   --source-label SOURCE_LABEL
                         human-readable source label recorded in JSON reports
   --source-command SOURCE_COMMAND

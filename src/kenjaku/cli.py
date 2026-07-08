@@ -3282,6 +3282,7 @@ def _export_bc_examples(args: argparse.Namespace) -> int:
         skip_errors=args.skip_errors,
         failures=parse_failures,
         parse_cache_dir=_parse_cache_dir(args),
+        jobs=_parse_jobs(args),
     )
     try:
         while True:
@@ -3602,7 +3603,11 @@ def _train_placement(args: argparse.Namespace) -> int:
     if args.l2 < 0:
         raise SystemExit("--l2 must be non-negative")
     try:
-        examples = placement_examples_from_paths(args.data, parse_cache_dir=_parse_cache_dir(args))
+        examples = placement_examples_from_paths(
+            args.data,
+            parse_cache_dir=_parse_cache_dir(args),
+            jobs=_parse_jobs(args),
+        )
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(str(error)) from error
     if not examples:
@@ -5155,6 +5160,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             limit=args.example_limit,
             skip_errors=args.skip_errors,
             parse_cache_dir=_parse_cache_dir(args),
+            jobs=_parse_jobs(args),
             count_call=True,
         )
         game = None
@@ -6520,6 +6526,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
                 limit=args.example_limit,
                 skip_errors=args.skip_errors,
                 parse_cache_dir=_parse_cache_dir(args),
+                jobs=_parse_jobs(args),
                 count_discard=True,
             ),
         )
@@ -6940,6 +6947,7 @@ def _collect_streamed_examples(
     limit: int,
     skip_errors: bool,
     parse_cache_dir: str | Path | None = None,
+    jobs: int = 1,
     count_discard: bool = False,
     count_call: bool = False,
 ) -> _StreamedExamples:
@@ -6958,6 +6966,7 @@ def _collect_streamed_examples(
         skip_errors=skip_errors,
         failures=parse_failures,
         parse_cache_dir=parse_cache_dir,
+        jobs=jobs,
     ):
         file_index = parsed.file_index
         file = parsed.path
@@ -7970,6 +7979,7 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
             limit=args.example_limit,
             skip_errors=args.skip_errors,
             parse_cache_dir=_parse_cache_dir(args),
+            jobs=_parse_jobs(args),
             count_discard=True,
             count_call=True,
         )
@@ -8536,6 +8546,12 @@ def _add_parse_cache_arg(parser: argparse.ArgumentParser) -> None:
         type=Path,
         help="directory for opt-in content-addressed Tenhou XML parse cache",
     )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="parallel Tenhou XML parse worker processes",
+    )
 
 
 def _parse_tenhou_dataset_from_args(args: argparse.Namespace) -> TenhouDataset:
@@ -8543,11 +8559,16 @@ def _parse_tenhou_dataset_from_args(args: argparse.Namespace) -> TenhouDataset:
         args.paths,
         skip_errors=args.skip_errors,
         parse_cache_dir=_parse_cache_dir(args),
+        jobs=_parse_jobs(args),
     )
 
 
 def _parse_cache_dir(args: argparse.Namespace) -> Path | None:
     return getattr(args, "parse_cache", None)
+
+
+def _parse_jobs(args: argparse.Namespace) -> int:
+    return int(getattr(args, "jobs", 1))
 
 
 def _add_source_args(parser: argparse.ArgumentParser) -> None:
