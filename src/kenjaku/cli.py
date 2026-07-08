@@ -58,6 +58,7 @@ from kenjaku.io import (
     review_replay_manifest_file,
     tenhou_xml_files,
     write_accepted_replay_intake_jsonl,
+    write_tenhou_mjai_files,
 )
 from kenjaku.models import (
     CALL_DECISION_KINDS,
@@ -975,6 +976,24 @@ def build_parser() -> argparse.ArgumentParser:
     _add_parse_cache_arg(inspect_tenhou)
     _add_source_args(inspect_tenhou)
     inspect_tenhou.set_defaults(func=_inspect_tenhou)
+
+    tenhou_to_mjai = subparsers.add_parser(
+        "tenhou-to-mjai",
+        help="convert Tenhou XML files into MJAI JSONL streams",
+    )
+    tenhou_to_mjai.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    tenhou_to_mjai.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="directory for .mjson output files",
+    )
+    tenhou_to_mjai.set_defaults(func=_tenhou_to_mjai)
 
     defense_risk = subparsers.add_parser(
         "defense-risk-summary",
@@ -3141,6 +3160,16 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
         )
         write_json_report(args.report, report)
         print(f"report_path: {args.report}")
+    return 0
+
+
+def _tenhou_to_mjai(args: argparse.Namespace) -> int:
+    try:
+        output_paths = write_tenhou_mjai_files(args.paths, args.output)
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
+    print(f"files: {len(output_paths)}")
+    print(f"output_dir: {args.output}")
     return 0
 
 

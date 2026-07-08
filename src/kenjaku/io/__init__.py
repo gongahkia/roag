@@ -1,5 +1,11 @@
 """Input/output adapters for external mahjong formats."""
 
+from kenjaku.io.mjai import (
+    read_mjai_events,
+    to_mjai_events,
+    write_mjai_events,
+    write_tenhou_mjai_files,
+)
 from kenjaku.io.parse_cache import parse_tenhou_xml_file_cached
 from kenjaku.io.replay_manifest import (
     REPLAY_INTAKE_ACCEPTED_ITEM_KIND,
@@ -84,9 +90,13 @@ __all__ = [
     "parse_tenhou_xml_file",
     "parse_tenhou_xml_dataset",
     "parse_tenhou_xml_paths",
+    "read_mjai_events",
     "review_replay_manifest",
     "review_replay_manifest_file",
     "tenhou_tile",
     "tenhou_xml_files",
+    "to_mjai_events",
+    "write_mjai_events",
+    "write_tenhou_mjai_files",
     "write_accepted_replay_intake_jsonl",
 ]

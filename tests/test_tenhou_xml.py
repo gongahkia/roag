@@ -61,7 +61,10 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertIsInstance(round_.events[1], TenhouDiscard)
         self.assertIsInstance(round_.events[2], TenhouDraw)
         self.assertIsInstance(round_.events[3], TenhouDiscard)
-        self.assertEqual([event.seat for event in round_.events[:4]], [0, 0, 1, 1])
+        draw_discard_events = tuple(
+            event for event in round_.events[:4] if isinstance(event, TenhouDraw | TenhouDiscard)
+        )
+        self.assertEqual([event.seat for event in draw_discard_events], [0, 0, 1, 1])
         self.assertIsInstance(round_.events[4], TenhouRyuukyoku)
 
     def test_ignores_real_tenhou_metadata_tags_that_start_like_events(self) -> None:
@@ -108,6 +111,7 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(round_.calls[0].event_index, 4)
         self.assertEqual(round_.calls[0].meld.kind, ActionKind.PON)
         self.assertEqual(round_.calls[0].meld.tile_ids, (36, 37, 38))
+        self.assertEqual(round_.dora_indicators, (Tile.parse("1s"),))
         self.assertEqual(len(round_.agari), 1)
 
         agari = round_.agari[0]
@@ -172,7 +176,10 @@ class TenhouXmlTests(unittest.TestCase):
             """
         )
 
-        self.assertEqual(game.rounds[0].ryuukyoku.score_deltas, (1000, -1000, 1000, -1000))
+        ryuukyoku = game.rounds[0].ryuukyoku
+        self.assertIsNotNone(ryuukyoku)
+        assert ryuukyoku is not None
+        self.assertEqual(ryuukyoku.score_deltas, (1000, -1000, 1000, -1000))
 
 
 if __name__ == "__main__":

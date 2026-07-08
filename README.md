@@ -66,6 +66,7 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 - Dependency-free frequency and linear baselines with deterministic train/eval splits, calibration
   reports, feature summaries, and local-only disagreement diagnostics.
 - Neutral decision snapshot JSONL export plus prediction JSONL comparison.
+- Full-file Tenhou XML to MJAI `.mjson` export for local replay interoperability.
 - Discard interpretability overlay rendering from local decision snapshots, with top-3 heuristic
   alternatives, shanten delta, estimated deal-in risk, and expected point impact per decision.
 - Permission-aware replay manifest review with accepted-item JSONL output for offline replay
@@ -295,9 +296,9 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-discard-mlp \
 ## Decision Snapshots
 
 Decision snapshots are the neutral interchange format for external baselines. They include stable
-`row_id` values, legal actions, observed actions, reconstruction fields, and a minimal mjai-style
-event prefix. Terminal outcome labels are opt-in to avoid leaking future information into inference
-snapshots.
+`row_id` values, legal actions, observed actions, reconstruction fields, and an mjai-style event
+prefix. Use `tenhou-to-mjai` when you need full-file `.mjson` replay streams. Terminal outcome
+labels are opt-in to avoid leaking future information into inference snapshots.
 
 ```bash
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \

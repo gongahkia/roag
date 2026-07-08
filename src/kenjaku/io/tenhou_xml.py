@@ -166,7 +166,13 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
             continue
 
         if tag == "DORA":
-            current.dora_indicators.append(tenhou_tile(_required_int(event, "hai")))
+            dora_indicator = tenhou_tile(_required_int(event, "hai"))
+            if (
+                current.events
+                or not current.dora_indicators
+                or current.dora_indicators[-1] != dora_indicator
+            ):
+                current.dora_indicators.append(dora_indicator)
             continue
 
         draw_seat = _seat_from_tag(tag, DRAW_TAG_TO_SEAT)
@@ -283,7 +289,7 @@ class _TenhouEventParser(HTMLParser):
 
 
 def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
-    round_index, honba, kyotaku = _parse_seed_state(event.attrib.get("seed"))
+    round_index, honba, kyotaku, dora_indicator = _parse_seed_state(event.attrib.get("seed"))
     return _RoundBuilder(
         round_index=round_index,
         round_wind=round_index // 4,
@@ -293,7 +299,7 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         dealer=_required_int(event, "oya"),
         scores=_parse_scores(_required_attr(event, "ten")),
         starting_hands=tuple(_parse_hand(_required_attr(event, f"hai{seat}")) for seat in range(4)),
-        dora_indicators=[],
+        dora_indicators=[] if dora_indicator is None else [dora_indicator],
         draws=[],
         discards=[],
         reaches=[],
@@ -305,14 +311,15 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
     )
 
 
-def _parse_seed_state(seed: str | None) -> tuple[int, int, int]:
+def _parse_seed_state(seed: str | None) -> tuple[int, int, int, Tile | None]:
     if not seed:
-        return (0, 0, 0)
+        return (0, 0, 0, None)
     values = [int(value) for value in seed.split(",") if value]
     round_index = values[0] if len(values) > 0 else 0
     honba = values[1] if len(values) > 1 else 0
     kyotaku = values[2] if len(values) > 2 else 0
-    return (round_index, honba, kyotaku)
+    dora_indicator = tenhou_tile(values[5]) if len(values) > 5 else None
+    return (round_index, honba, kyotaku, dora_indicator)
 
 
 def _parse_scores(raw_scores: str) -> tuple[int, ...]:
