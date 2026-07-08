@@ -180,6 +180,14 @@ Use `python3.13 -m pip install -e ".[dev-ml]"` when working on PyTorch MLP or
 transformer commands.
 If you are working from this checkout without installing the package, keep `PYTHONPATH=src`.
 
+Dependency locks are managed by uv:
+
+```bash
+uv lock --upgrade
+uv sync --frozen --extra dev
+uv sync --frozen --extra dev-ml
+```
+
 ## Fixture Smokes
 
 ```bash
