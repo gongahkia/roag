@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from math import exp, log
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.io import TenhouGame, TenhouRound, iter_tenhou_xml_dataset_files
 
@@ -214,6 +214,7 @@ class PlacementModel:
         )
         if not isinstance(model_payload, dict):
             raise ValueError("placement checkpoint missing model object")
+        model_payload = cast(dict[str, Any], model_payload)
         if model_payload.get("kind") != PLACEMENT_MODEL_KIND:
             raise ValueError("unsupported placement model kind")
         if model_payload.get("feature_dim") != PLACEMENT_FEATURE_DIM:
@@ -221,11 +222,14 @@ class PlacementModel:
         weights_payload = model_payload.get("weights")
         if not isinstance(weights_payload, list):
             raise ValueError("placement model missing weights")
-        weights = tuple(
-            tuple(float(value) for value in row) for row in weights_payload if isinstance(row, list)
-        )
+        weights_payload = cast(list[Any], weights_payload)
+        weights: list[tuple[float, ...]] = []
+        for row in weights_payload:
+            if not isinstance(row, list):
+                raise ValueError("placement model weight rows must be lists")
+            weights.append(tuple(float(value) for value in cast(list[Any], row)))
         return cls(
-            weights=weights,
+            weights=tuple(weights),
             epochs=int(model_payload["epochs"]),
             learning_rate=float(model_payload["learning_rate"]),
             l2=float(model_payload.get("l2", 0.0)),
@@ -249,6 +253,7 @@ class PlacementModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("placement artifact must contain a JSON object")
+        payload = cast(dict[str, Any], payload)
         return cls.from_dict(payload)
 
 
@@ -484,12 +489,16 @@ def _round_end_scores(
     scores = current_scores
     for agari in round_.agari:
         if agari.score_deltas is not None and len(agari.score_deltas) == 4:
-            scores = tuple(scores[index] + agari.score_deltas[index] for index in range(4))
+            scores = _scores4(
+                tuple(scores[index] + agari.score_deltas[index] for index in range(4))
+            )
     if round_.ryuukyoku is not None:
         if round_.ryuukyoku.scores is not None and len(round_.ryuukyoku.scores) == 4:
             return _scores4(round_.ryuukyoku.scores)
         if round_.ryuukyoku.score_deltas is not None and len(round_.ryuukyoku.score_deltas) == 4:
-            return tuple(scores[index] + round_.ryuukyoku.score_deltas[index] for index in range(4))
+            return _scores4(
+                tuple(scores[index] + round_.ryuukyoku.score_deltas[index] for index in range(4))
+            )
     return scores
 
 
@@ -501,14 +510,12 @@ def _ranks_for_scores(scores: tuple[int, int, int, int]) -> tuple[int, int, int,
 
 
 def _placement_order(scores: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-    return tuple(sorted(range(4), key=lambda seat: (-scores[seat], seat)))
+    return _scores4(tuple(sorted(range(4), key=lambda seat: (-scores[seat], seat))))
 
 
 def _validate_scores(scores: tuple[int, int, int, int]) -> None:
     if len(scores) != 4:
         raise ValueError("placement model only supports four-player scores")
-    if any(not isinstance(score, int) for score in scores):
-        raise ValueError("scores must be integers")
 
 
 def _validate_game_state(

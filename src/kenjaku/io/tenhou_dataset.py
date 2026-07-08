@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kenjaku.io.parse_cache import parse_tenhou_xml_file_cached
-from kenjaku.io.tenhou_xml import TenhouGame, parse_tenhou_xml_file
+from kenjaku.io.tenhou_xml import TenhouGame, TenhouRound, parse_tenhou_xml_file
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +111,7 @@ def parse_tenhou_xml_dataset(
     if not files:
         raise ValueError("no Tenhou XML files found")
 
-    rounds = []
+    rounds: list[TenhouRound] = []
     failures: list[TenhouParseFailure] = []
     for parsed in iter_tenhou_xml_dataset_files(
         files,

@@ -23,6 +23,7 @@ dev = [
   "build",
   "coverage[toml]",
   "pre-commit",
+  "pyright",
   "ruff",
   "twine",
 ]
@@ -30,6 +31,7 @@ dev-ml = [
   "build",
   "coverage[toml]",
   "pre-commit",
+  "pyright",
   "ruff",
   "torch",
   "twine",
@@ -59,3 +61,20 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.11"
+include = ["src", "tests"]
+exclude = ["build", "dist", "**/__pycache__"]
+strict = ["src/kenjaku/core", "src/kenjaku/io", "src/kenjaku/models"]
+reportMissingTypeStubs = "none"
+reportPrivateUsage = "none"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnusedFunction = "none"
+executionEnvironments = [
+  { root = "src", extraPaths = ["src"] },
+  { root = "tests", extraPaths = ["src"] },
+]

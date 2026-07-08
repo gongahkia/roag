@@ -4,7 +4,7 @@ import json
 from functools import cache
 from hashlib import blake2b
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import Tile
 from kenjaku.io.tenhou_meld import TenhouMeld, decode_tenhou_meld
@@ -166,15 +166,13 @@ def _event_payload(event: TenhouEvent) -> dict[str, Any]:
             "dora_indicators": _tiles_payload(event.dora_indicators),
             "ura_dora_indicators": _tiles_payload(event.ura_dora_indicators),
         }
-    if isinstance(event, TenhouRyuukyoku):
-        return {
-            "type": "ryuukyoku",
-            "event_index": event.event_index,
-            "reason": event.reason,
-            "scores": _optional_ints_payload(event.scores),
-            "score_deltas": _optional_ints_payload(event.score_deltas),
-        }
-    raise TypeError(f"unsupported Tenhou event: {type(event).__name__}")
+    return {
+        "type": "ryuukyoku",
+        "event_index": event.event_index,
+        "reason": event.reason,
+        "scores": _optional_ints_payload(event.scores),
+        "score_deltas": _optional_ints_payload(event.score_deltas),
+    }
 
 
 def _event_from_payload(payload: Any) -> TenhouEvent:
@@ -276,7 +274,7 @@ def _int_tuple(payload: Any) -> tuple[int, ...]:
 def _dict(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("cached Tenhou parse payload must be an object")
-    return payload
+    return cast(dict[str, Any], payload)
 
 
 @cache

@@ -4,12 +4,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import TileType
 from kenjaku.models.torch_discard import (
-    _require_torch_modules,
     require_torch,
+    require_torch_modules,
     resolve_torch_device,
 )
 from kenjaku.training import DiscardExample
@@ -45,7 +45,7 @@ class MahjongTransformerConfig:
 
 @cache
 def _torch_transformer_classes() -> tuple[Any, Any, Any]:
-    torch, nn, _functional, _data_loader, dataset_base = _require_torch_modules()
+    torch, nn, _functional, _data_loader, dataset_base = require_torch_modules()
 
     class MahjongStateTransformerEncoder(nn.Module):
         """Transformer encoder over fixed, player-perspective mahjong state tokens."""
@@ -53,7 +53,7 @@ def _torch_transformer_classes() -> tuple[Any, Any, Any]:
         __module__ = __name__
 
         def __init__(self, config: MahjongTransformerConfig | None = None) -> None:
-            super().__init__()
+            super().__init__()  # pyright: ignore[reportUnknownMemberType] # dynamic torch base
             self.kind = MAHJONG_TRANSFORMER_ENCODER_KIND
             self.config = config or MahjongTransformerConfig()
             if self.config.model_dim <= 0:
@@ -182,7 +182,7 @@ def _torch_transformer_classes() -> tuple[Any, Any, Any]:
             *,
             value_head: bool = False,
         ) -> None:
-            super().__init__()
+            super().__init__()  # pyright: ignore[reportUnknownMemberType] # dynamic torch base
             self.kind = DISCARD_TRANSFORMER_POLICY_KIND
             self.encoder = MahjongStateTransformerEncoder(config)
             self.output_dim = TRANSFORMER_TILE_TYPES
@@ -270,7 +270,7 @@ def discard_transformer_data_loader(
     shuffle: bool = False,
     seed: int = 0,
 ) -> Any:
-    torch, _nn, _functional, data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, _functional, data_loader, _dataset_base = require_torch_modules()
     _encoder, _policy, dataset_class = _torch_transformer_classes()
     dataset = dataset_class(examples)
     generator = torch.Generator()
@@ -295,7 +295,7 @@ def train_discard_transformer(
     seed: int = 0,
     value_head: bool = False,
 ) -> DiscardTransformerTrainingResult:
-    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     _encoder_class, policy_class, _dataset_class = _torch_transformer_classes()
     if not train_examples:
         raise ValueError("no train examples found")
@@ -457,14 +457,19 @@ def load_discard_transformer_checkpoint(
     checkpoint_path = Path(path)
     resolved_device = torch.device(device)
     payload = torch.load(checkpoint_path, map_location=resolved_device)
-    if not isinstance(payload, dict) or payload.get("kind") != DISCARD_TRANSFORMER_CHECKPOINT_KIND:
+    if not isinstance(payload, dict):
+        raise ValueError("not a discard transformer checkpoint")
+    payload = cast(dict[str, Any], payload)
+    if payload.get("kind") != DISCARD_TRANSFORMER_CHECKPOINT_KIND:
         raise ValueError("not a discard transformer checkpoint")
     model_payload = payload.get("model")
     if not isinstance(model_payload, dict):
         raise ValueError("checkpoint missing model metadata")
+    model_payload = cast(dict[str, Any], model_payload)
     config_payload = model_payload.get("config")
     if not isinstance(config_payload, dict):
         raise ValueError("checkpoint missing transformer config")
+    config_payload = cast(dict[str, Any], config_payload)
     model = policy_class(
         MahjongTransformerConfig(
             model_dim=int(config_payload["model_dim"]),
@@ -478,6 +483,7 @@ def load_discard_transformer_checkpoint(
     state_dict = payload.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("checkpoint missing model_state_dict")
+    state_dict = cast(dict[str, Any], state_dict)
     model.load_state_dict(state_dict)
     model.eval()
     return model
@@ -490,7 +496,7 @@ def evaluate_discard_transformer(
     batch_size: int,
     device: Any,
 ) -> dict[str, int | float | None]:
-    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     if not examples:
         return {"examples": 0, "loss": None, "accuracy": None}
     resolved_device = torch.device(device)
@@ -669,7 +675,7 @@ def _selection_key(row: dict[str, Any], *, split: str) -> tuple[float, float, in
 
 def _policy_logits(output: Any) -> Any:
     if isinstance(output, tuple):
-        return output[0]
+        return cast(Any, output[0])
     return output
 
 

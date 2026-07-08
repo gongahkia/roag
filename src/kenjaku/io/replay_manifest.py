@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from hashlib import blake2b
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 REPLAY_MANIFEST_KIND = "kenjaku-replay-manifest-v0"
 REPLAY_INTAKE_REVIEW_KIND = "kenjaku-replay-intake-review-v0"
@@ -63,7 +63,7 @@ class ReplayIntakeDecision:
 
 def review_replay_manifest_file(path: str | Path) -> dict[str, Any]:
     manifest_path = Path(path)
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = _json_object(json.loads(manifest_path.read_text(encoding="utf-8")))
     return review_replay_manifest(payload, manifest_path=manifest_path)
 
 
@@ -77,6 +77,7 @@ def review_replay_manifest(
     raw_items = payload.get("items")
     if not isinstance(raw_items, list):
         raise ValueError("manifest items must be a list")
+    raw_items = cast(list[Any], raw_items)
 
     decisions = [
         review_replay_manifest_item(raw_item, index=index)
@@ -129,6 +130,7 @@ def review_replay_manifest_item(raw_item: Any, *, index: int) -> ReplayIntakeDec
 def parse_replay_manifest_item(raw_item: Any) -> ReplayManifestItem:
     if not isinstance(raw_item, dict):
         raise ValueError("manifest item must be an object")
+    raw_item = cast(dict[str, Any], raw_item)
 
     item_id = _required_string(raw_item, "id")
     platform = _required_string(raw_item, "platform")
@@ -145,6 +147,7 @@ def parse_replay_manifest_item(raw_item: Any) -> ReplayManifestItem:
     permission = raw_item.get("permission")
     if not isinstance(permission, dict):
         raise ValueError("permission must be an object")
+    permission = cast(dict[str, Any], permission)
     permission_status = _required_string(permission, "status")
     if permission_status not in PERMISSION_STATUSES:
         raise ValueError(f"unsupported permission status: {permission_status}")
@@ -379,7 +382,6 @@ def _replay_item_rejection_reasons(item: ReplayManifestItem) -> Iterable[str]:
 
 
 def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, Any]:
-    row_id = row.get("id") if isinstance(row, dict) and isinstance(row.get("id"), str) else None
     if not isinstance(row, dict):
         return {
             "index": index,
@@ -388,6 +390,8 @@ def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, An
             "reasons": ["accepted queue row must be an object"],
             "item": None,
         }
+    row = cast(dict[str, Any], row)
+    row_id = row.get("id") if isinstance(row.get("id"), str) else None
     if row.get("kind") != REPLAY_INTAKE_ACCEPTED_ITEM_KIND:
         return {
             "index": index,
@@ -398,10 +402,9 @@ def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, An
         }
 
     permission = row.get("permission")
+    permission = cast(dict[str, Any], permission) if isinstance(permission, dict) else None
     intended_uses = _safe_string_tuple(row.get("intended_uses"))
-    permission_scope = (
-        _safe_string_tuple(permission.get("scope")) if isinstance(permission, dict) else ()
-    )
+    permission_scope = _safe_string_tuple(permission.get("scope")) if permission is not None else ()
     reasons: list[str] = []
     if intent not in intended_uses:
         reasons.append(f"accepted item intended_uses does not include {intent}")
@@ -422,7 +425,11 @@ def _replay_share_decision(row: Any, *, index: int, intent: str) -> dict[str, An
 
 def _public_replay_summary(decision: dict[str, Any], *, intent: str) -> dict[str, Any]:
     item = decision["item"]
-    permission = item.get("permission") if isinstance(item.get("permission"), dict) else {}
+    if not isinstance(item, dict):
+        raise ValueError("shareable decision missing item object")
+    item = cast(dict[str, Any], item)
+    raw_permission = item.get("permission")
+    permission = cast(dict[str, Any], raw_permission) if isinstance(raw_permission, dict) else {}
     return {
         "index": decision["index"],
         "id": decision["id"],
@@ -481,6 +488,7 @@ def _string_tuple(value: Any) -> tuple[str, ...]:
         return (value,)
     if not isinstance(value, Sequence):
         raise ValueError("value must be a string or list of strings")
+    value = cast(Sequence[Any], value)
     values: list[str] = []
     for item in value:
         if not isinstance(item, str) or not item.strip():
@@ -501,9 +509,19 @@ def _safe_string_list(value: Any) -> list[str]:
 
 
 def _raw_id(raw_item: Any) -> str | None:
-    if isinstance(raw_item, dict) and isinstance(raw_item.get("id"), str):
-        return raw_item["id"]
+    if not isinstance(raw_item, dict):
+        return None
+    raw_item = cast(dict[str, Any], raw_item)
+    raw_id = raw_item.get("id")
+    if isinstance(raw_id, str):
+        return raw_id
     return None
+
+
+def _json_object(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("JSON payload must be an object")
+    return cast(dict[str, Any], payload)
 
 
 def _format_counts(counts: dict[str, int]) -> str:

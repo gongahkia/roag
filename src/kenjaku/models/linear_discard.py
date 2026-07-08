@@ -5,7 +5,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from math import exp
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import Action, Tile, TileType, all_tile_types, shanten
 from kenjaku.training import DiscardExample
@@ -256,7 +256,7 @@ class DiscardLinearModel:
             ippatsu_active_seats=ippatsu_active_seats,
         )
         logits = _logits(self.weights, features_by_tile)
-        return TileType(max(logits, key=logits.get))
+        return TileType(max(logits, key=lambda tile_index: logits[tile_index]))
 
     def logits(
         self,
@@ -322,7 +322,7 @@ class DiscardLinearModel:
         correct = 0
         for example in prepared_examples:
             logits = _logits(self.weights, example.features_by_tile)
-            correct += max(logits, key=logits.get) == example.target
+            correct += max(logits, key=lambda tile_index: logits[tile_index]) == example.target
         return correct / len(examples)
 
     @property
@@ -434,6 +434,7 @@ class DiscardLinearModel:
         weights_payload = payload.get("weights")
         if not isinstance(weights_payload, list):
             raise ValueError("model payload missing weights")
+        weights_payload = cast(list[Any], weights_payload)
         weights = tuple(_parse_weight_row(row) for row in weights_payload)
         return cls(
             weights=weights,
@@ -454,6 +455,7 @@ class DiscardLinearModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("model artifact must contain a JSON object")
+        payload = cast(dict[str, Any], payload)
         return cls.from_dict(payload)
 
 
@@ -1098,6 +1100,7 @@ def _softmax(logits: dict[int, float]) -> dict[int, float]:
 def _parse_weight_row(row: Any) -> tuple[float, ...]:
     if not isinstance(row, list):
         raise ValueError("model weight rows must be lists")
+    row = cast(list[Any], row)
     return tuple(float(value) for value in row)
 
 

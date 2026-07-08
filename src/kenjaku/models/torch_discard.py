@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import TileType
 from kenjaku.training import DiscardExample
@@ -20,10 +20,10 @@ TORCH_REQUIRED_MESSAGE = f"PyTorch is required; {TORCH_EXTRA_HINT}"
 
 
 def require_torch() -> Any:
-    return _require_torch_modules()[0]
+    return require_torch_modules()[0]
 
 
-def _require_torch_modules() -> tuple[Any, Any, Any, Any, Any]:
+def require_torch_modules() -> tuple[Any, Any, Any, Any, Any]:
     try:
         torch = importlib.import_module("torch")
         nn = importlib.import_module("torch.nn")
@@ -36,7 +36,7 @@ def _require_torch_modules() -> tuple[Any, Any, Any, Any, Any]:
 
 @cache
 def _torch_discard_classes() -> tuple[Any, Any]:
-    torch, nn, _functional, _data_loader, dataset_base = _require_torch_modules()
+    torch, nn, _functional, _data_loader, dataset_base = require_torch_modules()
 
     class DiscardTensorDataset(dataset_base):
         """Torch dataset for supervised discard decisions."""
@@ -73,7 +73,7 @@ def _torch_discard_classes() -> tuple[Any, Any]:
             input_dim: int = DISCARD_MLP_INPUT_DIM,
             hidden_dim: int = 128,
         ) -> None:
-            super().__init__()
+            super().__init__()  # pyright: ignore[reportUnknownMemberType] # dynamic torch base
             self.kind = DISCARD_MLP_MODEL_KIND
             self.input_dim = input_dim
             self.hidden_dim = hidden_dim
@@ -120,7 +120,7 @@ def discard_data_loader(
     shuffle: bool = False,
     seed: int = 0,
 ) -> Any:
-    torch, _nn, _functional, data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, _functional, data_loader, _dataset_base = require_torch_modules()
     _discard_mlp, dataset_class = _torch_discard_classes()
     dataset = dataset_class(examples)
     generator = torch.Generator()
@@ -144,7 +144,7 @@ def train_discard_mlp(
     device: str = "auto",
     seed: int = 0,
 ) -> DiscardMlpTrainingResult:
-    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     discard_mlp_class, _dataset_class = _torch_discard_classes()
     if not train_examples:
         raise ValueError("no train examples found")
@@ -310,11 +310,15 @@ def load_discard_mlp_checkpoint(
         payload = torch.load(checkpoint_path, map_location=resolved_device, weights_only=True)
     except TypeError:
         payload = torch.load(checkpoint_path, map_location=resolved_device)
-    if not isinstance(payload, dict) or payload.get("kind") != DISCARD_MLP_CHECKPOINT_KIND:
+    if not isinstance(payload, dict):
+        raise ValueError("not a discard MLP checkpoint")
+    payload = cast(dict[str, Any], payload)
+    if payload.get("kind") != DISCARD_MLP_CHECKPOINT_KIND:
         raise ValueError("not a discard MLP checkpoint")
     model_payload = payload.get("model")
     if not isinstance(model_payload, dict):
         raise ValueError("checkpoint missing model metadata")
+    model_payload = cast(dict[str, Any], model_payload)
     model = discard_mlp_class(
         input_dim=int(model_payload.get("input_dim", DISCARD_MLP_INPUT_DIM)),
         hidden_dim=int(model_payload["hidden_dim"]),
@@ -322,6 +326,7 @@ def load_discard_mlp_checkpoint(
     state_dict = payload.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("checkpoint missing model_state_dict")
+    state_dict = cast(dict[str, Any], state_dict)
     model.load_state_dict(state_dict)
     model.eval()
     return model
@@ -334,7 +339,7 @@ def evaluate_discard_mlp(
     batch_size: int,
     device: Any,
 ) -> dict[str, int | float | None]:
-    torch, _nn, functional, _data_loader, _dataset_base = _require_torch_modules()
+    torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     if not examples:
         return {"examples": 0, "loss": None, "accuracy": None}
     resolved_device = torch.device(device)

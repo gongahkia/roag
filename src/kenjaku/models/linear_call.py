@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cache
 from math import exp
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import ActionKind, TileType, all_tile_types, shanten
 from kenjaku.models.call_frequency import CALL_DECISION_KINDS
@@ -245,6 +245,7 @@ class CallLinearModel:
         weights_payload = payload.get("weights")
         if not isinstance(weights_payload, list):
             raise ValueError("model payload missing weights")
+        weights_payload = cast(list[Any], weights_payload)
         return cls(
             weights=tuple(_parse_weight_row(row) for row in weights_payload),
             epochs=int(payload["epochs"]),
@@ -265,6 +266,7 @@ class CallLinearModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("model artifact must contain a JSON object")
+        payload = cast(dict[str, Any], payload)
         return cls.from_dict(payload)
 
     @staticmethod
@@ -301,16 +303,19 @@ class CallLinearModel:
     ) -> tuple[_PreparedCallExample, ...]:
         if not isinstance(payload, list):
             raise ValueError("prepared examples payload must be a list")
+        payload = cast(list[Any], payload)
         prepared: list[_PreparedCallExample] = []
         for item in payload:
             if not isinstance(item, dict):
                 raise ValueError("prepared example payload items must be objects")
+            item = cast(dict[str, Any], item)
             target = ActionKind(str(item.get("target")))
             features_payload = item.get("features_by_kind")
             if not isinstance(features_payload, dict):
                 raise ValueError("prepared example features_by_kind must be an object")
+            features_payload = cast(dict[str, Any], features_payload)
             features_by_kind = {
-                ActionKind(str(kind)): tuple(float(value) for value in features)
+                ActionKind(str(kind)): tuple(float(value) for value in cast(list[Any], features))
                 for kind, features in features_payload.items()
                 if isinstance(features, list)
             }
@@ -461,16 +466,6 @@ def _features_for_candidate(
     return tuple(features)
 
 
-def _after_shanten_proxy(example: CallExample, kind: ActionKind, before_shanten: int) -> int:
-    return _safe_shanten(
-        _candidate_proxy(
-            example,
-            kind,
-            prefer_ukeire_tiebreaker=False,
-        ).after_counts
-    )
-
-
 def _candidate_proxy(
     example: CallExample,
     kind: ActionKind,
@@ -500,13 +495,6 @@ def _candidate_proxy(
         )
 
     return min(options, key=key)
-
-
-def _candidate_remainder_counts(
-    example: CallExample,
-    kind: ActionKind,
-) -> tuple[tuple[int, ...], ...]:
-    return tuple(proxy.after_counts for proxy in _candidate_remainder_options(example, kind))
 
 
 def _candidate_remainder_options(
@@ -703,4 +691,5 @@ def _feature_profile_for_kind(kind: Any) -> _FeatureProfile | None:
 def _parse_weight_row(row: Any) -> tuple[float, ...]:
     if not isinstance(row, list):
         raise ValueError("model weight rows must be lists")
+    row = cast(list[Any], row)
     return tuple(float(value) for value in row)

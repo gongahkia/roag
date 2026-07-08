@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cache
 from math import exp
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import ActionKind, all_tile_types, shanten
 from kenjaku.models.riichi_frequency import RIICHI_DECISION_KINDS
@@ -150,6 +150,7 @@ class RiichiLinearModel:
         weights_payload = payload.get("weights")
         if not isinstance(weights_payload, list):
             raise ValueError("model payload missing weights")
+        weights_payload = cast(list[Any], weights_payload)
         return cls(
             weights=tuple(_parse_weight_row(row) for row in weights_payload),
             epochs=int(payload["epochs"]),
@@ -169,6 +170,7 @@ class RiichiLinearModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("model artifact must contain a JSON object")
+        payload = cast(dict[str, Any], payload)
         return cls.from_dict(payload)
 
     def predict(self, example: RiichiExample) -> ActionKind:
@@ -368,4 +370,5 @@ def _kind_index(kind: ActionKind) -> int:
 def _parse_weight_row(row: Any) -> tuple[float, ...]:
     if not isinstance(row, list):
         raise ValueError("model weight rows must be lists")
+    row = cast(list[Any], row)
     return tuple(float(value) for value in row)

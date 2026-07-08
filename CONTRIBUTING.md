@@ -29,13 +29,11 @@ python3.13 -m ruff check .
 pre-commit run --all-files
 ```
 
-Pyright is not pinned in `pyproject.toml` yet. If available locally, run the current target scope:
+Run Pyright for the strict core/io/models scope:
 
 ```bash
-pyright src/kenjaku/core src/kenjaku/io src/kenjaku/models
+uv run --extra dev-ml pyright src/kenjaku/core src/kenjaku/io src/kenjaku/models
 ```
-
-If Pyright is unavailable, say that in the PR verification notes instead of implying it passed.
 
 ## PR Expectations
 

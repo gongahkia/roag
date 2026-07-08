@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from math import exp, log
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from kenjaku.core import TileType
 from kenjaku.training.deal_in import DealInExample
@@ -209,6 +209,7 @@ class DealInLinearModel:
         weights_payload = payload.get("weights")
         if not isinstance(weights_payload, list):
             raise ValueError("model payload missing weights")
+        weights_payload = cast(list[Any], weights_payload)
         return cls(
             weights=tuple(float(value) for value in weights_payload),
             epochs=int(payload["epochs"]),
@@ -228,6 +229,7 @@ class DealInLinearModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("model artifact must contain a JSON object")
+        payload = cast(dict[str, Any], payload)
         return cls.from_dict(payload)
 
 

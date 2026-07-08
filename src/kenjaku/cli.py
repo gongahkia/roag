@@ -3244,7 +3244,7 @@ def _export_bc_examples(args: argparse.Namespace) -> int:
             shards.append(
                 BcExampleShard(
                     path=shard_paths[decision_type],
-                    decision_type=decision_type,  # type: ignore[arg-type]
+                    decision_type=decision_type,  # type: ignore[arg-type]  # key is constrained by shard setup
                     examples=count,
                 ),
             )
@@ -3268,7 +3268,7 @@ def _export_bc_examples(args: argparse.Namespace) -> int:
             shard_handles[decision_type] = shard_path.open("w", encoding="utf-8")
         write_bc_example_row(
             shard_handles[decision_type],
-            decision_type=decision_type,  # type: ignore[arg-type]
+            decision_type=decision_type,  # type: ignore[arg-type]  # key is constrained by shard setup
             source_file=source_file,
             source_file_index=source_file_index,
             sequence_index=decision_counts[decision_type],
@@ -7035,7 +7035,7 @@ def _read_bc_example_load(
     try:
         return read_bc_examples(
             paths,
-            decision_type=decision_type,  # type: ignore[arg-type]
+            decision_type=decision_type,  # type: ignore[arg-type]  # caller validates decision type
             limit=limit,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
