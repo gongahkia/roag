@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
-from math import exp
-from pathlib import Path
 from typing import Any, cast
 
 from kenjaku.core import ActionKind, TileType, shanten
@@ -18,6 +15,18 @@ from kenjaku.features.call import (
 )
 from kenjaku.features.call import (
     feature_profile_for_kind as _feature_profile_for_kind,
+)
+from kenjaku.models._linear_base import (
+    LinearModel,
+    PreparedExample,
+    fit_softmax_sgd,
+    logits_for_candidates,
+    model_payload,
+    parse_weight_matrix,
+    prepared_softmax_example,
+    require_features_by_label,
+    softmax,
+    weight_matrix_payload,
 )
 from kenjaku.training import CallExample
 
@@ -33,10 +42,7 @@ CALL_LINEAR_V1_MODEL_KIND = call_features.CALL_LINEAR_V1_MODEL_KIND
 _NON_PASS_CALL_KINDS = (ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN)
 
 
-@dataclass(frozen=True, slots=True)
-class _PreparedCallExample:
-    target: ActionKind
-    features_by_kind: dict[ActionKind, tuple[float, ...]]
+_PreparedCallExample = PreparedExample[ActionKind]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +53,7 @@ class _CandidateProxy:
 
 
 @dataclass(frozen=True, slots=True)
-class CallLinearModel:
+class CallLinearModel(LinearModel):
     """Tiny dependency-free masked softmax model for call/pass decisions."""
 
     weights: tuple[tuple[float, ...], ...]
@@ -130,21 +136,21 @@ class CallLinearModel:
             raise ValueError("positive_class_weight must be positive")
 
         profile = _feature_profile(feature_profile)
-        weights = [[0.0] * profile.feature_dim for _ in CALL_DECISION_KINDS]
-        for _ in range(epochs):
-            for example in prepared_examples:
-                _apply_update(
-                    weights,
-                    example,
-                    learning_rate=learning_rate,
-                    l2=l2,
-                    example_weight=(
-                        positive_class_weight if example.target != ActionKind.PASS else 1.0
-                    ),
-                )
+        weights = fit_softmax_sgd(
+            prepared_examples,
+            output_count=len(CALL_DECISION_KINDS),
+            feature_dim=profile.feature_dim,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            l2=l2,
+            index_of=_kind_index,
+            example_weight=lambda example: (
+                positive_class_weight if example.label != ActionKind.PASS else 1.0
+            ),
+        )
 
         return cls(
-            weights=tuple(tuple(row) for row in weights),
+            weights=weights,
             epochs=epochs,
             learning_rate=learning_rate,
             l2=l2,
@@ -165,16 +171,16 @@ class CallLinearModel:
         return _feature_profile(self.feature_profile).feature_names
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "kind": self.kind,
-            "feature_profile": self.feature_profile,
-            "feature_dim": self.feature_dim,
-            "epochs": self.epochs,
-            "learning_rate": self.learning_rate,
-            "l2": self.l2,
-            "positive_class_weight": self.positive_class_weight,
-            "weights": [list(row) for row in self.weights],
-        }
+        return model_payload(
+            kind=self.kind,
+            feature_profile=self.feature_profile,
+            feature_dim=self.feature_dim,
+            epochs=self.epochs,
+            learning_rate=self.learning_rate,
+            l2=self.l2,
+            positive_class_weight=self.positive_class_weight,
+            weights=weight_matrix_payload(self.weights),
+        )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> CallLinearModel:
@@ -185,32 +191,14 @@ class CallLinearModel:
             raise ValueError("unsupported call linear model feature dimension")
         if payload.get("feature_profile", profile.name) != profile.name:
             raise ValueError("call linear model kind/profile mismatch")
-        weights_payload = payload.get("weights")
-        if not isinstance(weights_payload, list):
-            raise ValueError("model payload missing weights")
-        weights_payload = cast(list[Any], weights_payload)
         return cls(
-            weights=tuple(_parse_weight_row(row) for row in weights_payload),
+            weights=parse_weight_matrix(payload.get("weights")),
             epochs=int(payload["epochs"]),
             learning_rate=float(payload["learning_rate"]),
             l2=float(payload.get("l2", 0.0)),
             feature_profile=profile.name,
             positive_class_weight=float(payload.get("positive_class_weight", 1.0)),
         )
-
-    def save(self, path: str | Path) -> None:
-        Path(path).write_text(
-            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-
-    @classmethod
-    def load(cls, path: str | Path) -> CallLinearModel:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("model artifact must contain a JSON object")
-        payload = cast(dict[str, Any], payload)
-        return cls.from_dict(payload)
 
     @staticmethod
     def feature_names_for_profile(feature_profile: str) -> tuple[str, ...]:
@@ -231,10 +219,10 @@ class CallLinearModel:
     ) -> list[dict[str, object]]:
         return [
             {
-                "target": example.target.value,
+                "target": example.label.value,
                 "features_by_kind": {
                     kind.value: list(features)
-                    for kind, features in example.features_by_kind.items()
+                    for kind, features in require_features_by_label(example).items()
                 },
             }
             for example in prepared_examples
@@ -267,10 +255,7 @@ class CallLinearModel:
             if not features_by_kind:
                 raise ValueError("prepared example must have candidate features")
             prepared.append(
-                _PreparedCallExample(
-                    target=target,
-                    features_by_kind=features_by_kind,
-                )
+                prepared_softmax_example(label=target, features_by_label=features_by_kind)
             )
         return tuple(prepared)
 
@@ -283,7 +268,7 @@ class CallLinearModel:
         return self.logits_for_prepared(prepared)
 
     def probabilities_for_example(self, example: CallExample) -> dict[ActionKind, float]:
-        return _softmax(self.logits_for_example(example))
+        return softmax(self.logits_for_example(example))
 
     def prepare_examples(
         self,
@@ -299,16 +284,17 @@ class CallLinearModel:
         return max(logits, key=lambda kind: (logits[kind], -_kind_index(kind)))
 
     def logits_for_prepared(self, prepared: _PreparedCallExample) -> dict[ActionKind, float]:
-        return {
-            kind: _dot(self.weights[_kind_index(kind)], features)
-            for kind, features in prepared.features_by_kind.items()
-        }
+        return logits_for_candidates(
+            self.weights,
+            require_features_by_label(prepared),
+            index_of=_kind_index,
+        )
 
     def probabilities_for_prepared(
         self,
         prepared: _PreparedCallExample,
     ) -> dict[ActionKind, float]:
-        return _softmax(self.logits_for_prepared(prepared))
+        return softmax(self.logits_for_prepared(prepared))
 
     def score(self, examples: list[CallExample]) -> float:
         if not examples:
@@ -327,9 +313,9 @@ def _prepare_example(example: CallExample, *, profile: _FeatureProfile) -> _Prep
     candidates = _candidate_kinds(example)
     if example.action.kind not in candidates:
         candidates = (*candidates, example.action.kind)
-    return _PreparedCallExample(
-        target=example.action.kind,
-        features_by_kind={
+    return prepared_softmax_example(
+        label=example.action.kind,
+        features_by_label={
             kind: _features_for_candidate(example, kind, profile=profile) for kind in candidates
         },
     )
@@ -569,56 +555,7 @@ def _safe_shanten(counts: tuple[int, ...]) -> int:
         return 8
 
 
-def _apply_update(
-    weights: list[list[float]],
-    example: _PreparedCallExample,
-    *,
-    learning_rate: float,
-    l2: float,
-    example_weight: float,
-) -> None:
-    logits = {
-        kind: _dot(weights[_kind_index(kind)], features)
-        for kind, features in example.features_by_kind.items()
-    }
-    probabilities = _softmax(logits)
-    for kind, features in example.features_by_kind.items():
-        row = weights[_kind_index(kind)]
-        target = 1.0 if kind == example.target else 0.0
-        error = probabilities[kind] - target
-        scaled_error = learning_rate * example_weight * error
-        if l2 == 0:
-            for index, value in enumerate(features):
-                if value:
-                    row[index] -= scaled_error * value
-        else:
-            for index, value in enumerate(features):
-                row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
-
-
-def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
-    max_logit = max(logits.values())
-    exp_values = {kind: exp(logit - max_logit) for kind, logit in logits.items()}
-    total = sum(exp_values.values())
-    return {kind: value / total for kind, value in exp_values.items()}
-
-
-def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
-    total = 0.0
-    for weight, feature in zip(weights, features, strict=True):
-        if feature:
-            total += weight * feature
-    return total
-
-
 def _kind_index(kind: ActionKind) -> int:
     if kind not in CALL_DECISION_KINDS:
         raise ValueError(f"unsupported call decision kind: {kind.value}")
     return CALL_DECISION_KINDS.index(kind)
-
-
-def _parse_weight_row(row: Any) -> tuple[float, ...]:
-    if not isinstance(row, list):
-        raise ValueError("model weight rows must be lists")
-    row = cast(list[Any], row)
-    return tuple(float(value) for value in row)

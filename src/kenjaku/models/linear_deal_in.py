@@ -1,17 +1,29 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from math import exp, log
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from kenjaku.core import TileType
 from kenjaku.features.deal_in import (
     DEAL_IN_LINEAR_FEATURE_DIM,
     DEAL_IN_LINEAR_FEATURE_NAMES,
     DEAL_IN_LINEAR_MODEL_KIND,
+)
+from kenjaku.models._linear_base import (
+    LinearModel,
+    PreparedExample,
+    balanced_accuracy,
+    clamped_probability,
+    cross_entropy,
+    dot,
+    feature_summary_payload,
+    fit_logistic_sgd,
+    model_payload,
+    numeric_summary,
+    parse_weight_vector,
+    prepared_binary_example,
+    sigmoid,
 )
 from kenjaku.training.deal_in import DealInExample
 from kenjaku.training.defense_features import (
@@ -31,7 +43,7 @@ from kenjaku.training.defense_risk import candidate_defense_risk
 
 
 @dataclass(frozen=True, slots=True)
-class DealInLinearModel:
+class DealInLinearModel(LinearModel):
     """Small dependency-free logistic model for direct ron-discard probability."""
 
     weights: tuple[float, ...]
@@ -73,20 +85,18 @@ class DealInLinearModel:
         if positive_class_weight <= 0:
             raise ValueError("positive_class_weight must be positive")
 
-        weights = [0.0] * DEAL_IN_LINEAR_FEATURE_DIM
-        prepared = tuple(_PreparedDealInExample.from_example(example) for example in examples)
-        for _ in range(epochs):
-            for example in prepared:
-                _apply_update(
-                    weights,
-                    example,
-                    learning_rate=learning_rate,
-                    l2=l2,
-                    example_weight=positive_class_weight if example.target else 1.0,
-                )
+        prepared = tuple(_prepare_example(example) for example in examples)
+        weights = fit_logistic_sgd(
+            prepared,
+            feature_dim=DEAL_IN_LINEAR_FEATURE_DIM,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            l2=l2,
+            example_weight=lambda example: positive_class_weight if example.label else 1.0,
+        )
 
         return cls(
-            weights=tuple(weights),
+            weights=weights,
             epochs=epochs,
             learning_rate=learning_rate,
             l2=l2,
@@ -106,7 +116,7 @@ class DealInLinearModel:
         return DEAL_IN_LINEAR_FEATURE_NAMES
 
     def predict_probability(self, example: DealInExample) -> float:
-        return _sigmoid(_dot(self.weights, _features_for_example(example)))
+        return sigmoid(dot(self.weights, _features_for_example(example)))
 
     def evaluate(
         self,
@@ -128,51 +138,26 @@ class DealInLinearModel:
                 }
                 for index, name in enumerate(DEAL_IN_LINEAR_FEATURE_NAMES)
             ],
-            "overall": _numeric_summary(self.weights),
+            "overall": numeric_summary(self.weights, empty_with_none=True),
         }
 
     def feature_summary(self, examples: Sequence[DealInExample]) -> dict[str, Any]:
-        sums = [0.0] * DEAL_IN_LINEAR_FEATURE_DIM
-        sum_abs = [0.0] * DEAL_IN_LINEAR_FEATURE_DIM
-        max_abs = [0.0] * DEAL_IN_LINEAR_FEATURE_DIM
-        nonzero = [0] * DEAL_IN_LINEAR_FEATURE_DIM
-        for example in examples:
-            for index, value in enumerate(_features_for_example(example)):
-                sums[index] += value
-                abs_value = abs(value)
-                sum_abs[index] += abs_value
-                max_abs[index] = max(max_abs[index], abs_value)
-                if value != 0:
-                    nonzero[index] += 1
-
-        count = len(examples)
-        return {
-            "examples": count,
-            "feature_count": DEAL_IN_LINEAR_FEATURE_DIM,
-            "features": [
-                {
-                    "index": index,
-                    "name": name,
-                    "nonzero": nonzero[index],
-                    "nonzero_rate": None if count == 0 else nonzero[index] / count,
-                    "mean": None if count == 0 else sums[index] / count,
-                    "mean_abs": None if count == 0 else sum_abs[index] / count,
-                    "max_abs": None if count == 0 else max_abs[index],
-                }
-                for index, name in enumerate(DEAL_IN_LINEAR_FEATURE_NAMES)
-            ],
-        }
+        return feature_summary_payload(
+            example_count=len(examples),
+            feature_names=DEAL_IN_LINEAR_FEATURE_NAMES,
+            vectors=(_features_for_example(example) for example in examples),
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "kind": self.kind,
-            "feature_dim": DEAL_IN_LINEAR_FEATURE_DIM,
-            "epochs": self.epochs,
-            "learning_rate": self.learning_rate,
-            "l2": self.l2,
-            "positive_class_weight": self.positive_class_weight,
-            "weights": list(self.weights),
-        }
+        return model_payload(
+            kind=self.kind,
+            feature_dim=DEAL_IN_LINEAR_FEATURE_DIM,
+            epochs=self.epochs,
+            learning_rate=self.learning_rate,
+            l2=self.l2,
+            positive_class_weight=self.positive_class_weight,
+            weights=list(self.weights),
+        )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> DealInLinearModel:
@@ -180,44 +165,20 @@ class DealInLinearModel:
             raise ValueError("unsupported deal-in model kind")
         if payload.get("feature_dim") != DEAL_IN_LINEAR_FEATURE_DIM:
             raise ValueError("unsupported deal-in model feature dimension")
-        weights_payload = payload.get("weights")
-        if not isinstance(weights_payload, list):
-            raise ValueError("model payload missing weights")
-        weights_payload = cast(list[Any], weights_payload)
         return cls(
-            weights=tuple(float(value) for value in weights_payload),
+            weights=parse_weight_vector(payload.get("weights")),
             epochs=int(payload["epochs"]),
             learning_rate=float(payload["learning_rate"]),
             l2=float(payload.get("l2", 0.0)),
             positive_class_weight=float(payload.get("positive_class_weight", 1.0)),
         )
 
-    def save(self, path: str | Path) -> None:
-        Path(path).write_text(
-            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
 
-    @classmethod
-    def load(cls, path: str | Path) -> DealInLinearModel:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("model artifact must contain a JSON object")
-        payload = cast(dict[str, Any], payload)
-        return cls.from_dict(payload)
+_PreparedDealInExample = PreparedExample[bool]
 
 
-@dataclass(frozen=True, slots=True)
-class _PreparedDealInExample:
-    features: tuple[float, ...]
-    target: bool
-
-    @classmethod
-    def from_example(cls, example: DealInExample) -> _PreparedDealInExample:
-        return cls(
-            features=_features_for_example(example),
-            target=example.dealt_in,
-        )
+def _prepare_example(example: DealInExample) -> _PreparedDealInExample:
+    return prepared_binary_example(features=_features_for_example(example), label=example.dealt_in)
 
 
 def evaluate_deal_in_probabilities(
@@ -235,7 +196,7 @@ def evaluate_deal_in_probabilities(
     brier_sum = 0.0
     log_loss_sum = 0.0
     for example, probability in zip(examples, probabilities, strict=True):
-        p = _clamped_probability(probability)
+        p = clamped_probability(probability)
         target = 1.0 if example.dealt_in else 0.0
         predicted = p >= threshold
         if predicted and example.dealt_in:
@@ -247,7 +208,7 @@ def evaluate_deal_in_probabilities(
         else:
             tn += 1
         brier_sum += (p - target) ** 2
-        log_loss_sum += -(target * log(p) + (1.0 - target) * log(1.0 - p))
+        log_loss_sum += cross_entropy(p, example.dealt_in)
 
     examples_count = len(examples)
     positives = tp + fn
@@ -270,7 +231,7 @@ def evaluate_deal_in_probabilities(
         "precision": None if predicted_positives == 0 else tp / predicted_positives,
         "recall": None if positives == 0 else tp / positives,
         "specificity": None if negatives == 0 else tn / negatives,
-        "balanced_accuracy": _balanced_accuracy(tp=tp, tn=tn, fp=fp, fn=fn),
+        "balanced_accuracy": balanced_accuracy(tp=tp, tn=tn, fp=fp, fn=fn),
         "brier_score": None if examples_count == 0 else brier_sum / examples_count,
         "log_loss": None if examples_count == 0 else log_loss_sum / examples_count,
     }
@@ -331,59 +292,8 @@ def _features_for_example(example: DealInExample) -> tuple[float, ...]:
     return features
 
 
-def _apply_update(
-    weights: list[float],
-    example: _PreparedDealInExample,
-    *,
-    learning_rate: float,
-    l2: float,
-    example_weight: float,
-) -> None:
-    probability = _sigmoid(_dot(weights, example.features))
-    target = 1.0 if example.target else 0.0
-    error = probability - target
-    for index, value in enumerate(example.features):
-        weights[index] -= learning_rate * (example_weight * error * value + l2 * weights[index])
-
-
 def _actual_discard_tile(example: DealInExample) -> TileType:
     tile = example.discard.action.tile
     if tile is None:
         raise ValueError("deal-in examples must wrap tile discard examples")
     return tile
-
-
-def _dot(weights: Sequence[float], features: Sequence[float]) -> float:
-    return sum(weight * value for weight, value in zip(weights, features, strict=True))
-
-
-def _sigmoid(value: float) -> float:
-    if value >= 0:
-        inverse = exp(-value)
-        return 1.0 / (1.0 + inverse)
-    inverse = exp(value)
-    return inverse / (1.0 + inverse)
-
-
-def _clamped_probability(value: float) -> float:
-    return min(1.0 - 1e-15, max(1e-15, float(value)))
-
-
-def _balanced_accuracy(*, tp: int, tn: int, fp: int, fn: int) -> float | None:
-    positives = tp + fn
-    negatives = tn + fp
-    if positives == 0 or negatives == 0:
-        return None
-    return ((tp / positives) + (tn / negatives)) / 2.0
-
-
-def _numeric_summary(values: Sequence[float]) -> dict[str, float | int | None]:
-    if not values:
-        return {"count": 0, "mean": None, "min": None, "max": None, "mean_abs": None}
-    return {
-        "count": len(values),
-        "mean": sum(values) / len(values),
-        "min": min(values),
-        "max": max(values),
-        "mean_abs": sum(abs(value) for value in values) / len(values),
-    }

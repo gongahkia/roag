@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
-from math import exp
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from kenjaku.core import ActionKind, all_tile_types, shanten
 from kenjaku.features.riichi import (
@@ -15,19 +12,28 @@ from kenjaku.features.riichi import (
     RIICHI_LINEAR_FEATURE_NAMES,
     RIICHI_LINEAR_MODEL_KIND,
 )
+from kenjaku.models._linear_base import (
+    LinearModel,
+    PreparedExample,
+    fit_softmax_sgd,
+    logits_for_candidates,
+    model_payload,
+    parse_weight_matrix,
+    prepared_softmax_example,
+    require_features_by_label,
+    softmax,
+    weight_matrix_payload,
+)
 from kenjaku.training import RiichiExample
 
 _ALL_TILE_TYPES = all_tile_types()
 
 
-@dataclass(frozen=True, slots=True)
-class _PreparedRiichiExample:
-    target: ActionKind
-    features_by_kind: dict[ActionKind, tuple[float, ...]]
+_PreparedRiichiExample = PreparedExample[ActionKind]
 
 
 @dataclass(frozen=True, slots=True)
-class RiichiLinearModel:
+class RiichiLinearModel(LinearModel):
     """Tiny dependency-free masked softmax model for riichi/pass decisions."""
 
     weights: tuple[tuple[float, ...], ...]
@@ -73,22 +79,22 @@ class RiichiLinearModel:
         if positive_class_weight <= 0:
             raise ValueError("positive_class_weight must be positive")
 
-        weights = [[0.0] * RIICHI_LINEAR_FEATURE_DIM for _ in RIICHI_DECISION_KINDS]
         prepared_examples = tuple(_prepare_example(example) for example in examples)
-        for _ in range(epochs):
-            for example in prepared_examples:
-                _apply_update(
-                    weights,
-                    example,
-                    learning_rate=learning_rate,
-                    l2=l2,
-                    example_weight=(
-                        positive_class_weight if example.target == ActionKind.RIICHI else 1.0
-                    ),
-                )
+        weights = fit_softmax_sgd(
+            prepared_examples,
+            output_count=len(RIICHI_DECISION_KINDS),
+            feature_dim=RIICHI_LINEAR_FEATURE_DIM,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            l2=l2,
+            index_of=_kind_index,
+            example_weight=lambda example: (
+                positive_class_weight if example.label == ActionKind.RIICHI else 1.0
+            ),
+        )
 
         return cls(
-            weights=tuple(tuple(row) for row in weights),
+            weights=weights,
             epochs=epochs,
             learning_rate=learning_rate,
             l2=l2,
@@ -108,15 +114,15 @@ class RiichiLinearModel:
         return RIICHI_LINEAR_FEATURE_NAMES
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "kind": self.kind,
-            "feature_dim": self.feature_dim,
-            "epochs": self.epochs,
-            "learning_rate": self.learning_rate,
-            "l2": self.l2,
-            "positive_class_weight": self.positive_class_weight,
-            "weights": [list(row) for row in self.weights],
-        }
+        return model_payload(
+            kind=self.kind,
+            feature_dim=self.feature_dim,
+            epochs=self.epochs,
+            learning_rate=self.learning_rate,
+            l2=self.l2,
+            positive_class_weight=self.positive_class_weight,
+            weights=weight_matrix_payload(self.weights),
+        )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> RiichiLinearModel:
@@ -124,31 +130,13 @@ class RiichiLinearModel:
             raise ValueError("unsupported riichi linear model kind")
         if payload.get("feature_dim") != RIICHI_LINEAR_FEATURE_DIM:
             raise ValueError("unsupported riichi linear model feature dimension")
-        weights_payload = payload.get("weights")
-        if not isinstance(weights_payload, list):
-            raise ValueError("model payload missing weights")
-        weights_payload = cast(list[Any], weights_payload)
         return cls(
-            weights=tuple(_parse_weight_row(row) for row in weights_payload),
+            weights=parse_weight_matrix(payload.get("weights")),
             epochs=int(payload["epochs"]),
             learning_rate=float(payload["learning_rate"]),
             l2=float(payload.get("l2", 0.0)),
             positive_class_weight=float(payload.get("positive_class_weight", 1.0)),
         )
-
-    def save(self, path: str | Path) -> None:
-        Path(path).write_text(
-            json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-
-    @classmethod
-    def load(cls, path: str | Path) -> RiichiLinearModel:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("model artifact must contain a JSON object")
-        payload = cast(dict[str, Any], payload)
-        return cls.from_dict(payload)
 
     def predict(self, example: RiichiExample) -> ActionKind:
         logits = self.logits_for_example(example)
@@ -159,7 +147,7 @@ class RiichiLinearModel:
         return self.logits_for_prepared(prepared)
 
     def probabilities_for_example(self, example: RiichiExample) -> dict[ActionKind, float]:
-        return _softmax(self.logits_for_example(example))
+        return softmax(self.logits_for_example(example))
 
     def prepare_examples(
         self,
@@ -175,16 +163,17 @@ class RiichiLinearModel:
         self,
         prepared: _PreparedRiichiExample,
     ) -> dict[ActionKind, float]:
-        return {
-            kind: _dot(self.weights[_kind_index(kind)], features)
-            for kind, features in prepared.features_by_kind.items()
-        }
+        return logits_for_candidates(
+            self.weights,
+            require_features_by_label(prepared),
+            index_of=_kind_index,
+        )
 
     def probabilities_for_prepared(
         self,
         prepared: _PreparedRiichiExample,
     ) -> dict[ActionKind, float]:
-        return _softmax(self.logits_for_prepared(prepared))
+        return softmax(self.logits_for_prepared(prepared))
 
     def score(self, examples: list[RiichiExample]) -> float:
         if not examples:
@@ -200,9 +189,9 @@ class RiichiLinearModel:
 def _prepare_example(example: RiichiExample) -> _PreparedRiichiExample:
     if example.action.kind not in RIICHI_DECISION_KINDS:
         raise ValueError(f"unsupported riichi action kind: {example.action.kind.value}")
-    return _PreparedRiichiExample(
-        target=example.action.kind,
-        features_by_kind={
+    return prepared_softmax_example(
+        label=example.action.kind,
+        features_by_label={
             kind: _features_for_candidate(example, kind) for kind in RIICHI_DECISION_KINDS
         },
     )
@@ -296,56 +285,7 @@ def _safe_shanten(counts: tuple[int, ...]) -> int:
         return 8
 
 
-def _apply_update(
-    weights: list[list[float]],
-    example: _PreparedRiichiExample,
-    *,
-    learning_rate: float,
-    l2: float,
-    example_weight: float,
-) -> None:
-    logits = {
-        kind: _dot(weights[_kind_index(kind)], features)
-        for kind, features in example.features_by_kind.items()
-    }
-    probabilities = _softmax(logits)
-    for kind, features in example.features_by_kind.items():
-        row = weights[_kind_index(kind)]
-        target = 1.0 if kind == example.target else 0.0
-        error = probabilities[kind] - target
-        scaled_error = learning_rate * example_weight * error
-        if l2 == 0:
-            for index, value in enumerate(features):
-                if value:
-                    row[index] -= scaled_error * value
-        else:
-            for index, value in enumerate(features):
-                row[index] -= learning_rate * (example_weight * error * value + l2 * row[index])
-
-
-def _softmax(logits: dict[ActionKind, float]) -> dict[ActionKind, float]:
-    max_logit = max(logits.values())
-    exp_values = {kind: exp(logit - max_logit) for kind, logit in logits.items()}
-    total = sum(exp_values.values())
-    return {kind: value / total for kind, value in exp_values.items()}
-
-
-def _dot(weights: tuple[float, ...] | list[float], features: tuple[float, ...]) -> float:
-    total = 0.0
-    for weight, feature in zip(weights, features, strict=True):
-        if feature:
-            total += weight * feature
-    return total
-
-
 def _kind_index(kind: ActionKind) -> int:
     if kind not in RIICHI_DECISION_KINDS:
         raise ValueError(f"unsupported riichi decision kind: {kind.value}")
     return RIICHI_DECISION_KINDS.index(kind)
-
-
-def _parse_weight_row(row: Any) -> tuple[float, ...]:
-    if not isinstance(row, list):
-        raise ValueError("model weight rows must be lists")
-    row = cast(list[Any], row)
-    return tuple(float(value) for value in row)
