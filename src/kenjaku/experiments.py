@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import os
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from html import escape
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import quote
 
 from kenjaku.io import TenhouGame, TenhouParseFailure
@@ -791,10 +791,14 @@ def build_riichi_benchmark_report(
     }
 
 
-def write_json_report(path: str | Path, payload: dict[str, Any]) -> None:
+class JsonReportPayload(Protocol):
+    def to_dict(self) -> dict[str, Any]: ...
+
+
+def write_json_report(path: str | Path, payload: dict[str, Any] | JsonReportPayload) -> None:
     report_path = Path(path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_payload = dict(payload)
+    report_payload = dict(payload) if isinstance(payload, dict) else payload.to_dict()
     report_payload["provenance"] = build_report_provenance()
     report_path.write_text(
         json.dumps(report_payload, indent=2, sort_keys=True) + "\n",
@@ -2372,7 +2376,7 @@ def _summarize_disagreement_category(
     if not isinstance(items, list):
         raise ValueError(f"disagreement category items must be a list: {category_name}")
 
-    bucket_counts: dict[str, dict[str, int | float | None]] = {}
+    bucket_counts: dict[str, dict[str, int]] = {}
     pair_counts: Counter[tuple[str, str, str]] = Counter()
     correct_margins: list[float] = []
     wrong_margins: list[float] = []
@@ -2515,7 +2519,9 @@ def _disagreement_category_models(category_name: str) -> tuple[str, str]:
     raise ValueError(f"unsupported disagreement category: {category_name}")
 
 
-def _boolean_bucket_summary(stats: dict[str, int | float | None]) -> dict[str, int | float | None]:
+def _boolean_bucket_summary(
+    stats: Mapping[str, int | float | None],
+) -> dict[str, int | float | None]:
     true_count = int(stats.get("true", 0) or 0)
     false_count = int(stats.get("false", 0) or 0)
     examples = true_count + false_count

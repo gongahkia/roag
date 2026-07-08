@@ -39,7 +39,9 @@ from kenjaku.experiments import (
     format_discard_benchmark_summary,
     format_discard_disagreement_summary,
     format_public_benchmark_dashboard_html,
-    write_json_report,
+)
+from kenjaku.experiments import (
+    write_json_report as _write_json_report_file,
 )
 from kenjaku.hand_analysis import (
     build_hand_analysis,
@@ -110,6 +112,7 @@ from kenjaku.safety_advisor import (
     build_safety_advisor_report,
     format_safety_advisor_text,
 )
+from kenjaku.schema import ResponsePayload, response_from_dict
 from kenjaku.simulation import (
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
@@ -317,6 +320,20 @@ class _StreamedExamples:
     source_complete: bool
     discard_examples: int | None = None
     call_examples: int | None = None
+
+
+def _response_payload(payload: dict[str, Any] | ResponsePayload) -> ResponsePayload:
+    if isinstance(payload, ResponsePayload):
+        return payload
+    return response_from_dict(payload)
+
+
+def _print_json_response(payload: dict[str, Any] | ResponsePayload) -> None:
+    print(_response_payload(payload).to_json(indent=2, sort_keys=True))
+
+
+def _write_response_report(path: str | Path, payload: dict[str, Any] | ResponsePayload) -> None:
+    _write_json_report_file(path, _response_payload(payload))
 
 
 @dataclass(frozen=True, slots=True)
@@ -2667,7 +2684,7 @@ def main(argv: list[str] | None = None) -> int:
 def _status(args: argparse.Namespace) -> int:
     payload = build_status_payload()
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json_response(payload)
         return 0
 
     print(format_status_text(payload))
@@ -2682,7 +2699,7 @@ def _repro_report(args: argparse.Namespace) -> int:
         return 2
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_repro_report_text(report))
     return report["strict_exit_code"] if args.strict else 0
@@ -2706,7 +2723,7 @@ def _demo(args: argparse.Namespace) -> int:
     manifest_path = output_dir / "manifest.json"
     landing_path = output_dir / "index.html"
 
-    browser_manifest = write_browser_demo(browser_dir)
+    browser_manifest = _response_payload(write_browser_demo(browser_dir)).to_dict()
     dataset = parse_tenhou_xml_dataset([DEMO_FIXTURE_SOURCE], skip_errors=False)
     snapshots = build_decision_snapshots(
         dataset.game,
@@ -2719,14 +2736,14 @@ def _demo(args: argparse.Namespace) -> int:
     )
     snapshot_count = write_decision_snapshots_jsonl(snapshots_path, snapshots)
     summary = _build_decision_snapshot_summary([snapshots_path])
-    write_json_report(summary_path, summary)
+    _write_response_report(summary_path, summary)
     prediction_stats = _write_stub_decision_predictions(
         snapshots_path=snapshots_path,
         output_path=predictions_path,
         strategy="echo-actual",
     )
     comparison = _build_decision_snapshot_comparison(snapshots_path, predictions_path)
-    write_json_report(comparison_path, comparison)
+    _write_response_report(comparison_path, comparison)
 
     _benchmark_discard(
         argparse.Namespace(
@@ -2784,7 +2801,7 @@ def _demo(args: argparse.Namespace) -> int:
             name: _artifact_link(path, output_dir=output_dir) for name, path in artifacts.items()
         },
     }
-    write_json_report(manifest_path, manifest)
+    _write_response_report(manifest_path, manifest)
     artifacts["manifest"] = manifest_path
     _write_demo_landing_page(landing_path, artifacts, output_dir=output_dir)
 
@@ -2797,7 +2814,7 @@ def _browser_demo(args: argparse.Namespace) -> int:
     if not 0 <= args.port <= 65535:
         raise SystemExit("--port must be between 0 and 65535")
 
-    manifest = write_browser_demo(args.output_dir)
+    manifest = _response_payload(write_browser_demo(args.output_dir)).to_dict()
     output_dir = Path(manifest["output_dir"])
     entrypoint = Path(manifest["entrypoint"])
     print(f"wrote browser demo: {entrypoint}")
@@ -3030,12 +3047,12 @@ def _replay_intake_review(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, review)
+        _write_response_report(args.report, review)
     if args.accepted_output is not None:
         write_accepted_replay_intake_jsonl(args.accepted_output, review)
 
     if args.json:
-        print(json.dumps(review, indent=2, sort_keys=True))
+        _print_json_response(review)
     else:
         print(format_replay_intake_review(review))
     if args.report is not None:
@@ -3052,10 +3069,10 @@ def _replay_share_plan(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, plan)
+        _write_response_report(args.report, plan)
 
     if args.json:
-        print(json.dumps(plan, indent=2, sort_keys=True))
+        _print_json_response(plan)
     else:
         print(format_replay_share_plan(plan))
     if args.report is not None:
@@ -3073,10 +3090,10 @@ def _replay_public_summary(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, summary)
+        _write_response_report(args.report, summary)
 
     if args.json:
-        print(json.dumps(summary, indent=2, sort_keys=True))
+        _print_json_response(summary)
     else:
         print(format_replay_public_summary(summary))
     if args.report is not None:
@@ -3121,10 +3138,10 @@ def _self_play_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_self_play_sandbox_report(report))
     if args.report is not None:
@@ -3156,7 +3173,7 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
     if args.trajectory_jsonl is not None:
         trajectory_rows = write_self_play_match_trajectory_jsonl(
             args.trajectory_jsonl,
@@ -3166,7 +3183,7 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
         trajectory_rows = None
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_self_play_match_report(report))
     if args.report is not None:
@@ -3235,10 +3252,10 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
         save_ppo_sandbox_checkpoint(result, args.checkpoint)
         print(f"checkpoint_path: {args.checkpoint}")
     if args.report is not None:
-        write_json_report(args.report, result.report)
+        _write_response_report(args.report, result.report)
 
     if args.json:
-        print(json.dumps(result.report, indent=2, sort_keys=True))
+        _print_json_response(result.report)
     else:
         print(format_ppo_sandbox_report(result.report))
     if args.report is not None:
@@ -3283,10 +3300,10 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_population_sandbox_report(report))
     if args.output_dir is not None:
@@ -3305,6 +3322,7 @@ def _training_dashboard(args: argparse.Namespace) -> int:
             generated_at=generated_at,
             title=args.title,
         )
+        dashboard = _response_payload(dashboard).to_dict()
     except ValueError as error:
         raise SystemExit(str(error)) from error
     output = args.output
@@ -3344,7 +3362,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
             parse_failures=dataset.failures,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -3388,10 +3406,10 @@ def _defense_risk_summary(args: argparse.Namespace) -> int:
         "parse_failures": _parse_failures_payload(dataset.failures),
     }
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(f"examples: {report['examples']}")
         print(f"active_riichi_examples: {report['active_riichi_examples']}")
@@ -3654,7 +3672,7 @@ def _benchmark_discard_from_examples(args: argparse.Namespace) -> int:
         report["discard_examples_total"] = load.total_examples
         report["example_limit"] = args.example_limit
         _apply_bc_example_report_metadata(report, load)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -3670,7 +3688,7 @@ def _safety_advisor(args: argparse.Namespace) -> int:
     except ValueError as error:
         raise SystemExit(str(error)) from error
     if args.output == "json":
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_safety_advisor_text(report))
     return 0
@@ -3777,10 +3795,10 @@ def _benchmark_deal_in(args: argparse.Namespace) -> int:
         "parse_failures": _parse_failures_payload(dataset.failures),
     }
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
 
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         label_summary = report["label_summary"]
         split = report["split"]
@@ -3860,7 +3878,7 @@ def _train_placement(args: argparse.Namespace) -> int:
             "model": model.to_dict(),
             "disclaimer": PLACEMENT_DISCLAIMER,
         }
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json_response(payload)
     else:
         print(
             format_placement_training_report(
@@ -3892,7 +3910,7 @@ def _placement_probability(args: argparse.Namespace) -> int:
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(str(error)) from error
     if args.output == "json":
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json_response(payload)
     else:
         print(format_placement_probability_text(payload))
     return 0
@@ -3912,7 +3930,7 @@ def _analyze_hand(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.output == "json":
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json_response(payload)
     elif args.output == "html":
         print(format_hand_analysis_html(payload))
     else:
@@ -4003,7 +4021,7 @@ def _parse_decision_snapshot_types(value: str) -> tuple[str, ...]:
 def _decision_snapshot_summary(args: argparse.Namespace) -> int:
     summary = _build_decision_snapshot_summary(args.snapshots)
     if args.json:
-        print(json.dumps(summary, indent=2, sort_keys=True))
+        _print_json_response(summary)
     else:
         print(_format_decision_snapshot_summary(summary))
     return 0
@@ -4024,6 +4042,7 @@ def _interpretability_overlay(args: argparse.Namespace) -> int:
             title=args.title,
             min_decisions=args.min_decisions,
         )
+        report = _response_payload(report).to_dict()
     except ValueError as error:
         raise SystemExit(str(error)) from error
     write_interpretability_overlay_html(args.output, report)
@@ -4042,6 +4061,7 @@ def _review_game(args: argparse.Namespace) -> int:
             player=args.player,
             model=args.model,
         )
+        report = _response_payload(report).to_dict()
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(str(error)) from error
     write_review_game_html(args.output, report)
@@ -4085,6 +4105,7 @@ def _transformer_attention_overlay(args: argparse.Namespace) -> int:
             state_tensor=transformer_state_tensor,
             state_payload=transformer_state_payload,
         )
+        report = _response_payload(report).to_dict()
     except ValueError as error:
         raise SystemExit(str(error)) from error
 
@@ -4423,7 +4444,7 @@ def _feature_importance(args: argparse.Namespace) -> int:
         )
     except (OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
-    write_json_report(args.output, payload)
+    _write_response_report(args.output, payload)
     print(f"model: {payload['model_name']}")
     print(f"profile: {payload['profile']}")
     print(f"ranked_features: {len(payload['rankings'])}")
@@ -4798,7 +4819,7 @@ def _stub_prediction_for_snapshot(
 def _decision_snapshot_compare(args: argparse.Namespace) -> int:
     comparison = _build_decision_snapshot_comparison(args.snapshots, args.predictions)
     if args.json:
-        print(json.dumps(comparison, indent=2, sort_keys=True))
+        _print_json_response(comparison)
     else:
         print(_format_decision_snapshot_comparison(comparison))
     return 0
@@ -4816,9 +4837,9 @@ def _external_baseline_report(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _print_json_response(report)
     else:
         print(format_external_baseline_report(report))
         if args.report is not None:
@@ -4864,7 +4885,7 @@ def _run_external_prediction_producer(args: argparse.Namespace) -> int:
     print(f"output_path: {args.output}")
     if args.compare_report is not None:
         comparison = _build_decision_snapshot_comparison(args.snapshots, args.output)
-        write_json_report(args.compare_report, comparison)
+        _write_response_report(args.compare_report, comparison)
         print(f"compare_report_path: {args.compare_report}")
     return 0
 
@@ -5174,7 +5195,7 @@ def _train_discard_linear(args: argparse.Namespace) -> int:
             model_path=args.output,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -5278,7 +5299,7 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
             checkpoint_path=args.checkpoint,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -5398,7 +5419,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
             checkpoint_path=args.checkpoint,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -5518,7 +5539,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
         report["example_limit"] = args.example_limit
         if streamed_examples is not None:
             _apply_streaming_report_metadata(report, streamed_examples)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     if args.disagreements is not None:
         disagreement_report = _build_disagreement_report(
@@ -5526,7 +5547,7 @@ def _benchmark_discard(args: argparse.Namespace) -> int:
             linear_models=linear_models,
             max_per_category=args.max_disagreements,
         )
-        write_json_report(args.disagreements, disagreement_report)
+        _write_response_report(args.disagreements, disagreement_report)
         print(f"disagreements_path: {args.disagreements}")
     return 0
 
@@ -5677,7 +5698,7 @@ def _benchmark_discard_mlp(args: argparse.Namespace) -> int:
             checkpoint_path=args.checkpoint,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -5840,7 +5861,7 @@ def _benchmark_discard_transformer(args: argparse.Namespace) -> int:
             checkpoint_path=args.checkpoint,
             source=_source_metadata(args),
         )
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -6161,7 +6182,7 @@ def _zero_one_loss(accuracy: float | None) -> float | None:
 def _benchmark_report_summary(args: argparse.Namespace) -> int:
     summary = build_discard_benchmark_summary(args.reports)
     if args.json:
-        print(json.dumps(summary, indent=2, sort_keys=True))
+        _print_json_response(summary)
     else:
         print(format_discard_benchmark_summary(summary))
     return 0
@@ -6247,7 +6268,7 @@ def _disagreement_report_summary(args: argparse.Namespace) -> int:
     if tag_summary is not None:
         summary["tags"] = tag_summary
     if args.json:
-        print(json.dumps(summary, indent=2, sort_keys=True))
+        _print_json_response(summary)
     else:
         print(format_discard_disagreement_summary(summary))
         if tag_summary is not None:
@@ -6732,7 +6753,7 @@ def _benchmark_call_from_examples(args: argparse.Namespace) -> int:
             source=_bc_source_metadata(args, load),
         )
         _apply_bc_example_report_metadata(report, load)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -7048,7 +7069,7 @@ def _benchmark_call(args: argparse.Namespace) -> int:
         )
         if streamed_examples is not None:
             _apply_streaming_report_metadata(report, streamed_examples)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -8225,7 +8246,7 @@ def _benchmark_riichi_from_examples(args: argparse.Namespace) -> int:
         report["riichi_examples_total"] = load.total_examples
         report["example_limit"] = args.example_limit
         _apply_bc_example_report_metadata(report, load)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
@@ -8368,7 +8389,7 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
         report["example_limit"] = args.example_limit
         if streamed_examples is not None:
             _apply_streaming_report_metadata(report, streamed_examples)
-        write_json_report(args.report, report)
+        _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
 
