@@ -49,6 +49,8 @@ options:
   -h, --help            show this help message and exit
   --output OUTPUT       JSONL path for exported decision snapshots
   --decision-types DECISION_TYPES
+                        comma-separated snapshot types:
+                        discard,call,riichi,kita
                         comma-separated snapshot types: discard,call,riichi
   --limit LIMIT         maximum snapshots to write after deterministic
                         ordering

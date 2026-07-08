@@ -19,12 +19,13 @@ from kenjaku.io import (
 )
 from kenjaku.training.call_examples import CallExample, iter_call_examples
 from kenjaku.training.discard_examples import DiscardExample, iter_discard_examples
+from kenjaku.training.kita_examples import KITA_TILE_TYPE, KitaExample, iter_kita_examples
 from kenjaku.training.outcomes import round_outcome_payload
 from kenjaku.training.reconstruction import call_from_seat, consumed_tiles
 from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 
 DECISION_SNAPSHOT_KIND = "kenjaku-decision-snapshot-v0"
-DECISION_SNAPSHOT_TYPES = ("discard", "call", "riichi")
+DECISION_SNAPSHOT_TYPES = ("discard", "call", "riichi", "kita")
 DECISION_SNAPSHOT_FORMATS = ("kenjaku", "mjai")
 
 
@@ -86,6 +87,19 @@ def build_decision_snapshots(
                 include_outcome=include_outcome,
             )
             for example in iter_riichi_examples(game)
+        )
+    if "kita" in selected_types:
+        indexed.extend(
+            _kita_snapshot_item(
+                example,
+                game=game,
+                prefix_cache=prefix_cache,
+                source=source,
+                input_paths=input_path_payload,
+                xml_file_count=xml_file_count,
+                include_outcome=include_outcome,
+            )
+            for example in iter_kita_examples(game)
         )
 
     indexed.sort(key=lambda item: item[0])
@@ -243,11 +257,44 @@ def _riichi_snapshot_item(
     return (example.round_index, example.event_index, 1, example.seat), snapshot
 
 
+def _kita_snapshot_item(
+    example: KitaExample,
+    *,
+    game: TenhouGame,
+    prefix_cache: dict[tuple[int, int, bool], list[dict[str, Any]]],
+    source: dict[str, str | None] | None,
+    input_paths: Sequence[str],
+    xml_file_count: int | None,
+    include_outcome: bool,
+) -> tuple[tuple[int, int, int, int], dict[str, Any]]:
+    round_ = game.rounds[example.round_index]
+    snapshot = _base_snapshot(
+        decision_type="kita",
+        round_=round_,
+        example=example,
+        game=game,
+        prefix_cache=prefix_cache,
+        include_decision_event=False,
+        source=source,
+        input_paths=input_paths,
+        xml_file_count=xml_file_count,
+        include_outcome=include_outcome,
+    )
+    snapshot["draw_event_index"] = example.draw_event_index
+    snapshot["kita_event_index"] = example.kita_event_index
+    snapshot["legal_actions"] = [
+        _action_payload(Action.pass_()),
+        _action_payload(Action(ActionKind.KITA, KITA_TILE_TYPE)),
+    ]
+    snapshot["actual_action"] = _action_payload(example.action)
+    return (example.round_index, example.event_index, 3, example.seat), snapshot
+
+
 def _base_snapshot(
     *,
     decision_type: str,
     round_: TenhouRound,
-    example: DiscardExample | CallExample | RiichiExample,
+    example: DiscardExample | CallExample | RiichiExample | KitaExample,
     game: TenhouGame,
     prefix_cache: dict[tuple[int, int, bool], list[dict[str, Any]]],
     include_decision_event: bool,

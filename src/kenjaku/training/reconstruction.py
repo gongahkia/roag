@@ -154,6 +154,9 @@ def consumed_tiles(meld: TenhouMeld) -> tuple[Tile, ...]:
             raise ValueError("kakan call is missing an added tile")
         return (meld.added_tile,)
 
+    if meld.kind == ActionKind.KITA:
+        return meld.tiles
+
     raise ValueError(f"unsupported meld kind for hand reconstruction: {meld.kind.value}")
 
 

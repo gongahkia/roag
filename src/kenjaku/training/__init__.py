@@ -56,6 +56,7 @@ from kenjaku.training.discard_features import (
     summarize_discard_shanten,
 )
 from kenjaku.training.error_analysis import summarize_discard_predictions
+from kenjaku.training.kita_examples import KitaExample, iter_kita_examples
 from kenjaku.training.outcomes import RoundOutcome, round_outcome, round_outcome_payload
 from kenjaku.training.population import (
     POPULATION_SANDBOX_REPORT_KIND,
@@ -128,7 +129,9 @@ __all__ = [
     "iter_call_examples",
     "iter_deal_in_examples",
     "iter_discard_examples",
+    "iter_kita_examples",
     "iter_riichi_examples",
+    "KitaExample",
     "parse_bc_decision_types",
     "legal_candidate_defense_risks",
     "load_ppo_sandbox_checkpoint",

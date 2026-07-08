@@ -1391,7 +1391,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_snapshots.add_argument(
         "--decision-types",
         default=",".join(DECISION_SNAPSHOT_TYPES),
-        help="comma-separated snapshot types: discard,call,riichi",
+        help="comma-separated snapshot types: discard,call,riichi,kita",
     )
     export_snapshots.add_argument(
         "--limit",
