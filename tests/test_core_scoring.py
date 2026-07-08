@@ -130,6 +130,147 @@ class RiichiScoringTests(unittest.TestCase):
         self.assertEqual(score_limit(han=13, fu=30), "yakuman")
         self.assertEqual(score_limit(han=13, fu=30, counted_yakuman=False), "sanbaiman")
 
+    def test_tenhou_sanma_exact_payment_fixtures(self) -> None:
+        fixtures = [
+            {
+                "name": "child ron",
+                "yaku_han": 1,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "ron",
+                "ron": 1000,
+                "total_ron": 1000,
+                "winner_total": 1000,
+            },
+            {
+                "name": "dealer ron",
+                "yaku_han": 1,
+                "fu": 30,
+                "dealer": True,
+                "win_kind": "ron",
+                "ron": 1500,
+                "total_ron": 1500,
+                "winner_total": 1500,
+            },
+            {
+                "name": "child tsumo tsumo loss",
+                "yaku_han": 2,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "tsumo",
+                "child": 500,
+                "dealer_payment": 1000,
+                "total_child": 500,
+                "total_dealer": 1000,
+                "winner_total": 1500,
+            },
+            {
+                "name": "dealer tsumo tsumo loss",
+                "yaku_han": 2,
+                "fu": 30,
+                "dealer": True,
+                "win_kind": "tsumo",
+                "child": 1000,
+                "dealer_payment": None,
+                "total_child": 1000,
+                "total_dealer": None,
+                "winner_total": 2000,
+            },
+            {
+                "name": "kita bonus han child ron",
+                "yaku_han": 1,
+                "bonus_han": 1,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "ron",
+                "ron": 2000,
+                "total_ron": 2000,
+                "winner_total": 2000,
+                "han": 2,
+            },
+            {
+                "name": "child ron with honba and riichi sticks",
+                "yaku_han": 1,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "ron",
+                "honba": 2,
+                "riichi_sticks": 1,
+                "ron": 1000,
+                "honba_payment": 600,
+                "riichi_stick_points": 1000,
+                "total_ron": 1600,
+                "winner_total": 2600,
+            },
+            {
+                "name": "child tsumo with honba",
+                "yaku_han": 2,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "tsumo",
+                "honba": 1,
+                "child": 500,
+                "dealer_payment": 1000,
+                "honba_payment": 100,
+                "total_child": 600,
+                "total_dealer": 1100,
+                "winner_total": 1700,
+            },
+            {
+                "name": "child mangan tsumo tsumo loss",
+                "yaku_han": 5,
+                "fu": 30,
+                "dealer": False,
+                "win_kind": "tsumo",
+                "child": 2000,
+                "dealer_payment": 4000,
+                "total_child": 2000,
+                "total_dealer": 4000,
+                "winner_total": 6000,
+                "limit": "mangan",
+            },
+            {
+                "name": "dealer mangan tsumo tsumo loss",
+                "yaku_han": 5,
+                "fu": 30,
+                "dealer": True,
+                "win_kind": "tsumo",
+                "child": 4000,
+                "dealer_payment": None,
+                "total_child": 4000,
+                "total_dealer": None,
+                "winner_total": 8000,
+                "limit": "mangan",
+            },
+        ]
+
+        for fixture in fixtures:
+            with self.subTest(fixture=fixture["name"]):
+                result = score_riichi_hand(
+                    yaku_han=fixture["yaku_han"],
+                    bonus_han=fixture.get("bonus_han", 0),
+                    fu=fixture["fu"],
+                    is_dealer=fixture["dealer"],
+                    win_kind=fixture["win_kind"],
+                    honba=fixture.get("honba", 0),
+                    riichi_sticks=fixture.get("riichi_sticks", 0),
+                    players=3,
+                )
+                self.assertEqual(result.han, fixture.get("han", fixture["yaku_han"]))
+                self.assertEqual(result.ron_payment, fixture.get("ron"))
+                self.assertEqual(result.tsumo_child_payment, fixture.get("child"))
+                self.assertEqual(result.tsumo_dealer_payment, fixture.get("dealer_payment"))
+                self.assertEqual(result.honba_payment, fixture.get("honba_payment", 0))
+                self.assertEqual(
+                    result.riichi_stick_points,
+                    fixture.get("riichi_stick_points", 0),
+                )
+                self.assertEqual(result.total_ron_payment, fixture.get("total_ron"))
+                self.assertEqual(result.total_tsumo_child_payment, fixture.get("total_child"))
+                self.assertEqual(result.total_tsumo_dealer_payment, fixture.get("total_dealer"))
+                self.assertEqual(result.winner_total_points, fixture["winner_total"])
+                self.assertEqual(result.limit, fixture.get("limit"))
+
     def test_fu_fixtures(self) -> None:
         fixtures = [
             ("closed pinfu ron", _closed_pinfu(), "8m", "ron", (), (), None, None, 30, 30),
