@@ -10,8 +10,16 @@ from pathlib import Path
 from typing import Any
 
 from kenjaku.core import TileType
+from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_device
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.training.history import normalize_training_history
+
+try:
+    from torch import nn as _nn
+except ImportError:  # pragma: no cover - exercised only without the ml extra
+    _nn = None
+
+_TorchModuleBase = _nn.Module if _nn is not None else object
 
 PPO_SANDBOX_POLICY_KIND = "sandbox-linear-ppo-actor-critic-v0"
 PPO_SANDBOX_REPORT_KIND = "kenjaku-ppo-sandbox-report-v0"
@@ -65,8 +73,8 @@ class SandboxPpoTrainingResult:
     model_state: dict[str, Any]
 
 
-class SandboxLinearPpoActorCritic:
-    """Dependency-free linear actor-critic for deterministic PPO smoke tests."""
+class SandboxLinearPpoActorCritic(_TorchModuleBase):
+    """Torch actor-critic for deterministic PPO sandbox smoke tests."""
 
     def __init__(
         self,
@@ -76,7 +84,10 @@ class SandboxLinearPpoActorCritic:
         action_dim: int = PPO_ACTION_DIM,
         seed: int = 0,
         state: dict[str, Any] | None = None,
+        device: Any | None = None,
     ) -> None:
+        torch, nn, functional, _data_loader, _dataset_base = require_torch_modules()
+        super().__init__()
         if input_dim <= 0:
             raise ValueError("input_dim must be positive")
         if hidden_dim < 0:
@@ -87,17 +98,119 @@ class SandboxLinearPpoActorCritic:
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.action_dim = action_dim
+        self._torch = torch
+        self._functional = functional
+        self.device = torch.device("cpu") if device is None else torch.device(device)
+        self.dtype = _ppo_dtype(torch, self.device)
+        self.policy = _mlp(nn, input_dim, hidden_dim, action_dim, dtype=self.dtype)
+        self.value_net = _mlp(nn, input_dim, hidden_dim, 1, dtype=self.dtype)
         if state is None:
-            rng = random.Random(seed)
-            self.policy_weights = [
-                [rng.uniform(-0.01, 0.01) for _feature in range(input_dim)]
-                for _action in range(action_dim)
-            ]
-            self.policy_bias = [0.0 for _action in range(action_dim)]
-            self.value_weights = [rng.uniform(-0.01, 0.01) for _feature in range(input_dim)]
-            self.value_bias = 0.0
+            self._reset_parameters(seed)
         else:
-            self.load_state_dict(state)
+            self.load_serialized_state_dict(state)
+        self.to(self.device)
+
+    def forward(self, states: Any, legal_masks: Any) -> tuple[Any, Any]:
+        return self.logits_tensor(states, legal_masks), self.value_tensor(states)
+
+    def logits_tensor(self, states: Any, legal_masks: Any) -> Any:
+        logits = self.policy(states)
+        return logits.masked_fill(~legal_masks, -1.0e9)
+
+    def value_tensor(self, states: Any) -> Any:
+        return self.value_net(states).squeeze(-1)
+
+    def logits(self, state: Sequence[float], legal_mask: Sequence[bool]) -> list[float]:
+        with self._torch.no_grad():
+            states = _state_tensor(self, [state])
+            masks = _mask_tensor(self, [legal_mask])
+            logits = self.logits_tensor(states, masks)[0].detach().cpu().tolist()
+        return [float(value) for value in logits]
+
+    def value(self, state: Sequence[float]) -> float:
+        with self._torch.no_grad():
+            values = self.value_tensor(_state_tensor(self, [state])).detach().cpu().tolist()
+        return float(values[0])
+
+    def serializable_state_dict(self) -> dict[str, Any]:
+        return {
+            "format": "torch-module-v1",
+            "policy": _serializable_module_state(self.policy),
+            "value_net": _serializable_module_state(self.value_net),
+        }
+
+    def load_serialized_state_dict(self, state: dict[str, Any]) -> None:
+        if state.get("format") == "torch-module-v1":
+            self.policy.load_state_dict(_module_tensor_state(self, state["policy"]))
+            self.value_net.load_state_dict(_module_tensor_state(self, state["value_net"]))
+            return
+        if any(str(key).startswith(("policy.", "value_net.")) for key in state):
+            _TorchModuleBase.load_state_dict(self, state)
+            return
+        if self.hidden_dim != 0:
+            raise ValueError("legacy PPO checkpoint state only supports hidden_dim=0")
+        self._load_legacy_linear_state(state)
+
+    def _reset_parameters(self, seed: int) -> None:
+        rng = random.Random(seed)
+        with self._torch.no_grad():
+            for module in _linear_layers(self.policy):
+                _fill_linear(module, rng)
+            for module in _linear_layers(self.value_net):
+                _fill_linear(module, rng)
+
+    def _load_legacy_linear_state(self, state: dict[str, Any]) -> None:
+        policy_layers = _linear_layers(self.policy)
+        value_layers = _linear_layers(self.value_net)
+        if len(policy_layers) != 1 or len(value_layers) != 1:
+            raise ValueError("legacy PPO checkpoint state requires linear modules")
+        policy_weights = state["policy_weights"]
+        policy_bias = state["policy_bias"]
+        value_weights = state["value_weights"]
+        value_bias = state["value_bias"]
+        if len(policy_weights) != self.action_dim:
+            raise ValueError("policy weight action dimension mismatch")
+        if any(len(row) != self.input_dim for row in policy_weights):
+            raise ValueError("policy weight input dimension mismatch")
+        if len(policy_bias) != self.action_dim:
+            raise ValueError("policy bias action dimension mismatch")
+        if len(value_weights) != self.input_dim:
+            raise ValueError("value weight input dimension mismatch")
+        with self._torch.no_grad():
+            policy_layers[0].weight.copy_(
+                self._torch.tensor(policy_weights, dtype=self.dtype, device=self.device)
+            )
+            policy_layers[0].bias.copy_(
+                self._torch.tensor(policy_bias, dtype=self.dtype, device=self.device)
+            )
+            value_layers[0].weight.copy_(
+                self._torch.tensor([value_weights], dtype=self.dtype, device=self.device)
+            )
+            value_layers[0].bias.copy_(
+                self._torch.tensor([value_bias], dtype=self.dtype, device=self.device)
+            )
+
+
+class _LegacySandboxLinearPpoActorCritic:
+    def __init__(
+        self,
+        *,
+        input_dim: int = PPO_STATE_DIM,
+        action_dim: int = PPO_ACTION_DIM,
+        seed: int = 0,
+    ) -> None:
+        self.kind = PPO_SANDBOX_POLICY_KIND
+        self.input_dim = input_dim
+        self.hidden_dim = 0
+        self.action_dim = action_dim
+        rng = random.Random(seed)
+        self.policy_weights = [
+            [rng.uniform(-0.01, 0.01) for _feature in range(input_dim)]
+            for _action in range(action_dim)
+        ]
+        self.policy_bias = [0.0 for _action in range(action_dim)]
+        self.value_weights = [rng.uniform(-0.01, 0.01) for _feature in range(input_dim)]
+        self.value_bias = 0.0
 
     def logits(self, state: Sequence[float], legal_mask: Sequence[bool]) -> list[float]:
         logits: list[float] = []
@@ -120,27 +233,75 @@ class SandboxLinearPpoActorCritic:
             for weight, feature in zip(self.value_weights, state, strict=True)
         )
 
-    def state_dict(self) -> dict[str, Any]:
-        return {
-            "policy_weights": [list(row) for row in self.policy_weights],
-            "policy_bias": list(self.policy_bias),
-            "value_weights": list(self.value_weights),
-            "value_bias": self.value_bias,
-        }
 
-    def load_state_dict(self, state: dict[str, Any]) -> None:
-        self.policy_weights = [[float(value) for value in row] for row in state["policy_weights"]]
-        self.policy_bias = [float(value) for value in state["policy_bias"]]
-        self.value_weights = [float(value) for value in state["value_weights"]]
-        self.value_bias = float(state["value_bias"])
-        if len(self.policy_weights) != self.action_dim:
-            raise ValueError("policy weight action dimension mismatch")
-        if any(len(row) != self.input_dim for row in self.policy_weights):
-            raise ValueError("policy weight input dimension mismatch")
-        if len(self.policy_bias) != self.action_dim:
-            raise ValueError("policy bias action dimension mismatch")
-        if len(self.value_weights) != self.input_dim:
-            raise ValueError("value weight input dimension mismatch")
+def _ppo_dtype(torch: Any, device: Any) -> Any:
+    return torch.float32 if str(device).startswith(("cuda", "mps")) else torch.float64
+
+
+def _mlp(nn: Any, input_dim: int, hidden_dim: int, output_dim: int, *, dtype: Any) -> Any:
+    if hidden_dim:
+        return nn.Sequential(
+            nn.Linear(input_dim, hidden_dim, dtype=dtype),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, output_dim, dtype=dtype),
+        )
+    return nn.Sequential(nn.Linear(input_dim, output_dim, dtype=dtype))
+
+
+def _linear_layers(module: Any) -> list[Any]:
+    return [child for child in module.modules() if child is not module and hasattr(child, "weight")]
+
+
+def _fill_linear(module: Any, rng: random.Random) -> None:
+    rows, columns = module.weight.shape
+    values = [[rng.uniform(-0.01, 0.01) for _column in range(columns)] for _row in range(rows)]
+    module.weight.copy_(module.weight.new_tensor(values))
+    module.bias.zero_()
+
+
+def _serializable_module_state(module: Any) -> dict[str, Any]:
+    return {name: tensor.detach().cpu().tolist() for name, tensor in module.state_dict().items()}
+
+
+def _module_tensor_state(
+    model: SandboxLinearPpoActorCritic,
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        name: model._torch.tensor(value, dtype=model.dtype, device=model.device)
+        for name, value in state.items()
+    }
+
+
+def _state_tensor(model: SandboxLinearPpoActorCritic, states: Sequence[Sequence[float]]) -> Any:
+    return model._torch.tensor(states, dtype=model.dtype, device=model.device)
+
+
+def _mask_tensor(model: SandboxLinearPpoActorCritic, masks: Sequence[Sequence[bool]]) -> Any:
+    return model._torch.tensor(masks, dtype=model._torch.bool, device=model.device)
+
+
+def _action_tensor(model: SandboxLinearPpoActorCritic, actions: Sequence[int]) -> Any:
+    return model._torch.tensor(actions, dtype=model._torch.long, device=model.device)
+
+
+def _float_tensor(model: SandboxLinearPpoActorCritic, values: Sequence[float]) -> Any:
+    return model._torch.tensor(values, dtype=model.dtype, device=model.device)
+
+
+def _tensor_indices(model: SandboxLinearPpoActorCritic, indices: Sequence[int]) -> Any:
+    return model._torch.tensor(indices, dtype=model._torch.long, device=model.device)
+
+
+def _ppo_tensor_arrays(
+    model: SandboxLinearPpoActorCritic,
+    arrays: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "states": _state_tensor(model, arrays["states"]),
+        "legal_masks": _mask_tensor(model, arrays["legal_masks"]),
+        "actions": _action_tensor(model, arrays["actions"]),
+    }
 
 
 def train_ppo_sandbox(
@@ -192,14 +353,19 @@ def train_ppo_sandbox(
         supervised_warmup_epochs=supervised_warmup_epochs,
         device=device,
     )
+    resolved_device = resolve_torch_device(device)
 
     history: list[dict[str, Any]] = []
     start_update = 0
     starting_steps = 0
     resume_path = None if resume_checkpoint is None else Path(resume_checkpoint)
-    optimizer_state: dict[str, Any] = {"kind": "manual-sgd-v0", "steps": 0}
+    optimizer_state: dict[str, Any] = {"kind": "torch-sgd-v0", "steps": 0}
     if resume_path is None:
-        model = SandboxLinearPpoActorCritic(hidden_dim=hidden_dim, seed=torch_seed)
+        model = SandboxLinearPpoActorCritic(
+            hidden_dim=hidden_dim,
+            seed=torch_seed,
+            device=resolved_device,
+        )
     else:
         payload = load_ppo_sandbox_checkpoint(resume_path)
         model_config = payload["model"]
@@ -208,6 +374,7 @@ def train_ppo_sandbox(
             hidden_dim=int(model_config["hidden_dim"]),
             action_dim=int(model_config["action_dim"]),
             state=payload["model_state_dict"],
+            device=resolved_device,
         )
         training_payload = payload["training"]
         history = list(training_payload.get("history", []))
@@ -308,7 +475,7 @@ def train_ppo_sandbox(
     report = _ppo_report(
         seed=seed,
         ruleset=ruleset,
-        device="cpu",
+        device=str(resolved_device),
         model=model,
         requested_total_steps=total_steps,
         starting_environment_steps=starting_steps,
@@ -346,9 +513,9 @@ def train_ppo_sandbox(
     return SandboxPpoTrainingResult(
         model=model,
         optimizer_state=optimizer_state,
-        device="cpu",
+        device=str(resolved_device),
         report=report,
-        model_state=model.state_dict(),
+        model_state=model.serializable_state_dict(),
     )
 
 
@@ -502,26 +669,23 @@ def evaluate_ppo_sandbox_policy(
         gamma=gamma,
         gae_lambda=gae_lambda,
     )
-    nll = 0.0
-    correct = 0
-    entropy_sum = 0.0
-    value_mse = 0.0
-    for index, state in enumerate(arrays["states"]):
-        logits = model.logits(state, arrays["legal_masks"][index])
-        log_probs, probabilities, entropy = _masked_log_probs(logits)
-        action = arrays["actions"][index]
-        nll -= log_probs[action]
-        correct += int(_argmax_legal(logits) == action)
-        entropy_sum += entropy
-        value = model.value(state)
-        value_mse += (value - returns[index]) ** 2
     examples = len(arrays["actions"])
+    tensors = _ppo_tensor_arrays(model, arrays)
+    with model._torch.no_grad():
+        logits = model.logits_tensor(tensors["states"], tensors["legal_masks"])
+        log_probs = model._functional.log_softmax(logits, dim=1)
+        probabilities = log_probs.exp()
+        entropy = -(probabilities * log_probs).sum(dim=1)
+        action_log_probs = log_probs.gather(1, tensors["actions"].unsqueeze(1)).squeeze(1)
+        predictions = logits.argmax(dim=1)
+        value_tensor = model.value_tensor(tensors["states"])
+        returns_tensor = _float_tensor(model, returns)
     return {
         "examples": examples,
-        "action_nll": nll / examples,
-        "action_accuracy": correct / examples,
-        "entropy": entropy_sum / examples,
-        "value_mse": value_mse / examples,
+        "action_nll": float((-action_log_probs).mean().cpu()),
+        "action_accuracy": float((predictions == tensors["actions"]).to(model.dtype).mean().cpu()),
+        "entropy": float(entropy.mean().cpu()),
+        "value_mse": float((value_tensor - returns_tensor).square().mean().cpu()),
         "explained_variance": _explained_variance(values, returns),
     }
 
@@ -625,8 +789,8 @@ def _validate_ppo_hyperparameters(
         raise ValueError("reward_scale must be positive")
     if supervised_warmup_epochs < 0:
         raise ValueError("supervised_warmup_epochs must be non-negative")
-    if device not in {"auto", "cpu"}:
-        raise ValueError("dependency-free PPO sandbox only supports cpu or auto device")
+    if device not in {"auto", "cpu", "cuda", "mps"}:
+        raise ValueError("PPO sandbox device must be auto, cpu, cuda, or mps")
 
 
 def _rollout_arrays(rollout: SandboxPpoRollout) -> dict[str, Any]:
@@ -642,6 +806,24 @@ def _rollout_arrays(rollout: SandboxPpoRollout) -> dict[str, Any]:
 
 def _old_policy_predictions(
     model: SandboxLinearPpoActorCritic,
+    arrays: dict[str, Any],
+) -> tuple[list[float], list[float]]:
+    if isinstance(model, SandboxLinearPpoActorCritic):
+        tensors = _ppo_tensor_arrays(model, arrays)
+        with model._torch.no_grad():
+            logits = model.logits_tensor(tensors["states"], tensors["legal_masks"])
+            log_probs = model._functional.log_softmax(logits, dim=1)
+            action_log_probs = log_probs.gather(1, tensors["actions"].unsqueeze(1)).squeeze(1)
+            values = model.value_tensor(tensors["states"])
+        return (
+            [float(value) for value in action_log_probs.detach().cpu().tolist()],
+            [float(value) for value in values.detach().cpu().tolist()],
+        )
+    return _legacy_old_policy_predictions(model, arrays)
+
+
+def _legacy_old_policy_predictions(
+    model: Any,
     arrays: dict[str, Any],
 ) -> tuple[list[float], list[float]]:
     log_probs: list[float] = []
@@ -704,35 +886,98 @@ def _run_supervised_warmup(
     max_grad_norm: float,
     seed: int,
 ) -> list[dict[str, Any]]:
+    tensors = _ppo_tensor_arrays(model, arrays)
+    optimizer = model._torch.optim.SGD(model.parameters(), lr=learning_rate)
     rows: list[dict[str, Any]] = []
     for epoch in range(1, epochs + 1):
         losses: list[float] = []
         for indices in _minibatch_indices(len(arrays["actions"]), batch_size, seed + epoch):
-            gradients = _empty_gradients(model)
-            batch_loss = 0.0
-            for index in indices:
-                state = arrays["states"][index]
-                logits = model.logits(state, arrays["legal_masks"][index])
-                log_probs, probabilities, _entropy = _masked_log_probs(logits)
-                action = arrays["actions"][index]
-                batch_loss -= log_probs[action]
-                for candidate in _legal_indices(arrays["legal_masks"][index]):
-                    grad_logit = probabilities[candidate] - float(candidate == action)
-                    _accumulate_policy_gradient(gradients, state, candidate, grad_logit)
-            _apply_gradients(
-                model,
-                gradients,
-                learning_rate=learning_rate,
-                batch_size=len(indices),
-                max_grad_norm=max_grad_norm,
+            batch = _tensor_indices(model, indices)
+            optimizer.zero_grad()
+            logits = model.logits_tensor(
+                tensors["states"].index_select(0, batch),
+                tensors["legal_masks"].index_select(0, batch),
             )
-            losses.append(batch_loss / len(indices))
+            log_probs = model._functional.log_softmax(logits, dim=1)
+            actions = tensors["actions"].index_select(0, batch)
+            loss = -log_probs.gather(1, actions.unsqueeze(1)).squeeze(1).mean()
+            loss.backward()
+            model._torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+            losses.append(float(loss.detach().cpu()))
         rows.append({"epoch": epoch, "loss": sum(losses) / len(losses)})
     return rows
 
 
 def _run_ppo_update(
     model: SandboxLinearPpoActorCritic,
+    *,
+    arrays: dict[str, Any],
+    old_log_probs: Sequence[float],
+    advantages: Sequence[float],
+    returns: Sequence[float],
+    ppo_epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    clip_epsilon: float,
+    entropy_coef: float,
+    value_coef: float,
+    max_grad_norm: float,
+    seed: int,
+) -> dict[str, float]:
+    tensors = _ppo_tensor_arrays(model, arrays)
+    old_log_prob_tensor = _float_tensor(model, old_log_probs)
+    advantage_tensor = _float_tensor(model, advantages)
+    return_tensor = _float_tensor(model, returns)
+    optimizer = model._torch.optim.SGD(model.parameters(), lr=learning_rate)
+    metrics: list[dict[str, float]] = []
+    for epoch in range(ppo_epochs):
+        for indices in _minibatch_indices(len(arrays["actions"]), batch_size, seed + epoch):
+            batch = _tensor_indices(model, indices)
+            states = tensors["states"].index_select(0, batch)
+            legal_masks = tensors["legal_masks"].index_select(0, batch)
+            actions = tensors["actions"].index_select(0, batch)
+            old_batch_log_probs = old_log_prob_tensor.index_select(0, batch)
+            batch_advantages = advantage_tensor.index_select(0, batch)
+            batch_returns = return_tensor.index_select(0, batch)
+
+            optimizer.zero_grad()
+            logits = model.logits_tensor(states, legal_masks)
+            log_probs = model._functional.log_softmax(logits, dim=1)
+            probabilities = log_probs.exp()
+            entropy = -(probabilities * log_probs).sum(dim=1)
+            log_prob = log_probs.gather(1, actions.unsqueeze(1)).squeeze(1)
+            ratio = (log_prob - old_batch_log_probs).exp()
+            unclipped = ratio * batch_advantages
+            clipped_ratio = ratio.clamp(1.0 - clip_epsilon, 1.0 + clip_epsilon)
+            clipped = clipped_ratio * batch_advantages
+            policy_loss = -model._torch.minimum(unclipped, clipped)
+            values = model.value_tensor(states)
+            value_loss = (values - batch_returns).square()
+            loss = (policy_loss + value_coef * value_loss - entropy_coef * entropy).mean()
+
+            loss.backward()
+            model._torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+
+            batch_metrics = {
+                "loss": float(loss.detach().cpu()),
+                "policy_loss": float(policy_loss.mean().detach().cpu()),
+                "value_loss": float(value_loss.mean().detach().cpu()),
+                "entropy": float(entropy.mean().detach().cpu()),
+                "approx_kl": float((old_batch_log_probs - log_prob).mean().detach().cpu()),
+                "clip_fraction": float(
+                    ((ratio - 1.0).abs() > clip_epsilon).to(model.dtype).mean().detach().cpu()
+                ),
+            }
+            metrics.append(batch_metrics)
+    mean = _mean_metric_rows(metrics)
+    mean["batches"] = float(len(metrics))
+    return mean
+
+
+def _run_ppo_update_legacy(
+    model: Any,
     *,
     arrays: dict[str, Any],
     old_log_probs: Sequence[float],
@@ -805,7 +1050,7 @@ def _run_ppo_update(
     return mean
 
 
-def _empty_gradients(model: SandboxLinearPpoActorCritic) -> dict[str, Any]:
+def _empty_gradients(model: Any) -> dict[str, Any]:
     return {
         "policy_weights": [
             [0.0 for _feature in range(model.input_dim)] for _action in range(model.action_dim)
@@ -839,7 +1084,7 @@ def _accumulate_value_gradient(
 
 
 def _apply_gradients(
-    model: SandboxLinearPpoActorCritic,
+    model: Any,
     gradients: dict[str, Any],
     *,
     learning_rate: float,
@@ -1005,7 +1250,7 @@ def _ppo_report(
             "starting_environment_steps": starting_environment_steps,
             "environment_steps": environment_steps,
             "updates": updates,
-            "optimizer": "manual-sgd-v0",
+            "optimizer": "torch-sgd-v0",
             "learning_rate": learning_rate,
             "batch_size": batch_size,
             "ppo_epochs": ppo_epochs,
@@ -1053,6 +1298,8 @@ def _ppo_report(
             "evaluation_summaries": True,
             "training_curves": True,
             "learned_policy_environment_integration": False,
+            "torch_nn_module": True,
+            "torch_device": True,
         },
     }
 

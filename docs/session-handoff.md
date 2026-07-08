@@ -328,12 +328,12 @@ Last updated: 2026-06-13.
   and optional trajectory rows with state summaries, legal actions, chosen actions, and final-score
   rewards on the last decision. This is a deterministic policy/plumbing harness, not a full-rules
   strength benchmark.
-- `train-ppo-sandbox` runs a dependency-free linear actor-critic PPO smoke trainer over
+- `train-ppo-sandbox` runs a PyTorch actor-critic PPO smoke trainer over
   `self-play-match-sandbox` trajectories and writes `kenjaku-ppo-sandbox-report-v0` reports. It
   includes policy/value losses, GAE, clipped PPO ratios, entropy regularization, mini-batching,
-  JSON checkpoint/resume, training curves, optional behavior-cloning warmup on rollout actions, and
-  rollout evaluation summaries. It does not yet feed learned policy actions back into the sandbox
-  environment, so treat it as PPO plumbing, not agent-strength evidence.
+  JSON checkpoint/resume, training curves, device selection, optional behavior-cloning warmup on
+  rollout actions, and rollout evaluation summaries. It does not yet feed learned policy actions
+  back into the sandbox environment, so treat it as PPO plumbing, not agent-strength evidence.
 - `train-population-sandbox` runs population-pool plumbing over PPO sandbox snapshots and writes
   `kenjaku-population-sandbox-report-v0` reports. It maintains at least four active checkpoint
   snapshots, samples opponents from the active pool, reports win rate, average placement, deal-in

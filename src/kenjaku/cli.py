@@ -742,7 +742,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--learning-rate",
         type=float,
         default=0.001,
-        help="manual SGD learning rate",
+        help="Torch SGD learning rate",
     )
     train_ppo.add_argument("--hidden-dim", type=int, default=0, help="reserved model width")
     train_ppo.add_argument("--gamma", type=float, default=0.99, help="discount factor")
@@ -793,9 +793,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train_ppo.add_argument(
         "--device",
-        choices=("auto", "cpu"),
+        choices=("auto", "cpu", "cuda", "mps"),
         default="auto",
-        help="dependency-free PPO runs on CPU",
+        help="Torch device for PPO training",
     )
     train_ppo.add_argument(
         "--checkpoint",
@@ -882,7 +882,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--learning-rate",
         type=float,
         default=0.001,
-        help="manual SGD learning rate",
+        help="Torch SGD learning rate",
     )
     train_population.add_argument(
         "--hidden-dim",

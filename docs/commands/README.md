@@ -15,7 +15,7 @@ covers all 46 commands present in `kenjaku --help` so the docs match the impleme
 - [`replay-viewer`](replay-viewer.md) - Render self-play trajectory JSONL as a turn-by-turn HTML viewer.
 - [`self-play-sandbox`](self-play-sandbox.md) - Run deterministic offline draw/discard sandbox episodes.
 - [`self-play-match-sandbox`](self-play-match-sandbox.md) - Run deterministic multi-round sandbox matches to a final placement result.
-- [`train-ppo-sandbox`](train-ppo-sandbox.md) - Run a fixture-scale dependency-free PPO smoke trainer over sandbox trajectories.
+- [`train-ppo-sandbox`](train-ppo-sandbox.md) - Run a fixture-scale PyTorch PPO smoke trainer over sandbox trajectories.
 - [`train-population-sandbox`](train-population-sandbox.md) - Exercise population-pool PPO snapshot training and promotion plumbing.
 - [`training-dashboard`](training-dashboard.md) - Build a static dashboard from training metrics JSONL files.
 - [`inspect-tenhou`](inspect-tenhou.md) - Parse Tenhou XML inputs and print dataset-level counts.

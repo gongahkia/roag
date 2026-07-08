@@ -121,11 +121,11 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
   terminal-outcome plumbing. A separate `self-play-match-sandbox` command can run deterministic
   multi-round 3-player or 4-player sandbox matches to final placement with pluggable discard, call,
   riichi, kan, Kita, ron/tsumo, and pass policies plus optional state/action/reward trajectories.
-  `train-ppo-sandbox` runs a dependency-free fixture-scale PPO smoke trainer over those trajectories
+  `train-ppo-sandbox` runs a PyTorch-backed fixture-scale PPO smoke trainer over those trajectories
   with policy/value losses, GAE, clipping, entropy regularization, mini-batching, checkpoint/resume,
-  training curves, and evaluation summaries. `train-population-sandbox` maintains a pool of at
-  least four PPO checkpoint snapshots, samples pool opponents, reports matchup metrics, and records
-  promotion/replacement decisions.
+  training curves, device selection, and evaluation summaries. `train-population-sandbox`
+  maintains a pool of at least four PPO checkpoint snapshots, samples pool opponents, reports
+  matchup metrics, and records promotion/replacement decisions.
   It is not a full riichi/Sanma simulator, complete yaku validator, complete post-riichi kan timing
   model, automated full-match learned-policy self-play trainer, or strength-grade RL
   implementation.

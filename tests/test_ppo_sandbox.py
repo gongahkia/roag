@@ -4,12 +4,21 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from torch import nn
+
 from kenjaku.training.ppo import (
     PPO_ACTION_DIM,
     PPO_SANDBOX_CHECKPOINT_KIND,
     PPO_SANDBOX_REPORT_KIND,
     PPO_STATE_DIM,
     SandboxLinearPpoActorCritic,
+    _compute_gae,
+    _legacy_old_policy_predictions,
+    _LegacySandboxLinearPpoActorCritic,
+    _normalize,
+    _old_policy_predictions,
+    _run_ppo_update,
+    _run_ppo_update_legacy,
     collect_ppo_sandbox_rollout,
     evaluate_ppo_sandbox_policy,
     format_ppo_sandbox_report,
@@ -136,6 +145,98 @@ class PpoSandboxTests(unittest.TestCase):
         self.assertIsInstance(value, float)
         self.assertLess(logits[0], -1.0e8)
         self.assertGreater(logits[7], -1.0e8)
+
+    def test_actor_critic_is_torch_module_with_sequential_heads(self) -> None:
+        model = SandboxLinearPpoActorCritic(hidden_dim=8, seed=123, device="cpu")
+
+        self.assertIsInstance(model, nn.Module)
+        self.assertIsInstance(model.policy, nn.Sequential)
+        self.assertIsInstance(model.value_net, nn.Sequential)
+        self.assertIsInstance(model.policy[0], nn.Linear)
+        self.assertIsInstance(model.policy[1], nn.Tanh)
+        self.assertIsInstance(model.policy[2], nn.Linear)
+        self.assertEqual(str(next(model.parameters()).device), "cpu")
+
+    def test_torch_update_matches_legacy_one_step_golden_numbers(self) -> None:
+        arrays = _golden_update_arrays()
+        legacy = _LegacySandboxLinearPpoActorCritic(seed=19)
+        model = SandboxLinearPpoActorCritic(seed=19, device="cpu")
+        old_log_probs, old_values = _legacy_old_policy_predictions(legacy, arrays)
+        torch_log_probs, torch_values = _old_policy_predictions(model, arrays)
+        advantages, returns = _compute_gae(
+            rewards=arrays["rewards"],
+            dones=arrays["dones"],
+            values=old_values,
+            sequence_keys=arrays["sequence_keys"],
+            gamma=0.93,
+            gae_lambda=0.87,
+        )
+        advantages = _normalize(advantages)
+        kwargs = {
+            "arrays": arrays,
+            "old_log_probs": old_log_probs,
+            "advantages": advantages,
+            "returns": returns,
+            "ppo_epochs": 1,
+            "batch_size": 2,
+            "learning_rate": 0.003,
+            "clip_epsilon": 0.2,
+            "entropy_coef": 0.01,
+            "value_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "seed": 23,
+        }
+
+        legacy_metrics = _run_ppo_update_legacy(legacy, **kwargs)
+        torch_metrics = _run_ppo_update(model, **kwargs)
+
+        self.assertLess(
+            max(
+                abs(left - right)
+                for left, right in zip(old_log_probs, torch_log_probs, strict=True)
+            ),
+            1.0e-12,
+        )
+        self.assertLess(
+            max(abs(left - right) for left, right in zip(old_values, torch_values, strict=True)),
+            1.0e-12,
+        )
+        self.assertAlmostEqual(torch_metrics["loss"], 0.025170880058630773)
+        self.assertAlmostEqual(torch_metrics["value_loss"], 0.07806715777361181)
+        self.assertAlmostEqual(torch_metrics["entropy"], 1.386269882817479)
+        for key in ("loss", "policy_loss", "value_loss", "entropy", "approx_kl"):
+            self.assertAlmostEqual(torch_metrics[key], legacy_metrics[key], places=8)
+        self.assertAlmostEqual(
+            model.logits(arrays["states"][0], arrays["legal_masks"][0])[3],
+            legacy.logits(arrays["states"][0], arrays["legal_masks"][0])[3],
+            places=7,
+        )
+        self.assertAlmostEqual(model.value(arrays["states"][0]), legacy.value(arrays["states"][0]))
+
+
+def _golden_update_arrays() -> dict[str, object]:
+    states = [
+        [((index % 7) - 3) / 10.0 for index in range(PPO_STATE_DIM)],
+        [((index % 5) - 2) / 8.0 for index in range(PPO_STATE_DIM)],
+        [((index % 3) - 1) / 6.0 for index in range(PPO_STATE_DIM)],
+        [((index % 11) - 5) / 12.0 for index in range(PPO_STATE_DIM)],
+    ]
+    actions = [3, 17, 41, 85]
+    legal_masks = []
+    for action in actions:
+        mask = [False] * PPO_ACTION_DIM
+        for offset in (0, 2, 5, 13):
+            mask[(action + offset) % PPO_ACTION_DIM] = True
+        mask[action] = True
+        legal_masks.append(mask)
+    return {
+        "states": states,
+        "legal_masks": legal_masks,
+        "actions": actions,
+        "rewards": [0.0, 0.25, -0.1, 0.4],
+        "dones": [False, True, False, True],
+        "sequence_keys": [(0, 0), (0, 0), (0, 1), (0, 1)],
+    }
 
 
 if __name__ == "__main__":

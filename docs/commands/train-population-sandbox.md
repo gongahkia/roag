@@ -73,7 +73,7 @@ options:
   --batch-size BATCH_SIZE
                         PPO mini-batch size
   --learning-rate LEARNING_RATE
-                        manual SGD learning rate
+                        Torch SGD learning rate
   --hidden-dim HIDDEN_DIM
                         reserved model width
   --evaluation-games EVALUATION_GAMES

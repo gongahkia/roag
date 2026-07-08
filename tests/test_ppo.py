@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import torch
+
 from kenjaku.training.ppo import (
     PPO_ACTION_DIM,
     PPO_ACTION_KIND_OFFSETS,
@@ -52,7 +54,8 @@ class PpoTests(unittest.TestCase):
         state = [0.0] * PPO_STATE_DIM
         legal_mask = ppo_legal_action_mask([{"kind": "pass"}])
 
-        self.assertEqual(restored.state_dict(), model.state_dict())
+        for key, tensor in model.state_dict().items():
+            self.assertTrue(torch.equal(restored.state_dict()[key], tensor))
         self.assertEqual(restored.logits(state, legal_mask), model.logits(state, legal_mask))
 
     def test_actor_critic_rejects_bad_dimensions(self) -> None:

@@ -4,7 +4,7 @@ Generated from `argparse` help and reviewed on 2026-07-07.
 
 ## Purpose
 
-Run a fixture-scale dependency-free PPO smoke trainer over sandbox trajectories.
+Run a fixture-scale PyTorch PPO smoke trainer over sandbox trajectories.
 
 ## Inputs
 
@@ -52,7 +52,7 @@ usage: kenjaku train-ppo-sandbox [-h] [--total-steps TOTAL_STEPS]
                                  [--reward-scale REWARD_SCALE]
                                  [--supervised-warmup-epochs SUPERVISED_WARMUP_EPOCHS]
                                  [--model-seed TORCH_SEED]
-                                 [--device {auto,cpu}]
+                                 [--device {auto,cpu,cuda,mps}]
                                  [--checkpoint CHECKPOINT] [--resume RESUME]
                                  [--report REPORT] [--json]
 
@@ -86,7 +86,7 @@ options:
   --batch-size BATCH_SIZE
                         PPO mini-batch size
   --learning-rate LEARNING_RATE
-                        manual SGD learning rate
+                        Torch SGD learning rate
   --hidden-dim HIDDEN_DIM
                         reserved model width
   --gamma GAMMA         discount factor
@@ -107,7 +107,8 @@ options:
                         rollout actions
   --model-seed, --torch-seed TORCH_SEED
                         model initialization and mini-batch random seed
-  --device {auto,cpu}   dependency-free PPO runs on CPU
+  --device {auto,cpu,cuda,mps}
+                        Torch device for PPO training
   --checkpoint CHECKPOINT
                         optional path for the PPO checkpoint artifact
   --resume RESUME       optional PPO checkpoint path to resume from
