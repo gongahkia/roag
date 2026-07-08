@@ -19,6 +19,7 @@ from kenjaku.training.interpretability_overlay import (
 class InterpretabilityOverlayTests(unittest.TestCase):
     def test_build_overlay_renders_top_three_without_input_paths(self) -> None:
         snapshot = _discard_snapshot()
+        snapshot["row_id"] = "synthetic:<unsafe>"
         report = build_interpretability_overlay([snapshot], min_decisions=1)
         html = format_interpretability_overlay_html(report)
 
@@ -39,13 +40,24 @@ class InterpretabilityOverlayTests(unittest.TestCase):
             self.assertIn("expected_point_impact", alternative)
         self.assertIn("Policy probability", html)
         self.assertIn("Deal-in risk", html)
+        self.assertIn("Expected point impact", html)
+        self.assertIn("interpretability-overlay kj-arcade-shell", html)
+        self.assertIn("kenjaku arcade-card theme v0", html)
+        self.assertIn("alternative-card", html)
+        self.assertIn("Observed discard", html)
         self.assertIn('id="search"', html)
         self.assertIn('id="round-filter"', html)
         self.assertIn('id="seat-filter"', html)
         self.assertIn('id="tile-filter"', html)
         self.assertIn('id="shanten-filter"', html)
+        self.assertIn('class="signal-tabs"', html)
+        self.assertIn('data-mode="risk"', html)
+        self.assertIn('data-mode="efficiency"', html)
+        self.assertIn('data-mode="points"', html)
         self.assertIn('"hand_pattern"', html)
         self.assertIn('"dora_indicators":["5m"]', html)
+        self.assertIn("synthetic:\\u003cunsafe\\u003e", html)
+        self.assertNotIn("synthetic:<unsafe>", html)
         self.assertNotIn("/private/raw/replay.xml", html)
 
     def test_large_overlay_keeps_static_dom_paginated(self) -> None:
@@ -98,6 +110,7 @@ class InterpretabilityOverlayTests(unittest.TestCase):
         self.assertIn("decisions: 1", stdout.getvalue())
         self.assertIn("malformed_snapshot_rows: 1", stdout.getvalue())
         self.assertIn('id="decision-list"', html)
+        self.assertIn("alternative-card", html)
         self.assertIn('"decisions"', html)
 
 

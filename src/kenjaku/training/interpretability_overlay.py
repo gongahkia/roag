@@ -10,6 +10,7 @@ from typing import Any
 
 from kenjaku.core import ActionKind, TileType
 from kenjaku.core.shanten import shanten
+from kenjaku.frontend_static import html_document, motion_primitives_css, static_base_css, theme_css
 from kenjaku.training.decision_snapshots import DECISION_SNAPSHOT_KIND
 
 INTERPRETABILITY_OVERLAY_KIND = "kenjaku-interpretability-overlay-v0"
@@ -106,37 +107,32 @@ def write_interpretability_overlay_html(path: Path, report: dict[str, Any]) -> N
 
 
 def format_interpretability_overlay_html(report: dict[str, Any]) -> str:
-    title = escape(str(report.get("title", "Kenjaku Interpretability Overlay")))
+    title = str(report.get("title", "Kenjaku Interpretability Overlay"))
+    escaped_title = escape(title)
     decisions = report.get("decisions")
     decision_items = decisions if isinstance(decisions, list) else []
     payload = _overlay_json_payload(report, decision_items)
-    parts = [
-        "<!doctype html>",
-        '<html lang="en">',
-        "<head>",
-        '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        '<link rel="icon" href="data:,">',
-        f"<title>{title}</title>",
-        "<style>",
-        _overlay_css(),
-        "</style>",
-        "</head>",
-        "<body>",
-        "<main>",
-        f"<h1>{title}</h1>",
-        '<section class="summary">',
-        _summary_html(report),
-        "</section>",
-        _controls_html(),
-        '<section id="decision-list" class="decision-list" aria-live="polite"></section>',
-        f'<script id="overlay-data" type="application/json">{payload}</script>',
-        "<script>",
-        _overlay_js(),
-        "</script>",
-    ]
-    parts.extend(["</main>", "</body>", "</html>"])
-    return "\n".join(parts)
+    body = f"""
+  <header>
+    <p class="eyebrow">Kenjaku local</p>
+    <h1>{escaped_title}</h1>
+  </header>
+  <main>
+    <section class="summary">
+{_summary_html(report)}
+    </section>
+{_controls_html()}
+    <section id="decision-list" class="decision-list" aria-live="polite"></section>
+    <script id="overlay-data" type="application/json">{payload}</script>
+  </main>
+"""
+    return html_document(
+        title=title,
+        body_html=body,
+        inline_css=(static_base_css(), theme_css(), motion_primitives_css(), _overlay_css()),
+        inline_script=_overlay_js(),
+        body_class="interpretability-overlay kj-arcade-shell",
+    )
 
 
 def _decision_overlay(snapshot: dict[str, Any], *, index: int) -> dict[str, Any] | None:
@@ -454,6 +450,12 @@ def _controls_html() -> str:
             '<label>Discard<select id="tile-filter"></select></label>',
             '<label>Shanten<select id="shanten-filter"></select></label>',
             "</section>",
+            '<section class="signal-tabs" aria-label="Signal focus">',
+            '<button type="button" data-mode="all" class="is-active">All</button>',
+            '<button type="button" data-mode="risk">Risk</button>',
+            '<button type="button" data-mode="efficiency">Efficiency</button>',
+            '<button type="button" data-mode="points">Points</button>',
+            "</section>",
             '<section class="pager" aria-label="Pagination">',
             '<button id="prev-page" type="button">Prev</button>',
             '<span id="page-info"></span>',
@@ -485,13 +487,14 @@ def _overlay_js() -> str:
 const data = JSON.parse(document.getElementById("overlay-data").textContent);
 const pageSize = data.page_size || 100;
 const decisions = Array.isArray(data.decisions) ? data.decisions : [];
-const state = {page: 1, filtered: decisions.slice()};
+const state = {page: 1, filtered: decisions.slice(), mode: "all"};
 const controls = {
   search: document.getElementById("search"),
   round: document.getElementById("round-filter"),
   seat: document.getElementById("seat-filter"),
   tile: document.getElementById("tile-filter"),
   shanten: document.getElementById("shanten-filter"),
+  modeButtons: Array.from(document.querySelectorAll("[data-mode]")),
   prev: document.getElementById("prev-page"),
   next: document.getElementById("next-page"),
   pageInfo: document.getElementById("page-info"),
@@ -555,6 +558,7 @@ function render() {
   const start = (state.page - 1) * pageSize;
   const pageItems = state.filtered.slice(start, start + pageSize);
   controls.list.innerHTML = pageItems.map(renderDecision).join("");
+  controls.list.dataset.mode = state.mode;
   controls.pageInfo.textContent = `Page ${state.page} of ${pages}`;
   controls.resultCount.textContent = `${state.filtered.length} matching decisions`;
   controls.prev.disabled = state.page <= 1;
@@ -565,53 +569,126 @@ function renderDecision(decision) {
   const alternatives = Array.isArray(decision.top_alternatives)
     ? decision.top_alternatives
     : [];
-  const rows = alternatives.length
-    ? alternatives.map(renderAlternative).join("")
-    : '<tr><td colspan="6">No alternatives</td></tr>';
+  const cards = alternatives.length
+    ? alternatives.map((alternative, index) => renderAlternative(alternative, index)).join("")
+    : '<p class="empty">No alternatives</p>';
   const dora = Array.isArray(decision.dora_indicators)
     ? decision.dora_indicators.join(" ")
     : "";
+  const observedClass = shantenClass(decision.actual_shanten_delta);
   return `<section class="decision">
-    <header>
-      <h2>Decision ${Number(decision.index || 0) + 1}</h2>
-      <p>
-        round=${escapeHtml(field(decision.round_index))}
-        event=${escapeHtml(field(decision.event_index))}
-        seat=${escapeHtml(field(decision.seat))}
-        actual=${escapeHtml(field(decision.actual_discard))}
-        shanten=${escapeHtml(field(decision.current_shanten))}
-        delta=${escapeHtml(field(decision.actual_shanten_delta))}
-      </p>
-      <p>hand=${escapeHtml(field(decision.hand_pattern))}</p>
-      <p>dora=${escapeHtml(dora || "none")}</p>
-      <code>${escapeHtml(field(decision.row_id))}</code>
+    <header class="decision-head">
+      <div>
+        <h2>Decision ${Number(decision.index || 0) + 1}</h2>
+        <p>
+          round=${escapeHtml(field(decision.round_index))}
+          event=${escapeHtml(field(decision.event_index))}
+          seat=${escapeHtml(field(decision.seat))}
+        </p>
+      </div>
+      <div class="observed ${observedClass}">
+        <span>Observed discard</span>
+        <strong>${escapeHtml(field(decision.actual_discard)) || "n/a"}</strong>
+        <em>delta ${formatDelta(decision.actual_shanten_delta)}</em>
+      </div>
     </header>
-    <table>
-      <thead><tr>
-        <th>Tile</th><th>Policy probability</th><th>Shanten delta</th>
-        <th>Deal-in risk</th><th>Expected point impact</th><th>Reasoning</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <div class="context-grid">
+      <p><span>Hand</span>${escapeHtml(field(decision.hand_pattern))}</p>
+      <p><span>Dora</span>${escapeHtml(dora || "none")}</p>
+      <code>${escapeHtml(field(decision.row_id))}</code>
+    </div>
+    <div class="alternative-grid">${cards}</div>
   </section>`;
 }
 
-function renderAlternative(alternative) {
+function renderAlternative(alternative, index) {
   const reasons = Array.isArray(alternative.risk_reasons)
     ? alternative.risk_reasons.join(", ")
     : "";
-  return `<tr>
-    <td>${escapeHtml(field(alternative.tile))}</td>
-    <td>${formatPercent(alternative.policy_probability)}</td>
-    <td>${escapeHtml(field(alternative.shanten_delta))}</td>
-    <td>${formatPercent(alternative.estimated_deal_in_risk)}</td>
-    <td>${formatPoints(alternative.expected_point_impact)}</td>
-    <td>${escapeHtml(reasons)}</td>
-  </tr>`;
+  const risk = Number(alternative.estimated_deal_in_risk);
+  const points = Number(alternative.expected_point_impact);
+  const probability = formatPercent(alternative.policy_probability);
+  const riskText = formatPercent(risk);
+  const pointsText = formatPoints(points);
+  const deltaText = formatDelta(alternative.shanten_delta);
+  const classes = [
+    "alternative-card",
+    `rank-${index + 1}`,
+    riskClass(risk),
+    shantenClass(alternative.shanten_delta),
+    pointsClass(points)
+  ].join(" ");
+  return `<article class="${classes}">
+    <div class="rank">#${index + 1}</div>
+    <div class="tile">${escapeHtml(field(alternative.tile))}</div>
+    <div class="signals">
+      <span class="signal signal-policy">
+        <span>Policy probability</span><strong>${probability}</strong>
+      </span>
+      <span class="signal signal-efficiency">
+        <span>Shanten delta</span><strong>${deltaText}</strong>
+      </span>
+      <span class="signal signal-risk">
+        <span>Deal-in risk</span><strong>${riskText}</strong>
+      </span>
+      <span class="signal signal-points">
+        <span>Expected point impact</span><strong>${pointsText}</strong>
+      </span>
+    </div>
+    <p class="reasoning">${escapeHtml(reasons || "no risk reason")}</p>
+  </article>`;
+}
+
+function riskClass(value) {
+  if (!Number.isFinite(value)) {
+    return "risk-unknown";
+  }
+  if (value >= 0.34) {
+    return "risk-high";
+  }
+  if (value >= 0.12) {
+    return "risk-mid";
+  }
+  return "risk-low";
+}
+
+function shantenClass(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "efficiency-unknown";
+  }
+  if (number < 0) {
+    return "efficiency-improves";
+  }
+  if (number > 0) {
+    return "efficiency-worsens";
+  }
+  return "efficiency-same";
+}
+
+function pointsClass(value) {
+  if (!Number.isFinite(value)) {
+    return "points-unknown";
+  }
+  if (value > 0) {
+    return "points-positive";
+  }
+  if (value < 0) {
+    return "points-negative";
+  }
+  return "points-neutral";
+}
+
+function formatDelta(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "unknown";
+  }
+  return number > 0 ? `+${number}` : String(number);
 }
 
 function formatPercent(value) {
-  return typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "";
+  return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "";
 }
 
 function formatPoints(value) {
@@ -643,6 +720,15 @@ const filterControls = [
 for (const control of filterControls) {
   control.addEventListener("input", applyFilters);
 }
+for (const button of controls.modeButtons) {
+  button.addEventListener("click", () => {
+    state.mode = button.dataset.mode || "all";
+    for (const item of controls.modeButtons) {
+      item.classList.toggle("is-active", item === button);
+    }
+    render();
+  });
+}
 controls.prev.addEventListener("click", () => {
   state.page -= 1;
   render();
@@ -659,46 +745,261 @@ render();
 
 def _overlay_css() -> str:
     return """
-:root{color-scheme:light;--ink:#1b1f24;--muted:#57606a;--line:#d0d7de;--bg:#f6f8fa;--accent:#0969da}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink)}
-body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 48px}
-h1{margin:0 0 16px;font-size:28px;line-height:1.15}
-h2{margin:0;font-size:16px}
-.summary,.controls,.pager,.decision{background:#fff;border:1px solid var(--line);border-radius:8px}
-.summary,.controls,.pager,.decision{margin:0 0 12px;padding:14px}
-.summary dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
-.summary dl{gap:10px;margin:0 0 8px}
-.summary dt{color:var(--muted);font-size:12px;text-transform:uppercase}
-.summary dd{margin:2px 0 0;font-weight:650}
-.summary p{margin:0;color:var(--muted)}
-.controls{display:grid;grid-template-columns:2fr repeat(4,minmax(120px,1fr));gap:10px}
-.controls label{display:grid;gap:4px;color:var(--muted);font-size:12px;font-weight:650}
-input,select,button{font:inherit}
-input,select{width:100%;min-height:34px;border:1px solid var(--line)}
-input,select{border-radius:6px;padding:6px 8px}
-.pager{display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:1}
-button{min-height:34px;border:1px solid var(--line);border-radius:6px;background:#fff}
-button{padding:6px 10px}
-button:not(:disabled){cursor:pointer;color:var(--accent)}
-button:disabled{color:#8c959f;background:#f6f8fa}
-#page-info{font-weight:650}
-#result-count{margin-left:auto;color:var(--muted)}
-.decision-list{min-height:180px}
-.decision header{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px}
-.decision p{margin:0;color:var(--muted)}
-code{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
-table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}
-th,td{border-top:1px solid var(--line);padding:8px;text-align:left}
-th,td{vertical-align:top;word-break:break-word}
-th{color:var(--muted);font-size:12px;font-weight:650}
-td:nth-child(1){font-weight:700;color:var(--accent)}
-@media(max-width:760px){main{width:calc(100% - 20px);padding-top:18px}}
-@media(max-width:760px){.summary dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.controls{grid-template-columns:1fr 1fr}}
-@media(max-width:760px){.controls label:first-child{grid-column:1/-1}}
-@media(max-width:760px){.pager{position:static;flex-wrap:wrap}}
-@media(max-width:760px){#result-count{width:100%;margin-left:0}}
-@media(max-width:760px){th,td{padding:6px;font-size:12px}}
+:root {
+  color-scheme: dark;
+  --bg: var(--kj-bg-void);
+  --text: var(--kj-score-neutral);
+  --muted: rgba(215, 220, 232, 0.72);
+  --line: rgba(215, 220, 232, 0.16);
+  --panel: rgba(13, 17, 29, 0.72);
+  --panel-soft: rgba(8, 10, 18, 0.38);
+  --accent: var(--kj-action);
+  --risk: var(--kj-score-negative);
+  --efficiency: var(--kj-score-positive);
+  --points: var(--kj-chip-gold);
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+header, main {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+body > header { padding: 34px 0 12px; }
+h1 { margin: 0; font-size: 32px; line-height: 1.15; letter-spacing: 0; }
+h2 { margin: 0; font-size: 17px; letter-spacing: 0; }
+p { margin: 0; }
+.eyebrow {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.summary, .controls, .signal-tabs, .pager {
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-lg);
+  background: var(--panel);
+  box-shadow: var(--kj-shadow-hard);
+}
+.summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.summary dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.summary dd { margin: 2px 0 0; font-weight: 800; }
+.summary p { color: var(--muted); }
+.controls {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+.controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+input, select, button { font: inherit; }
+input, select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-sm);
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 6px 8px;
+}
+.signal-tabs, .pager {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.signal-tabs { flex-wrap: wrap; }
+.pager {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-sm);
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 6px 10px;
+}
+button:not(:disabled) { cursor: pointer; }
+button:not(:disabled):hover, .signal-tabs button.is-active {
+  border-color: rgba(103, 214, 255, 0.58);
+  color: var(--accent);
+  filter: brightness(1.1);
+}
+button:disabled {
+  color: var(--kj-disabled);
+  cursor: not-allowed;
+}
+#page-info { font-weight: 800; }
+#result-count { margin-left: auto; color: var(--muted); }
+.decision-list {
+  min-height: 180px;
+  max-height: min(76vh, 920px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.decision {
+  margin: 0 0 18px;
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--line);
+}
+.decision-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+.decision-head p { color: var(--muted); }
+.observed {
+  display: grid;
+  gap: 2px;
+  min-width: 132px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-md);
+  background: var(--panel-soft);
+  padding: 8px 10px;
+  text-align: right;
+}
+.observed span, .observed em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+.observed strong { font-size: 22px; line-height: 1; }
+.context-grid {
+  display: grid;
+  grid-template-columns: 1.4fr .6fr minmax(160px, .9fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.context-grid p, code {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-sm);
+  background: var(--panel-soft);
+  color: var(--muted);
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+.context-grid span {
+  display: block;
+  color: var(--text);
+  font-weight: 800;
+}
+.alternative-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.alternative-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-md);
+  background: var(--panel);
+  box-shadow: var(--kj-shadow-hard);
+  padding: 12px;
+}
+.rank {
+  grid-row: span 2;
+  color: var(--points);
+  font-size: 12px;
+  font-weight: 900;
+}
+.tile {
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+.signals {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.signal {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--kj-radius-sm);
+  background: var(--panel-soft);
+  padding: 7px;
+}
+.signal span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.signal strong { font-size: 16px; }
+.signal-policy strong { color: var(--accent); }
+.signal-risk strong { color: var(--risk); }
+.signal-efficiency strong { color: var(--efficiency); }
+.signal-points strong { color: var(--points); }
+.reasoning {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.rank-1 { border-color: rgba(255, 200, 87, 0.58); }
+.risk-low .signal-risk strong { color: var(--kj-success); }
+.risk-mid .signal-risk strong { color: var(--kj-warning); }
+.risk-high .signal-risk strong { color: var(--kj-score-negative); }
+.efficiency-improves .signal-efficiency strong,
+.efficiency-improves.observed strong { color: var(--kj-success); }
+.efficiency-same .signal-efficiency strong,
+.efficiency-same.observed strong { color: var(--accent); }
+.efficiency-worsens .signal-efficiency strong,
+.efficiency-worsens.observed strong { color: var(--kj-score-negative); }
+.points-positive .signal-points strong { color: var(--kj-success); }
+.points-negative .signal-points strong { color: var(--kj-score-negative); }
+.decision-list[data-mode="risk"] .signal:not(.signal-risk),
+.decision-list[data-mode="efficiency"] .signal:not(.signal-efficiency),
+.decision-list[data-mode="points"] .signal:not(.signal-points) {
+  opacity: .48;
+}
+.empty {
+  color: var(--muted);
+  padding: 12px;
+}
+@media (max-width: 760px) {
+  header, main { width: min(100% - 20px, 1180px); }
+  body > header { padding-top: 22px; }
+  h1 { font-size: 27px; }
+  .summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .controls { grid-template-columns: 1fr 1fr; }
+  .controls label:first-child { grid-column: 1 / -1; }
+  .pager { position: static; flex-wrap: wrap; }
+  #result-count { width: 100%; margin-left: 0; }
+  .decision-head, .context-grid { grid-template-columns: 1fr; }
+  .observed { text-align: left; }
+  .signals { grid-template-columns: 1fr; }
+}
 """.strip()
