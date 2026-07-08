@@ -56,6 +56,10 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn('src="demo.js"', html)
         self.assertIn("kj-table-surface", html)
         self.assertIn("action-rail", html)
+        self.assertIn("kj-motion-lift", html)
+        self.assertIn("kj-motion-confirm-flash", css)
+        self.assertIn("window.KenjakuMotion", js)
+        self.assertIn("countUp", js)
         for contents in (html, css, js):
             self.assertNotIn(directory, contents)
             self.assertNotIn("file://", contents)
@@ -117,6 +121,8 @@ class BrowserDemoTests(unittest.TestCase):
                 "player-console",
                 "action-rail",
                 "score-chip",
+                "kj-motion-lift",
+                "kj-motion-press",
             },
         )
 

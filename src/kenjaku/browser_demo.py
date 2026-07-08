@@ -5,7 +5,12 @@ from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
-from kenjaku.frontend_static import html_document, theme_css
+from kenjaku.frontend_static import (
+    html_document,
+    motion_primitives_css,
+    motion_primitives_script,
+    theme_css,
+)
 
 BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
 BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js")
@@ -90,7 +95,11 @@ _INDEX_BODY_HTML = """
             <div class="center-stack">
               <p class="label">Terminal Result</p>
               <p id="terminal-result" class="result-text">In progress</p>
-              <button id="restart-button" class="action-button kj-action-badge" type="button">
+              <button
+                id="restart-button"
+                class="action-button kj-action-badge kj-motion-lift kj-motion-press"
+                type="button"
+              >
                 Restart Hand
               </button>
             </div>
@@ -148,7 +157,7 @@ _INDEX_HTML = html_document(
 )
 
 
-_STYLES_CSS = theme_css() + """
+_STYLES_CSS = "\n\n".join((theme_css(), motion_primitives_css(), """
 
 * {
   box-sizing: border-box;
@@ -553,10 +562,10 @@ h2 {
     gap: 10px;
   }
 }
-"""
+"""))
 
 
-_DEMO_JS = """"use strict";
+_DEMO_JS = motion_primitives_script() + "\n\n" + """"use strict";
 
 const SEATS = ["You", "Shimocha", "Toimen", "Kamicha"];
 const INITIAL_SCORES = [25000, 25000, 25000, 25000];
@@ -639,6 +648,7 @@ function chooseBotDiscard(hand) {
 
 function discardTile(index) {
   if (state.terminal) {
+    window.KenjakuMotion?.shake(".table-center");
     return;
   }
   const hand = state.hands[state.currentSeat];
@@ -652,6 +662,7 @@ function discardTile(index) {
   }
   drawForCurrentSeat();
   render();
+  window.KenjakuMotion?.confirm(".player-console");
 }
 
 function finishExhaustiveDraw() {
@@ -679,7 +690,7 @@ function renderStatus() {
   text("wall-meter", state.wall.length);
   text("turn-label", state.terminal ? "Terminal" : SEATS[state.currentSeat]);
   text("terminal-result", state.terminal || "In progress");
-  text("live-delta", scoreDeltaLabel());
+  setScoreText("live-delta", scoreDeltaLabel());
   text("call-zone-summary", callSummaryLabel());
   document.getElementById("dora-tile").textContent = DORA_INDICATOR;
 }
@@ -712,9 +723,11 @@ function renderHand() {
       "tile",
       "tile-button",
       "kj-tile",
+      "kj-motion-lift",
+      "kj-motion-press",
       tileClass(tile),
       legal ? "is-legal" : "is-blocked",
-      selected ? "is-selected" : "",
+      selected ? "is-selected kj-motion-selected-pulse" : "",
     ].filter(Boolean).join(" ");
     button.textContent = tile;
     button.disabled = !legal;
@@ -836,6 +849,8 @@ function actionNode(label, options = {}) {
   button.className = [
     "action-button",
     "kj-action-badge",
+    "kj-motion-lift",
+    "kj-motion-press",
     options.legal ? "is-legal" : "",
     options.blocked ? "is-blocked" : "",
   ].filter(Boolean).join(" ");
@@ -850,6 +865,15 @@ function actionNode(label, options = {}) {
 function scoreDeltaLabel() {
   const delta = state.scores[0] - INITIAL_SCORES[0];
   return `${delta >= 0 ? "+" : ""}${delta.toLocaleString()}`;
+}
+
+function setScoreText(id, value) {
+  const element = document.getElementById(id);
+  if (window.KenjakuMotion) {
+    window.KenjakuMotion.countUp(element, value);
+    return;
+  }
+  element.textContent = value;
 }
 
 function callSummaryLabel() {

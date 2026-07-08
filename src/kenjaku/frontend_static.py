@@ -8,6 +8,7 @@ from typing import Any
 from kenjaku.frontend_theme import KENJAKU_ARCADE_THEME_CSS, KENJAKU_ARCADE_THEME_VERSION
 
 FRONTEND_STATIC_HELPERS_VERSION = "kenjaku-static-frontend-helpers-v0"
+MOTION_PRIMITIVES_VERSION = "kenjaku-motion-primitives-v0"
 _REMOTE_PREFIXES = ("http://", "https://", "//")
 _NETWORK_TOKENS = ("http://", "https://", "@import")
 
@@ -64,6 +65,170 @@ BASE_STATIC_CSS = """
 }
 """.strip()
 
+MOTION_PRIMITIVES_CSS = """
+/* kenjaku motion primitives v0
+   transform/filter/box-shadow only; dimensions stay stable */
+.kj-motion-lift {
+  transform-origin: center;
+  will-change: transform, filter;
+}
+
+.kj-motion-lift:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+.kj-motion-press:active {
+  transform: translateY(1px);
+}
+
+.kj-motion-selected-pulse {
+  animation: kj-selected-pulse var(--kj-motion-slow, 260ms) var(--kj-ease-snap, ease-out) both;
+}
+
+.kj-motion-confirm-flash {
+  animation: kj-confirm-flash 360ms var(--kj-ease-snap, ease-out) both;
+}
+
+.kj-motion-score-count {
+  animation: kj-score-pop 420ms var(--kj-ease-snap, ease-out) both;
+}
+
+.kj-motion-warning-shake {
+  animation: kj-warning-shake 220ms linear both;
+}
+
+@keyframes kj-selected-pulse {
+  0% { transform: translateY(-1px) scale(1); }
+  50% { transform: translateY(-4px) scale(1.04); }
+  100% { transform: translateY(-2px) scale(1); }
+}
+
+@keyframes kj-confirm-flash {
+  0% { box-shadow: var(--kj-shadow-hard, none); }
+  40% { box-shadow: var(--kj-shadow-glow, 0 0 0 2px currentColor); }
+  100% { box-shadow: var(--kj-shadow-hard, none); }
+}
+
+@keyframes kj-score-pop {
+  0% { transform: scale(1); filter: brightness(1); }
+  42% { transform: scale(1.06); filter: brightness(1.18); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes kj-warning-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kj-motion-lift,
+  .kj-motion-press,
+  .kj-motion-selected-pulse,
+  .kj-motion-confirm-flash,
+  .kj-motion-score-count,
+  .kj-motion-warning-shake {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+""".strip()
+
+MOTION_PRIMITIVES_JS = r"""
+"use strict";
+
+window.KenjakuMotion = (() => {
+  const reduceQuery = "(prefers-reduced-motion: reduce)";
+
+  function prefersReducedMotion() {
+    return Boolean(window.matchMedia && window.matchMedia(reduceQuery).matches);
+  }
+
+  function elementFor(target) {
+    if (!target) {
+      return null;
+    }
+    return typeof target === "string" ? document.querySelector(target) : target;
+  }
+
+  function triggerMotion(target, className, duration) {
+    const element = elementFor(target);
+    if (!element || prefersReducedMotion()) {
+      return element;
+    }
+    element.classList.remove(className);
+    void element.offsetWidth;
+    element.classList.add(className);
+    window.setTimeout(() => element.classList.remove(className), duration);
+    return element;
+  }
+
+  function confirm(target) {
+    return triggerMotion(target, "kj-motion-confirm-flash", 420);
+  }
+
+  function pulse(target) {
+    return triggerMotion(target, "kj-motion-selected-pulse", 320);
+  }
+
+  function shake(target) {
+    return triggerMotion(target, "kj-motion-warning-shake", 260);
+  }
+
+  function countUp(target, nextText, options = {}) {
+    const element = elementFor(target);
+    if (!element) {
+      return null;
+    }
+    const next = String(nextText);
+    if (element.textContent === next) {
+      return element;
+    }
+    const from = numericText(element.textContent);
+    const to = numericText(next);
+    if (prefersReducedMotion() || from === null || to === null) {
+      element.textContent = next;
+      return element;
+    }
+    const duration = Number(options.duration || 420);
+    const start = performance.now();
+    element.classList.add("kj-motion-score-count");
+
+    function frame(now) {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.round(from + (to - from) * eased);
+      element.textContent = formatLike(next, value);
+      if (progress < 1) {
+        window.requestAnimationFrame(frame);
+      } else {
+        element.textContent = next;
+        window.setTimeout(() => element.classList.remove("kj-motion-score-count"), 80);
+      }
+    }
+
+    window.requestAnimationFrame(frame);
+    return element;
+  }
+
+  function numericText(value) {
+    const normalized = String(value).replace(/,/g, "");
+    const match = normalized.match(/[+-]?\d+/);
+    return match ? Number(match[0]) : null;
+  }
+
+  function formatLike(template, value) {
+    const sign = template.trim().startsWith("+") && value >= 0 ? "+" : "";
+    return `${sign}${value.toLocaleString()}`;
+  }
+
+  return { confirm, countUp, pulse, shake, prefersReducedMotion };
+})();
+""".strip()
+
 
 def html_text(value: Any) -> str:
     return escape(str(value), quote=True)
@@ -75,6 +240,14 @@ def html_attr(value: Any) -> str:
 
 def theme_css() -> str:
     return KENJAKU_ARCADE_THEME_CSS
+
+
+def motion_primitives_css() -> str:
+    return MOTION_PRIMITIVES_CSS
+
+
+def motion_primitives_script() -> str:
+    return MOTION_PRIMITIVES_JS
 
 
 def static_base_css(*, include_theme: bool = False) -> str:

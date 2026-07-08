@@ -4,10 +4,13 @@ import unittest
 
 from kenjaku.frontend_static import (
     FRONTEND_STATIC_HELPERS_VERSION,
+    MOTION_PRIMITIVES_VERSION,
     assert_no_browser_network,
     badge,
     html_document,
     line_chart_svg,
+    motion_primitives_css,
+    motion_primitives_script,
     sortable_header,
     sortable_table_script,
     static_base_css,
@@ -46,6 +49,30 @@ class FrontendStaticTests(unittest.TestCase):
         self.assertIn(".kj-static-wrap", css)
         self.assertIn(".kj-badge", css)
         self.assertIn(".kj-sort-button", css)
+
+    def test_motion_primitives_are_named_reduced_motion_safe_and_network_free(self) -> None:
+        css = motion_primitives_css()
+        script = motion_primitives_script()
+        required_css = [
+            ".kj-motion-lift",
+            ".kj-motion-selected-pulse",
+            ".kj-motion-confirm-flash",
+            ".kj-motion-score-count",
+            ".kj-motion-warning-shake",
+            "@keyframes kj-selected-pulse",
+            "@media (prefers-reduced-motion: reduce)",
+        ]
+        for token in required_css:
+            with self.subTest(token=token):
+                self.assertIn(token, css)
+        self.assertEqual(MOTION_PRIMITIVES_VERSION, "kenjaku-motion-primitives-v0")
+        self.assertIn("window.KenjakuMotion", script)
+        self.assertIn("countUp", script)
+        self.assertIn("prefersReducedMotion", script)
+        self.assertNotIn("margin", css)
+        self.assertNotIn("padding", css)
+        assert_no_browser_network(css)
+        assert_no_browser_network(script)
 
     def test_sortable_table_helpers_escape_labels_and_target_table(self) -> None:
         header = sortable_header(2, "Eval <Score>", "number")
