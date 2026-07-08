@@ -304,6 +304,20 @@ write stdout/stderr into ignored run logs:
   > runs/todo-102/export-bc-examples-memory-smoke.log 2>&1
 ```
 
+For a hard local guard, run the command through the RSS watchdog. It polls the child process group
+and terminates it if resident memory crosses the cap:
+
+```bash
+PYTHONPATH=src python3 scripts/run_with_memory_guard.py \
+  --max-rss-mb 24576 \
+  --poll-interval 0.5 \
+  -- python3.13 -m kenjaku export-bc-examples \
+    data/raw/tenhou/xml/todo-102-bc-6500 \
+    --output-dir runs/todo-102/bc-examples-v0 \
+    --shard-size 50000 \
+    --source-label tenhou-4p-hanchan-todo-102
+```
+
 The fixture proof for this path is covered by CLI tests that export discard/call/riichi shards from
 `data/fixtures/tenhou`, train each `benchmark-*-from-examples` command, and summarize the resulting
 reports. Do not mark TODO-102 complete until ignored real-slice reports meet the size gates.
