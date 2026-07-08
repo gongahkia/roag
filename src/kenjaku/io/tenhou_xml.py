@@ -301,6 +301,7 @@ class _TenhouEventParser(HTMLParser):
 
 def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
     round_index, honba, kyotaku, dora_indicator = _parse_seed_state(event.attrib.get("seed"))
+    starting_hands = _parse_starting_hands(event)
     return _RoundBuilder(
         round_index=round_index,
         round_wind=round_index // 4,
@@ -309,7 +310,7 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         kyotaku=kyotaku,
         dealer=_required_int(event, "oya"),
         scores=_parse_scores(_required_attr(event, "ten")),
-        starting_hands=tuple(_parse_hand(_required_attr(event, f"hai{seat}")) for seat in range(4)),
+        starting_hands=starting_hands,
         dora_indicators=[] if dora_indicator is None else [dora_indicator],
         draws=[],
         discards=[],
@@ -323,9 +324,24 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
 
 
 def _parse_names(event: _ParsedEvent) -> tuple[str, ...] | None:
-    if not all(f"n{seat}" in event.attrib for seat in range(4)):
+    player_count = _contiguous_player_count(event.attrib, prefix="n")
+    if player_count < 3:
         return None
-    return tuple(unquote(event.attrib[f"n{seat}"]) for seat in range(4))
+    return tuple(unquote(event.attrib[f"n{seat}"]) for seat in range(player_count))
+
+
+def _parse_starting_hands(event: _ParsedEvent) -> tuple[tuple[Tile, ...], ...]:
+    player_count = _contiguous_player_count(event.attrib, prefix="hai")
+    if player_count not in {3, 4}:
+        raise ValueError("INIT must contain contiguous hai0..hai2 or hai0..hai3 hands")
+    return tuple(_parse_hand(_required_attr(event, f"hai{seat}")) for seat in range(player_count))
+
+
+def _contiguous_player_count(attrib: dict[str, str], *, prefix: str) -> int:
+    count = 0
+    while f"{prefix}{count}" in attrib:
+        count += 1
+    return count
 
 
 def _parse_seed_state(seed: str | None) -> tuple[int, int, int, Tile | None]:

@@ -44,21 +44,22 @@ Sanma games parsed for training: 0.
 
 | Required Sanma decision | Current local snapshot support | Status |
 | --- | --- | --- |
-| Discard | `export-decision-snapshots` supports 4-player discard rows. | Needs 3-player Tenhou parser support before Sanma export. |
+| Discard | `export-decision-snapshots` supports 4-player discard rows. | Needs validation against permitted real 3-player logs. |
 | Call/pass | 4-player call/pass rows exist. | Needs Sanma no-chi filtering against real 3-player logs. |
-| Riichi/pass | 4-player riichi/pass rows exist. | Needs 3-player parser support. |
+| Riichi/pass | 4-player riichi/pass rows exist. | Needs validation against permitted real 3-player logs. |
 | Kita | Self-play supports Kita actions. | Missing decision snapshot row type. |
 | Win/pass | Self-play supports ron/tsumo/pass windows. | Missing decision snapshot row type for replay export. |
 
-Parser blocker: `src/kenjaku/io/tenhou_xml.py` currently reads `hai0` through `hai3` during
-`INIT`, so real 3-player Tenhou XML with three starting hands is not accepted yet.
+Parser status: `src/kenjaku/io/tenhou_xml.py` accepts contiguous 3-player `INIT` hands and Tenhou
+Nuki meld codes in synthetic coverage. Real permitted Sanma logs are still needed to validate
+draw/discard, score, call, riichi, Kita, and terminal event coverage end to end.
 
 ## Unblock Checklist
 
 1. Obtain at least 1,000 Tenhou Sanma logs from a user-owned or explicitly consented source.
 2. Store raw logs only under ignored local paths such as `data/raw/sanma/`.
 3. Add a permission manifest using the existing replay intake workflow before processing.
-4. Extend Tenhou XML parsing for 3-player `INIT`, Sanma nuki/Kita events, and Sanma score fields.
+4. Validate 3-player `INIT`, nuki/Kita events, and Sanma score fields against real permitted logs.
 5. Extend decision snapshots with `kita` and win/pass row types.
 6. Export local-only JSONL and record counts without committing reconstructable logs.
 

@@ -50,6 +50,15 @@ class TenhouMeldTests(unittest.TestCase):
         self.assertEqual(minkan.called_tile_id, 110)
         self.assertEqual(minkan.called_tile, Tile.parse("E"))
 
+    def test_decodes_sanma_nuki_as_kita(self) -> None:
+        meld = decode_tenhou_meld(_encode_nuki(tile_id=120))
+
+        self.assertEqual(meld.kind, ActionKind.KITA)
+        self.assertEqual(meld.from_offset, 0)
+        self.assertEqual(meld.tile_ids, (120,))
+        self.assertEqual(meld.tiles, (Tile.parse("N"),))
+        self.assertIsNone(meld.called_tile_id)
+
     def test_rejects_out_of_range_codes(self) -> None:
         with self.assertRaises(ValueError):
             decode_tenhou_meld(-1)
@@ -85,6 +94,10 @@ def _encode_kakan(*, base: int, called: int, unused: int, from_offset: int = 2) 
 
 def _encode_kan(*, base: int, called: int, from_offset: int) -> int:
     return ((base * 4 + called) << 8) | from_offset
+
+
+def _encode_nuki(*, tile_id: int) -> int:
+    return (tile_id << 8) | 0x20
 
 
 if __name__ == "__main__":

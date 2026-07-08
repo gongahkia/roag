@@ -124,6 +124,36 @@ class TenhouXmlTests(unittest.TestCase):
 
         self.assertEqual(game.names, ("あ", "makit123", "てまち", "Yu-Ki∞"))
 
+    def test_parse_three_player_init_names_and_nuki(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <UN n0="east" n1="south" n2="west" />
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="350,350,350"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,120"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,121"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,122"
+              />
+              <T123 />
+              <N who="0" m="30752" />
+              <D44 />
+              <RYUUKYOKU ten="350,350,350" />
+            </mjloggm>
+            """
+        )
+
+        round_ = game.rounds[0]
+        self.assertEqual(game.names, ("east", "south", "west"))
+        self.assertEqual(round_.scores, (35000, 35000, 35000))
+        self.assertEqual(len(round_.starting_hands), 3)
+        self.assertEqual(round_.starting_hands[0][-1], Tile.parse("N"))
+        self.assertEqual(round_.draws[0].tile, Tile.parse("N"))
+        self.assertEqual(round_.calls[0].meld.kind, ActionKind.KITA)
+        self.assertEqual(round_.calls[0].meld.tile_ids, (120,))
+
     def test_parse_reach_call_and_agari_events(self) -> None:
         game = parse_tenhou_xml_file(EVENTS_FIXTURE)
         round_ = game.rounds[0]

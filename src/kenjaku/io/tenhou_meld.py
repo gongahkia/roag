@@ -30,6 +30,8 @@ def decode_tenhou_meld(meld_code: int) -> TenhouMeld:
         return _decode_chi(meld_code)
     if meld_code & 0x18:
         return _decode_pon_or_kakan(meld_code)
+    if meld_code & 0x20:
+        return _decode_nuki(meld_code)
     return _decode_kan(meld_code)
 
 
@@ -100,6 +102,18 @@ def _decode_kan(meld_code: int) -> TenhouMeld:
         from_offset=from_offset,
         tile_ids=tile_ids,
         called_tile_id=None if from_offset == 0 else tile_ids[called_index],
+    )
+
+
+def _decode_nuki(meld_code: int) -> TenhouMeld:
+    tile_id = (meld_code >> 8) & 0xFF
+    if not 0 <= tile_id < 136:
+        raise ValueError(f"invalid Tenhou nuki tile in meld code: {meld_code}")
+    return _build_meld(
+        kind=ActionKind.KITA,
+        from_offset=0,
+        tile_ids=(tile_id,),
+        called_tile_id=None,
     )
 
 
