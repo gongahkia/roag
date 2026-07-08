@@ -8,6 +8,11 @@ from kenjaku.models.call_frequency import (
     CallLegalFrequencyBaseline,
 )
 from kenjaku.models.frequency import DiscardFrequencyBaseline
+from kenjaku.models.kita_frequency import (
+    KITA_DECISION_KINDS,
+    KITA_FREQUENCY_MODEL_KIND,
+    KitaFrequencyBaseline,
+)
 from kenjaku.models.linear_call import (
     CALL_LINEAR_FEATURE_DIM,
     CALL_LINEAR_MODEL_KIND,
@@ -92,6 +97,9 @@ __all__ = [
     "OPPONENT_SHAPE_BASELINE_KIND",
     "OPPONENT_SHAPE_YAKU",
     "OpponentShapeBaseline",
+    "KITA_DECISION_KINDS",
+    "KITA_FREQUENCY_MODEL_KIND",
+    "KitaFrequencyBaseline",
     "PLACEMENT_CHECKPOINT_KIND",
     "PLACEMENT_DISCLAIMER",
     "PLACEMENT_FEATURE_DIM",

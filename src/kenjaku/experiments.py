@@ -27,6 +27,7 @@ DISCARD_MLP_REPORT_KIND = "kenjaku-discard-mlp-report-v0"
 DISCARD_TRANSFORMER_BENCHMARK_REPORT_KIND = "kenjaku-discard-transformer-benchmark-report-v0"
 DISCARD_TRANSFORMER_REPORT_KIND = "kenjaku-discard-transformer-report-v0"
 PUBLIC_BENCHMARK_DASHBOARD_KIND = "kenjaku-public-benchmark-dashboard-v0"
+KITA_BENCHMARK_REPORT_KIND = "kenjaku-kita-benchmark-report-v0"
 RIICHI_BENCHMARK_REPORT_KIND = "kenjaku-riichi-benchmark-report-v0"
 TENHOU_INSPECT_REPORT_KIND = "kenjaku-tenhou-inspect-report-v0"
 DISCARD_MLP_BENCHMARK_MODEL_ORDER = (
@@ -792,6 +793,45 @@ def build_riichi_benchmark_report(
     }
 
 
+def build_kita_benchmark_report(
+    *,
+    input_paths: Sequence[Path],
+    xml_files: Sequence[Path],
+    game: TenhouGame | None,
+    discard_examples: int,
+    call_examples: int,
+    riichi_examples: int,
+    kita_examples: int,
+    split_seed: str,
+    eval_fraction: float,
+    train_examples: int,
+    eval_examples: int,
+    models: dict[str, dict[str, Any]],
+    parse_failures: Sequence[TenhouParseFailure],
+    source: dict[str, str | None],
+    game_counts: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    return {
+        "kind": KITA_BENCHMARK_REPORT_KIND,
+        "source": source,
+        "input_paths": [str(path) for path in input_paths],
+        "xml_file_count": len(xml_files),
+        **_game_counts_or_cached(game, game_counts),
+        "discard_examples": discard_examples,
+        "call_examples": call_examples,
+        "riichi_examples": riichi_examples,
+        "kita_examples": kita_examples,
+        "split": {
+            "seed": split_seed,
+            "eval_fraction": eval_fraction,
+            "train_examples": train_examples,
+            "eval_examples": eval_examples,
+        },
+        "models": models,
+        "parse_failures": _parse_failure_payload(parse_failures),
+    }
+
+
 class JsonReportPayload(Protocol):
     def to_dict(self) -> dict[str, Any]: ...
 
@@ -843,7 +883,7 @@ def format_discard_benchmark_summary(summary: dict[str, Any]) -> str:
             _append_discard_transformer_summary_lines(lines, report)
         elif report["target"] == "discard_transformer_benchmark":
             _append_discard_transformer_benchmark_summary_lines(lines, report)
-        elif report["target"] in {"call", "riichi"}:
+        elif report["target"] in {"call", "riichi", "kita"}:
             _append_binary_benchmark_summary_lines(lines, report)
         elif report["target"] == "deal_in":
             _append_deal_in_benchmark_summary_lines(lines, report)
@@ -1500,6 +1540,8 @@ def _dashboard_target_recall(target: str, model: dict[str, Any]) -> Any:
         return model.get("eval_call_recall")
     if target == "riichi":
         return model.get("eval_riichi_recall")
+    if target == "kita":
+        return model.get("eval_kita_recall")
     return None
 
 
@@ -1694,6 +1736,8 @@ def _summarize_benchmark_report(path: Path, payload: dict[str, Any]) -> dict[str
         return _summarize_binary_benchmark_report(path, payload, target="call")
     if kind == RIICHI_BENCHMARK_REPORT_KIND:
         return _summarize_binary_benchmark_report(path, payload, target="riichi")
+    if kind == KITA_BENCHMARK_REPORT_KIND:
+        return _summarize_binary_benchmark_report(path, payload, target="kita")
     raise ValueError(f"not a benchmark report: {path}")
 
 

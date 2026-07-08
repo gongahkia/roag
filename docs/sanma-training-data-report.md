@@ -1,6 +1,6 @@
 # Sanma Training Data Report
 
-Date: 2026-07-07
+Date: 2026-07-08
 
 Status: blocked for 1,000-game training export.
 
@@ -47,12 +47,15 @@ Sanma games parsed for training: 0.
 | Discard | `export-decision-snapshots` supports 4-player discard rows. | Needs validation against permitted real 3-player logs. |
 | Call/pass | 4-player call/pass rows exist. | Needs Sanma no-chi filtering against real 3-player logs. |
 | Riichi/pass | 4-player riichi/pass rows exist. | Needs validation against permitted real 3-player logs. |
-| Kita | Self-play supports Kita actions, and synthetic Tenhou Sanma logs can emit `kita` decision snapshots. | Needs validation against permitted real 3-player logs. |
+| Kita | Self-play supports Kita actions, synthetic Tenhou Sanma logs can emit `kita` decision snapshots, and `benchmark-kita` can produce a local frequency-baseline report. | Needs validation against permitted real 3-player logs. |
 | Win/pass | Self-play supports ron/tsumo/pass windows. | Missing decision snapshot row type for replay export. |
 
 Parser status: `src/kenjaku/io/tenhou_xml.py` accepts contiguous 3-player `INIT` hands and Tenhou
 Nuki meld codes in synthetic coverage. Real permitted Sanma logs are still needed to validate
 draw/discard, score, call, riichi, Kita, and terminal event coverage end to end.
+
+Benchmark status: `benchmark-kita` covers the Sanma Kita/pass report path for synthetic fixtures.
+It is not a substitute for a held-out real Sanma evaluation slice.
 
 ## Unblock Checklist
 
@@ -60,7 +63,7 @@ draw/discard, score, call, riichi, Kita, and terminal event coverage end to end.
 2. Store raw logs only under ignored local paths such as `data/raw/sanma/`.
 3. Add a permission manifest using the existing replay intake workflow before processing.
 4. Validate 3-player `INIT`, nuki/Kita events, and Sanma score fields against real permitted logs.
-5. Validate `kita` decision snapshots against real permitted logs and add win/pass row types.
+5. Validate `kita` decision snapshots and `benchmark-kita` reports against real permitted logs.
 6. Export local-only JSONL and record counts without committing reconstructable logs.
 
 [Inference] Until those items are complete, Sanma model training and final Sanma evaluation remain

@@ -33,6 +33,7 @@ from kenjaku.experiments import (
     build_discard_mlp_report,
     build_discard_transformer_benchmark_report,
     build_discard_transformer_report,
+    build_kita_benchmark_report,
     build_public_benchmark_dashboard,
     build_riichi_benchmark_report,
     build_tenhou_inspect_report,
@@ -73,6 +74,7 @@ from kenjaku.models import (
     DEAL_IN_LINEAR_MODEL_KIND,
     DEFENSE_CONTEXT_FEATURE_PROFILE,
     DEFENSE_CONTEXT_V1_FEATURE_PROFILE,
+    KITA_DECISION_KINDS,
     PLACEMENT_DISCLAIMER,
     RAW_COUNT_FEATURE_PROFILE,
     RIICHI_DECISION_KINDS,
@@ -84,6 +86,7 @@ from kenjaku.models import (
     DealInLinearModel,
     DiscardFrequencyBaseline,
     DiscardLinearModel,
+    KitaFrequencyBaseline,
     PlacementModel,
     RiichiFrequencyBaseline,
     RiichiLinearModel,
@@ -135,6 +138,7 @@ from kenjaku.training import (
     BcExampleShard,
     CallExample,
     DiscardExample,
+    KitaExample,
     RiichiExample,
     actual_discard_has_kabe,
     actual_discard_has_one_chance,
@@ -150,6 +154,7 @@ from kenjaku.training import (
     iter_call_examples,
     iter_deal_in_examples,
     iter_discard_examples,
+    iter_kita_examples,
     iter_riichi_examples,
     parse_bc_decision_types,
     read_bc_examples,
@@ -2637,6 +2642,46 @@ def build_parser() -> argparse.ArgumentParser:
     _add_parse_cache_arg(benchmark_riichi)
     _add_source_args(benchmark_riichi)
     benchmark_riichi.set_defaults(func=_benchmark_riichi)
+
+    benchmark_kita = subparsers.add_parser(
+        "benchmark-kita",
+        help="compare deterministic Sanma kita/pass baselines on one train/eval split",
+    )
+    benchmark_kita.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        help="Tenhou XML files or directories",
+    )
+    benchmark_kita.add_argument(
+        "--eval-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of examples reserved for deterministic evaluation",
+    )
+    benchmark_kita.add_argument(
+        "--split-seed",
+        default="kenjaku-v0",
+        help="stable seed for deterministic train/eval split",
+    )
+    benchmark_kita.add_argument(
+        "--example-limit",
+        type=int,
+        help="maximum Sanma kita/pass examples to use after deterministic reconstruction",
+    )
+    benchmark_kita.add_argument(
+        "--report",
+        type=Path,
+        help="optional path for a JSON Sanma kita benchmark report artifact",
+    )
+    benchmark_kita.add_argument(
+        "--skip-errors",
+        action="store_true",
+        help="record parse failures and continue with successfully parsed files",
+    )
+    _add_parse_cache_arg(benchmark_kita)
+    _add_source_args(benchmark_kita)
+    benchmark_kita.set_defaults(func=_benchmark_kita)
 
     benchmark_riichi_examples = subparsers.add_parser(
         "benchmark-riichi-from-examples",
@@ -8659,6 +8704,166 @@ def _benchmark_riichi(args: argparse.Namespace) -> int:
         _write_response_report(args.report, report)
         print(f"report_path: {args.report}")
     return 0
+
+
+def _benchmark_kita(args: argparse.Namespace) -> int:
+    if args.example_limit is not None and args.example_limit < 0:
+        raise SystemExit("--example-limit must be non-negative")
+    dataset = _parse_tenhou_dataset_from_args(args)
+    examples, total_examples = _collect_limited_examples(
+        iter_kita_examples(dataset.game),
+        args.example_limit,
+    )
+    if not examples:
+        raise SystemExit("no kita examples found")
+
+    train_examples, eval_examples = deterministic_split(
+        examples,
+        eval_fraction=args.eval_fraction,
+        seed=args.split_seed,
+    )
+    model_payloads = {
+        "kita_frequency": _kita_model_payload(
+            KitaFrequencyBaseline.fit(train_examples),
+            train_examples=train_examples,
+            eval_examples=eval_examples,
+        )
+    }
+
+    print(f"kita_examples: {len(examples)}")
+    print(f"train_examples: {len(train_examples)}")
+    print(f"eval_examples: {len(eval_examples)}")
+    _print_kita_benchmark_metrics(model_payloads)
+    if dataset.failures:
+        print(f"parse_failures: {len(dataset.failures)}")
+    if args.report is not None:
+        report = build_kita_benchmark_report(
+            input_paths=args.paths,
+            xml_files=dataset.files,
+            game=dataset.game,
+            discard_examples=sum(1 for _ in iter_discard_examples(dataset.game)),
+            call_examples=sum(1 for _ in iter_call_examples(dataset.game)),
+            riichi_examples=sum(1 for _ in iter_riichi_examples(dataset.game)),
+            kita_examples=len(examples),
+            split_seed=args.split_seed,
+            eval_fraction=args.eval_fraction,
+            train_examples=len(train_examples),
+            eval_examples=len(eval_examples),
+            models=model_payloads,
+            parse_failures=dataset.failures,
+            source=_source_metadata(args),
+        )
+        report["kita_examples_total"] = total_examples
+        report["example_limit"] = args.example_limit
+        _write_response_report(args.report, report)
+        print(f"report_path: {args.report}")
+    return 0
+
+
+KitaPredictor = Callable[[KitaExample], ActionKind]
+
+
+def _kita_model_payload(
+    model: KitaFrequencyBaseline,
+    *,
+    train_examples: list[KitaExample],
+    eval_examples: list[KitaExample],
+    predict: KitaPredictor | None = None,
+) -> dict[str, Any]:
+    predictor = model.predict if predict is None else predict
+    train_analysis = _summarize_kita_predictions(train_examples, predictor)
+    eval_analysis = _summarize_kita_predictions(eval_examples, predictor)
+    train_metrics = _kita_metrics(train_analysis)
+    eval_metrics = _kita_metrics(eval_analysis)
+    return {
+        "kind": model.kind,
+        "counts": model.count_by_kind(),
+        "metrics": {
+            "loss_kind": "zero_one",
+            "train_loss": _zero_one_loss(train_metrics["accuracy"]),
+            "eval_loss": _zero_one_loss(eval_metrics["accuracy"]),
+            "train_accuracy": train_metrics["accuracy"],
+            "eval_accuracy": eval_metrics["accuracy"],
+            "train_balanced_accuracy": train_metrics["balanced_accuracy"],
+            "eval_balanced_accuracy": eval_metrics["balanced_accuracy"],
+            "train_pass_recall": train_metrics["pass_recall"],
+            "eval_pass_recall": eval_metrics["pass_recall"],
+            "train_kita_recall": train_metrics["kita_recall"],
+            "eval_kita_recall": eval_metrics["kita_recall"],
+            "train_action_recall": train_metrics["action_recall"],
+            "eval_action_recall": eval_metrics["action_recall"],
+        },
+        "train_analysis": train_analysis,
+        "eval_analysis": eval_analysis,
+    }
+
+
+def _print_kita_benchmark_metrics(model_payloads: dict[str, dict[str, Any]]) -> None:
+    for model_name, payload in model_payloads.items():
+        metrics = payload["metrics"]
+        print(f"{model_name}_train_accuracy: {metrics['train_accuracy']:.4f}")
+        print(f"{model_name}_eval_accuracy: {_format_optional_accuracy(metrics['eval_accuracy'])}")
+        print(
+            f"{model_name}_eval_balanced_accuracy: "
+            f"{_format_optional_accuracy(metrics['eval_balanced_accuracy'])}"
+        )
+        print(
+            f"{model_name}_eval_pass_recall: "
+            f"{_format_optional_accuracy(metrics['eval_pass_recall'])}"
+        )
+        print(
+            f"{model_name}_eval_kita_recall: "
+            f"{_format_optional_accuracy(metrics['eval_kita_recall'])}"
+        )
+
+
+def _summarize_kita_predictions(
+    examples: Sequence[KitaExample],
+    predict: KitaPredictor,
+) -> dict[str, Any]:
+    return _summarize_kita_prediction_results(
+        examples,
+        (predict(example) for example in examples),
+    )
+
+
+def _summarize_kita_prediction_results(
+    examples: Sequence[KitaExample],
+    predictions: Iterable[ActionKind],
+) -> dict[str, Any]:
+    buckets: dict[str, Any] = {
+        "overall": _empty_call_bucket(),
+        "by_actual_action": {kind.value: _empty_call_bucket() for kind in KITA_DECISION_KINDS},
+    }
+    action_distribution = {kind.value: 0 for kind in KITA_DECISION_KINDS}
+
+    for example, prediction in zip(examples, predictions, strict=True):
+        actual = example.action.kind
+        correct = prediction == actual
+        action_distribution[actual.value] += 1
+        _record_call_bucket(buckets["overall"], correct)
+        _record_call_bucket(buckets["by_actual_action"][actual.value], correct)
+
+    return {
+        "action_distribution": action_distribution,
+        **_finalize_call_buckets(buckets),
+    }
+
+
+def _kita_metrics(analysis: dict[str, Any]) -> dict[str, Any]:
+    action_recall = {
+        kind.value: analysis["by_actual_action"][kind.value]["accuracy"]
+        for kind in KITA_DECISION_KINDS
+    }
+    pass_recall = action_recall[ActionKind.PASS.value]
+    kita_recall = action_recall[ActionKind.KITA.value]
+    return {
+        "accuracy": analysis["overall"]["accuracy"],
+        "balanced_accuracy": _mean_defined((pass_recall, kita_recall)),
+        "pass_recall": pass_recall,
+        "kita_recall": kita_recall,
+        "action_recall": action_recall,
+    }
 
 
 RiichiPredictor = Callable[[RiichiExample], ActionKind]

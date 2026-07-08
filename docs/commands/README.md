@@ -1,9 +1,9 @@
 # Kenjaku Command Runbooks
 
-Generated and reviewed on 2026-07-07 from the current `argparse` command set.
+Generated and reviewed on 2026-07-08 from the current `argparse` command set.
 
-The CLI currently exposes 50 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 50 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 51 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 51 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 Root options apply before the subcommand; use `--global-seed SEED` to seed Python, NumPy,
 and PyTorch RNGs before command execution.
@@ -57,4 +57,5 @@ and PyTorch RNGs before command execution.
 - [`benchmark-call`](benchmark-call.md) - Compare deterministic call/pass baselines on one train/eval split.
 - [`benchmark-call-from-examples`](benchmark-call-from-examples.md) - Benchmark call/pass baselines from exported BC JSONL shards.
 - [`benchmark-riichi`](benchmark-riichi.md) - Compare deterministic riichi/pass baselines on one train/eval split.
+- [`benchmark-kita`](benchmark-kita.md) - Compare deterministic Sanma kita/pass baselines on one train/eval split.
 - [`benchmark-riichi-from-examples`](benchmark-riichi-from-examples.md) - Benchmark riichi/pass baselines from exported BC JSONL shards.

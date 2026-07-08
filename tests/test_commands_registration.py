@@ -55,6 +55,7 @@ EXPECTED_COMMANDS = (
     "benchmark-call",
     "benchmark-call-from-examples",
     "benchmark-riichi",
+    "benchmark-kita",
     "benchmark-riichi-from-examples",
 )
 
