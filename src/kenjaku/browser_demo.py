@@ -1,10 +1,39 @@
 from __future__ import annotations
 
+import json
+from hashlib import blake2b
 from pathlib import Path
 from typing import Any
 
 BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
 BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js")
+FIXTURE_WALL_SEED = "kenjaku-browser-demo-wall-v0"
+_FIXTURE_WALL_POOL = (
+    "5p",
+    "9s",
+    "4m",
+    "N",
+    "6s",
+    "1p",
+    "8m",
+    "P",
+    "7p",
+    "4s",
+    "2m",
+    "C",
+    "9p",
+    "5s",
+    "1m",
+    "F",
+)
+
+
+def fixture_wall(seed: str = FIXTURE_WALL_SEED) -> tuple[str, ...]:
+    keyed_tiles = []
+    for index, tile in enumerate(_FIXTURE_WALL_POOL):
+        key = blake2b(f"{seed}:{index}:{tile}".encode(), digest_size=8).hexdigest()
+        keyed_tiles.append((key, tile))
+    return tuple(tile for _key, tile in sorted(keyed_tiles))
 
 
 def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
@@ -376,12 +405,7 @@ const INITIAL_HANDS = [
   ["1s", "1s", "2s", "5s", "6s", "7s", "3m", "3m", "7m", "8m", "9m", "F", "F"],
   ["2m", "2m", "5m", "6m", "7m", "3p", "3p", "5p", "6p", "7p", "C", "C", "N"],
 ];
-const FIXTURE_WALL = [
-  "5p", "9s", "4m", "N",
-  "6s", "1p", "8m", "P",
-  "7p", "4s", "2m", "C",
-  "9p", "5s", "1m", "F",
-];
+const FIXTURE_WALL = __FIXTURE_WALL_JSON__;
 
 const state = {
   hands: [],
@@ -632,4 +656,4 @@ function textNode(value) {
 document.getElementById("restart-button").addEventListener("click", startHand);
 window.KenjakuDemo = { startHand, state };
 startHand();
-"""
+""".replace("__FIXTURE_WALL_JSON__", json.dumps(list(fixture_wall())))
