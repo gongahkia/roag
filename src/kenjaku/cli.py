@@ -62,6 +62,7 @@ from kenjaku.io import (
     write_accepted_replay_intake_jsonl,
     write_tenhou_mjai_files,
 )
+from kenjaku.logging import configure_logging
 from kenjaku.models import (
     CALL_DECISION_KINDS,
     CALL_LINEAR_V1_FEATURE_PROFILE,
@@ -335,6 +336,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--global-seed",
         help="seed Python, NumPy, and PyTorch RNGs before running a subcommand",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=("debug", "info", "warning", "error"),
+        default="warning",
+        help="minimum log level for diagnostic events",
+    )
+    parser.add_argument(
+        "--log-format",
+        choices=("text", "json"),
+        default="text",
+        help="diagnostic log format",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -2615,6 +2628,7 @@ def main(argv: list[str] | None = None) -> int:
     effective_argv = sys.argv[1:] if argv is None else argv
     configure_report_provenance(["kenjaku", *effective_argv])
     args = parser.parse_args(argv)
+    configure_logging(args.log_level, json=args.log_format == "json")
     if args.global_seed is not None:
         pin_seeds(args.global_seed)
 

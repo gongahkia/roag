@@ -5,6 +5,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from kenjaku.logging import get_logger
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.simulation.environment import resolve_sandbox_ruleset
 from kenjaku.training.ppo import (
@@ -15,6 +16,7 @@ from kenjaku.training.ppo import (
 
 POPULATION_SANDBOX_REPORT_KIND = "kenjaku-population-sandbox-report-v0"
 POPULATION_SANDBOX_SNAPSHOT_KIND = "kenjaku-population-sandbox-snapshot-v0"
+logger = get_logger(__name__)
 
 
 def train_population_sandbox(
@@ -72,12 +74,30 @@ def train_population_sandbox(
     if artifact_dir is not None:
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
+    logger.info(
+        "population training start",
+        extra={
+            "event": "population_training_start",
+            "pool_size": pool_size,
+            "generations": generations,
+            "candidates_per_generation": candidates_per_generation,
+        },
+    )
     pool: list[dict[str, Any]] = []
     snapshots: list[dict[str, Any]] = []
     matchups: list[dict[str, Any]] = []
     promotion_decisions: list[dict[str, Any]] = []
 
     for index in range(pool_size):
+        logger.debug(
+            "population initial snapshot start",
+            extra={
+                "event": "population_snapshot_start",
+                "snapshot_id": f"pool-{index}",
+                "generation": 0,
+                "role": "initial",
+            },
+        )
         snapshot = _train_population_snapshot(
             snapshot_id=f"pool-{index}",
             generation=0,
@@ -97,6 +117,14 @@ def train_population_sandbox(
         snapshots.append(snapshot)
 
     for snapshot in pool:
+        logger.debug(
+            "population initial snapshot evaluation start",
+            extra={
+                "event": "population_snapshot_evaluation_start",
+                "snapshot_id": snapshot["id"],
+                "generation": snapshot["generation"],
+            },
+        )
         evaluation = _evaluate_population_snapshot(
             snapshot,
             pool=pool,
@@ -112,9 +140,23 @@ def train_population_sandbox(
         matchups.extend(evaluation["matchups"])
 
     for generation in range(1, generations + 1):
+        logger.info(
+            "population generation start",
+            extra={"event": "population_generation_start", "generation": generation},
+        )
         for candidate_index in range(candidates_per_generation):
+            snapshot_id = f"gen-{generation}-candidate-{candidate_index}"
+            logger.debug(
+                "population candidate snapshot start",
+                extra={
+                    "event": "population_snapshot_start",
+                    "snapshot_id": snapshot_id,
+                    "generation": generation,
+                    "role": "candidate",
+                },
+            )
             candidate = _train_population_snapshot(
-                snapshot_id=f"gen-{generation}-candidate-{candidate_index}",
+                snapshot_id=snapshot_id,
                 generation=generation,
                 role="candidate",
                 seed=f"{seed}:generation:{generation}:candidate:{candidate_index}",
@@ -167,7 +209,26 @@ def train_population_sandbox(
             else:
                 candidate["role"] = "rejected"
             promotion_decisions.append(decision)
+            logger.info(
+                "population promotion decision",
+                extra={
+                    "event": "population_promotion_decision",
+                    "generation": generation,
+                    "candidate_id": candidate["id"],
+                    "promoted": promoted,
+                    "candidate_average_score": candidate_score,
+                    "replaced_average_score": replaced_score,
+                },
+            )
 
+    logger.info(
+        "population training complete",
+        extra={
+            "event": "population_training_complete",
+            "snapshots": len(snapshots),
+            "matchups": len(matchups),
+        },
+    )
     return {
         "kind": POPULATION_SANDBOX_REPORT_KIND,
         "seed": seed,

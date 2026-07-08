@@ -11,6 +11,7 @@ from time import perf_counter
 from typing import Any
 
 from kenjaku.core import TileType
+from kenjaku.logging import get_logger
 from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_device
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.training.history import normalize_training_history
@@ -43,6 +44,7 @@ PPO_TSUMO_ACTION_INDEX = 273
 PPO_RIICHI_ACTION_INDEX = 274
 PPO_KYUSHU_ACTION_INDEX = 275
 PPO_ACTION_DIM = 276
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -392,9 +394,28 @@ def train_ppo_sandbox(
     final_rollout_summary: dict[str, Any] | None = None
     warmup_rows: list[dict[str, Any]] = []
     started_at = perf_counter()
+    logger.info(
+        "ppo training start",
+        extra={
+            "event": "ppo_training_start",
+            "target_steps": target_steps,
+            "starting_environment_steps": starting_steps,
+            "rollout_games": rollout_games,
+            "device": str(resolved_device),
+        },
+    )
 
     while environment_steps < target_steps:
         update += 1
+        logger.debug(
+            "ppo update start",
+            extra={
+                "event": "ppo_update_start",
+                "update": update,
+                "environment_steps": environment_steps,
+                "target_steps": target_steps,
+            },
+        )
         rollout = collect_ppo_sandbox_rollout(
             games=rollout_games,
             max_rounds=max_rounds,
@@ -471,12 +492,33 @@ def train_ppo_sandbox(
         history.append(row)
         if metrics_callback is not None:
             metrics_callback({**row, "elapsed_seconds": elapsed_seconds})
+        logger.info(
+            "ppo update complete",
+            extra={
+                "event": "ppo_update_complete",
+                "update": update,
+                "environment_steps": environment_steps,
+                "policy_loss": float(train_metrics["policy_loss"]),
+                "value_loss": float(train_metrics["value_loss"]),
+                "action_accuracy": eval_metrics["action_accuracy"],
+                "elapsed_seconds": elapsed_seconds,
+            },
+        )
         final_metrics = train_metrics
         final_eval = eval_metrics
         final_rollout_summary = rollout_summary
 
     if final_metrics is None or final_eval is None or final_rollout_summary is None:
         raise RuntimeError("PPO training did not collect any rollout updates")
+    logger.info(
+        "ppo training complete",
+        extra={
+            "event": "ppo_training_complete",
+            "updates": update,
+            "environment_steps": environment_steps,
+            "elapsed_seconds": perf_counter() - started_at,
+        },
+    )
 
     report = _ppo_report(
         seed=seed,

@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.io import TenhouParseFailure
+from kenjaku.logging import get_logger
 from kenjaku.training.call_examples import CallExample
 from kenjaku.training.discard_examples import DiscardExample
 from kenjaku.training.riichi_examples import RiichiExample
@@ -17,6 +18,7 @@ BC_EXAMPLE_MANIFEST_KIND = "kenjaku-bc-example-manifest-v0"
 BC_DECISION_TYPES = ("discard", "call", "riichi")
 BcDecisionType = Literal["discard", "call", "riichi"]
 BcExample = DiscardExample | CallExample | RiichiExample
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,16 @@ def write_bc_example_row(
     sequence_index: int,
     example: BcExample,
 ) -> None:
+    logger.debug(
+        "bc example row write",
+        extra={
+            "event": "bc_example_row_write",
+            "decision_type": decision_type,
+            "source_file": str(source_file),
+            "source_file_index": source_file_index,
+            "sequence_index": sequence_index,
+        },
+    )
     payload = {
         "kind": BC_EXAMPLE_ROW_KIND,
         "decision_type": decision_type,
@@ -109,9 +121,26 @@ def read_bc_examples(
     if not example_files:
         raise FileNotFoundError(f"no {decision_type} BC example JSONL files found")
 
+    logger.info(
+        "bc examples load start",
+        extra={
+            "event": "bc_examples_load_start",
+            "decision_type": decision_type,
+            "files": len(example_files),
+            "limit": limit,
+        },
+    )
     examples: list[Any] = []
     total_examples = 0
     for file in example_files:
+        logger.debug(
+            "bc example file read start",
+            extra={
+                "event": "bc_example_file_read_start",
+                "decision_type": decision_type,
+                "path": str(file),
+            },
+        )
         with file.open(encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, start=1):
                 if not line.strip():
@@ -134,6 +163,16 @@ def read_bc_examples(
     elif decision_type not in decision_counts:
         decision_counts[decision_type] = total_examples
 
+    logger.info(
+        "bc examples load complete",
+        extra={
+            "event": "bc_examples_load_complete",
+            "decision_type": decision_type,
+            "files": len(example_files),
+            "total_examples": total_examples,
+            "returned_examples": len(examples),
+        },
+    )
     return BcExampleLoad(
         examples=examples,
         total_examples=total_examples,
@@ -226,6 +265,14 @@ def build_bc_manifest(
 
 
 def write_bc_manifest(path: Path, payload: dict[str, Any]) -> None:
+    logger.info(
+        "bc manifest write",
+        extra={
+            "event": "bc_manifest_write",
+            "path": str(path),
+            "shards": len(payload.get("shards", [])),
+        },
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

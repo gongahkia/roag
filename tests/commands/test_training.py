@@ -126,6 +126,81 @@ class TrainingCommandTests(CliCommandTests):
         self.assertEqual(json_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
         self.assertGreaterEqual(json_payload["training"]["environment_steps"], 8)
 
+    def test_train_ppo_sandbox_debug_logging_keeps_json_stdout_clean(self) -> None:
+        text_stdout = io.StringIO()
+        text_stderr = io.StringIO()
+        with contextlib.redirect_stdout(text_stdout), contextlib.redirect_stderr(text_stderr):
+            text_exit_code = main(
+                [
+                    "--log-level",
+                    "debug",
+                    "train-ppo-sandbox",
+                    "--total-steps",
+                    "8",
+                    "--rollout-games",
+                    "1",
+                    "--max-rounds",
+                    "1",
+                    "--max-turns-per-round",
+                    "8",
+                    "--ppo-epochs",
+                    "1",
+                    "--batch-size",
+                    "4",
+                    "--hidden-dim",
+                    "16",
+                    "--device",
+                    "cpu",
+                    "--json",
+                ]
+            )
+
+        json_stdout = io.StringIO()
+        json_stderr = io.StringIO()
+        with contextlib.redirect_stdout(json_stdout), contextlib.redirect_stderr(json_stderr):
+            json_exit_code = main(
+                [
+                    "--log-level",
+                    "debug",
+                    "--log-format",
+                    "json",
+                    "train-ppo-sandbox",
+                    "--total-steps",
+                    "8",
+                    "--rollout-games",
+                    "1",
+                    "--max-rounds",
+                    "1",
+                    "--max-turns-per-round",
+                    "8",
+                    "--ppo-epochs",
+                    "1",
+                    "--batch-size",
+                    "4",
+                    "--hidden-dim",
+                    "16",
+                    "--device",
+                    "cpu",
+                    "--json",
+                ]
+            )
+        json_payload = json.loads(json_stdout.getvalue())
+        stderr_objects = [
+            json.loads(line) for line in json_stderr.getvalue().splitlines() if line.startswith("{")
+        ]
+        log_records = [row for row in stderr_objects if row.get("level") == "DEBUG"]
+
+        self.assertEqual(text_exit_code, 0)
+        self.assertEqual(
+            json.loads(text_stdout.getvalue())["kind"], "kenjaku-ppo-sandbox-report-v0"
+        )
+        self.assertIn("level=DEBUG", text_stderr.getvalue())
+        self.assertIn("message=ppo update start", text_stderr.getvalue())
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(json_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
+        self.assertTrue(log_records)
+        self.assertTrue(any(row.get("event") == "ppo_update_start" for row in log_records))
+
     def test_train_population_sandbox_command_writes_report_and_artifacts(self) -> None:
         with TemporaryDirectory() as directory:
             report = Path(directory) / "population.json"
