@@ -28,3 +28,23 @@ Current consumers:
 
 - `kenjaku.browser_demo`
 - `kenjaku.training_dashboard`
+
+## Visual QA
+
+Generate deterministic fixture pages and capture desktop/mobile screenshots under ignored `runs/`:
+
+```bash
+PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh" \
+PYTHONPATH=src python3 scripts/visual_qa_static_pages.py --output-dir runs/visual-qa
+```
+
+The command writes pages, screenshots, and `visual-qa-manifest.json`. It fails on blank pages,
+missing local assets, severe viewport overflow, or screenshots that are not written. It uses only
+local fixture data and a caller-provided Playwright CLI; it does not fetch browser assets.
+
+For a no-browser fixture-generation smoke:
+
+```bash
+PYTHONPATH=src python3 scripts/visual_qa_static_pages.py \
+  --output-dir runs/visual-qa --generate-only
+```
