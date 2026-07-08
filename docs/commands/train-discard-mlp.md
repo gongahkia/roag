@@ -1,6 +1,6 @@
 # `train-discard-mlp`
 
-Generated from `argparse` help and reviewed on 2026-07-07.
+Generated from `argparse` help and reviewed on 2026-07-08.
 
 ## Purpose
 
@@ -12,12 +12,12 @@ Tenhou XML files or directories.
 
 ## Outputs
 
-Optional JSON report and best checkpoint.
+Optional JSON report, metrics JSONL, and best checkpoint.
 
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu --report runs/discard-mlp.json --checkpoint runs/discard-mlp.pt
+PYTHONPATH=src python3.13 -m kenjaku train-discard-mlp data/fixtures/tenhou --epochs 1 --batch-size 4 --device cpu --report runs/discard-mlp.json --metrics-jsonl runs/discard-mlp.metrics.jsonl --checkpoint runs/discard-mlp.pt
 ```
 
 ## Gotchas
@@ -35,9 +35,11 @@ usage: kenjaku train-discard-mlp [-h] [--epochs EPOCHS]
                                  [--eval-fraction EVAL_FRACTION]
                                  [--split-seed SPLIT_SEED] [--seed SEED]
                                  [--device {auto,cpu,mps,cuda}]
-                                 [--report REPORT] [--checkpoint CHECKPOINT]
-                                 [--skip-errors] [--parse-cache PARSE_CACHE]
-                                 [--jobs JOBS] [--source-label SOURCE_LABEL]
+                                 [--report REPORT]
+                                 [--metrics-jsonl METRICS_JSONL]
+                                 [--checkpoint CHECKPOINT] [--skip-errors]
+                                 [--parse-cache PARSE_CACHE] [--jobs JOBS]
+                                 [--source-label SOURCE_LABEL]
                                  [--source-command SOURCE_COMMAND]
                                  [--source-date SOURCE_DATE]
                                  paths [paths ...]
@@ -63,6 +65,8 @@ options:
   --device {auto,cpu,mps,cuda}
                         training device
   --report REPORT       optional path for a JSON training report artifact
+  --metrics-jsonl METRICS_JSONL
+                        optional path for per-epoch JSONL training metrics
   --checkpoint CHECKPOINT
                         optional path for the best PyTorch checkpoint artifact
   --skip-errors         record parse failures and continue with successfully

@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
@@ -15,7 +15,7 @@ from html import escape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import perf_counter
-from typing import Any, TypeVar
+from typing import Any, TextIO, TypeVar
 from urllib.parse import quote
 
 from kenjaku import __version__
@@ -848,6 +848,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--report",
         type=Path,
         help="optional path for a JSON PPO report artifact",
+    )
+    train_ppo.add_argument(
+        "--metrics-jsonl",
+        type=Path,
+        help="optional path for per-update JSONL training metrics",
     )
     train_ppo.add_argument(
         "--json",
@@ -1762,6 +1767,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional path for a JSON training report artifact",
     )
     train_mlp.add_argument(
+        "--metrics-jsonl",
+        type=Path,
+        help="optional path for per-epoch JSONL training metrics",
+    )
+    train_mlp.add_argument(
         "--checkpoint",
         type=Path,
         help="optional path for the best PyTorch checkpoint artifact",
@@ -1860,6 +1870,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--report",
         type=Path,
         help="optional path for a JSON training report artifact",
+    )
+    train_transformer.add_argument(
+        "--metrics-jsonl",
+        type=Path,
+        help="optional path for per-epoch JSONL training metrics",
     )
     train_transformer.add_argument(
         "--checkpoint",
@@ -3121,6 +3136,7 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
     pin_seeds(args.seed)
     try:
         from kenjaku.training.ppo import (
+            PPO_SANDBOX_POLICY_KIND,
             format_ppo_sandbox_report,
             save_ppo_sandbox_checkpoint,
             train_ppo_sandbox,
@@ -3129,36 +3145,43 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit("PPO sandbox trainer dependencies are unavailable") from error
 
     try:
-        result = train_ppo_sandbox(
-            total_steps=args.total_steps,
-            rollout_games=args.rollout_games,
-            max_rounds=args.max_rounds,
-            max_turns_per_round=args.max_turns_per_round,
-            seed=args.seed,
-            ruleset=args.ruleset,
-            rollout_discard_policy=args.rollout_discard_policy,
-            rollout_call_policy=args.rollout_call_policy,
-            rollout_riichi_policy=args.rollout_riichi_policy,
-            rollout_kan_policy=args.rollout_kan_policy,
-            rollout_kita_policy=args.rollout_kita_policy,
-            rollout_ron_policy=args.rollout_ron_policy,
-            ppo_epochs=args.ppo_epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.learning_rate,
-            hidden_dim=args.hidden_dim,
-            gamma=args.gamma,
-            gae_lambda=args.gae_lambda,
-            clip_epsilon=args.clip_epsilon,
-            entropy_coef=args.entropy_coef,
-            value_coef=args.value_coef,
-            max_grad_norm=args.max_grad_norm,
-            reward_scale=args.reward_scale,
-            supervised_warmup_epochs=args.supervised_warmup_epochs,
-            device=args.device,
-            torch_seed=args.torch_seed,
-            resume_checkpoint=args.resume,
-        )
-    except (RuntimeError, ValueError) as error:
+        with _TrainingMetricsJsonlSink(args.metrics_jsonl) as metrics_sink:
+            result = train_ppo_sandbox(
+                total_steps=args.total_steps,
+                rollout_games=args.rollout_games,
+                max_rounds=args.max_rounds,
+                max_turns_per_round=args.max_turns_per_round,
+                seed=args.seed,
+                ruleset=args.ruleset,
+                rollout_discard_policy=args.rollout_discard_policy,
+                rollout_call_policy=args.rollout_call_policy,
+                rollout_riichi_policy=args.rollout_riichi_policy,
+                rollout_kan_policy=args.rollout_kan_policy,
+                rollout_kita_policy=args.rollout_kita_policy,
+                rollout_ron_policy=args.rollout_ron_policy,
+                ppo_epochs=args.ppo_epochs,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
+                hidden_dim=args.hidden_dim,
+                gamma=args.gamma,
+                gae_lambda=args.gae_lambda,
+                clip_epsilon=args.clip_epsilon,
+                entropy_coef=args.entropy_coef,
+                value_coef=args.value_coef,
+                max_grad_norm=args.max_grad_norm,
+                reward_scale=args.reward_scale,
+                supervised_warmup_epochs=args.supervised_warmup_epochs,
+                device=args.device,
+                torch_seed=args.torch_seed,
+                resume_checkpoint=args.resume,
+                metrics_callback=lambda row: metrics_sink.emit(
+                    _ppo_training_metric_event(
+                        model=PPO_SANDBOX_POLICY_KIND,
+                        row=row,
+                    )
+                ),
+            )
+    except (RuntimeError, ValueError, OSError) as error:
         raise SystemExit(str(error)) from error
 
     if args.checkpoint is not None:
@@ -5111,6 +5134,7 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
     pin_seeds(args.seed)
     try:
         from kenjaku.models.torch_discard import (
+            DISCARD_MLP_MODEL_KIND,
             require_torch,
             save_discard_mlp_checkpoint,
             train_discard_mlp,
@@ -5134,17 +5158,24 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
         seed=args.split_seed,
     )
     try:
-        result = train_discard_mlp(
-            train_examples,
-            eval_examples,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.learning_rate,
-            hidden_dim=args.hidden_dim,
-            device=args.device,
-            seed=args.seed,
-        )
-    except ValueError as error:
+        with _TrainingMetricsJsonlSink(args.metrics_jsonl) as metrics_sink:
+            result = train_discard_mlp(
+                train_examples,
+                eval_examples,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
+                hidden_dim=args.hidden_dim,
+                device=args.device,
+                seed=args.seed,
+                metrics_callback=lambda row: metrics_sink.emit(
+                    _discard_training_metric_event(
+                        model=DISCARD_MLP_MODEL_KIND,
+                        row=row,
+                    )
+                ),
+            )
+    except (OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
 
     print(f"examples: {len(examples)}")
@@ -5208,6 +5239,7 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
     try:
         from kenjaku.models.torch_discard import require_torch
         from kenjaku.models.torch_transformer import (
+            DISCARD_TRANSFORMER_POLICY_KIND,
             MahjongTransformerConfig,
             save_discard_transformer_checkpoint,
             train_discard_transformer,
@@ -5239,18 +5271,25 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
         dropout=args.dropout,
     )
     try:
-        result = train_discard_transformer(
-            train_examples,
-            eval_examples,
-            config=config,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.learning_rate,
-            device=args.device,
-            seed=args.seed,
-            value_head=args.value_head,
-        )
-    except ValueError as error:
+        with _TrainingMetricsJsonlSink(args.metrics_jsonl) as metrics_sink:
+            result = train_discard_transformer(
+                train_examples,
+                eval_examples,
+                config=config,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
+                device=args.device,
+                seed=args.seed,
+                value_head=args.value_head,
+                metrics_callback=lambda row: metrics_sink.emit(
+                    _discard_training_metric_event(
+                        model=DISCARD_TRANSFORMER_POLICY_KIND,
+                        row=row,
+                    )
+                ),
+            )
+    except (OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
 
     print(f"examples: {len(examples)}")
@@ -8808,6 +8847,98 @@ def _format_optional_accuracy(accuracy: float | None) -> str:
 
 def _format_optional_float(value: Any) -> str:
     return "n/a" if value is None else f"{float(value):.4f}"
+
+
+def _optional_metric_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _metric_mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _train_epoch_metric_event(
+    *,
+    model: str,
+    epoch: Any,
+    train_loss: Any,
+    eval_loss: Any,
+    eval_accuracy: Any,
+    elapsed_seconds: Any,
+) -> dict[str, Any]:
+    elapsed = _optional_metric_float(elapsed_seconds)
+    return {
+        "event": "train_epoch",
+        "model": model,
+        "epoch": int(epoch),
+        "train_loss": _optional_metric_float(train_loss),
+        "eval_loss": _optional_metric_float(eval_loss),
+        "eval_accuracy": _optional_metric_float(eval_accuracy),
+        "elapsed_seconds": 0.0 if elapsed is None else elapsed,
+    }
+
+
+@dataclass(slots=True)
+class _TrainingMetricsJsonlSink:
+    path: Path | None
+    handle: TextIO | None = None
+
+    def __enter__(self) -> _TrainingMetricsJsonlSink:
+        if self.path is not None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.handle = self.path.open("w", encoding="utf-8")
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        if self.handle is not None:
+            self.handle.close()
+
+    def emit(self, event: Mapping[str, Any]) -> None:
+        line = json.dumps(dict(event), sort_keys=True, separators=(",", ":"))
+        print(line, file=sys.stderr, flush=True)
+        if self.handle is not None:
+            self.handle.write(f"{line}\n")
+            self.handle.flush()
+
+
+def _discard_training_metric_event(
+    *,
+    model: str,
+    row: Mapping[str, Any],
+) -> dict[str, Any]:
+    metrics = _metric_mapping(row.get("metrics"))
+    train_metrics = _metric_mapping(metrics.get("train"))
+    eval_metrics = _metric_mapping(metrics.get("eval"))
+    return _train_epoch_metric_event(
+        model=model,
+        epoch=row["epoch"],
+        train_loss=train_metrics.get("loss"),
+        eval_loss=eval_metrics.get("loss"),
+        eval_accuracy=eval_metrics.get("accuracy"),
+        elapsed_seconds=row.get("elapsed_seconds"),
+    )
+
+
+def _ppo_training_metric_event(
+    *,
+    model: str,
+    row: Mapping[str, Any],
+) -> dict[str, Any]:
+    losses = _metric_mapping(row.get("losses"))
+    evaluation = _metric_mapping(row.get("evaluation"))
+    return _train_epoch_metric_event(
+        model=model,
+        epoch=row["update"],
+        train_loss=losses.get("loss"),
+        eval_loss=evaluation.get("action_nll"),
+        eval_accuracy=evaluation.get("action_accuracy"),
+        elapsed_seconds=row.get("elapsed_seconds"),
+    )
 
 
 def _format_optional_delta(delta: float | None) -> str:

@@ -16,9 +16,11 @@ class TrainingCommandTests(CliCommandTests):
         with TemporaryDirectory() as directory:
             report = Path(directory) / "ppo.json"
             checkpoint = Path(directory) / "ppo-checkpoint.json"
+            metrics_jsonl = Path(directory) / "ppo-metrics.jsonl"
 
             text_stdout = io.StringIO()
-            with contextlib.redirect_stdout(text_stdout):
+            text_stderr = io.StringIO()
+            with contextlib.redirect_stdout(text_stdout), contextlib.redirect_stderr(text_stderr):
                 text_exit_code = main(
                     [
                         "train-ppo-sandbox",
@@ -44,12 +46,19 @@ class TrainingCommandTests(CliCommandTests):
                         str(report),
                         "--checkpoint",
                         str(checkpoint),
+                        "--metrics-jsonl",
+                        str(metrics_jsonl),
                     ]
                 )
             report_payload = json.loads(report.read_text(encoding="utf-8"))
+            metric_lines = [
+                line for line in text_stderr.getvalue().splitlines() if line.startswith("{")
+            ]
+            metric_file_lines = metrics_jsonl.read_text(encoding="utf-8").splitlines()
+            metric_events = [json.loads(line) for line in metric_lines]
 
             json_stdout = io.StringIO()
-            with contextlib.redirect_stdout(json_stdout):
+            with contextlib.redirect_stdout(json_stdout), contextlib.redirect_stderr(io.StringIO()):
                 json_exit_code = main(
                     [
                         "train-ppo-sandbox",
@@ -91,6 +100,28 @@ class TrainingCommandTests(CliCommandTests):
         self.assertTrue(report_payload["capabilities"]["checkpointing"])
         self.assertTrue(report_payload["capabilities"]["resume_support"])
         self.assertFalse(report_payload["capabilities"]["learned_policy_environment_integration"])
+        self.assertEqual(metric_file_lines, metric_lines)
+        self.assertEqual(len(metric_events), len(report_payload["training"]["history"]))
+        for event, row in zip(metric_events, report_payload["training"]["history"], strict=True):
+            self.assertEqual(
+                set(event),
+                {
+                    "event",
+                    "model",
+                    "epoch",
+                    "train_loss",
+                    "eval_loss",
+                    "eval_accuracy",
+                    "elapsed_seconds",
+                },
+            )
+            self.assertEqual(event["event"], "train_epoch")
+            self.assertEqual(event["model"], "sandbox-linear-ppo-actor-critic-v0")
+            self.assertEqual(event["epoch"], row["update"])
+            self.assertIsInstance(event["train_loss"], float)
+            self.assertIsInstance(event["eval_loss"], float)
+            self.assertIsInstance(event["eval_accuracy"], float)
+            self.assertIsInstance(event["elapsed_seconds"], float)
         self.assertEqual(json_exit_code, 0)
         self.assertEqual(json_payload["kind"], "kenjaku-ppo-sandbox-report-v0")
         self.assertGreaterEqual(json_payload["training"]["environment_steps"], 8)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from time import perf_counter
 from typing import Any, cast
 
 from kenjaku.core import TileType
@@ -143,6 +144,7 @@ def train_discard_mlp(
     hidden_dim: int,
     device: str = "auto",
     seed: int = 0,
+    metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> DiscardMlpTrainingResult:
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     discard_mlp_class, _dataset_class = _torch_discard_classes()
@@ -179,6 +181,7 @@ def train_discard_mlp(
     best_model_state: dict[str, Any] = {}
     final_train_metrics: dict[str, int | float | None] | None = None
     final_eval_metrics: dict[str, int | float | None] | None = None
+    started_at = perf_counter()
 
     def record_epoch(epoch: int) -> None:
         nonlocal best_epoch
@@ -200,6 +203,7 @@ def train_discard_mlp(
             batch_size=batch_size,
             device=resolved_device,
         )
+        elapsed_seconds = perf_counter() - started_at
         row = {
             "epoch": epoch,
             "metrics": {
@@ -208,6 +212,8 @@ def train_discard_mlp(
             },
         }
         history.append(row)
+        if metrics_callback is not None:
+            metrics_callback({**row, "elapsed_seconds": elapsed_seconds})
         final_train_metrics = train_metrics
         final_eval_metrics = eval_metrics
 

@@ -1,6 +1,6 @@
 # `train-discard-transformer`
 
-Generated from `argparse` help and reviewed on 2026-07-07.
+Generated from `argparse` help and reviewed on 2026-07-08.
 
 ## Purpose
 
@@ -12,12 +12,12 @@ Tenhou XML files or directories.
 
 ## Outputs
 
-Optional JSON report and best checkpoint.
+Optional JSON report, metrics JSONL, and best checkpoint.
 
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku train-discard-transformer data/fixtures/tenhou --epochs 1 --batch-size 2 --device cpu --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --report runs/discard-transformer.json --checkpoint runs/discard-transformer.pt
+PYTHONPATH=src python3.13 -m kenjaku train-discard-transformer data/fixtures/tenhou --epochs 1 --batch-size 2 --device cpu --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --report runs/discard-transformer.json --metrics-jsonl runs/discard-transformer.metrics.jsonl --checkpoint runs/discard-transformer.pt
 ```
 
 ## Gotchas
@@ -41,6 +41,7 @@ usage: kenjaku train-discard-transformer [-h] [--epochs EPOCHS]
                                          [--seed SEED]
                                          [--device {auto,cpu,mps,cuda}]
                                          [--report REPORT]
+                                         [--metrics-jsonl METRICS_JSONL]
                                          [--checkpoint CHECKPOINT]
                                          [--skip-errors]
                                          [--parse-cache PARSE_CACHE]
@@ -79,6 +80,8 @@ options:
   --device {auto,cpu,mps,cuda}
                         training device
   --report REPORT       optional path for a JSON training report artifact
+  --metrics-jsonl METRICS_JSONL
+                        optional path for per-epoch JSONL training metrics
   --checkpoint CHECKPOINT
                         optional path for the best PyTorch checkpoint artifact
   --skip-errors         record parse failures and continue with successfully

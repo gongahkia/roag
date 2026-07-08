@@ -20,7 +20,9 @@ class TransformerCommandTests(CliCommandTests):
 
         with TemporaryDirectory() as directory:
             report = Path(directory) / "transformer.json"
-            with contextlib.redirect_stdout(stdout):
+            metrics_jsonl = Path(directory) / "transformer-metrics.jsonl"
+            stderr = io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "train-discard-transformer",
@@ -50,11 +52,16 @@ class TransformerCommandTests(CliCommandTests):
                         "cpu",
                         "--report",
                         str(report),
+                        "--metrics-jsonl",
+                        str(metrics_jsonl),
                         "--source-label",
                         "fixture-transformer",
                     ]
                 )
             payload = json.loads(report.read_text(encoding="utf-8"))
+            metric_lines = [line for line in stderr.getvalue().splitlines() if line.startswith("{")]
+            metric_file_lines = metrics_jsonl.read_text(encoding="utf-8").splitlines()
+            metric_events = [json.loads(line) for line in metric_lines]
 
         self.assertEqual(exit_code, 0)
         self.assertIn("device: cpu", stdout.getvalue())
@@ -80,6 +87,28 @@ class TransformerCommandTests(CliCommandTests):
         self.assertEqual(payload["training_history"]["step_unit"], "epoch")
         self.assertEqual(payload["training_history"]["records"][0]["step"], 1)
         self.assertEqual(len(payload["training_history"]["curves"]["eval_accuracy"]), 1)
+        self.assertEqual(metric_file_lines, metric_lines)
+        self.assertEqual(len(metric_events), len(payload["training"]["history"]))
+        for event, row in zip(metric_events, payload["training"]["history"], strict=True):
+            self.assertEqual(
+                set(event),
+                {
+                    "event",
+                    "model",
+                    "epoch",
+                    "train_loss",
+                    "eval_loss",
+                    "eval_accuracy",
+                    "elapsed_seconds",
+                },
+            )
+            self.assertEqual(event["event"], "train_epoch")
+            self.assertEqual(event["model"], "discard-transformer-policy-v0")
+            self.assertEqual(event["epoch"], row["epoch"])
+            self.assertIsInstance(event["train_loss"], float)
+            self.assertIsInstance(event["eval_loss"], float)
+            self.assertIsInstance(event["eval_accuracy"], float)
+            self.assertIsInstance(event["elapsed_seconds"], float)
         self.assertEqual(payload["metrics"]["train"]["examples"], 3)
         self.assertEqual(payload["metrics"]["eval"]["examples"], 1)
         self.assertIsNone(payload["artifacts"]["checkpoint_path"])

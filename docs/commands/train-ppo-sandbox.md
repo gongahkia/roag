@@ -1,6 +1,6 @@
 # `train-ppo-sandbox`
 
-Generated from `argparse` help and reviewed on 2026-07-07.
+Generated from `argparse` help and reviewed on 2026-07-08.
 
 ## Purpose
 
@@ -12,12 +12,12 @@ Synthetic sandbox rollouts generated during the run.
 
 ## Outputs
 
-Optional JSON report and checkpoint artifact.
+Optional JSON report, metrics JSONL, and checkpoint artifact.
 
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku train-ppo-sandbox --total-steps 128 --rollout-games 1 --report runs/ppo-sandbox.json --checkpoint runs/ppo-sandbox.json.ckpt --json
+PYTHONPATH=src python3.13 -m kenjaku train-ppo-sandbox --total-steps 128 --rollout-games 1 --report runs/ppo-sandbox.json --metrics-jsonl runs/ppo-sandbox.metrics.jsonl --checkpoint runs/ppo-sandbox.json.ckpt --json
 ```
 
 ## Gotchas
@@ -54,7 +54,8 @@ usage: kenjaku train-ppo-sandbox [-h] [--total-steps TOTAL_STEPS]
                                  [--model-seed TORCH_SEED]
                                  [--device {auto,cpu,cuda,mps}]
                                  [--checkpoint CHECKPOINT] [--resume RESUME]
-                                 [--report REPORT] [--json]
+                                 [--report REPORT]
+                                 [--metrics-jsonl METRICS_JSONL] [--json]
 
 options:
   -h, --help            show this help message and exit
@@ -113,5 +114,7 @@ options:
                         optional path for the PPO checkpoint artifact
   --resume RESUME       optional PPO checkpoint path to resume from
   --report REPORT       optional path for a JSON PPO report artifact
+  --metrics-jsonl METRICS_JSONL
+                        optional path for per-update JSONL training metrics
   --json                emit the PPO report as JSON instead of text
 ```

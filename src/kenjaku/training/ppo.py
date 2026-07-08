@@ -4,9 +4,10 @@ import json
 import math
 import random
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from kenjaku.core import TileType
@@ -333,6 +334,7 @@ def train_ppo_sandbox(
     device: str = "auto",
     torch_seed: int = 0,
     resume_checkpoint: str | Path | None = None,
+    metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> SandboxPpoTrainingResult:
     _validate_ppo_hyperparameters(
         total_steps=total_steps,
@@ -389,6 +391,7 @@ def train_ppo_sandbox(
     final_eval: dict[str, Any] | None = None
     final_rollout_summary: dict[str, Any] | None = None
     warmup_rows: list[dict[str, Any]] = []
+    started_at = perf_counter()
 
     while environment_steps < target_steps:
         update += 1
@@ -456,6 +459,7 @@ def train_ppo_sandbox(
         )
         environment_steps += len(rollout.transitions)
         rollout_summary = _rollout_summary(rollout.report)
+        elapsed_seconds = perf_counter() - started_at
         row = {
             "update": update,
             "environment_steps": len(rollout.transitions),
@@ -465,6 +469,8 @@ def train_ppo_sandbox(
             "rollout": rollout_summary,
         }
         history.append(row)
+        if metrics_callback is not None:
+            metrics_callback({**row, "elapsed_seconds": elapsed_seconds})
         final_metrics = train_metrics
         final_eval = eval_metrics
         final_rollout_summary = rollout_summary
