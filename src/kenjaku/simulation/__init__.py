@@ -1,5 +1,12 @@
 """Offline simulation harnesses."""
 
+from kenjaku.simulation.config import (
+    SandboxRuleConfig,
+    default_sandbox_rule_config,
+    load_sandbox_rule_config,
+    tenhou_3p_default,
+    tenhou_4p_default,
+)
 from kenjaku.simulation.environment import (
     HONBA_RON_POINTS,
     HONBA_TSUMO_POINTS_PER_LOSER,
@@ -112,4 +119,9 @@ __all__ = [
     "HONBA_TSUMO_POINTS_PER_LOSER",
     "run_self_play_match_sandbox",
     "run_self_play_sandbox",
+    "SandboxRuleConfig",
+    "default_sandbox_rule_config",
+    "load_sandbox_rule_config",
+    "tenhou_3p_default",
+    "tenhou_4p_default",
 ]

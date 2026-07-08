@@ -7,6 +7,7 @@ from typing import Any
 
 from kenjaku.logging import get_logger
 from kenjaku.simulation import run_self_play_match_sandbox
+from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.environment import resolve_sandbox_ruleset
 from kenjaku.training.ppo import (
     SandboxPpoTrainingResult,
@@ -30,6 +31,7 @@ def train_population_sandbox(
     max_turns_per_round: int,
     seed: str,
     ruleset: str = "tenhou-4p",
+    rule_config: SandboxRuleConfig | None = None,
     ppo_epochs: int = 1,
     batch_size: int = 64,
     learning_rate: float = 0.001,
@@ -40,6 +42,8 @@ def train_population_sandbox(
     promotion_margin: float = 0.0,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
+    if rule_config is not None:
+        ruleset = rule_config.ruleset
     if pool_size < 4:
         raise ValueError("pool_size must be at least 4")
     if generations <= 0:
@@ -107,6 +111,7 @@ def train_population_sandbox(
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
             ruleset=rules.name,
+            rule_config=rule_config,
             ppo_epochs=ppo_epochs,
             batch_size=batch_size,
             learning_rate=learning_rate,
@@ -132,6 +137,7 @@ def train_population_sandbox(
             matchups_per_candidate=matchups_per_candidate,
             seed=f"{seed}:initial-eval:{snapshot['id']}",
             ruleset=rules.name,
+            rule_config=rule_config,
             evaluation_games=evaluation_games,
             evaluation_max_rounds=eval_rounds,
             evaluation_max_turns_per_round=eval_turns,
@@ -164,6 +170,7 @@ def train_population_sandbox(
                 max_rounds=max_rounds,
                 max_turns_per_round=max_turns_per_round,
                 ruleset=rules.name,
+                rule_config=rule_config,
                 ppo_epochs=ppo_epochs,
                 batch_size=batch_size,
                 learning_rate=learning_rate,
@@ -177,6 +184,7 @@ def train_population_sandbox(
                 matchups_per_candidate=matchups_per_candidate,
                 seed=f"{seed}:generation:{generation}:candidate:{candidate_index}:eval",
                 ruleset=rules.name,
+                rule_config=rule_config,
                 evaluation_games=evaluation_games,
                 evaluation_max_rounds=eval_rounds,
                 evaluation_max_turns_per_round=eval_turns,
@@ -329,6 +337,7 @@ def _train_population_snapshot(
     max_rounds: int,
     max_turns_per_round: int,
     ruleset: str,
+    rule_config: SandboxRuleConfig | None,
     ppo_epochs: int,
     batch_size: int,
     learning_rate: float,
@@ -342,6 +351,7 @@ def _train_population_snapshot(
         max_turns_per_round=max_turns_per_round,
         seed=seed,
         ruleset=ruleset,
+        rule_config=rule_config,
         ppo_epochs=ppo_epochs,
         batch_size=batch_size,
         learning_rate=learning_rate,
@@ -391,6 +401,7 @@ def _evaluate_population_snapshot(
     matchups_per_candidate: int,
     seed: str,
     ruleset: str,
+    rule_config: SandboxRuleConfig | None,
     evaluation_games: int,
     evaluation_max_rounds: int,
     evaluation_max_turns_per_round: int,
@@ -414,6 +425,7 @@ def _evaluate_population_snapshot(
             max_turns_per_round=evaluation_max_turns_per_round,
             seed=f"{seed}:matchup:{matchup_index}:rollout",
             ruleset=ruleset,
+            rule_config=rule_config,
             ron_policy="pass",
         )
         metrics = _candidate_metrics_from_match_report(report, players=players)

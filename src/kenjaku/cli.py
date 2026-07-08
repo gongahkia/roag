@@ -122,6 +122,7 @@ from kenjaku.simulation import (
     run_self_play_match_sandbox,
     run_self_play_sandbox,
 )
+from kenjaku.simulation.config import SandboxRuleConfig, load_sandbox_rule_config
 from kenjaku.status import build_status_payload, format_status_text
 from kenjaku.training import (
     BC_DECISION_TYPES,
@@ -593,6 +594,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="sandbox static tile set and player count",
     )
     self_play.add_argument(
+        "--rule-config",
+        type=Path,
+        help="optional JSON/YAML sandbox rule config",
+    )
+    self_play.add_argument(
         "--reward-mode",
         choices=SELF_PLAY_SANDBOX_REWARD_MODES,
         default="terminal",
@@ -652,6 +658,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=SELF_PLAY_SANDBOX_RULESETS,
         default="tenhou-4p",
         help="sandbox static tile set and player count",
+    )
+    self_play_match.add_argument(
+        "--rule-config",
+        type=Path,
+        help="optional JSON/YAML sandbox rule config",
     )
     self_play_match.add_argument(
         "--discard-policy",
@@ -749,6 +760,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=SELF_PLAY_SANDBOX_RULESETS,
         default="tenhou-4p",
         help="sandbox static tile set and player count",
+    )
+    train_ppo.add_argument(
+        "--rule-config",
+        type=Path,
+        help="optional JSON/YAML sandbox rule config",
     )
     train_ppo.add_argument(
         "--rollout-discard-policy",
@@ -925,6 +941,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=SELF_PLAY_SANDBOX_RULESETS,
         default="tenhou-4p",
         help="sandbox static tile set and player count",
+    )
+    train_population.add_argument(
+        "--rule-config",
+        type=Path,
+        help="optional JSON/YAML sandbox rule config",
     )
     train_population.add_argument(
         "--ppo-epochs",
@@ -3075,15 +3096,23 @@ def _replay_viewer(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_rule_config_arg(args: argparse.Namespace) -> SandboxRuleConfig | None:
+    if args.rule_config is None:
+        return None
+    return load_sandbox_rule_config(args.rule_config)
+
+
 def _self_play_sandbox(args: argparse.Namespace) -> int:
     pin_seeds(args.seed)
     try:
+        rule_config = _load_rule_config_arg(args)
         report = run_self_play_sandbox(
             episodes=args.episodes,
             max_turns=args.max_turns,
             seed=args.seed,
             policy=args.policy,
             ruleset=args.ruleset,
+            rule_config=rule_config,
             reward_mode=args.reward_mode,
             include_trajectories=args.include_trajectories,
             stop_on_tsumo=args.stop_on_tsumo,
@@ -3107,12 +3136,14 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
     pin_seeds(args.seed)
     include_trajectories = args.include_trajectories or args.trajectory_jsonl is not None
     try:
+        rule_config = _load_rule_config_arg(args)
         report = run_self_play_match_sandbox(
             games=args.games,
             max_rounds=args.max_rounds,
             max_turns_per_round=args.max_turns_per_round,
             seed=args.seed,
             ruleset=args.ruleset,
+            rule_config=rule_config,
             discard_policy=args.discard_policy,
             call_policy=args.call_policy,
             riichi_policy=args.riichi_policy,
@@ -3159,6 +3190,7 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit("PPO sandbox trainer dependencies are unavailable") from error
 
     try:
+        rule_config = _load_rule_config_arg(args)
         with _TrainingMetricsJsonlSink(args.metrics_jsonl) as metrics_sink:
             result = train_ppo_sandbox(
                 total_steps=args.total_steps,
@@ -3167,6 +3199,7 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
                 max_turns_per_round=args.max_turns_per_round,
                 seed=args.seed,
                 ruleset=args.ruleset,
+                rule_config=rule_config,
                 rollout_discard_policy=args.rollout_discard_policy,
                 rollout_call_policy=args.rollout_call_policy,
                 rollout_riichi_policy=args.rollout_riichi_policy,
@@ -3224,6 +3257,7 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
         raise SystemExit("population sandbox trainer dependencies are unavailable") from error
 
     try:
+        rule_config = _load_rule_config_arg(args)
         report = train_population_sandbox(
             pool_size=args.pool_size,
             generations=args.generations,
@@ -3234,6 +3268,7 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
             max_turns_per_round=args.max_turns_per_round,
             seed=args.seed,
             ruleset=args.ruleset,
+            rule_config=rule_config,
             ppo_epochs=args.ppo_epochs,
             batch_size=args.batch_size,
             learning_rate=args.learning_rate,

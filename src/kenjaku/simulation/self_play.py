@@ -6,6 +6,7 @@ from hashlib import blake2b
 from typing import Any
 
 from kenjaku.core import Action, ActionKind, RuleSet, Tile, TileType
+from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.environment import (
     SANDBOX_RULESETS,
     SandboxEnvironmentState,
@@ -66,6 +67,7 @@ def run_self_play_match_sandbox(
     max_turns_per_round: int,
     seed: str,
     ruleset: str = "tenhou-4p",
+    rule_config: SandboxRuleConfig | None = None,
     discard_policy: str = "drawn",
     call_policy: str = "pass",
     riichi_policy: str = "pass",
@@ -88,6 +90,8 @@ def run_self_play_match_sandbox(
     _validate_match_action_policy("kita", kita_policy)
     if ron_policy not in SELF_PLAY_MATCH_RON_POLICIES:
         raise ValueError("unsupported match ron policy: " + ron_policy)
+    if rule_config is not None:
+        ruleset = rule_config.ruleset
     rules = resolve_sandbox_ruleset(ruleset)
     policy_counts = [0] * 34
     policies = {
@@ -110,6 +114,7 @@ def run_self_play_match_sandbox(
             game_index=game_index,
             seed=game_seed,
             rules=rules,
+            rule_config=rule_config,
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
             policies=policies,
@@ -167,6 +172,7 @@ def run_self_play_sandbox(
     seed: str,
     policy: str = "random",
     ruleset: str = "tenhou-4p",
+    rule_config: SandboxRuleConfig | None = None,
     reward_mode: str = "terminal",
     include_trajectories: bool = False,
     stop_on_tsumo: bool = False,
@@ -179,6 +185,8 @@ def run_self_play_sandbox(
         raise ValueError("unsupported self-play sandbox policy: " + policy)
     if reward_mode not in SELF_PLAY_SANDBOX_REWARD_MODES:
         raise ValueError("unsupported self-play sandbox reward mode: " + reward_mode)
+    if rule_config is not None:
+        ruleset = rule_config.ruleset
     rules = resolve_sandbox_ruleset(ruleset)
 
     policy_counts = [0] * 34
@@ -197,6 +205,7 @@ def run_self_play_sandbox(
             policy=policy,
             reward_mode=reward_mode,
             rules=rules,
+            rule_config=rule_config,
             policy_counts=policy_counts,
             include_trajectory=include_trajectories,
             stop_on_tsumo=stop_on_tsumo,
@@ -376,13 +385,14 @@ def _simulate_match_game(
     game_index: int,
     seed: int,
     rules: RuleSet,
+    rule_config: SandboxRuleConfig | None,
     max_rounds: int,
     max_turns_per_round: int,
     policies: dict[str, str],
     policy_counts: list[int],
     include_trajectory: bool,
 ) -> dict[str, Any]:
-    state = initial_sandbox_environment(ruleset=rules.name, seed=seed)
+    state = initial_sandbox_environment(ruleset=rules.name, seed=seed, rule_config=rule_config)
     decisions: list[dict[str, Any]] = []
     round_summaries: list[dict[str, Any]] = []
 
@@ -737,11 +747,12 @@ def _simulate_episode(
     policy: str,
     reward_mode: str,
     rules: RuleSet,
+    rule_config: SandboxRuleConfig | None,
     policy_counts: list[int],
     include_trajectory: bool,
     stop_on_tsumo: bool,
 ) -> dict[str, Any]:
-    state = initial_sandbox_environment(ruleset=rules.name, seed=seed)
+    state = initial_sandbox_environment(ruleset=rules.name, seed=seed, rule_config=rule_config)
     decisions: list[SelfPlaySandboxDecision] = []
     seat_decisions = [0] * rules.players
     discard_counts: Counter[str] = Counter()

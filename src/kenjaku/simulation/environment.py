@@ -23,118 +23,57 @@ from kenjaku.core import (
     yaku_han_for_names,
     yakuman_multiplier_for_names,
 )
+from kenjaku.simulation.config import (
+    SANDBOX_RULESETS as _SANDBOX_RULESETS,
+)
+from kenjaku.simulation.config import (
+    SandboxRuleConfig,
+    default_sandbox_rule_config,
+    tenhou_3p_default,
+    tenhou_4p_default,
+)
 
 SANDBOX_ENVIRONMENT_KIND = "kenjaku-sandbox-environment-v0"
-SANDBOX_RULESETS = ("tenhou-4p", "tenhou-3p")
-SANDBOX_INITIAL_POINTS = 25000
-SANDBOX_3P_INITIAL_POINTS = 35000
-SANDBOX_RETURN_POINTS = 30000
-SANDBOX_3P_RETURN_POINTS = 40000
-SANDBOX_4P_UMA_BY_RANK = (20.0, 10.0, -10.0, -20.0)
-SANDBOX_3P_UMA_BY_RANK = (20.0, 0.0, -20.0)
-RIICHI_DEPOSIT_POINTS = 1000
-HONBA_RON_POINTS = 300
-HONBA_TSUMO_POINTS_PER_LOSER = 100
-SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = 3000
-SANDBOX_DEAD_WALL_TILES = 14
-SANDBOX_3P_REPLACEMENT_TILES = 8
-SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = SANDBOX_DEAD_WALL_TILES - SANDBOX_3P_REPLACEMENT_TILES
-SANDBOX_INITIAL_DORA_INDICATORS = 1
-SANDBOX_SCORE_PAYMENT_MODEL = "exact-riichi-score-v0"
-SANDBOX_KITA_TILE = TileType.parse("N")
-SANDBOX_SEAT_WINDS = (
-    TileType.parse("E"),
-    TileType.parse("S"),
-    TileType.parse("W"),
-    TileType.parse("N"),
+SANDBOX_RULESETS = _SANDBOX_RULESETS
+_TENHOU_4P_RULE_CONFIG = tenhou_4p_default()
+_TENHOU_3P_RULE_CONFIG = tenhou_3p_default()
+SANDBOX_INITIAL_POINTS = _TENHOU_4P_RULE_CONFIG.initial_points
+SANDBOX_3P_INITIAL_POINTS = _TENHOU_3P_RULE_CONFIG.initial_points
+SANDBOX_RETURN_POINTS = _TENHOU_4P_RULE_CONFIG.return_points
+SANDBOX_3P_RETURN_POINTS = _TENHOU_3P_RULE_CONFIG.return_points
+SANDBOX_4P_UMA_BY_RANK = _TENHOU_4P_RULE_CONFIG.uma_by_rank
+SANDBOX_3P_UMA_BY_RANK = _TENHOU_3P_RULE_CONFIG.uma_by_rank
+RIICHI_DEPOSIT_POINTS = _TENHOU_4P_RULE_CONFIG.riichi_deposit_points
+HONBA_RON_POINTS = _TENHOU_4P_RULE_CONFIG.honba_ron_points
+HONBA_TSUMO_POINTS_PER_LOSER = _TENHOU_4P_RULE_CONFIG.honba_tsumo_points_per_loser
+SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = _TENHOU_4P_RULE_CONFIG.exhaustive_draw_noten_pool
+SANDBOX_DEAD_WALL_TILES = _TENHOU_4P_RULE_CONFIG.dead_wall_tiles
+SANDBOX_3P_REPLACEMENT_TILES = _TENHOU_3P_RULE_CONFIG.replacement_tiles
+SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = (
+    _TENHOU_3P_RULE_CONFIG.non_replacement_dead_wall_tiles
 )
-SANDBOX_INITIAL_ROUND_WIND = SANDBOX_SEAT_WINDS[0]
-SANDBOX_ALL_LAST_ROUND_WIND = SANDBOX_SEAT_WINDS[1]
-SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND = SANDBOX_SEAT_WINDS[2]
-SANDBOX_ROUND_WINDS = SANDBOX_SEAT_WINDS
-SANDBOX_DRAGON_TILES_ORDER = (
-    TileType.parse("P"),
-    TileType.parse("F"),
-    TileType.parse("C"),
-)
-SANDBOX_DRAGON_TILES = frozenset(SANDBOX_DRAGON_TILES_ORDER)
-SANDBOX_YAKU_HAN = {
-    "chiitoitsu": 2,
-    "chanta": 2,
-    "chinitsu": 6,
-    "double_riichi": 2,
-    "honitsu": 3,
-    "iipeikou": 1,
-    "ittsu": 2,
-    "junchan": 3,
-    "nagashi_mangan": 5,
-    "pinfu": 1,
-    "riichi": 1,
-    "ippatsu": 1,
-    "menzen_tsumo": 1,
-    "rinshan": 1,
-    "haitei": 1,
-    "honroutou": 2,
-    "houtei": 1,
-    "chankan": 1,
-    "tanyao": 1,
-    "toitoi": 2,
-    "yakuhai": 1,
-    "sanankou": 2,
-    "sankantsu": 2,
-    "sanshoku_doujun": 2,
-    "sanshoku_doukou": 2,
-    "shousangen": 2,
-}
-SANDBOX_LIMIT_BASE_POINTS = {
-    "mangan": 2000,
-    "haneman": 3000,
-    "baiman": 4000,
-    "sanbaiman": 6000,
-    "yakuman": 8000,
-}
-SANDBOX_LIMIT_RON_POINTS = {
-    "mangan": 8000,
-    "haneman": 12000,
-    "baiman": 16000,
-    "sanbaiman": 24000,
-    "yakuman": 32000,
-}
-SANDBOX_LIMIT_DEALER_RON_POINTS = {
-    "mangan": 12000,
-    "haneman": 18000,
-    "baiman": 24000,
-    "sanbaiman": 36000,
-    "yakuman": 48000,
-}
-SANDBOX_LIMIT_TSUMO_CHILD_POINTS = {
-    "mangan": 2000,
-    "haneman": 3000,
-    "baiman": 4000,
-    "sanbaiman": 6000,
-    "yakuman": 8000,
-}
-SANDBOX_LIMIT_TSUMO_DEALER_POINTS = {
-    "mangan": 4000,
-    "haneman": 6000,
-    "baiman": 8000,
-    "sanbaiman": 12000,
-    "yakuman": 16000,
-}
-SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER = SANDBOX_LIMIT_TSUMO_CHILD_POINTS
+SANDBOX_INITIAL_DORA_INDICATORS = _TENHOU_4P_RULE_CONFIG.initial_dora_indicators
+SANDBOX_SCORE_PAYMENT_MODEL = _TENHOU_4P_RULE_CONFIG.score_payment_model
+SANDBOX_KITA_TILE = _TENHOU_4P_RULE_CONFIG.kita_tile
+SANDBOX_SEAT_WINDS = _TENHOU_4P_RULE_CONFIG.seat_winds
+SANDBOX_INITIAL_ROUND_WIND = _TENHOU_4P_RULE_CONFIG.initial_round_wind
+SANDBOX_ALL_LAST_ROUND_WIND = _TENHOU_4P_RULE_CONFIG.all_last_round_wind
+SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND = _TENHOU_4P_RULE_CONFIG.max_sudden_death_round_wind
+SANDBOX_ROUND_WINDS = _TENHOU_4P_RULE_CONFIG.round_winds
+SANDBOX_DRAGON_TILES_ORDER = _TENHOU_4P_RULE_CONFIG.dragon_tiles_order
+SANDBOX_DRAGON_TILES = _TENHOU_4P_RULE_CONFIG.dragon_tiles
+SANDBOX_YAKU_HAN = _TENHOU_4P_RULE_CONFIG.yaku_han
+SANDBOX_LIMIT_BASE_POINTS = _TENHOU_4P_RULE_CONFIG.limit_base_points
+SANDBOX_LIMIT_RON_POINTS = _TENHOU_4P_RULE_CONFIG.limit_ron_points
+SANDBOX_LIMIT_DEALER_RON_POINTS = _TENHOU_4P_RULE_CONFIG.limit_dealer_ron_points
+SANDBOX_LIMIT_TSUMO_CHILD_POINTS = _TENHOU_4P_RULE_CONFIG.limit_tsumo_child_points
+SANDBOX_LIMIT_TSUMO_DEALER_POINTS = _TENHOU_4P_RULE_CONFIG.limit_tsumo_dealer_points
+SANDBOX_LIMIT_TSUMO_POINTS_PER_LOSER = _TENHOU_4P_RULE_CONFIG.limit_tsumo_points_per_loser
 SANDBOX_RULESET_BY_NAME = {
     TENHOU_4P.name: TENHOU_4P,
     TENHOU_3P.name: TENHOU_3P,
 }
-SANDBOX_ABORTIVE_DRAW_REASONS = frozenset(
-    {
-        "kyuushu_kyuuhai",
-        "four_winds",
-        "four_riichi",
-        "four_kans",
-        "triple_ron",
-    }
-)
+SANDBOX_ABORTIVE_DRAW_REASONS = _TENHOU_4P_RULE_CONFIG.abortive_draw_reasons
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,6 +156,7 @@ class SandboxEnvironmentState:
     players: int
     wall: tuple[Tile, ...]
     hands: tuple[tuple[Tile, ...], ...]
+    rule_config: SandboxRuleConfig | None = None
     dead_wall: tuple[Tile, ...] = ()
     dora_indicators: tuple[Tile, ...] = ()
     ura_dora_indicators: tuple[Tile, ...] = ()
@@ -271,6 +211,8 @@ class SandboxEnvironmentState:
     def __post_init__(self) -> None:
         if self.ruleset not in SANDBOX_RULESET_BY_NAME:
             raise ValueError("unsupported sandbox environment ruleset: " + self.ruleset)
+        config = _resolve_rule_config(self.ruleset, self.rule_config)
+        object.__setattr__(self, "rule_config", config)
         rules = SANDBOX_RULESET_BY_NAME[self.ruleset]
         if self.players != rules.players:
             raise ValueError("players must match ruleset")
@@ -289,7 +231,7 @@ class SandboxEnvironmentState:
         if any(self.kita_tiles) and self.ruleset != TENHOU_3P.name:
             raise ValueError("kita tiles are only supported for tenhou-3p")
         if any(
-            tile.type != SANDBOX_KITA_TILE for seat_tiles in self.kita_tiles for tile in seat_tiles
+            tile.type != config.kita_tile for seat_tiles in self.kita_tiles for tile in seat_tiles
         ):
             raise ValueError("kita tiles must all be north tiles")
         if self.points and len(self.points) != self.players:
@@ -300,7 +242,7 @@ class SandboxEnvironmentState:
             raise ValueError("honba cannot be negative")
         if not 0 <= self.dealer_seat < self.players:
             raise ValueError("dealer_seat outside player range")
-        if self.round_wind not in SANDBOX_ROUND_WINDS:
+        if self.round_wind not in config.round_winds:
             raise ValueError("round_wind must be an honor wind")
         if not 0 <= self.current_seat < self.players:
             raise ValueError("current_seat outside player range")
@@ -333,12 +275,12 @@ class SandboxEnvironmentState:
             raise ValueError("pending kita seat requires a pending kita tile")
         if (
             self.pending_abortive_draw_reason is not None
-            and self.pending_abortive_draw_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+            and self.pending_abortive_draw_reason not in config.abortive_draw_reasons
         ):
             raise ValueError("unsupported pending abortive draw reason")
         if (
             self.abortive_draw_after_discard_reason is not None
-            and self.abortive_draw_after_discard_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+            and self.abortive_draw_after_discard_reason not in config.abortive_draw_reasons
         ):
             raise ValueError("unsupported abortive draw after discard reason")
         if pending_windows == 0 and self.pending_reaction_seats:
@@ -372,7 +314,7 @@ class SandboxEnvironmentState:
         if self.pending_kita_tile is not None:
             if self.ruleset != TENHOU_3P.name:
                 raise ValueError("pending kita reactions are only supported for tenhou-3p")
-            if self.pending_kita_tile.type != SANDBOX_KITA_TILE:
+            if self.pending_kita_tile.type != config.kita_tile:
                 raise ValueError("pending kita tile must be a north tile")
             if self.pending_kita_seat is None:
                 raise ValueError("pending kita seat is required")
@@ -575,26 +517,29 @@ def initial_sandbox_environment(
     *,
     ruleset: str = "tenhou-4p",
     seed: str | int = "kenjaku-sandbox-v0",
+    rule_config: SandboxRuleConfig | None = None,
 ) -> SandboxEnvironmentState:
-    rules = resolve_sandbox_ruleset(ruleset)
+    config = _resolve_rule_config(ruleset, rule_config)
+    rules = resolve_sandbox_ruleset(config.ruleset)
     rng = random.Random(_seed_int(seed))
     wall = _shuffled_wall(rng, rules=rules)
     hands = tuple(tuple(wall.pop() for _tile in range(13)) for _seat in range(rules.players))
-    dead_wall = tuple(wall.pop() for _tile in range(SANDBOX_DEAD_WALL_TILES))
+    dead_wall = tuple(wall.pop() for _tile in range(config.dead_wall_tiles))
     return SandboxEnvironmentState(
         ruleset=rules.name,
         players=rules.players,
         wall=tuple(wall),
         hands=hands,
+        rule_config=config,
         dead_wall=dead_wall,
-        dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
+        dora_indicators=dead_wall[: config.initial_dora_indicators],
         ura_dora_indicators=(),
         discards=tuple(() for _seat in range(rules.players)),
         melds=tuple(() for _seat in range(rules.players)),
         kita_tiles=tuple(() for _seat in range(rules.players)),
-        points=tuple(_initial_points_for_ruleset(rules.name) for _seat in range(rules.players)),
+        points=tuple(config.initial_points for _seat in range(rules.players)),
         dealer_seat=0,
-        round_wind=SANDBOX_INITIAL_ROUND_WIND,
+        round_wind=config.initial_round_wind,
         current_seat=0,
     )
 
@@ -765,7 +710,8 @@ def legal_riichi_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
         return ()
     if _melds_by_seat(state)[state.current_seat]:
         return ()
-    if _points_by_seat(state)[state.current_seat] < RIICHI_DEPOSIT_POINTS:
+    config = _rule_config(state)
+    if _points_by_seat(state)[state.current_seat] < config.riichi_deposit_points:
         return ()
     if not state.wall:
         return ()
@@ -842,23 +788,25 @@ def legal_kita_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     if state.ruleset != TENHOU_3P.name:
         return ()
     if _is_riichi(state, seat=state.current_seat):
-        if state.drawn_tile.type != SANDBOX_KITA_TILE:
+        config = _rule_config(state)
+        if state.drawn_tile.type != config.kita_tile:
             return ()
         return (
             Action(
                 ActionKind.KITA,
-                SANDBOX_KITA_TILE,
+                config.kita_tile,
                 consumed=(state.drawn_tile,),
             ),
         )
 
-    if not any(tile.type == SANDBOX_KITA_TILE for tile in state.current_hand()):
+    config = _rule_config(state)
+    if not any(tile.type == config.kita_tile for tile in state.current_hand()):
         return ()
-    north_tiles = _first_tiles_of_type(state.current_hand(), SANDBOX_KITA_TILE, 1)
+    north_tiles = _first_tiles_of_type(state.current_hand(), config.kita_tile, 1)
     return (
         Action(
             ActionKind.KITA,
-            SANDBOX_KITA_TILE,
+            config.kita_tile,
             consumed=north_tiles,
         ),
     )
@@ -903,7 +851,7 @@ def apply_riichi_action(
     if action not in legal_riichi_actions(state):
         raise ValueError("riichi action is not legal for this state")
     points = list(_points_by_seat(state))
-    points[state.current_seat] -= RIICHI_DEPOSIT_POINTS
+    points[state.current_seat] -= _rule_config(state).riichi_deposit_points
     double_riichi_seats = state.double_riichi_seats
     if _is_double_riichi_declaration(state):
         double_riichi_seats = _with_seat(double_riichi_seats, state.current_seat)
@@ -1065,7 +1013,8 @@ def apply_kita_action(
         raise ValueError("kita action is not legal for this state")
 
     hands = [list(hand) for hand in state.hands]
-    kita_tile = action.consumed[0] if action.consumed else Tile(SANDBOX_KITA_TILE)
+    config = _rule_config(state)
+    kita_tile = action.consumed[0] if action.consumed else Tile(config.kita_tile)
     _remove_tile(hands[state.current_seat], kita_tile)
     kita_tiles = [list(seat_tiles) for seat_tiles in _kita_tiles_by_seat(state)]
     kita_tiles[state.current_seat].append(kita_tile)
@@ -1674,6 +1623,21 @@ def resolve_sandbox_ruleset(ruleset: str) -> RuleSet:
         raise ValueError("unsupported sandbox environment ruleset: " + ruleset) from error
 
 
+def _resolve_rule_config(
+    ruleset: str,
+    rule_config: SandboxRuleConfig | None,
+) -> SandboxRuleConfig:
+    if rule_config is None:
+        return default_sandbox_rule_config(ruleset)
+    if rule_config.ruleset != ruleset:
+        raise ValueError("sandbox rule config ruleset must match requested ruleset")
+    return rule_config
+
+
+def _rule_config(state: SandboxEnvironmentState) -> SandboxRuleConfig:
+    return _resolve_rule_config(state.ruleset, state.rule_config)
+
+
 def _discard_index(hand: list[Tile], tile_type: TileType) -> int:
     for index, tile in enumerate(hand):
         if tile.type == tile_type:
@@ -1918,7 +1882,8 @@ def _initial_live_wall_after_draw(state: SandboxEnvironmentState, *, seat: int) 
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
     relative_seat = (seat - state.dealer_seat) % state.players
     draws = relative_seat + 1
-    return sum(rules.type_counts) - (state.players * 13) - SANDBOX_DEAD_WALL_TILES - draws
+    live_wall = sum(rules.type_counts) - (state.players * 13)
+    return live_wall - _rule_config(state).dead_wall_tiles - draws
 
 
 def _is_tanyao_yaku(tiles: tuple[Tile, ...]) -> bool:
@@ -2257,9 +2222,9 @@ def _apply_kan_replacement_draw(
 def _has_dead_wall_replacement_tile(state: SandboxEnvironmentState) -> bool:
     if (
         state.ruleset == TENHOU_3P.name
-        and len(state.dead_wall) >= SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES
+        and len(state.dead_wall) >= _rule_config(state).non_replacement_dead_wall_tiles
     ):
-        return len(state.dead_wall) > SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES
+        return len(state.dead_wall) > _rule_config(state).non_replacement_dead_wall_tiles
     return len(state.dead_wall) > len(state.dora_indicators)
 
 
@@ -2329,6 +2294,7 @@ def _replace_state(state: SandboxEnvironmentState, **updates: Any) -> SandboxEnv
         "players": state.players,
         "wall": state.wall,
         "hands": state.hands,
+        "rule_config": _rule_config(state),
         "dead_wall": state.dead_wall,
         "dora_indicators": state.dora_indicators,
         "ura_dora_indicators": state.ura_dora_indicators,
@@ -2393,17 +2359,19 @@ def _new_sandbox_round_state(
     honba: int,
 ) -> SandboxEnvironmentState:
     rules = SANDBOX_RULESET_BY_NAME[state.ruleset]
+    config = _rule_config(state)
     rng = random.Random(_seed_int(seed))
     wall = _shuffled_wall(rng, rules=rules)
     hands = tuple(tuple(wall.pop() for _tile in range(13)) for _seat in range(state.players))
-    dead_wall = tuple(wall.pop() for _tile in range(SANDBOX_DEAD_WALL_TILES))
+    dead_wall = tuple(wall.pop() for _tile in range(config.dead_wall_tiles))
     return SandboxEnvironmentState(
         ruleset=state.ruleset,
         players=state.players,
         wall=tuple(wall),
         hands=hands,
+        rule_config=config,
         dead_wall=dead_wall,
-        dora_indicators=dead_wall[:SANDBOX_INITIAL_DORA_INDICATORS],
+        dora_indicators=dead_wall[: config.initial_dora_indicators],
         ura_dora_indicators=(),
         discards=tuple(() for _seat in range(state.players)),
         melds=tuple(() for _seat in range(state.players)),
@@ -2418,7 +2386,7 @@ def _new_sandbox_round_state(
 
 
 def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
-    if state.terminal_reason in SANDBOX_ABORTIVE_DRAW_REASONS:
+    if state.terminal_reason in _rule_config(state).abortive_draw_reasons:
         return True
     if state.terminal_reason in {"ron", "tsumo", "chankan", "nagashi_mangan"}:
         return state.dealer_seat in state.winner_seats
@@ -2428,7 +2396,7 @@ def _dealer_repeats_after_terminal(state: SandboxEnvironmentState) -> bool:
 
 
 def _terminal_carries_honba(state: SandboxEnvironmentState) -> bool:
-    if state.terminal_reason in SANDBOX_ABORTIVE_DRAW_REASONS:
+    if state.terminal_reason in _rule_config(state).abortive_draw_reasons:
         return True
     if state.terminal_reason == "wall_exhausted":
         return True
@@ -2447,8 +2415,9 @@ def _next_round_wind_after_terminal(
 ) -> TileType:
     if dealer_repeats or next_dealer != 0:
         return state.round_wind
-    round_index = SANDBOX_ROUND_WINDS.index(state.round_wind)
-    return SANDBOX_ROUND_WINDS[(round_index + 1) % len(SANDBOX_ROUND_WINDS)]
+    round_winds = _rule_config(state).round_winds
+    round_index = round_winds.index(state.round_wind)
+    return round_winds[(round_index + 1) % len(round_winds)]
 
 
 def _sandbox_game_end_reason(
@@ -2466,15 +2435,16 @@ def _sandbox_game_end_reason(
             if _terminal_can_agari_or_tenpai_yame(state) and _top_seat(points) == state.dealer_seat:
                 return "all_last_dealer_top"
             return None
-        if _top_points(points) >= _return_points_for_ruleset(state.ruleset):
+        if _top_points(points) >= _return_points_for_state(state):
             return "all_last_return"
         return None
-    if state.round_wind == SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND:
+    config = _rule_config(state)
+    if state.round_wind == config.max_sudden_death_round_wind:
         if dealer_repeats:
             return None
-        if _top_points(points) >= _return_points_for_ruleset(state.ruleset):
+        if _top_points(points) >= _return_points_for_state(state):
             return "sudden_death_return"
-        if next_dealer == 0 and next_round_wind != SANDBOX_MAX_SUDDEN_DEATH_ROUND_WIND:
+        if next_dealer == 0 and next_round_wind != config.max_sudden_death_round_wind:
             return "sudden_death_max_round"
     return None
 
@@ -2486,15 +2456,16 @@ def _sandbox_final_result(
 ) -> SandboxFinalResult:
     points = list(_points_by_seat(state))
     top_seat = _top_seat(tuple(points))
-    points[top_seat] += state.riichi_sticks * RIICHI_DEPOSIT_POINTS
+    config = _rule_config(state)
+    points[top_seat] += state.riichi_sticks * config.riichi_deposit_points
     final_points = tuple(points)
     placement = _final_placement(final_points)
     ranks = [0] * state.players
     for rank, seat in enumerate(placement, start=1):
         ranks[seat] = rank
-    return_points = _return_points_for_ruleset(state.ruleset)
-    oka_points = (return_points - _initial_points_for_ruleset(state.ruleset)) * state.players
-    uma_by_rank = _uma_by_rank_for_ruleset(state.ruleset)
+    return_points = _return_points_for_state(state)
+    oka_points = (return_points - _initial_points_for_state(state)) * state.players
+    uma_by_rank = config.uma_by_rank
     scores = [0.0] * state.players
     for rank_index, seat in enumerate(placement):
         score = (final_points[seat] - return_points) / 1000
@@ -2516,18 +2487,23 @@ def _sandbox_final_result(
 
 def _is_all_last_round(state: SandboxEnvironmentState) -> bool:
     return (
-        state.round_wind == SANDBOX_ALL_LAST_ROUND_WIND and state.dealer_seat == state.players - 1
+        state.round_wind == _rule_config(state).all_last_round_wind
+        and state.dealer_seat == state.players - 1
     )
 
 
 def _terminal_can_agari_or_tenpai_yame(state: SandboxEnvironmentState) -> bool:
-    return state.terminal_reason not in SANDBOX_ABORTIVE_DRAW_REASONS
+    return state.terminal_reason not in _rule_config(state).abortive_draw_reasons
 
 
 def _return_points_for_ruleset(ruleset: str) -> int:
     if ruleset == TENHOU_3P.name:
         return SANDBOX_3P_RETURN_POINTS
     return SANDBOX_RETURN_POINTS
+
+
+def _return_points_for_state(state: SandboxEnvironmentState) -> int:
+    return _rule_config(state).return_points
 
 
 def _uma_by_rank_for_ruleset(ruleset: str) -> tuple[float, ...]:
@@ -2586,13 +2562,17 @@ def _discards_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Tile, ...],
 def _points_by_seat(state: SandboxEnvironmentState) -> tuple[int, ...]:
     if state.points:
         return state.points
-    return tuple(_initial_points_for_ruleset(state.ruleset) for _seat in range(state.players))
+    return tuple(_initial_points_for_state(state) for _seat in range(state.players))
 
 
 def _initial_points_for_ruleset(ruleset: str) -> int:
     if ruleset == TENHOU_3P.name:
         return SANDBOX_3P_INITIAL_POINTS
     return SANDBOX_INITIAL_POINTS
+
+
+def _initial_points_for_state(state: SandboxEnvironmentState) -> int:
+    return _rule_config(state).initial_points
 
 
 def _terminal_win_point_updates(
@@ -2608,10 +2588,11 @@ def _terminal_win_point_updates(
     before_points = _points_by_seat(state)
     if not winner_seats:
         return {"terminal_point_deltas": _neutral_point_deltas(state.players)}
+    config = _rule_config(state)
     points = list(before_points)
     riichi_sticks_for_winners = state.riichi_sticks
     if riichi_declaration_discard_seat is not None:
-        points[riichi_declaration_discard_seat] += RIICHI_DEPOSIT_POINTS
+        points[riichi_declaration_discard_seat] += config.riichi_deposit_points
         riichi_sticks_for_winners -= 1
         if riichi_sticks_for_winners < 0:
             raise ValueError("pending riichi declaration refund exceeds riichi sticks")
@@ -2619,7 +2600,7 @@ def _terminal_win_point_updates(
     estimates: list[SandboxScoreEstimate] = []
     for winner_index, winner_seat in enumerate(winner_seats):
         riichi_stick_points = (
-            riichi_sticks_for_winners * RIICHI_DEPOSIT_POINTS if winner_index == 0 else 0
+            riichi_sticks_for_winners * config.riichi_deposit_points if winner_index == 0 else 0
         )
         estimate = _sandbox_score_estimate(
             seat=winner_seat,
@@ -2631,6 +2612,7 @@ def _terminal_win_point_updates(
                 yaku_by_seat.get(winner_seat, ()),
                 is_closed=_is_closed_hand_for_yaku(_melds_by_seat(state)[winner_seat]),
             ),
+            rule_config=config,
             yakuman_multiplier=yakuman_multiplier_for_names(yaku_by_seat.get(winner_seat, ())),
             fu=_sandbox_fu_for_win(
                 state,
@@ -2729,6 +2711,7 @@ def _terminal_wall_exhausted_updates(state: SandboxEnvironmentState) -> dict[str
     point_deltas = _exhaustive_draw_point_deltas(
         players=state.players,
         tenpai_seats=tenpai_seats,
+        rule_config=_rule_config(state),
     )
     points = tuple(
         before + delta for before, delta in zip(before_points, point_deltas, strict=True)
@@ -2749,7 +2732,7 @@ def _terminal_abortive_draw_updates(
     *,
     reason: str,
 ) -> dict[str, Any]:
-    if reason not in SANDBOX_ABORTIVE_DRAW_REASONS:
+    if reason not in _rule_config(state).abortive_draw_reasons:
         raise ValueError("unsupported abortive draw reason: " + reason)
     return {
         "terminal_reason": reason,
@@ -2813,13 +2796,14 @@ def _exhaustive_draw_point_deltas(
     *,
     players: int,
     tenpai_seats: tuple[int, ...],
+    rule_config: SandboxRuleConfig,
 ) -> tuple[int, ...]:
     tenpai_count = len(tenpai_seats)
     if tenpai_count == 0 or tenpai_count == players:
         return _neutral_point_deltas(players)
     noten_count = players - tenpai_count
-    tenpai_payment = SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // tenpai_count
-    noten_payment = SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL // noten_count
+    tenpai_payment = rule_config.exhaustive_draw_noten_pool // tenpai_count
+    noten_payment = rule_config.exhaustive_draw_noten_pool // noten_count
     tenpai = set(tenpai_seats)
     return tuple(tenpai_payment if seat in tenpai else -noten_payment for seat in range(players))
 
@@ -2941,6 +2925,7 @@ def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:
 
 def _sandbox_score_estimate(
     *,
+    rule_config: SandboxRuleConfig,
     seat: int,
     players: int,
     is_dealer: bool,
@@ -2959,16 +2944,17 @@ def _sandbox_score_estimate(
     bonus_han = visible_dora_count + ura_dora_count + red_dora_count + kita_dora_count
     if "nagashi_mangan" in yaku:
         score = score_riichi_hand(
-            yaku_han=SANDBOX_YAKU_HAN["nagashi_mangan"],
+            yaku_han=rule_config.yaku_han["nagashi_mangan"],
             bonus_han=0,
             fu=30,
             is_dealer=is_dealer,
             win_kind=win_kind,
             honba=honba,
-            riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+            riichi_sticks=riichi_stick_points // rule_config.riichi_deposit_points,
             players=players,
         )
         return _score_estimate_from_result(
+            rule_config=rule_config,
             seat=seat,
             yaku=yaku,
             visible_dora_count=visible_dora_count,
@@ -2985,11 +2971,12 @@ def _sandbox_score_estimate(
             is_dealer=is_dealer,
             win_kind=win_kind,
             honba=honba,
-            riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+            riichi_sticks=riichi_stick_points // rule_config.riichi_deposit_points,
             players=players,
             yakuman_multiplier=yakuman_multiplier,
         )
         return _score_estimate_from_result(
+            rule_config=rule_config,
             seat=seat,
             yaku=yaku,
             visible_dora_count=visible_dora_count,
@@ -3006,10 +2993,11 @@ def _sandbox_score_estimate(
         is_dealer=is_dealer,
         win_kind=win_kind,
         honba=honba,
-        riichi_sticks=riichi_stick_points // RIICHI_DEPOSIT_POINTS,
+        riichi_sticks=riichi_stick_points // rule_config.riichi_deposit_points,
         players=players,
     )
     return _score_estimate_from_result(
+        rule_config=rule_config,
         seat=seat,
         yaku=yaku,
         visible_dora_count=visible_dora_count,
@@ -3022,6 +3010,7 @@ def _sandbox_score_estimate(
 
 def _score_estimate_from_result(
     *,
+    rule_config: SandboxRuleConfig,
     seat: int,
     yaku: tuple[str, ...],
     visible_dora_count: int,
@@ -3051,6 +3040,7 @@ def _score_estimate_from_result(
         tsumo_dealer_payment=score.tsumo_dealer_payment,
         honba_payment=score.honba_payment,
         riichi_stick_points=score.riichi_stick_points,
+        payment_model=rule_config.score_payment_model,
     )
 
 

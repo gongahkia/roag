@@ -14,6 +14,7 @@ from kenjaku.core import TileType
 from kenjaku.logging import get_logger
 from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_device
 from kenjaku.simulation import run_self_play_match_sandbox
+from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.training.history import normalize_training_history
 
 try:
@@ -315,6 +316,7 @@ def train_ppo_sandbox(
     max_turns_per_round: int,
     seed: str,
     ruleset: str = "tenhou-4p",
+    rule_config: SandboxRuleConfig | None = None,
     rollout_discard_policy: str = "drawn",
     rollout_call_policy: str = "pass",
     rollout_riichi_policy: str = "pass",
@@ -338,6 +340,8 @@ def train_ppo_sandbox(
     resume_checkpoint: str | Path | None = None,
     metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> SandboxPpoTrainingResult:
+    if rule_config is not None:
+        ruleset = rule_config.ruleset
     _validate_ppo_hyperparameters(
         total_steps=total_steps,
         rollout_games=rollout_games,
@@ -422,6 +426,7 @@ def train_ppo_sandbox(
             max_turns_per_round=max_turns_per_round,
             seed=f"{seed}:update:{update}",
             ruleset=ruleset,
+            rule_config=rule_config,
             discard_policy=rollout_discard_policy,
             call_policy=rollout_call_policy,
             riichi_policy=rollout_riichi_policy,
@@ -574,6 +579,7 @@ def collect_ppo_sandbox_rollout(
     max_turns_per_round: int,
     seed: str,
     ruleset: str = "tenhou-4p",
+    rule_config: SandboxRuleConfig | None = None,
     discard_policy: str = "drawn",
     call_policy: str = "pass",
     riichi_policy: str = "pass",
@@ -582,6 +588,8 @@ def collect_ppo_sandbox_rollout(
     ron_policy: str = "pass",
     reward_scale: float = 100.0,
 ) -> SandboxPpoRollout:
+    if rule_config is not None:
+        ruleset = rule_config.ruleset
     if reward_scale <= 0:
         raise ValueError("reward_scale must be positive")
     report = run_self_play_match_sandbox(
@@ -590,6 +598,7 @@ def collect_ppo_sandbox_rollout(
         max_turns_per_round=max_turns_per_round,
         seed=seed,
         ruleset=ruleset,
+        rule_config=rule_config,
         discard_policy=discard_policy,
         call_policy=call_policy,
         riichi_policy=riichi_policy,
