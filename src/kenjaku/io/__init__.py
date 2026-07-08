@@ -1,6 +1,7 @@
 """Input/output adapters for external mahjong formats."""
 
 from kenjaku.io.mjai import (
+    MJAI_COMPAT_MODES,
     read_mjai_events,
     to_mjai_events,
     write_mjai_events,
@@ -85,6 +86,7 @@ __all__ = [
     "format_replay_share_plan",
     "iter_tenhou_xml_dataset",
     "iter_tenhou_xml_dataset_files",
+    "MJAI_COMPAT_MODES",
     "parse_tenhou_xml",
     "parse_tenhou_xml_file_cached",
     "parse_tenhou_xml_file",

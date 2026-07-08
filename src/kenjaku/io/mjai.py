@@ -39,22 +39,25 @@ MJAI_EVENT_TYPES = {
     "end_kyoku",
     "end_game",
 }
+MJAI_COMPAT_MODES = ("kenjaku", "tenhou-to-mjai")
 
 
-def to_mjai_events(game: TenhouGame) -> list[dict[str, Any]]:
+def to_mjai_events(game: TenhouGame, *, compat: str = "kenjaku") -> list[dict[str, Any]]:
+    if compat not in MJAI_COMPAT_MODES:
+        raise ValueError(f"unsupported MJAI compatibility mode: {compat}")
     players = _player_count(game)
     events: list[dict[str, Any]] = [
         {
             "type": "start_game",
-            "names": [f"player_{seat}" for seat in range(players)],
+            "names": _player_names(game, players),
             "kyoku_first": 0,
             "aka_flag": True,
         }
     ]
     for round_ in game.rounds:
-        events.append(_start_kyoku_event(round_))
+        events.append(_start_kyoku_event(round_, compat=compat))
         for event in round_.events:
-            events.extend(_mjai_events_for_tenhou_event(event, players=players))
+            events.extend(_mjai_events_for_tenhou_event(event, players=players, compat=compat))
         events.append({"type": "end_kyoku"})
     events.append({"type": "end_game"})
     return events
@@ -85,13 +88,18 @@ def write_mjai_events(path: Path, events: Sequence[dict[str, Any]]) -> int:
     return len(events)
 
 
-def write_tenhou_mjai_files(paths: Sequence[str | Path], output_dir: Path) -> tuple[Path, ...]:
+def write_tenhou_mjai_files(
+    paths: Sequence[str | Path],
+    output_dir: Path,
+    *,
+    compat: str = "kenjaku",
+) -> tuple[Path, ...]:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_paths: list[Path] = []
     for file in tenhou_xml_files(paths):
         game = parse_tenhou_xml_file(file)
         output_path = _unique_output_path(output_dir / f"{file.stem}.mjson", output_paths)
-        write_mjai_events(output_path, to_mjai_events(game))
+        write_mjai_events(output_path, to_mjai_events(game, compat=compat))
         output_paths.append(output_path)
     if not output_paths:
         raise ValueError("no Tenhou XML files found")
@@ -105,7 +113,34 @@ def _player_count(game: TenhouGame) -> int:
     return 4
 
 
-def _start_kyoku_event(round_: TenhouRound) -> dict[str, Any]:
+def _player_names(game: TenhouGame, players: int) -> list[str]:
+    if len(game.names) >= players:
+        return list(game.names[:players])
+    return [f"player_{seat}" for seat in range(players)]
+
+
+def _start_kyoku_event(round_: TenhouRound, *, compat: str) -> dict[str, Any]:
+    if compat == "tenhou-to-mjai":
+        payload: dict[str, Any] = {
+            "type": "start_kyoku",
+            "bakaze": _wind(round_.round_wind),
+        }
+        if round_.dora_indicators:
+            payload["dora_marker"] = _tile(round_.dora_indicators[0])
+        payload.update(
+            {
+                "kyoku": round_.kyoku,
+                "honba": round_.honba,
+                "kyotaku": round_.kyotaku,
+                "oya": round_.dealer,
+                "scores": list(round_.scores),
+                "tehais": [
+                    [_tile(tile) for tile in _sorted_tiles(hand)] for hand in round_.starting_hands
+                ],
+            }
+        )
+        return payload
+
     payload: dict[str, Any] = {
         "type": "start_kyoku",
         "bakaze": _wind(round_.round_wind),
@@ -125,6 +160,7 @@ def _mjai_events_for_tenhou_event(
     event: TenhouEvent,
     *,
     players: int,
+    compat: str,
 ) -> list[dict[str, Any]]:
     if isinstance(event, TenhouDraw):
         return [{"type": "tsumo", "actor": event.seat, "pai": _tile(event.tile)}]
@@ -138,7 +174,7 @@ def _mjai_events_for_tenhou_event(
             }
         ]
     if isinstance(event, TenhouCall):
-        return [_call_event(event, players=players)]
+        return [_call_event(event, players=players, compat=compat)]
     if isinstance(event, TenhouReach):
         payload: dict[str, Any] = {
             "type": "reach" if event.step == 1 else "reach_accepted",
@@ -146,13 +182,15 @@ def _mjai_events_for_tenhou_event(
         }
         if event.step != 1 and event.scores is not None:
             payload["scores"] = list(event.scores)
+        if compat == "tenhou-to-mjai":
+            payload.pop("scores", None)
         return [payload]
     if isinstance(event, TenhouAgari):
-        return [_hora_event(event)]
+        return [_hora_event(event, compat=compat)]
     return [_ryukyoku_event(event)]
 
 
-def _call_event(event: TenhouCall, *, players: int) -> dict[str, Any]:
+def _call_event(event: TenhouCall, *, players: int, compat: str) -> dict[str, Any]:
     event_type = {
         ActionKind.CHI: "chi",
         ActionKind.PON: "pon",
@@ -160,6 +198,19 @@ def _call_event(event: TenhouCall, *, players: int) -> dict[str, Any]:
         ActionKind.ANKAN: "ankan",
         ActionKind.KAKAN: "kakan",
     }[event.meld.kind]
+    called_tile = _called_tile(event.meld)
+    if compat == "tenhou-to-mjai":
+        payload = {
+            "type": event_type,
+            "actor": event.seat,
+        }
+        if event.meld.kind != ActionKind.ANKAN:
+            payload["target"] = _call_from_seat(event, players)
+        if called_tile is not None:
+            payload["pai"] = _tile(called_tile)
+        payload["consumed"] = [_tile(tile) for tile in _consumed_tiles(event.meld)]
+        return payload
+
     payload: dict[str, Any] = {
         "type": event_type,
         "actor": event.seat,
@@ -167,13 +218,23 @@ def _call_event(event: TenhouCall, *, players: int) -> dict[str, Any]:
     }
     if event.meld.kind != ActionKind.ANKAN:
         payload["target"] = _call_from_seat(event, players)
-    called_tile = _called_tile(event.meld)
     if called_tile is not None:
         payload["pai"] = _tile(called_tile)
     return payload
 
 
-def _hora_event(event: TenhouAgari) -> dict[str, Any]:
+def _hora_event(event: TenhouAgari, *, compat: str) -> dict[str, Any]:
+    if compat == "tenhou-to-mjai":
+        payload: dict[str, Any] = {
+            "type": "hora",
+            "actor": event.winner,
+            "target": event.from_seat,
+        }
+        if event.score_deltas is not None:
+            payload["deltas"] = list(event.score_deltas)
+        payload["ura_markers"] = [_tile(tile) for tile in event.ura_dora_indicators]
+        return payload
+
     payload: dict[str, Any] = {
         "type": "hora",
         "actor": event.winner,
@@ -215,6 +276,10 @@ def _tile(tile: Tile) -> str:
         assert rank == 5
         return f"{rank}{tile.type.suit}r"
     return tile.type.notation
+
+
+def _sorted_tiles(tiles: Sequence[Tile]) -> tuple[Tile, ...]:
+    return tuple(sorted(tiles, key=lambda tile: (tile.type.index, tile.red)))
 
 
 def _wind(round_wind: int) -> str:

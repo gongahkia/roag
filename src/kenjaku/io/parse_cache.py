@@ -77,12 +77,18 @@ def _game_from_cache_payload(payload: Any, *, source_digest: str) -> TenhouGame:
 
 
 def _game_payload(game: TenhouGame) -> dict[str, Any]:
-    return {"rounds": [_round_payload(round_) for round_ in game.rounds]}
+    payload: dict[str, Any] = {"rounds": [_round_payload(round_) for round_ in game.rounds]}
+    if game.names:
+        payload["names"] = list(game.names)
+    return payload
 
 
 def _game_from_payload(payload: Any) -> TenhouGame:
     payload = _dict(payload)
-    return TenhouGame(rounds=tuple(_round_from_payload(round_) for round_ in payload["rounds"]))
+    return TenhouGame(
+        rounds=tuple(_round_from_payload(round_) for round_ in payload["rounds"]),
+        names=tuple(str(name) for name in payload.get("names", ())),
+    )
 
 
 def _round_payload(round_: TenhouRound) -> dict[str, Any]:

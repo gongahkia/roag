@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote
 
 from kenjaku.core import Action, Tile
 from kenjaku.io.tenhou_meld import TenhouMeld, decode_tenhou_meld
@@ -97,6 +98,7 @@ class TenhouRound:
 @dataclass(frozen=True, slots=True)
 class TenhouGame:
     rounds: tuple[TenhouRound, ...]
+    names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,9 +155,16 @@ def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:
 def parse_tenhou_xml(xml_text: str) -> TenhouGame:
     rounds: list[TenhouRound] = []
     current: _RoundBuilder | None = None
+    names: tuple[str, ...] = ()
 
     for event in _parse_events(xml_text):
         tag = event.tag
+        if tag == "UN":
+            parsed_names = _parse_names(event)
+            if parsed_names is not None:
+                names = parsed_names
+            continue
+
         if tag == "INIT":
             if current is not None:
                 rounds.append(current.freeze())
@@ -239,7 +248,9 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
                 score_deltas=_parse_score_deltas(event.attrib.get("sc")),
                 yaku=_parse_int_tuple(event.attrib.get("yaku")) or (),
                 dora_indicators=_parse_tile_tuple(event.attrib.get("dorahai")),
-                ura_dora_indicators=_parse_tile_tuple(event.attrib.get("uradorahai")),
+                ura_dora_indicators=_parse_tile_tuple(
+                    event.attrib.get("uradorahai") or event.attrib.get("dorahaiura")
+                ),
             )
             current.agari.append(agari)
             current.events.append(agari)
@@ -258,7 +269,7 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
     if current is not None:
         rounds.append(current.freeze())
 
-    return TenhouGame(rounds=tuple(rounds))
+    return TenhouGame(rounds=tuple(rounds), names=names)
 
 
 def _parse_events(xml_text: str) -> tuple[_ParsedEvent, ...]:
@@ -309,6 +320,12 @@ def _parse_init(event: _ParsedEvent) -> _RoundBuilder:
         events=[],
         last_draws={},
     )
+
+
+def _parse_names(event: _ParsedEvent) -> tuple[str, ...] | None:
+    if not all(f"n{seat}" in event.attrib for seat in range(4)):
+        return None
+    return tuple(unquote(event.attrib[f"n{seat}"]) for seat in range(4))
 
 
 def _parse_seed_state(seed: str | None) -> tuple[int, int, int, Tile | None]:

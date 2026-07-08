@@ -20,20 +20,27 @@ One `.mjson` JSONL file per input XML in `--output`.
 PYTHONPATH=src python3.13 -m kenjaku tenhou-to-mjai data/fixtures/tenhou --output runs/mjai
 ```
 
+Use `--compat tenhou-to-mjai` when output must match the field shape emitted by
+`NikkeTryHard/tenhou-to-mjai` for Mortal-style reference comparisons.
+
 ## Gotchas
 
-- Fixture player names are synthetic because bundled XML fixtures do not include Tenhou `UN` names.
+- Fixture player names are synthetic when XML fixtures do not include Tenhou `UN` names.
 - Mahjong Soul conversion is out of scope.
 
 ## Help
 
 ```text
-usage: kenjaku tenhou-to-mjai [-h] --output OUTPUT paths [paths ...]
+usage: kenjaku tenhou-to-mjai [-h] --output OUTPUT
+                              [--compat {kenjaku,tenhou-to-mjai}]
+                              paths [paths ...]
 
 positional arguments:
   paths            Tenhou XML files or directories
 
 options:
-  -h, --help       show this help message and exit
-  --output OUTPUT  directory for .mjson output files
+  -h, --help            show this help message and exit
+  --output OUTPUT       directory for .mjson output files
+  --compat {kenjaku,tenhou-to-mjai}
+                        MJAI output compatibility mode
 ```

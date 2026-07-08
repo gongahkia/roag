@@ -49,6 +49,7 @@ from kenjaku.hand_analysis import (
     format_hand_analysis_text,
 )
 from kenjaku.io import (
+    MJAI_COMPAT_MODES,
     TenhouDataset,
     TenhouGame,
     TenhouParseFailure,
@@ -1084,6 +1085,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="directory for .mjson output files",
+    )
+    tenhou_to_mjai.add_argument(
+        "--compat",
+        choices=MJAI_COMPAT_MODES,
+        default="kenjaku",
+        help="MJAI output compatibility mode",
     )
     tenhou_to_mjai.set_defaults(func=_tenhou_to_mjai)
 
@@ -3369,7 +3376,7 @@ def _inspect_tenhou(args: argparse.Namespace) -> int:
 
 def _tenhou_to_mjai(args: argparse.Namespace) -> int:
     try:
-        output_paths = write_tenhou_mjai_files(args.paths, args.output)
+        output_paths = write_tenhou_mjai_files(args.paths, args.output, compat=args.compat)
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(str(error)) from error
     print(f"files: {len(output_paths)}")

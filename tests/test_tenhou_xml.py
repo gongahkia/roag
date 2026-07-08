@@ -97,6 +97,32 @@ class TenhouXmlTests(unittest.TestCase):
         self.assertEqual(len(round_.discards), 1)
         self.assertEqual(round_.draws[0].tile, Tile.parse("7p"))
         self.assertEqual(round_.discards[0].tile, Tile.parse("7p"))
+        self.assertEqual(game.names, ("a", "b", "c", "d"))
+
+    def test_parse_percent_encoded_player_names(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <UN
+                n0="%E3%81%82"
+                n1="makit123"
+                n2="%E3%81%A6%E3%81%BE%E3%81%A1"
+                n3="Yu-Ki%E2%88%9E"
+              />
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="250,250,250,250"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,44,48"
+                hai1="1,5,9,13,17,21,25,29,33,37,41,45,49"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
+                hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
+              />
+            </mjloggm>
+            """
+        )
+
+        self.assertEqual(game.names, ("あ", "makit123", "てまち", "Yu-Ki∞"))
 
     def test_parse_reach_call_and_agari_events(self) -> None:
         game = parse_tenhou_xml_file(EVENTS_FIXTURE)
@@ -137,12 +163,18 @@ class TenhouXmlTests(unittest.TestCase):
                 hai2="2,6,10,14,18,22,26,30,34,38,42,46,50"
                 hai3="3,7,11,15,19,23,27,31,35,39,43,47,51"
               />
-              <AGARI who="2" fromWho="1" sc="250,0,230,-20,270,20,250,0" />
+              <AGARI
+                who="2"
+                fromWho="1"
+                sc="250,0,230,-20,270,20,250,0"
+                doraHaiUra="73"
+              />
             </mjloggm>
             """
         )
 
         self.assertEqual(game.rounds[0].agari[0].score_deltas, (0, -2000, 2000, 0))
+        self.assertEqual(game.rounds[0].agari[0].ura_dora_indicators, (Tile.parse("1s"),))
 
     def test_parse_ryuukyoku_event(self) -> None:
         game = parse_tenhou_xml_file(RYUUKYOKU_FIXTURE)
