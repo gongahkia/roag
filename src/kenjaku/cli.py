@@ -18,6 +18,7 @@ from typing import Any, TypeVar
 from urllib.parse import quote
 
 from kenjaku import __version__
+from kenjaku.bot import run_stdio_bot
 from kenjaku.browser_demo import write_browser_demo
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.experiments import (
@@ -994,6 +995,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="directory for .mjson output files",
     )
     tenhou_to_mjai.set_defaults(func=_tenhou_to_mjai)
+
+    bot = subparsers.add_parser(
+        "bot",
+        help="run a stdin/stdout MJAI bot adapter",
+    )
+    bot.add_argument(
+        "--policy",
+        default="frequency",
+        help="policy name or checkpoint path; defaults to frequency",
+    )
+    bot.add_argument(
+        "--policy-type",
+        choices=[
+            "auto",
+            "frequency",
+            "linear-discard",
+            "mlp",
+            "mlp-discard",
+            "transformer",
+            "transformer-discard",
+        ],
+        default="auto",
+        help="checkpoint family; auto detects paths",
+    )
+    bot.add_argument(
+        "--player-id",
+        type=int,
+        required=True,
+        help="MJAI seat id, 0 through 3",
+    )
+    bot.add_argument(
+        "--device",
+        default="cpu",
+        help="PyTorch device for mlp or transformer policies",
+    )
+    bot.set_defaults(func=_bot)
 
     defense_risk = subparsers.add_parser(
         "defense-risk-summary",
@@ -3170,6 +3207,19 @@ def _tenhou_to_mjai(args: argparse.Namespace) -> int:
         raise SystemExit(str(error)) from error
     print(f"files: {len(output_paths)}")
     print(f"output_dir: {args.output}")
+    return 0
+
+
+def _bot(args: argparse.Namespace) -> int:
+    try:
+        run_stdio_bot(
+            policy_arg=args.policy,
+            policy_type=args.policy_type,
+            player_id=args.player_id,
+            device=args.device,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     return 0
 
 

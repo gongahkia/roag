@@ -2,8 +2,8 @@
 
 Generated and reviewed on 2026-07-07 from the current `argparse` command set.
 
-The CLI currently exposes 47 subcommands. Issue #57 mentioned 35 commands; this index
-covers all 47 commands present in `kenjaku --help` so the docs match the implemented CLI.
+The CLI currently exposes 48 subcommands. Issue #57 mentioned 35 commands; this index
+covers all 48 commands present in `kenjaku --help` so the docs match the implemented CLI.
 
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
@@ -20,6 +20,7 @@ covers all 47 commands present in `kenjaku --help` so the docs match the impleme
 - [`training-dashboard`](training-dashboard.md) - Build a static dashboard from training metrics JSONL files.
 - [`inspect-tenhou`](inspect-tenhou.md) - Parse Tenhou XML inputs and print dataset-level counts.
 - [`tenhou-to-mjai`](tenhou-to-mjai.md) - Convert Tenhou XML files into MJAI JSONL replay streams.
+- [`bot`](bot.md) - Run a stdin/stdout MJAI bot adapter.
 - [`defense-risk-summary`](defense-risk-summary.md) - Summarize heuristic discard danger scores from Tenhou XML decisions.
 - [`safety-advisor`](safety-advisor.md) - Rank arbitrary hand tiles by riichi-defense safety signals.
 - [`benchmark-deal-in`](benchmark-deal-in.md) - Train and evaluate a small direct ron-discard probability estimator.

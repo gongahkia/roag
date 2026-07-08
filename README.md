@@ -300,6 +300,14 @@ Decision snapshots are the neutral interchange format for external baselines. Th
 prefix. Use `tenhou-to-mjai` when you need full-file `.mjson` replay streams. Terminal outcome
 labels are opt-in to avoid leaking future information into inference snapshots.
 
+The `bot` command exposes a stdin/stdout MJAI adapter for local request-action smoke tests and
+Docker submission packaging:
+
+```bash
+printf '%s\n' '{"type":"request_action","request_id":1,"possible_actions":[{"type":"none"}]}' \
+  | PYTHONPATH=src python3.13 -m kenjaku bot --policy frequency --player-id 0
+```
+
 ```bash
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
   data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
