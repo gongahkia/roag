@@ -18,12 +18,14 @@ JSONL decision snapshots at `--output`.
 
 ```bash
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots data/fixtures/tenhou --output runs/decision-snapshots.jsonl --limit 20
+PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots data/fixtures/tenhou --format mjai --output runs/decision-snapshots.mjson --limit 20
 ```
 
 ## Gotchas
 
 - Terminal outcome labels are excluded unless `--include-outcome` is set.
 - Use stable source metadata when comparing across producers.
+- `--format mjai` emits MJAI `request_action` events with `kenjaku_meta` sidecars.
 
 ## Help
 
@@ -32,6 +34,7 @@ usage: kenjaku export-decision-snapshots [-h] --output OUTPUT
                                          [--decision-types DECISION_TYPES]
                                          [--limit LIMIT] [--skip-errors]
                                          [--include-outcome]
+                                         [--format {kenjaku,mjai}]
                                          [--parse-cache PARSE_CACHE]
                                          [--jobs JOBS]
                                          [--source-label SOURCE_LABEL]
@@ -53,6 +56,8 @@ options:
                         parsed files
   --include-outcome     include terminal score-delta labels; opt-in to avoid
                         future outcome leakage
+  --format {kenjaku,mjai}
+                        snapshot JSONL format
   --parse-cache PARSE_CACHE
                         directory for opt-in content-addressed Tenhou XML
                         parse cache

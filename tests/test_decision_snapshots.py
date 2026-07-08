@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.io import parse_tenhou_xml_file
+from kenjaku.io import parse_tenhou_xml_file, read_mjai_events
 from kenjaku.training.decision_snapshots import (
     DECISION_SNAPSHOT_KIND,
     build_decision_snapshots,
     write_decision_snapshots_jsonl,
+    write_mjai_decision_snapshots_jsonl,
 )
 
 MINIMAL_FIXTURE = Path("data/fixtures/tenhou/minimal_4p.xml")
@@ -80,6 +81,23 @@ class DecisionSnapshotTests(unittest.TestCase):
 
         self.assertEqual(count, len(snapshots))
         self.assertEqual(rows[0]["kind"], DECISION_SNAPSHOT_KIND)
+
+    def test_write_mjai_decision_snapshots_parse_as_mjai_events(self) -> None:
+        snapshots = build_decision_snapshots(
+            parse_tenhou_xml_file(EVENTS_FIXTURE),
+            decision_types=("discard", "call", "riichi"),
+            limit=3,
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshots.mjson"
+            count = write_mjai_decision_snapshots_jsonl(path, snapshots)
+            events = read_mjai_events(path)
+
+        self.assertEqual(count, len(snapshots))
+        self.assertEqual(len(events), len(snapshots))
+        self.assertTrue(all(event["type"] == "request_action" for event in events))
+        self.assertEqual(events[0]["kenjaku_meta"]["row_id"], snapshots[0]["row_id"])
+        self.assertIn("observed_action", events[0]["kenjaku_meta"])
 
 
 if __name__ == "__main__":

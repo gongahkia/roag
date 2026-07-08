@@ -25,6 +25,7 @@ from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 
 DECISION_SNAPSHOT_KIND = "kenjaku-decision-snapshot-v0"
 DECISION_SNAPSHOT_TYPES = ("discard", "call", "riichi")
+DECISION_SNAPSHOT_FORMATS = ("kenjaku", "mjai")
 
 
 def build_decision_snapshots(
@@ -103,6 +104,46 @@ def write_decision_snapshots_jsonl(path: str | Path, snapshots: Iterable[dict[st
             count += 1
             handle.write(json.dumps(snapshot, sort_keys=True) + "\n")
     return count
+
+
+def write_mjai_decision_snapshots_jsonl(
+    path: str | Path,
+    snapshots: Iterable[dict[str, Any]],
+) -> int:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with output_path.open("w", encoding="utf-8") as handle:
+        for snapshot in snapshots:
+            count += 1
+            event = mjai_decision_snapshot_event(snapshot)
+            handle.write(json.dumps(event, separators=(",", ":"), sort_keys=True))
+            handle.write("\n")
+    return count
+
+
+def mjai_decision_snapshot_event(snapshot: dict[str, Any]) -> dict[str, Any]:
+    row_id = _required_str(snapshot, "row_id")
+    possible_actions = [
+        _snapshot_action_to_mjai(action, snapshot)
+        for action in _required_action_list(snapshot, "legal_actions")
+    ]
+    observed_action = _snapshot_action_to_mjai(
+        _required_mapping(snapshot, "actual_action"),
+        snapshot,
+    )
+    return {
+        "type": "request_action",
+        "actor": _required_int(snapshot, "seat"),
+        "request_id": _request_id(row_id),
+        "possible_actions": possible_actions,
+        "kenjaku_meta": {
+            "row_id": row_id,
+            "decision_type": _required_str(snapshot, "decision_type"),
+            "legal_actions": possible_actions,
+            "observed_action": observed_action,
+        },
+    }
 
 
 def _discard_snapshot_item(
@@ -288,6 +329,84 @@ def _action_payload(action: Action) -> dict[str, Any]:
     if action.consumed:
         payload["consumed"] = [_tile_payload(tile) for tile in action.consumed]
     return payload
+
+
+def _snapshot_action_to_mjai(
+    action: dict[str, Any],
+    snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    kind = _required_action_kind(action)
+    seat = _required_int(snapshot, "seat")
+    if kind == ActionKind.PASS.value:
+        return {"type": "none"}
+    if kind == ActionKind.DISCARD.value:
+        return {
+            "type": "dahai",
+            "actor": seat,
+            "pai": _required_str(action, "tile"),
+            "tsumogiri": bool(action.get("tsumogiri", False)),
+        }
+    if kind == ActionKind.RIICHI.value:
+        return {"type": "reach", "actor": seat}
+    if kind in {ActionKind.CHI.value, ActionKind.PON.value, ActionKind.MINKAN.value}:
+        payload: dict[str, Any] = {
+            "type": _mjai_action_type(kind),
+            "actor": seat,
+            "target": _required_int(snapshot, "from_seat"),
+            "pai": _required_str(action, "tile"),
+        }
+        consumed = action.get("consumed")
+        if isinstance(consumed, list) and all(isinstance(tile, str) for tile in consumed):
+            payload["consumed"] = consumed
+        return payload
+    return {"type": kind, "actor": seat}
+
+
+def _mjai_action_type(kind: str) -> str:
+    return {
+        ActionKind.CHI.value: "chi",
+        ActionKind.PON.value: "pon",
+        ActionKind.MINKAN.value: "daiminkan",
+    }.get(kind, kind)
+
+
+def _request_id(row_id: str) -> int:
+    return int(blake2b(row_id.encode("utf-8"), digest_size=4).hexdigest(), 16)
+
+
+def _required_mapping(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"snapshot missing object field: {key}")
+    return value
+
+
+def _required_action_list(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    value = payload.get(key)
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f"snapshot missing action list field: {key}")
+    return value
+
+
+def _required_str(payload: dict[str, Any], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str):
+        raise ValueError(f"snapshot missing string field: {key}")
+    return value
+
+
+def _required_int(payload: dict[str, Any], key: str) -> int:
+    value = payload.get(key)
+    if not isinstance(value, int):
+        raise ValueError(f"snapshot missing int field: {key}")
+    return value
+
+
+def _required_action_kind(action: dict[str, Any]) -> str:
+    kind = action.get("kind")
+    if not isinstance(kind, str):
+        raise ValueError("snapshot action missing kind")
+    return kind
 
 
 def _mjai_events_prefix(

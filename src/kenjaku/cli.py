@@ -148,10 +148,12 @@ from kenjaku.training import (
     write_bc_manifest,
 )
 from kenjaku.training.decision_snapshots import (
+    DECISION_SNAPSHOT_FORMATS,
     DECISION_SNAPSHOT_KIND,
     DECISION_SNAPSHOT_TYPES,
     build_decision_snapshots,
     write_decision_snapshots_jsonl,
+    write_mjai_decision_snapshots_jsonl,
 )
 from kenjaku.training.external_baselines import (
     DEFAULT_MINIMUM_COMPARABLE_DECISIONS,
@@ -1301,6 +1303,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-outcome",
         action="store_true",
         help="include terminal score-delta labels; opt-in to avoid future outcome leakage",
+    )
+    export_snapshots.add_argument(
+        "--format",
+        choices=DECISION_SNAPSHOT_FORMATS,
+        default="kenjaku",
+        help="snapshot JSONL format",
     )
     _add_parse_cache_arg(export_snapshots)
     _add_source_args(export_snapshots)
@@ -3823,9 +3831,13 @@ def _export_decision_snapshots(args: argparse.Namespace) -> int:
         xml_file_count=len(dataset.files),
         include_outcome=args.include_outcome,
     )
-    count = write_decision_snapshots_jsonl(args.output, snapshots)
+    if args.format == "mjai":
+        count = write_mjai_decision_snapshots_jsonl(args.output, snapshots)
+    else:
+        count = write_decision_snapshots_jsonl(args.output, snapshots)
     print(f"snapshots: {count}")
     print(f"decision_types: {','.join(decision_types)}")
+    print(f"format: {args.format}")
     if dataset.failures:
         print(f"parse_failures: {len(dataset.failures)}")
     print(f"output_path: {args.output}")

@@ -35,6 +35,7 @@ MJAI_EVENT_TYPES = {
     "reach_accepted",
     "hora",
     "ryukyoku",
+    "request_action",
     "end_kyoku",
     "end_game",
 }
