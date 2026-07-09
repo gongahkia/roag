@@ -293,8 +293,35 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
   runs/todo-102/riichi-benchmark-from-examples-v0.json
 ```
 
-For a local memory smoke on macOS, wrap the export or benchmark command with `/usr/bin/time -l` and
-write stdout/stderr into ignored run logs:
+Before the full TODO-102 run, use the bounded smoke wrapper on checked-in fixtures. It records the
+exact export command and peak RSS while keeping output under ignored `runs/`:
+
+```bash
+PYTHONPATH=src python3 scripts/run_bc_memory_smoke.py \
+  data/fixtures/tenhou \
+  --output-dir runs/todo-102/bc-examples-fixture-memory-smoke \
+  --limit-per-type 1000 \
+  --max-rss-mb 4096 \
+  --overwrite \
+  > runs/todo-102/export-bc-examples-fixture-memory-smoke.log 2>&1
+```
+
+Then run the same wrapper on a 1,000-log ignored slice before the 6,500-log export:
+
+```bash
+PYTHONPATH=src python3 scripts/run_bc_memory_smoke.py \
+  data/raw/tenhou/xml/todo-102-bc-1000 \
+  --output-dir runs/todo-102/bc-examples-1000-memory-smoke \
+  --limit-per-type 1000 \
+  --max-rss-mb 8192 \
+  --skip-errors \
+  --overwrite \
+  > runs/todo-102/export-bc-examples-1000-memory-smoke.log 2>&1
+```
+
+Add `--tracemalloc` to either wrapper command when allocation traceback sampling is useful. For a
+macOS-native measurement around the full export, wrap the command with `/usr/bin/time -l` and write
+stdout/stderr into ignored run logs:
 
 ```bash
 /usr/bin/time -l env PYTHONPATH=src python3.13 -m kenjaku export-bc-examples \
