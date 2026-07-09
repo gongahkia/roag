@@ -10,6 +10,8 @@ from tests.commands.conftest import (
     main,
 )
 
+SANMA_KITA_FIXTURE = Path("data/fixtures/sanma/sanma_kita_3p.xml")
+
 
 class KitaCommandTests(CliCommandTests):
     def test_benchmark_kita_writes_report_and_summary(self) -> None:
@@ -17,15 +19,13 @@ class KitaCommandTests(CliCommandTests):
 
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            xml = root / "sanma-kita.xml"
             report = root / "kita-benchmark.json"
-            xml.write_text(_sanma_kita_xml(), encoding="utf-8")
 
             with contextlib.redirect_stdout(stdout):
                 exit_code = main(
                     [
                         "benchmark-kita",
-                        str(xml),
+                        str(SANMA_KITA_FIXTURE),
                         "--eval-fraction",
                         "0.5",
                         "--split-seed",
@@ -66,24 +66,3 @@ class KitaCommandTests(CliCommandTests):
         self.assertEqual(summary["kind"], "kenjaku-benchmark-summary-v0")
         self.assertEqual(summary["reports"][0]["target"], "kita")
         self.assertIn("eval_kita_recall", summary["reports"][0]["models"]["kita_frequency"])
-
-
-def _sanma_kita_xml() -> str:
-    return """
-    <mjloggm>
-      <UN n0="east" n1="south" n2="west" />
-      <INIT
-        seed="0,0,0,0,0,72"
-        ten="350,350,350"
-        oya="0"
-        hai0="0,4,8,12,16,20,24,28,32,36,40,44,120"
-        hai1="1,5,9,13,17,21,25,29,33,37,41,45,121"
-        hai2="2,6,10,14,18,22,26,30,34,38,42,46,122"
-      />
-      <T123 />
-      <N who="0" m="30752" />
-      <T124 />
-      <D124 />
-      <RYUUKYOKU ten="350,350,350" />
-    </mjloggm>
-    """

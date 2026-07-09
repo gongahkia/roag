@@ -36,3 +36,10 @@ Expected fixture shape:
 - Parsed rounds: 200
 - Discard examples: 3200
 - Directory size: < 3 MB
+
+## `sanma/sanma_kita_3p.xml`
+
+`sanma_kita_3p.xml` is a hand-written 3-player Tenhou-shaped fixture with one Nuki/Kita event and
+one subsequent pass opportunity. It exists only to keep Sanma Kita parser, snapshot, and benchmark
+plumbing reproducible from a fresh checkout; it is not a real Tenhou log and is not a held-out
+Sanma evaluation slice.

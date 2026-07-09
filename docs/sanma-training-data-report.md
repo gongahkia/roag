@@ -36,9 +36,11 @@ Current checked-in replay fixtures:
 data/fixtures/tenhou/minimal_4p.xml
 data/fixtures/tenhou/ryuukyoku_4p.xml
 data/fixtures/tenhou/events_4p.xml
+data/fixtures/sanma/sanma_kita_3p.xml
 ```
 
-Sanma games parsed for training: 0.
+Real Sanma games parsed for training: 0.
+Synthetic Sanma plumbing fixtures: 1.
 
 ## Snapshot Schema Coverage
 
@@ -54,8 +56,9 @@ Parser status: `src/kenjaku/io/tenhou_xml.py` accepts contiguous 3-player `INIT`
 Nuki meld codes in synthetic coverage. Real permitted Sanma logs are still needed to validate
 draw/discard, score, call, riichi, Kita, and terminal event coverage end to end.
 
-Benchmark status: `benchmark-kita` covers the Sanma Kita/pass report path for synthetic fixtures.
-It is not a substitute for a held-out real Sanma evaluation slice.
+Benchmark status: `benchmark-kita data/fixtures/sanma/sanma_kita_3p.xml` covers the Sanma
+Kita/pass report path for the checked-in synthetic fixture. It is not a substitute for a held-out
+real Sanma evaluation slice.
 
 ## Unblock Checklist
 
