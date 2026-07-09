@@ -79,17 +79,27 @@ class ExternalBaselineTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             snapshots = _write_jsonl(
-                root / "snapshots.jsonl", [_snapshot("r1", decision_type="call", kind="pass")]
+                root / "snapshots.jsonl",
+                [
+                    _snapshot("r1", decision_type="call", kind="pass"),
+                    _snapshot("r2", decision_type="call", kind="chi"),
+                ],
             )
-            predictions = _write_jsonl(root / "predictions.jsonl", [_prediction("r1", kind="pass")])
+            predictions = _write_jsonl(
+                root / "predictions.jsonl",
+                [_prediction("r1", kind="pass"), _prediction("r2", kind="chi")],
+            )
             spec = parse_external_baseline_spec(f"unit:model={predictions}")
             report = build_external_baseline_report(
                 snapshots, [spec], minimum_comparable_decisions=1
             )
             text = format_external_baseline_report(report)
+            call_binary = report["baselines"][0]["binary"]["call"]
 
         self.assertIn("minimum_satisfied: yes", text)
         self.assertIn("binary:", text)
+        self.assertEqual(call_binary["balanced_accuracy"], 1.0)
+        self.assertIn("balanced=1.0000", text)
         self.assertIn("pass_recall=1.0000", text)
 
 

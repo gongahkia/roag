@@ -135,6 +135,7 @@ def format_external_baseline_report(report: dict[str, Any]) -> str:
                     f"      {decision_type}: "
                     f"accuracy={_format_optional_rate(bucket['accuracy'])} "
                     f"ci95={_format_interval(bucket['accuracy_ci'])} "
+                    f"balanced={_format_optional_rate(bucket['balanced_accuracy'])} "
                     f"pass_recall={_format_optional_rate(bucket['pass_recall'])} "
                     f"{decision_type}_recall="
                     f"{_format_optional_rate(bucket[f'{decision_type}_recall'])}"
@@ -398,6 +399,11 @@ def _finalize_binary_bucket(bucket: dict[str, int], *, target: str) -> dict[str,
     target_examples = true_positive + false_negative
     pass_examples = true_negative + false_positive
     accuracy_successes = true_positive + true_negative
+    target_recall = _safe_ratio(true_positive, target_examples)
+    pass_recall = _safe_ratio(true_negative, pass_examples)
+    balanced_accuracy = (
+        None if target_recall is None or pass_recall is None else (target_recall + pass_recall) / 2
+    )
     return {
         **bucket,
         "accuracy": _safe_ratio(accuracy_successes, bucket["examples"]),
@@ -410,10 +416,11 @@ def _finalize_binary_bucket(bucket: dict[str, int], *, target: str) -> dict[str,
             true_positive,
             true_positive + false_positive,
         ),
-        f"{target}_recall": _safe_ratio(true_positive, target_examples),
+        f"{target}_recall": target_recall,
         f"{target}_recall_ci": _wilson_interval(true_positive, target_examples),
-        "pass_recall": _safe_ratio(true_negative, pass_examples),
+        "pass_recall": pass_recall,
         "pass_recall_ci": _wilson_interval(true_negative, pass_examples),
+        "balanced_accuracy": balanced_accuracy,
     }
 
 

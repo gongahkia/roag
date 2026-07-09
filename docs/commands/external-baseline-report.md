@@ -24,6 +24,7 @@ PYTHONPATH=src python3.13 -m kenjaku external-baseline-report runs/decision-snap
 
 - Real Mortal/akochan outputs must come from external legally usable producers.
 - Default `--min-decisions` is intentionally high for real comparisons.
+- Binary call and riichi sections include balanced accuracy as `(target_recall + pass_recall) / 2`.
 
 ## Help
 

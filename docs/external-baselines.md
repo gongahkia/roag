@@ -171,3 +171,5 @@ Observed report summary:
 
 Replace the smoke prediction files with real external producer output to obtain a true Mortal or
 akochan measurement without changing the report command or ranked-service automation boundary.
+Use `docs/supervised-baseline-comparison.md` for TODO-104's metric, seed, and match-label contract
+after a real Mortal-compatible row exists.
