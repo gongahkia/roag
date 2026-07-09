@@ -12,7 +12,10 @@ from tempfile import TemporaryDirectory
 from kenjaku.browser_demo import (
     BROWSER_DEMO_FILES,
     BROWSER_DEMO_KIND,
+    BROWSER_DEMO_POLICY_KIND,
     FIXTURE_WALL_SEED,
+    browser_demo_policy,
+    browser_demo_policy_logits,
     fixture_wall,
     write_browser_demo,
 )
@@ -47,9 +50,13 @@ class BrowserDemoTests(unittest.TestCase):
             html = (output_dir / "index.html").read_text(encoding="utf-8")
             css = (output_dir / "styles.css").read_text(encoding="utf-8")
             js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            policy_json = (output_dir / "policy.json").read_text(encoding="utf-8")
+            manifest_json = (output_dir / "manifest.json").read_text(encoding="utf-8")
 
         self.assertEqual(result["kind"], BROWSER_DEMO_KIND)
         self.assertEqual([Path(path).name for path in result["files"]], list(BROWSER_DEMO_FILES))
+        policy = json.loads(policy_json)
+        manifest = json.loads(manifest_json)
         self.assertTrue(html.startswith("<!doctype html>"))
         self.assertIn("kenjaku-static-frontend-helpers-v0", html)
         self.assertIn('href="styles.css"', html)
@@ -60,7 +67,12 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn("kj-motion-confirm-flash", css)
         self.assertIn("window.KenjakuMotion", js)
         self.assertIn("countUp", js)
-        for contents in (html, css, js):
+        self.assertEqual(policy["kind"], BROWSER_DEMO_POLICY_KIND)
+        self.assertEqual(policy["model"]["input_dim"], 58)
+        self.assertEqual(policy["model"]["action_dim"], 276)
+        self.assertEqual(policy["model_state"]["format"], "linear-sparse-v0")
+        self.assertEqual(manifest["policy"]["kind"], BROWSER_DEMO_POLICY_KIND)
+        for contents in (html, css, js, policy_json, manifest_json):
             self.assertNotIn(directory, contents)
             self.assertNotIn("file://", contents)
             self.assertNotIn("http://", contents)
@@ -110,6 +122,14 @@ class BrowserDemoTests(unittest.TestCase):
                 "discard-grid",
                 "call-grid",
                 "event-log",
+                "autoplay-button",
+                "user-mode-button",
+                "pause-button",
+                "step-button",
+                "mode-label",
+                "policy-export",
+                "policy-decision",
+                "policy-confidence",
             },
         )
         self.assertGreaterEqual(
@@ -121,6 +141,10 @@ class BrowserDemoTests(unittest.TestCase):
                 "player-console",
                 "action-rail",
                 "score-chip",
+                "mode-controls",
+                "mode-button",
+                "policy-grid",
+                "policy-row",
                 "kj-motion-lift",
                 "kj-motion-press",
             },
@@ -163,6 +187,18 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIsNotNone(match)
         assert match is not None
         self.assertEqual(tuple(json.loads(match.group(1))), fixture_wall())
+
+    def test_browser_demo_policy_verification_vector_matches_logits(self) -> None:
+        policy = browser_demo_policy()
+        verification = policy["verification"]
+        logits = browser_demo_policy_logits(
+            verification["entry"],
+            verification["legal_actions"],
+        )
+
+        selected_action_index = max(range(len(logits)), key=logits.__getitem__)
+        self.assertEqual(selected_action_index, verification["selected_action_index"])
+        self.assertEqual(verification["selected_action"], {"kind": "discard", "tile": "P"})
 
 
 def _css_selector_names(css: str) -> set[str]:

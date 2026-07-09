@@ -76,8 +76,9 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 - Offline replay share planning plus public-safe replay summary generation for accepted intake
   rows, gated by demo/redistribution permission scope. These commands do not fetch, post, or expose
   raw replay URLs.
-- Static browser-playable demo generation via `kenjaku browser-demo`. The demo writes local
-  HTML/CSS/JS assets, can be served by the CLI, and does not require or embed raw replay data.
+- Static browser-playable PPO demo generation via `kenjaku browser-demo`. The demo writes local
+  HTML/CSS/JS plus a public-safe policy payload, can be served by the CLI, and does not require or
+  embed raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
   validation; unsupported yaku currently include renhou, open riichi, daisharin, and daichisei.

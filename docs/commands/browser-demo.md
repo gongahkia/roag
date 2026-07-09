@@ -4,7 +4,7 @@ Generated from `argparse` help and reviewed on 2026-07-07.
 
 ## Purpose
 
-Generate the static browser-playable demo and optionally serve it locally.
+Generate the static browser-playable PPO policy demo and optionally serve it locally.
 
 ## Inputs
 
@@ -12,7 +12,8 @@ No external input; it uses fixture-safe demo assets.
 
 ## Outputs
 
-HTML/CSS/JS assets under `--output-dir`; optionally binds a local HTTP server.
+HTML/CSS/JS assets plus `policy.json` and `manifest.json` under `--output-dir`; optionally
+binds a local HTTP server.
 
 ## Example
 
@@ -23,6 +24,8 @@ PYTHONPATH=src python3.13 -m kenjaku browser-demo --output-dir runs/browser-demo
 ## Gotchas
 
 - Use `--no-serve` for CI or artifact generation.
+- The page embeds the same static PPO policy payload that is also written to `policy.json`, so
+  opening `index.html` from disk works without `fetch`.
 - Serving binds only the requested local host/port.
 
 ## Help

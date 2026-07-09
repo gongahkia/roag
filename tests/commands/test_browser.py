@@ -30,6 +30,7 @@ class BrowserCommandTests(CliCommandTests):
             index_html = (output_dir / "index.html").read_text(encoding="utf-8")
             styles_css = (output_dir / "styles.css").read_text(encoding="utf-8")
             demo_js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            policy_json = (output_dir / "policy.json").read_text(encoding="utf-8")
 
         self.assertEqual(exit_code, 0)
         self.assertIn("wrote browser demo:", stdout.getvalue())
@@ -39,11 +40,16 @@ class BrowserCommandTests(CliCommandTests):
         self.assertIn("Dora", index_html)
         self.assertIn("Calls", index_html)
         self.assertIn("finishExhaustiveDraw", demo_js)
-        self.assertIn("botDiscard", demo_js)
+        self.assertIn("selectModelAction", demo_js)
+        self.assertIn("kenjaku-browser-demo-ppo-policy-v0", policy_json)
+        self.assertIn("sandbox-linear-ppo-actor-critic-v0", policy_json)
         self.assertIn("window.KenjakuDemo", demo_js)
         self.assertIn(".tile", styles_css)
-        self.assertNotIn("private", index_html + styles_css + demo_js)
-        self.assertNotIn("replay", index_html.lower() + styles_css.lower() + demo_js.lower())
+        self.assertNotIn("private", index_html + styles_css + demo_js + policy_json)
+        self.assertNotIn(
+            "replay",
+            (index_html + styles_css + demo_js + policy_json).lower(),
+        )
 
     def test_serve_writes_artifact_dashboard_without_serving(self) -> None:
         with TemporaryDirectory() as directory:

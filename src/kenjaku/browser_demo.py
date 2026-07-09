@@ -22,7 +22,6 @@ from kenjaku.training.ppo import (
     PPO_SANDBOX_POLICY_KIND,
     PPO_STATE_DIM,
     PPO_TSUMO_ACTION_INDEX,
-    ppo_action_index,
     ppo_legal_action_mask,
     ppo_state_features,
 )
@@ -265,7 +264,7 @@ _INDEX_BODY_HTML = """
         </div>
         <div class="hud-chip kj-chip">
           <p class="label">Mode</p>
-          <p id="mode-label">Autoplay</p>
+          <p id="mode-label">User mode</p>
         </div>
       </div>
 
@@ -487,6 +486,10 @@ h2 {
 .hud-chip span {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-chip .label {
   white-space: nowrap;
 }
 
@@ -840,11 +843,14 @@ h2 {
 """))
 
 
-_DEMO_JS = motion_primitives_script() + "\n\n" + """"use strict";
+_DEMO_JS_TEMPLATE = motion_primitives_script() + "\n\n" + """"use strict";
 
+const POLICY = __POLICY_JSON__;
 const SEATS = ["You", "Shimocha", "Toimen", "Kamicha"];
 const INITIAL_SCORES = [25000, 25000, 25000, 25000];
 const DORA_INDICATOR = "P";
+const MODE_AUTOPLAY = "autoplay";
+const MODE_USER = "user";
 const INITIAL_HANDS = [
   ["1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1p", "1p", "E", "E"],
   ["2p", "3p", "4p", "6p", "7p", "8p", "2s", "3s", "4s", "S", "S", "W", "W"],
@@ -852,6 +858,7 @@ const INITIAL_HANDS = [
   ["2m", "2m", "5m", "6m", "7m", "3p", "3p", "5p", "6p", "7p", "C", "C", "N"],
 ];
 const FIXTURE_WALL = __FIXTURE_WALL_JSON__;
+const TILE_INDEX = Object.fromEntries(POLICY.tiles.map((tile, index) => [tile, index]));
 
 const state = {
   hands: [],
@@ -863,6 +870,10 @@ const state = {
   drawnTile: null,
   turn: 1,
   terminal: null,
+  mode: MODE_USER,
+  paused: false,
+  timer: null,
+  lastDecision: null,
   log: [],
 };
 
@@ -871,6 +882,7 @@ function cloneHands() {
 }
 
 function startHand() {
+  clearModelTimer();
   state.hands = cloneHands();
   state.wall = [...FIXTURE_WALL];
   state.discards = [[], [], [], []];
@@ -880,9 +892,12 @@ function startHand() {
   state.drawnTile = null;
   state.turn = 1;
   state.terminal = null;
-  state.log = ["East 1 begins."];
+  state.paused = false;
+  state.lastDecision = null;
+  state.log = [`${policyLabel()} loaded.`, "East 1 begins."];
   drawForCurrentSeat();
   render();
+  scheduleModelAction();
 }
 
 function drawForCurrentSeat() {
@@ -897,50 +912,85 @@ function drawForCurrentSeat() {
   state.drawnTile = tile;
   state.hands[state.currentSeat].push(tile);
   state.log.unshift(`${SEATS[state.currentSeat]} draws.`);
-  if (state.currentSeat !== 0) {
-    window.setTimeout(botDiscard, 260);
+}
+
+function clearModelTimer() {
+  if (state.timer !== null) {
+    window.clearTimeout(state.timer);
+    state.timer = null;
   }
 }
 
-function botDiscard() {
-  if (state.terminal || state.currentSeat === 0) {
+function scheduleModelAction() {
+  clearModelTimer();
+  if (state.terminal || state.paused || !isModelSeat(state.currentSeat)) {
     return;
   }
-  const hand = state.hands[state.currentSeat];
-  const discardIndex = chooseBotDiscard(hand);
-  discardTile(discardIndex);
+  const delay = state.mode === MODE_AUTOPLAY ? 360 : 520;
+  state.timer = window.setTimeout(() => runModelDecision(), delay);
 }
 
-function chooseBotDiscard(hand) {
-  const honorIndex = hand.findIndex((tile) => !tile.endsWith("m")
-    && !tile.endsWith("p")
-    && !tile.endsWith("s"));
-  if (honorIndex >= 0) {
-    return honorIndex;
+function isModelSeat(seat) {
+  return state.mode === MODE_AUTOPLAY || seat !== 0;
+}
+
+function runModelDecision(options = {}) {
+  if (state.terminal || (state.paused && !options.forced)) {
+    return;
   }
-  return hand.length - 1;
+  if (!isModelSeat(state.currentSeat)) {
+    window.KenjakuMotion?.shake(".player-console");
+    return;
+  }
+  const decision = selectModelAction(state.currentSeat);
+  if (!decision || decision.action.kind !== "discard") {
+    finishExhaustiveDraw();
+    render();
+    return;
+  }
+  state.lastDecision = decision;
+  discardTile(discardIndexForTile(decision.action.tile, state.hands[state.currentSeat]), {
+    decision,
+    source: "model",
+  });
 }
 
-function discardTile(index) {
+function discardTile(index, options = {}) {
   if (state.terminal) {
     window.KenjakuMotion?.shake(".table-center");
     return;
   }
   const hand = state.hands[state.currentSeat];
+  if (index < 0 || index >= hand.length) {
+    window.KenjakuMotion?.shake(".player-console");
+    return;
+  }
+  clearModelTimer();
+  const actingSeat = state.currentSeat;
   const [tile] = hand.splice(index, 1);
-  state.discards[state.currentSeat].push(tile);
+  state.discards[actingSeat].push(tile);
   state.drawnTile = null;
-  state.log.unshift(`${SEATS[state.currentSeat]} discards ${tile}.`);
+  if (options.source === "model") {
+    const confidence = formatPercent(options.decision.probability);
+    state.log.unshift(
+      `${SEATS[actingSeat]} policy discards ${tile} (${confidence}).`
+    );
+  } else {
+    state.lastDecision = selectModelAction(actingSeat);
+    state.log.unshift(`${SEATS[actingSeat]} user discards ${tile}.`);
+  }
   state.currentSeat = (state.currentSeat + 1) % SEATS.length;
   if (state.currentSeat === 0) {
     state.turn += 1;
   }
   drawForCurrentSeat();
   render();
+  scheduleModelAction();
   window.KenjakuMotion?.confirm(".player-console");
 }
 
 function finishExhaustiveDraw() {
+  clearModelTimer();
   state.terminal = "Exhaustive draw";
   const tenpaiSeats = [0, 2];
   state.scores = state.scores.map((score, seat) => (
@@ -949,12 +999,34 @@ function finishExhaustiveDraw() {
   state.log.unshift("The wall is exhausted. Tenpai payments are applied.");
 }
 
+function setMode(mode) {
+  state.mode = mode;
+  state.paused = false;
+  state.log.unshift(mode === MODE_AUTOPLAY ? "Autoplay model mode." : "User vs model mode.");
+  render();
+  scheduleModelAction();
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  state.log.unshift(state.paused ? "Autoplay paused." : "Autoplay resumed.");
+  render();
+  scheduleModelAction();
+}
+
+function stepModelAction() {
+  clearModelTimer();
+  runModelDecision({ forced: true });
+}
+
 function render() {
   renderStatus();
+  renderControls();
   renderOpponents();
   renderHand();
   renderActions();
   renderScores();
+  renderPolicy();
   renderDiscards();
   renderCalls();
   renderLog();
@@ -964,10 +1036,24 @@ function renderStatus() {
   text("wall-count", state.wall.length);
   text("wall-meter", state.wall.length);
   text("turn-label", state.terminal ? "Terminal" : SEATS[state.currentSeat]);
+  text("mode-label", modeLabel());
   text("terminal-result", state.terminal || "In progress");
   setScoreText("live-delta", scoreDeltaLabel());
   text("call-zone-summary", callSummaryLabel());
   document.getElementById("dora-tile").textContent = DORA_INDICATOR;
+}
+
+function renderControls() {
+  setActiveButton("autoplay-button", state.mode === MODE_AUTOPLAY);
+  setActiveButton("user-mode-button", state.mode === MODE_USER);
+  const pauseButton = document.getElementById("pause-button");
+  pauseButton.textContent = state.paused ? "Resume" : "Pause";
+  pauseButton.disabled = Boolean(state.terminal);
+  pauseButton.classList.toggle("is-blocked", Boolean(state.terminal));
+  const stepButton = document.getElementById("step-button");
+  const stepDisabled = Boolean(state.terminal) || !isModelSeat(state.currentSeat);
+  stepButton.disabled = stepDisabled;
+  stepButton.classList.toggle("is-blocked", stepDisabled);
 }
 
 function renderOpponents() {
@@ -980,7 +1066,7 @@ function renderOpponents() {
         <strong class="seat-name">${SEATS[seat]}</strong>
         <span class="seat-counter">${state.hands[seat].length} tiles</span>
       </div>
-      <p class="label">Score</p>
+      <p class="label">Model Seat</p>
       <p class="score-chip kj-score-chip">${state.scores[seat].toLocaleString()}</p>
     `;
     return panel;
@@ -989,8 +1075,8 @@ function renderOpponents() {
 
 function renderHand() {
   const container = document.getElementById("player-hand");
+  const legal = state.currentSeat === 0 && !state.terminal && !isModelSeat(0);
   container.replaceChildren(...state.hands[0].map((tile, index) => {
-    const legal = state.currentSeat === 0 && !state.terminal;
     const selected = legal && index === state.hands[0].length - 1 && state.drawnTile === tile;
     const button = document.createElement("button");
     button.type = "button";
@@ -1018,14 +1104,19 @@ function renderActions() {
     container.appendChild(actionNode("Hand complete", { disabled: true, blocked: true }));
     return;
   }
-  if (state.currentSeat !== 0) {
+  const preview = previewPolicyDecision();
+  if (isModelSeat(state.currentSeat)) {
+    const label = preview
+      ? `Model ${actionLabel(preview.action)}`
+      : `${SEATS[state.currentSeat]} is acting`;
     container.appendChild(
-      actionNode(`${SEATS[state.currentSeat]} is acting`, { disabled: true, blocked: true })
+      actionNode(label, { active: true, disabled: true })
     );
     return;
   }
   state.hands[0].forEach((tile, index) => {
-    const button = actionNode(`Discard ${tile}`, { legal: true });
+    const active = preview?.action.kind === "discard" && preview.action.tile === tile;
+    const button = actionNode(`Discard ${tile}`, { active, legal: true });
     button.addEventListener("click", () => discardTile(index));
     container.appendChild(button);
   });
@@ -1042,6 +1133,18 @@ function renderScores() {
     `;
     return row;
   }));
+}
+
+function renderPolicy() {
+  const preview = previewPolicyDecision();
+  text("policy-export", policyLabel());
+  if (!preview) {
+    text("policy-decision", "None");
+    text("policy-confidence", "0%");
+    return;
+  }
+  text("policy-decision", `${SEATS[state.currentSeat]} ${actionLabel(preview.action)}`);
+  text("policy-confidence", formatPercent(preview.probability));
 }
 
 function renderDiscards() {
@@ -1127,6 +1230,7 @@ function actionNode(label, options = {}) {
     "kj-motion-lift",
     "kj-motion-press",
     options.legal ? "is-legal" : "",
+    options.active ? "is-active" : "",
     options.blocked ? "is-blocked" : "",
   ].filter(Boolean).join(" ");
   button.textContent = label;
@@ -1135,6 +1239,12 @@ function actionNode(label, options = {}) {
     button.setAttribute("aria-disabled", "true");
   }
   return button;
+}
+
+function setActiveButton(id, active) {
+  const button = document.getElementById(id);
+  button.classList.toggle("is-active", active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
 }
 
 function scoreDeltaLabel() {
@@ -1156,7 +1266,227 @@ function callSummaryLabel() {
   return calls === 0 ? "No open calls" : `${calls} open calls`;
 }
 
+function modeLabel() {
+  if (state.mode === MODE_AUTOPLAY) {
+    return state.paused ? "Paused" : "Autoplay";
+  }
+  return "User mode";
+}
+
+function policyLabel() {
+  return `${POLICY.model.policy_kind} ${POLICY.model.input_dim}->${POLICY.model.action_dim}`;
+}
+
+function previewPolicyDecision() {
+  if (state.terminal || state.hands[state.currentSeat].length === 0) {
+    return null;
+  }
+  return selectModelAction(state.currentSeat);
+}
+
+function selectModelAction(seat) {
+  const legalActions = legalDiscardActions(state.hands[seat]);
+  if (legalActions.length === 0) {
+    return null;
+  }
+  const entry = decisionEntry(seat);
+  const features = ppoStateFeatures(entry);
+  const mask = legalActionMask(legalActions);
+  const logits = policyLogits(features, mask);
+  const actionIndex = bestActionIndex(logits, mask);
+  const action = actionFromIndex(actionIndex);
+  return {
+    action,
+    actionIndex,
+    entry,
+    legalActions,
+    logit: logits[actionIndex],
+    probability: legalProbability(logits, mask, actionIndex),
+    seat,
+  };
+}
+
+function legalDiscardActions(hand) {
+  return [...new Set(hand)].map((tile) => ({ kind: "discard", tile }));
+}
+
+function decisionEntry(seat) {
+  return {
+    decision_type: "discard",
+    seat,
+    state: {
+      turn: state.turn,
+      current_seat: state.currentSeat,
+      round_wind: "E",
+      dealer_seat: 0,
+      honba: 0,
+      points: [...state.scores],
+      hands: state.hands.map((hand) => [...hand]),
+      hand_sizes: state.hands.map((hand) => hand.length),
+      discards: state.discards.map((discards) => [...discards]),
+      melds: state.calls.map((calls) => [...calls]),
+      dora_indicators: [DORA_INDICATOR],
+      wall_remaining: state.wall.length,
+      drawn_tile: state.drawnTile,
+      needs_discard: true,
+      pending_reaction_seats: [],
+    },
+  };
+}
+
+function ppoStateFeatures(entry) {
+  const payload = entry.state;
+  const points = payload.points.slice(0, 4);
+  while (points.length < 4) {
+    points.push(0);
+  }
+  const drawnOneHot = Array(34).fill(0);
+  if (typeof payload.drawn_tile === "string") {
+    drawnOneHot[tileIndex(payload.drawn_tile)] = 1;
+  }
+  const roundWindOneHot = ["E", "S", "W", "N"].map((wind) => (
+    payload.round_wind === wind ? 1 : 0
+  ));
+  const decisionOneHot = POLICY.model.decision_types.map((candidate) => (
+    entry.decision_type === candidate ? 1 : 0
+  ));
+  const pending = payload.pending_reaction_seats || [];
+  const features = [
+    Number(payload.turn || 0) / 256,
+    Number(payload.current_seat || 0) / 3,
+    Number(entry.seat || 0) / 3,
+    Number(payload.dealer_seat || 0) / 3,
+    Number(payload.honba || 0) / 8,
+    Number(payload.wall_remaining || 0) / 80,
+    payload.needs_discard ? 1 : 0,
+    pending.length / 4,
+    (payload.points || []).length / 4,
+    ...roundWindOneHot,
+    ...points.map((point) => Number(point) / 100000),
+    ...drawnOneHot,
+    ...decisionOneHot,
+  ];
+  if (features.length !== POLICY.model.input_dim) {
+    throw new Error(`PPO state must have ${POLICY.model.input_dim} features`);
+  }
+  return features;
+}
+
+function legalActionMask(actions) {
+  const mask = Array(POLICY.model.action_dim).fill(false);
+  actions.forEach((action) => {
+    mask[actionIndex(action)] = true;
+  });
+  if (!mask.some(Boolean)) {
+    throw new Error("PPO legal action mask cannot be empty");
+  }
+  return mask;
+}
+
+function actionIndex(action) {
+  if (Object.prototype.hasOwnProperty.call(POLICY.actions.kind_offsets, action.kind)) {
+    return POLICY.actions.kind_offsets[action.kind] + tileIndex(action.tile);
+  }
+  if (Object.prototype.hasOwnProperty.call(POLICY.actions.special_indices, action.kind)) {
+    return POLICY.actions.special_indices[action.kind];
+  }
+  throw new Error(`unsupported PPO action kind: ${action.kind}`);
+}
+
+function actionFromIndex(actionIndexValue) {
+  for (const [kind, offset] of Object.entries(POLICY.actions.kind_offsets)) {
+    if (offset <= actionIndexValue && actionIndexValue < offset + 34) {
+      return { kind, tile: POLICY.tiles[actionIndexValue - offset] };
+    }
+  }
+  for (const [kind, index] of Object.entries(POLICY.actions.special_indices)) {
+    if (index === actionIndexValue) {
+      return { kind };
+    }
+  }
+  throw new Error(`unsupported PPO action index: ${actionIndexValue}`);
+}
+
+function policyLogits(features, mask) {
+  const logits = POLICY.model_state.bias.map((value, index) => (mask[index] ? value : -1.0e9));
+  POLICY.model_state.weights.forEach((weight) => {
+    if (mask[weight.action]) {
+      logits[weight.action] += weight.value * features[weight.feature];
+    }
+  });
+  return logits;
+}
+
+function bestActionIndex(logits, mask) {
+  let bestIndex = -1;
+  let bestLogit = -Infinity;
+  logits.forEach((logit, index) => {
+    if (mask[index] && logit > bestLogit) {
+      bestIndex = index;
+      bestLogit = logit;
+    }
+  });
+  return bestIndex;
+}
+
+function legalProbability(logits, mask, actionIndexValue) {
+  const legalLogits = logits.filter((_logit, index) => mask[index]);
+  const maxLogit = Math.max(...legalLogits);
+  const denominator = legalLogits.reduce((total, logit) => (
+    total + Math.exp(logit - maxLogit)
+  ), 0);
+  return Math.exp(logits[actionIndexValue] - maxLogit) / denominator;
+}
+
+function discardIndexForTile(tile, hand) {
+  for (let index = hand.length - 1; index >= 0; index -= 1) {
+    if (hand[index] === tile) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function tileIndex(tile) {
+  const index = TILE_INDEX[tile];
+  if (index === undefined) {
+    throw new Error(`unknown tile: ${tile}`);
+  }
+  return index;
+}
+
+function actionLabel(action) {
+  if (action.tile) {
+    return `${action.kind} ${action.tile}`;
+  }
+  return action.kind;
+}
+
+function formatPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
+
 document.getElementById("restart-button").addEventListener("click", startHand);
-window.KenjakuDemo = { startHand, state };
+document.getElementById("autoplay-button").addEventListener("click", () => setMode(MODE_AUTOPLAY));
+document.getElementById("user-mode-button").addEventListener("click", () => setMode(MODE_USER));
+document.getElementById("pause-button").addEventListener("click", togglePause);
+document.getElementById("step-button").addEventListener("click", stepModelAction);
+window.KenjakuDemo = {
+  policy: POLICY,
+  selectModelAction,
+  setMode,
+  startHand,
+  state,
+  stepModelAction,
+};
 startHand();
-""".replace("__FIXTURE_WALL_JSON__", json.dumps(list(fixture_wall())))
+"""
+
+
+def _demo_js(policy: dict[str, Any]) -> str:
+    fixture_json = json.dumps(list(fixture_wall()))
+    policy_json = json.dumps(policy, separators=(",", ":"), sort_keys=True)
+    return _DEMO_JS_TEMPLATE.replace("__FIXTURE_WALL_JSON__", fixture_json).replace(
+        "__POLICY_JSON__",
+        policy_json,
+    )
