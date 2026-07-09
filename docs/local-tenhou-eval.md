@@ -293,6 +293,40 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary \
   runs/todo-102/riichi-benchmark-from-examples-v0.json
 ```
 
+After the three real-slice reports exist, write an ignored bundle manifest:
+
+```json
+{
+  "kind": "kenjaku-bc-report-bundle-v0",
+  "minimum_train_decisions": 100000,
+  "minimum_eval_decisions": 20000,
+  "reports": {
+    "discard": {
+      "path": "runs/todo-102/discard-benchmark-from-examples-v0.json",
+      "model": "defense_context_linear"
+    },
+    "call": {
+      "path": "runs/todo-102/call-benchmark-from-examples-v0.json",
+      "model": "call_linear_v1_calibrated"
+    },
+    "riichi": {
+      "path": "runs/todo-102/riichi-benchmark-from-examples-v0.json",
+      "model": "riichi_linear_calibrated"
+    }
+  }
+}
+```
+
+Validate the bundle before closing TODO-102:
+
+```bash
+python3 scripts/validate_bc_report_bundle.py runs/todo-102/bc-report-bundle-v0.json
+```
+
+The validator checks that all three selected report paths are ignored, source commands are recorded,
+train/eval size gates are met, and selected models expose loss, accuracy, balanced accuracy, and
+per-action recall metrics.
+
 Before the full TODO-102 run, use the bounded smoke wrapper on checked-in fixtures. It records the
 exact export command and peak RSS while keeping output under ignored `runs/`:
 
