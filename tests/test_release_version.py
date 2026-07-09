@@ -30,6 +30,12 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("does not match pyproject version", result.stderr)
 
+    def test_publish_workflows_validate_release_tag(self) -> None:
+        for path in (Path(".github/workflows/release.yml"), Path(".github/workflows/docker.yml")):
+            with self.subTest(path=path):
+                contents = path.read_text(encoding="utf-8")
+                self.assertIn("scripts/validate_release_version.py", contents)
+
 
 def _pyproject_version() -> str:
     for line in Path("pyproject.toml").read_text(encoding="utf-8").splitlines():
