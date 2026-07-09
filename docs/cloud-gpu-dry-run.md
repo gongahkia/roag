@@ -15,6 +15,41 @@ Record all of the following after the cloud job finishes:
 - `benchmark-report-summary` output for the JSON report when supported.
 - `git status --short` output showing no model weights, raw data, or generated reports staged.
 
+Record the cloud run in an ignored evidence JSON file:
+
+```json
+{
+  "kind": "kenjaku-cloud-gpu-dry-run-evidence-v0",
+  "provider": {
+    "name": "PROVIDER",
+    "region": "REGION",
+    "gpu_type": "NVIDIA GPU TYPE"
+  },
+  "runtime": {
+    "wall_clock_seconds": 0,
+    "billed_seconds": 0,
+    "cost_usd": 0
+  },
+  "command": "python -m kenjaku train-discard-transformer ...",
+  "artifacts": {
+    "report_path": "runs/todo-003/cloud-fixture-discard-transformer.json",
+    "checkpoint_path": "runs/todo-003/cloud-fixture-discard-transformer.pt"
+  },
+  "benchmark_report_summary": "paste benchmark-report-summary output",
+  "git_status_short": "paste git status --short output"
+}
+```
+
+Validate the evidence before closing TODO-003:
+
+```bash
+python3 scripts/validate_cloud_gpu_evidence.py runs/todo-003/cloud-gpu-evidence.json
+```
+
+The validator requires a CUDA-backed transformer report, matching checkpoint path, positive
+runtime, cost metadata, and ignored report/checkpoint paths. It rejects local CPU/MPS fallback
+reports.
+
 Recommended tiny smoke command:
 
 ```bash
