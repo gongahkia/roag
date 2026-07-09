@@ -29,6 +29,39 @@ Mortal remains AGPL-3.0-or-later and its documented Docker path requires model f
 separately. akochan has its own Japanese terms file rather than a standard permissive SPDX license;
 do not copy or import akochan code/assets without a separate license review.
 
+Source refresh on 2026-07-09:
+
+- Mortal docs still describe the project as a Japanese-mahjong AI powered by deep reinforcement
+  learning, compatible with Tenhou standard ranked four-player rules, and exposing an `mjai`
+  interface.
+- Mortal Docker quick start still states that the Docker image is for inference through the `mjai`
+  interface, not training, and that model files must be supplied separately.
+- Mortal repository metadata still lists AGPL-3.0 licensing for code.
+- mjai-reviewer still describes itself as a review tool for `mjai`-compatible engines including
+  Mortal and akochan.
+- The public mjai review site notices limit Mortal-style review to four-player common/ranked-rule
+  logs and note Mortal hanchan support; Kenjaku TODO-103 comparisons should therefore not mix Sanma,
+  tournament-rule, or custom-starting-score slices into the first shared-slice report.
+
+Mortal-compatible comparison interface for TODO-103:
+
+1. Kenjaku owns shared-slice construction. The input slice is a permitted local Tenhou XML set
+   exported with stable `row_id` values and an `mjai_events` prefix via
+   `export-decision-snapshots`, plus optional full `.mjson` streams via
+   `tenhou-to-mjai --compat tenhou-to-mjai` when an external runner needs replay-shaped input.
+2. Mortal owns inference outside this repository. A runner may be the upstream Docker image or a
+   local ignored checkout, but it must live outside tracked Kenjaku code and receive its model
+   files from ignored local paths.
+3. The only tracked Kenjaku boundary is data/process I/O: `run-external-prediction-producer` invokes
+   a command with `KENJAKU_SNAPSHOTS` and `KENJAKU_PREDICTIONS`; the command writes JSONL rows of
+   `{"row_id": "...", "predicted_action": {...}}`.
+4. Metric comparability is row-based. `external-baseline-report` compares Mortal-compatible output
+   against Kenjaku predictions only on the same snapshot rows, legal-action set, decision type, and
+   observed action encoding. No report should compare a full-game duplicate-mahjong placement score
+   against decision-snapshot exact accuracy.
+5. A real TODO-103 result is not established until the smoke prediction files are replaced by output
+   from legally usable Mortal code, weights, and runtime artifacts on a shared permitted slice.
+
 Local build checks that passed:
 
 ```bash
