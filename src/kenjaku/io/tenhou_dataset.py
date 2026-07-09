@@ -53,6 +53,12 @@ class _TenhouDatasetParseResult:
     failure: TenhouParseFailure | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _TenhouDatasetChunkResult:
+    game_payload: dict[str, Any]
+    failures: tuple[TenhouParseFailure, ...]
+
+
 def tenhou_xml_files(paths: Sequence[str | Path]) -> tuple[Path, ...]:
     files: list[Path] = []
     for raw_path in paths:
@@ -189,12 +195,12 @@ def parse_tenhou_xml_dataset(
             max_workers=jobs,
             mp_context=_process_pool_context(),
         ) as executor:
-            for chunk in executor.map(_parse_tenhou_dataset_file_chunk, _task_chunks(tasks, jobs)):
-                for result in chunk:
-                    if result.failure is not None:
-                        failures.append(result.failure)
-                        continue
-                    rounds.extend(_game_from_parse_result(result).rounds)
+            for result in executor.map(
+                _parse_tenhou_dataset_rounds_chunk,
+                _task_chunks(tasks, jobs),
+            ):
+                failures.extend(result.failures)
+                rounds.extend(tenhou_game_from_payload(result.game_payload).rounds)
         return TenhouDataset(
             game=TenhouGame(rounds=tuple(rounds)),
             files=files,
@@ -220,10 +226,7 @@ def _parse_tenhou_dataset_file_task(
     task: _TenhouDatasetParseTask,
 ) -> _TenhouDatasetParseResult:
     try:
-        if task.parse_cache_dir is None:
-            game = parse_tenhou_xml_file(task.path)
-        else:
-            game = parse_tenhou_xml_file_cached(task.path, task.parse_cache_dir)
+        game = _parse_tenhou_dataset_game(task)
     except Exception as error:
         if not task.skip_errors:
             raise
@@ -243,10 +246,40 @@ def _parse_tenhou_dataset_file_task(
     )
 
 
+def _parse_tenhou_dataset_game(task: _TenhouDatasetParseTask) -> TenhouGame:
+    if task.parse_cache_dir is None:
+        return parse_tenhou_xml_file(task.path)
+    return parse_tenhou_xml_file_cached(task.path, task.parse_cache_dir)
+
+
 def _parse_tenhou_dataset_file_chunk(
     tasks: tuple[_TenhouDatasetParseTask, ...],
 ) -> tuple[_TenhouDatasetParseResult, ...]:
     return tuple(_parse_tenhou_dataset_file_task(task) for task in tasks)
+
+
+def _parse_tenhou_dataset_rounds_chunk(
+    tasks: tuple[_TenhouDatasetParseTask, ...],
+) -> _TenhouDatasetChunkResult:
+    rounds: list[TenhouRound] = []
+    failures: list[TenhouParseFailure] = []
+    for task in tasks:
+        try:
+            rounds.extend(_parse_tenhou_dataset_game(task).rounds)
+        except Exception as error:
+            if not task.skip_errors:
+                raise
+            failures.append(
+                TenhouParseFailure(
+                    path=task.path,
+                    error_type=type(error).__name__,
+                    message=str(error),
+                )
+            )
+    return _TenhouDatasetChunkResult(
+        game_payload=tenhou_game_payload(TenhouGame(rounds=tuple(rounds))),
+        failures=tuple(failures),
+    )
 
 
 def _game_from_parse_result(result: _TenhouDatasetParseResult) -> TenhouGame:

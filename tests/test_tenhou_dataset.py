@@ -56,6 +56,20 @@ class TenhouDatasetTests(unittest.TestCase):
             [len(item.game.rounds) for item in sequential],
         )
 
+    def test_parallel_dataset_preserves_round_order(self) -> None:
+        sequential = parse_tenhou_xml_dataset([FIXTURE_DIR])
+        parallel = parse_tenhou_xml_dataset([FIXTURE_DIR], jobs=2)
+
+        self.assertEqual(parallel.files, sequential.files)
+        self.assertEqual(
+            [round_.round_index for round_ in parallel.game.rounds],
+            [round_.round_index for round_ in sequential.game.rounds],
+        )
+        self.assertEqual(
+            [len(round_.events) for round_ in parallel.game.rounds],
+            [len(round_.events) for round_ in sequential.game.rounds],
+        )
+
     def test_records_parse_failures_when_requested(self) -> None:
         with TemporaryDirectory() as directory:
             broken = Path(directory) / "broken.xml"
