@@ -60,6 +60,46 @@ Benchmark status: `benchmark-kita data/fixtures/sanma/sanma_kita_3p.xml` covers 
 Kita/pass report path for the checked-in synthetic fixture. It is not a substitute for a held-out
 real Sanma evaluation slice.
 
+## Report Bundle Gate
+
+After real Sanma discard/call/riichi/Kita reports exist, write an ignored bundle manifest:
+
+```json
+{
+  "kind": "kenjaku-sanma-report-bundle-v0",
+  "minimum_xml_files": 1000,
+  "minimum_eval_decisions": 1,
+  "reports": {
+    "discard": {
+      "path": "runs/todo-403/discard-benchmark.json",
+      "model": "defense_context_linear"
+    },
+    "call": {
+      "path": "runs/todo-403/call-benchmark.json",
+      "model": "call_linear_v1_calibrated"
+    },
+    "riichi": {
+      "path": "runs/todo-403/riichi-benchmark.json",
+      "model": "riichi_linear_calibrated"
+    },
+    "kita": {
+      "path": "runs/todo-403/kita-benchmark.json",
+      "model": "kita_frequency"
+    }
+  }
+}
+```
+
+Validate it before closing TODO-403:
+
+```bash
+python3 scripts/validate_sanma_report_bundle.py runs/todo-403/sanma-report-bundle-v0.json
+```
+
+The validator rejects checked-in fixture/synthetic sources, requires ignored report paths, enforces
+the 1,000-file default gate, and checks selected-model loss, accuracy, balanced accuracy, and
+per-action recall fields.
+
 ## Unblock Checklist
 
 1. Obtain at least 1,000 Tenhou Sanma logs from a user-owned or explicitly consented source.
