@@ -36,6 +36,14 @@ class ReleaseVersionTests(unittest.TestCase):
                 contents = path.read_text(encoding="utf-8")
                 self.assertIn("scripts/validate_release_version.py", contents)
 
+    def test_docker_workflow_can_publish_without_release_tag(self) -> None:
+        contents = Path(".github/workflows/docker.yml").read_text(encoding="utf-8")
+
+        self.assertIn("workflow_dispatch:", contents)
+        self.assertIn("version:", contents)
+        self.assertIn('version="${INPUT_VERSION#v}"', contents)
+        self.assertIn("type=raw,value=${{ steps.version.outputs.version }}", contents)
+
     def test_docker_workflow_verifies_published_image(self) -> None:
         contents = Path(".github/workflows/docker.yml").read_text(encoding="utf-8")
 
