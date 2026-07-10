@@ -62,7 +62,7 @@ Post only results that were produced by these commands or by later checked artif
 Title:
 
 ```text
-Kenjaku v0.1.0: local riichi mahjong replay-analysis toolkit
+Kenjaku v0.2.0: local riichi mahjong replay-analysis toolkit
 ```
 
 Body:
