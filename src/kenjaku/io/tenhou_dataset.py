@@ -53,12 +53,6 @@ class _TenhouDatasetParseResult:
     failure: TenhouParseFailure | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _TenhouDatasetChunkResult:
-    game_payload: dict[str, Any]
-    failures: tuple[TenhouParseFailure, ...]
-
-
 def tenhou_xml_files(paths: Sequence[str | Path]) -> tuple[Path, ...]:
     files: list[Path] = []
     for raw_path in paths:
@@ -131,17 +125,16 @@ def iter_tenhou_xml_dataset_files(
             max_workers=jobs,
             mp_context=_process_pool_context(),
         ) as executor:
-            for chunk in executor.map(_parse_tenhou_dataset_file_chunk, _task_chunks(tasks, jobs)):
-                for result in chunk:
-                    if result.failure is not None:
-                        if failures is not None:
-                            failures.append(result.failure)
-                        continue
-                    yield TenhouDatasetFile(
-                        path=result.path,
-                        file_index=result.file_index,
-                        game=_game_from_parse_result(result),
-                    )
+            for result in executor.map(_parse_tenhou_dataset_file_task, tasks, chunksize=1):
+                if result.failure is not None:
+                    if failures is not None:
+                        failures.append(result.failure)
+                    continue
+                yield TenhouDatasetFile(
+                    path=result.path,
+                    file_index=result.file_index,
+                    game=_game_from_parse_result(result),
+                )
         return
 
     for file_index, file in enumerate(files):
@@ -195,12 +188,11 @@ def parse_tenhou_xml_dataset(
             max_workers=jobs,
             mp_context=_process_pool_context(),
         ) as executor:
-            for result in executor.map(
-                _parse_tenhou_dataset_rounds_chunk,
-                _task_chunks(tasks, jobs),
-            ):
-                failures.extend(result.failures)
-                rounds.extend(tenhou_game_from_payload(result.game_payload).rounds)
+            for result in executor.map(_parse_tenhou_dataset_file_task, tasks, chunksize=1):
+                if result.failure is not None:
+                    failures.append(result.failure)
+                    continue
+                rounds.extend(_game_from_parse_result(result).rounds)
         return TenhouDataset(
             game=TenhouGame(rounds=tuple(rounds)),
             files=files,
@@ -252,50 +244,10 @@ def _parse_tenhou_dataset_game(task: _TenhouDatasetParseTask) -> TenhouGame:
     return parse_tenhou_xml_file_cached(task.path, task.parse_cache_dir)
 
 
-def _parse_tenhou_dataset_file_chunk(
-    tasks: tuple[_TenhouDatasetParseTask, ...],
-) -> tuple[_TenhouDatasetParseResult, ...]:
-    return tuple(_parse_tenhou_dataset_file_task(task) for task in tasks)
-
-
-def _parse_tenhou_dataset_rounds_chunk(
-    tasks: tuple[_TenhouDatasetParseTask, ...],
-) -> _TenhouDatasetChunkResult:
-    rounds: list[TenhouRound] = []
-    failures: list[TenhouParseFailure] = []
-    for task in tasks:
-        try:
-            rounds.extend(_parse_tenhou_dataset_game(task).rounds)
-        except Exception as error:
-            if not task.skip_errors:
-                raise
-            failures.append(
-                TenhouParseFailure(
-                    path=task.path,
-                    error_type=type(error).__name__,
-                    message=str(error),
-                )
-            )
-    return _TenhouDatasetChunkResult(
-        game_payload=tenhou_game_payload(TenhouGame(rounds=tuple(rounds))),
-        failures=tuple(failures),
-    )
-
-
 def _game_from_parse_result(result: _TenhouDatasetParseResult) -> TenhouGame:
     if result.game_payload is None:
         raise RuntimeError("parallel Tenhou parse returned no game")
     return tenhou_game_from_payload(result.game_payload)
-
-
-def _task_chunks(
-    tasks: Sequence[_TenhouDatasetParseTask],
-    jobs: int,
-) -> tuple[tuple[_TenhouDatasetParseTask, ...], ...]:
-    chunk_size = max(1, (len(tasks) + jobs - 1) // jobs)
-    return tuple(
-        tuple(tasks[start : start + chunk_size]) for start in range(0, len(tasks), chunk_size)
-    )
 
 
 def _process_pool_context() -> BaseContext | None:
