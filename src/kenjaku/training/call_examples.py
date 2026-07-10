@@ -218,6 +218,8 @@ def _can_chi(
     players: int,
 ) -> bool:
     discarded_type = discard.tile.type
+    if players == 3:
+        return False
     if seat != (discard.seat + 1) % players or discarded_type.is_honor:
         return False
 

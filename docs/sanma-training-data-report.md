@@ -47,7 +47,7 @@ Synthetic Sanma plumbing fixtures: 1.
 | Required Sanma decision | Current local snapshot support | Status |
 | --- | --- | --- |
 | Discard | `export-decision-snapshots` supports 4-player discard rows. | Needs validation against permitted real 3-player logs. |
-| Call/pass | 4-player call/pass rows exist. | Needs Sanma no-chi filtering against real 3-player logs. |
+| Call/pass | 4-player call/pass rows exist; synthetic 3-player call windows now suppress chi opportunities. | Needs validation against permitted real 3-player logs. |
 | Riichi/pass | 4-player riichi/pass rows exist. | Needs validation against permitted real 3-player logs. |
 | Kita | Self-play supports Kita actions, synthetic Tenhou Sanma logs can emit `kita` decision snapshots, and `benchmark-kita` can produce a local frequency-baseline report. | Needs validation against permitted real 3-player logs. |
 | Win/pass | Self-play supports ron/tsumo/pass windows. | Missing decision snapshot row type for replay export. |

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from kenjaku.core import ActionKind, TileType
 from kenjaku.io import parse_tenhou_xml, parse_tenhou_xml_file
-from kenjaku.training import iter_call_examples
+from kenjaku.training.call_examples import iter_call_examples
 
 EVENTS_FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
 
@@ -84,6 +84,29 @@ class CallExampleTests(unittest.TestCase):
         self.assertEqual(examples[0].seat, 1)
         self.assertEqual(examples[0].legal_call_kinds, (ActionKind.CHI,))
         self.assertEqual(examples[0].action.kind, ActionKind.PASS)
+
+    def test_sanma_does_not_build_chi_window(self) -> None:
+        game = parse_tenhou_xml(
+            """
+            <mjloggm>
+              <INIT
+                seed="0,0,0,0,0,72"
+                ten="350,350,350"
+                oya="0"
+                hai0="0,4,8,12,16,20,24,28,32,36,40,56,60"
+                hai1="1,5,9,13,17,21,25,29,33,44,48,57,61"
+                hai2="2,6,10,14,18,22,26,30,34,38,42,46,62"
+              />
+              <T52 />
+              <D52 />
+              <U64 />
+            </mjloggm>
+            """
+        )
+
+        examples = list(iter_call_examples(game))
+
+        self.assertEqual(examples, [])
 
 
 if __name__ == "__main__":

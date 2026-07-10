@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from kenjaku.core import ActionKind
 from kenjaku.features.riichi import RIICHI_DECISION_KINDS
-from kenjaku.training import RiichiExample
+from kenjaku.training.riichi_examples import RiichiExample
 
 RIICHI_FREQUENCY_MODEL_KIND = "riichi-frequency-v0"
 

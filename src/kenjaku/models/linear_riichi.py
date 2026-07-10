@@ -24,7 +24,7 @@ from kenjaku.models._linear_base import (
     softmax,
     weight_matrix_payload,
 )
-from kenjaku.training import RiichiExample
+from kenjaku.training.riichi_examples import RiichiExample
 
 _ALL_TILE_TYPES = all_tile_types()
 
