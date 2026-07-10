@@ -97,8 +97,9 @@ Validate it before closing TODO-403:
 python3 scripts/validate_sanma_report_bundle.py runs/todo-403/sanma-report-bundle-v0.json
 ```
 
-The validator rejects checked-in fixture/synthetic sources, requires ignored report paths, enforces
-the 1,000-file default gate, and checks selected-model loss, accuracy, balanced accuracy, and
+The validator rejects checked-in fixture/synthetic sources, requires the bundle and report paths to
+be ignored, requires report input paths to exist under ignored non-fixture paths, enforces the
+1,000-file default gate, and checks numeric selected-model loss, accuracy, balanced accuracy, and
 per-action recall fields.
 
 ## Unblock Checklist

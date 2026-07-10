@@ -37,6 +37,46 @@ class SanmaReportBundleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("source.label must not be synthetic or fixture", result.stderr)
 
+    def test_rejects_missing_input_path(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            bundle = _write_bundle(root, input_paths=(str(root / "missing-sanma-slice"),))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("report input path does not exist", result.stderr)
+
+    def test_rejects_nonnumeric_metric(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            bundle = _write_bundle(Path(directory), metric_overrides={"eval_accuracy": "0.6"})
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("selected model metric eval_accuracy must be a number", result.stderr)
+
+    def test_rejects_non_ignored_bundle_path(self) -> None:
+        with TemporaryDirectory(dir=Path(".")) as directory:
+            bundle = _write_bundle(Path(directory))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("bundle path is not ignored by git", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-403")
@@ -44,7 +84,17 @@ def _runs_dir() -> Path:
     return path
 
 
-def _write_bundle(root: Path, *, source_label: str = "real-sanma-local") -> Path:
+def _write_bundle(
+    root: Path,
+    *,
+    source_label: str = "real-sanma-local",
+    input_paths: tuple[str, ...] | None = None,
+    metric_overrides: dict[str, object] | None = None,
+) -> Path:
+    if input_paths is None:
+        input_slice = root / "input-slice"
+        input_slice.mkdir()
+        input_paths = (str(input_slice),)
     reports = {
         "discard": root / "discard.json",
         "call": root / "call.json",
@@ -70,6 +120,8 @@ def _write_bundle(root: Path, *, source_label: str = "real-sanma-local") -> Path
             model_name=model_names[target],
             target=target,
             source_label=source_label,
+            input_paths=input_paths,
+            metric_overrides=metric_overrides,
         )
     bundle = root / "sanma-report-bundle.json"
     bundle.write_text(
@@ -97,6 +149,8 @@ def _write_report(
     model_name: str,
     target: str,
     source_label: str,
+    input_paths: tuple[str, ...],
+    metric_overrides: dict[str, object] | None,
 ) -> None:
     metrics = {
         "train_loss": 0.2,
@@ -108,6 +162,8 @@ def _write_report(
         "train_action_recall": {},
         "eval_action_recall": {},
     }
+    if metric_overrides:
+        metrics.update(metric_overrides)
     if target in {"call", "riichi", "kita"}:
         metrics[f"eval_{target}_recall"] = 0.5
     path.write_text(
@@ -118,7 +174,7 @@ def _write_report(
                     "label": source_label,
                     "command": f"unit {target} command",
                 },
-                "input_paths": ["data/raw/sanma/local"],
+                "input_paths": list(input_paths),
                 "xml_file_count": 1000,
                 "split": {
                     "seed": "unit",
