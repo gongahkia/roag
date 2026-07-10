@@ -5,9 +5,10 @@ from pathlib import Path
 
 from kenjaku.core import ActionKind
 from kenjaku.io import parse_tenhou_xml, parse_tenhou_xml_file
-from kenjaku.training import iter_riichi_examples
+from kenjaku.training.riichi_examples import iter_riichi_examples
 
 EVENTS_FIXTURE = Path("data/fixtures/tenhou/events_4p.xml")
+SANMA_DECISIONS_FIXTURE = Path("data/fixtures/sanma/sanma_decisions_3p.xml")
 
 
 class RiichiExampleTests(unittest.TestCase):
@@ -50,6 +51,17 @@ class RiichiExampleTests(unittest.TestCase):
         self.assertEqual(examples[0].seat, 0)
         self.assertEqual(examples[0].action.kind, ActionKind.PASS)
         self.assertEqual(sum(examples[0].hand_counts), 14)
+
+    def test_builds_sanma_positive_riichi_example(self) -> None:
+        game = parse_tenhou_xml_file(SANMA_DECISIONS_FIXTURE)
+
+        examples = list(iter_riichi_examples(game))
+        positives = [example for example in examples if example.action.kind is ActionKind.RIICHI]
+
+        self.assertEqual(len(positives), 1)
+        self.assertEqual(positives[0].seat, 0)
+        self.assertEqual(positives[0].active_riichi_seats, (False, False, False))
+        self.assertTrue(all(len(example.scores) == 3 for example in examples))
 
 
 if __name__ == "__main__":

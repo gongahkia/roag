@@ -10,6 +10,8 @@ from tests.commands.conftest import (
     main,
 )
 
+SANMA_FIXTURES_DIR = Path("data/fixtures/sanma")
+
 
 class DecisionSnapshotCommandTests(CliCommandTests):
     def test_export_decision_snapshots_writes_jsonl(self) -> None:
@@ -119,6 +121,31 @@ class DecisionSnapshotCommandTests(CliCommandTests):
         self.assertGreaterEqual(len(rows), 1)
         self.assertTrue(all(row["decision_type"] == "riichi" for row in rows))
         self.assertTrue(all({"kind": "riichi"} in row["legal_actions"] for row in rows))
+
+    def test_export_decision_snapshots_exports_sanma_discard_riichi_and_kita(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "sanma-snapshots.jsonl"
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "export-decision-snapshots",
+                        str(SANMA_FIXTURES_DIR),
+                        "--decision-types",
+                        "discard,riichi,kita",
+                        "--output",
+                        str(output),
+                    ]
+                )
+            rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+
+        decision_types = {row["decision_type"] for row in rows}
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(decision_types, {"discard", "riichi", "kita"})
+        self.assertTrue(all(len(row["scores"]) == 3 for row in rows))
+        self.assertTrue(all(len(row["active_riichi_seats"]) == 3 for row in rows))
+        self.assertIn("decision_types: discard,riichi,kita", stdout.getvalue())
 
     def test_decision_snapshot_summary_reports_counts_and_malformed_rows(self) -> None:
         with TemporaryDirectory() as directory:
