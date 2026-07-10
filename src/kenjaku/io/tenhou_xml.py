@@ -272,6 +272,10 @@ def parse_tenhou_xml(xml_text: str) -> TenhouGame:
     return TenhouGame(rounds=tuple(rounds), names=names)
 
 
+def iter_tenhou_xml_events(xml_text: str) -> tuple[_ParsedEvent, ...]:
+    return _parse_events(xml_text)
+
+
 def _parse_events(xml_text: str) -> tuple[_ParsedEvent, ...]:
     parser = _TenhouEventParser()
     parser.feed(xml_text)

@@ -5,11 +5,14 @@ from functools import cache
 from hashlib import blake2b
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import unquote
 
 from kenjaku.core import Tile
 from kenjaku.io.tenhou_meld import TenhouMeld, decode_tenhou_meld
 from kenjaku.io.tenhou_tiles import tenhou_tile
 from kenjaku.io.tenhou_xml import (
+    DISCARD_TAG_TO_SEAT,
+    DRAW_TAG_TO_SEAT,
     TenhouAgari,
     TenhouCall,
     TenhouDiscard,
@@ -19,6 +22,7 @@ from kenjaku.io.tenhou_xml import (
     TenhouReach,
     TenhouRound,
     TenhouRyuukyoku,
+    iter_tenhou_xml_events,
     parse_tenhou_xml,
 )
 
@@ -55,6 +59,10 @@ def tenhou_game_payload(game: TenhouGame) -> dict[str, Any]:
     return _game_payload(game)
 
 
+def tenhou_game_payload_from_xml_file(path: str | Path) -> dict[str, Any]:
+    return _game_payload_from_xml(Path(path).read_text(encoding="utf-8"))
+
+
 def tenhou_game_from_payload(payload: Any) -> TenhouGame:
     return _game_from_payload(payload)
 
@@ -89,6 +97,157 @@ def _game_from_payload(payload: Any) -> TenhouGame:
         rounds=tuple(_round_from_payload(round_) for round_ in payload["rounds"]),
         names=tuple(str(name) for name in payload.get("names", ())),
     )
+
+
+def _game_payload_from_xml(xml_text: str) -> dict[str, Any]:
+    rounds: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    last_draws: dict[int, int] = {}
+    discard_count = 0
+    names: list[str] = []
+
+    for event in iter_tenhou_xml_events(xml_text):
+        tag = event.tag
+        if tag == "UN":
+            parsed_names = _names_payload(event.attrib)
+            if parsed_names:
+                names = parsed_names
+            continue
+
+        if tag == "INIT":
+            if current is not None:
+                rounds.append(current)
+            current = _round_payload_from_init(event.attrib)
+            last_draws = {}
+            discard_count = 0
+            continue
+
+        if current is None:
+            continue
+
+        if tag == "DORA":
+            dora_indicator = _tile_notation(_required_int(event.attrib, tag, "hai"))
+            dora_indicators = cast(list[str], current["dora_indicators"])
+            events = cast(list[dict[str, Any]], current["events"])
+            if events or not dora_indicators or dora_indicators[-1] != dora_indicator:
+                dora_indicators.append(dora_indicator)
+            continue
+
+        draw_seat = _seat_from_tag(tag, DRAW_TAG_TO_SEAT)
+        if draw_seat is not None:
+            tile_id = _tile_id_from_tag(tag)
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "draw",
+                    "seat": draw_seat,
+                    "tile_id": tile_id,
+                    "event_index": len(events),
+                }
+            )
+            last_draws[draw_seat] = tile_id
+            continue
+
+        discard_seat = _seat_from_tag(tag, DISCARD_TAG_TO_SEAT)
+        if discard_seat is not None:
+            tile_id = _tile_id_from_tag(tag)
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "discard",
+                    "seat": discard_seat,
+                    "tile_id": tile_id,
+                    "tsumogiri": last_draws.get(discard_seat) == tile_id,
+                    "event_index": len(events),
+                    "turn": discard_count,
+                }
+            )
+            discard_count += 1
+            last_draws.pop(discard_seat, None)
+            continue
+
+        if tag == "REACH":
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "reach",
+                    "seat": _required_int(event.attrib, tag, "who"),
+                    "step": _required_int(event.attrib, tag, "step"),
+                    "event_index": len(events),
+                    "scores": _optional_scores_payload(event.attrib.get("ten")),
+                }
+            )
+            continue
+
+        if tag == "N":
+            seat = _required_int(event.attrib, tag, "who")
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "call",
+                    "seat": seat,
+                    "meld_code": _required_int(event.attrib, tag, "m"),
+                    "event_index": len(events),
+                }
+            )
+            last_draws.pop(seat, None)
+            continue
+
+        if tag == "AGARI":
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "agari",
+                    "winner": _required_int(event.attrib, tag, "who"),
+                    "from_seat": _required_int(event.attrib, tag, "fromwho"),
+                    "event_index": len(events),
+                    "machi": _optional_tile_notation(event.attrib.get("machi")),
+                    "points": _optional_ints_payload_from_text(event.attrib.get("ten")),
+                    "score_deltas": _score_deltas_payload(event.attrib.get("sc")),
+                    "yaku": _ints_payload(event.attrib.get("yaku")),
+                    "dora_indicators": _tile_notations_payload(event.attrib.get("dorahai")),
+                    "ura_dora_indicators": _tile_notations_payload(
+                        event.attrib.get("uradorahai") or event.attrib.get("dorahaiura")
+                    ),
+                }
+            )
+            continue
+
+        if tag == "RYUUKYOKU":
+            events = cast(list[dict[str, Any]], current["events"])
+            events.append(
+                {
+                    "type": "ryuukyoku",
+                    "event_index": len(events),
+                    "reason": event.attrib.get("type"),
+                    "scores": _optional_scores_payload(event.attrib.get("ten")),
+                    "score_deltas": _score_deltas_payload(event.attrib.get("sc")),
+                }
+            )
+
+    if current is not None:
+        rounds.append(current)
+
+    payload: dict[str, Any] = {"rounds": rounds}
+    if names:
+        payload["names"] = names
+    return payload
+
+
+def _round_payload_from_init(attrib: dict[str, str]) -> dict[str, Any]:
+    round_index, honba, kyotaku, dora_indicator = _seed_payload(attrib.get("seed"))
+    return {
+        "round_index": round_index,
+        "round_wind": round_index // 4,
+        "kyoku": round_index % 4 + 1,
+        "honba": honba,
+        "kyotaku": kyotaku,
+        "dealer": _required_int(attrib, "INIT", "oya"),
+        "scores": _scores_payload(_required_attr(attrib, "INIT", "ten")),
+        "starting_hands": _starting_hands_payload(attrib),
+        "dora_indicators": [] if dora_indicator is None else [dora_indicator],
+        "events": [],
+    }
 
 
 def _round_payload(round_: TenhouRound) -> dict[str, Any]:
@@ -283,6 +442,112 @@ def _optional_int_tuple(payload: Any) -> tuple[int, ...] | None:
 
 def _int_tuple(payload: Any) -> tuple[int, ...]:
     return tuple(int(value) for value in payload)
+
+
+def _names_payload(attrib: dict[str, str]) -> list[str]:
+    player_count = _contiguous_count(attrib, prefix="n")
+    if player_count < 3:
+        return []
+    return [unquote(attrib[f"n{seat}"]) for seat in range(player_count)]
+
+
+def _starting_hands_payload(attrib: dict[str, str]) -> list[list[str]]:
+    player_count = _contiguous_count(attrib, prefix="hai")
+    if player_count not in {3, 4}:
+        raise ValueError("INIT must contain contiguous hai0..hai2 or hai0..hai3 hands")
+    return [
+        _tile_notations_payload(_required_attr(attrib, "INIT", f"hai{seat}"))
+        for seat in range(player_count)
+    ]
+
+
+def _contiguous_count(attrib: dict[str, str], *, prefix: str) -> int:
+    count = 0
+    while f"{prefix}{count}" in attrib:
+        count += 1
+    return count
+
+
+def _seed_payload(seed: str | None) -> tuple[int, int, int, str | None]:
+    if not seed:
+        return (0, 0, 0, None)
+    values = [int(value) for value in seed.split(",") if value]
+    round_index = values[0] if len(values) > 0 else 0
+    honba = values[1] if len(values) > 1 else 0
+    kyotaku = values[2] if len(values) > 2 else 0
+    dora_indicator = _tile_notation(values[5]) if len(values) > 5 else None
+    return (round_index, honba, kyotaku, dora_indicator)
+
+
+def _required_attr(attrib: dict[str, str], tag: str, name: str) -> str:
+    value = attrib.get(name)
+    if value is None:
+        raise ValueError(f"{tag} missing required attribute {name!r}")
+    return value
+
+
+def _required_int(attrib: dict[str, str], tag: str, name: str) -> int:
+    return int(_required_attr(attrib, tag, name))
+
+
+def _scores_payload(raw_scores: str) -> list[int]:
+    return [int(score) * 100 for score in raw_scores.split(",")]
+
+
+def _optional_scores_payload(raw_scores: str | None) -> list[int] | None:
+    if raw_scores is None:
+        return None
+    return _scores_payload(raw_scores)
+
+
+def _ints_payload(raw_values: str | None) -> list[int]:
+    if not raw_values:
+        return []
+    return [int(value) for value in raw_values.split(",") if value]
+
+
+def _optional_ints_payload_from_text(raw_values: str | None) -> list[int] | None:
+    if not raw_values:
+        return None
+    return _ints_payload(raw_values)
+
+
+def _score_deltas_payload(raw_values: str | None) -> list[int] | None:
+    if not raw_values:
+        return None
+    values = _ints_payload(raw_values)
+    if len(values) % 2 != 0:
+        raise ValueError("Tenhou sc score-change fields must contain score/delta pairs")
+    return [delta * 100 for delta in values[1::2]]
+
+
+def _optional_tile_notation(raw_tile: str | None) -> str | None:
+    if raw_tile is None:
+        return None
+    return _tile_notation(int(raw_tile))
+
+
+def _tile_notations_payload(raw_tiles: str | None) -> list[str]:
+    if not raw_tiles:
+        return []
+    return [_tile_notation(int(tile_id)) for tile_id in raw_tiles.split(",") if tile_id]
+
+
+def _tile_notation(tile_id: int) -> str:
+    return _tenhou_tile(tile_id).notation
+
+
+def _seat_from_tag(tag: str, mapping: dict[str, int]) -> int | None:
+    if not tag or not tag[1:].isdigit():
+        return None
+    return mapping.get(tag[0])
+
+
+def _tile_id_from_tag(tag: str) -> int:
+    try:
+        return int(tag[1:])
+    except ValueError as error:
+        raise ValueError(f"invalid Tenhou tile event tag: {tag!r}") from error
 
 
 def _dict(payload: Any) -> dict[str, Any]:

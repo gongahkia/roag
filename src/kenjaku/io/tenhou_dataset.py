@@ -12,6 +12,7 @@ from kenjaku.io.parse_cache import (
     parse_tenhou_xml_file_cached,
     tenhou_game_from_payload,
     tenhou_game_payload,
+    tenhou_game_payload_from_xml_file,
 )
 from kenjaku.io.tenhou_xml import TenhouGame, TenhouRound, parse_tenhou_xml_file
 
@@ -218,7 +219,10 @@ def _parse_tenhou_dataset_file_task(
     task: _TenhouDatasetParseTask,
 ) -> _TenhouDatasetParseResult:
     try:
-        game = _parse_tenhou_dataset_game(task)
+        if task.parse_cache_dir is None:
+            game_payload = tenhou_game_payload_from_xml_file(task.path)
+        else:
+            game_payload = tenhou_game_payload(_parse_tenhou_dataset_game(task))
     except Exception as error:
         if not task.skip_errors:
             raise
@@ -234,7 +238,7 @@ def _parse_tenhou_dataset_file_task(
     return _TenhouDatasetParseResult(
         path=task.path,
         file_index=task.file_index,
-        game_payload=tenhou_game_payload(game),
+        game_payload=game_payload,
     )
 
 

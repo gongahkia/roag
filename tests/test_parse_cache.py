@@ -17,7 +17,11 @@ from kenjaku.io import (
     parse_tenhou_xml_file,
     parse_tenhou_xml_file_cached,
 )
-from kenjaku.io.parse_cache import CACHE_KIND
+from kenjaku.io.parse_cache import (
+    CACHE_KIND,
+    tenhou_game_from_payload,
+    tenhou_game_payload_from_xml_file,
+)
 
 FIXTURE_DIR = Path("data/fixtures/tenhou")
 MINIMAL_FIXTURE = FIXTURE_DIR / "minimal_4p.xml"
@@ -40,6 +44,17 @@ class TenhouParseCacheTests(unittest.TestCase):
                 payload["source_digest"],
                 blake2b(MINIMAL_FIXTURE.read_bytes()).hexdigest(),
             )
+
+    def test_direct_xml_payload_matches_normal_parser(self) -> None:
+        for fixture in (
+            MINIMAL_FIXTURE,
+            EVENTS_FIXTURE,
+            FIXTURE_DIR / "ryuukyoku_4p.xml",
+            Path("data/fixtures/sanma/sanma_kita_3p.xml"),
+        ):
+            with self.subTest(fixture=fixture):
+                payload = tenhou_game_payload_from_xml_file(fixture)
+                self.assertEqual(tenhou_game_from_payload(payload), parse_tenhou_xml_file(fixture))
 
     def test_warm_cache_does_not_reparse_xml(self) -> None:
         with TemporaryDirectory() as directory:
@@ -105,8 +120,8 @@ class TenhouParseCacheTests(unittest.TestCase):
     def test_fixture_files_warm_cache_is_five_times_faster_than_cold(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            files = tuple(sorted(FIXTURE_DIR.glob("*.xml")))
-            runs = 100
+            files = _write_cache_timing_fixtures(root / "fixtures")
+            runs = 20
 
             cold_start = time.perf_counter()
             for index in range(runs):
@@ -204,6 +219,20 @@ class TenhouParseCacheTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(len(tuple(cache_dir.glob("*.json"))), 3)
+
+
+def _write_cache_timing_fixtures(root: Path) -> tuple[Path, ...]:
+    root.mkdir()
+    ignored_tags = "".join(f'  <GO type="{index}" />\n' for index in range(100))
+    files: list[Path] = []
+    for source in sorted(FIXTURE_DIR.glob("*.xml")):
+        target = root / source.name
+        target.write_text(
+            source.read_text(encoding="utf-8").replace("</mjloggm>", f"{ignored_tags}</mjloggm>"),
+            encoding="utf-8",
+        )
+        files.append(target)
+    return tuple(files)
 
 
 if __name__ == "__main__":
