@@ -143,9 +143,7 @@ def _validate_report_payload(
         )
     if not isinstance(eval_examples, int) or eval_examples < minimum_eval:
         errors.append(f"{target} eval_examples must be >= {minimum_eval}, got {eval_examples!r}")
-    source = report.get("source")
-    if not isinstance(source, dict) or not isinstance(source.get("command"), str):
-        errors.append(f"{target} report source.command must be recorded")
+    errors.extend(_validate_real_source(target, report))
     models = report.get("models")
     if not isinstance(models, dict):
         return [*errors, f"{target} report models must be an object"]
@@ -161,6 +159,24 @@ def _validate_report_payload(
     recall_key = f"eval_{target}_recall"
     if target in {"call", "riichi"} and recall_key not in metrics:
         errors.append(f"{target} selected model missing metric {recall_key}")
+    return errors
+
+
+def _validate_real_source(target: str, report: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    source = report.get("source")
+    if not isinstance(source, dict) or not isinstance(source.get("command"), str):
+        errors.append(f"{target} report source.command must be recorded")
+    label = "" if not isinstance(source, dict) else str(source.get("label", ""))
+    if "synthetic" in label.lower() or "fixture" in label.lower():
+        errors.append(f"{target} report source.label must not be synthetic or fixture")
+    input_paths = report.get("input_paths")
+    if isinstance(input_paths, list):
+        for value in input_paths:
+            text = str(value)
+            if "data/fixtures" in text or "fixtures/tenhou" in text:
+                errors.append(f"{target} report input_paths must not use checked-in fixtures")
+                break
     return errors
 
 

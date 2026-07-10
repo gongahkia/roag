@@ -37,6 +37,24 @@ class BcReportBundleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("discard train_examples must be >= 100000", result.stderr)
 
+    def test_rejects_synthetic_fixture_source(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            bundle = _write_bundle(
+                Path(directory),
+                source_label="synthetic-fixture",
+                input_paths=("data/fixtures/tenhou/events_4p.xml",),
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("source.label must not be synthetic or fixture", result.stderr)
+        self.assertIn("input_paths must not use checked-in fixtures", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-102")
@@ -49,6 +67,8 @@ def _write_bundle(
     *,
     train_examples: int = 100_000,
     eval_examples: int = 20_000,
+    source_label: str = "real-tenhou-local",
+    input_paths: tuple[str, ...] = ("data/raw/tenhou/xml/todo-102-bc-6500",),
 ) -> Path:
     reports = {
         "discard": root / "discard.json",
@@ -62,6 +82,8 @@ def _write_bundle(
         target="discard",
         train_examples=train_examples,
         eval_examples=eval_examples,
+        source_label=source_label,
+        input_paths=input_paths,
     )
     _write_report(
         reports["call"],
@@ -70,6 +92,8 @@ def _write_bundle(
         target="call",
         train_examples=100_000,
         eval_examples=20_000,
+        source_label=source_label,
+        input_paths=input_paths,
     )
     _write_report(
         reports["riichi"],
@@ -78,6 +102,8 @@ def _write_bundle(
         target="riichi",
         train_examples=100_000,
         eval_examples=20_000,
+        source_label=source_label,
+        input_paths=input_paths,
     )
     bundle = root / "bc-report-bundle.json"
     bundle.write_text(
@@ -106,6 +132,8 @@ def _write_report(
     target: str,
     train_examples: int,
     eval_examples: int,
+    source_label: str,
+    input_paths: tuple[str, ...],
 ) -> None:
     metrics = {
         "train_loss": 0.2,
@@ -123,7 +151,11 @@ def _write_report(
         json.dumps(
             {
                 "kind": kind,
-                "source": {"command": f"unit {target} command"},
+                "source": {
+                    "label": source_label,
+                    "command": f"unit {target} command",
+                },
+                "input_paths": list(input_paths),
                 "split": {
                     "seed": "unit",
                     "train_examples": train_examples,
