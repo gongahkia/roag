@@ -323,9 +323,10 @@ Validate the bundle before closing TODO-102:
 python3 scripts/validate_bc_report_bundle.py runs/todo-102/bc-report-bundle-v0.json
 ```
 
-The validator checks that all three selected report paths are ignored, source commands are recorded,
+The validator checks that the bundle and all three selected report paths are ignored, source
+commands and labels are recorded, report input paths exist under ignored non-fixture paths,
 checked-in fixture/synthetic sources are rejected, train/eval size gates are met, and selected
-models expose loss, accuracy, balanced accuracy, and per-action recall metrics.
+models expose numeric loss, accuracy, balanced accuracy, and per-action recall metrics.
 
 Before the full TODO-102 run, use the bounded smoke wrapper on checked-in fixtures. It records the
 exact export command and peak RSS while keeping output under ignored `runs/`:
