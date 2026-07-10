@@ -48,12 +48,7 @@ class ReleaseVersionTests(unittest.TestCase):
         contents = Path(".github/workflows/docker.yml").read_text(encoding="utf-8")
 
         self.assertIn("platforms: linux/amd64,linux/arm64", contents)
-        self.assertIn("docker buildx imagetools inspect", contents)
-        self.assertIn("docker pull \"${IMAGE_NAME}:${version}\"", contents)
-        self.assertIn("docker pull \"${IMAGE_NAME}:latest\"", contents)
-        self.assertIn("docker run --rm \"${IMAGE_NAME}:${version}\"", contents)
-        self.assertIn("docker run --rm \"${IMAGE_NAME}:latest\"", contents)
-        self.assertIn("kenjaku ${version}", contents)
+        self.assertIn("scripts/validate_ghcr_image.py", contents)
 
 
 def _pyproject_version() -> str:
