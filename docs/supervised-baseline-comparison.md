@@ -63,3 +63,25 @@ The checked-in TODO-104 summary must state:
 - Mean and best seed for each primary metric.
 - `matched`, `exceeded`, or `missed` for each target, plus the rule that produced the label.
 - Explicit statement that raw data, checkpoints, and generated reports remain ignored.
+
+## Evidence Gate
+
+Write the generated comparison evidence under an ignored path such as
+`runs/todo-104/supervised-baseline-comparison.json`, then validate it before updating the checked-in
+summary:
+
+```bash
+python3 scripts/validate_supervised_baseline_comparison.py \
+  runs/todo-104/supervised-baseline-comparison.json
+```
+
+The validator requires:
+
+- `checked_in_summary_path` to be an existing tracked repo file.
+- Ignored paths for the comparison bundle, BC manifest, shared snapshots, TODO-103 baseline report,
+  and every Kenjaku seed report.
+- The TODO-103 report to contain the selected baseline family/name row.
+- Exactly the seed IDs `todo-104-s0`, `todo-104-s1`, and `todo-104-s2` for every target.
+- `discard`, `call`, `riichi`, and `deal_in` target rows with baseline value, Kenjaku mean, best
+  seed value, label, and guard metrics.
+- Label consistency with the match/exceeded/missed rules above.
