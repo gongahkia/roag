@@ -11,6 +11,18 @@ from typing import Any
 
 BUNDLE_KIND = "kenjaku-supervised-baseline-comparison-v0"
 TARGETS = ("discard", "call", "riichi", "deal_in")
+TARGET_PRIMARY_METRICS = {
+    "discard": ("eval_accuracy",),
+    "call": ("eval_balanced_accuracy",),
+    "riichi": ("eval_balanced_accuracy",),
+    "deal_in": ("eval_brier_score", "eval_log_loss"),
+}
+TARGET_DIRECTIONS = {
+    "discard": "higher",
+    "call": "higher",
+    "riichi": "higher",
+    "deal_in": "lower",
+}
 SEED_IDS = ("todo-104-s0", "todo-104-s1", "todo-104-s2")
 LABELS = {"exceeded", "matched", "missed"}
 ACCURACY_TOLERANCE = 0.005
@@ -138,10 +150,15 @@ def _validate_target(target: str, row: dict[str, Any], *, repo_root: Path) -> li
     primary_metric = row.get("primary_metric")
     if not isinstance(primary_metric, str) or not primary_metric.strip():
         errors.append(f"{prefix}.primary_metric must be a non-empty string")
+    elif primary_metric not in TARGET_PRIMARY_METRICS[target]:
+        allowed = ", ".join(TARGET_PRIMARY_METRICS[target])
+        errors.append(f"{prefix}.primary_metric must be one of: {allowed}")
     direction = row.get("direction")
     if direction not in {"higher", "lower"}:
         errors.append(f"{prefix}.direction must be 'higher' or 'lower'")
-        direction = "higher"
+        direction = TARGET_DIRECTIONS[target]
+    elif direction != TARGET_DIRECTIONS[target]:
+        errors.append(f"{prefix}.direction must be {TARGET_DIRECTIONS[target]!r}")
     label = row.get("label")
     if label not in LABELS:
         errors.append(f"{prefix}.label must be exceeded, matched, or missed")
@@ -310,6 +327,8 @@ def _validate_path_object(row: dict[str, Any], *, repo_root: Path, field: str) -
     path = Path(path_value)
     if not path.is_file():
         return [f"{field}.path does not exist: {path}"]
+    if path.stat().st_size <= 0:
+        return [f"{field}.path must not be empty: {path}"]
     return _validate_ignored_path(path, repo_root=repo_root, field=f"{field}.path")
 
 

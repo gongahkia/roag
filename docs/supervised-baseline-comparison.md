@@ -79,9 +79,9 @@ The validator requires:
 
 - `checked_in_summary_path` to be an existing tracked repo file.
 - Ignored paths for the comparison bundle, BC manifest, shared snapshots, TODO-103 baseline report,
-  and every Kenjaku seed report.
+  and every non-empty Kenjaku seed report artifact.
 - The TODO-103 report to contain the selected baseline family/name row.
 - Exactly the seed IDs `todo-104-s0`, `todo-104-s1`, and `todo-104-s2` for every target.
-- `discard`, `call`, `riichi`, and `deal_in` target rows with baseline value, Kenjaku mean, best
-  seed value, label, and guard metrics.
+- `discard`, `call`, `riichi`, and `deal_in` target rows with the expected primary metric and
+  direction, baseline value, Kenjaku mean, best seed value, label, and guard metrics.
 - Label consistency with the match/exceeded/missed rules above.

@@ -51,6 +51,39 @@ class SupervisedBaselineComparisonTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("seeds must contain exactly 3 seed rows", result.stderr)
 
+    def test_rejects_wrong_primary_metric(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            bundle = _write_bundle(
+                Path(directory),
+                target_overrides={"call": {"primary_metric": "eval_accuracy"}},
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "targets.call.primary_metric must be one of: eval_balanced_accuracy",
+            result.stderr,
+        )
+
+    def test_rejects_empty_seed_artifact(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            bundle = _write_bundle(root, empty_seed_artifact=True)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("targets.discard.kenjaku.seeds[0].path must not be empty", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-104")
@@ -58,7 +91,14 @@ def _runs_dir() -> Path:
     return path
 
 
-def _write_bundle(root: Path, *, discard_label: str = "exceeded", omit_seed: bool = False) -> Path:
+def _write_bundle(
+    root: Path,
+    *,
+    discard_label: str = "exceeded",
+    omit_seed: bool = False,
+    empty_seed_artifact: bool = False,
+    target_overrides: dict[str, dict[str, object]] | None = None,
+) -> Path:
     inputs = {
         "bc_manifest": _write_artifact(root / "bc-manifest.json"),
         "shared_snapshots": _write_artifact(root / "shared-snapshots.jsonl"),
@@ -78,6 +118,7 @@ def _write_bundle(root: Path, *, discard_label: str = "exceeded", omit_seed: boo
                 "illegal_predictions": 0,
             },
             omit_seed=omit_seed,
+            empty_seed_artifact=empty_seed_artifact,
         ),
         "call": _target(
             root,
@@ -114,6 +155,9 @@ def _write_bundle(root: Path, *, discard_label: str = "exceeded", omit_seed: boo
             },
         ),
     }
+    if target_overrides:
+        for target, overrides in target_overrides.items():
+            targets[target].update(overrides)
     bundle = root / "supervised-baseline-comparison.json"
     bundle.write_text(
         json.dumps(
@@ -155,10 +199,14 @@ def _target(
     guards: dict[str, float | int],
     ci95: tuple[float, float] | None = None,
     omit_seed: bool = False,
+    empty_seed_artifact: bool = False,
 ) -> dict[str, object]:
     seeds = []
     for index, value in enumerate(values):
-        path = _write_artifact(root / f"{name}-s{index}.json")
+        path = _write_artifact(
+            root / f"{name}-s{index}.json",
+            empty=empty_seed_artifact and index == 0,
+        )
         seeds.append(
             {
                 "seed_id": f"todo-104-s{index}",
@@ -173,7 +221,7 @@ def _target(
         baseline_payload["ci95"] = list(ci95)
     best = max(values) if direction == "higher" else min(values)
     return {
-        "primary_metric": "eval_brier_score" if name == "deal_in" else "eval_accuracy",
+        "primary_metric": _primary_metric(name),
         "direction": direction,
         "baseline": baseline_payload,
         "kenjaku": {
@@ -186,8 +234,16 @@ def _target(
     }
 
 
-def _write_artifact(path: Path) -> Path:
-    path.write_text("{}\n", encoding="utf-8")
+def _primary_metric(name: str) -> str:
+    if name in {"call", "riichi"}:
+        return "eval_balanced_accuracy"
+    if name == "deal_in":
+        return "eval_brier_score"
+    return "eval_accuracy"
+
+
+def _write_artifact(path: Path, *, empty: bool = False) -> Path:
+    path.write_text("" if empty else "{}\n", encoding="utf-8")
     return path
 
 
