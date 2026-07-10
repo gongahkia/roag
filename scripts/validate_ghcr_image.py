@@ -51,18 +51,21 @@ def validate_image(image: str, version: str, *, runner: Runner = _run_command) -
         return errors
 
     for ref in (version_ref, latest_ref):
-        pull = runner(("docker", "pull", ref))
-        if pull.returncode != 0:
-            errors.append(_command_error("pull", ref, pull))
-            continue
-        run = runner(("docker", "run", "--rm", ref))
-        if run.returncode != 0:
-            errors.append(_command_error("run", ref, run))
-            continue
-        expected = f"kenjaku {version}"
-        actual = run.stdout.strip()
-        if actual != expected:
-            errors.append(f"{ref} printed {actual!r}; expected {expected!r}")
+        for platform in REQUIRED_PLATFORMS:
+            pull = runner(("docker", "pull", "--platform", platform, ref))
+            if pull.returncode != 0:
+                errors.append(_command_error("pull", f"{ref} ({platform})", pull))
+                continue
+            run = runner(("docker", "run", "--rm", "--platform", platform, ref))
+            if run.returncode != 0:
+                errors.append(_command_error("run", f"{ref} ({platform})", run))
+                continue
+            expected = f"kenjaku {version}"
+            actual = run.stdout.strip()
+            if actual != expected:
+                errors.append(
+                    f"{ref} ({platform}) printed {actual!r}; expected {expected!r}"
+                )
 
     return errors
 
