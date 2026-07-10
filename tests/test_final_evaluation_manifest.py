@@ -38,6 +38,38 @@ class FinalEvaluationManifestTests(unittest.TestCase):
         self.assertIn("metric_tables missing required metrics", result.stderr)
         self.assertIn("score_delta", result.stderr)
 
+    def test_rejects_tracked_metric_table(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            manifest = _write_manifest(Path(directory), table_path=Path("README.md"))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(manifest)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("metric_tables[0].path is tracked by git: README.md", result.stderr)
+
+    def test_rejects_untracked_evaluation_script(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            script = root / "generated-eval.py"
+            script.write_text("print('unit')\n", encoding="utf-8")
+            manifest = _write_manifest(root, evaluation_script_path=script)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(manifest)],
+                text=True,
+                capture_output=True,
+                check=False,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "frozen_inputs.evaluation_scripts[0].path is not tracked by git",
+            result.stderr,
+        )
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-601")
@@ -56,6 +88,8 @@ def _write_manifest(
         "score_delta",
         "ablations",
     ),
+    table_path: Path | None = None,
+    evaluation_script_path: Path = SCRIPT,
 ) -> Path:
     paths = {
         "dataset": root / "slice-manifest.json",
@@ -64,10 +98,12 @@ def _write_manifest(
         "self_play": root / "self-play.json",
         "sanma": root / "sanma.json",
         "interpretability": root / "interpretability.html",
-        "table": root / "metrics.json",
+        "table": table_path or root / "metrics.json",
         "manifest": root / "manifest.json",
     }
-    for path in paths.values():
+    for key, path in paths.items():
+        if key == "table" and table_path is not None:
+            continue
         path.write_text("{}\n", encoding="utf-8")
     payload = {
         "kind": "kenjaku-final-evaluation-manifest-v0",
@@ -81,7 +117,7 @@ def _write_manifest(
             ],
             "model_checkpoints": [{"name": "unit-model", "path": str(paths["checkpoint"])}],
             "evaluation_scripts": [
-                {"name": "validator", "path": str(SCRIPT)},
+                {"name": "validator", "path": str(evaluation_script_path)},
             ],
         },
         "evaluations": {

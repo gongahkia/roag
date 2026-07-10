@@ -47,7 +47,7 @@ def validate_manifest(manifest: dict[str, Any], *, manifest_path: Path) -> list[
         return [str(error)]
     errors.extend(_validate_frozen_inputs(manifest, repo_root=repo_root))
     errors.extend(_validate_evaluations(manifest, repo_root=repo_root))
-    errors.extend(_validate_tables(manifest))
+    errors.extend(_validate_tables(manifest, repo_root=repo_root))
     errors.extend(_validate_commands(manifest))
     return errors
 
@@ -63,6 +63,7 @@ def _validate_frozen_inputs(manifest: dict[str, Any], *, repo_root: Path) -> lis
             field="frozen_inputs.dataset_slices",
             repo_root=repo_root,
             require_ignored=True,
+            require_tracked=False,
             required_text_fields=("source_command",),
         )
     )
@@ -72,6 +73,7 @@ def _validate_frozen_inputs(manifest: dict[str, Any], *, repo_root: Path) -> lis
             field="frozen_inputs.model_checkpoints",
             repo_root=repo_root,
             require_ignored=True,
+            require_tracked=False,
             required_text_fields=(),
         )
     )
@@ -81,6 +83,7 @@ def _validate_frozen_inputs(manifest: dict[str, Any], *, repo_root: Path) -> lis
             field="frozen_inputs.evaluation_scripts",
             repo_root=repo_root,
             require_ignored=False,
+            require_tracked=True,
             required_text_fields=(),
         )
     )
@@ -104,13 +107,14 @@ def _validate_evaluations(manifest: dict[str, Any], *, repo_root: Path) -> list[
                 field=f"evaluations.{section}.reports",
                 repo_root=repo_root,
                 require_ignored=True,
+                require_tracked=False,
                 required_text_fields=("command",),
             )
         )
     return errors
 
 
-def _validate_tables(manifest: dict[str, Any]) -> list[str]:
+def _validate_tables(manifest: dict[str, Any], *, repo_root: Path) -> list[str]:
     errors: list[str] = []
     tables = manifest.get("metric_tables")
     if not isinstance(tables, list) or not tables:
@@ -121,7 +125,15 @@ def _validate_tables(manifest: dict[str, Any]) -> list[str]:
         if not isinstance(row, dict):
             errors.append(f"{prefix} must be an object")
             continue
-        errors.extend(_validate_name_path(row, field=prefix, repo_root=None, require_ignored=False))
+        errors.extend(
+            _validate_name_path(
+                row,
+                field=prefix,
+                repo_root=repo_root,
+                require_ignored=True,
+                require_tracked=False,
+            )
+        )
         metrics = row.get("metrics")
         if not isinstance(metrics, list) or not metrics:
             errors.append(f"{prefix}.metrics must be a non-empty list")
@@ -160,6 +172,7 @@ def _validate_named_paths(
     field: str,
     repo_root: Path,
     require_ignored: bool,
+    require_tracked: bool,
     required_text_fields: Sequence[str],
 ) -> list[str]:
     if not isinstance(rows, list) or not rows:
@@ -176,6 +189,7 @@ def _validate_named_paths(
                 field=prefix,
                 repo_root=repo_root,
                 require_ignored=require_ignored,
+                require_tracked=require_tracked,
             )
         )
         for key in required_text_fields:
@@ -191,6 +205,7 @@ def _validate_name_path(
     field: str,
     repo_root: Path | None,
     require_ignored: bool,
+    require_tracked: bool,
 ) -> list[str]:
     errors: list[str] = []
     name = row.get("name")
@@ -209,6 +224,11 @@ def _validate_name_path(
             errors.append(f"{field}.path cannot check git ignore without repo root")
         else:
             errors.extend(_validate_ignored_path(path, repo_root=repo_root, field=f"{field}.path"))
+    if require_tracked:
+        if repo_root is None:
+            errors.append(f"{field}.path cannot check git tracking without repo root")
+        else:
+            errors.extend(_validate_tracked_path(path, repo_root=repo_root, field=f"{field}.path"))
     return errors
 
 
@@ -223,6 +243,16 @@ def _validate_ignored_path(path: Path, *, repo_root: Path, field: str) -> list[s
     if _git(["check-ignore", "-q", "--", str(relative)], repo_root).returncode != 0:
         errors.append(f"{field} is not ignored by git: {relative}")
     return errors
+
+
+def _validate_tracked_path(path: Path, *, repo_root: Path, field: str) -> list[str]:
+    try:
+        relative = path.resolve().relative_to(repo_root)
+    except ValueError:
+        return [f"{field} must be under repo root: {path}"]
+    if _git(["ls-files", "--error-unmatch", "--", str(relative)], repo_root).returncode != 0:
+        return [f"{field} is not tracked by git: {relative}"]
+    return []
 
 
 def _json_object(path: Path) -> dict[str, Any]:

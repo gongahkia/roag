@@ -111,10 +111,10 @@ Validate it before closing TODO-601:
 python3 scripts/validate_final_evaluation_manifest.py runs/todo-601/manifest.json
 ```
 
-The validator checks that dataset slices, model checkpoints, and generated evaluation reports exist
-under ignored paths; evaluation scripts exist in non-ignored repo paths; every final evaluation
-section has a report and command; and metric tables cover accuracy, balanced accuracy, deal-in
-calibration, average placement, score delta, and ablations.
+The validator checks that dataset slices, model checkpoints, generated evaluation reports, and
+metric tables exist under ignored paths; evaluation scripts exist as tracked repo paths; every final
+evaluation section has a report and command; and metric tables cover accuracy, balanced accuracy,
+deal-in calibration, average placement, score delta, and ablations.
 
 ## Closure Rule
 
