@@ -47,9 +47,10 @@ Validate the evidence before closing TODO-003:
 python3 scripts/validate_cloud_gpu_evidence.py runs/todo-003/cloud-gpu-evidence.json
 ```
 
-The validator requires a CUDA-backed transformer report, matching command and checkpoint path,
-positive runtime, cost metadata, ignored input/report/checkpoint paths, and no checked-in fixture
-input paths. It rejects local CPU/MPS fallback reports.
+The validator requires the evidence JSON itself to be ignored, a CUDA-backed transformer report,
+matching command and checkpoint path, positive runtime, cost metadata, existing ignored
+input/report/checkpoint paths, and no checked-in fixture input paths. It rejects local CPU/MPS
+fallback reports.
 
 Recommended tiny smoke setup copies checked-in fixtures into an ignored cloud input slice first, so
 the closure evidence proves the same raw-data hygiene path used by larger runs:

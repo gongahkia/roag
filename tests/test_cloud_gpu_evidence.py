@@ -71,6 +71,34 @@ class CloudGpuEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("report source.command must match evidence command", result.stderr)
 
+    def test_rejects_missing_input_slice(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            evidence = _write_case(root, input_path=str(root / "missing-input-slice"))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("report input path does not exist", result.stderr)
+
+    def test_rejects_non_ignored_evidence_file(self) -> None:
+        with TemporaryDirectory(dir=Path(".")) as directory:
+            root = Path(directory)
+            evidence = _write_case(root)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("evidence path is not ignored by git", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-003")

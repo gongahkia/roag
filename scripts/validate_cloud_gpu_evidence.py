@@ -45,6 +45,11 @@ def validate_evidence(
     evidence_path: Path,
 ) -> list[str]:
     errors: list[str] = []
+    try:
+        repo_root = _repo_root(evidence_path)
+    except ValueError as error:
+        return [str(error)]
+    errors.extend(_validate_ignored_path(evidence_path, repo_root=repo_root, field="evidence path"))
     if evidence.get("kind") != EVIDENCE_KIND:
         errors.append(f"evidence kind must be {EVIDENCE_KIND}")
     for path in (
@@ -147,15 +152,9 @@ def _validate_ignored_input_paths(report: dict[str, Any], *, evidence_path: Path
         if "data/fixtures" in text or "fixtures/tenhou" in text:
             errors.append(f"report input_paths must not use checked-in fixtures: {text}")
             continue
-        try:
-            relative = path.resolve().relative_to(repo_root)
-        except ValueError:
-            errors.append(f"report input path must be under repo root: {path}")
-            continue
-        if _git(["ls-files", "--error-unmatch", "--", str(relative)], repo_root).returncode == 0:
-            errors.append(f"report input path is tracked by git: {relative}")
-        if _git(["check-ignore", "-q", "--", str(relative)], repo_root).returncode != 0:
-            errors.append(f"report input path is not ignored by git: {relative}")
+        if not path.exists():
+            errors.append(f"report input path does not exist: {path}")
+        errors.extend(_validate_ignored_path(path, repo_root=repo_root, field="report input path"))
     return errors
 
 
@@ -166,15 +165,20 @@ def _validate_ignored_artifacts(paths: Sequence[Path], *, evidence_path: Path) -
     except ValueError as error:
         return [str(error)]
     for path in paths:
-        try:
-            relative = path.resolve().relative_to(repo_root)
-        except ValueError:
-            errors.append(f"artifact path must be under repo root: {path}")
-            continue
-        if _git(["ls-files", "--error-unmatch", "--", str(relative)], repo_root).returncode == 0:
-            errors.append(f"artifact path is tracked by git: {relative}")
-        if _git(["check-ignore", "-q", "--", str(relative)], repo_root).returncode != 0:
-            errors.append(f"artifact path is not ignored by git: {relative}")
+        errors.extend(_validate_ignored_path(path, repo_root=repo_root, field="artifact path"))
+    return errors
+
+
+def _validate_ignored_path(path: Path, *, repo_root: Path, field: str) -> list[str]:
+    try:
+        relative = path.resolve().relative_to(repo_root)
+    except ValueError:
+        return [f"{field} must be under repo root: {path}"]
+    errors: list[str] = []
+    if _git(["ls-files", "--error-unmatch", "--", str(relative)], repo_root).returncode == 0:
+        errors.append(f"{field} is tracked by git: {relative}")
+    if _git(["check-ignore", "-q", "--", str(relative)], repo_root).returncode != 0:
+        errors.append(f"{field} is not ignored by git: {relative}")
     return errors
 
 
