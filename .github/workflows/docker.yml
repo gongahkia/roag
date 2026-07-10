@@ -40,3 +40,16 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Verify published image
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          docker buildx imagetools inspect "${IMAGE_NAME}:${version}" > image-manifest.txt
+          grep -q "linux/amd64" image-manifest.txt
+          grep -q "linux/arm64" image-manifest.txt
+          docker pull "${IMAGE_NAME}:${version}"
+          docker pull "${IMAGE_NAME}:latest"
+          version_output=$(docker run --rm "${IMAGE_NAME}:${version}")
+          latest_output=$(docker run --rm "${IMAGE_NAME}:latest")
+          test "${version_output}" = "kenjaku ${version}"
+          test "${latest_output}" = "kenjaku ${version}"

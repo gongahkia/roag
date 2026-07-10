@@ -36,6 +36,17 @@ class ReleaseVersionTests(unittest.TestCase):
                 contents = path.read_text(encoding="utf-8")
                 self.assertIn("scripts/validate_release_version.py", contents)
 
+    def test_docker_workflow_verifies_published_image(self) -> None:
+        contents = Path(".github/workflows/docker.yml").read_text(encoding="utf-8")
+
+        self.assertIn("platforms: linux/amd64,linux/arm64", contents)
+        self.assertIn("docker buildx imagetools inspect", contents)
+        self.assertIn("docker pull \"${IMAGE_NAME}:${version}\"", contents)
+        self.assertIn("docker pull \"${IMAGE_NAME}:latest\"", contents)
+        self.assertIn("docker run --rm \"${IMAGE_NAME}:${version}\"", contents)
+        self.assertIn("docker run --rm \"${IMAGE_NAME}:latest\"", contents)
+        self.assertIn("kenjaku ${version}", contents)
+
 
 def _pyproject_version() -> str:
     for line in Path("pyproject.toml").read_text(encoding="utf-8").splitlines():
