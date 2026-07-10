@@ -11,6 +11,7 @@ Record all of the following after the cloud job finishes:
 - Wall-clock runtime.
 - Billed runtime and cost estimate.
 - Exact training command.
+- Ignored input slice path used by the training report.
 - Ignored artifact paths for the JSON report and checkpoint.
 - `benchmark-report-summary` output for the JSON report when supported.
 - `git status --short` output showing no model weights, raw data, or generated reports staged.
@@ -46,22 +47,26 @@ Validate the evidence before closing TODO-003:
 python3 scripts/validate_cloud_gpu_evidence.py runs/todo-003/cloud-gpu-evidence.json
 ```
 
-The validator requires a CUDA-backed transformer report, matching checkpoint path, positive
-runtime, cost metadata, and ignored report/checkpoint paths. It rejects local CPU/MPS fallback
-reports.
+The validator requires a CUDA-backed transformer report, matching command and checkpoint path,
+positive runtime, cost metadata, ignored input/report/checkpoint paths, and no checked-in fixture
+input paths. It rejects local CPU/MPS fallback reports.
 
-Recommended tiny smoke command:
+Recommended tiny smoke setup copies checked-in fixtures into an ignored cloud input slice first, so
+the closure evidence proves the same raw-data hygiene path used by larger runs:
 
 ```bash
+mkdir -p runs/todo-003/cloud-input-slice
+cp data/fixtures/tenhou/*.xml runs/todo-003/cloud-input-slice/
+
 PYTHONPATH=src python -m kenjaku train-discard-transformer \
-  data/fixtures/tenhou \
+  runs/todo-003/cloud-input-slice \
   --epochs 1 --batch-size 2 --device auto \
   --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 \
   --checkpoint runs/todo-003/cloud-fixture-discard-transformer.pt \
   --report runs/todo-003/cloud-fixture-discard-transformer.json \
   --source-label PROVIDER-GPU-fixture-smoke \
   --source-date YYYY-MM-DD \
-  --source-command "python -m kenjaku train-discard-transformer data/fixtures/tenhou --epochs 1 --batch-size 2 --device auto --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 --checkpoint runs/todo-003/cloud-fixture-discard-transformer.pt --report runs/todo-003/cloud-fixture-discard-transformer.json"
+  --source-command "python -m kenjaku train-discard-transformer runs/todo-003/cloud-input-slice --epochs 1 --batch-size 2 --device auto --model-dim 16 --num-heads 4 --num-layers 1 --feedforward-dim 32 --dropout 0.0 --checkpoint runs/todo-003/cloud-fixture-discard-transformer.pt --report runs/todo-003/cloud-fixture-discard-transformer.json"
 ```
 
 Use `--device auto` for the cloud and local runs so the same command path selects CUDA on the GPU

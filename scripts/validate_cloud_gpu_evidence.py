@@ -76,7 +76,13 @@ def validate_evidence(
     report_path = Path(str(_nested(evidence, ("artifacts", "report_path"))))
     checkpoint_path = Path(str(_nested(evidence, ("artifacts", "checkpoint_path"))))
     errors.extend(
-        _validate_report(report, report_path=report_path, checkpoint_path=checkpoint_path)
+        _validate_report(
+            report,
+            evidence=evidence,
+            evidence_path=evidence_path,
+            report_path=report_path,
+            checkpoint_path=checkpoint_path,
+        )
     )
     errors.extend(
         _validate_ignored_artifacts((report_path, checkpoint_path), evidence_path=evidence_path)
@@ -91,6 +97,8 @@ def validate_evidence(
 def _validate_report(
     report: dict[str, Any],
     *,
+    evidence: dict[str, Any],
+    evidence_path: Path,
     report_path: Path,
     checkpoint_path: Path,
 ) -> list[str]:
@@ -115,6 +123,39 @@ def _validate_report(
     source_command = _nested(report, ("source", "command"))
     if not isinstance(source_command, str) or not source_command.strip():
         errors.append("report source.command must be recorded")
+    elif source_command != evidence.get("command"):
+        errors.append("report source.command must match evidence command")
+    errors.extend(_validate_ignored_input_paths(report, evidence_path=evidence_path))
+    return errors
+
+
+def _validate_ignored_input_paths(report: dict[str, Any], *, evidence_path: Path) -> list[str]:
+    input_paths = report.get("input_paths")
+    if not isinstance(input_paths, list) or not input_paths:
+        return ["report input_paths must be a non-empty list"]
+    try:
+        repo_root = _repo_root(evidence_path)
+    except ValueError as error:
+        return [str(error)]
+    errors: list[str] = []
+    for value in input_paths:
+        if not isinstance(value, str) or not value.strip():
+            errors.append("report input_paths entries must be non-empty strings")
+            continue
+        path = Path(value)
+        text = str(path)
+        if "data/fixtures" in text or "fixtures/tenhou" in text:
+            errors.append(f"report input_paths must not use checked-in fixtures: {text}")
+            continue
+        try:
+            relative = path.resolve().relative_to(repo_root)
+        except ValueError:
+            errors.append(f"report input path must be under repo root: {path}")
+            continue
+        if _git(["ls-files", "--error-unmatch", "--", str(relative)], repo_root).returncode == 0:
+            errors.append(f"report input path is tracked by git: {relative}")
+        if _git(["check-ignore", "-q", "--", str(relative)], repo_root).returncode != 0:
+            errors.append(f"report input path is not ignored by git: {relative}")
     return errors
 
 

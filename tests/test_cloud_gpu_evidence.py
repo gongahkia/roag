@@ -40,6 +40,37 @@ class CloudGpuEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("training device must start with cuda", result.stderr)
 
+    def test_rejects_checked_in_fixture_input(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            evidence = _write_case(root, input_path="data/fixtures/tenhou")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("input_paths must not use checked-in fixtures", result.stderr)
+
+    def test_rejects_mismatched_report_command(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            evidence = _write_case(
+                root,
+                report_command="python -m kenjaku train-discard-transformer other",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("report source.command must match evidence command", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-003")
@@ -47,23 +78,35 @@ def _runs_dir() -> Path:
     return path
 
 
-def _write_case(root: Path, *, device: str) -> Path:
+def _write_case(
+    root: Path,
+    *,
+    device: str = "cuda:0",
+    input_path: str | None = None,
+    report_command: str | None = None,
+) -> Path:
     report = root / "cloud-fixture-discard-transformer.json"
     checkpoint = root / "cloud-fixture-discard-transformer.pt"
     evidence = root / "cloud-gpu-evidence.json"
+    if input_path is None:
+        input_dir = root / "cloud-input-slice"
+        input_dir.mkdir()
+        input_path = str(input_dir)
+    command = (
+        f"python -m kenjaku train-discard-transformer {input_path} "
+        "--device auto --checkpoint "
+        f"{checkpoint} --report {report}"
+    )
     checkpoint.write_text("checkpoint placeholder\n", encoding="utf-8")
     report.write_text(
         json.dumps(
             {
                 "kind": "kenjaku-discard-transformer-report-v0",
+                "input_paths": [input_path],
                 "source": {
                     "label": "unit-cloud-gpu",
                     "date": "2026-07-09",
-                    "command": (
-                        "python -m kenjaku train-discard-transformer data/fixtures/tenhou "
-                        "--device auto --checkpoint "
-                        f"{checkpoint} --report {report}"
-                    ),
+                    "command": report_command or command,
                 },
                 "training": {"device": device},
                 "artifacts": {"checkpoint_path": str(checkpoint)},
@@ -86,11 +129,7 @@ def _write_case(root: Path, *, device: str) -> Path:
                     "billed_seconds": 60.0,
                     "cost_usd": 0.01,
                 },
-                "command": (
-                    "python -m kenjaku train-discard-transformer data/fixtures/tenhou "
-                    "--device auto --checkpoint "
-                    f"{checkpoint} --report {report}"
-                ),
+                "command": command,
                 "artifacts": {
                     "report_path": str(report),
                     "checkpoint_path": str(checkpoint),
