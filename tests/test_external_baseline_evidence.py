@@ -71,6 +71,34 @@ class ExternalBaselineEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("predictions_path is tracked by git", result.stderr)
 
+    def test_rejects_empty_prediction_artifact(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            report = _write_report(root, name="mortal-local-v1", empty_predictions=True)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(report)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("predictions_path must not be empty", result.stderr)
+
+    def test_rejects_missing_scenario_set(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            report = _write_report(root, name="mortal-local-v1", write_scenario_set=False)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(report)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("protocol.scenario_set does not exist", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-103")
@@ -84,20 +112,29 @@ def _write_report(
     name: str,
     predictions_path: str | None = None,
     write_predictions: bool = True,
+    empty_predictions: bool = False,
+    write_scenario_set: bool = True,
 ) -> Path:
     report = root / "external-baseline-report.json"
+    scenario_set = root / "shared-decision-snapshots.jsonl"
+    if write_scenario_set:
+        scenario_set.write_text(
+            '{"kind":"kenjaku-decision-snapshot-v0","row_id":"r1"}\n',
+            encoding="utf-8",
+        )
     prediction_file = (
         Path(predictions_path) if predictions_path is not None else root / f"{name}.jsonl"
     )
     if write_predictions:
         prediction_file.write_text(
-            '{"row_id":"r1","predicted_action":{"kind":"pass"}}\n',
+            "" if empty_predictions else '{"row_id":"r1","predicted_action":{"kind":"pass"}}\n',
             encoding="utf-8",
         )
     report.write_text(
         json.dumps(
             {
                 "kind": "kenjaku-external-baseline-report-v0",
+                "protocol": {"scenario_set": str(scenario_set)},
                 "baselines": [
                     {
                         "family": "mortal-compatible",

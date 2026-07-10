@@ -178,7 +178,8 @@ python3 scripts/validate_external_baseline_evidence.py runs/todo-103/external-ba
 ```
 
 The validator rejects smoke/stub/pass/first-legal/echo Mortal-compatible rows, requires an existing
-ignored prediction artifact, requires at least 1,000 comparable decisions by default, checks zero
+ignored shared snapshot path in `protocol.scenario_set`, requires an existing non-empty ignored
+prediction artifact, requires at least 1,000 comparable decisions by default, checks zero
 missing/illegal/malformed/duplicate prediction rows, and requires discard metrics plus non-null
 call/riichi balanced accuracy when those binary sections are present.
 

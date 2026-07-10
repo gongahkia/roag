@@ -52,6 +52,7 @@ def validate_report(
     except ValueError as error:
         return [str(error)]
     errors.extend(_validate_ignored_path(report_path, repo_root=repo_root, field="report"))
+    errors.extend(_validate_scenario_set(report, repo_root=repo_root))
     baselines = report.get("baselines")
     if not isinstance(baselines, list):
         return [*errors, "baselines must be a list"]
@@ -95,6 +96,8 @@ def _validate_baseline_row(
         )
         if not Path(predictions_path).is_file():
             errors.append(f"{label} predictions_path does not exist: {predictions_path}")
+        elif Path(predictions_path).stat().st_size <= 0:
+            errors.append(f"{label} predictions_path must not be empty: {predictions_path}")
     comparable = row.get("comparable_decisions")
     if not isinstance(comparable, int) or comparable < minimum_decisions:
         errors.append(
@@ -118,6 +121,24 @@ def _validate_baseline_row(
             bucket = binary.get(target)
             if isinstance(bucket, dict) and bucket.get("balanced_accuracy") is None:
                 errors.append(f"{label} {target} balanced_accuracy must not be null")
+    return errors
+
+
+def _validate_scenario_set(report: dict[str, Any], *, repo_root: Path) -> list[str]:
+    protocol = report.get("protocol")
+    if not isinstance(protocol, dict):
+        return ["protocol must be an object"]
+    scenario_set = protocol.get("scenario_set")
+    if not isinstance(scenario_set, str) or not scenario_set.strip():
+        return ["protocol.scenario_set must be a non-empty string"]
+    path = Path(scenario_set)
+    errors: list[str] = []
+    text = str(path)
+    if "data/fixtures" in text or "fixtures/tenhou" in text:
+        errors.append("protocol.scenario_set must not use checked-in fixtures")
+    if not path.is_file():
+        errors.append(f"protocol.scenario_set does not exist: {path}")
+    errors.extend(_validate_ignored_path(path, repo_root=repo_root, field="protocol.scenario_set"))
     return errors
 
 
