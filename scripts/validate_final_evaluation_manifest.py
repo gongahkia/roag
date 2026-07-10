@@ -216,9 +216,11 @@ def _validate_name_path(
         errors.append(f"{field}.path must be a non-empty string")
         return errors
     path = Path(path_value)
-    if not path.exists():
-        errors.append(f"{field}.path does not exist: {path}")
+    if not path.is_file():
+        errors.append(f"{field}.path must be an existing file: {path}")
         return errors
+    if path.stat().st_size <= 0:
+        errors.append(f"{field}.path must not be empty: {path}")
     if require_ignored:
         if repo_root is None:
             errors.append(f"{field}.path cannot check git ignore without repo root")

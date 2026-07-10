@@ -70,6 +70,41 @@ class FinalEvaluationManifestTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_rejects_empty_metric_table(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            table = root / "empty-metrics.json"
+            table.write_text("", encoding="utf-8")
+            manifest = _write_manifest(root, table_path=table)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(manifest)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("metric_tables[0].path must not be empty", result.stderr)
+
+    def test_rejects_dataset_directory_path(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            dataset_dir = root / "dataset-dir"
+            dataset_dir.mkdir()
+            manifest = _write_manifest(root, dataset_path=dataset_dir)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(manifest)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "frozen_inputs.dataset_slices[0].path must be an existing file",
+            result.stderr,
+        )
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-601")
@@ -89,10 +124,11 @@ def _write_manifest(
         "ablations",
     ),
     table_path: Path | None = None,
+    dataset_path: Path | None = None,
     evaluation_script_path: Path = SCRIPT,
 ) -> Path:
     paths = {
-        "dataset": root / "slice-manifest.json",
+        "dataset": dataset_path or root / "slice-manifest.json",
         "checkpoint": root / "model.pt",
         "supervised": root / "supervised.json",
         "self_play": root / "self-play.json",
@@ -103,6 +139,8 @@ def _write_manifest(
     }
     for key, path in paths.items():
         if key == "table" and table_path is not None:
+            continue
+        if key == "dataset" and dataset_path is not None:
             continue
         path.write_text("{}\n", encoding="utf-8")
     payload = {
