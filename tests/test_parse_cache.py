@@ -223,7 +223,7 @@ class TenhouParseCacheTests(unittest.TestCase):
 
 def _write_cache_timing_fixtures(root: Path) -> tuple[Path, ...]:
     root.mkdir()
-    ignored_tags = "".join(f'  <GO type="{index}" />\n' for index in range(100))
+    ignored_tags = "".join(f'  <GO type="{index}" />\n' for index in range(1000))
     files: list[Path] = []
     for source in sorted(FIXTURE_DIR.glob("*.xml")):
         target = root / source.name
