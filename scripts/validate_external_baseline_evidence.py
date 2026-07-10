@@ -67,6 +67,7 @@ def validate_report(
                 row,
                 family=family,
                 minimum_decisions=minimum_decisions,
+                repo_root=repo_root,
             )
         )
     return errors
@@ -77,9 +78,23 @@ def _validate_baseline_row(
     *,
     family: str,
     minimum_decisions: int,
+    repo_root: Path,
 ) -> list[str]:
     errors: list[str] = []
     label = f"{family}:{row.get('name', '<unnamed>')}"
+    predictions_path = row.get("predictions_path")
+    if not isinstance(predictions_path, str) or not predictions_path.strip():
+        errors.append(f"{label} predictions_path must be a non-empty string")
+    else:
+        errors.extend(
+            _validate_ignored_path(
+                Path(predictions_path),
+                repo_root=repo_root,
+                field=f"{label} predictions_path",
+            )
+        )
+        if not Path(predictions_path).is_file():
+            errors.append(f"{label} predictions_path does not exist: {predictions_path}")
     comparable = row.get("comparable_decisions")
     if not isinstance(comparable, int) or comparable < minimum_decisions:
         errors.append(

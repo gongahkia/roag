@@ -177,10 +177,10 @@ Validate the real Mortal-compatible report before closing TODO-103:
 python3 scripts/validate_external_baseline_evidence.py runs/todo-103/external-baseline-report.json
 ```
 
-The validator rejects smoke/stub/pass/first-legal/echo Mortal-compatible rows, requires at least
-1,000 comparable decisions by default, checks zero missing/illegal/malformed/duplicate prediction
-rows, and requires discard metrics plus non-null call/riichi balanced accuracy when those binary
-sections are present.
+The validator rejects smoke/stub/pass/first-legal/echo Mortal-compatible rows, requires an existing
+ignored prediction artifact, requires at least 1,000 comparable decisions by default, checks zero
+missing/illegal/malformed/duplicate prediction rows, and requires discard metrics plus non-null
+call/riichi balanced accuracy when those binary sections are present.
 
 Use `docs/supervised-baseline-comparison.md` for TODO-104's metric, seed, and match-label contract
 after a real Mortal-compatible row exists.

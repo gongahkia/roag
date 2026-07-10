@@ -13,7 +13,8 @@ SCRIPT = Path("scripts/validate_external_baseline_evidence.py")
 class ExternalBaselineEvidenceTests(unittest.TestCase):
     def test_accepts_real_mortal_compatible_row(self) -> None:
         with TemporaryDirectory(dir=_runs_dir()) as directory:
-            report = _write_report(Path(directory), name="mortal-local-v1")
+            root = Path(directory)
+            report = _write_report(root, name="mortal-local-v1")
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), str(report)],
                 text=True,
@@ -37,6 +38,39 @@ class ExternalBaselineEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("only has smoke/stub rows", result.stderr)
 
+    def test_rejects_missing_prediction_artifact(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            report = _write_report(root, name="mortal-local-v1", write_predictions=False)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(report)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("predictions_path does not exist", result.stderr)
+
+    def test_rejects_tracked_prediction_artifact(self) -> None:
+        with TemporaryDirectory(dir=_runs_dir()) as directory:
+            root = Path(directory)
+            report = _write_report(
+                root,
+                name="mortal-local-v1",
+                predictions_path="data/fixtures/mjai/events_4p.mjson",
+                write_predictions=False,
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(report)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("predictions_path is tracked by git", result.stderr)
+
 
 def _runs_dir() -> Path:
     path = Path("runs/todo-103")
@@ -44,8 +78,22 @@ def _runs_dir() -> Path:
     return path
 
 
-def _write_report(root: Path, *, name: str) -> Path:
+def _write_report(
+    root: Path,
+    *,
+    name: str,
+    predictions_path: str | None = None,
+    write_predictions: bool = True,
+) -> Path:
     report = root / "external-baseline-report.json"
+    prediction_file = (
+        Path(predictions_path) if predictions_path is not None else root / f"{name}.jsonl"
+    )
+    if write_predictions:
+        prediction_file.write_text(
+            '{"row_id":"r1","predicted_action":{"kind":"pass"}}\n',
+            encoding="utf-8",
+        )
     report.write_text(
         json.dumps(
             {
@@ -54,7 +102,7 @@ def _write_report(root: Path, *, name: str) -> Path:
                     {
                         "family": "mortal-compatible",
                         "name": name,
-                        "predictions_path": f"runs/todo-103/{name}.jsonl",
+                        "predictions_path": str(prediction_file),
                         "comparable_decisions": 1000,
                         "missing_predictions": 0,
                         "illegal_predictions": 0,
