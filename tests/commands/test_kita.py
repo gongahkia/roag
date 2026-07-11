@@ -14,6 +14,29 @@ SANMA_KITA_FIXTURE = Path("data/fixtures/sanma/sanma_kita_3p.xml")
 
 
 class KitaCommandTests(CliCommandTests):
+    def test_benchmark_kita_accepts_tenhou_sanma_empty_fourth_seat(self) -> None:
+        stdout = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "tenhou-sanma.xml"
+            input_path.write_text(
+                SANMA_KITA_FIXTURE.read_text(encoding="utf-8").replace(
+                    'hai2="2,6,10,14,18,22,26,30,34,38,42,46,122"',
+                    'hai2="2,6,10,14,18,22,26,30,34,38,42,46,122" hai3=""',
+                ),
+                encoding="utf-8",
+            )
+            report = root / "kita-benchmark.json"
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main(["benchmark-kita", str(input_path), "--report", str(report)])
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kita_examples"], 2)
+        self.assertIn("kita_examples: 2", stdout.getvalue())
+
     def test_benchmark_kita_writes_report_and_summary(self) -> None:
         stdout = io.StringIO()
 

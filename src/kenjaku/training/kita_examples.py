@@ -48,7 +48,7 @@ def iter_kita_examples(game: TenhouGame) -> Iterator[KitaExample]:
     """Yield Sanma kita/pass examples for draw states with a North tile."""
 
     for round_index, round_ in enumerate(game.rounds):
-        if len(round_.starting_hands) != 3:
+        if not _is_sanma_starting_hands(round_.starting_hands):
             continue
 
         state = ReconstructionState.from_starting_hands(round_.starting_hands)
@@ -146,3 +146,8 @@ def _example(
 def _has_kita_tile(state: ReconstructionState, seat: int) -> bool:
     return any(tile.type == KITA_TILE_TYPE for tile in state.hands[seat])
 
+
+def _is_sanma_starting_hands(starting_hands: tuple[tuple[object, ...], ...]) -> bool:
+    if len(starting_hands) == 3:
+        return True
+    return len(starting_hands) == 4 and not starting_hands[3]

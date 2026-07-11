@@ -2,10 +2,31 @@
 
 Date: 2026-07-08
 
-Status: blocked for 1,000-game training export.
+Status: blocked pending permitted-data provenance for the 1,000-game training export.
 
 No permitted 1,000-game Sanma replay source is available in this workspace. No raw Sanma replay
 data, processed Sanma dataset, account identifier, or replay URL is committed.
+
+## 2026-07-11 Local-Only Evaluation Evidence
+
+An ignored local-only 1,100-log 3-player hanchan slice was fetched sequentially with
+`houou-logs` 2.0.1 (`3aeb640659d4ba635739d82ad75e94f826076c76`) and stored under
+`data/raw/sanma/hanchan-validation/`. Its upstream policy prohibits redistribution and requires
+one download session, both observed here. The reports and bundle remain ignored:
+
+- `runs/todo-403/discard-benchmark.json`: 50,000 streamed real decisions, 10,000 held out.
+- `runs/todo-403/call-benchmark.json`: 20,000 balanced real decisions, 4,000 held out.
+- `runs/todo-403/riichi-benchmark.json`: 14,184 real decisions, 2,837 held out.
+- `runs/todo-403/kita-benchmark.json`: 31,187 real Kita/pass decisions, 6,237 held out.
+- `runs/todo-403/sanma-report-bundle-v0.json`: validates with
+  `python3 scripts/validate_sanma_report_bundle.py`.
+
+Real Tenhou Sanma XML represents the unused fourth seat as `hai3=""`. Kenjaku now accepts that
+canonical `13,13,13,0` starting-hand shape for Kita examples; the local report contains 25,687
+decoded Kita calls rather than the previous false zero.
+
+This evidence does not establish player-specific consent or an official Tenhou ML-use grant.
+TODO-403 therefore remains open despite the local report bundle.
 
 ## Source Review
 
