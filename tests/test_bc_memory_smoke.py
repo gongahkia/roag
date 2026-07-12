@@ -37,7 +37,7 @@ class BcMemorySmokeTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("bc_memory_smoke_command=", result.stderr)
-        self.assertIn("peak_rss_mb=", result.stderr)
+        self.assertIn("peak_memory_mb=", result.stderr)
         self.assertEqual(manifest["kind"], "kenjaku-bc-example-manifest-v0")
         self.assertGreater(sum(manifest["decision_counts"].values()), 0)
 

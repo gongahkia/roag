@@ -366,8 +366,9 @@ stdout/stderr into ignored run logs:
   > runs/todo-102/export-bc-examples-memory-smoke.log 2>&1
 ```
 
-For a hard local guard, run the command through the RSS watchdog. It polls the child process group
-and terminates it if resident memory crosses the cap:
+For a hard local guard, run the command through the memory watchdog. It polls the child process
+group and terminates it if resident memory crosses the cap on Linux or physical footprint crosses
+the cap on macOS:
 
 ```bash
 PYTHONPATH=src python3 scripts/run_with_memory_guard.py \

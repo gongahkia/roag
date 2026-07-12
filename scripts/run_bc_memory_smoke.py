@@ -19,7 +19,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("bc_memory_smoke_command=" + shlex.join(command), file=sys.stderr)
     return run_with_memory_guard(
         command,
-        max_rss_kib=args.max_rss_mb * 1024,
+        max_memory_kib=args.max_rss_mb * 1024,
         poll_interval=args.poll_interval,
         grace_seconds=args.grace_seconds,
     )
@@ -66,7 +66,7 @@ def _prepare_environment(*, tracemalloc: bool) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run a bounded export-bc-examples memory smoke under the RSS guard."
+        description="Run a bounded export-bc-examples memory smoke under the memory guard."
     )
     parser.add_argument(
         "paths",
