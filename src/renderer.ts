@@ -1,30 +1,23 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices } from './engine'
+import { skillChoices, type GameEvent } from './engine'
+import { TerminalEffects } from './renderer/effects'
+import { drawActorSprite, drawItemSprite, drawTileSprite } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
-import { drawActorSprite, drawItemSprite, drawTileSprite } from './sprites'
 
 const CW = 10
 const CH = 14
 const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
 const tileGlyph: Record<string, [string, string]> = {
-  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a1a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
+  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
-
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number }
-interface FloatText { x: number; y: number; life: number; maxLife: number; color: string; text: string }
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
+  private readonly effects = new TerminalEffects(CW, CH, 48, 35)
   private spriteMode = false
-  private shakeUntil = 0
-  private flashUntil = 0
-  private flashColor = '#ffffff'
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
-  private particles: Particle[] = []
-  private floats: FloatText[] = []
-  private lastEffectTime = performance.now()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -39,31 +32,17 @@ export class TerminalRenderer {
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
   get isSpriteMode(): boolean { return this.spriteMode }
-
-  trigger(events: string[], state?: RunState): void {
-    const now = performance.now()
-    const point = state ? { x: state.hero.x * CW + CW / 2, y: state.hero.y * CH + CH / 2 } : { x: this.canvas.width / 2, y: this.canvas.height / 2 }
-    if (events.includes('death') || events.includes('boom')) { this.shakeUntil = Math.max(this.shakeUntil, now + 210); this.flashUntil = Math.max(this.flashUntil, now + 105); this.flashColor = events.includes('death') ? '#ef5968' : '#ffe58a' }
-    else if (events.includes('hurt') || events.includes('danger')) { this.shakeUntil = Math.max(this.shakeUntil, now + 115); this.flashUntil = Math.max(this.flashUntil, now + 70); this.flashColor = '#ef5968' }
-    else if (events.includes('hit') || events.includes('spell') || events.includes('pickup')) { this.flashUntil = Math.max(this.flashUntil, now + 48); this.flashColor = events.includes('spell') ? '#bea6ff' : '#f4d26a' }
-    if (events.includes('hit')) this.burst(point.x, point.y, '#f4d26a', 8, .8, 410, 'HIT')
-    if (events.includes('pickup')) this.burst(point.x, point.y, '#96d38b', 10, .7, 540, 'LOOT')
-    if (events.includes('spell')) this.burst(point.x, point.y, '#bea6ff', 15, 1.25, 650, 'ARCANE')
-    if (events.includes('boom')) this.burst(point.x, point.y, '#ff9a61', 28, 2.4, 780, 'BOOM')
-  }
+  trigger(events: GameEvent[], state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
 
   render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
     this.lastState = state
     this.lastRecords = records
     const now = performance.now()
-    this.updateEffects(now)
+    this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
     this.ctx.save()
-    if (now < this.shakeUntil) {
-      const scale = Math.max(1, (this.shakeUntil - now) / 30)
-      this.ctx.translate((Math.random() - .5) * scale, (Math.random() - .5) * scale)
-    }
+    this.effects.applyShake(this.ctx, now)
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (!state || state.status === 'title') this.title(records)
@@ -76,14 +55,8 @@ export class TerminalRenderer {
       if (state.status === 'victory') this.end(state, true)
     }
     this.ctx.restore()
-    if (now < this.flashUntil) {
-      this.ctx.save()
-      this.ctx.globalAlpha = Math.max(.04, (this.flashUntil - now) / 280)
-      this.ctx.fillStyle = this.flashColor
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-      this.ctx.restore()
-    }
-    if (now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length || this.floats.length) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
+    this.effects.drawFlash(this.ctx, this.canvas, now)
+    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -97,29 +70,24 @@ export class TerminalRenderer {
   }
 
   private stage(state: RunState): void {
-    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) {
-      const tile = getTile(state.floor, x, y)!
-      if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); continue }
-      const [glyph, color] = tileGlyph[tile.kind]
-      if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
-      else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
-      if (tile.visible) {
-        const item = state.floor.items.find(current => current.x === x && current.y === y)
-        if (item) {
-          if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y)
-          else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
-        }
-        const actor = actorAt(state.floor, x, y)
-        if (actor) {
-          if (this.spriteMode) drawActorSprite(this.ctx, actor, false, x, y)
-          else this.cell(x, y, actor.glyph, actor.color)
-        }
-      }
-    }
+    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y)
     if (this.spriteMode) drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
-    this.drawMapEffects()
+    this.effects.drawMap(this.ctx)
     this.ruleVertical(48, 0, 35)
+  }
+
+  private drawMapCell(state: RunState, x: number, y: number): void {
+    const tile = getTile(state.floor, x, y)!
+    if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); return }
+    const [glyph, color] = tileGlyph[tile.kind]
+    if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
+    else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+    if (!tile.visible) return
+    const item = state.floor.items.find(current => current.x === x && current.y === y)
+    if (item) this.spriteMode ? drawItemSprite(this.ctx, item.id, x, y) : this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+    const actor = actorAt(state.floor, x, y)
+    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
   }
 
   private sidebar(state: RunState): void {
@@ -137,11 +105,9 @@ export class TerminalRenderer {
     this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
     this.text(50, 13, `VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
     this.text(50, 15, 'EQUIPMENT', colors.gold)
-    let y = 16
-    for (const slot of Object.keys(SLOT_NAMES) as Array<keyof typeof SLOT_NAMES>) {
+    for (const [i, slot] of (Object.keys(SLOT_NAMES) as Array<keyof typeof SLOT_NAMES>).entries()) {
       const id = hero.equipment[slot]
-      const label = SLOT_NAMES[slot].slice(0, 8).padEnd(8)
-      this.text(50, y++, `${label} ${id ? ITEM[id].glyph : '-'}`, id ? ITEM[id].color : colors.dim)
+      this.text(50, 16 + i, `${SLOT_NAMES[slot].slice(0, 8).padEnd(8)} ${id ? ITEM[id].glyph : '-'}`, id ? ITEM[id].color : colors.dim)
     }
     this.text(50, 23, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 4)
@@ -173,29 +139,14 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = [
-      'Movement: IOP / K ; / , . / or numpad 1-9.',
-      'Arrows move cardinally. L or numpad-5 rests.',
-      'Shift-direction runs until interrupted. Alt-direction',
-      'casts the first ready script. B chooses bomb direction.',
-      'G get · U use · D drop · T throw · E equip · X swap.',
-      'C operates doors, merchants, scouts, and altars.',
-      'R secures rope over a pit. Q exits at a cleared stair.',
-      'A opens level disciplines. S chooses a script.',
-      'Combat uses attack rolls, defense, gear, stats, and XP.',
-      'The current floor is saved only when you descend.',
-      '', 'Press any key to return.'
-    ]
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'casts the first ready script. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, merchants, scouts, and altars.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens level disciplines. S chooses a script.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
   }
 
   private inventory(state: RunState, mode: string): void {
     this.box(13, 5, 54, 31, `${mode.toUpperCase()} ITEM`)
     if (!state.hero.inventory.length) this.text(18, 10, 'Your pack is empty.', colors.dim)
-    state.hero.inventory.forEach((id, i) => {
-      const item = ITEM[id]
-      this.text(18, 9 + i, `${i + 1}. ${item.glyph} ${item.name.padEnd(26)} ${item.value}g`, item.color)
-    })
+    state.hero.inventory.forEach((id, i) => { const item = ITEM[id]; this.text(18, 9 + i, `${i + 1}. ${item.glyph} ${item.name.padEnd(26)} ${item.value}g`, item.color) })
     this.text(18, 33, 'number selects · Esc/backtick cancels', colors.dim)
   }
 
@@ -209,8 +160,7 @@ export class TerminalRenderer {
 
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
-    const stock = shopStock(state.floor.biome)
-    stock.forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
+    shopStock(state.floor.biome).forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
     this.text(17, 30, `your gold: ${state.hero.gold}`, colors.gold)
     this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)
   }
@@ -237,83 +187,24 @@ export class TerminalRenderer {
     this.gridRect(x, y, width, height)
     this.text(x + 3, y + 1, title, colors.gold)
   }
-
   private meter(x: number, y: number, width: number, value: number, max: number, color: string): void {
     const fill = Math.max(0, Math.round(width * value / max))
     this.text(x, y, '█'.repeat(fill), color)
     this.text(x + fill, y, '░'.repeat(width - fill), colors.dim)
   }
-
   private text(x: number, y: number, value: string, color = colors.text, background?: string): void { for (let i = 0; i < value.length && x + i < TERMINAL_WIDTH; i++) this.cell(x + i, y, value[i], color, background) }
   private gridRect(x: number, y: number, width: number, height: number): void {
-    this.ctx.save()
-    this.ctx.strokeStyle = colors.border
-    this.ctx.lineWidth = 1
+    this.ctx.save(); this.ctx.strokeStyle = colors.border; this.ctx.lineWidth = 1
     this.ctx.strokeRect(x * CW + .5, y * CH + .5, width * CW - 1, height * CH - 1)
     this.ctx.restore()
   }
   private ruleHorizontal(x: number, y: number, width: number): void {
-    this.ctx.save()
-    this.ctx.strokeStyle = colors.border
-    this.ctx.lineWidth = 1
-    this.ctx.beginPath()
-    this.ctx.moveTo(x * CW, y * CH + .5)
-    this.ctx.lineTo((x + width) * CW, y * CH + .5)
-    this.ctx.stroke()
-    this.ctx.restore()
+    this.ctx.save(); this.ctx.strokeStyle = colors.border; this.ctx.lineWidth = 1; this.ctx.beginPath()
+    this.ctx.moveTo(x * CW, y * CH + .5); this.ctx.lineTo((x + width) * CW, y * CH + .5); this.ctx.stroke(); this.ctx.restore()
   }
   private ruleVertical(x: number, y: number, height: number): void {
-    this.ctx.save()
-    this.ctx.strokeStyle = colors.border
-    this.ctx.lineWidth = 1
-    this.ctx.beginPath()
-    this.ctx.moveTo(x * CW + .5, y * CH)
-    this.ctx.lineTo(x * CW + .5, (y + height) * CH)
-    this.ctx.stroke()
-    this.ctx.restore()
-  }
-  private burst(x: number, y: number, color: string, count: number, speed: number, life: number, text: string): void {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const magnitude = (.35 + Math.random()) * speed / 1000
-      this.particles.push({ x, y, vx: Math.cos(angle) * magnitude, vy: Math.sin(angle) * magnitude - .2, life, maxLife: life, color, size: Math.random() > .72 ? 2 : 1 })
-    }
-    this.floats.push({ x, y: y - 7, life, maxLife: life, color, text })
-  }
-  private updateEffects(now: number): void {
-    const delta = Math.min(34, now - this.lastEffectTime)
-    this.lastEffectTime = now
-    for (const particle of this.particles) {
-      particle.x += particle.vx * delta
-      particle.y += particle.vy * delta
-      particle.vy += .002 * delta
-      particle.life -= delta
-    }
-    for (const floating of this.floats) { floating.y -= .018 * delta; floating.life -= delta }
-    this.particles = this.particles.filter(particle => particle.life > 0)
-    this.floats = this.floats.filter(floating => floating.life > 0)
-  }
-  private drawMapEffects(): void {
-    this.ctx.save()
-    this.ctx.beginPath()
-    this.ctx.rect(0, 0, 48 * CW, 35 * CH)
-    this.ctx.clip()
-    for (const particle of this.particles) {
-      this.ctx.globalAlpha = particle.life / particle.maxLife
-      this.ctx.fillStyle = particle.color
-      this.ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size)
-    }
-    this.ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Menlo, monospace'
-    this.ctx.textAlign = 'center'
-    for (const floating of this.floats) {
-      this.ctx.globalAlpha = floating.life / floating.maxLife
-      this.ctx.fillStyle = floating.color
-      this.ctx.fillText(floating.text, floating.x, floating.y)
-    }
-    this.ctx.textAlign = 'start'
-    this.ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
-    this.ctx.globalAlpha = 1
-    this.ctx.restore()
+    this.ctx.save(); this.ctx.strokeStyle = colors.border; this.ctx.lineWidth = 1; this.ctx.beginPath()
+    this.ctx.moveTo(x * CW + .5, y * CH); this.ctx.lineTo(x * CW + .5, (y + height) * CH); this.ctx.stroke(); this.ctx.restore()
   }
   private cell(x: number, y: number, glyph: string, color = colors.text, background?: string): void {
     if (x < 0 || y < 0 || x >= TERMINAL_WIDTH || y >= TERMINAL_HEIGHT) return
