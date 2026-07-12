@@ -11,6 +11,28 @@ mirror. Keep databases, exported XML, model artifacts, and reports in ignored pa
 
 Reference: https://github.com/Apricot-S/houou-logs
 
+## 2026-07-12 Local-Only 1,100-Log Evidence
+
+The ignored shard manifest at `runs/todo-102/bc-examples-4p-1100/manifest.json` records 1,100
+parsed XML files, 11,570 rounds, zero parse failures, and these decision counts:
+
+- discard: 557,034
+- call: 147,974
+- riichi: 22,029
+
+The following ignored reports use this local-only source. `benchmark-report-summary` completed for
+each report; the raw XML, shards, and reports remain ignored.
+
+| Decision | Report | Train / eval | Selected model evidence |
+| --- | --- | ---: | --- |
+| Discard | `runs/todo-102/discard-benchmark-4p-1100.json` | 100,000 / 25,000 | `defense_context_linear`: eval accuracy 0.50792; balanced accuracy 0.43900; loss 0.49208. |
+| Call | `runs/todo-102/call-benchmark-4p-1100-125k.json` | 100,000 / 25,000 | `call_linear_v1_calibrated`: eval accuracy 0.85924; balanced accuracy 0.58473; call recall 0.19087; pass recall 0.97860; loss 0.14076. |
+
+The 125,000-example call run began from clean commit `fe148836` and took 2,552.12864 seconds. It
+meets the issue's size gate for the call family. The manifest contains only 22,029 riichi decisions,
+below the required 100,000-train/20,000-eval riichi gate. This source also lacks verified Tenhou
+ML-use and player-consent provenance. Do not close TODO-102 from these reports.
+
 ## Local Layout
 
 ```bash
