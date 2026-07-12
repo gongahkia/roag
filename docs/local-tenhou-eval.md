@@ -1,10 +1,14 @@
 # Local Tenhou Evaluation
 
-This runbook validates Kenjaku on local Tenhou XML without turning the repository into a log
-mirror. Keep databases, exported XML, model artifacts, and reports in ignored paths.
+This runbook validates Kenjaku on authorized local Tenhou XML without turning the repository into a
+log mirror. Keep databases, exported XML, model artifacts, and reports in ignored paths.
 
 ## Source Constraints
 
+- The official Tenhou manual requires an inquiry for general-mahjong applications and prohibits
+  application to a service that does not require Tenhou play. Do not use this runbook until a
+  `replay-intake-review` manifest is accepted with explicit Tenhou/C-EGG permission covering every
+  intended use. Source: https://tenhou.net/man/index.html
 - Tenhou logs must not be redistributed.
 - `houou-logs` should run as one download session at a time.
 - Exported XML belongs under `data/raw/`, not in git.
@@ -30,10 +34,11 @@ each report; the raw XML, shards, and reports remain ignored.
 
 The 125,000-example call run began from clean commit `fe148836` and took 2,552.12864 seconds. It
 meets the issue's size gate for the call family. The manifest contains only 22,029 riichi decisions,
-below the required 100,000-train/20,000-eval riichi gate. This source also lacks verified Tenhou
-ML-use and player-consent provenance. Do not close TODO-102 from these reports.
+below the required 100,000-train/20,000-eval riichi gate. This source lacks verified Tenhou/C-EGG
+authorization and player-consent provenance. Do not close TODO-102 from these reports or reuse them
+without an accepted permission manifest.
 
-## Local Layout
+## Authorized Local Layout
 
 ```bash
 mkdir -p data/raw/tenhou/db data/raw/tenhou/xml/4p-hanchan models runs

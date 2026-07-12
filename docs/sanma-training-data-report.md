@@ -7,6 +7,11 @@ Status: blocked pending permitted-data provenance for the 1,000-game training ex
 No permitted 1,000-game Sanma replay source is available in this workspace. No raw Sanma replay
 data, processed Sanma dataset, account identifier, or replay URL is committed.
 
+The official Tenhou manual says log use for general-mahjong applications requires an inquiry to
+`support@c-egg.com` and prohibits application to a service that does not require Tenhou play.
+[Inference] Sanma training remains blocked until Tenhou/C-EGG grants written permission with the
+required scope. Source: https://tenhou.net/man/index.html
+
 ## 2026-07-11 Local-Only Evaluation Evidence
 
 An ignored local-only 1,100-log 3-player hanchan slice was fetched sequentially with
@@ -48,8 +53,8 @@ written grant.
 
 | Candidate | Count available here | Legal/use status | Decision |
 | --- | ---: | --- | --- |
-| User-owned Tenhou Sanma logs with explicit consent | 0 | [Inference] Potentially usable for local-only work if the owner provides logs and permission. Tenhou documents paid client replay save/analysis features, and community docs note browser replay storage is limited unless links are saved manually. | Blocked until logs and permission manifest exist. |
-| Tenhou/Houou log download tooling | 0 | The `houou-logs` README says Tenhou prohibits publishing, sharing, mirroring, or redistributing downloaded logs and warns to use only one download session. | Do not fetch or commit data from this path without explicit review. |
+| User-owned Tenhou Sanma logs with explicit consent | 0 | Player consent does not establish Tenhou/C-EGG platform permission for a general-mahjong application. | Blocked until both a player manifest and written Tenhou/C-EGG permission exist. |
+| Tenhou/Houou log download tooling | 0 | The `houou-logs` README says Tenhou prohibits publishing, sharing, mirroring, or redistributing downloaded logs and warns to use only one download session. Tenhou's manual also requires inquiry for general-mahjong applications. | Do not fetch or process this path without written Tenhou/C-EGG permission. |
 | Meowjong Sanma pipeline | 0 | The code is MIT-licensed, but its paper says its 50,000-round training sample was obtained from Tenhou. I cannot verify a separately licensed, redistributable checked-in corpus. | Tooling reference only; not a permitted source. |
 | MahjongLM dataset | 0 | Contains 3-player Tenhou Sanma token streams, but its license is `source-data-terms-apply`; its card calls it a processed Tenhou derivative and requires access-condition acceptance. | Not an independent permission source. |
 | `tenhou-sanma-to-mjai` | 0 | MIT conversion code; documented input is Tenhou internal JSON. | Converter only; not a dataset or permission source. |
@@ -58,6 +63,7 @@ written grant.
 Sources:
 
 - Tenhou homepage: https://tenhou.net/
+- Tenhou manual: https://tenhou.net/man/index.html
 - Tenhou replay notes: https://riichi.wiki/Tenhou.net
 - `houou-logs`: https://github.com/Apricot-S/houou-logs
 - Meowjong: https://github.com/VictorZXY/Meowjong

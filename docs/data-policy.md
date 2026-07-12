@@ -12,8 +12,18 @@ Kenjaku should be reproducible without turning the repository into a log mirror.
 
 ## Tenhou
 
-Tenhou publishes log access mechanisms, but its manual and current downloader ecosystem impose
-real constraints. Phase 0 should use `Apricot-S/houou-logs` for local validation only:
+Tenhou publishes log access mechanisms, but its official manual says logs are published to support
+fair Tenhou play; applying them to a service that does not require Tenhou play is not allowed, and
+general-mahjong applications require an inquiry to `support@c-egg.com`. It also prohibits applying
+logs to competing-product development. Source: https://tenhou.net/man/index.html
+
+[Inference] Treat every Tenhou replay use for Kenjaku analysis, evaluation, training, snapshot
+export, or external-baseline comparison as blocked until Tenhou/C-EGG supplies written permission
+that covers the intended uses. A player supplying a replay does not replace platform authorization.
+
+After `replay-intake-review` accepts a manifest with `explicit_permission`, a Tenhou/C-EGG
+`granted_by`, a `granted_at` date, and all requested scopes, `Apricot-S/houou-logs` may be used for
+local validation only:
 
 ```bash
 # Install outside this repo or in a local virtual environment.
@@ -30,10 +40,10 @@ houou-logs export data/raw/tenhou/2024.db data/raw/tenhou/xml/4p-hanchan \
   --players 4 --length h --limit 100
 ```
 
-Do not commit the resulting database or exported XML files. See `docs/local-tenhou-eval.md` for a
-local evaluation workflow.
+Do not commit the resulting database or exported XML files. See `docs/local-tenhou-eval.md` for an
+authorized local evaluation workflow.
 
-### Tenhou Local Smoke Record
+### Historical Tenhou Local Smoke Record
 
 TODO-001 was validated locally on 2026-06-13 SGT with `houou-logs` 2.0.1 installed from
 `Apricot-S/houou-logs` commit `3aeb640659d4ba635739d82ad75e94f826076c76`.
@@ -78,6 +88,9 @@ discards: 619
 discard_examples: 619
 call_examples: 164
 ```
+
+This historical local-only smoke does not establish the current permission gate above and must not
+be reused for training, evaluation, or comparison without a matching Tenhou/C-EGG grant.
 
 No-redistribution handling:
 
@@ -142,9 +155,10 @@ Supported `permission.status` values are:
   covered by that scope.
 - `unknown` and `denied`: rejected.
 
-Tenhou redistribution is rejected by the intake gate. Mahjong Soul replay intake requires explicit
-permission for every intended use. The intake command is a provenance and permission review step
-only; it does not fetch live-service data or automate a client.
+Tenhou intake requires explicit permission, a Tenhou/C-EGG `granted_by` value, `granted_at`, and
+scope coverage for every intended use; redistribution is always rejected. Mahjong Soul replay
+intake requires explicit permission for every intended use. The intake command is a provenance and
+permission review step only; it does not fetch live-service data or automate a client.
 
 Use `kenjaku replay-share-plan` on accepted intake JSONL before any demo or redistribution work.
 The share planner checks that the accepted row's original `intended_uses` and `permission.scope`

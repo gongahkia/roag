@@ -107,6 +107,54 @@ class ReplayManifestTests(unittest.TestCase):
         self.assertEqual(review["rejected"], 1)
         self.assertIn("requires a permission scope", review["decisions"][0]["reasons"][0])
 
+    def test_tenhou_requires_recorded_authoritative_explicit_permission(self) -> None:
+        review = review_replay_manifest(
+            {
+                "kind": REPLAY_MANIFEST_KIND,
+                "items": [
+                    {
+                        "id": "user-provided",
+                        "platform": "tenhou",
+                        "uri": "file:///private/replay.xml",
+                        "intended_uses": ["analysis"],
+                        "permission": {"status": "user_provided"},
+                    },
+                    {
+                        "id": "missing-grantor",
+                        "platform": "tenhou",
+                        "uri": "file:///private/replay.xml",
+                        "intended_uses": ["training"],
+                        "permission": {
+                            "status": "explicit_permission",
+                            "scope": ["training"],
+                            "granted_at": "2026-07-12",
+                        },
+                    },
+                    {
+                        "id": "tenhou-grant",
+                        "platform": "tenhou",
+                        "uri": "file:///private/replay.xml",
+                        "intended_uses": ["analysis", "training"],
+                        "permission": {
+                            "status": "explicit_permission",
+                            "scope": ["analysis", "training"],
+                            "granted_by": "C-EGG support",
+                            "granted_at": "2026-07-12",
+                        },
+                    },
+                ],
+            }
+        )
+
+        self.assertEqual(review["accepted"], 1)
+        rejected = {
+            decision["id"]: decision["reasons"]
+            for decision in review["decisions"]
+            if not decision["accepted"]
+        }
+        self.assertTrue(any("requires explicit permission" in reason for reason in rejected["user-provided"]))
+        self.assertTrue(any("must record Tenhou or C-EGG" in reason for reason in rejected["missing-grantor"]))
+
     def test_share_plan_requires_intended_use_and_permission_scope(self) -> None:
         rows = [
             {
