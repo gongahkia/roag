@@ -2,6 +2,7 @@ import { ITEM, biomeName, shopStock } from './content'
 import { skillChoices } from './engine'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
+import { drawActorSprite, drawItemSprite, drawTileSprite } from './sprites'
 
 const CW = 10
 const CH = 14
@@ -12,6 +13,12 @@ const tileGlyph: Record<string, [string, string]> = {
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
+  private spriteMode = false
+  private shakeUntil = 0
+  private flashUntil = 0
+  private flashColor = '#ffffff'
+  private lastState?: RunState
+  private lastRecords?: { bestDepth: number; wins: number; deaths: number }
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -24,16 +31,47 @@ export class TerminalRenderer {
     ctx.textBaseline = 'top'
   }
 
+  setSpriteMode(value: boolean): void { this.spriteMode = value }
+  get isSpriteMode(): boolean { return this.spriteMode }
+
+  trigger(events: string[]): void {
+    const now = performance.now()
+    if (events.includes('death') || events.includes('boom')) { this.shakeUntil = Math.max(this.shakeUntil, now + 210); this.flashUntil = Math.max(this.flashUntil, now + 105); this.flashColor = events.includes('death') ? '#ef5968' : '#ffe58a' }
+    else if (events.includes('hurt') || events.includes('danger')) { this.shakeUntil = Math.max(this.shakeUntil, now + 115); this.flashUntil = Math.max(this.flashUntil, now + 70); this.flashColor = '#ef5968' }
+    else if (events.includes('hit') || events.includes('spell') || events.includes('pickup')) { this.flashUntil = Math.max(this.flashUntil, now + 48); this.flashColor = events.includes('spell') ? '#bea6ff' : '#f4d26a' }
+  }
+
   render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
+    this.lastState = state
+    this.lastRecords = records
+    const now = performance.now()
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0)
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    this.ctx.save()
+    if (now < this.shakeUntil) {
+      const scale = Math.max(1, (this.shakeUntil - now) / 30)
+      this.ctx.translate((Math.random() - .5) * scale, (Math.random() - .5) * scale)
+    }
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    if (!state || state.status === 'title') return this.title(records)
-    this.stage(state)
-    this.sidebar(state)
-    this.log(state)
-    if (state.modal) this.modal(state, state.modal)
-    if (state.status === 'dead') this.end(state, false)
-    if (state.status === 'victory') this.end(state, true)
+    if (!state || state.status === 'title') this.title(records)
+    else {
+      this.stage(state)
+      this.sidebar(state)
+      this.log(state)
+      if (state.modal) this.modal(state, state.modal)
+      if (state.status === 'dead') this.end(state, false)
+      if (state.status === 'victory') this.end(state, true)
+    }
+    this.ctx.restore()
+    if (now < this.flashUntil) {
+      this.ctx.save()
+      this.ctx.globalAlpha = Math.max(.04, (this.flashUntil - now) / 280)
+      this.ctx.fillStyle = this.flashColor
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      this.ctx.restore()
+    }
+    if (now < Math.max(this.shakeUntil, this.flashUntil)) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -51,15 +89,23 @@ export class TerminalRenderer {
       const tile = getTile(state.floor, x, y)!
       if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); continue }
       const [glyph, color] = tileGlyph[tile.kind]
-      this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+      if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
+      else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
       if (tile.visible) {
         const item = state.floor.items.find(current => current.x === x && current.y === y)
-        if (item) this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+        if (item) {
+          if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y)
+          else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+        }
         const actor = actorAt(state.floor, x, y)
-        if (actor) this.cell(x, y, actor.glyph, actor.color)
+        if (actor) {
+          if (this.spriteMode) drawActorSprite(this.ctx, actor, false, x, y)
+          else this.cell(x, y, actor.glyph, actor.color)
+        }
       }
     }
-    this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
+    if (this.spriteMode) drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
+    else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.line(48, 0, 48, 34, '│', colors.border)
   }
 
@@ -89,7 +135,7 @@ export class TerminalRenderer {
     foes.forEach((foe, i) => this.text(50, 24 + i, `${foe.glyph} ${foe.name.slice(0, 19).padEnd(19)} ${Math.max(0, foe.health)}`, foe.color))
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
-    this.text(50, 32, 'A skills  S script  H help', colors.dim)
+    this.text(50, 32, `A skills  S script  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)
   }
 
   private log(state: RunState): void {

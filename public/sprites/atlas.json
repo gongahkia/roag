@@ -1,0 +1,16 @@
+{
+  "image": "expedition-atlas.png",
+  "cellSize": 16,
+  "columns": 16,
+  "rows": 8,
+  "transparentBackground": true,
+  "renderScale": 1,
+  "layout": {
+    "row0": "terrain and hazards",
+    "row1": "doors, containers, events, hero",
+    "rows2to3": "24 enemy sprites",
+    "rows4to5": "30 item and equipment sprites",
+    "row6": "spell effects and projectiles",
+    "row7": "UI icons and reserved animation frames"
+  }
+}

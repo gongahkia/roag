@@ -8,10 +8,13 @@
     <title>Blockscape: Expedition</title>
   </head>
   <body>
-    <main class="app">
-      <header><h1>BLOCKSCAPE: EXPEDITION</h1><p>original terminal roguelike · keyboard required</p></header>
-      <section class="game-shell" aria-label="Blockscape Expedition game"><canvas id="game" width="800" height="630" tabindex="0" aria-label="ASCII roguelike game"></canvas></section>
-      <p class="footer">floor-boundary save · full permadeath · local run records</p>
+    <main class="arcade">
+      <section class="cabinet" aria-label="Blockscape Expedition arcade cabinet">
+        <header class="marquee"><h1>BLOCKSCAPE: EXPEDITION</h1><p>original terminal roguelike · keyboard required</p></header>
+        <section class="screen-bezel" aria-label="Blockscape Expedition game"><canvas id="game" width="800" height="630" tabindex="0" aria-label="ASCII roguelike game"></canvas></section>
+        <section class="control-deck" aria-label="Cabinet controls"><span class="joystick" aria-hidden="true"></span><span class="deck-label">8-WAY EXPEDITION CONTROL</span><button id="visual-toggle" type="button">V · ASCII</button><span class="action-button amber" aria-hidden="true"></span><span class="action-button red" aria-hidden="true"></span></section>
+        <footer class="coin-door"><span>◇ INSERT COURAGE ◇</span><span>floor-boundary save · full permadeath · local run records</span></footer>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
