@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#15151f" />
+    <title>Blockscape</title>
+  </head>
+  <body>
+    <main class="app">
+      <header><h1>BLOCKSCAPE</h1><p id="seed-label"></p></header>
+      <section class="game-shell" aria-label="Blockscape game">
+        <canvas id="game" aria-label="Isometric block world"></canvas>
+        <div id="hint" class="hint">WASD move · space jump · Q/E rotate · click place · right-click remove</div>
+        <nav id="hotbar" class="hotbar" aria-label="Block hotbar"></nav>
+        <div id="touch-controls" class="touch-controls" aria-label="Touch controls">
+          <div class="touch-pad"><button data-action="up">▲</button><button data-action="left">◀</button><button data-action="down">▼</button><button data-action="right">▶</button></div>
+          <div class="touch-actions"><button data-action="jump">JUMP</button><button data-action="rotate-left">↶</button><button data-action="rotate-right">↷</button><button data-action="remove">REMOVE</button></div>
+        </div>
+      </section>
+      <p class="footer">seeded creative sandbox · edits save locally</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
