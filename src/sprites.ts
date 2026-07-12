@@ -24,11 +24,29 @@ const itemSprite: Record<string, number> = {
 
 export class TextureAtlas {
   private readonly image = new Image()
+  private readonly cells = document.createElement('canvas')
   private ready = false
   private readonly listeners = new Set<() => void>()
 
   constructor() {
-    this.image.onload = () => { this.ready = true; this.listeners.forEach(listener => listener()) }
+    this.image.onload = () => {
+      this.cells.width = ATLAS_SPEC.columns * 16
+      this.cells.height = ATLAS_SPEC.rows * 16
+      const ctx = this.cells.getContext('2d')!
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      const sourceWidth = this.image.naturalWidth / ATLAS_SPEC.columns
+      const sourceHeight = this.image.naturalHeight / ATLAS_SPEC.rows
+      for (let index = 0; index < ATLAS_SPEC.columns * ATLAS_SPEC.rows; index++) {
+        const sourceX = index % ATLAS_SPEC.columns * sourceWidth
+        const sourceY = Math.floor(index / ATLAS_SPEC.columns) * sourceHeight
+        const targetX = index % ATLAS_SPEC.columns * 16
+        const targetY = Math.floor(index / ATLAS_SPEC.columns) * 16
+        ctx.drawImage(this.image, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, 16, 16)
+      }
+      this.ready = true
+      this.listeners.forEach(listener => listener())
+    }
     this.image.src = atlasUrl
   }
 
@@ -36,13 +54,12 @@ export class TextureAtlas {
 
   draw(ctx: CanvasRenderingContext2D, index: number | undefined, x: number, y: number, dim = false): boolean {
     if (!this.ready || index === undefined) return false
-    const width = this.image.naturalWidth / ATLAS_SPEC.columns
-    const height = this.image.naturalHeight / ATLAS_SPEC.rows
-    const sourceX = index % ATLAS_SPEC.columns * width
-    const sourceY = Math.floor(index / ATLAS_SPEC.columns) * height
+    const sourceX = index % ATLAS_SPEC.columns * 16
+    const sourceY = Math.floor(index / ATLAS_SPEC.columns) * 16
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
-    ctx.drawImage(this.image, sourceX, sourceY, width, height, x * 10, y * 14 + 2, 10, 10)
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(this.cells, sourceX, sourceY, 16, 16, x * 10 - 2, y * 14, 14, 14)
     ctx.restore()
     return true
   }
