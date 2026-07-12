@@ -1,10 +1,10 @@
-import { ITEM, ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
+import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
 import { mixSeed, Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type Floor, type GroundItem, type Point, type Tile, indexOf, inBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
-const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit'].includes(kind)
+const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'crate', 'chest'].includes(kind)
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
@@ -34,8 +34,9 @@ export function generateFloor(runSeed: number, index: number): Floor {
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   decorateBiome(floor, rng, rooms)
-  placeEvents(floor, rng, rooms)
+  placeEvents(floor, rooms)
   placeDoorsAndLocks(floor, rng, rooms)
+  placeContainers(floor, rng, rooms)
   placeActors(floor, rng, rooms)
   placeItems(floor, rng, rooms)
   ensureReachable(floor)
@@ -91,7 +92,7 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   }
 }
 
-function placeEvents(floor: Floor, rng: Rng, rooms: Room[]): void {
+function placeEvents(floor: Floor, rooms: Room[]): void {
   const eventRoom = rooms[Math.max(1, Math.floor(rooms.length / 2))]
   const point = center(eventRoom)
   const kind: Tile['kind'] = floor.index % 4 === 0 ? 'shop' : floor.index % 4 === 1 ? 'rescue' : floor.index % 4 === 2 ? 'altar' : 'shop'
@@ -99,10 +100,6 @@ function placeEvents(floor: Floor, rng: Rng, rooms: Room[]): void {
   if (kind === 'shop') floor.actors.push(friendly('merchant', `${floor.biome} trader`, point, '$', '#f4d26a'))
   if (kind === 'rescue') floor.actors.push(friendly('ally', 'lost scout', point, '&', '#8ae0b3'))
   if (kind === 'altar') floor.actors.push(friendly('ally', 'shrine keeper', point, '_', '#d6a8eb'))
-  if (rng.chance(35)) {
-    const extra = center(rng.pick(rooms.slice(1, -1)))
-    setKind(floor, extra.x, extra.y, kind === 'shop' ? 'altar' : 'shop')
-  }
 }
 
 function placeDoorsAndLocks(floor: Floor, rng: Rng, rooms: Room[]): void {
@@ -110,6 +107,13 @@ function placeDoorsAndLocks(floor: Floor, rng: Rng, rooms: Room[]): void {
     const point = center(room)
     const door = { x: Math.max(1, point.x - Math.floor(room.w / 2)), y: point.y }
     if (getTile(floor, door.x, door.y)?.kind === 'floor') setKind(floor, door.x, door.y, rng.chance(25) ? 'lockedDoor' : 'door')
+  }
+}
+
+function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
+  for (let i = 0; i < 4; i++) {
+    const point = freeRoomPoint(floor, rng, rooms)
+    setKind(floor, point.x, point.y, i === 3 ? 'chest' : 'crate')
   }
 }
 

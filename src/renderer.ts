@@ -1,4 +1,4 @@
-import { ITEM, SKILLS, biomeName } from './content'
+import { ITEM, biomeName, shopStock } from './content'
 import { skillChoices } from './engine'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
@@ -7,7 +7,7 @@ const CW = 10
 const CH = 14
 const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
 const tileGlyph: Record<string, [string, string]> = {
-  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a1a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
+  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a1a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
 
 export class TerminalRenderer {
@@ -149,7 +149,7 @@ export class TerminalRenderer {
 
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
-    const stock = ['tonic', 'bombPack', 'ropeBundle', 'machete', 'focusTonic', 'mapScroll']
+    const stock = shopStock(state.floor.biome)
     stock.forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
     this.text(17, 30, `your gold: ${state.hero.gold}`, colors.gold)
     this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)

@@ -1,6 +1,6 @@
-import { ITEM, MONSTERS, SKILLS, biomeName } from './content'
+import { ITEM, MONSTERS, SKILLS, biomeName, shopStock } from './content'
 import { mixSeed, Rng } from './rng'
-import { DIRECTIONS, FLOOR_COUNT, type Actor, type Direction, type EquipmentSlot, type Hero, type Modal, type RunState, type StatName, inBounds } from './types'
+import { DIRECTIONS, FLOOR_COUNT, type Actor, type Direction, type Hero, type Modal, type RunState, type StatName, inBounds } from './types'
 import { actorAt, generateFloor, getTile, isPassable } from './world'
 
 export type GameEvent = 'move' | 'hit' | 'hurt' | 'pickup' | 'spell' | 'boom' | 'danger' | 'menu' | 'death' | 'win' | 'floor'
@@ -83,7 +83,7 @@ function moveHero(state: RunState, direction: Direction): GameEvent[] {
   if (tile.kind === 'lockedDoor') {
     if (state.hero.keys < 1) { log(state, 'A key is required.'); return [] }
     state.hero.keys--
-    tile.kind = 'floor'
+    if (tile) tile.kind = 'floor'
     log(state, 'You unlock the door.')
     return advance(state, ['move'])
   }
@@ -198,13 +198,24 @@ function pickUp(state: RunState): GameEvent[] {
 function operate(state: RunState): GameEvent[] {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   const friend = state.floor.actors.find(actor => !actor.hostile && dist(actor, state.hero) <= 1)
+  const container = nearbyContainer(state)
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return ['menu'] }
+  if (container) {
+    container.tile.kind = 'floor'
+    const loot = turnRng(state).pick(['tonic', 'focusTonic', 'bombPack', 'ropeBundle', 'rock', 'mapScroll', 'ward'])
+    state.hero.gold += container.kind === 'chest' ? 60 : 18
+    if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
+    else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
+    log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
+    return advance(state, ['pickup'])
+  }
   if (tile?.kind === 'rescue' || friend?.kind === 'ally') {
     state.hero.maxHealth += 2
     state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8)
     state.hero.gold += 35
     state.floor.actors = state.floor.actors.filter(actor => actor !== friend)
-    tile.kind = 'floor'
+    const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
+    if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
     log(state, 'The scout shares supplies and leaves.');
     return advance(state, ['pickup'])
   }
@@ -356,6 +367,12 @@ function castFirstSpell(state: RunState): GameEvent[] {
   return ['menu']
 }
 
+export function quickCast(state: RunState, direction: Direction): GameEvent[] {
+  const id = state.hero.inventory.find(item => ITEM[item].use === 'spell')
+  if (!id) { log(state, 'You know no ready script.'); return [] }
+  return castSpell(state, id, direction)
+}
+
 function castSpell(state: RunState, id: string, direction: Direction): GameEvent[] {
   const item = ITEM[id]
   if (state.hero.focus < 3) { log(state, 'You lack focus.'); return [] }
@@ -375,7 +392,7 @@ function castSpell(state: RunState, id: string, direction: Direction): GameEvent
 }
 
 function shopChoice(state: RunState, command: string): GameEvent[] {
-  const stock = ['tonic', 'bombPack', 'ropeBundle', 'machete', 'focusTonic', 'mapScroll']
+  const stock = shopStock(state.floor.biome)
   const index = Number(command) - 1
   if (!Number.isInteger(index) || !stock[index]) return []
   const id = stock[index]
@@ -445,3 +462,12 @@ const consume = (state: RunState, index: number) => state.hero.inventory.splice(
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const log = (state: RunState, message: string) => { state.messages.unshift(message); state.messages = state.messages.slice(0, 9) }
 const turnRng = (state: RunState) => new Rng(mixSeed(state.seed, state.turn * 97 + state.floor.index * 13))
+const nearbyContainer = (state: RunState): { tile: NonNullable<ReturnType<typeof getTile>>; kind: 'crate' | 'chest'; x: number; y: number } | undefined => {
+  for (const delta of Object.values(DIRECTIONS)) {
+    const x = state.hero.x + delta.x
+    const y = state.hero.y + delta.y
+    const tile = getTile(state.floor, x, y)
+    if (tile?.kind === 'crate' || tile?.kind === 'chest') return { tile, kind: tile.kind, x, y }
+  }
+  return undefined
+}

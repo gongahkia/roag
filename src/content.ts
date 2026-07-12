@@ -41,7 +41,6 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'key', name: 'Iron Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },
-  { id: 'webJar', name: 'Web Jar', glyph: '!', color: '#d3d6df', value: 65, throwable: true },
   { id: 'ember', name: 'Ember Script', glyph: '?', color: '#ff9c63', value: 120, use: 'spell', spell: 'ember' },
   { id: 'mend', name: 'Mending Script', glyph: '?', color: '#91e0b1', value: 110, use: 'spell', spell: 'mend' },
   { id: 'sight', name: 'Sight Script', glyph: '?', color: '#9dd7e4', value: 105, use: 'spell', spell: 'sight' },
@@ -57,21 +56,25 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'mole', name: 'Iron Mole', glyph: 'm', color: '#9298a2', health: 9, attack: 4, defense: 10, speed: 90, ai: 'chase', xp: 10, biome: 'mine' },
   { id: 'sapper', name: 'Powder Sapper', glyph: 's', color: '#d6a263', health: 8, attack: 5, defense: 9, speed: 100, ai: 'ranged', xp: 14, biome: 'mine' },
   { id: 'beetle', name: 'Brass Beetle', glyph: 'b', color: '#d6c16d', health: 13, attack: 5, defense: 13, speed: 75, ai: 'chase', xp: 18, biome: 'mine' },
+  { id: 'driller', name: 'Tunnel Driller', glyph: 'd', color: '#dfb77a', health: 11, attack: 6, defense: 12, speed: 100, ai: 'ranged', xp: 20, biome: 'mine' },
   { id: 'foreman', name: 'The Foreman', glyph: 'F', color: '#ffe080', health: 42, attack: 8, defense: 14, speed: 105, ai: 'guardian', xp: 70, biome: 'mine' },
   { id: 'thornling', name: 'Thornling', glyph: 't', color: '#86c064', health: 8, attack: 4, defense: 10, speed: 105, ai: 'chase', xp: 11, biome: 'wilds' },
   { id: 'boar', name: 'Moss Boar', glyph: 'b', color: '#a77d58', health: 15, attack: 7, defense: 11, speed: 115, ai: 'chase', xp: 19, biome: 'wilds' },
   { id: 'spitter', name: 'Vine Spitter', glyph: 'v', color: '#67ba7b', health: 10, attack: 6, defense: 9, speed: 90, ai: 'ranged', xp: 16, biome: 'wilds' },
   { id: 'wisp', name: 'Marsh Wisp', glyph: 'w', color: '#9be6bc', health: 7, attack: 6, defense: 12, speed: 130, ai: 'wander', xp: 21, biome: 'wilds' },
+  { id: 'frog', name: 'Canopy Frog', glyph: 'f', color: '#a9d666', health: 11, attack: 6, defense: 11, speed: 120, ai: 'chase', xp: 23, biome: 'wilds' },
   { id: 'heartwood', name: 'Heartwood Stag', glyph: 'H', color: '#d1e281', health: 52, attack: 10, defense: 14, speed: 110, ai: 'guardian', xp: 90, biome: 'wilds' },
   { id: 'crawler', name: 'Crystal Crawler', glyph: 'c', color: '#7bcfe0', health: 14, attack: 7, defense: 13, speed: 95, ai: 'chase', xp: 23, biome: 'caverns' },
   { id: 'magma', name: 'Magma Newt', glyph: 'n', color: '#ef795a', health: 12, attack: 8, defense: 11, speed: 105, ai: 'chase', xp: 25, biome: 'caverns' },
   { id: 'echo', name: 'Echo Bat', glyph: 'e', color: '#ba9ddd', health: 9, attack: 7, defense: 12, speed: 140, ai: 'wander', xp: 26, biome: 'caverns' },
   { id: 'seer', name: 'Cave Seer', glyph: 's', color: '#ba8ae7', health: 13, attack: 9, defense: 12, speed: 95, ai: 'ranged', xp: 30, biome: 'caverns' },
+  { id: 'slug', name: 'Salt Slug', glyph: 'u', color: '#a8c5cf', health: 19, attack: 8, defense: 15, speed: 65, ai: 'chase', xp: 31, biome: 'caverns' },
   { id: 'geode', name: 'Geode Wyrm', glyph: 'G', color: '#8ce5f2', health: 62, attack: 12, defense: 16, speed: 100, ai: 'guardian', xp: 115, biome: 'caverns' },
   { id: 'scarab', name: 'Ash Scarab', glyph: 's', color: '#d8b363', health: 16, attack: 8, defense: 15, speed: 95, ai: 'chase', xp: 32, biome: 'ruins' },
   { id: 'sentinel', name: 'Stone Sentinel', glyph: 'S', color: '#9da5aa', health: 23, attack: 10, defense: 17, speed: 75, ai: 'chase', xp: 40, biome: 'ruins' },
   { id: 'oracle', name: 'Dust Oracle', glyph: 'o', color: '#e9c489', health: 15, attack: 11, defense: 13, speed: 100, ai: 'ranged', xp: 45, biome: 'ruins' },
   { id: 'shade', name: 'Vault Shade', glyph: 'h', color: '#c1a5ed', health: 14, attack: 10, defense: 16, speed: 125, ai: 'wander', xp: 48, biome: 'ruins' },
+  { id: 'cultist', name: 'Ash Cultist', glyph: 'c', color: '#df9a7c', health: 18, attack: 11, defense: 14, speed: 100, ai: 'ranged', xp: 51, biome: 'ruins' },
   { id: 'regent', name: 'The Ash Regent', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
 ]
 
@@ -84,3 +87,9 @@ export const SKILLS: Array<{ id: string; name: string; stat: StatName; level: nu
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
 export const biomeName: Record<Biome, string> = { mine: 'Shale Mine', wilds: 'Verdant Wilds', caverns: 'Glass Caverns', ruins: 'Ashen Ruins' }
+export const shopStock = (biome: Biome): ItemId[] => ({
+  mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
+  wilds: ['tonic', 'machete', 'focusTonic', 'boots', 'fireJar', 'mapScroll'],
+  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'blinkRune'],
+  ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'key']
+})[biome]
