@@ -1,5 +1,8 @@
 """Training-data adapters and example builders."""
 
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
 from kenjaku.training.bc_examples import (
     BC_DECISION_TYPES,
     BC_EXAMPLE_MANIFEST_KIND,
@@ -58,34 +61,70 @@ from kenjaku.training.discard_features import (
 from kenjaku.training.error_analysis import summarize_discard_predictions
 from kenjaku.training.kita_examples import KitaExample, iter_kita_examples
 from kenjaku.training.outcomes import RoundOutcome, round_outcome, round_outcome_payload
-from kenjaku.training.population import (
-    POPULATION_SANDBOX_REPORT_KIND,
-    POPULATION_SANDBOX_SNAPSHOT_KIND,
-    format_population_sandbox_report,
-    train_population_sandbox,
-)
-from kenjaku.training.ppo import (
-    PPO_ACTION_DIM,
-    PPO_SANDBOX_CHECKPOINT_KIND,
-    PPO_SANDBOX_POLICY_KIND,
-    PPO_SANDBOX_REPORT_KIND,
-    PPO_STATE_DIM,
-    SandboxLinearPpoActorCritic,
-    SandboxPpoRollout,
-    SandboxPpoTrainingResult,
-    SandboxPpoTransition,
-    collect_ppo_sandbox_rollout,
-    evaluate_ppo_sandbox_policy,
-    format_ppo_sandbox_report,
-    load_ppo_sandbox_checkpoint,
-    ppo_action_index,
-    ppo_legal_action_mask,
-    ppo_state_features,
-    save_ppo_sandbox_checkpoint,
-    train_ppo_sandbox,
-)
 from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 from kenjaku.training.splits import deterministic_split
+
+if TYPE_CHECKING:
+    from kenjaku.training.population import (
+        POPULATION_SANDBOX_REPORT_KIND,
+        POPULATION_SANDBOX_SNAPSHOT_KIND,
+        format_population_sandbox_report,
+        train_population_sandbox,
+    )
+    from kenjaku.training.ppo import (
+        PPO_ACTION_DIM,
+        PPO_SANDBOX_CHECKPOINT_KIND,
+        PPO_SANDBOX_POLICY_KIND,
+        PPO_SANDBOX_REPORT_KIND,
+        PPO_STATE_DIM,
+        SandboxLinearPpoActorCritic,
+        SandboxPpoRollout,
+        SandboxPpoTrainingResult,
+        SandboxPpoTransition,
+        collect_ppo_sandbox_rollout,
+        evaluate_ppo_sandbox_policy,
+        format_ppo_sandbox_report,
+        load_ppo_sandbox_checkpoint,
+        ppo_action_index,
+        ppo_legal_action_mask,
+        ppo_state_features,
+        save_ppo_sandbox_checkpoint,
+        train_ppo_sandbox,
+    )
+
+_LAZY_EXPORT_MODULES = {
+    "POPULATION_SANDBOX_REPORT_KIND": "kenjaku.training.population",
+    "POPULATION_SANDBOX_SNAPSHOT_KIND": "kenjaku.training.population",
+    "format_population_sandbox_report": "kenjaku.training.population",
+    "train_population_sandbox": "kenjaku.training.population",
+    "PPO_ACTION_DIM": "kenjaku.training.ppo",
+    "PPO_SANDBOX_CHECKPOINT_KIND": "kenjaku.training.ppo",
+    "PPO_SANDBOX_POLICY_KIND": "kenjaku.training.ppo",
+    "PPO_SANDBOX_REPORT_KIND": "kenjaku.training.ppo",
+    "PPO_STATE_DIM": "kenjaku.training.ppo",
+    "SandboxLinearPpoActorCritic": "kenjaku.training.ppo",
+    "SandboxPpoRollout": "kenjaku.training.ppo",
+    "SandboxPpoTrainingResult": "kenjaku.training.ppo",
+    "SandboxPpoTransition": "kenjaku.training.ppo",
+    "collect_ppo_sandbox_rollout": "kenjaku.training.ppo",
+    "evaluate_ppo_sandbox_policy": "kenjaku.training.ppo",
+    "format_ppo_sandbox_report": "kenjaku.training.ppo",
+    "load_ppo_sandbox_checkpoint": "kenjaku.training.ppo",
+    "ppo_action_index": "kenjaku.training.ppo",
+    "ppo_legal_action_mask": "kenjaku.training.ppo",
+    "ppo_state_features": "kenjaku.training.ppo",
+    "save_ppo_sandbox_checkpoint": "kenjaku.training.ppo",
+    "train_ppo_sandbox": "kenjaku.training.ppo",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _LAZY_EXPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(module_name), name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "BC_DECISION_TYPES",

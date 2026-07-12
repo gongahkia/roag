@@ -12,7 +12,7 @@ from kenjaku.frontend_static import (
     motion_primitives_script,
     theme_css,
 )
-from kenjaku.training.ppo import (
+from kenjaku.training.ppo_schema import (
     PPO_ACTION_DIM,
     PPO_ACTION_KIND_OFFSETS,
     PPO_DECISION_TYPES,
