@@ -54,7 +54,7 @@ export class TerminalRenderer {
     if (events.includes('spell')) this.burst(point.x, point.y, '#bea6ff', 15, 1.25, 650, 'ARCANE')
     if (events.includes('boom')) this.burst(point.x, point.y, '#ff9a61', 28, 2.4, 780, 'BOOM')
     if (events.includes('floor') && state) {
-      this.floorBannerUntil = now + 1500
+      this.floorBannerUntil = now + 2200
       this.floorBanner = `${String(state.floor.index + 1).padStart(2, '0')} / 16  ${biomeName[state.floor.biome].toUpperCase()}`
     }
   }
