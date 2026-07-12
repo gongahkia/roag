@@ -43,6 +43,18 @@ Source refresh on 2026-07-09:
   logs and note Mortal hanchan support; Kenjaku TODO-103 comparisons should therefore not mix Sanma,
   tournament-rule, or custom-starting-score slices into the first shared-slice report.
 
+Artifact refresh on 2026-07-12:
+
+- `VoidShine/mortal-298k` publishes a third-party AGPL-3.0 4-player hanchan checkpoint named
+  `mortal_298k.pth` for Mortal's documented `state_file` configuration. Its model card identifies
+  2025–2026 Tenhou high-level hanchan logs as training data and warns against ranked-match use.
+- This is not an author-published Mortal release. I cannot verify that its Tenhou source data has
+  platform authorization sufficient for Kenjaku's intended uses. Do not download, run, or report it
+  as a TODO-103 baseline unless both the external-artifact provenance and the shared-slice Tenhou
+  permission gate are independently satisfied.
+
+Source: https://huggingface.co/VoidShine/mortal-298k
+
 Mortal-compatible comparison interface for TODO-103:
 
 1. Kenjaku owns shared-slice construction. The input slice is a permitted local Tenhou XML set
