@@ -48,6 +48,10 @@ Artifact refresh on 2026-07-12:
 - `VoidShine/mortal-298k` publishes a third-party AGPL-3.0 4-player hanchan checkpoint named
   `mortal_298k.pth` for Mortal's documented `state_file` configuration. Its model card identifies
   2025–2026 Tenhou high-level hanchan logs as training data and warns against ranked-match use.
+- At the 2026-07-12 API check, the public ungated revision was
+  `dbbea7e3d34f99ec43fc4834ab7f2aaaed70b6ee` (130,774,416 bytes across `LICENSE`, `README.md`,
+  `config.toml`, and `mortal_298k.pth`). This records an immutable retrieval identifier only; no
+  checkpoint file was downloaded.
 - This is not an author-published Mortal release. I cannot verify that its Tenhou source data has
   platform authorization sufficient for Kenjaku's intended uses. Do not download, run, or report it
   as a TODO-103 baseline unless both the external-artifact provenance and the shared-slice Tenhou
