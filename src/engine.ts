@@ -112,6 +112,7 @@ function heroAttack(state: RunState, target: Actor): GameEvent[] {
   log(state, `You strike ${target.name} for ${damage}.`)
   if (target.health <= 0) {
     log(state, `${target.name} falls.`)
+    dropLoot(state, target, rng)
     state.floor.actors = state.floor.actors.filter(actor => actor !== target)
     if (target.role === 'guardian') { state.floor.guardianDefeated = true; log(state, 'The way to the exit is open.'); }
     gainXp(state, monsterXp(target.kind))
@@ -187,6 +188,12 @@ function tickEnvironment(state: RunState, events: GameEvent[]): void {
 function pickUp(state: RunState): GameEvent[] {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
+  if (item.id === 'gold') {
+    state.hero.gold += item.count
+    state.floor.items = state.floor.items.filter(current => current !== item)
+    log(state, `You recover ${item.count} gold.`)
+    return advance(state, ['pickup'])
+  }
   if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take an iron key.'); return advance(state, ['pickup']) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }
   state.hero.inventory.push(item.id)
@@ -462,6 +469,14 @@ const consume = (state: RunState, index: number) => state.hero.inventory.splice(
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const log = (state: RunState, message: string) => { state.messages.unshift(message); state.messages = state.messages.slice(0, 9) }
 const turnRng = (state: RunState) => new Rng(mixSeed(state.seed, state.turn * 97 + state.floor.index * 13))
+const dropLoot = (state: RunState, actor: Actor, rng: Rng) => {
+  const gold = actor.role === 'guardian' ? rng.int(130, 210) : rng.int(5, 18)
+  state.floor.items.push({ id: 'gold', x: actor.x, y: actor.y, count: gold })
+  const tables: Record<string, string[]> = {
+    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic'], caverns: ['focusTonic', 'ember', 'mend', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'blinkRune']
+  }
+  if (actor.role === 'guardian' || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
+}
 const nearbyContainer = (state: RunState): { tile: NonNullable<ReturnType<typeof getTile>>; kind: 'crate' | 'chest'; x: number; y: number } | undefined => {
   for (const delta of Object.values(DIRECTIONS)) {
     const x = state.hero.x + delta.x

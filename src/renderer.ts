@@ -11,6 +11,9 @@ const tileGlyph: Record<string, [string, string]> = {
   wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a1a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
 
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number }
+interface FloatText { x: number; y: number; life: number; maxLife: number; color: string; text: string }
+
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private spriteMode = false
@@ -19,6 +22,11 @@ export class TerminalRenderer {
   private flashColor = '#ffffff'
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
+  private particles: Particle[] = []
+  private floats: FloatText[] = []
+  private lastEffectTime = performance.now()
+  private floorBannerUntil = 0
+  private floorBanner = ''
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -34,17 +42,28 @@ export class TerminalRenderer {
   setSpriteMode(value: boolean): void { this.spriteMode = value }
   get isSpriteMode(): boolean { return this.spriteMode }
 
-  trigger(events: string[]): void {
+  trigger(events: string[], state?: RunState): void {
     const now = performance.now()
+    const point = state ? { x: state.hero.x * CW + CW / 2, y: state.hero.y * CH + CH / 2 } : { x: this.canvas.width / 2, y: this.canvas.height / 2 }
     if (events.includes('death') || events.includes('boom')) { this.shakeUntil = Math.max(this.shakeUntil, now + 210); this.flashUntil = Math.max(this.flashUntil, now + 105); this.flashColor = events.includes('death') ? '#ef5968' : '#ffe58a' }
     else if (events.includes('hurt') || events.includes('danger')) { this.shakeUntil = Math.max(this.shakeUntil, now + 115); this.flashUntil = Math.max(this.flashUntil, now + 70); this.flashColor = '#ef5968' }
     else if (events.includes('hit') || events.includes('spell') || events.includes('pickup')) { this.flashUntil = Math.max(this.flashUntil, now + 48); this.flashColor = events.includes('spell') ? '#bea6ff' : '#f4d26a' }
+    if (events.includes('hurt')) this.burst(point.x, point.y, '#ef5968', 12, 1.1, 520, 'OUCH')
+    if (events.includes('hit')) this.burst(point.x, point.y, '#f4d26a', 8, .8, 410, 'HIT')
+    if (events.includes('pickup')) this.burst(point.x, point.y, '#96d38b', 10, .7, 540, 'LOOT')
+    if (events.includes('spell')) this.burst(point.x, point.y, '#bea6ff', 15, 1.25, 650, 'ARCANE')
+    if (events.includes('boom')) this.burst(point.x, point.y, '#ff9a61', 28, 2.4, 780, 'BOOM')
+    if (events.includes('floor') && state) {
+      this.floorBannerUntil = now + 1500
+      this.floorBanner = `${String(state.floor.index + 1).padStart(2, '0')} / 16  ${biomeName[state.floor.biome].toUpperCase()}`
+    }
   }
 
   render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
     this.lastState = state
     this.lastRecords = records
     const now = performance.now()
+    this.updateEffects(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
     this.ctx.save()
@@ -59,6 +78,7 @@ export class TerminalRenderer {
       this.stage(state)
       this.sidebar(state)
       this.log(state)
+      this.drawFloorBanner(now)
       if (state.modal) this.modal(state, state.modal)
       if (state.status === 'dead') this.end(state, false)
       if (state.status === 'victory') this.end(state, true)
@@ -71,17 +91,17 @@ export class TerminalRenderer {
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
       this.ctx.restore()
     }
-    if (now < Math.max(this.shakeUntil, this.flashUntil)) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
+    if (now < Math.max(this.shakeUntil, this.flashUntil, this.floorBannerUntil) || this.particles.length || this.floats.length) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
-    this.box(13, 9, 54, 25, 'BLOCKSCAPE: EXPEDITION')
-    this.text(19, 13, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
-    this.text(20, 17, 'N  begin a new expedition', colors.green)
-    this.text(20, 19, 'L  resume saved floor', colors.text)
-    this.text(20, 21, 'H  controls and systems', colors.text)
-    this.text(20, 25, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
-    this.text(22, 29, 'one life · sixteen floors · four biomes', colors.purple)
+    this.box(13, 10, 54, 24, 'BLOCKSCAPE: EXPEDITION')
+    this.text(19, 14, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
+    this.text(20, 18, 'N  begin a new expedition', colors.green)
+    this.text(20, 20, 'L  resume saved floor', colors.text)
+    this.text(20, 22, 'H  controls and systems', colors.text)
+    this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
+    this.text(22, 30, 'one life · sixteen floors · four biomes', colors.purple)
   }
 
   private stage(state: RunState): void {
@@ -106,21 +126,22 @@ export class TerminalRenderer {
     }
     if (this.spriteMode) drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
-    this.line(48, 0, 48, 34, '│', colors.border)
+    this.drawMapEffects()
+    this.ruleVertical(48, 0, 35)
   }
 
   private sidebar(state: RunState): void {
     const hero = state.hero
     this.text(50, 1, 'EXPEDITION', colors.gold)
     this.text(50, 2, `${String(state.floor.index + 1).padStart(2, '0')}/16 ${biomeName[state.floor.biome]}`, colors.text)
-    this.line(50, 3, 78, 3, '─', colors.border)
+    this.ruleHorizontal(50, 3, 29)
     this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
     this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
     this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
     this.meter(64, 6, 14, hero.focus, hero.maxFocus, colors.blue)
     this.text(50, 8, `$ ${String(hero.gold).padStart(5)}  B ${hero.bombs}  R ${hero.ropes}`, colors.gold)
     this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
-    this.line(50, 10, 78, 10, '─', colors.border)
+    this.ruleHorizontal(50, 10, 29)
     this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
     this.text(50, 13, `VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
     this.text(50, 15, 'EQUIPMENT', colors.gold)
@@ -133,13 +154,14 @@ export class TerminalRenderer {
     this.text(50, 23, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 4)
     foes.forEach((foe, i) => this.text(50, 24 + i, `${foe.glyph} ${foe.name.slice(0, 19).padEnd(19)} ${Math.max(0, foe.health)}`, foe.color))
+    this.text(50, 29, state.floor.guardianDefeated ? 'OBJECTIVE: FIND EXIT' : 'OBJECTIVE: DEFEAT GUARDIAN', state.floor.guardianDefeated ? colors.green : colors.gold)
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
     this.text(50, 32, `A skills  S script  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)
   }
 
   private log(state: RunState): void {
-    this.line(0, 35, 79, 35, '─', colors.border)
+    this.ruleHorizontal(0, 35, 80)
     this.text(1, 36, state.messages[0] ?? '', colors.text)
     this.text(1, 37, state.messages[1] ?? '', colors.dim)
     this.text(1, 38, state.messages[2] ?? '', colors.dim)
@@ -220,12 +242,8 @@ export class TerminalRenderer {
   private box(x: number, y: number, width: number, height: number, title: string): void {
     this.ctx.fillStyle = colors.panel
     this.ctx.fillRect(x * CW, y * CH, width * CW, height * CH)
-    this.line(x, y, x + width - 1, y, '─', colors.border)
-    this.line(x, y + height - 1, x + width - 1, y + height - 1, '─', colors.border)
-    this.line(x, y, x, y + height - 1, '│', colors.border)
-    this.line(x + width - 1, y, x + width - 1, y + height - 1, '│', colors.border)
-    this.cell(x, y, '┌', colors.border); this.cell(x + width - 1, y, '┐', colors.border); this.cell(x, y + height - 1, '└', colors.border); this.cell(x + width - 1, y + height - 1, '┘', colors.border)
-    this.text(x + 2, y, ` ${title} `, colors.gold, colors.panel)
+    this.gridRect(x, y, width, height)
+    this.text(x + 3, y + 1, title, colors.gold)
   }
 
   private meter(x: number, y: number, width: number, value: number, max: number, color: string): void {
@@ -235,9 +253,95 @@ export class TerminalRenderer {
   }
 
   private text(x: number, y: number, value: string, color = colors.text, background?: string): void { for (let i = 0; i < value.length && x + i < TERMINAL_WIDTH; i++) this.cell(x + i, y, value[i], color, background) }
-  private line(x1: number, y1: number, x2: number, y2: number, glyph: string, color: string): void {
-    if (y1 === y2) for (let x = x1; x <= x2; x++) this.cell(x, y1, glyph, color)
-    if (x1 === x2) for (let y = y1; y <= y2; y++) this.cell(x1, y, glyph, color)
+  private gridRect(x: number, y: number, width: number, height: number): void {
+    this.ctx.save()
+    this.ctx.strokeStyle = colors.border
+    this.ctx.lineWidth = 1
+    this.ctx.strokeRect(x * CW + .5, y * CH + .5, width * CW - 1, height * CH - 1)
+    this.ctx.restore()
+  }
+  private ruleHorizontal(x: number, y: number, width: number): void {
+    this.ctx.save()
+    this.ctx.strokeStyle = colors.border
+    this.ctx.lineWidth = 1
+    this.ctx.beginPath()
+    this.ctx.moveTo(x * CW, y * CH + .5)
+    this.ctx.lineTo((x + width) * CW, y * CH + .5)
+    this.ctx.stroke()
+    this.ctx.restore()
+  }
+  private ruleVertical(x: number, y: number, height: number): void {
+    this.ctx.save()
+    this.ctx.strokeStyle = colors.border
+    this.ctx.lineWidth = 1
+    this.ctx.beginPath()
+    this.ctx.moveTo(x * CW + .5, y * CH)
+    this.ctx.lineTo(x * CW + .5, (y + height) * CH)
+    this.ctx.stroke()
+    this.ctx.restore()
+  }
+  private burst(x: number, y: number, color: string, count: number, speed: number, life: number, text: string): void {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const magnitude = (.35 + Math.random()) * speed / 1000
+      this.particles.push({ x, y, vx: Math.cos(angle) * magnitude, vy: Math.sin(angle) * magnitude - .2, life, maxLife: life, color, size: Math.random() > .72 ? 2 : 1 })
+    }
+    this.floats.push({ x, y: y - 7, life, maxLife: life, color, text })
+  }
+  private updateEffects(now: number): void {
+    const delta = Math.min(34, now - this.lastEffectTime)
+    this.lastEffectTime = now
+    for (const particle of this.particles) {
+      particle.x += particle.vx * delta
+      particle.y += particle.vy * delta
+      particle.vy += .002 * delta
+      particle.life -= delta
+    }
+    for (const floating of this.floats) { floating.y -= .018 * delta; floating.life -= delta }
+    this.particles = this.particles.filter(particle => particle.life > 0)
+    this.floats = this.floats.filter(floating => floating.life > 0)
+  }
+  private drawMapEffects(): void {
+    this.ctx.save()
+    this.ctx.beginPath()
+    this.ctx.rect(0, 0, 48 * CW, 35 * CH)
+    this.ctx.clip()
+    for (const particle of this.particles) {
+      this.ctx.globalAlpha = particle.life / particle.maxLife
+      this.ctx.fillStyle = particle.color
+      this.ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size)
+    }
+    this.ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Menlo, monospace'
+    this.ctx.textAlign = 'center'
+    for (const floating of this.floats) {
+      this.ctx.globalAlpha = floating.life / floating.maxLife
+      this.ctx.fillStyle = floating.color
+      this.ctx.fillText(floating.text, floating.x, floating.y)
+    }
+    this.ctx.textAlign = 'start'
+    this.ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
+    this.ctx.globalAlpha = 1
+    this.ctx.restore()
+  }
+  private drawFloorBanner(now: number): void {
+    if (now >= this.floorBannerUntil) return
+    const alpha = Math.min(1, (this.floorBannerUntil - now) / 260)
+    this.ctx.save()
+    this.ctx.globalAlpha = alpha
+    this.ctx.fillStyle = '#0b1018e8'
+    this.ctx.fillRect(54, 14, 372, 40)
+    this.ctx.strokeStyle = colors.gold
+    this.ctx.strokeRect(54.5, 14.5, 371, 39)
+    this.ctx.font = 'bold 14px ui-monospace, SFMono-Regular, Menlo, monospace'
+    this.ctx.textAlign = 'center'
+    this.ctx.fillStyle = colors.gold
+    this.ctx.fillText(this.floorBanner, 240, 24)
+    this.ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace'
+    this.ctx.fillStyle = colors.text
+    this.ctx.fillText('EXPEDITION CONTINUES', 240, 40)
+    this.ctx.textAlign = 'start'
+    this.ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
+    this.ctx.restore()
   }
   private cell(x: number, y: number, glyph: string, color = colors.text, background?: string): void {
     if (x < 0 || y < 0 || x >= TERMINAL_WIDTH || y >= TERMINAL_HEIGHT) return

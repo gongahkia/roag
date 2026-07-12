@@ -42,7 +42,7 @@ window.addEventListener('keydown', event => {
   else if (event.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
   else events = perform(state, command)
   audio.play(events)
-  renderer.trigger(events)
+  renderer.trigger(events, state)
   if (events.includes('floor')) { saved = structuredClone(state); void saveRun(state) }
   if ((events.includes('death') || events.includes('win')) && !recordedEnd) finish(events.includes('win'))
   renderer.render(state, records)
@@ -56,7 +56,7 @@ function start(): void {
   recordedEnd = false
   void saveRun(state)
   audio.play(['menu'])
-  renderer.trigger(['menu'])
+  renderer.trigger(['floor'], state)
   renderer.render(state, records)
 }
 
