@@ -1,7 +1,7 @@
 import { ITEM, biomeName, shopStock } from './content'
 import { skillChoices, type GameEvent } from './engine'
 import { TerminalEffects } from './renderer/effects'
-import { drawActorSprite, drawItemSprite, drawTileSprite } from './sprites'
+import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
 
@@ -28,6 +28,7 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
+    textureAtlas.onReady(() => this.render(this.lastState, this.lastRecords))
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
