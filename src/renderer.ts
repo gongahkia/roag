@@ -25,8 +25,6 @@ export class TerminalRenderer {
   private particles: Particle[] = []
   private floats: FloatText[] = []
   private lastEffectTime = performance.now()
-  private floorBannerUntil = 0
-  private floorBanner = ''
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -48,15 +46,10 @@ export class TerminalRenderer {
     if (events.includes('death') || events.includes('boom')) { this.shakeUntil = Math.max(this.shakeUntil, now + 210); this.flashUntil = Math.max(this.flashUntil, now + 105); this.flashColor = events.includes('death') ? '#ef5968' : '#ffe58a' }
     else if (events.includes('hurt') || events.includes('danger')) { this.shakeUntil = Math.max(this.shakeUntil, now + 115); this.flashUntil = Math.max(this.flashUntil, now + 70); this.flashColor = '#ef5968' }
     else if (events.includes('hit') || events.includes('spell') || events.includes('pickup')) { this.flashUntil = Math.max(this.flashUntil, now + 48); this.flashColor = events.includes('spell') ? '#bea6ff' : '#f4d26a' }
-    if (events.includes('hurt')) this.burst(point.x, point.y, '#ef5968', 12, 1.1, 520, 'OUCH')
     if (events.includes('hit')) this.burst(point.x, point.y, '#f4d26a', 8, .8, 410, 'HIT')
     if (events.includes('pickup')) this.burst(point.x, point.y, '#96d38b', 10, .7, 540, 'LOOT')
     if (events.includes('spell')) this.burst(point.x, point.y, '#bea6ff', 15, 1.25, 650, 'ARCANE')
     if (events.includes('boom')) this.burst(point.x, point.y, '#ff9a61', 28, 2.4, 780, 'BOOM')
-    if (events.includes('floor') && state) {
-      this.floorBannerUntil = now + 2200
-      this.floorBanner = `${String(state.floor.index + 1).padStart(2, '0')} / 16  ${biomeName[state.floor.biome].toUpperCase()}`
-    }
   }
 
   render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -78,7 +71,6 @@ export class TerminalRenderer {
       this.stage(state)
       this.sidebar(state)
       this.log(state)
-      this.drawFloorBanner(now)
       if (state.modal) this.modal(state, state.modal)
       if (state.status === 'dead') this.end(state, false)
       if (state.status === 'victory') this.end(state, true)
@@ -91,7 +83,7 @@ export class TerminalRenderer {
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
       this.ctx.restore()
     }
-    if (now < Math.max(this.shakeUntil, this.flashUntil, this.floorBannerUntil) || this.particles.length || this.floats.length) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
+    if (now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length || this.floats.length) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -321,26 +313,6 @@ export class TerminalRenderer {
     this.ctx.textAlign = 'start'
     this.ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     this.ctx.globalAlpha = 1
-    this.ctx.restore()
-  }
-  private drawFloorBanner(now: number): void {
-    if (now >= this.floorBannerUntil) return
-    const alpha = Math.min(1, (this.floorBannerUntil - now) / 260)
-    this.ctx.save()
-    this.ctx.globalAlpha = alpha
-    this.ctx.fillStyle = '#0b1018e8'
-    this.ctx.fillRect(54, 14, 372, 40)
-    this.ctx.strokeStyle = colors.gold
-    this.ctx.strokeRect(54.5, 14.5, 371, 39)
-    this.ctx.font = 'bold 14px ui-monospace, SFMono-Regular, Menlo, monospace'
-    this.ctx.textAlign = 'center'
-    this.ctx.fillStyle = colors.gold
-    this.ctx.fillText(this.floorBanner, 240, 24)
-    this.ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace'
-    this.ctx.fillStyle = colors.text
-    this.ctx.fillText('EXPEDITION CONTINUES', 240, 40)
-    this.ctx.textAlign = 'start'
-    this.ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     this.ctx.restore()
   }
   private cell(x: number, y: number, glyph: string, color = colors.text, background?: string): void {
