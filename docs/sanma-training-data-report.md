@@ -28,13 +28,31 @@ decoded Kita calls rather than the previous false zero.
 This evidence does not establish player-specific consent or an official Tenhou ML-use grant.
 TODO-403 therefore remains open despite the local report bundle.
 
+## 2026-07-12 Source Recheck
+
+- `mitsutani/mahjonglm-dataset` includes three-player Tenhou Sanma token streams, but labels its
+  license `source-data-terms-apply`, says it is a processed derivative of Tenhou logs, and requires
+  accepting access conditions that share contact information. It is not an independent permission
+  source for this task.
+- Meowjong's tracked code license is MIT, while its paper states that its 50,000-round Sanma sample
+  came from Tenhou. A code license does not establish rights to those source logs. I cannot verify a
+  separately licensed, redistributable Meowjong Sanma corpus.
+- `tenhou-sanma-to-mjai` is MIT-licensed conversion code. Its documented input is Tenhou's internal
+  JSON, so it provides no source-data permission or replay corpus.
+
+This review did not identify a candidate that establishes both replay provenance and permission for
+ML training. Keep every such candidate out of the permitted-data path until its owner supplies a
+written grant.
+
 ## Source Review
 
 | Candidate | Count available here | Legal/use status | Decision |
 | --- | ---: | --- | --- |
 | User-owned Tenhou Sanma logs with explicit consent | 0 | [Inference] Potentially usable for local-only work if the owner provides logs and permission. Tenhou documents paid client replay save/analysis features, and community docs note browser replay storage is limited unless links are saved manually. | Blocked until logs and permission manifest exist. |
 | Tenhou/Houou log download tooling | 0 | The `houou-logs` README says Tenhou prohibits publishing, sharing, mirroring, or redistributing downloaded logs and warns to use only one download session. | Do not fetch or commit data from this path without explicit review. |
-| Meowjong Sanma pipeline | 0 | The repository documents downloading Sanma logs from Tenhou. I cannot verify a redistributable checked-in Sanma corpus from the README and repository listing. | Tooling reference only; not a permitted source. |
+| Meowjong Sanma pipeline | 0 | The code is MIT-licensed, but its paper says its 50,000-round training sample was obtained from Tenhou. I cannot verify a separately licensed, redistributable checked-in corpus. | Tooling reference only; not a permitted source. |
+| MahjongLM dataset | 0 | Contains 3-player Tenhou Sanma token streams, but its license is `source-data-terms-apply`; its card calls it a processed Tenhou derivative and requires access-condition acceptance. | Not an independent permission source. |
+| `tenhou-sanma-to-mjai` | 0 | MIT conversion code; documented input is Tenhou internal JSON. | Converter only; not a dataset or permission source. |
 | `tenhou-to-mjai` yearly datasets | 0 | The README describes CC BY 4.0 converted data, but also says all datasets are 4-player hanchan games and no 3-player matches are included. | Not applicable to Sanma. |
 
 Sources:
@@ -43,6 +61,9 @@ Sources:
 - Tenhou replay notes: https://riichi.wiki/Tenhou.net
 - `houou-logs`: https://github.com/Apricot-S/houou-logs
 - Meowjong: https://github.com/VictorZXY/Meowjong
+- Meowjong paper: https://arxiv.org/abs/2202.12847
+- MahjongLM dataset: https://huggingface.co/datasets/mitsutani/mahjonglm-dataset
+- `tenhou-sanma-to-mjai`: https://github.com/Mateces/tenhou-sanma-to-mjai
 - `tenhou-to-mjai`: https://github.com/NikkeTryHard/tenhou-to-mjai
 
 ## Local Count
