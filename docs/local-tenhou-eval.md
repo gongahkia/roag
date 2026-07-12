@@ -329,7 +329,8 @@ checked-in fixture/synthetic sources are rejected, train/eval size gates are met
 models expose numeric loss, accuracy, balanced accuracy, and per-action recall metrics.
 
 Before the full TODO-102 run, use the bounded smoke wrapper on checked-in fixtures. It records the
-exact export command and peak RSS while keeping output under ignored `runs/`:
+exact export command and peak memory (RSS on Linux, physical footprint on macOS) while keeping
+output under ignored `runs/`:
 
 ```bash
 PYTHONPATH=src python3 scripts/run_bc_memory_smoke.py \
