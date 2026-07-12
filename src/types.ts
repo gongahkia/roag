@@ -1,37 +1,102 @@
-export const CHUNK_SIZE = 16
-export const CHUNKS_PER_AXIS = 3
-export const WORLD_SIZE = CHUNK_SIZE * CHUNKS_PER_AXIS
-export const WORLD_HEIGHT = 12
+export const MAP_WIDTH = 48
+export const MAP_HEIGHT = 35
+export const TERMINAL_WIDTH = 80
+export const TERMINAL_HEIGHT = 45
+export const FLOOR_COUNT = 16
 
-export enum BlockType {
-  Air,
-  Grass,
-  Soil,
-  Stone,
-  Sand,
-  Water,
-  Trunk,
-  Leaf,
-  Brick,
-  Plank
+export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
+export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
+export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
+export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'altar' | 'shop' | 'rescue'
+export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
+export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
+export type ItemId = string
+
+export interface Point { x: number; y: number }
+export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
+export interface Actor {
+  id: string
+  role: ActorRole
+  kind: string
+  name: string
+  x: number
+  y: number
+  health: number
+  maxHealth: number
+  attack: number
+  defense: number
+  speed: number
+  energy: number
+  glyph: string
+  color: string
+  hostile: boolean
+  ai?: 'chase' | 'ranged' | 'wander' | 'guardian'
+  status?: string[]
 }
 
-export interface Chunk { x: number; z: number; blocks: Uint8Array }
-export interface World { seed: number; chunks: Chunk[]; get(x: number, y: number, z: number): BlockType; set(x: number, y: number, z: number, type: BlockType): boolean }
-export interface PlayerState { x: number; y: number; z: number; velocityY: number; grounded: boolean }
-export interface CameraState { rotation: 0 | 1 | 2 | 3; zoom: number }
-export interface WorldSave { version: 1; seed: number; changes: Array<[number, BlockType]> }
+export interface GroundItem { id: ItemId; x: number; y: number; count: number }
+export interface Floor {
+  index: number
+  biome: Biome
+  seed: number
+  tiles: Tile[]
+  actors: Actor[]
+  items: GroundItem[]
+  start: Point
+  exit: Point
+  guardianDefeated: boolean
+}
 
-export const BLOCKS: Array<{ type: BlockType; name: string; color: string }> = [
-  { type: BlockType.Grass, name: 'Grass', color: '#75a743' },
-  { type: BlockType.Soil, name: 'Soil', color: '#8d5235' },
-  { type: BlockType.Stone, name: 'Stone', color: '#778084' },
-  { type: BlockType.Sand, name: 'Sand', color: '#d5b65f' },
-  { type: BlockType.Water, name: 'Water', color: '#4d8fc9' },
-  { type: BlockType.Trunk, name: 'Trunk', color: '#72513b' },
-  { type: BlockType.Leaf, name: 'Leaf', color: '#437348' },
-  { type: BlockType.Brick, name: 'Brick', color: '#ad4943' },
-  { type: BlockType.Plank, name: 'Plank', color: '#c8874b' }
-]
+export interface Hero {
+  x: number
+  y: number
+  health: number
+  maxHealth: number
+  focus: number
+  maxFocus: number
+  gold: number
+  bombs: number
+  ropes: number
+  keys: number
+  xp: number
+  level: number
+  stats: Record<StatName, number>
+  skills: string[]
+  inventory: ItemId[]
+  equipment: Partial<Record<EquipmentSlot, ItemId>>
+  lastUnequipped?: ItemId
+}
 
-export const isSolid = (type: BlockType): boolean => type !== BlockType.Air && type !== BlockType.Water
+export interface RunState {
+  version: 2
+  seed: number
+  floor: Floor
+  hero: Hero
+  messages: string[]
+  status: 'title' | 'playing' | 'dead' | 'victory'
+  modal?: Modal
+  turn: number
+}
+
+export type Modal =
+  | { kind: 'help' }
+  | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
+  | { kind: 'skills' }
+  | { kind: 'shop'; merchantId: string }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId }
+
+export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
+export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[] }
+
+export const DIRECTIONS: Record<Direction, Point> = {
+  nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 },
+  w: { x: -1, y: 0 }, wait: { x: 0, y: 0 }, e: { x: 1, y: 0 },
+  sw: { x: -1, y: 1 }, s: { x: 0, y: 1 }, se: { x: 1, y: 1 }
+}
+
+export const SLOT_NAMES: Record<EquipmentSlot, string> = {
+  mainHand: 'Main hand', offHand: 'Off hand', head: 'Head', body: 'Body', boots: 'Boots', charm: 'Charm'
+}
+
+export const indexOf = (x: number, y: number) => y * MAP_WIDTH + x
+export const inBounds = (x: number, y: number) => x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT

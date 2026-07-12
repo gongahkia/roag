@@ -1,285 +1,202 @@
-import { BlockType, type CameraState, type PlayerState, WORLD_HEIGHT, WORLD_SIZE } from './types'
-import type { BlockWorld } from './world'
+import { ITEM, SKILLS, biomeName } from './content'
+import { skillChoices } from './engine'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
+import { actorAt, getTile } from './world'
 
-const W = 16
-const H = 8
-const BH = 12
-const palette: Record<number, [string, string, string]> = {
-  [BlockType.Grass]: ['#90bd4c', '#5d8a39', '#456c35'],
-  [BlockType.Soil]: ['#a45e3b', '#743f32', '#59302d'],
-  [BlockType.Stone]: ['#939ca0', '#697377', '#4c555b'],
-  [BlockType.Sand]: ['#e4c86d', '#c9a851', '#a88742'],
-  [BlockType.Water]: ['#67b5d5', '#3d80bc', '#30639a'],
-  [BlockType.Trunk]: ['#8d6441', '#61432e', '#472f29'],
-  [BlockType.Leaf]: ['#5e9650', '#3e7041', '#2f5738'],
-  [BlockType.Brick]: ['#c4574b', '#913b3b', '#6e3034'],
-  [BlockType.Plank]: ['#dda15d', '#af7145', '#835038']
+const CW = 10
+const CH = 14
+const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
+const tileGlyph: Record<string, [string, string]> = {
+  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a1a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
 
-export interface HoveredBlock { x: number; y: number; z: number }
-
-const transform = (x: number, z: number, rotation: number): [number, number] => {
-  switch (rotation) {
-    case 1: return [z, WORLD_SIZE - 1 - x]
-    case 2: return [WORLD_SIZE - 1 - x, WORLD_SIZE - 1 - z]
-    case 3: return [WORLD_SIZE - 1 - z, x]
-    default: return [x, z]
-  }
-}
-
-export class Renderer {
-  readonly canvas: HTMLCanvasElement
+export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
-  private width = 960
-  private height = 640
-  private centerX = 480
-  private centerY = 165
-  private readonly occlusionCanvas = document.createElement('canvas')
-  private readonly playerMaskCanvas = document.createElement('canvas')
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas
+  constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2D unavailable')
     this.ctx = ctx
-    this.resize()
-    new ResizeObserver(() => this.resize()).observe(canvas)
+    canvas.width = TERMINAL_WIDTH * CW
+    canvas.height = TERMINAL_HEIGHT * CH
+    ctx.imageSmoothingEnabled = false
+    ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
+    ctx.textBaseline = 'top'
   }
 
-  draw(world: BlockWorld, player: PlayerState, camera: CameraState, hover?: HoveredBlock): void {
-    const { ctx } = this
-    ctx.clearRect(0, 0, this.width, this.height)
-    const sky = ctx.createLinearGradient(0, 0, 0, this.height)
-    sky.addColorStop(0, '#4a718f')
-    sky.addColorStop(1, '#17202c')
-    ctx.fillStyle = sky
-    ctx.fillRect(0, 0, this.width, this.height)
-    ctx.fillStyle = '#90b65c'
-    ctx.beginPath()
-    ctx.arc(this.width * .78, 74, 26, 0, Math.PI * 2)
-    ctx.fill()
-    const blocks: HoveredBlock[] = []
-    for (let z = 0; z < WORLD_SIZE; z++) for (let x = 0; x < WORLD_SIZE; x++) for (let y = 0; y < WORLD_HEIGHT; y++) {
-      if (world.get(x, y, z) !== BlockType.Air) blocks.push({ x, y, z })
+  render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
+    this.ctx.fillStyle = colors.back
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    if (!state || state.status === 'title') return this.title(records)
+    this.stage(state)
+    this.sidebar(state)
+    this.log(state)
+    if (state.modal) this.modal(state, state.modal)
+    if (state.status === 'dead') this.end(state, false)
+    if (state.status === 'victory') this.end(state, true)
+  }
+
+  private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
+    this.box(13, 9, 54, 25, 'BLOCKSCAPE: EXPEDITION')
+    this.text(19, 13, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
+    this.text(20, 17, 'N  begin a new expedition', colors.green)
+    this.text(20, 19, 'L  resume saved floor', colors.text)
+    this.text(20, 21, 'H  controls and systems', colors.text)
+    this.text(20, 25, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
+    this.text(22, 29, 'one life · sixteen floors · four biomes', colors.purple)
+  }
+
+  private stage(state: RunState): void {
+    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) {
+      const tile = getTile(state.floor, x, y)!
+      if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); continue }
+      const [glyph, color] = tileGlyph[tile.kind]
+      this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+      if (tile.visible) {
+        const item = state.floor.items.find(current => current.x === x && current.y === y)
+        if (item) this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+        const actor = actorAt(state.floor, x, y)
+        if (actor) this.cell(x, y, actor.glyph, actor.color)
+      }
     }
-    blocks.sort((a, b) => {
-      const [ax, az] = transform(a.x, a.z, camera.rotation)
-      const [bx, bz] = transform(b.x, b.z, camera.rotation)
-      return (ax + az + a.y * .01) - (bx + bz + b.y * .01)
+    this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
+    this.line(48, 0, 48, 34, '│', colors.border)
+  }
+
+  private sidebar(state: RunState): void {
+    const hero = state.hero
+    this.text(50, 1, 'EXPEDITION', colors.gold)
+    this.text(50, 2, `${String(state.floor.index + 1).padStart(2, '0')}/16 ${biomeName[state.floor.biome]}`, colors.text)
+    this.line(50, 3, 78, 3, '─', colors.border)
+    this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
+    this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
+    this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
+    this.meter(64, 6, 14, hero.focus, hero.maxFocus, colors.blue)
+    this.text(50, 8, `$ ${String(hero.gold).padStart(5)}  B ${hero.bombs}  R ${hero.ropes}`, colors.gold)
+    this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
+    this.line(50, 10, 78, 10, '─', colors.border)
+    this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
+    this.text(50, 13, `VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
+    this.text(50, 15, 'EQUIPMENT', colors.gold)
+    let y = 16
+    for (const slot of Object.keys(SLOT_NAMES) as Array<keyof typeof SLOT_NAMES>) {
+      const id = hero.equipment[slot]
+      const label = SLOT_NAMES[slot].slice(0, 8).padEnd(8)
+      this.text(50, y++, `${label} ${id ? ITEM[id].glyph : '-'}`, id ? ITEM[id].color : colors.dim)
+    }
+    this.text(50, 23, 'VISIBLE THREATS', colors.gold)
+    const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 4)
+    foes.forEach((foe, i) => this.text(50, 24 + i, `${foe.glyph} ${foe.name.slice(0, 19).padEnd(19)} ${Math.max(0, foe.health)}`, foe.color))
+    this.text(50, 30, 'G get  U use  C act', colors.dim)
+    this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
+    this.text(50, 32, 'A skills  S script  H help', colors.dim)
+  }
+
+  private log(state: RunState): void {
+    this.line(0, 35, 79, 35, '─', colors.border)
+    this.text(1, 36, state.messages[0] ?? '', colors.text)
+    this.text(1, 37, state.messages[1] ?? '', colors.dim)
+    this.text(1, 38, state.messages[2] ?? '', colors.dim)
+    this.text(1, 41, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest', colors.dim)
+    this.text(1, 43, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
+  }
+
+  private modal(state: RunState, modal: Modal): void {
+    this.ctx.fillStyle = '#05070bbb'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    if (modal.kind === 'help') return this.help()
+    if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
+    if (modal.kind === 'skills') return this.skills(state)
+    if (modal.kind === 'shop') return this.shop(state)
+    if (modal.kind === 'target') return this.target(modal)
+  }
+
+  private help(): void {
+    this.box(8, 3, 64, 37, 'FIELD MANUAL')
+    const lines = [
+      'Movement: IOP / K ; / , . / or numpad 1-9.',
+      'Arrows move cardinally. L or numpad-5 rests.',
+      'Shift-direction runs until interrupted. Alt-direction',
+      'casts the first ready script. B chooses bomb direction.',
+      'G get · U use · D drop · T throw · E equip · X swap.',
+      'C operates doors, merchants, scouts, and altars.',
+      'R secures rope over a pit. Q exits at a cleared stair.',
+      'A opens level disciplines. S chooses a script.',
+      'Combat uses attack rolls, defense, gear, stats, and XP.',
+      'The current floor is saved only when you descend.',
+      '', 'Press any key to return.'
+    ]
+    lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
+  }
+
+  private inventory(state: RunState, mode: string): void {
+    this.box(13, 5, 54, 31, `${mode.toUpperCase()} ITEM`)
+    if (!state.hero.inventory.length) this.text(18, 10, 'Your pack is empty.', colors.dim)
+    state.hero.inventory.forEach((id, i) => {
+      const item = ITEM[id]
+      this.text(18, 9 + i, `${i + 1}. ${item.glyph} ${item.name.padEnd(26)} ${item.value}g`, item.color)
     })
-    const [playerX, playerZ] = transform(player.x, player.z, camera.rotation)
-    const playerDepth = playerX + playerZ + player.y * .01
-    let drewPlayer = false
-    const foreground: HoveredBlock[] = []
-    for (const block of blocks) {
-      const [x, z] = transform(block.x, block.z, camera.rotation)
-      if (!drewPlayer && x + z + block.y * .01 > playerDepth) {
-        this.player(player, camera)
-        drewPlayer = true
-      }
-      this.block(world.get(block.x, block.y, block.z), block.x, block.y, block.z, camera, hover?.x === block.x && hover.y === block.y && hover.z === block.z)
-      if (drewPlayer) foreground.push(block)
-    }
-    if (!drewPlayer) this.player(player, camera)
-    if (drewPlayer && this.occluded(player, camera, foreground)) this.outline(player, camera)
-    this.vignette()
+    this.text(18, 33, 'number selects · Esc/backtick cancels', colors.dim)
   }
 
-  pick(world: BlockWorld, camera: CameraState, px: number, py: number): HoveredBlock | undefined {
-    const candidates: HoveredBlock[] = []
-    for (let z = 0; z < WORLD_SIZE; z++) for (let x = 0; x < WORLD_SIZE; x++) for (let y = 0; y < WORLD_HEIGHT; y++) {
-      if (world.get(x, y, z) === BlockType.Air) continue
-      const [sx, sy] = this.point(x, y, z, camera)
-      if (diamond(px, py, sx, sy - BH * camera.zoom, W * camera.zoom, H * camera.zoom)) candidates.push({ x, y, z })
-    }
-    return candidates.sort((a, b) => {
-      const [ax, az] = transform(a.x, a.z, camera.rotation)
-      const [bx, bz] = transform(b.x, b.z, camera.rotation)
-      return (bx + bz + b.y * .01) - (ax + az + a.y * .01)
-    })[0]
+  private skills(state: RunState): void {
+    this.box(12, 8, 56, 24, 'CHOOSE A DISCIPLINE')
+    const choices = skillChoices(state)
+    choices.forEach((skill, i) => this.text(16, 12 + i * 3, `${i + 1}. ${skill.name} — ${skill.text}`, skill.stat === 'intellect' ? colors.purple : colors.text))
+    if (!choices.length) this.text(16, 20, 'All disciplines are mastered.', colors.gold)
+    this.text(16, 28, 'number chooses · Esc/backtick cancels', colors.dim)
   }
 
-  private point(x: number, y: number, z: number, camera: CameraState): [number, number] {
-    const [rx, rz] = transform(x, z, camera.rotation)
-    const zoom = camera.zoom
-    return [this.centerX + (rx - rz) * W * zoom, this.centerY + (rx + rz) * H * zoom - y * BH * zoom]
+  private shop(state: RunState): void {
+    this.box(12, 5, 56, 32, 'TRADER STOCK')
+    const stock = ['tonic', 'bombPack', 'ropeBundle', 'machete', 'focusTonic', 'mapScroll']
+    stock.forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
+    this.text(17, 30, `your gold: ${state.hero.gold}`, colors.gold)
+    this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)
   }
 
-  private block(type: BlockType, x: number, y: number, z: number, camera: CameraState, highlighted: boolean): void {
-    const colors = palette[type]
-    if (!colors) return
-    const [cx, cy] = this.point(x, y, z, camera)
-    const scale = camera.zoom
-    const w = W * scale
-    const h = H * scale
-    const bh = BH * scale
-    const { ctx } = this
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - bh - h)
-    ctx.lineTo(cx + w, cy - bh)
-    ctx.lineTo(cx, cy - bh + h)
-    ctx.lineTo(cx - w, cy - bh)
-    ctx.closePath()
-    ctx.fillStyle = colors[0]
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(cx - w, cy - bh)
-    ctx.lineTo(cx, cy - bh + h)
-    ctx.lineTo(cx, cy + h)
-    ctx.lineTo(cx - w, cy)
-    ctx.closePath()
-    ctx.fillStyle = colors[1]
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(cx + w, cy - bh)
-    ctx.lineTo(cx, cy - bh + h)
-    ctx.lineTo(cx, cy + h)
-    ctx.lineTo(cx + w, cy)
-    ctx.closePath()
-    ctx.fillStyle = colors[2]
-    ctx.fill()
-    if (type === BlockType.Water) {
-      ctx.strokeStyle = '#a5d7e4'
-      ctx.lineWidth = Math.max(1, scale)
-      ctx.beginPath()
-      ctx.moveTo(cx - w * .55, cy - bh)
-      ctx.lineTo(cx + w * .35, cy - bh)
-      ctx.stroke()
-    }
-    if (highlighted) {
-      ctx.strokeStyle = '#fff5ad'
-      ctx.lineWidth = 2 * scale
-      ctx.beginPath()
-      ctx.moveTo(cx, cy - bh - h)
-      ctx.lineTo(cx + w, cy - bh)
-      ctx.lineTo(cx, cy - bh + h)
-      ctx.lineTo(cx - w, cy - bh)
-      ctx.closePath()
-      ctx.stroke()
-    }
+  private target(modal: Extract<Modal, { kind: 'target' }>): void {
+    this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
+    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'cast script' : 'throw item'
+    this.text(21, 20, `Use an 8-way direction to ${action}.`, colors.text)
+    this.text(21, 23, 'Esc/backtick cancels.', colors.dim)
   }
 
-  private player(player: PlayerState, camera: CameraState): void {
-    const [x, y] = this.point(player.x, player.y, player.z, camera)
-    const s = camera.zoom
-    const { ctx } = this
-    ctx.fillStyle = '#28283a'
-    ctx.fillRect(x - 4 * s, y - 25 * s, 8 * s, 14 * s)
-    ctx.fillStyle = '#edbc92'
-    ctx.fillRect(x - 4 * s, y - 32 * s, 8 * s, 8 * s)
-    ctx.fillStyle = '#f0d25f'
-    ctx.fillRect(x - 5 * s, y - 38 * s, 10 * s, 7 * s)
-    ctx.fillStyle = '#15151f'
-    ctx.fillRect(x - 3 * s, y - 11 * s, 2 * s, 8 * s)
-    ctx.fillRect(x + 1 * s, y - 11 * s, 2 * s, 8 * s)
+  private end(state: RunState, won: boolean): void {
+    this.ctx.fillStyle = '#05070bdd'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    this.box(17, 14, 46, 16, won ? 'EXPEDITION COMPLETE' : 'EXPEDITION LOST')
+    this.text(23, 19, won ? 'The dawn remembers your name.' : 'The depths keep their due.', won ? colors.gold : colors.red)
+    this.text(23, 22, `score ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
+    this.text(23, 26, 'N starts a new expedition.', colors.green)
   }
 
-  private occluded(player: PlayerState, camera: CameraState, blocks: HoveredBlock[]): boolean {
-    if (!blocks.length) return false
-    const [x, y] = this.point(player.x, player.y, player.z, camera)
-    const scale = camera.zoom
-    const width = Math.ceil(22 * scale)
-    const height = Math.ceil(40 * scale)
-    const originX = x - 11 * scale
-    const originY = y - 40 * scale
-    const mask = this.occlusionCanvas
-    const playerMask = this.playerMaskCanvas
-    mask.width = playerMask.width = width
-    mask.height = playerMask.height = height
-    const maskCtx = mask.getContext('2d')!
-    const playerCtx = playerMask.getContext('2d')!
-    for (const block of blocks) this.blockMask(maskCtx, block, camera, originX, originY)
-    maskCtx.globalCompositeOperation = 'destination-in'
-    this.playerMask(maskCtx, x - originX, y - originY, scale)
-    maskCtx.globalCompositeOperation = 'source-over'
-    this.playerMask(playerCtx, x - originX, y - originY, scale)
-    const covered = maskCtx.getImageData(0, 0, width, height).data
-    const total = playerCtx.getImageData(0, 0, width, height).data
-    let hidden = 0
-    let body = 0
-    for (let i = 3; i < total.length; i += 4) {
-      if (total[i] > 0) {
-        body++
-        if (covered[i] > 0) hidden++
-      }
-    }
-    return body > 0 && hidden / body > .75
+  private box(x: number, y: number, width: number, height: number, title: string): void {
+    this.ctx.fillStyle = colors.panel
+    this.ctx.fillRect(x * CW, y * CH, width * CW, height * CH)
+    this.line(x, y, x + width - 1, y, '─', colors.border)
+    this.line(x, y + height - 1, x + width - 1, y + height - 1, '─', colors.border)
+    this.line(x, y, x, y + height - 1, '│', colors.border)
+    this.line(x + width - 1, y, x + width - 1, y + height - 1, '│', colors.border)
+    this.cell(x, y, '┌', colors.border); this.cell(x + width - 1, y, '┐', colors.border); this.cell(x, y + height - 1, '└', colors.border); this.cell(x + width - 1, y + height - 1, '┘', colors.border)
+    this.text(x + 2, y, ` ${title} `, colors.gold, colors.panel)
   }
 
-  private blockMask(ctx: CanvasRenderingContext2D, block: HoveredBlock, camera: CameraState, originX: number, originY: number): void {
-    const [cx, cy] = this.point(block.x, block.y, block.z, camera)
-    const w = W * camera.zoom
-    const h = H * camera.zoom
-    const bh = BH * camera.zoom
-    ctx.fillStyle = '#fff'
-    ctx.beginPath()
-    ctx.moveTo(cx - originX, cy - originY - bh - h)
-    ctx.lineTo(cx + w - originX, cy - originY - bh)
-    ctx.lineTo(cx + w - originX, cy - originY)
-    ctx.lineTo(cx - originX, cy - originY + h)
-    ctx.lineTo(cx - w - originX, cy - originY)
-    ctx.lineTo(cx - w - originX, cy - originY - bh)
-    ctx.closePath()
-    ctx.fill()
+  private meter(x: number, y: number, width: number, value: number, max: number, color: string): void {
+    const fill = Math.max(0, Math.round(width * value / max))
+    this.text(x, y, '█'.repeat(fill), color)
+    this.text(x + fill, y, '░'.repeat(width - fill), colors.dim)
   }
 
-  private playerMask(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(x - 4 * s, y - 25 * s, 8 * s, 14 * s)
-    ctx.fillRect(x - 4 * s, y - 32 * s, 8 * s, 8 * s)
-    ctx.fillRect(x - 5 * s, y - 38 * s, 10 * s, 7 * s)
-    ctx.fillRect(x - 3 * s, y - 11 * s, 2 * s, 8 * s)
-    ctx.fillRect(x + 1 * s, y - 11 * s, 2 * s, 8 * s)
+  private text(x: number, y: number, value: string, color = colors.text, background?: string): void { for (let i = 0; i < value.length && x + i < TERMINAL_WIDTH; i++) this.cell(x + i, y, value[i], color, background) }
+  private line(x1: number, y1: number, x2: number, y2: number, glyph: string, color: string): void {
+    if (y1 === y2) for (let x = x1; x <= x2; x++) this.cell(x, y1, glyph, color)
+    if (x1 === x2) for (let y = y1; y <= y2; y++) this.cell(x1, y, glyph, color)
   }
-
-  private outline(player: PlayerState, camera: CameraState): void {
-    const [x, y] = this.point(player.x, player.y, player.z, camera)
-    const s = camera.zoom
-    const { ctx } = this
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = Math.max(1.5, 2 * s)
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    ctx.moveTo(x - 5 * s, y - 38 * s)
-    ctx.lineTo(x + 5 * s, y - 38 * s)
-    ctx.lineTo(x + 5 * s, y - 31 * s)
-    ctx.lineTo(x + 4 * s, y - 31 * s)
-    ctx.lineTo(x + 4 * s, y - 11 * s)
-    ctx.lineTo(x + 3 * s, y - 11 * s)
-    ctx.lineTo(x + 3 * s, y - 3 * s)
-    ctx.lineTo(x + 1 * s, y - 3 * s)
-    ctx.lineTo(x + 1 * s, y - 11 * s)
-    ctx.lineTo(x - 1 * s, y - 11 * s)
-    ctx.lineTo(x - 1 * s, y - 3 * s)
-    ctx.lineTo(x - 3 * s, y - 3 * s)
-    ctx.lineTo(x - 3 * s, y - 11 * s)
-    ctx.lineTo(x - 4 * s, y - 11 * s)
-    ctx.lineTo(x - 4 * s, y - 31 * s)
-    ctx.lineTo(x - 5 * s, y - 31 * s)
-    ctx.closePath()
-    ctx.stroke()
-  }
-
-  private vignette(): void {
-    const { ctx } = this
-    const v = ctx.createRadialGradient(this.centerX, this.height * .43, this.height * .2, this.centerX, this.height * .43, this.height * .85)
-    v.addColorStop(.65, 'rgba(0,0,0,0)')
-    v.addColorStop(1, 'rgba(5,8,15,.55)')
-    ctx.fillStyle = v
-    ctx.fillRect(0, 0, this.width, this.height)
-  }
-
-  private resize(): void {
-    const rect = this.canvas.getBoundingClientRect()
-    const ratio = Math.min(window.devicePixelRatio || 1, 2)
-    this.width = Math.max(320, Math.floor(rect.width * ratio))
-    this.height = Math.max(320, Math.floor(rect.height * ratio))
-    this.canvas.width = this.width
-    this.canvas.height = this.height
-    this.centerX = this.width / 2
-    this.centerY = Math.max(130, this.height * .21)
-    this.ctx.imageSmoothingEnabled = false
+  private cell(x: number, y: number, glyph: string, color = colors.text, background?: string): void {
+    if (x < 0 || y < 0 || x >= TERMINAL_WIDTH || y >= TERMINAL_HEIGHT) return
+    if (background) { this.ctx.fillStyle = background; this.ctx.fillRect(x * CW, y * CH, CW, CH) }
+    this.ctx.fillStyle = color
+    this.ctx.fillText(glyph, x * CW, y * CH)
   }
 }
-
-const diamond = (x: number, y: number, cx: number, cy: number, w: number, h: number) => Math.abs(x - cx) / w + Math.abs(y - cy) / h <= 1
