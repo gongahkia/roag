@@ -152,8 +152,12 @@ class ReplayManifestTests(unittest.TestCase):
             for decision in review["decisions"]
             if not decision["accepted"]
         }
-        self.assertTrue(any("requires explicit permission" in reason for reason in rejected["user-provided"]))
-        self.assertTrue(any("must record Tenhou or C-EGG" in reason for reason in rejected["missing-grantor"]))
+        self.assertTrue(
+            any("requires explicit permission" in reason for reason in rejected["user-provided"])
+        )
+        self.assertTrue(
+            any("must record Tenhou or C-EGG" in reason for reason in rejected["missing-grantor"])
+        )
 
     def test_share_plan_requires_intended_use_and_permission_scope(self) -> None:
         rows = [

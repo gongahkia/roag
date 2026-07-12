@@ -377,14 +377,17 @@ def _replay_item_rejection_reasons(item: ReplayManifestItem) -> Iterable[str]:
     if item.platform == "mahjong_soul" and item.permission_status != "explicit_permission":
         yield "mahjong_soul replay intake requires explicit permission for every intended use"
     if item.platform == "tenhou":
+        if "redistribution" in item.intended_uses:
+            yield "tenhou replay redistribution is not allowed by this intake gate"
         if item.permission_status != "explicit_permission":
-            yield "tenhou replay intake requires explicit permission from Tenhou/C-EGG for every intended use"
+            yield (
+                "tenhou replay intake requires explicit permission from Tenhou/C-EGG "
+                "for every intended use"
+            )
         elif not _is_tenhou_grantor(item.granted_by):
             yield "tenhou explicit permission must record Tenhou or C-EGG as granted_by"
         elif item.granted_at is None:
             yield "tenhou explicit permission must record granted_at"
-        if "redistribution" in item.intended_uses:
-            yield "tenhou replay redistribution is not allowed by this intake gate"
     if item.platform == "local_file" and not item.uri:
         yield "local_file uri must not be empty"
 
