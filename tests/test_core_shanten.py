@@ -11,6 +11,7 @@ from kenjaku.core import (
     standard_shanten,
     tile_counts,
 )
+from kenjaku.core.shanten import _GROUP_OPTIONS_CACHE_MAXSIZE, _group_options
 
 
 class ShantenTests(unittest.TestCase):
@@ -74,6 +75,13 @@ class ShantenTests(unittest.TestCase):
             shanten(tuple([5, *([0] * 33)]))
         with self.assertRaises(ValueError):
             shanten(_counts("1m 1m 1m 1m 2m 2m 2m 2m 3m 3m 3m 3m 4m 4m 4p"))
+
+    def test_group_options_memoization_is_bounded(self) -> None:
+        _group_options.cache_clear()
+
+        self.assertEqual(standard_shanten(_counts("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m")), 0)
+        self.assertEqual(_group_options.cache_info().maxsize, _GROUP_OPTIONS_CACHE_MAXSIZE)
+        _group_options.cache_clear()
 
 
 def _counts(text: str) -> tuple[int, ...]:

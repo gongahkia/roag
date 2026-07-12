@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from functools import cache
+from functools import lru_cache
 
 from kenjaku.core.tiles import Tile, TileType, tile_counts
 
@@ -16,6 +16,7 @@ TERMINAL_HONOR_INDICES = frozenset(
         *range(27, 34),
     }
 )
+_GROUP_OPTIONS_CACHE_MAXSIZE = 16_384
 
 
 def shanten(counts: Sequence[int]) -> int:
@@ -68,7 +69,7 @@ def kokushi_shanten(counts: Sequence[int]) -> int:
     return 13 - unique_terminals - int(has_terminal_pair)
 
 
-@cache
+@lru_cache(maxsize=_GROUP_OPTIONS_CACHE_MAXSIZE)
 def _group_options(counts: tuple[int, ...]) -> frozenset[tuple[int, int]]:
     tile_index = _first_nonzero(counts)
     if tile_index is None:
