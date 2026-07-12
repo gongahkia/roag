@@ -16,7 +16,7 @@ TERMINAL_HONOR_INDICES = frozenset(
         *range(27, 34),
     }
 )
-_GROUP_OPTIONS_CACHE_MAXSIZE = 65_536
+_GROUP_OPTIONS_CACHE_MAXSIZE = 16_384
 
 
 def shanten(counts: Sequence[int]) -> int:
