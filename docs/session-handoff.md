@@ -282,6 +282,7 @@ Last updated: 2026-06-13.
 - `replay-intake-review` reads `kenjaku-replay-manifest-v0` JSON manifests and writes
   `kenjaku-replay-intake-review-v0` reports. It accepts only replay items whose `permission.status`
   and `permission.scope` cover the requested `intended_uses`, rejects unknown/denied permissions,
+  requires explicit Tenhou/C-EGG permission with recorded grantor/date for every Tenhou use,
   rejects Tenhou redistribution, and requires explicit permission for every Mahjong Soul intended
   use after the 2026-06-12 policy review. `--accepted-output` writes accepted queue rows as JSONL
   for later offline analysis tooling.

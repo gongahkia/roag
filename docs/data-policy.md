@@ -160,6 +160,38 @@ scope coverage for every intended use; redistribution is always rejected. Mahjon
 intake requires explicit permission for every intended use. The intake command is a provenance and
 permission review step only; it does not fetch live-service data or automate a client.
 
+### Tenhou Permission Manifest Template
+
+Replace every placeholder only after receiving written Tenhou/C-EGG authorization; do not put raw
+logs, player names, or replay URLs in the tracked template.
+
+```json
+{
+  "kind": "kenjaku-replay-manifest-v0",
+  "source": {"label": "tenhou-authorized-local"},
+  "items": [{
+    "id": "tenhou-local-slice-001",
+    "platform": "tenhou",
+    "uri": "file:///private/path/to/authorized-log.xml",
+    "intended_uses": ["analysis", "evaluation", "training"],
+    "permission": {
+      "status": "explicit_permission",
+      "scope": ["analysis", "evaluation", "training"],
+      "granted_by": "Tenhou/C-EGG authorized representative",
+      "granted_at": "YYYY-MM-DD",
+      "notes": "written approval reference retained outside git"
+    }
+  }]
+}
+```
+
+Validate the local manifest before any use:
+
+```bash
+PYTHONPATH=src python3 -m kenjaku replay-intake-review \
+  /private/path/to/tenhou-permission-manifest.json
+```
+
 Use `kenjaku replay-share-plan` on accepted intake JSONL before any demo or redistribution work.
 The share planner checks that the accepted row's original `intended_uses` and `permission.scope`
 cover the requested `--intent demo|redistribution`. It writes a local plan/report only; it does not
