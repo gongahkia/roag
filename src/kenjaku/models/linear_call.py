@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cache
+from functools import lru_cache
 from typing import Any, cast
 
 from kenjaku.core import ActionKind, TileType, shanten
@@ -40,6 +40,8 @@ CALL_LINEAR_V1_FEATURE_NAMES = call_features.CALL_LINEAR_V1_FEATURE_NAMES
 CALL_LINEAR_V1_FEATURE_PROFILE = call_features.CALL_LINEAR_V1_FEATURE_PROFILE
 CALL_LINEAR_V1_MODEL_KIND = call_features.CALL_LINEAR_V1_MODEL_KIND
 _NON_PASS_CALL_KINDS = (ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN)
+_SHANTEN_CACHE_MAXSIZE = 16_384
+_UKEIRE_CACHE_MAXSIZE = 16_384
 
 
 _PreparedCallExample = PreparedExample[ActionKind]
@@ -533,7 +535,7 @@ def _chi_shape_index(chi_shape: str | None) -> int:
     return 3
 
 
-@cache
+@lru_cache(maxsize=_UKEIRE_CACHE_MAXSIZE)
 def _ukeire_proxy(counts: tuple[int, ...]) -> int:
     before_shanten = _safe_shanten(counts)
     total = 0
@@ -547,7 +549,7 @@ def _ukeire_proxy(counts: tuple[int, ...]) -> int:
     return total
 
 
-@cache
+@lru_cache(maxsize=_SHANTEN_CACHE_MAXSIZE)
 def _safe_shanten(counts: tuple[int, ...]) -> int:
     try:
         return shanten(counts)

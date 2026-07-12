@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.models import (
@@ -9,7 +10,13 @@ from kenjaku.models import (
     CALL_LINEAR_V1_FEATURE_PROFILE,
     CallLinearModel,
 )
-from kenjaku.models.linear_call import _chi_shape
+from kenjaku.models.linear_call import (
+    _SHANTEN_CACHE_MAXSIZE,
+    _UKEIRE_CACHE_MAXSIZE,
+    _chi_shape,
+    _safe_shanten,
+    _ukeire_proxy,
+)
 from kenjaku.training import CallExample
 
 
@@ -184,6 +191,19 @@ class CallLinearModelTests(unittest.TestCase):
             ),
             "right",
         )
+
+    def test_shanten_memoization_is_bounded(self) -> None:
+        _safe_shanten.cache_clear()
+        with mock.patch("kenjaku.models.linear_call.shanten", return_value=0):
+            for index in range(_SHANTEN_CACHE_MAXSIZE + 1):
+                _safe_shanten((index,) + (0,) * 33)
+
+        info = _safe_shanten.cache_info()
+        self.assertEqual(info.maxsize, _SHANTEN_CACHE_MAXSIZE)
+        self.assertEqual(info.currsize, _SHANTEN_CACHE_MAXSIZE)
+        self.assertEqual(_ukeire_proxy.cache_info().maxsize, _UKEIRE_CACHE_MAXSIZE)
+        _safe_shanten.cache_clear()
+        _ukeire_proxy.cache_clear()
 
 
 def _example(
