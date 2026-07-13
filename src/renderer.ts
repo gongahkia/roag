@@ -92,11 +92,11 @@ export class TerminalRenderer {
   private hub(route: ScreenRoute, hub?: HubView): void {
     this.box(13, 10, 54, 24, 'EXPEDITION HUB')
     this.text(19, 14, `HEIR: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
-    this.text(19, 16, `RESCUED: ${hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'none'}`, colors.text)
+    this.text(19, 16, `RESCUED: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
     const action = route.hubAction ?? 'routes'
     this.text(19, 19, `H routes  R roster  S supplies  [${action.toUpperCase()}]`, colors.green)
     if (action === 'routes') this.text(19, 21, `UNLOCKED: ${(hub?.state.unlockedAreas ?? ['mine']).join(', ')} · CLEARED: ${(hub?.state.completedAreas ?? []).join(', ') || 'none'}`, colors.text)
-    if (action === 'roster') this.text(19, 21, hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'No rescued NPCs yet.', colors.text)
+    if (action === 'roster') this.text(19, 21, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${npc.biome})`).join(', ') : 'No rescued NPCs yet.', colors.text)
     if (action === 'supplies') this.text(19, 21, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
     this.text(19, 24, 'A / ENTER  choose an expedition area', colors.green)
     this.text(19, 26, 'ESC        return to title', colors.dim)

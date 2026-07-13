@@ -8,6 +8,7 @@ import { resolveDisplacement } from './displacement'
 import { resolveTerrainReactions } from './terrain'
 import { gateForArea } from './gates'
 import { gainXp } from './progression'
+import { recordRescue } from './rescue'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 
@@ -43,15 +44,16 @@ export function operate(state: RunState): ActionResult {
     log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
     return advance(state, [event('pickup')])
   }
-  if (tile?.kind === 'rescue' || friend?.kind === 'ally') {
+  if (tile?.kind === 'rescue' || friend?.name === 'lost scout') {
+    const npc = recordRescue(state, friend)
     state.hero.maxHealth += 2
     state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8)
     state.hero.gold += 35
     state.floor.actors = state.floor.actors.filter(actor => actor !== friend)
     const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
     if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
-    log(state, 'The scout shares supplies and leaves.')
-    return advance(state, [event('pickup')])
+    log(state, `${npc.name} reaches the expedition hub.`)
+    return advance(state, [event('rescue')])
   }
   if (tile?.kind === 'altar') {
     if (state.hero.gold < 75) { log(state, 'The altar asks for 75 gold.'); return [] }

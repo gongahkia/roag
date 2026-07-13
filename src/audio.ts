@@ -13,7 +13,7 @@ export class AudioBus {
   private tone(event: GameEventType): void {
     if (!this.context) return
     const settings: Record<GameEventType, [number, number, OscillatorType]> = {
-      move: [180, .025, 'square'], hit: [110, .06, 'sawtooth'], hurt: [75, .08, 'sawtooth'], pickup: [520, .06, 'square'], spell: [340, .1, 'sine'], boom: [55, .18, 'sawtooth'], danger: [95, .1, 'square'], menu: [300, .03, 'square'], death: [48, .3, 'sawtooth'], win: [660, .25, 'square'], floor: [440, .15, 'sine'], areaComplete: [620, .2, 'sine'], gateResolved: [700, .18, 'sine']
+      move: [180, .025, 'square'], hit: [110, .06, 'sawtooth'], hurt: [75, .08, 'sawtooth'], pickup: [520, .06, 'square'], spell: [340, .1, 'sine'], boom: [55, .18, 'sawtooth'], danger: [95, .1, 'square'], menu: [300, .03, 'square'], death: [48, .3, 'sawtooth'], win: [660, .25, 'square'], floor: [440, .15, 'sine'], areaComplete: [620, .2, 'sine'], gateResolved: [700, .18, 'sine'], rescue: [560, .16, 'sine']
     }
     const [frequency, duration, type] = settings[event]
     const oscillator = this.context.createOscillator()

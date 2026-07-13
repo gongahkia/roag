@@ -24,7 +24,7 @@ void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, lo
   saved = run
   records = loadedRecords
   campaign = loadedCampaign
-  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { ...route, biome: campaign.selectedBiome }
   redraw()
 })
@@ -41,7 +41,7 @@ window.addEventListener('keydown', keyboardEvent => {
     if (nextRoute.screen === 'approach') {
       const heirSeed = Math.floor(Math.random() * 0x7fffffff)
       nextRoute = { ...nextRoute, heirSeed }
-      hub = { ...createHubState(heirSeed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+      hub = { ...createHubState(heirSeed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
     }
     if (nextRoute.screen === 'title') nextRoute = { ...nextRoute, heirSeed: undefined }
     if (nextRoute.screen === 'level') {
@@ -63,6 +63,7 @@ window.addEventListener('keydown', keyboardEvent => {
   audio.play(events)
   renderer.trigger(events, state)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
+  if (hasEvent(events, 'rescue')) persistRescuedRoster()
   if (hasEvent(events, 'areaComplete')) completeArea()
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
@@ -86,7 +87,7 @@ function completeArea(): void {
   const completed = state.area ?? state.floor.biome
   heir = structuredClone(state.hero)
   campaign = completeCampaignArea(campaign, completed)
-  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   void saveCampaignRoute(campaign)
   saved = undefined
   void deleteRun()
@@ -96,10 +97,20 @@ function completeArea(): void {
 function unlockGateDestination(): void {
   if (!state?.gateDestination) return
   campaign = unlockCampaignArea(campaign, state.gateDestination)
-  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { ...route, biome: campaign.selectedBiome }
   state.gateDestination = undefined
   void saveCampaignRoute(campaign)
+}
+
+function persistRescuedRoster(): void {
+  if (!state?.rescuedNpcs?.length) return
+  const rescuedNpcs = [...campaign.rescuedNpcs]
+  for (const npc of state.rescuedNpcs) if (!rescuedNpcs.some(existing => existing.id === npc.id)) rescuedNpcs.push({ ...npc })
+  campaign = { ...campaign, rescuedNpcs }
+  hub = { ...hub, rescued: rescuedNpcs }
+  void saveCampaignRoute(campaign)
+  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
 }
 
 function toggleVisualMode(): void {
