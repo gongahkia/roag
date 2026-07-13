@@ -83,7 +83,7 @@ function select(index: number): void {
     cell.setAttribute('aria-selected', String(active))
   })
   positionOutput.textContent = `row ${row}, col ${column}`
-  sourceOutput.textContent = `source x ${column - 1 << 4}, y ${row - 1 << 4} · 16 × 16`
+  sourceOutput.textContent = `source x ${(column - 1) * 16}, y ${(row - 1) * 16} · 16 × 16`
   title.textContent = `${sheet.id} · cell ${index}`
   mappingOutput.textContent = mappingText(index)
   drawSprite(preview, index)

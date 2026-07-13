@@ -98,6 +98,7 @@ export class TextureAtlas {
   private ready = false
 
   constructor() {
+    if (typeof Image === 'undefined') { this.ready = true; return }
     for (const sheet of spriteSheetSpecs) {
       const image = new Image()
       image.onload = () => this.settle()
