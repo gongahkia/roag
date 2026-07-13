@@ -91,12 +91,13 @@ export interface AreaState {
 export interface HubState {
   season: number
   supplies: ItemId[]
-  rescued: string[]
+  rescued: RescuedNpc[]
   unlockedAreas: Biome[]
   completedAreas: Biome[]
 }
 
-export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome }
+export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
+export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[] }
 
 export interface LegacyRecord {
   id: string
@@ -135,6 +136,7 @@ export interface RunState {
   area?: Biome
   areaFloor?: number
   gateDestination?: Biome
+  rescuedNpcs?: RescuedNpc[]
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
