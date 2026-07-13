@@ -35,5 +35,7 @@ export { AREA_GATES, gateForArea, gateModalLines, resolveAreaGate } from './engi
 export type { AreaGate, GateAlternative, GateCost, GateDestination, GateResolution } from './engine/gates'
 export { resolveTerrainReactions, terrainTags } from './engine/terrain'
 export type { TerrainEffect, TerrainReaction, TerrainTag } from './engine/terrain'
+export { actorTags, evaluateModifiers, hasTags, itemTags, queryTags, scriptTags, skillTags } from './engine/tags'
+export type { ModifierEvaluation, TagModifier, TagQuery } from './engine/tags'
 export { refreshFov } from './engine/visibility'
 export { completeObjective, objectiveForFloor } from './objectives'
