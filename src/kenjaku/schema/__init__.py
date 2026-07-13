@@ -6,6 +6,15 @@ from kenjaku.schema.action_v1 import (
     ACTION_V1_KIND,
     ActionV1,
 )
+from kenjaku.schema.decision_result_v1 import (
+    DECISION_FACTOR_V1_FIELDS,
+    DECISION_RATIONALE_V1_FIELDS,
+    DECISION_RESULT_V1_FIELDS,
+    DECISION_RESULT_V1_KIND,
+    DecisionFactorV1,
+    DecisionRationaleV1,
+    DecisionResultV1,
+)
 from kenjaku.schema.legal_action_mask_v1 import (
     LEGAL_ACTION_MASK_V1_DIM,
     LEGAL_ACTION_MASK_V1_FIELDS,
@@ -78,6 +87,13 @@ __all__ = [
     "ACTION_V1_FIELDS",
     "ACTION_V1_KIND",
     "ActionV1",
+    "DECISION_FACTOR_V1_FIELDS",
+    "DECISION_RATIONALE_V1_FIELDS",
+    "DECISION_RESULT_V1_FIELDS",
+    "DECISION_RESULT_V1_KIND",
+    "DecisionFactorV1",
+    "DecisionRationaleV1",
+    "DecisionResultV1",
     "LEGAL_ACTION_MASK_V1_DIM",
     "LEGAL_ACTION_MASK_V1_FIELDS",
     "LEGAL_ACTION_MASK_V1_KIND",
