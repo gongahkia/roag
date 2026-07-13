@@ -112,6 +112,10 @@ if TYPE_CHECKING:
         save_ppo_sandbox_checkpoint,
         train_ppo_sandbox,
     )
+    from kenjaku.training.rollback_guard import (
+        RL_ROLLBACK_GUARD_KIND,
+        assess_rl_rollback_guard,
+    )
 
 _LAZY_EXPORT_MODULES = {
     "CALIBRATION_DECISION_FAMILIES": "kenjaku.training.calibration",
@@ -135,6 +139,8 @@ _LAZY_EXPORT_MODULES = {
     "POPULATION_SANDBOX_SNAPSHOT_KIND": "kenjaku.training.population",
     "format_population_sandbox_report": "kenjaku.training.population",
     "train_population_sandbox": "kenjaku.training.population",
+    "RL_ROLLBACK_GUARD_KIND": "kenjaku.training.rollback_guard",
+    "assess_rl_rollback_guard": "kenjaku.training.rollback_guard",
     "PPO_ACTION_DIM": "kenjaku.training.ppo",
     "PPO_SANDBOX_CHECKPOINT_KIND": "kenjaku.training.ppo",
     "PPO_SANDBOX_POLICY_KIND": "kenjaku.training.ppo",
@@ -257,6 +263,8 @@ __all__ = [
     "summarize_deal_in_examples",
     "train_ppo_sandbox",
     "train_population_sandbox",
+    "RL_ROLLBACK_GUARD_KIND",
+    "assess_rl_rollback_guard",
     "train_multi_task_behavior_distillation",
     "write_bc_example_row",
     "write_bc_manifest",
