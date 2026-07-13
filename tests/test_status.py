@@ -7,12 +7,32 @@ from kenjaku.status import (
     MIN_PYTHON,
     STATUS_KIND,
     SUPPORTED_PYTHON,
+    build_agent_status_payload,
     build_status_payload,
     format_status_text,
 )
 
 
 class StatusTests(unittest.TestCase):
+    def test_agent_status_reports_ruleset_model_and_checkpoint_compatibility(self) -> None:
+        payload = build_agent_status_payload()
+        rulesets = {ruleset["name"]: ruleset for ruleset in payload["rulesets"]}
+        models = {model["kind"]: model for model in payload["models"]}
+
+        self.assertEqual(list(rulesets), ["tenhou-4p", "tenhou-3p"])
+        self.assertEqual(rulesets["tenhou-4p"]["players"], 4)
+        self.assertNotIn("kita", rulesets["tenhou-4p"]["action_v1_vocabulary"])
+        self.assertEqual(rulesets["tenhou-3p"]["players"], 3)
+        self.assertNotIn("chi", rulesets["tenhou-3p"]["action_v1_vocabulary"])
+        self.assertEqual(
+            models["mjai-discard-bot-v0"]["compatible_rulesets"], ["tenhou-4p"]
+        )
+        self.assertEqual(
+            models["sandbox-linear-ppo-actor-critic-v0"]["compatible_rulesets"],
+            ["tenhou-4p", "tenhou-3p"],
+        )
+        self.assertEqual(payload["checkpoint_compatibility"]["legal_action_mask_dim"], 276)
+
     def test_status_payload_marks_current_stage_and_missing_product_pieces(self) -> None:
         payload = build_status_payload()
         python_parts = tuple(int(part) for part in payload["environment"]["python"].split(".")[:2])
@@ -215,6 +235,8 @@ class StatusTests(unittest.TestCase):
         self.assertIn("current_python_supported:", text)
         self.assertIn("pytorch_extra: kenjaku[ml]", text)
         self.assertIn("pytorch_commands: train-discard-mlp", text)
+        self.assertIn("agent_rulesets: tenhou-4p (4p), tenhou-3p (3p)", text)
+        self.assertIn("mjai-discard-bot-v0: tenhou-4p available=yes", text)
         self.assertIn("tenhou_xml_parsing: yes", text)
         self.assertIn("permission_aware_replay_intake: yes", text)
         self.assertIn("permitted_replay_share_planning: yes", text)

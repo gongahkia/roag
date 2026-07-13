@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from kenjaku import __version__
-from kenjaku.core import SUPPORTED_YAKU_NAMES, UNSUPPORTED_YAKU_NAMES
+from kenjaku.core import SUPPORTED_YAKU_NAMES, TENHOU_3P, TENHOU_4P, UNSUPPORTED_YAKU_NAMES
+from kenjaku.schema import ACTION_V1_ACTIONS_BY_RULESET, CheckpointCompatibilityV1
 
 STATUS_KIND = "kenjaku-status-v0"
 SUPPORTED_PYTHON = ">=3.11,<3.14"
@@ -46,6 +47,7 @@ def build_status_payload() -> dict[str, Any]:
             "runs": Path("runs").exists(),
             "models": Path("models").exists(),
         },
+        "agent_status": build_agent_status_payload(),
         "capabilities": {
             "implemented": {
                 "tenhou_xml_parsing": True,
@@ -181,9 +183,49 @@ def build_status_payload() -> dict[str, Any]:
     }
 
 
+def build_agent_status_payload() -> dict[str, Any]:
+    """Report evidenced agent-model compatibility for each implemented ruleset."""
+    pytorch_available = importlib.util.find_spec("torch") is not None
+    rulesets = (TENHOU_4P, TENHOU_3P)
+    return {
+        "rulesets": [
+            {
+                "name": rule.name,
+                "players": rule.players,
+                "tile_types": len(rule.tile_types),
+                "excluded_tile_types": sorted(tile.notation for tile in rule.excluded_tile_types),
+                "action_v1_vocabulary": list(ACTION_V1_ACTIONS_BY_RULESET[rule.name]),
+            }
+            for rule in rulesets
+        ],
+        "models": [
+            {
+                "kind": "mjai-discard-bot-v0",
+                "compatible_rulesets": [TENHOU_4P.name],
+                "requires_pytorch": False,
+                "available": True,
+            },
+            {
+                "kind": "sandbox-heuristic-policy-v0",
+                "compatible_rulesets": [rule.name for rule in rulesets],
+                "requires_pytorch": False,
+                "available": True,
+            },
+            {
+                "kind": "sandbox-linear-ppo-actor-critic-v0",
+                "compatible_rulesets": [rule.name for rule in rulesets],
+                "requires_pytorch": True,
+                "available": pytorch_available,
+            },
+        ],
+        "checkpoint_compatibility": CheckpointCompatibilityV1.current().to_dict(),
+    }
+
+
 def format_status_text(payload: dict[str, Any]) -> str:
     environment = payload["environment"]
     local_artifacts = payload["local_artifacts"]
+    agent_status = payload["agent_status"]
     capabilities = payload["capabilities"]
     lines = [
         f"kenjaku: {payload['version']}",
@@ -199,8 +241,22 @@ def format_status_text(payload: dict[str, Any]) -> str:
         f"local_raw_data: {_format_bool(local_artifacts['data_raw'])}",
         f"local_reports: {_format_bool(local_artifacts['runs'])}",
         f"local_models: {_format_bool(local_artifacts['models'])}",
-        "implemented:",
+        "agent_rulesets: "
+        + ", ".join(
+            f"{ruleset['name']} ({ruleset['players']}p)"
+            for ruleset in agent_status["rulesets"]
+        ),
+        "agent_models:",
     ]
+    lines.extend(
+        "  "
+        + model["kind"]
+        + ": "
+        + ",".join(model["compatible_rulesets"])
+        + f" available={_format_bool(model['available'])}"
+        for model in agent_status["models"]
+    )
+    lines.append("implemented:")
     lines.extend(
         f"  {name}: {_format_bool(enabled)}"
         for name, enabled in capabilities["implemented"].items()
