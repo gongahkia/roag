@@ -1,5 +1,5 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices, targetPreview, type ActionResult, type ScreenRoute, type TargetPreview } from './engine'
+import { skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
 import { mineSeason } from './season'
@@ -21,6 +21,7 @@ export class TerminalRenderer {
   private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
+  private lastHub?: HubView
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -31,17 +32,18 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
-    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
   get isSpriteMode(): boolean { return this.spriteMode }
   trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
+    this.lastHub = hub
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -52,7 +54,7 @@ export class TerminalRenderer {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (route.screen === 'title') this.title(records)
     else if (route.screen === 'approach') this.approach(route)
-    else if (route.screen === 'hub') this.hub()
+    else if (route.screen === 'hub') this.hub(route, hub)
     else if (route.screen === 'area') this.area(route)
     else if (!state || state.status === 'title') this.title(records)
     else {
@@ -65,7 +67,7 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords))
+    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -87,11 +89,17 @@ export class TerminalRenderer {
     this.text(19, 24, 'ESC    return to title', colors.dim)
   }
 
-  private hub(): void {
+  private hub(route: ScreenRoute, hub?: HubView): void {
     this.box(13, 10, 54, 24, 'EXPEDITION HUB')
-    this.text(19, 15, 'THE SHALERIDGE OUTFIT', colors.gold)
-    this.text(19, 19, 'A / ENTER  choose an expedition area', colors.green)
-    this.text(19, 22, 'ESC        return to title', colors.dim)
+    this.text(19, 14, `HEIR: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
+    this.text(19, 16, `RESCUED: ${hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'none'}`, colors.text)
+    const action = route.hubAction ?? 'routes'
+    this.text(19, 19, `H routes  R roster  S supplies  [${action.toUpperCase()}]`, colors.green)
+    if (action === 'routes') this.text(19, 21, `UNLOCKED: ${(hub?.state.unlockedAreas ?? ['mine']).join(', ')}`, colors.text)
+    if (action === 'roster') this.text(19, 21, hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'No rescued NPCs yet.', colors.text)
+    if (action === 'supplies') this.text(19, 21, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
+    this.text(19, 24, 'A / ENTER  choose an expedition area', colors.green)
+    this.text(19, 26, 'ESC        return to title', colors.dim)
   }
 
   private area(route: ScreenRoute): void {

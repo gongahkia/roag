@@ -1,9 +1,9 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { event, hasEvent, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
+import { createHubState, event, hasEvent, hubView, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadRecords, loadRun, saveRecords, saveRun } from './storage'
-import type { Direction, Records, RunState } from './types'
+import type { Direction, HubState, Records, RunState } from './types'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -13,6 +13,7 @@ let saved: RunState | undefined
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
+let hub: HubState = createHubState(0)
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
@@ -31,8 +32,12 @@ window.addEventListener('keydown', keyboardEvent => {
   if (command.toLowerCase() === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
     let nextRoute = navigate(route, command, Boolean(saved))
-    if (nextRoute.screen === route.screen) return
-    if (nextRoute.screen === 'approach') nextRoute = { ...nextRoute, heirSeed: Math.floor(Math.random() * 0x7fffffff) }
+    if (nextRoute === route) return
+    if (nextRoute.screen === 'approach') {
+      const heirSeed = Math.floor(Math.random() * 0x7fffffff)
+      nextRoute = { ...nextRoute, heirSeed }
+      hub = createHubState(heirSeed)
+    }
     if (nextRoute.screen === 'title') nextRoute = { ...nextRoute, heirSeed: undefined }
     if (nextRoute.screen === 'level') {
       if (route.screen === 'area') start()
@@ -72,7 +77,7 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { renderer.render(route, state, records) }
+function redraw(): void { renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub)) }
 
 function finish(won: boolean): void {
   if (!state) return
