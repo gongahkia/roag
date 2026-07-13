@@ -14,13 +14,21 @@ export interface ReplayBoardState {
   readonly honba: number;
   readonly kyotaku: number;
   readonly dealer_seat: number | null;
+  readonly current_seat: number | null;
+  readonly turn: number;
   readonly scores: readonly number[];
   readonly hands: readonly (readonly string[])[];
+  readonly drawn_tiles: readonly (string | null)[];
   readonly discards: readonly (readonly string[])[];
   readonly melds: readonly (readonly ReplayMeld[])[];
   readonly kita_tiles: readonly (readonly string[])[];
   readonly dora_indicators: readonly string[];
   readonly riichi_seats: readonly boolean[];
+  readonly pending_discard: string | null;
+  readonly pending_discard_seat: number | null;
+  readonly live_wall_remaining: number;
+  readonly dead_wall_remaining: number;
+  readonly has_complete_round_context: boolean;
   readonly active_seat: number | null;
   readonly round_finished: boolean;
   readonly game_finished: boolean;
@@ -47,13 +55,21 @@ interface MutableReplayBoardState {
   honba: number;
   kyotaku: number;
   dealer_seat: number | null;
+  current_seat: number | null;
+  turn: number;
   scores: number[];
   hands: string[][];
+  drawn_tiles: (string | null)[];
   discards: string[][];
   melds: ReplayMeld[][];
   kita_tiles: string[][];
   dora_indicators: string[];
   riichi_seats: boolean[];
+  pending_discard: string | null;
+  pending_discard_seat: number | null;
+  live_wall_remaining: number;
+  dead_wall_remaining: number;
+  has_complete_round_context: boolean;
   active_seat: number | null;
   round_finished: boolean;
   game_finished: boolean;
@@ -185,11 +201,13 @@ function applyStartKyoku(state: MutableReplayBoardState, event: MjsonEvent): voi
   next.honba = readNumber(event.honba) ?? 0;
   next.kyotaku = readNumber(event.kyotaku) ?? 0;
   next.dealer_seat = readSeat(event.oya);
+  next.current_seat = next.dealer_seat;
   next.active_seat = next.dealer_seat;
   if (scores.length === players) next.scores = scores;
   if (hands.length === players) next.hands = hands;
   const dora = readString(event.dora_marker);
   if (dora !== null) next.dora_indicators = [dora];
+  next.has_complete_round_context = hasCompleteRoundContext(event, players);
   replaceState(state, next);
 }
 
@@ -207,6 +225,12 @@ function addDrawnTile(state: MutableReplayBoardState, event: MjsonEvent): void {
   const actor = readSeat(event.actor);
   const tile = readString(event.pai);
   if (actor !== null && actor < state.players && tile !== null) state.hands[actor].push(tile);
+  if (actor === null || actor >= state.players) return;
+  state.current_seat = actor;
+  state.drawn_tiles[actor] = tile;
+  state.pending_discard = null;
+  state.pending_discard_seat = null;
+  state.live_wall_remaining = Math.max(0, state.live_wall_remaining - 1);
 }
 
 function addDiscard(state: MutableReplayBoardState, event: MjsonEvent): void {
@@ -215,6 +239,11 @@ function addDiscard(state: MutableReplayBoardState, event: MjsonEvent): void {
   if (actor === null || actor >= state.players || tile === null) return;
   removeTile(state.hands[actor], tile);
   state.discards[actor].push(tile);
+  state.current_seat = (actor + 1) % state.players;
+  state.turn += 1;
+  state.drawn_tiles[actor] = null;
+  state.pending_discard = tile;
+  state.pending_discard_seat = actor;
 }
 
 function applyCall(state: MutableReplayBoardState, event: MjsonEvent): void {
@@ -224,6 +253,10 @@ function applyCall(state: MutableReplayBoardState, event: MjsonEvent): void {
   const tile = readString(event.pai);
   const removed = consumed.length > 0 ? consumed : tile === null ? [] : [tile];
   for (const consumedTile of removed) removeTile(state.hands[actor], consumedTile);
+  state.current_seat = actor;
+  state.drawn_tiles[actor] = null;
+  state.pending_discard = null;
+  state.pending_discard_seat = null;
   if (event.type === "kita") {
     state.kita_tiles[actor].push(...removed);
     return;
@@ -243,13 +276,21 @@ function createState(players: number, names: readonly string[]): MutableReplayBo
     honba: 0,
     kyotaku: 0,
     dealer_seat: null,
+    current_seat: null,
+    turn: 0,
     scores: Array.from({ length: players }, () => 0),
     hands: seatArrays(players),
+    drawn_tiles: Array.from({ length: players }, () => null),
     discards: seatArrays(players),
     melds: Array.from({ length: players }, () => []),
     kita_tiles: seatArrays(players),
     dora_indicators: [],
     riichi_seats: Array.from({ length: players }, () => false),
+    pending_discard: null,
+    pending_discard_seat: null,
+    live_wall_remaining: initialLiveWallTiles(players),
+    dead_wall_remaining: 14,
+    has_complete_round_context: false,
     active_seat: null,
     round_finished: false,
     game_finished: false
@@ -266,6 +307,7 @@ function snapshot(state: MutableReplayBoardState): ReplayBoardState {
     names: Object.freeze([...state.names]),
     scores: Object.freeze([...state.scores]),
     hands: freezeNested(state.hands),
+    drawn_tiles: Object.freeze([...state.drawn_tiles]),
     discards: freezeNested(state.discards),
     melds: freezeNested(state.melds),
     kita_tiles: freezeNested(state.kita_tiles),
@@ -276,6 +318,25 @@ function snapshot(state: MutableReplayBoardState): ReplayBoardState {
 
 function seatArrays(players: number): string[][] {
   return Array.from({ length: players }, () => []);
+}
+
+function initialLiveWallTiles(players: number): number {
+  return (players === 3 ? 108 : 136) - players * 13 - 14;
+}
+
+function hasCompleteRoundContext(event: MjsonEvent, players: number): boolean {
+  const dealer = readSeat(event.oya);
+  return (
+    typeof event.bakaze === "string" &&
+    readNumber(event.kyoku) !== null &&
+    readNumber(event.honba) !== null &&
+    readNumber(event.kyotaku) !== null &&
+    dealer !== null && dealer < players &&
+    readNumberArray(event.scores).length === players &&
+    readTileMatrix(event.tehais).length === players &&
+    readTileMatrix(event.tehais).every((hand) => hand.length === 13) &&
+    readString(event.dora_marker) !== null
+  );
 }
 
 function freezeNested<T>(values: readonly (readonly T[])[]): readonly (readonly T[])[] {

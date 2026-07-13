@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 const FIXTURE_TRAJECTORY = fileURLToPath(
   new URL("../../../data/fixtures/mjai/events_4p.mjson", import.meta.url)
 );
+const FIXTURE_INFERENCE_TRAJECTORY = fileURLToPath(
+  new URL("../../../data/fixtures/mjai/request_4p.mjson", import.meta.url)
+);
 const FIXTURE_ONNX_MODEL = Buffer.from(
   "CAo6rAEKMwoRbGVnYWxfYWN0aW9uX21hc2sSDWFjdGlvbl9sb2dpdHMiBENhc3QqCQoCdG8YAaABAhIMYnJvd3Nlci10ZXN0Wh8KDG9ic2VydmF0aW9ucxIPCg0IARIJCgIIAQoDCKIEWiQKEWxlZ2FsX2FjdGlvbl9tYXNrEg8KDQgJEgkKAggBCgMIlAJiIAoNYWN0aW9uX2xvZ2l0cxIPCg0IARIJCgIIAQoDCJQCQgQKABAS",
   "base64"
@@ -29,4 +32,18 @@ test("initializes the fixed local ONNX graph in the browser", async ({ page }) =
   });
 
   await expect(page.getByText(/^Loaded mask-cast\.onnx with (WEBGPU|WASM)( fallback)?\.$/)).toBeVisible();
+});
+
+test("runs fixture request inference through the local ONNX graph", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input[accept*=".mjson"]').setInputFiles(FIXTURE_INFERENCE_TRAJECTORY);
+  await page.locator('input[accept*=".onnx"]').setInputFiles({
+    name: "mask-cast.onnx",
+    mimeType: "application/onnx",
+    buffer: FIXTURE_ONNX_MODEL
+  });
+
+  await expect(page.getByText("Loaded 4 events with 0 invalid lines.")).toBeVisible();
+  await page.getByRole("button", { name: "4. Seat 0: action requested" }).click();
+  await expect(page.getByText("Model selection: discard 1m (score 1.000).")).toBeVisible();
 });

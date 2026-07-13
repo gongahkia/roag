@@ -10,6 +10,10 @@ import {
   loadLocalMultiActionOnnxPolicy,
   type BrowserMultiActionOnnxPolicy
 } from "./lib/onnx-inference";
+import {
+  buildReplayPolicyInput,
+  selectReplayPolicyAction
+} from "./lib/replay-policy-input";
 import { buildReplayTimeline, type ReplayBoardState, type ReplayTimelineStep } from "./lib/replay";
 
 const rationalePreview: DecisionCounterfactualsView = {
@@ -58,12 +62,38 @@ function App() {
   const [fileStatus, setFileStatus] = useState("No local trajectory loaded.");
   const [modelStatus, setModelStatus] = useState("No local ONNX model loaded.");
   const [policy, setPolicy] = useState<BrowserMultiActionOnnxPolicy | null>(null);
+  const [inferenceStatus, setInferenceStatus] = useState("Load a local ONNX model to run inference.");
   const modelLoadSequence = useRef(0);
   const selectedStep = timeline[selectedIndex];
 
   useEffect(() => () => {
     if (policy) void policy.release();
   }, [policy]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedStep?.decision) return undefined;
+    if (!policy) {
+      setInferenceStatus("Load a local ONNX model to run inference.");
+      return undefined;
+    }
+    let input;
+    try {
+      input = buildReplayPolicyInput(selectedStep);
+    } catch (error) {
+      setInferenceStatus(error instanceof Error ? error.message : "could not build local inference input");
+      return undefined;
+    }
+    setInferenceStatus("Running local ONNX inference.");
+    void policy.infer(input.observation, input.legalActionMask).then((logits) => {
+      if (cancelled) return;
+      const selection = selectReplayPolicyAction(input, logits);
+      setInferenceStatus(`Model selection: ${selection.action.label} (score ${selection.score.toFixed(3)}).`);
+    }).catch((error: unknown) => {
+      if (!cancelled) setInferenceStatus(error instanceof Error ? error.message : "local ONNX inference failed");
+    });
+    return () => { cancelled = true; };
+  }, [policy, selectedStep]);
 
   async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -138,6 +168,7 @@ function App() {
           selectedIndex={selectedIndex}
           selectedStep={selectedStep}
           timeline={timeline}
+          inferenceStatus={inferenceStatus}
         />
       ) : (
         <section className="panel">
@@ -156,9 +187,10 @@ interface ReplayViewerProps {
   readonly selectedIndex: number;
   readonly selectedStep: ReplayTimelineStep;
   readonly timeline: readonly ReplayTimelineStep[];
+  readonly inferenceStatus: string;
 }
 
-function ReplayViewer({ onSelect, selectedIndex, selectedStep, timeline }: ReplayViewerProps) {
+function ReplayViewer({ inferenceStatus, onSelect, selectedIndex, selectedStep, timeline }: ReplayViewerProps) {
   return (
     <section aria-label="Replay timeline" className="replay">
       <section className="panel replay-controls">
@@ -194,14 +226,20 @@ function ReplayViewer({ onSelect, selectedIndex, selectedStep, timeline }: Repla
             </li>
           ))}
         </ol>
-        <DecisionInspection step={selectedStep} />
+        <DecisionInspection inferenceStatus={inferenceStatus} step={selectedStep} />
       </div>
       <BoardState state={selectedStep.state} />
     </section>
   );
 }
 
-function DecisionInspection({ step }: { readonly step: ReplayTimelineStep }) {
+function DecisionInspection({
+  inferenceStatus,
+  step
+}: {
+  readonly inferenceStatus: string;
+  readonly step: ReplayTimelineStep;
+}) {
   return (
     <section aria-labelledby="decision-heading" className="panel decision-inspection">
       <h2 id="decision-heading">Decision inspection</h2>
@@ -213,6 +251,7 @@ function DecisionInspection({ step }: { readonly step: ReplayTimelineStep }) {
               <li key={`${action}-${index}`}>{action}</li>
             ))}
           </ul>
+          <p aria-live="polite">{inferenceStatus}</p>
         </>
       ) : (
         <p>This event has no requested action.</p>
