@@ -50,6 +50,8 @@ EXPECTED_COMMANDS = (
     "benchmark-discard",
     "benchmark-discard-mlp",
     "benchmark-discard-transformer",
+    "benchmark-policy-heuristic-ablation",
+    "select-model-frozen-split",
     "benchmark-report-summary",
     "benchmark-dashboard",
     "disagreement-report-summary",

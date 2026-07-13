@@ -69,6 +69,7 @@ from kenjaku.io import (
     write_tenhou_mjai_files,
 )
 from kenjaku.logging import configure_logging
+from kenjaku.model_selection import select_model_on_frozen_split
 from kenjaku.models import (
     CALL_DECISION_KINDS,
     CALL_LINEAR_V1_FEATURE_PROFILE,
@@ -2694,6 +2695,24 @@ def build_parser() -> argparse.ArgumentParser:
     policy_heuristic_ablation.add_argument("--report", type=Path)
     policy_heuristic_ablation.add_argument("--json", action="store_true")
     policy_heuristic_ablation.set_defaults(func=_benchmark_policy_heuristic_ablation)
+    model_selection = subparsers.add_parser(
+        "select-model-frozen-split",
+        help="select a model deterministically from frozen validation metrics",
+    )
+    model_selection.add_argument(
+        "split_manifest",
+        type=Path,
+        help="synthetic match split manifest JSON",
+    )
+    model_selection.add_argument(
+        "candidates",
+        type=Path,
+        help="JSON array of model IDs and validation metrics",
+    )
+    model_selection.add_argument("--metric", choices=("loss", "accuracy"), default="loss")
+    model_selection.add_argument("--report", type=Path)
+    model_selection.add_argument("--json", action="store_true")
+    model_selection.set_defaults(func=_select_model_frozen_split)
 
     return parser
 
@@ -3909,6 +3928,29 @@ def _benchmark_policy_heuristic_ablation(args: argparse.Namespace) -> int:
         print("ruleset: " + report["ruleset"])
         for name, row in report["rows"].items():
             print(f"{name}: examples={row['examples']} agreement={row['agreement']}")
+    return 0
+
+
+def _select_model_frozen_split(args: argparse.Namespace) -> int:
+    try:
+        split_manifest = json.loads(args.split_manifest.read_text(encoding="utf-8"))
+        candidates = json.loads(args.candidates.read_text(encoding="utf-8"))
+        if not isinstance(split_manifest, dict):
+            raise ValueError("split manifest must be a JSON object")
+        if not isinstance(candidates, list):
+            raise ValueError("candidates must be a JSON array")
+        report = select_model_on_frozen_split(split_manifest, candidates, metric=args.metric)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"error: {error}")
+        return 2
+    if args.report is not None:
+        _write_json_report_file(args.report, report)
+    if args.json:
+        print(json.dumps(report, sort_keys=True))
+    else:
+        print("selected_model: " + report["selected"]["model_id"])
+        print("metric: " + report["metric"])
+        print("value: " + str(report["selected"]["metric"]))
     return 0
 
 
