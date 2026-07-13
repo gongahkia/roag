@@ -21,6 +21,7 @@ def reconstruct_self_play_match_report(report: Mapping[str, Any]) -> dict[str, A
     if rule_config.ruleset != ruleset:
         raise ValueError("report ruleset must match rule config")
     policies = _required_mapping(report, "policies")
+    opponents = _required_mapping(report, "opponents")
     return run_self_play_match_sandbox(
         games=_required_positive_int(report, "games"),
         max_rounds=_required_positive_int(report, "max_rounds"),
@@ -34,6 +35,7 @@ def reconstruct_self_play_match_report(report: Mapping[str, Any]) -> dict[str, A
         kan_policy=_policy_value(policies, "kan"),
         kita_policy=_policy_value(policies, "kita"),
         ron_policy=_policy_value(policies, "ron"),
+        heuristic_seats=_heuristic_seats(opponents),
         include_trajectories=True,
     )
 
@@ -66,6 +68,7 @@ _REPLAYED_REPORT_FIELDS = (
     "rule_config",
     "players",
     "policies",
+    "opponents",
     "decisions",
     "rounds",
     "final_reasons",
@@ -100,6 +103,13 @@ def _policy_value(policies: Mapping[str, Any], field: str) -> str:
     if not isinstance(value, str):
         raise ValueError("report policy " + field + " must be a string")
     return value
+
+
+def _heuristic_seats(opponents: Mapping[str, Any]) -> tuple[int, ...]:
+    seats = opponents.get("heuristic_seats")
+    if not isinstance(seats, list) or any(type(seat) is not int for seat in seats):
+        raise ValueError("report opponents heuristic_seats must be an integer array")
+    return tuple(seats)
 
 
 def _require_trajectories(report: Mapping[str, Any]) -> None:
