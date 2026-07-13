@@ -2,6 +2,7 @@ import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './conten
 import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
 import { objectiveForFloor } from './objectives'
+import { gateForArea, validateAreaGate } from './engine/gates'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -43,6 +44,8 @@ export function generateFloor(runSeed: number, index: number): Floor {
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
   ensureReachable(floor)
+  const validation = validateGeneration(floor)
+  if (!validation.valid) throw new Error(`invalid generated floor ${index}: ${validation.errors.join('; ')}`)
   return floor
 }
 
@@ -247,6 +250,7 @@ function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: 
 }
 
 function ensureReachable(floor: Floor): void {
+  const objectives = objectiveTargets(floor).map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
   const seen = new Set<string>([pointKey(floor.start)])
   const queue = [{ ...floor.start }]
   while (queue.length) {
@@ -265,8 +269,68 @@ function ensureReachable(floor: Floor): void {
     carveV(floor, floor.start.y, floor.exit.y, floor.exit.x)
     setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   }
+  for (const objective of objectives) setKind(floor, objective.point.x, objective.point.y, objective.kind)
+  const reachable = reachableCells(floor)
+  const target = objectiveTargets(floor).find(point => !canReachObjective(reachable, point))
+  if (!target) return
+  const targetTile = getTile(floor, target.x, target.y)!
+  const originalKind = targetTile.kind
+  const access = passable(originalKind) ? target : { x: target.x + 1, y: target.y }
+  carveH(floor, floor.start.x, access.x, floor.start.y)
+  carveV(floor, floor.start.y, access.y, access.x)
+  for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(target.x + x, target.y + y)) setKind(floor, target.x + x, target.y + y, 'floor')
+  targetTile.kind = originalKind
+  setKind(floor, floor.exit.x, floor.exit.y, 'exit')
 }
 
 const distance = (a: Point, b: Point): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
-export const validateFloor = (floor: Floor): boolean => floor.tiles.length === MAP_WIDTH * MAP_HEIGHT && floor.index >= 0 && floor.index < FLOOR_COUNT && getTile(floor, floor.start.x, floor.start.y)?.kind !== 'wall' && getTile(floor, floor.exit.x, floor.exit.y)?.kind === 'exit'
+export interface GenerationValidation { valid: boolean; errors: string[] }
+
+const reachableCells = (floor: Floor): Set<string> => {
+  const seen = new Set<string>()
+  const queue = [{ ...floor.start }]
+  while (queue.length) {
+    const current = queue.shift()!
+    const key = pointKey(current)
+    if (seen.has(key)) continue
+    const tile = getTile(floor, current.x, current.y)
+    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') continue
+    seen.add(key)
+    for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) queue.push({ x: current.x + x, y: current.y + y })
+  }
+  return seen
+}
+
+const objectiveTargets = (floor: Floor): Point[] => {
+  if (floor.objective.kind === 'recoverSupplies') return floor.tiles.flatMap((tile, i) => tile.kind === 'crate' || tile.kind === 'chest' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
+  if (floor.objective.kind === 'rescueScout') return floor.tiles.flatMap((tile, i) => tile.kind === 'rescue' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
+  if (floor.objective.kind === 'invokeAltar') return floor.tiles.flatMap((tile, i) => tile.kind === 'altar' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
+  return floor.actors.filter(actor => actor.role === 'guardian').map(actor => ({ x: actor.x, y: actor.y }))
+}
+
+const canReachObjective = (reachable: ReadonlySet<string>, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => reachable.has(pointKey({ x: target.x + x, y: target.y + y })))
+
+export const validateGeneration = (floor: Floor): GenerationValidation => {
+  const errors: string[] = []
+  if (floor.tiles.length !== MAP_WIDTH * MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
+  if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
+  if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')
+  const reachable = reachableCells(floor)
+  if (!reachable.has(pointKey(floor.exit))) errors.push('exit unreachable')
+  const targets = objectiveTargets(floor)
+  if (!targets.length || !targets.some(target => canReachObjective(reachable, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
+  const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
+  const occupied = new Set<string>()
+  for (const placement of placements) {
+    const tile = getTile(floor, placement.x, placement.y)
+    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') errors.push(`illegal ${placement.type} placement`)
+    const key = pointKey(placement)
+    if (occupied.has(key)) errors.push(`overlapping ${placement.type} placement`)
+    occupied.add(key)
+  }
+  for (const error of validateAreaGate(gateForArea(floor.biome))) errors.push(`impossible gate: ${error}`)
+  return { valid: errors.length === 0, errors }
+}
+
+export const validateFloor = (floor: Floor): boolean => validateGeneration(floor).valid

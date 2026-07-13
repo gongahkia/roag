@@ -3,7 +3,7 @@ import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
 import { hasLine } from './engine/visibility'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH } from './types'
-import { generateAreaFloor, generateFloor, getTile, validateFloor } from './world'
+import { generateAreaFloor, generateFloor, getTile, validateFloor, validateGeneration } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
   const seen = new Set<string>([`${floor.start.x},${floor.start.y}`])
@@ -105,6 +105,19 @@ describe('expedition generation', () => {
       expect(kinds).toContain('altar')
       expect(exitReachable(floor)).toBe(true)
     }
+  })
+
+  it('rejects unreachable objectives and illegal placements', () => {
+    const floor = generateFloor(123, 0)
+    const cache = floor.tiles.findIndex(tile => tile.kind === 'crate' || tile.kind === 'chest')
+    for (const tile of floor.tiles) if (tile.kind === 'crate' || tile.kind === 'chest') tile.kind = 'floor'
+    floor.tiles[cache].kind = 'crate'
+    const x = cache % MAP_WIDTH
+    const y = Math.floor(cache / MAP_WIDTH)
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) floor.tiles[(y + dy) * MAP_WIDTH + x + dx].kind = 'wall'
+    floor.actors[0].x = 0
+    floor.actors[0].y = 0
+    expect(validateGeneration(floor)).toMatchObject({ valid: false, errors: expect.arrayContaining(['objective unreachable: recoverSupplies', 'illegal actor placement']) })
   })
 
   it('starts an explorer on a visible, passable map cell', () => {

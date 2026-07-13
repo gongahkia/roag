@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AREA_GATES, gateForArea } from './gates'
+import { AREA_GATES, gateForArea, validateAreaGate } from './gates'
 
 describe('area gate data model', () => {
   it('defines NPC offering, tag alternatives, cost, and destination for every area', () => {
@@ -15,5 +15,9 @@ describe('area gate data model', () => {
   it('looks up gates by their owning area', () => {
     expect(gateForArea('mine').id).toBe('mine-wilds-pass')
     expect(gateForArea('ruins').unlockedDestination.biome).toBe('ruins')
+  })
+
+  it('rejects impossible gate definitions', () => {
+    expect(validateAreaGate({ ...gateForArea('mine'), tagAlternatives: [{ label: 'unknown', kind: 'tag', tags: ['unknown'] }] })).toContain('no possible gate alternative')
   })
 })
