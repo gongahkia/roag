@@ -10,14 +10,26 @@ describe('four-area campaign flow', () => {
       state.hero.x = state.floor.exit.x
       state.hero.y = state.floor.exit.y
       state.floor.guardianDefeated = true
+      state.floor.objective.status = 'complete'
       expect(descend(state)).toEqual([{ type: 'floor' }])
       expect(state).toMatchObject({ area: 'mine', areaFloor: areaFloor + 1, floor: { biome: 'mine' } })
     }
     state.hero.x = state.floor.exit.x
     state.hero.y = state.floor.exit.y
     state.floor.guardianDefeated = true
+    state.floor.objective.status = 'complete'
     expect(descend(state)).toEqual([{ type: 'areaComplete' }])
     expect(state.areaFloor).toBe(3)
+  })
+
+  it('rejects the exit until the current objective is complete', () => {
+    const state = newRun(703, 'mine')
+    state.hero.x = state.floor.exit.x
+    state.hero.y = state.floor.exit.y
+    expect(descend(state)).toEqual([])
+    expect(state.messages[0]).toBe('Objective incomplete: Secure a supply cache.')
+    state.floor.objective.status = 'complete'
+    expect(descend(state)).toEqual([{ type: 'floor' }])
   })
 
   it('unlocks and starts the next area while carrying the heir', () => {

@@ -73,6 +73,7 @@ export function operate(state: RunState): ActionResult {
 export function descend(state: RunState): ActionResult {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   if (tile?.kind !== 'exit') { log(state, 'You are not at the exit.'); return [] }
+  if (state.floor.objective.status !== 'complete') { log(state, `Objective incomplete: ${state.floor.objective.label}.`); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
   const areaFloor = state.areaFloor ?? state.floor.index % 4
   if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is secured. Return to the hub.`); return [event('areaComplete')] }
