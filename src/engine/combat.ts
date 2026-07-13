@@ -18,6 +18,7 @@ import { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from 
 import { resolveDisplacement } from './displacement'
 import { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegraphAvoidance } from './agility'
 import { vitalityHazardReduction, vitalityShield } from './vitality'
+import { intellectFocusRecovery } from './intellect'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -211,7 +212,7 @@ function tickEnvironment(state: RunState, events: ActionResult): void {
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent', true))
-  if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus++
+  if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + intellectFocusRecovery(state.hero))
 }
 
 function tickConditionEffects(state: RunState, events: ActionResult): void {

@@ -1,5 +1,6 @@
 import { DIRECTIONS, type Biome, type ItemId, type LineageEvent, type Point, type RescuedNpc, type RunState } from '../types'
 import { getTile } from '../world'
+import { hasAstralGateAccess } from './intellect'
 
 export interface GateCost { gold: number; items: ItemId[] }
 export interface GateAlternative { label: string; kind: 'npc' | 'tag' | 'bomb'; tags: string[]; cost?: GateCost }
@@ -36,7 +37,7 @@ const hasGateTag = (state: RunState, tag: string): boolean => {
   if (tag === 'rope') return state.hero.ropes > 0 || items.includes('ropeBundle')
   if (tag === 'mobility') return items.some(item => ['blinkRune', 'boots', 'featherboots'].includes(item)) || state.hero.skills.some(skill => skill.startsWith('agi'))
   if (tag === 'ward') return items.some(item => ['ward', 'wardScript'].includes(item))
-  if (tag === 'astral') return state.hero.skills.some(skill => skill.startsWith('astral'))
+  if (tag === 'astral') return state.hero.skills.some(skill => skill.startsWith('astral')) || hasAstralGateAccess(state.hero)
   if (tag === 'relic') return items.includes('sunseal')
   if (tag === 'script' || tag === 'arcane') return items.some(item => ['ember', 'mend', 'sight', 'gust', 'wardScript', 'gate'].includes(item))
   if (tag === 'rubble') return items.includes('pickaxe') || state.hero.bombs > 0

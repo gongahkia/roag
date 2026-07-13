@@ -3,7 +3,7 @@ import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
 import { actorAt, generateAreaFloor, getTile } from '../world'
 import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
-import { modifyIncomingDamage } from './conditions'
+import { addCondition, modifyIncomingDamage } from './conditions'
 import { resolveDisplacement } from './displacement'
 import { resolveTerrainReactions } from './terrain'
 import { gateForArea } from './gates'
@@ -14,6 +14,7 @@ import { consume, distance, event, log, turnRng, type ActionResult } from './sha
 import { refreshFov } from './visibility'
 import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
+import { intellectFocusDiscount, intellectScriptRange, intellectWardBonus } from './intellect'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -160,14 +161,16 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
 
 export function castSpell(state: RunState, id: string, direction: Direction): ActionResult {
   const item = ITEM[id]
-  if (state.hero.focus < 3) { log(state, 'You lack focus.'); return [] }
-  state.hero.focus -= 3
+  const cost = Math.max(1, 3 - intellectFocusDiscount(state.hero))
+  if (state.hero.focus < cost) { log(state, 'You lack focus.'); return [] }
+  state.hero.focus -= cost
   const delta = DIRECTIONS[direction]
-  const target = actorAt(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+  const range = intellectScriptRange(state.hero)
+  const point = { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }
+  const target = actorAt(state.floor, point.x, point.y)
   if (item.spell === 'ember') {
     if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect)
     else {
-      const point = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
       const reactions = resolveTerrainReactions(state.floor, [point], ['fire'])
       if (!reactions.length) getTile(state.floor, point.x, point.y)!.kind = 'fireVent'
       for (const reaction of reactions) log(state, `Terrain reaction: ${reaction.reaction}.`)
@@ -176,7 +179,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   if (item.spell === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect)
   if (item.spell === 'sight') for (const tile of state.floor.tiles) tile.explored = true
   if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
-  if (item.spell === 'ward') state.hero.maxHealth += 2
+  if (item.spell === 'ward') { state.hero.maxHealth += 2 + intellectWardBonus(state.hero); if (intellectWardBonus(state.hero)) addCondition(state.hero, { kind: 'shielded', duration: 3, potency: intellectWardBonus(state.hero) }) }
   if (item.spell === 'gate') { state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }
   const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))

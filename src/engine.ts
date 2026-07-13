@@ -43,5 +43,6 @@ export type { EquipmentEffect, EquipmentEffectKind, EquipmentTrigger } from './e
 export { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from './engine/strength'
 export { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegraphAvoidance } from './engine/agility'
 export { vitalityHazardReduction, vitalityRecovery, vitalityRescueRecovery, vitalityShield } from './engine/vitality'
+export { hasAstralGateAccess, intellectFocusDiscount, intellectFocusRecovery, intellectScriptRange, intellectWardBonus } from './engine/intellect'
 export { refreshFov } from './engine/visibility'
 export { completeObjective, objectiveForFloor } from './objectives'
