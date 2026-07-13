@@ -4,12 +4,12 @@ import { DIRECTIONS } from '../types'
 import { actorAt, getTile, isPassable } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
-import { canAffect } from './line-effect'
 import { resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 import { resolveTerrainReactions, type TerrainTag } from './terrain'
 import { actionCells } from './geometry'
+import { planEnemyIntent } from './intents'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -116,14 +116,15 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
 
 function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (hasCondition(actor, 'staggered')) return []
-  const range = distance(actor, state.hero)
-  if (range <= 1) return monsterAttack(state, actor)
-  if (actor.ai === 'ranged' && range <= 7 && canAffect(state.floor, actor, state.hero)) return monsterAttack(state, actor, 1)
-  if (range > 10 && actor.ai !== 'guardian') return []
+  const intent = planEnemyIntent(state, actor)
+  log(state, `${actor.name}: ${intent.action.name} (${intent.reason}).`)
+  if (intent.action.id === 'enemy-strike') return monsterAttack(state, actor)
+  if (intent.action.id === 'enemy-shot') return monsterAttack(state, actor, 1)
+  if (intent.action.id === 'guardian-slam') return monsterAttack(state, actor, 2)
   const candidates = Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: actor.x + delta.x, y: actor.y + delta.y }))
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))
   if (!valid.length) return []
-  valid.sort((a, b) => distance(a, state.hero) - distance(b, state.hero))
+  valid.sort((a, b) => intent.action.id === 'enemy-reposition' ? distance(b, state.hero) - distance(a, state.hero) : distance(a, state.hero) - distance(b, state.hero))
   const rng = turnRng(state, 'combat', `move:${actor.id}`)
   const next = actor.ai === 'wander' && rng.chance(45) ? rng.pick(valid) : valid[0]
   actor.x = next.x

@@ -19,6 +19,8 @@ export { addCondition, conditionSpeed, hasCondition, modifyIncomingDamage, tickC
 export type { ConditionTarget, ConditionTick } from './engine/conditions'
 export { resolveDisplacement } from './engine/displacement'
 export type { DisplacementKind, DisplacementOutcome } from './engine/displacement'
+export { planEnemyIntent } from './engine/intents'
+export type { EnemyIntent, EnemyPhase } from './engine/intents'
 export { resolveTerrainReactions, terrainTags } from './engine/terrain'
 export type { TerrainEffect, TerrainReaction, TerrainTag } from './engine/terrain'
 export { refreshFov } from './engine/visibility'
