@@ -12,6 +12,7 @@ import { recordRescue } from './rescue'
 import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
+import { evaluateEquipmentEffects } from './equipment'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -176,6 +177,8 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
   if (item.spell === 'ward') state.hero.maxHealth += 2
   if (item.spell === 'gate') { state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }
+  const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
+  state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   refreshFov(state)
   log(state, `${item.name} takes effect.`)

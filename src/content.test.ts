@@ -9,6 +9,7 @@ describe('content registry validation', () => {
   it('rejects invalid ids and tags', () => {
     expect(() => validateContent({ ...CONTENT, items: [...ITEMS, { ...ITEMS[0], id: 'bad id' }] })).toThrow('invalid item id')
     expect(() => validateContent({ ...CONTENT, items: [{ ...ITEMS[0], tags: ['missing'] }, ...ITEMS.slice(1)] })).toThrow('invalid item tag')
+    expect(() => validateContent({ ...CONTENT, items: [{ ...ITEMS[0], effects: [{ id: 'bad', kind: 'action' }] }, ...ITEMS.slice(1)] })).toThrow('missing equipment action')
   })
 
   it('rejects invalid references and prerequisites', () => {

@@ -1,5 +1,6 @@
 import type { Biome, EquipmentSlot, ItemId, StatName } from './types'
 import type { ActionShape } from './engine/actions'
+import { validateEquipmentEffects, type EquipmentEffect } from './effects'
 
 export interface WeaponProfile { damage: number; reach: number; shape: ActionShape; cooldown: number; tags: string[] }
 
@@ -16,6 +17,7 @@ export interface ItemDefinition {
   spell?: string
   throwable?: boolean
   tags?: string[]
+  effects?: readonly EquipmentEffect[]
 }
 
 export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[] }
@@ -25,12 +27,12 @@ export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: r
 export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect'] as const
 
 export const ITEMS: ItemDefinition[] = [
-  { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45 },
+  { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
   { id: 'machete', name: 'Brush Machete', glyph: '/', color: '#b8d6a0', slot: 'mainHand', weapon: { damage: 6, reach: 1, shape: 'adjacent', cooldown: 1, tags: ['cleave', 'wilds'] }, value: 75 },
   { id: 'pickaxe', name: 'Prospector Pick', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'cross', cooldown: 2, tags: ['rubble', 'piercing'] }, value: 110 },
   { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['piercing', 'reach'] }, value: 140, throwable: true },
   { id: 'sunblade', name: 'Sun Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
-  { id: 'buckler', name: 'Tin Buckler', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80 },
+  { id: 'buckler', name: 'Tin Buckler', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80, effects: [{ id: 'guarded', kind: 'passive', add: { defense: 1 } }] },
   { id: 'lantern', name: 'Glow Lantern', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
   { id: 'cap', name: 'Miner Cap', glyph: '[', color: '#d3b05c', slot: 'head', defense: 1, value: 55 },
   { id: 'mask', name: 'Moss Mask', glyph: '[', color: '#71a66d', slot: 'head', defense: 2, value: 120 },
@@ -38,7 +40,7 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'mail', name: 'Crystal Mail', glyph: '[', color: '#8bb7d1', slot: 'body', defense: 4, value: 230 },
   { id: 'boots', name: 'Trail Boots', glyph: ';', color: '#c28b5d', slot: 'boots', defense: 1, value: 70 },
   { id: 'featherboots', name: 'Feather Boots', glyph: ';', color: '#e7e9f0', slot: 'boots', defense: 2, value: 180 },
-  { id: 'ward', name: 'Ward Charm', glyph: 'o', color: '#ca9fe4', slot: 'charm', defense: 2, value: 160 },
+  { id: 'ward', name: 'Ward Charm', glyph: 'o', color: '#ca9fe4', slot: 'charm', defense: 2, value: 160, effects: [{ id: 'arcane-return', kind: 'triggered', trigger: 'spell', requires: ['arcane'], add: { focus: 1 } }] },
   { id: 'sunseal', name: 'Sun Seal', glyph: 'o', color: '#ffe181', slot: 'charm', defense: 3, value: 280 },
   { id: 'tonic', name: 'Vital Tonic', glyph: '!', color: '#eb6571', value: 35, use: 'heal', throwable: true },
   { id: 'focusTonic', name: 'Focus Tonic', glyph: '!', color: '#7fa8e8', value: 50, use: 'focus', throwable: true },
@@ -142,6 +144,7 @@ export const validateContent = (registry: ContentRegistry): void => {
   const tags = new Set(registry.tags)
   for (const item of registry.items) {
     validateTags('item', item.id, item.tags, tags)
+    validateEquipmentEffects(item.effects, item.id)
     if (item.use === 'spell' && !item.spell) throw new Error(`spell item missing spell id: ${item.id}`)
     if (item.use !== 'spell' && item.spell) throw new Error(`non-spell item has spell id: ${item.id}`)
   }
