@@ -25,3 +25,12 @@ export const selectLegacyEncounter = (campaign: CampaignRouteState, biome: Biome
   const record = rngFor(seed, 'legacy', `encounter:${biome}`).pick(eligible)
   return { record, campaign: { ...campaign, legacyEncounterAreas: [...campaign.legacyEncounterAreas, biome] } }
 }
+
+export const echoCacheEpitaph = (record: LegacyRecord): string => `${record.heirName} fell on ${record.biome} floor ${record.floor + 1}: ${record.cause}.`
+export const recoverEchoCache = (campaign: CampaignRouteState, state: RunState, recordId: string): { campaign: CampaignRouteState; recovered: boolean } => {
+  const record = campaign.legacyRecords.find(current => current.id === recordId)
+  if (!record || record.encounter.kind !== 'cache' || record.encounter.resolved) return { campaign, recovered: false }
+  state.hero.gold += record.cache.gold
+  for (const item of record.cache.items) if (state.hero.inventory.length < 12) state.hero.inventory.push(item)
+  return { campaign: { ...campaign, legacyRecords: campaign.legacyRecords.map(current => current.id === recordId ? { ...current, encounter: { ...current.encounter, resolved: true } } : current) }, recovered: true }
+}

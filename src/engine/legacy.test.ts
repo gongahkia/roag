@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignRoute } from './campaign'
-import { legacyRecordForDeath, recordDeath, selectLegacyEncounter } from './legacy'
+import { echoCacheEpitaph, legacyRecordForDeath, recordDeath, recoverEchoCache, selectLegacyEncounter } from './legacy'
 import { createRun } from '../test/factories'
 
 describe('legacy death records', () => {
@@ -25,5 +25,16 @@ describe('legacy death records', () => {
     expect(first.record?.biome).toBe('mine')
     expect(selectLegacyEncounter(first.campaign, 'mine', 44).record).toBeUndefined()
     expect(selectLegacyEncounter(campaign, 'wilds', 44).record).toBeUndefined()
+  })
+
+  it('recovers a weathered cache once and marks its encounter consumed', () => {
+    const state = createRun()
+    const campaign = recordDeath(initialCampaignRoute(), createRun({ seed: 8 }), 'Ari Vale')
+    campaign.legacyRecords[0].cache = { gold: 20, items: ['tonic'] }
+    expect(echoCacheEpitaph(campaign.legacyRecords[0])).toContain('Ari Vale fell')
+    const first = recoverEchoCache(campaign, state, campaign.legacyRecords[0].id)
+    expect(first).toMatchObject({ recovered: true, campaign: { legacyRecords: [{ encounter: { resolved: true } }] } })
+    expect(state.hero).toMatchObject({ gold: 20, inventory: ['tonic'] })
+    expect(recoverEchoCache(first.campaign, state, campaign.legacyRecords[0].id).recovered).toBe(false)
   })
 })
