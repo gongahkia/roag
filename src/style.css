@@ -3,7 +3,6 @@
 body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: #06070b; }
 main { display: grid; width: 100vw; height: 100dvh; place-items: center; }
 #game { display: block; width: min(100vw, 126.9841dvh); height: min(100dvh, 78.75vw); image-rendering: pixelated; outline: none; }
-.game-zoom-hud { position: fixed; right: 12px; bottom: 12px; z-index: 1; padding: 6px 8px; border: 1px solid #33445c; border-radius: 4px; color: #b8c7d9; background: #080c13dd; font-size: 11px; pointer-events: none; }
 
 body.atlas-page { display: block; overflow: auto; background: #0a0d13; }
 body.atlas-page main { display: block; width: auto; height: auto; min-height: 100dvh; }

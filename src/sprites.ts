@@ -57,6 +57,7 @@ export class TextureAtlas {
   private readonly image = new Image()
   private readonly cells = document.createElement('canvas')
   private ready = false
+  private sourceDetail = false
   private readonly listeners = new Set<() => void>()
 
   constructor() {
@@ -79,6 +80,7 @@ export class TextureAtlas {
   }
 
   onReady(listener: () => void): void { if (this.ready) listener(); else this.listeners.add(listener) }
+  setSourceDetail(value: boolean): void { this.sourceDetail = value }
 
   draw(ctx: CanvasRenderingContext2D, index: number | undefined, x: number, y: number, dim = false): boolean {
     if (!this.ready || index === undefined) return false
@@ -87,7 +89,10 @@ export class TextureAtlas {
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(this.cells, sourceX, sourceY, 16, 16, x * 10 - 2, y * 14, 14, 14)
+    if (this.sourceDetail) {
+      const source = atlasSourceRect(index)
+      ctx.drawImage(this.image, source.x, source.y, source.width, source.height, x * 10 - 2, y * 14, 14, 14)
+    } else ctx.drawImage(this.cells, sourceX, sourceY, 16, 16, x * 10 - 2, y * 14, 14, 14)
     ctx.restore()
     return true
   }

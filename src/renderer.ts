@@ -41,7 +41,10 @@ export class TerminalRenderer {
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
-  setBoardZoom(value: number): void { this.boardZoom = Math.max(.5, Math.min(5, value)) }
+  setBoardZoom(value: number): void {
+    this.boardZoom = Math.max(.5, Math.min(5, value))
+    textureAtlas.setSourceDetail(this.boardZoom > 1)
+  }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   get isSpriteMode(): boolean { return this.spriteMode }
   trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
@@ -124,19 +127,25 @@ export class TerminalRenderer {
     const boardHeight = 35 * CH
     const focusX = (state.hero.x + .5) * CW
     const focusY = (state.hero.y + .5) * CH
+    const centerX = boardWidth / 2
+    const centerY = boardHeight / 2
     this.ctx.save()
+    this.ctx.fillStyle = colors.ink
+    this.ctx.fillRect(0, 0, boardWidth, boardHeight)
     this.ctx.beginPath()
     this.ctx.rect(0, 0, boardWidth, boardHeight)
     this.ctx.clip()
-    this.ctx.translate(focusX, focusY)
-    this.ctx.scale(this.boardZoom, this.boardZoom)
-    this.ctx.translate(-focusX, -focusY)
+    if (this.boardZoom > 1) {
+      this.ctx.translate(centerX, centerY)
+      this.ctx.scale(this.boardZoom, this.boardZoom)
+      this.ctx.translate(-focusX, -focusY)
+    } else {
+      this.ctx.translate(centerX, centerY)
+      this.ctx.scale(this.boardZoom, this.boardZoom)
+      this.ctx.translate(-centerX, -centerY)
+    }
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) {
-      this.ctx.fillStyle = '#f4d26a'
-      this.ctx.fillRect(state.hero.x * CW + 3, state.hero.y * CH + 1, 4, 1)
-      this.ctx.fillRect(state.hero.x * CW + 1, state.hero.y * CH + 3, 1, 5)
-      this.ctx.fillRect(state.hero.x * CW + 8, state.hero.y * CH + 3, 1, 5)
       drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
     }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)

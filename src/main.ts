@@ -19,10 +19,6 @@ let hub: HubState = createHubState(0)
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
 let gameZoom = loadGameZoom()
-const zoomHud = document.createElement('output')
-zoomHud.className = 'game-zoom-hud'
-zoomHud.setAttribute('aria-live', 'polite')
-document.body.append(zoomHud)
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('jomon-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
@@ -103,7 +99,6 @@ function setGameZoom(value: number): void {
 
 function applyGameZoom(): void {
   renderer.setBoardZoom(gameZoom)
-  zoomHud.textContent = `board ${Math.round(gameZoom * 100)}% · wheel or +/- · 0 reset`
 }
 
 function zoomForKey(keyboardEvent: KeyboardEvent): boolean {
