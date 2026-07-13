@@ -13,6 +13,7 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
+from kenjaku.decision_rationale import extract_heuristic_rationale as _extract_heuristic_rationale
 from kenjaku.evaluator import DefenseRiskPotential as _DefenseRiskPotential
 from kenjaku.evaluator import HandValuePotential as _HandValuePotential
 from kenjaku.evaluator import PlacementEndgamePotential as _PlacementEndgamePotential
@@ -91,6 +92,7 @@ HeuristicCallCandidate = _HeuristicCallCandidate  # stable since 0.2.0
 rank_call_pass_heuristic = _rank_call_pass_heuristic  # stable since 0.2.0
 HeuristicActionCandidate = _HeuristicActionCandidate  # stable since 0.2.0
 rank_special_action_heuristic = _rank_special_action_heuristic  # stable since 0.2.0
+extract_heuristic_rationale = _extract_heuristic_rationale  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -180,6 +182,7 @@ API_EXPORT_DOCS = {
     "rank_call_pass_heuristic": "Rank pass and legal calls with structured proxy factors.",
     "HeuristicActionCandidate": "One structured special-action ranking candidate.",
     "rank_special_action_heuristic": "Rank legal riichi, kan, Kita, hora, and pass actions.",
+    "extract_heuristic_rationale": "Convert heuristic factors into a versioned rationale.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
@@ -274,6 +277,7 @@ __all__ = [
     "rank_call_pass_heuristic",
     "HeuristicActionCandidate",
     "rank_special_action_heuristic",
+    "extract_heuristic_rationale",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",
