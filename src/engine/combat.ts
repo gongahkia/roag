@@ -120,8 +120,18 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), source)
   }
   for (const effect of resolveTerrainReactions(state.floor, points, tags)) log(state, `Terrain reaction: ${effect.reaction}.`)
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
   log(state, 'The blast tears through the stone.')
+}
+
+export function resolveDefeatedActors(state: RunState): void {
+  for (const actor of state.floor.actors.filter(actor => actor.health <= 0)) {
+    log(state, `${actor.name} falls.`)
+    dropLoot(state, actor)
+    if (actor.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian defeated.'); log(state, 'The way to the exit is open.') }
+    gainXp(state, monsterXp(actor.kind))
+  }
+  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
 }
 
 function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefined, baseDamage: number, cooldown: number): ActionResult {
@@ -133,14 +143,8 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
     if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })
-    if (target.health <= 0) {
-      log(state, `${target.name} falls.`)
-      dropLoot(state, target)
-      if (target.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian defeated.'); log(state, 'The way to the exit is open.') }
-      gainXp(state, monsterXp(target.kind))
-    }
   }
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
   const events = advance(state, [event('hit')])
   if (weaponId && cooldown) (state.hero.cooldowns ??= {})[weaponId] = cooldown
   return events
@@ -212,7 +216,7 @@ function tickEnvironment(state: RunState, events: ActionResult): void {
     if (tile.kind === 'lava') actor.health -= 4
     if (tile.kind === 'fireVent' && turnRng(state, 'combat', `vent:${actor.id}`).chance(25)) actor.health -= 3
   }
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent', true))
   if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + intellectFocusRecovery(state.hero))
@@ -225,7 +229,7 @@ function tickConditionEffects(state: RunState, events: ActionResult): void {
     const tick = tickConditions(actor)
     if (tick.burningDamage) { actor.health -= tick.burningDamage; log(state, `${actor.name} burns for ${tick.burningDamage}.`) }
   }
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
 }
 
 function dropLoot(state: RunState, actor: Actor): void {

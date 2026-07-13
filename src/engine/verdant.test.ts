@@ -22,10 +22,10 @@ describe('Verdant', () => {
     castSpell(water, 'waterScript', 'e')
     expect(getTile(water.floor, 3, 1)?.kind).toBe('floor')
 
-    const target = createEnemy({ x: 3, y: 1, energy: 0 })
+    const target = createEnemy({ x: 2, y: 1, energy: 0 })
     const lull = createRun({ hero: createHero({ inventory: ['lull'] }) })
     lull.floor.actors = [target]
     castSpell(lull, 'lull', 'e')
-    expect(target).toMatchObject({ x: 3, y: 1, conditions: [{ kind: 'staggered', duration: 2, potency: 1 }] })
+    expect(target).toMatchObject({ x: 2, y: 1, conditions: [{ kind: 'staggered', duration: 2, potency: 1 }] })
   })
 })

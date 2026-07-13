@@ -74,7 +74,7 @@ export const SCRIPTS: ScriptDefinition[] = [
   { itemId: 'mend', id: 'mend', school: 'verdant', tags: ['healing'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
   { itemId: 'root', id: 'root', school: 'verdant', tags: ['root', 'control'], focusCost: 3, shape: 'line', range: 2, upgrades: ['potency', 'range'] },
   { itemId: 'waterScript', id: 'water', school: 'verdant', tags: ['water', 'terrain'], focusCost: 3, shape: 'line', range: 2, upgrades: ['range', 'potency'] },
-  { itemId: 'lull', id: 'lull', school: 'verdant', tags: ['creature', 'control'], focusCost: 4, shape: 'line', range: 2, upgrades: ['potency', 'range'] },
+  { itemId: 'lull', id: 'lull', school: 'verdant', tags: ['creature', 'control'], focusCost: 4, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
   { itemId: 'sight', id: 'sight', school: 'astral', tags: ['vision'], focusCost: 3, shape: 'burst', range: 1, upgrades: ['range', 'focusCost'] },
   { itemId: 'blink', id: 'blink', school: 'astral', tags: ['teleport', 'movement'], focusCost: 3, shape: 'line', range: 3, upgrades: ['range', 'focusCost'] },
   { itemId: 'gust', id: 'gust', school: 'astral', tags: ['force', 'movement'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },

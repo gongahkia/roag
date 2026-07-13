@@ -1,7 +1,7 @@
 import { ITEM, biomeName } from '../content'
 import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
 import { actorAt, generateAreaFloor, getTile } from '../world'
-import { advance, explode } from './combat'
+import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
 import { gateForArea } from './gates'
@@ -162,7 +162,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength); log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
   else state.floor.items.push({ id, x: point.x, y: point.y, count: 1 })
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
   return advance(state, [event(id === 'fireJar' ? 'boom' : 'hit')])
 }
 
@@ -183,7 +183,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   announceSynergies(state, impact)
   const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))
-  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  resolveDefeatedActors(state)
   refreshFov(state)
   log(state, `${item.name} takes effect.`)
   return advance(state, [event('spell')])
