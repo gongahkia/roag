@@ -127,6 +127,7 @@ from kenjaku.safety_advisor import (
 )
 from kenjaku.schema import ResponsePayload, response_from_dict
 from kenjaku.simulation import (
+    DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
     SELF_PLAY_MATCH_RON_POLICIES,
@@ -794,6 +795,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     paired_match.add_argument("--candidate-heuristic-seats", default="")
     paired_match.add_argument("--baseline-heuristic-seats", default="")
+    paired_match.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+    )
     paired_match.add_argument("--report", type=Path)
     paired_match.add_argument("--json", action="store_true")
     paired_match.set_defaults(func=_paired_match_4p)
@@ -818,6 +824,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     paired_match_3p.add_argument("--candidate-heuristic-seats", default="")
     paired_match_3p.add_argument("--baseline-heuristic-seats", default="")
+    paired_match_3p.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+    )
     paired_match_3p.add_argument("--report", type=Path)
     paired_match_3p.add_argument("--json", action="store_true")
     paired_match_3p.set_defaults(func=_paired_match_3p)
@@ -3614,6 +3625,7 @@ def _paired_match(
                 discard_policy=args.baseline_discard_policy,
                 heuristic_seats=_parse_seat_list(args.baseline_heuristic_seats),
             ),
+            bootstrap_resamples=args.bootstrap_resamples,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error

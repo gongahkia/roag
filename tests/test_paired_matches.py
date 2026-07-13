@@ -4,9 +4,11 @@ import unittest
 
 from kenjaku.commands._legacy import build_parser
 from kenjaku.simulation import (
+    DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
     PAIRED_SEED_MATCH_3P_REPORT_KIND,
     PAIRED_SEED_MATCH_4P_REPORT_KIND,
     PairedMatchPolicy,
+    paired_matches,
     run_paired_seed_matches_3p,
     run_paired_seed_matches_4p,
 )
@@ -31,6 +33,19 @@ class PairedSeedMatch4pTests(unittest.TestCase):
         self.assertEqual(report["summary"]["completed_pairs"], 1)
         self.assertEqual(len(row["placement_adjusted_score_delta_by_seat"]), 4)
         self.assertEqual(row["placement_adjusted_score_delta_by_seat"], [0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(
+            report["summary"]["placement_adjusted_score_delta_ci_by_seat"],
+            [
+                {
+                    "level": 0.95,
+                    "method": "paired-bootstrap-percentile",
+                    "resamples": DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+                    "low": 0.0,
+                    "high": 0.0,
+                }
+            ]
+            * 4,
+        )
 
     def test_validates_4p_profile_and_parser(self) -> None:
         with self.assertRaisesRegex(ValueError, "4p seat"):
@@ -51,12 +66,31 @@ class PairedSeedMatch4pTests(unittest.TestCase):
                 candidate=PairedMatchPolicy(),
                 baseline=PairedMatchPolicy(),
             )
+        with self.assertRaisesRegex(ValueError, "bootstrap_resamples must be positive"):
+            run_paired_seed_matches_4p(
+                pairs=1,
+                seed="bad-bootstrap",
+                max_rounds=1,
+                max_turns_per_round=1,
+                candidate=PairedMatchPolicy(),
+                baseline=PairedMatchPolicy(),
+                bootstrap_resamples=0,
+            )
         args = build_parser().parse_args(
-            ["paired-match-4p", "--pairs", "2", "--candidate-heuristic-seats", "1,3"]
+            [
+                "paired-match-4p",
+                "--pairs",
+                "2",
+                "--candidate-heuristic-seats",
+                "1,3",
+                "--bootstrap-resamples",
+                "17",
+            ]
         )
 
         self.assertEqual(args.pairs, 2)
         self.assertEqual(args.candidate_heuristic_seats, "1,3")
+        self.assertEqual(args.bootstrap_resamples, 17)
 
 
 class PairedSeedMatch3pTests(unittest.TestCase):
@@ -68,6 +102,7 @@ class PairedSeedMatch3pTests(unittest.TestCase):
             max_turns_per_round=512,
             candidate=PairedMatchPolicy(),
             baseline=PairedMatchPolicy(),
+            bootstrap_resamples=17,
         )
         row = report["rows"][0]
 
@@ -78,6 +113,19 @@ class PairedSeedMatch3pTests(unittest.TestCase):
         self.assertEqual(report["summary"]["completed_pairs"], 1)
         self.assertEqual(len(row["placement_adjusted_score_delta_by_seat"]), 3)
         self.assertEqual(row["placement_adjusted_score_delta_by_seat"], [0.0, 0.0, 0.0])
+        self.assertEqual(
+            report["summary"]["placement_adjusted_score_delta_ci_by_seat"],
+            [
+                {
+                    "level": 0.95,
+                    "method": "paired-bootstrap-percentile",
+                    "resamples": 17,
+                    "low": 0.0,
+                    "high": 0.0,
+                }
+            ]
+            * 3,
+        )
 
     def test_validates_3p_profile_and_parser(self) -> None:
         with self.assertRaisesRegex(ValueError, "3p seat"):
@@ -90,11 +138,50 @@ class PairedSeedMatch3pTests(unittest.TestCase):
                 baseline=PairedMatchPolicy(),
             )
         args = build_parser().parse_args(
-            ["paired-match-3p", "--pairs", "2", "--candidate-heuristic-seats", "1,2"]
+            [
+                "paired-match-3p",
+                "--pairs",
+                "2",
+                "--candidate-heuristic-seats",
+                "1,2",
+                "--bootstrap-resamples",
+                "17",
+            ]
         )
 
         self.assertEqual(args.pairs, 2)
         self.assertEqual(args.candidate_heuristic_seats, "1,2")
+        self.assertEqual(args.bootstrap_resamples, 17)
+
+
+class PairedBootstrapTests(unittest.TestCase):
+    def test_resampling_is_seeded_and_preserves_per_seat_intervals(self) -> None:
+        rows = [
+            {"placement_adjusted_score_delta_by_seat": [10.0, -10.0, 0.0]},
+            {"placement_adjusted_score_delta_by_seat": [0.0, 0.0, 0.0]},
+            {"placement_adjusted_score_delta_by_seat": [-10.0, 10.0, 0.0]},
+        ]
+        first = paired_matches._bootstrap_score_delta_confidence_intervals(
+            rows,
+            players=3,
+            seed="bootstrap-fixed",
+            resamples=101,
+        )
+        second = paired_matches._bootstrap_score_delta_confidence_intervals(
+            rows,
+            players=3,
+            seed="bootstrap-fixed",
+            resamples=101,
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first[0]["level"], 0.95)
+        self.assertEqual(first[0]["method"], "paired-bootstrap-percentile")
+        self.assertEqual(first[0]["resamples"], 101)
+        self.assertLess(first[0]["low"], 0.0)
+        self.assertGreater(first[0]["high"], 0.0)
+        self.assertEqual(first[2]["low"], 0.0)
+        self.assertEqual(first[2]["high"], 0.0)
 
 
 if __name__ == "__main__":

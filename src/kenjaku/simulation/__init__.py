@@ -78,6 +78,7 @@ from kenjaku.simulation.match_replay import (
     validate_self_play_match_replay,
 )
 from kenjaku.simulation.paired_matches import (
+    DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
     PAIRED_SEED_MATCH_3P_REPORT_KIND,
     PAIRED_SEED_MATCH_4P_REPORT_KIND,
     PairedMatchPolicy,
@@ -160,6 +161,7 @@ __all__ = [
     "SELF_PLAY_MATCH_REPLAY_VALIDATION_KIND",
     "reconstruct_self_play_match_report",
     "validate_self_play_match_replay",
+    "DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES",
     "PAIRED_SEED_MATCH_3P_REPORT_KIND",
     "PAIRED_SEED_MATCH_4P_REPORT_KIND",
     "PairedMatchPolicy",
