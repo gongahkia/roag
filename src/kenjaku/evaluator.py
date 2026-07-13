@@ -4,6 +4,12 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from kenjaku.core import TENHOU_3P, TENHOU_4P, RuleSet, Tile, TileType, shanten, tile_counts
+from kenjaku.training.defense_risk import (
+    DefenseRiskScore,
+    candidate_defense_risk,
+    legal_candidate_defense_risks,
+)
+from kenjaku.training.discard_examples import DiscardExample
 
 _DRAGONS = frozenset(TileType.parse(token) for token in ("P", "F", "C"))
 
@@ -24,6 +30,17 @@ class HandValuePotential:
     yakuhai_triplets: tuple[TileType, ...]
     flush_candidate: str | None
     potential_yaku: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DefenseRiskPotential:
+    tile: TileType
+    risk: float
+    risk_band: str
+    active_riichi_opponents: int
+    calibrated_probability: bool
+    safety_factors: tuple[str, ...]
+    danger_factors: tuple[str, ...]
 
 
 def evaluate_shanten_ukeire(
@@ -112,6 +129,30 @@ def _ruleset(ruleset: str) -> RuleSet:
     if ruleset == TENHOU_3P.name:
         return TENHOU_3P
     raise ValueError("unsupported evaluator ruleset: " + ruleset)
+
+
+def evaluate_defense_risk(
+    example: DiscardExample,
+    tile: TileType | int,
+) -> DefenseRiskPotential:
+    return _defense_risk_potential(candidate_defense_risk(example, tile))
+
+
+def evaluate_legal_defense_risks(example: DiscardExample) -> tuple[DefenseRiskPotential, ...]:
+    return tuple(_defense_risk_potential(score) for score in legal_candidate_defense_risks(example))
+
+
+def _defense_risk_potential(score: DefenseRiskScore) -> DefenseRiskPotential:
+    risk = score.risk
+    return DefenseRiskPotential(
+        tile=score.tile,
+        risk=risk,
+        risk_band="low" if risk < 1 / 3 else "medium" if risk < 2 / 3 else "high",
+        active_riichi_opponents=score.active_riichi_opponents,
+        calibrated_probability=score.calibrated_probability,
+        safety_factors=score.safety_reasons,
+        danger_factors=score.danger_reasons,
+    )
 
 
 def _dora_type_for_indicator(indicator: TileType, *, ruleset: str) -> TileType:

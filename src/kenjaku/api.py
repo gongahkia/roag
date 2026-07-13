@@ -13,9 +13,12 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
+from kenjaku.evaluator import DefenseRiskPotential as _DefenseRiskPotential
 from kenjaku.evaluator import HandValuePotential as _HandValuePotential
 from kenjaku.evaluator import ShantenUkeire as _ShantenUkeire
+from kenjaku.evaluator import evaluate_defense_risk as _evaluate_defense_risk
 from kenjaku.evaluator import evaluate_hand_value_potential as _evaluate_hand_value_potential
+from kenjaku.evaluator import evaluate_legal_defense_risks as _evaluate_legal_defense_risks
 from kenjaku.evaluator import evaluate_shanten_ukeire as _evaluate_shanten_ukeire
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
@@ -59,6 +62,9 @@ ShantenUkeire = _ShantenUkeire  # stable since 0.2.0
 evaluate_shanten_ukeire = _evaluate_shanten_ukeire  # stable since 0.2.0
 HandValuePotential = _HandValuePotential  # stable since 0.2.0
 evaluate_hand_value_potential = _evaluate_hand_value_potential  # stable since 0.2.0
+DefenseRiskPotential = _DefenseRiskPotential  # stable since 0.2.0
+evaluate_defense_risk = _evaluate_defense_risk  # stable since 0.2.0
+evaluate_legal_defense_risks = _evaluate_legal_defense_risks  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -132,6 +138,9 @@ API_EXPORT_DOCS = {
     "evaluate_shanten_ukeire": "Evaluate shanten and improving draw availability.",
     "HandValuePotential": "Visible bonus and structural yaku-potential features.",
     "evaluate_hand_value_potential": "Evaluate visible hand-value potential features.",
+    "DefenseRiskPotential": "Heuristic, uncalibrated defense-risk features.",
+    "evaluate_defense_risk": "Evaluate defense risk for one discard candidate.",
+    "evaluate_legal_defense_risks": "Rank legal discard candidates by defense risk.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",

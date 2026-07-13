@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import Tile, TileType
-from kenjaku.evaluator import evaluate_hand_value_potential, evaluate_shanten_ukeire
+from kenjaku.core import Action, Tile, TileType, tile_counts
+from kenjaku.evaluator import (
+    evaluate_defense_risk,
+    evaluate_hand_value_potential,
+    evaluate_legal_defense_risks,
+    evaluate_shanten_ukeire,
+)
+from kenjaku.training import DiscardExample
 
 
 class ShantenUkeireEvaluatorTests(unittest.TestCase):
@@ -73,6 +79,18 @@ class ShantenUkeireEvaluatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unavailable"):
             evaluate_hand_value_potential(_tiles("5m"), ruleset="tenhou-3p")
 
+    def test_exposes_defense_risk_bands_and_ranked_factors(self) -> None:
+        example = _defense_example(opponent_river=("4m",), hand=("4m", "5m", "7m"))
+
+        genbutsu = evaluate_defense_risk(example, TileType.parse("4m"))
+        candidates = evaluate_legal_defense_risks(example)
+
+        self.assertLess(genbutsu.risk, candidates[0].risk)
+        self.assertEqual(genbutsu.risk_band, "low")
+        self.assertIn("genbutsu", genbutsu.safety_factors)
+        self.assertFalse(genbutsu.calibrated_probability)
+        self.assertEqual([candidate.tile.notation for candidate in candidates], ["5m", "7m", "4m"])
+
 
 def _counts(text: str) -> tuple[int, ...]:
     counts = [0] * 34
@@ -83,6 +101,27 @@ def _counts(text: str) -> tuple[int, ...]:
 
 def _tiles(text: str) -> tuple[Tile, ...]:
     return tuple(Tile.parse(token) for token in text.split())
+
+
+def _defense_example(*, opponent_river: tuple[str, ...], hand: tuple[str, ...]) -> DiscardExample:
+    hand_tiles = _tiles(" ".join(hand))
+    opponent_tiles = _tiles(" ".join(opponent_river))
+    rivers = ((), opponent_tiles, (), ())
+    return DiscardExample(
+        round_index=0,
+        event_index=0,
+        seat=0,
+        dealer=0,
+        scores=(25000, 25000, 25000, 25000),
+        hand_counts=tile_counts(hand_tiles),
+        visible_counts=tile_counts((*hand_tiles, *opponent_tiles)),
+        action=Action.discard(hand_tiles[0].type),
+        active_riichi_seats=(False, True, False, False),
+        river_counts_by_seat=tuple(tile_counts(river) for river in rivers),
+        rivers_by_seat=rivers,
+        riichi_declared_turns=(None, 0, None, None),
+        riichi_declared_event_indices=(None, 1, None, None),
+    )
 
 
 if __name__ == "__main__":
