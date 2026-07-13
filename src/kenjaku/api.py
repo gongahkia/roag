@@ -13,6 +13,8 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
+from kenjaku.evaluator import ShantenUkeire as _ShantenUkeire
+from kenjaku.evaluator import evaluate_shanten_ukeire as _evaluate_shanten_ukeire
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
@@ -51,6 +53,8 @@ LegalActionOracleV1 = _LegalActionOracleV1  # stable since 0.2.0
 LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
 legal_action_oracle_v1 = _legal_action_oracle_v1  # stable since 0.2.0
+ShantenUkeire = _ShantenUkeire  # stable since 0.2.0
+evaluate_shanten_ukeire = _evaluate_shanten_ukeire  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -120,6 +124,8 @@ API_EXPORT_DOCS = {
     "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
     "legal_action_oracle_v1": "Compute legal public v1 actions for one sandbox seat.",
+    "ShantenUkeire": "Exact shanten and remaining-copy ukeire result.",
+    "evaluate_shanten_ukeire": "Evaluate shanten and improving draw availability.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
