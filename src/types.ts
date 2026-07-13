@@ -134,6 +134,7 @@ export interface RunState {
   turn: number
   area?: Biome
   areaFloor?: number
+  gateDestination?: Biome
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }

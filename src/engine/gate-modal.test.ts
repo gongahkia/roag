@@ -13,12 +13,14 @@ describe('gate resolution modal', () => {
 
   it('requires selection then confirmation through keyboard input', () => {
     const state = createRun()
-    state.modal = { kind: 'gate', gateId: 'mine-shaft' }
-    expect(perform(state, '2')).toEqual([{ type: 'menu' }])
-    expect(state.modal).toMatchObject({ kind: 'gate', choice: 1, confirming: false })
+    state.hero.bombs = 1
+    state.modal = { kind: 'gate', gateId: 'mine-wilds-pass' }
+    expect(perform(state, '3')).toEqual([{ type: 'menu' }])
+    expect(state.modal).toMatchObject({ kind: 'gate', choice: 2, confirming: false })
     expect(perform(state, 'Enter')).toEqual([{ type: 'menu' }])
     expect(state.modal).toMatchObject({ kind: 'gate', confirming: true })
-    expect(perform(state, 'Enter')).toEqual([{ type: 'menu' }])
+    expect(perform(state, 'Enter')).toEqual([{ type: 'gateResolved' }])
     expect(state.modal).toBeUndefined()
+    expect(state.gateDestination).toBe('wilds')
   })
 })

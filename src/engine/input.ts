@@ -4,7 +4,7 @@ import { bomb, castFirstSpell, castSpell, descend, inventoryChoice, operate, pic
 import { chooseSkill } from './progression'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
-import { gateForArea } from './gates'
+import { gateForArea, resolveAreaGate } from './gates'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -59,9 +59,11 @@ function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' 
   if (command !== 'Enter') return []
   if (modal.choice === undefined) { log(state, 'Choose a gate alternative first.'); return [] }
   if (!modal.confirming) { state.modal = { ...modal, confirming: true }; return [event('menu')] }
+  const resolution = resolveAreaGate(state, gate, modal.choice)
+  log(state, resolution.message)
+  if (!resolution.resolved) return []
   state.modal = undefined
-  log(state, 'Gate choice confirmed.')
-  return [event('menu')]
+  return [event('gateResolved')]
 }
 
 function commitTarget(state: RunState, modal: Extract<Modal, { kind: 'target' }>): ActionResult {

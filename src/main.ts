@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
@@ -64,6 +64,7 @@ window.addEventListener('keydown', keyboardEvent => {
   renderer.trigger(events, state)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
   if (hasEvent(events, 'areaComplete')) completeArea()
+  if (hasEvent(events, 'gateResolved')) unlockGateDestination()
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   redraw()
 })
@@ -90,6 +91,15 @@ function completeArea(): void {
   saved = undefined
   void deleteRun()
   route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
+}
+
+function unlockGateDestination(): void {
+  if (!state?.gateDestination) return
+  campaign = unlockCampaignArea(campaign, state.gateDestination)
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  route = { ...route, biome: campaign.selectedBiome }
+  state.gateDestination = undefined
+  void saveCampaignRoute(campaign)
 }
 
 function toggleVisualMode(): void {
