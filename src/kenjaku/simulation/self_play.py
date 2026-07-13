@@ -6,7 +6,7 @@ from typing import Any
 
 from kenjaku.core import Action, ActionKind, RuleSet, Tile, TileType
 from kenjaku.reproducibility import derive_seed_int
-from kenjaku.simulation.config import SandboxRuleConfig
+from kenjaku.simulation.config import SandboxRuleConfig, default_sandbox_rule_config
 from kenjaku.simulation.environment import (
     SANDBOX_RULESETS,
     SandboxEnvironmentState,
@@ -93,6 +93,9 @@ def run_self_play_match_sandbox(
     if rule_config is not None:
         ruleset = rule_config.ruleset
     rules = resolve_sandbox_ruleset(ruleset)
+    resolved_rule_config = (
+        default_sandbox_rule_config(rules.name) if rule_config is None else rule_config
+    )
     policy_counts = [0] * 34
     policies = {
         "discard": discard_policy,
@@ -139,6 +142,7 @@ def run_self_play_match_sandbox(
         "max_rounds": max_rounds,
         "max_turns_per_round": max_turns_per_round,
         "ruleset": rules.name,
+        "rule_config": resolved_rule_config.to_versioned_payload(),
         "players": rules.players,
         "policies": policies,
         "decisions": total_decisions,

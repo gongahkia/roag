@@ -59,6 +59,11 @@ from kenjaku.simulation.legal_action_oracle import (
     LegalActionOracleV1,
     legal_action_oracle_v1,
 )
+from kenjaku.simulation.match_replay import (
+    SELF_PLAY_MATCH_REPLAY_VALIDATION_KIND,
+    reconstruct_self_play_match_report,
+    validate_self_play_match_replay,
+)
 from kenjaku.simulation.self_play import (
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
@@ -107,6 +112,9 @@ __all__ = [
     "LEGAL_ACTION_ORACLE_V1_KIND",
     "LegalActionOracleV1",
     "legal_action_oracle_v1",
+    "SELF_PLAY_MATCH_REPLAY_VALIDATION_KIND",
+    "reconstruct_self_play_match_report",
+    "validate_self_play_match_replay",
     "next_round_sandbox_environment",
     "pass_pending_discard_reactions",
     "resolve_sandbox_ruleset",
