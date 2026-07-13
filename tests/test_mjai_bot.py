@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kenjaku.bot import bot_main
-from kenjaku.bot.mjai import load_mjai_policy
+from kenjaku.bot.mjai import BotState, FrequencyBotPolicy, MjaiBot, load_mjai_policy
 from kenjaku.cli import main
 from kenjaku.core import TileType
 from kenjaku.models import DiscardLinearModel
@@ -133,6 +133,67 @@ class MjaiBotTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(rows, [{"type": "none", "request_id": 9}])
 
+    def test_selects_every_action_v1_action_deterministically(self) -> None:
+        bot = MjaiBot(BotState(player_id=1), FrequencyBotPolicy())
+        action_types = {
+            "discard": "dahai",
+            "riichi": "reach",
+            "chi": "chi",
+            "pon": "pon",
+            "minkan": "daiminkan",
+            "ankan": "ankan",
+            "kakan": "kakan",
+            "pass": "none",
+            "tsumo": "tsumo",
+            "ron": "ron",
+            "kyushu": "kyushu",
+            "kita": "kita",
+        }
+
+        for action_v1, mjai_type in action_types.items():
+            with self.subTest(action=action_v1):
+                request = {
+                    "type": "request_action",
+                    "request_id": action_v1,
+                    "possible_actions": [_mjai_action(mjai_type)],
+                }
+                first = bot.receive_line(json.dumps(request))
+                second = bot.receive_line(json.dumps(request))
+
+                self.assertEqual(first, second)
+                self.assertEqual(first[0]["type"], mjai_type)
+                self.assertEqual(first[0]["request_id"], action_v1)
+                if mjai_type != "none":
+                    self.assertEqual(first[0]["actor"], 1)
+
+    def test_prefers_special_actions_and_calls_over_discard_or_pass(self) -> None:
+        bot = MjaiBot(BotState(player_id=0), FrequencyBotPolicy())
+        request = {
+            "type": "request_action",
+            "possible_actions": [
+                _mjai_action("none"),
+                _mjai_action("dahai"),
+                _mjai_action("chi"),
+                _mjai_action("reach"),
+                _mjai_action("hora"),
+            ],
+        }
+
+        self.assertEqual(bot.receive_line(json.dumps(request)), [{"type": "hora", "actor": 0}])
+
+        request["possible_actions"] = [_mjai_action("none"), _mjai_action("chi")]
+        self.assertEqual(
+            bot.receive_line(json.dumps(request)),
+            [{"type": "chi", "pai": "1m", "actor": 0}],
+        )
+
+    def test_observes_kita_as_a_hand_call(self) -> None:
+        state = BotState(player_id=0, hand=["N", "1m"])
+
+        state.observe({"type": "kita", "actor": 0, "consumed": ["N"]})
+
+        self.assertEqual(state.hand, ["1m"])
+
     def test_loads_linear_checkpoint_only_with_compatible_manifest(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -182,6 +243,15 @@ def _start_kyoku() -> dict:
         "tehais": [["1m", "5m", "9m"], ["?"] * 13, ["?"] * 13, ["?"] * 13],
         "dora_marker": "2p",
     }
+
+
+def _mjai_action(action_type: str) -> dict:
+    action: dict = {"type": action_type}
+    if action_type in {"dahai", "chi", "pon", "daiminkan", "ankan", "kakan", "kita"}:
+        action["pai"] = "1m" if action_type != "kita" else "N"
+    if action_type == "dahai":
+        action["tsumogiri"] = False
+    return action
 
 
 def _jsonl(output: io.StringIO) -> list[dict]:

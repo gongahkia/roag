@@ -33,6 +33,19 @@ _BOT_CHECKPOINT_MODEL_KINDS = {
     "transformer": "discard-transformer-v0",
     "transformer-discard": "discard-transformer-v0",
 }
+_MJAI_ACTION_PRIORITY = (
+    ("hora", "tsumo", "ron"),
+    ("ryukyoku", "kyushu"),
+    ("reach", "riichi"),
+    ("ankan",),
+    ("kakan",),
+    ("kita",),
+    ("dahai", "discard"),
+    ("daiminkan", "minkan"),
+    ("pon",),
+    ("chi",),
+    ("none", "pass"),
+)
 
 
 class MjaiDiscardPolicy(Protocol):
@@ -67,7 +80,7 @@ class BotState:
         if event_type == "dahai":
             self._dahai(event)
             return
-        if event_type in {"chi", "pon", "daiminkan", "ankan", "kakan"}:
+        if event_type in {"chi", "pon", "daiminkan", "ankan", "kakan", "kita"}:
             self._call(event)
             return
         if event_type == "reach":
@@ -250,19 +263,17 @@ class MjaiBot:
         if not isinstance(possible_actions, list):
             return self._with_request_id({"type": "none"}, request)
         actions = [dict(action) for action in possible_actions if isinstance(action, dict)]
-        for action_type in ("hora", "tsumo", "ron", "ryukyoku", "kyushu"):
-            action = _first_action(actions, action_type)
+        for action_types in _MJAI_ACTION_PRIORITY:
+            action = _first_action_of_types(actions, action_types)
             if action is not None:
+                if action_types == ("dahai", "discard"):
+                    discard_actions = [
+                        candidate for candidate in actions if candidate.get("type") in action_types
+                    ]
+                    return self._with_request_id(
+                        self._choose_discard_action(discard_actions), request
+                    )
                 return self._with_request_id(action, request)
-        discard_actions = [action for action in actions if action.get("type") == "dahai"]
-        if discard_actions:
-            return self._with_request_id(self._choose_discard_action(discard_actions), request)
-        reach = _first_action(actions, "reach")
-        if reach is not None:
-            return self._with_request_id(reach, request)
-        none = _first_action(actions, "none")
-        if none is not None:
-            return self._with_request_id(none, request)
         return self._with_request_id(actions[0] if actions else {"type": "none"}, request)
 
     def _legacy_action(self, last_event: dict[str, Any]) -> dict[str, Any]:
@@ -524,9 +535,11 @@ def _load_bot_checkpoint_manifest(
     return manifest
 
 
-def _first_action(actions: list[dict[str, Any]], action_type: str) -> dict[str, Any] | None:
+def _first_action_of_types(
+    actions: list[dict[str, Any]], action_types: tuple[str, ...]
+) -> dict[str, Any] | None:
     for action in actions:
-        if action.get("type") == action_type:
+        if action.get("type") in action_types:
             return action
     return None
 
