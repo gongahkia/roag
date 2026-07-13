@@ -3836,6 +3836,7 @@ def _bot(args: argparse.Namespace) -> int:
             policy_type=args.policy_type,
             player_id=args.player_id,
             device=args.device,
+            checkpoint_manifest=args.checkpoint_manifest,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error

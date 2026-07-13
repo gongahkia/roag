@@ -9,6 +9,12 @@ from typing import Any, Protocol, TextIO, cast
 
 from kenjaku.core import Action, Tile, TileType, tile_counts
 from kenjaku.models import DiscardFrequencyBaseline, DiscardLinearModel
+from kenjaku.schema import (
+    CheckpointCompatibilityV1,
+    CheckpointManifestV1,
+    CheckpointRequirementV1,
+    SemanticVersion,
+)
 from kenjaku.training import DiscardExample
 
 BOT_POLICY_TYPES = {
@@ -19,6 +25,13 @@ BOT_POLICY_TYPES = {
     "mlp-discard",
     "transformer",
     "transformer-discard",
+}
+_BOT_CHECKPOINT_MODEL_KINDS = {
+    "linear-discard": "discard-linear-v1",
+    "mlp": "discard-mlp-v0",
+    "mlp-discard": "discard-mlp-v0",
+    "transformer": "discard-transformer-v0",
+    "transformer-discard": "discard-transformer-v0",
 }
 
 
@@ -321,6 +334,7 @@ def bot_main(
         player_id=args.player_id,
         policy_type=args.policy_type,
         device=args.device,
+        checkpoint_manifest=args.checkpoint_manifest,
         stdin=stdin or sys.stdin,
         stdout=stdout or sys.stdout,
     )
@@ -333,12 +347,18 @@ def run_stdio_bot(
     player_id: int,
     policy_type: str = "auto",
     device: str = "cpu",
+    checkpoint_manifest: str | Path | None = None,
     stdin: TextIO | None = None,
     stdout: TextIO | None = None,
 ) -> None:
     if player_id not in range(4):
         raise ValueError("player-id must be 0, 1, 2, or 3")
-    policy = load_mjai_policy(policy_arg, policy_type=policy_type, device=device)
+    policy = load_mjai_policy(
+        policy_arg,
+        policy_type=policy_type,
+        device=device,
+        checkpoint_manifest=checkpoint_manifest,
+    )
     bot = MjaiBot(BotState(player_id=player_id), policy)
     input_stream = stdin or sys.stdin
     output_stream = stdout or sys.stdout
@@ -357,12 +377,15 @@ def load_mjai_policy(
     *,
     policy_type: str = "auto",
     device: str = "cpu",
+    checkpoint_manifest: str | Path | None = None,
 ) -> MjaiDiscardPolicy:
     if policy_type not in BOT_POLICY_TYPES:
         raise ValueError(f"unsupported bot policy type: {policy_type}")
     policy_text = str(policy)
     normalized = _normalize_policy_type(policy_text) if policy_type == "auto" else policy_type
     if normalized == "frequency":
+        if checkpoint_manifest is not None:
+            raise ValueError("frequency policy does not accept checkpoint_manifest")
         return FrequencyBotPolicy()
 
     path = Path(policy)
@@ -370,6 +393,8 @@ def load_mjai_policy(
         raise ValueError(f"policy checkpoint not found: {path}")
     if normalized == "auto":
         normalized = _detect_policy_type(path, device=device)
+    if checkpoint_manifest is not None:
+        _load_bot_checkpoint_manifest(checkpoint_manifest, policy_type=normalized)
     if normalized == "linear-discard":
         return LinearDiscardBotPolicy(DiscardLinearModel.load(path))
     if normalized in {"mlp", "mlp-discard"}:
@@ -414,6 +439,11 @@ def _build_bot_parser() -> argparse.ArgumentParser:
         "--device",
         default="cpu",
         help="PyTorch device for mlp or transformer policies",
+    )
+    parser.add_argument(
+        "--checkpoint-manifest",
+        type=Path,
+        help="optional CheckpointManifestV1 JSON required to match the loaded checkpoint family",
     )
     return parser
 
@@ -463,6 +493,35 @@ def _detect_torch_policy_type(path: Path, *, device: str) -> str:
     if kind == "kenjaku-discard-transformer-checkpoint-v0":
         return "transformer"
     raise ValueError(f"unsupported torch policy checkpoint kind: {kind!r}")
+
+
+def _load_bot_checkpoint_manifest(
+    path: str | Path,
+    *,
+    policy_type: str,
+) -> CheckpointManifestV1:
+    expected_model_kind = _BOT_CHECKPOINT_MODEL_KINDS.get(policy_type)
+    if expected_model_kind is None:
+        raise ValueError(f"unsupported checkpoint manifest policy type: {policy_type}")
+    manifest_path = Path(path)
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise ValueError(f"checkpoint manifest cannot be read: {manifest_path}") from error
+    except json.JSONDecodeError as error:
+        raise ValueError(f"checkpoint manifest is invalid JSON: {manifest_path}") from error
+    if not isinstance(payload, dict):
+        raise ValueError("checkpoint manifest must be a JSON object")
+    manifest = CheckpointManifestV1.from_dict(payload)
+    manifest.require_compatible(
+        CheckpointRequirementV1(
+            ruleset="tenhou-4p",
+            minimum_model_version=SemanticVersion(1, 0, 0),
+            compatibility=CheckpointCompatibilityV1.current(),
+            model_kind=expected_model_kind,
+        )
+    )
+    return manifest
 
 
 def _first_action(actions: list[dict[str, Any]], action_type: str) -> dict[str, Any] | None:

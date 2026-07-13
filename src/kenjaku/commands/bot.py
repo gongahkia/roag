@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from kenjaku.commands import _legacy
 from kenjaku.commands._registry import handle
@@ -40,6 +41,11 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         "--device",
         default="cpu",
         help="PyTorch device for mlp or transformer policies",
+    )
+    bot.add_argument(
+        "--checkpoint-manifest",
+        type=Path,
+        help="optional CheckpointManifestV1 JSON required to match the loaded checkpoint family",
     )
     bot.set_defaults(func=_legacy._bot)
 

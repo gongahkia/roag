@@ -9,10 +9,12 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kenjaku.bot import bot_main
+from kenjaku.bot.mjai import load_mjai_policy
 from kenjaku.cli import main
 from kenjaku.core import TileType
 from kenjaku.models import DiscardLinearModel
 from kenjaku.models.linear_discard import RAW_COUNT_FEATURE_DIM, RAW_COUNT_FEATURE_PROFILE
+from kenjaku.schema import CheckpointManifestV1
 
 
 class MjaiBotTests(unittest.TestCase):
@@ -130,6 +132,38 @@ class MjaiBotTests(unittest.TestCase):
         rows = _jsonl(stdout)
         self.assertEqual(exit_code, 0)
         self.assertEqual(rows, [{"type": "none", "request_id": 9}])
+
+    def test_loads_linear_checkpoint_only_with_compatible_manifest(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = root / "linear.json"
+            DiscardLinearModel(
+                weights=tuple(tuple(0.0 for _ in range(RAW_COUNT_FEATURE_DIM)) for _ in range(34)),
+                epochs=0,
+                learning_rate=0.1,
+                feature_profile=RAW_COUNT_FEATURE_PROFILE,
+            ).save(checkpoint)
+            manifest = CheckpointManifestV1.for_current_schemas(
+                checkpoint_id="linear-v1",
+                model_kind="discard-linear-v1",
+                model_version="1.0.0",
+                rulesets=("tenhou-4p",),
+            )
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(manifest.to_json(), encoding="utf-8")
+
+            policy = load_mjai_policy(checkpoint, checkpoint_manifest=manifest_path)
+
+            self.assertEqual(type(policy).__name__, "LinearDiscardBotPolicy")
+            incompatible = CheckpointManifestV1.for_current_schemas(
+                checkpoint_id="linear-3p",
+                model_kind="discard-linear-v1",
+                model_version="1.0.0",
+                rulesets=("tenhou-3p",),
+            )
+            manifest_path.write_text(incompatible.to_json(), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "ruleset is unsupported"):
+                load_mjai_policy(checkpoint, checkpoint_manifest=manifest_path)
 
     def test_submission_artifacts_exist(self) -> None:
         self.assertTrue(Path("dockerfiles/mjai-bot.Dockerfile").exists())
