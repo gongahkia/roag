@@ -1,6 +1,7 @@
 import { ITEM, biomeName, shopStock } from './content'
 import { skillChoices, type ActionResult, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
+import { presentTelegraph } from './renderer/telegraphs'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
@@ -100,14 +101,23 @@ export class TerminalRenderer {
   private drawMapCell(state: RunState, x: number, y: number): void {
     const tile = getTile(state.floor, x, y)!
     if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); return }
+    const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
     const [glyph, color] = tileGlyph[tile.kind]
     if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
     else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     if (!tile.visible) return
+    if (this.spriteMode && telegraph) {
+      this.ctx.fillStyle = telegraph.danger === 'major' ? '#ee6f7870' : '#f4d26a70'
+      this.ctx.fillRect(x * CW, y * CH, CW, CH)
+    }
     const item = state.floor.items.find(current => current.x === x && current.y === y)
     if (item) this.spriteMode ? drawItemSprite(this.ctx, item.id, x, y) : this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
     const actor = actorAt(state.floor, x, y)
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
+    if (telegraph && !this.spriteMode) {
+      const presentation = presentTelegraph(telegraph, state.turn, '')
+      this.cell(x, y, presentation.glyph, presentation.color)
+    }
   }
 
   private sidebar(state: RunState): void {
@@ -130,8 +140,13 @@ export class TerminalRenderer {
       this.text(50, 16 + i, `${SLOT_NAMES[slot].slice(0, 8).padEnd(8)} ${id ? ITEM[id].glyph : '-'}`, id ? ITEM[id].color : colors.dim)
     }
     this.text(50, 23, 'VISIBLE THREATS', colors.gold)
-    const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 4)
+    const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
     foes.forEach((foe, i) => this.text(50, 24 + i, `${foe.glyph} ${foe.name.slice(0, 19).padEnd(19)} ${Math.max(0, foe.health)}`, foe.color))
+    state.floor.telegraphs?.slice(0, 2).forEach((telegraph, i) => {
+      const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
+      const presentation = presentTelegraph(telegraph, state.turn, source)
+      this.text(50, 27 + i, presentation.label.slice(0, 29), presentation.color)
+    })
     this.text(50, 29, state.floor.guardianDefeated ? 'OBJECTIVE: FIND EXIT' : 'OBJECTIVE: DEFEAT GUARDIAN', state.floor.guardianDefeated ? colors.green : colors.gold)
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
