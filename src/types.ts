@@ -39,7 +39,7 @@ export interface Actor {
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number }
 export type TelegraphDanger = 'minor' | 'major'
-export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number }
+export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
   index: number
   biome: Biome

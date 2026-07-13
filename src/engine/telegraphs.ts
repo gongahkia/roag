@@ -1,13 +1,13 @@
 import type { Point, RunState, Telegraph, TelegraphDanger } from '../types'
 import { log } from './shared'
 
-export interface TelegraphPlan { id: string; sourceId: string; actionId: string; cells: readonly Point[]; danger: TelegraphDanger; windup: number }
+export interface TelegraphPlan { id: string; sourceId: string; actionId: string; cells: readonly Point[]; danger: TelegraphDanger; windup: number; collision?: { point: Point; by: string }; cover?: boolean }
 
 export const announceTelegraph = (state: RunState, plan: TelegraphPlan): Telegraph => {
   if (!Number.isInteger(plan.windup) || plan.windup < 1) throw new Error(`invalid telegraph windup: ${plan.windup}`)
   const telegraphs = state.floor.telegraphs ??= []
   if (telegraphs.some(telegraph => telegraph.id === plan.id)) throw new Error(`duplicate telegraph: ${plan.id}`)
-  const telegraph: Telegraph = { id: plan.id, sourceId: plan.sourceId, actionId: plan.actionId, cells: plan.cells.map(cell => ({ ...cell })), danger: plan.danger, resolveTurn: state.turn + plan.windup }
+  const telegraph: Telegraph = { id: plan.id, sourceId: plan.sourceId, actionId: plan.actionId, cells: plan.cells.map(cell => ({ ...cell })), danger: plan.danger, resolveTurn: state.turn + plan.windup, ...(plan.collision ? { collision: { point: { ...plan.collision.point }, by: plan.collision.by } } : {}), ...(plan.cover === undefined ? {} : { cover: plan.cover }) }
   telegraphs.push(telegraph)
   log(state, `${plan.sourceId} announces ${plan.actionId}.`)
   return telegraph

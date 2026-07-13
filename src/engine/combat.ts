@@ -4,12 +4,13 @@ import { DIRECTIONS } from '../types'
 import { actorAt, getTile, isPassable } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
-import { resolveTelegraphs } from './telegraphs'
+import { announceTelegraph, resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 import { resolveTerrainReactions, type TerrainTag } from './terrain'
 import { actionCells } from './geometry'
 import { planEnemyIntent } from './intents'
+import { projectBolt } from './projectiles'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -45,7 +46,15 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
-  if (resolveTelegraphs(state).length) events.push(event('danger'))
+  const resolvedTelegraphs = resolveTelegraphs(state)
+  for (const telegraph of resolvedTelegraphs) {
+    if (telegraph.actionId !== 'enemy-shot') continue
+    const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
+    const hit = telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y)
+    if (source?.hostile && hit) events.push(...monsterAttack(state, source, 1))
+    else log(state, 'The bolt passes harmlessly.')
+  }
+  if (resolvedTelegraphs.length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
     actor.energy += conditionSpeed(actor, actor.speed)
@@ -119,7 +128,7 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   const intent = planEnemyIntent(state, actor)
   log(state, `${actor.name}: ${intent.action.name} (${intent.reason}).`)
   if (intent.action.id === 'enemy-strike') return monsterAttack(state, actor)
-  if (intent.action.id === 'enemy-shot') return monsterAttack(state, actor, 1)
+  if (intent.action.id === 'enemy-shot') return announceProjectile(state, actor)
   if (intent.action.id === 'guardian-slam') return monsterAttack(state, actor, 2)
   const candidates = Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: actor.x + delta.x, y: actor.y + delta.y }))
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))
@@ -130,6 +139,15 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   actor.x = next.x
   actor.y = next.y
   return []
+}
+
+function announceProjectile(state: RunState, actor: Actor): ActionResult {
+  const id = `${actor.id}:shot`
+  if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
+  const bolt = projectBolt(state.floor, actor, state.hero)
+  if (bolt.cover || !bolt.collision) { log(state, `${actor.name}'s shot is blocked by cover.`); return [] }
+  announceTelegraph(state, { id, sourceId: actor.id, actionId: 'enemy-shot', cells: bolt.cells, danger: 'major', windup: 1, collision: { point: bolt.collision.point, by: bolt.collision.by }, cover: bolt.cover })
+  return [event('danger')]
 }
 
 function monsterAttack(state: RunState, actor: Actor, ranged = 0): ActionResult {
