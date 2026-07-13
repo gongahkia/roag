@@ -148,7 +148,7 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub)) }
+function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub)) }
 
 function finish(won: boolean): void {
   if (!state) return
