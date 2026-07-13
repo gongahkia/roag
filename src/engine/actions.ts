@@ -24,6 +24,8 @@ export const PLAYER_ACTIONS: ActionDefinition[] = [
 export const ENEMY_ACTIONS: ActionDefinition[] = [
   { id: 'enemy-strike', owner: 'enemy', name: 'Strike', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['melee'], resolver: 'melee' },
   { id: 'enemy-shot', owner: 'enemy', name: 'Shot', cost: { resource: 'none' }, range: 7, shape: 'line', tags: ['ranged', 'telegraphed'], resolver: 'projectile' },
+  { id: 'enemy-root', owner: 'enemy', name: 'Root', cost: { resource: 'none' }, range: 4, shape: 'line', tags: ['ranged', 'telegraphed', 'control'], resolver: 'script' },
+  { id: 'enemy-web', owner: 'enemy', name: 'Snare', cost: { resource: 'none' }, range: 6, shape: 'line', tags: ['ranged', 'telegraphed', 'terrain'], resolver: 'script' },
   { id: 'guardian-slam', owner: 'enemy', name: 'Slam', cost: { resource: 'none' }, range: 1, shape: 'cross', tags: ['guardian', 'area'], resolver: 'melee' },
   { id: 'enemy-approach', owner: 'enemy', name: 'Advance', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement'], resolver: 'move' },
   { id: 'enemy-reposition', owner: 'enemy', name: 'Reposition', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement', 'terrain'], resolver: 'move' }

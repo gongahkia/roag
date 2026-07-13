@@ -28,7 +28,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'rail', 'telegraph', 'cover', 'explosive'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -98,6 +98,9 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'spitter', name: 'Vine Spitter', glyph: 'v', color: '#67ba7b', health: 10, attack: 6, defense: 9, speed: 90, ai: 'ranged', xp: 16, biome: 'wilds' },
   { id: 'wisp', name: 'Marsh Wisp', glyph: 'w', color: '#9be6bc', health: 7, attack: 6, defense: 12, speed: 130, ai: 'wander', xp: 21, biome: 'wilds' },
   { id: 'frog', name: 'Canopy Frog', glyph: 'f', color: '#a9d666', health: 11, attack: 6, defense: 11, speed: 120, ai: 'chase', xp: 23, biome: 'wilds' },
+  { id: 'vinebinder', name: 'Vine Binder', glyph: 'V', color: '#5d9f67', health: 12, attack: 5, defense: 11, speed: 95, ai: 'ranged', xp: 24, biome: 'wilds', tags: ['wilds', 'root', 'telegraph'] },
+  { id: 'marshskater', name: 'Marsh Skater', glyph: 'k', color: '#72b9b1', health: 10, attack: 6, defense: 12, speed: 100, ai: 'chase', xp: 25, biome: 'wilds', tags: ['wilds', 'water', 'mobility'] },
+  { id: 'webweaver', name: 'Web Weaver', glyph: 'W', color: '#d5dce4', health: 11, attack: 5, defense: 12, speed: 90, ai: 'ranged', xp: 26, biome: 'wilds', tags: ['wilds', 'web', 'snare', 'telegraph'] },
   { id: 'heartwood', name: 'Heartwood Stag', glyph: 'H', color: '#d1e281', health: 52, attack: 10, defense: 14, speed: 110, ai: 'guardian', xp: 90, biome: 'wilds' },
   { id: 'crawler', name: 'Crystal Crawler', glyph: 'c', color: '#7bcfe0', health: 14, attack: 7, defense: 13, speed: 95, ai: 'chase', xp: 23, biome: 'caverns' },
   { id: 'magma', name: 'Magma Newt', glyph: 'n', color: '#ef795a', health: 12, attack: 8, defense: 11, speed: 105, ai: 'chase', xp: 25, biome: 'caverns' },
