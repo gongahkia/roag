@@ -1,15 +1,14 @@
-import { hasEvent, type ActionResult } from '../engine'
+import type { ActionResult } from '../engine'
 import type { RunState } from '../types'
+import { visualFeedback } from './feedback'
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number }
-interface FloatText { x: number; y: number; life: number; maxLife: number; color: string; text: string }
 
 export class TerminalEffects {
   private shakeUntil = 0
   private flashUntil = 0
   private flashColor = '#ffffff'
   private particles: Particle[] = []
-  private floats: FloatText[] = []
   private lastUpdate = performance.now()
 
   constructor(private readonly cellWidth: number, private readonly cellHeight: number, private readonly mapWidth: number, private readonly mapHeight: number) {}
@@ -17,13 +16,14 @@ export class TerminalEffects {
   trigger(events: ActionResult, state: RunState | undefined, canvas: HTMLCanvasElement): void {
     const now = performance.now()
     const point = state ? { x: state.hero.x * this.cellWidth + this.cellWidth / 2, y: state.hero.y * this.cellHeight + this.cellHeight / 2 } : { x: canvas.width / 2, y: canvas.height / 2 }
-    if (hasEvent(events, 'death') || hasEvent(events, 'boom')) { this.shakeUntil = Math.max(this.shakeUntil, now + 210); this.flashUntil = Math.max(this.flashUntil, now + 105); this.flashColor = hasEvent(events, 'death') ? '#ef5968' : '#ffe58a' }
-    else if (hasEvent(events, 'hurt') || hasEvent(events, 'danger')) { this.shakeUntil = Math.max(this.shakeUntil, now + 115); this.flashUntil = Math.max(this.flashUntil, now + 70); this.flashColor = '#ef5968' }
-    else if (hasEvent(events, 'hit') || hasEvent(events, 'spell') || hasEvent(events, 'pickup')) { this.flashUntil = Math.max(this.flashUntil, now + 48); this.flashColor = hasEvent(events, 'spell') ? '#bea6ff' : '#f4d26a' }
-    if (hasEvent(events, 'hit')) this.burst(point.x, point.y, '#f4d26a', 8, .8, 410, 'HIT')
-    if (hasEvent(events, 'pickup')) this.burst(point.x, point.y, '#96d38b', 10, .7, 540, 'LOOT')
-    if (hasEvent(events, 'spell')) this.burst(point.x, point.y, '#bea6ff', 15, 1.25, 650, 'ARCANE')
-    if (hasEvent(events, 'boom')) this.burst(point.x, point.y, '#ff9a61', 28, 2.4, 780, 'BOOM')
+    for (const type of new Set(events.map(event => event.type))) {
+      const feedback = visualFeedback(type)
+      if (!feedback) continue
+      this.shakeUntil = Math.max(this.shakeUntil, now + feedback.shake)
+      this.flashUntil = Math.max(this.flashUntil, now + feedback.flash)
+      this.flashColor = feedback.color
+      if (feedback.particles) this.burst(point.x, point.y, feedback.particles.color, feedback.particles.count, feedback.particles.speed, feedback.particles.life)
+    }
   }
 
   update(now: number): void {
@@ -35,9 +35,7 @@ export class TerminalEffects {
       particle.vy += .002 * delta
       particle.life -= delta
     }
-    for (const floating of this.floats) { floating.y -= .018 * delta; floating.life -= delta }
     this.particles = this.particles.filter(particle => particle.life > 0)
-    this.floats = this.floats.filter(floating => floating.life > 0)
   }
 
   applyShake(ctx: CanvasRenderingContext2D, now: number): void {
@@ -65,24 +63,16 @@ export class TerminalEffects {
       ctx.fillStyle = particle.color
       ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size)
     }
-    ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Menlo, monospace'
-    ctx.textAlign = 'center'
-    for (const floating of this.floats) {
-      ctx.globalAlpha = floating.life / floating.maxLife
-      ctx.fillStyle = floating.color
-      ctx.fillText(floating.text, floating.x, floating.y)
-    }
     ctx.restore()
   }
 
-  needsFrame(now: number): boolean { return now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length > 0 || this.floats.length > 0 }
+  needsFrame(now: number): boolean { return now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length > 0 }
 
-  private burst(x: number, y: number, color: string, count: number, speed: number, life: number, text: string): void {
+  private burst(x: number, y: number, color: string, count: number, speed: number, life: number): void {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2
       const magnitude = (.35 + Math.random()) * speed / 1000
       this.particles.push({ x, y, vx: Math.cos(angle) * magnitude, vy: Math.sin(angle) * magnitude - .2, life, maxLife: life, color, size: Math.random() > .72 ? 2 : 1 })
     }
-    this.floats.push({ x, y: y - 7, life, maxLife: life, color, text })
   }
 }
