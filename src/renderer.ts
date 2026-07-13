@@ -2,6 +2,7 @@ import { ITEM, biomeName, shopStock } from './content'
 import { skillChoices, targetPreview, type ActionResult, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
+import { mineSeason } from './season'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
@@ -50,6 +51,7 @@ export class TerminalRenderer {
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (route.screen === 'title') this.title(records)
+    else if (route.screen === 'approach') this.approach(route)
     else if (route.screen === 'hub') this.hub()
     else if (route.screen === 'area') this.area(route)
     else if (!state || state.status === 'title') this.title(records)
@@ -69,11 +71,20 @@ export class TerminalRenderer {
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
     this.box(13, 10, 54, 24, 'BLOCKSCAPE: EXPEDITION')
     this.text(19, 14, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
-    this.text(20, 18, 'N  visit the expedition hub', colors.green)
+    this.text(20, 18, 'N  begin a new heir', colors.green)
     this.text(20, 20, 'L  resume saved floor', colors.text)
     this.text(20, 22, 'H  controls and systems', colors.text)
     this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
     this.text(22, 30, 'one life · sixteen floors · four biomes', colors.purple)
+  }
+
+  private approach(route: ScreenRoute): void {
+    const season = mineSeason(route.heirSeed ?? 0)
+    this.box(13, 10, 54, 24, 'MINE APPROACH')
+    this.text(19, 15, season.name.toUpperCase(), season.color)
+    this.text(19, 18, season.scene, colors.text)
+    this.text(19, 22, 'ENTER  continue to expedition hub', colors.green)
+    this.text(19, 24, 'ESC    return to title', colors.dim)
   }
 
   private hub(): void {

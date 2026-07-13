@@ -30,8 +30,10 @@ window.addEventListener('keydown', keyboardEvent => {
   if (shouldPrevent(command)) keyboardEvent.preventDefault()
   if (command.toLowerCase() === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
-    const nextRoute = navigate(route, command, Boolean(saved))
+    let nextRoute = navigate(route, command, Boolean(saved))
     if (nextRoute.screen === route.screen) return
+    if (nextRoute.screen === 'approach') nextRoute = { ...nextRoute, heirSeed: Math.floor(Math.random() * 0x7fffffff) }
+    if (nextRoute.screen === 'title') nextRoute = { ...nextRoute, heirSeed: undefined }
     if (nextRoute.screen === 'level') {
       if (route.screen === 'area') start()
       else if (saved) { state = structuredClone(saved); recordedEnd = false }
@@ -56,7 +58,7 @@ window.addEventListener('keydown', keyboardEvent => {
 })
 
 function start(): void {
-  state = newRun()
+  state = newRun(route.heirSeed)
   saved = structuredClone(state)
   recordedEnd = false
   void saveRun(state)
