@@ -19,6 +19,7 @@ from typing import Any, TextIO, TypeVar
 from urllib.parse import quote
 
 from kenjaku import __version__
+from kenjaku.ablation_benchmark import build_policy_heuristic_ablation_benchmark
 from kenjaku.bot import run_stdio_bot
 from kenjaku.browser_demo import write_browser_demo
 from kenjaku.core import Action, ActionKind, Tile, TileType
@@ -2681,6 +2682,19 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_riichi_examples.add_argument("--report", type=Path)
     _add_source_args(benchmark_riichi_examples)
     benchmark_riichi_examples.set_defaults(func=_benchmark_riichi_from_examples)
+    policy_heuristic_ablation = subparsers.add_parser(
+        "benchmark-policy-heuristic-ablation",
+        help="compare recorded policy choices with full and ablated discard heuristics",
+    )
+    policy_heuristic_ablation.add_argument(
+        "manifest",
+        type=Path,
+        help="heuristic-distillation trajectory manifest JSON",
+    )
+    policy_heuristic_ablation.add_argument("--report", type=Path)
+    policy_heuristic_ablation.add_argument("--json", action="store_true")
+    policy_heuristic_ablation.set_defaults(func=_benchmark_policy_heuristic_ablation)
+
     return parser
 
 
@@ -3875,6 +3889,27 @@ def _bc_export_limits_reached(
     if limit is None:
         return False
     return all(decision_counts[decision_type] >= limit for decision_type in decision_types)
+
+
+def _benchmark_policy_heuristic_ablation(args: argparse.Namespace) -> int:
+    try:
+        payload = json.loads(args.manifest.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("manifest must be a JSON object")
+        report = build_policy_heuristic_ablation_benchmark(payload)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"error: {error}")
+        return 2
+    if args.report is not None:
+        _write_json_report_file(args.report, report)
+    if args.json:
+        print(json.dumps(report, sort_keys=True))
+    else:
+        print("kind: " + report["kind"])
+        print("ruleset: " + report["ruleset"])
+        for name, row in report["rows"].items():
+            print(f"{name}: examples={row['examples']} agreement={row['agreement']}")
+    return 0
 
 
 def _benchmark_discard_from_examples(args: argparse.Namespace) -> int:

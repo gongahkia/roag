@@ -9,6 +9,7 @@ COMMANDS = (
     "benchmark-discard",
     "benchmark-discard-mlp",
     "benchmark-discard-transformer",
+    "benchmark-policy-heuristic-ablation",
     "benchmark-report-summary",
     "benchmark-dashboard",
     "disagreement-report-summary",
