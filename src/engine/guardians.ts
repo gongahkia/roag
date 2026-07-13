@@ -15,7 +15,7 @@ export const advanceGuardianPhase = (state: RunState, guardian: Actor): Guardian
   const previous = guardian.guardianPhase ?? 'opening'
   guardian.guardianPhase = next
   if (previous === next) return undefined
-  const tile: TileKind = guardian.kind === 'foreman' ? next === 'pressure' ? 'rail' : 'crumble' : next === 'pressure' ? 'gas' : 'fireVent'
+  const tile: TileKind = guardian.kind === 'foreman' ? next === 'pressure' ? 'rail' : 'crumble' : guardian.kind === 'heartwood' ? next === 'pressure' ? 'bramble' : 'water' : next === 'pressure' ? 'gas' : 'fireVent'
   const guardianTile = getTile(state.floor, guardian.x, guardian.y)
   const candidates = guardian.kind === 'foreman' && next === 'pressure' && (guardianTile?.kind === 'floor' || guardianTile?.kind === 'rail')
     ? [{ x: guardian.x, y: guardian.y }]
