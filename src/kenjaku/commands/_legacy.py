@@ -23,6 +23,12 @@ from kenjaku.ablation_benchmark import build_policy_heuristic_ablation_benchmark
 from kenjaku.bot import run_stdio_bot
 from kenjaku.browser_demo import write_browser_demo
 from kenjaku.core import Action, ActionKind, Tile, TileType
+from kenjaku.device_benchmark import (
+    ModelDeviceBenchmarkConfig,
+    benchmark_multi_action_policy_devices,
+    parse_devices,
+    parse_hidden_dims,
+)
 from kenjaku.experiments import (
     DEAL_IN_BENCHMARK_REPORT_KIND,
     build_call_benchmark_report,
@@ -2713,6 +2719,18 @@ def build_parser() -> argparse.ArgumentParser:
     model_selection.add_argument("--report", type=Path)
     model_selection.add_argument("--json", action="store_true")
     model_selection.set_defaults(func=_select_model_frozen_split)
+    policy_device_benchmark = subparsers.add_parser(
+        "benchmark-policy-device",
+        help="benchmark multi-action policy widths on local CPU and MPS",
+    )
+    policy_device_benchmark.add_argument("--hidden-dims", default="128,256,512")
+    policy_device_benchmark.add_argument("--devices", default="cpu,mps")
+    policy_device_benchmark.add_argument("--batch-size", type=int, default=64)
+    policy_device_benchmark.add_argument("--warmup-iterations", type=int, default=10)
+    policy_device_benchmark.add_argument("--measurement-iterations", type=int, default=50)
+    policy_device_benchmark.add_argument("--report", type=Path)
+    policy_device_benchmark.add_argument("--json", action="store_true")
+    policy_device_benchmark.set_defaults(func=_benchmark_policy_device)
 
     return parser
 
@@ -3951,6 +3969,37 @@ def _select_model_frozen_split(args: argparse.Namespace) -> int:
         print("selected_model: " + report["selected"]["model_id"])
         print("metric: " + report["metric"])
         print("value: " + str(report["selected"]["metric"]))
+    return 0
+
+
+def _benchmark_policy_device(args: argparse.Namespace) -> int:
+    try:
+        config = ModelDeviceBenchmarkConfig(
+            hidden_dims=parse_hidden_dims(args.hidden_dims),
+            devices=parse_devices(args.devices),
+            batch_size=args.batch_size,
+            warmup_iterations=args.warmup_iterations,
+            measurement_iterations=args.measurement_iterations,
+        )
+        report = benchmark_multi_action_policy_devices(config)
+    except (ImportError, ValueError) as error:
+        print(f"error: {error}")
+        return 2
+    if args.report is not None:
+        _write_json_report_file(args.report, report)
+    if args.json:
+        print(json.dumps(report, sort_keys=True))
+    else:
+        print("kind: " + report["kind"])
+        for row in report["rows"]:
+            if row["status"] == "unavailable":
+                print(f"hidden_dim={row['hidden_dim']} device={row['device']} unavailable")
+            else:
+                print(
+                    f"hidden_dim={row['hidden_dim']} device={row['device']} "
+                    f"median_ms={row['latency_ms']['median']:.3f} "
+                    f"throughput={row['throughput_examples_per_second']:.1f}"
+                )
     return 0
 
 

@@ -10,6 +10,7 @@ COMMANDS = (
     "benchmark-discard-mlp",
     "benchmark-discard-transformer",
     "benchmark-policy-heuristic-ablation",
+    "benchmark-policy-device",
     "select-model-frozen-split",
     "benchmark-report-summary",
     "benchmark-dashboard",
