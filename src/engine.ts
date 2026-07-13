@@ -34,3 +34,4 @@ export type { AreaGate, GateAlternative, GateCost, GateDestination, GateResoluti
 export { resolveTerrainReactions, terrainTags } from './engine/terrain'
 export type { TerrainEffect, TerrainReaction, TerrainTag } from './engine/terrain'
 export { refreshFov } from './engine/visibility'
+export { completeObjective, objectiveForFloor } from './objectives'

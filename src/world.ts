@@ -1,6 +1,7 @@
 import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
+import { objectiveForFloor } from './objectives'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -27,6 +28,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
     start: { x: 2, y: 2 },
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
     guardianDefeated: index % 4 !== 3,
+    objective: objectiveForFloor(index),
     telegraphs: []
   }
   const rooms = carveRooms(floor, layoutRng)

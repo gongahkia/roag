@@ -13,6 +13,8 @@ export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' |
 export type ItemId = string
 export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
 export type GuardianPhase = 'opening' | 'pressure' | 'cataclysm'
+export type ObjectiveKind = 'recoverSupplies' | 'rescueScout' | 'invokeAltar' | 'defeatGuardian'
+export type ObjectiveStatus = 'active' | 'complete'
 
 export interface Point { x: number; y: number }
 export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
@@ -40,6 +42,7 @@ export interface Actor {
 }
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number }
+export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
@@ -52,6 +55,7 @@ export interface Floor {
   start: Point
   exit: Point
   guardianDefeated: boolean
+  objective: FloorObjective
   telegraphs?: Telegraph[]
 }
 

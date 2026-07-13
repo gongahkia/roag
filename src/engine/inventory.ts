@@ -9,6 +9,7 @@ import { resolveTerrainReactions } from './terrain'
 import { gateForArea } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
+import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 
@@ -42,6 +43,7 @@ export function operate(state: RunState): ActionResult {
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
     log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
+    if (completeObjective(state, 'recoverSupplies')) log(state, 'Objective complete: supply cache secured.')
     return advance(state, [event('pickup')])
   }
   if (tile?.kind === 'rescue' || friend?.name === 'lost scout') {
@@ -53,6 +55,7 @@ export function operate(state: RunState): ActionResult {
     const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
     if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
     log(state, `${npc.name} reaches the expedition hub.`)
+    if (completeObjective(state, 'rescueScout')) log(state, 'Objective complete: scout rescued.')
     return advance(state, [event('rescue')])
   }
   if (tile?.kind === 'altar') {
@@ -60,6 +63,7 @@ export function operate(state: RunState): ActionResult {
     state.hero.gold -= 75
     gainXp(state, 35)
     log(state, 'The altar grants insight.')
+    if (completeObjective(state, 'invokeAltar')) log(state, 'Objective complete: altar invoked.')
     return advance(state, [event('spell')])
   }
   log(state, 'Nothing answers.')

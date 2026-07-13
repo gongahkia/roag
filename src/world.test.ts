@@ -37,9 +37,14 @@ describe('expedition generation', () => {
       expect(validateFloor(first)).toBe(true)
       expect(first.tiles).toHaveLength(MAP_WIDTH * MAP_HEIGHT)
       expect(first.exit).toEqual(second.exit)
+      expect(first.objective).toEqual(second.objective)
       expect(first.actors.map(actor => actor.kind)).toEqual(second.actors.map(actor => actor.kind))
       expect(exitReachable(first)).toBe(true)
     }
+  })
+
+  it('assigns deterministic objectives for all local floor roles', () => {
+    expect(Array.from({ length: 4 }, (_, index) => generateFloor(99, index).objective.kind)).toEqual(['recoverSupplies', 'rescueScout', 'invokeAltar', 'defeatGuardian'])
   })
 
   it('starts an explorer on a visible, passable map cell', () => {

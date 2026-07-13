@@ -174,8 +174,8 @@ export class TerminalRenderer {
       const presentation = presentTelegraph(telegraph, state.turn, source)
       this.text(50, 27 + i, presentation.label.slice(0, 29), presentation.color)
     })
-    const guardian = state.floor.actors.find(actor => actor.role === 'guardian')
-    this.text(50, 29, state.floor.guardianDefeated ? 'OBJECTIVE: FIND EXIT' : `GUARDIAN: ${(guardian?.guardianPhase ?? 'opening').toUpperCase()}`, state.floor.guardianDefeated ? colors.green : colors.gold)
+    const objective = state.floor.objective
+    this.text(50, 29, `OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`.slice(0, 29), objective.status === 'complete' ? colors.green : colors.gold)
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
     this.text(50, 32, `A skills  S script  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)

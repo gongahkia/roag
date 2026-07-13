@@ -12,6 +12,7 @@ import { actionCells } from './geometry'
 import { planEnemyIntent } from './intents'
 import { projectBolt } from './projectiles'
 import { advanceGuardianPhase } from './guardians'
+import { completeObjective } from '../objectives'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -114,7 +115,7 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
     if (target.health <= 0) {
       log(state, `${target.name} falls.`)
       dropLoot(state, target)
-      if (target.role === 'guardian') { state.floor.guardianDefeated = true; log(state, 'The way to the exit is open.') }
+      if (target.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian defeated.'); log(state, 'The way to the exit is open.') }
       gainXp(state, monsterXp(target.kind))
     }
   }

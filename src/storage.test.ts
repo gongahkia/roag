@@ -15,6 +15,12 @@ describe('run persistence migration', () => {
     expect(migrated).toMatchObject({ version: 2, seed: 456 })
   })
 
+  it('adds an objective to older valid floors', () => {
+    const run = newRun(789)
+    delete (run.floor as Partial<typeof run.floor>).objective
+    expect(migrateRunRecord(run)).toMatchObject({ floor: { objective: { kind: 'recoverSupplies', status: 'active' } } })
+  })
+
   it('rejects malformed records so the caller stays at title', () => {
     expect(migrateRunRecord({ version: 2, seed: 1 })).toBeUndefined()
   })
