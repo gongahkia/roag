@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
@@ -73,7 +73,7 @@ window.addEventListener('keydown', keyboardEvent => {
 function start(): void {
   campaign = { ...campaign, selectedBiome: route.biome }
   void saveCampaignRoute(campaign)
-  state = newRun(route.heirSeed, route.biome, 0, heir)
+  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs)
   heir = state.hero
   saved = structuredClone(state)
   recordedEnd = false
@@ -96,11 +96,13 @@ function completeArea(): void {
 
 function unlockGateDestination(): void {
   if (!state?.gateDestination) return
+  for (const lineageEvent of state.lineageEvents ?? []) campaign = recordCampaignSacrifice(campaign, lineageEvent)
   campaign = unlockCampaignArea(campaign, state.gateDestination)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { ...route, biome: campaign.selectedBiome }
   state.gateDestination = undefined
   void saveCampaignRoute(campaign)
+  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
 }
 
 function persistRescuedRoster(): void {

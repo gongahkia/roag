@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { resolveAreaGate, gateForArea } from './gates'
-import { createEnemy, createRun } from '../test/factories'
+import { createRun } from '../test/factories'
 
 describe('Wilds gate solutions', () => {
   it('unlocks Verdant Wilds through NPC, fire-tag, or bomb alternatives', () => {
     const gate = gateForArea('mine')
-    const npc = createRun()
-    npc.floor.actors = [createEnemy({ role: 'ally', hostile: false })]
+    const npc = createRun({ rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine', floor: 1 }] })
     expect(resolveAreaGate(npc, gate, 0)).toMatchObject({ resolved: true, destination: 'wilds' })
     const fire = createRun()
     fire.hero.inventory = ['ember']

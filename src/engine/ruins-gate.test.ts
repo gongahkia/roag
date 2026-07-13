@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { gateForArea, resolveAreaGate } from './gates'
-import { createEnemy, createRun } from '../test/factories'
+import { createRun } from '../test/factories'
 
 describe('Ruins gate solutions', () => {
   it('unlocks Ashen Ruins through NPC, ward-plus-astral, or relic alternatives', () => {
     const gate = gateForArea('caverns')
-    const npc = createRun({ area: 'caverns' })
-    npc.floor.actors = [createEnemy({ role: 'ally', hostile: false })]
+    const npc = createRun({ area: 'caverns', rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'caverns', floor: 1 }] })
     expect(resolveAreaGate(npc, gate, 0)).toMatchObject({ resolved: true, destination: 'ruins' })
     const wardAstral = createRun({ area: 'caverns' })
     wardAstral.hero.inventory = ['ward']

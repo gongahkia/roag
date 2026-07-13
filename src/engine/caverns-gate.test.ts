@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { gateForArea, resolveAreaGate } from './gates'
-import { createEnemy, createRun } from '../test/factories'
+import { createRun } from '../test/factories'
 
 describe('Caverns gate solutions', () => {
   it('unlocks Glass Caverns through NPC, light-plus-rope, or mobility', () => {
     const gate = gateForArea('wilds')
-    const npc = createRun({ area: 'wilds' })
-    npc.floor.actors = [createEnemy({ role: 'ally', hostile: false })]
+    const npc = createRun({ area: 'wilds', rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'wilds', floor: 1 }] })
     expect(resolveAreaGate(npc, gate, 0)).toMatchObject({ resolved: true, destination: 'caverns' })
     const lightRope = createRun({ area: 'wilds' })
     lightRope.hero.inventory = ['lantern', 'ropeBundle']

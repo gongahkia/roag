@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completeCampaignArea, initialCampaignRoute, nextArea, unlockCampaignArea } from './campaign'
+import { completeCampaignArea, initialCampaignRoute, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
 import { descend } from './inventory'
 import { newRun } from './run'
 
@@ -30,7 +30,13 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [] })
+    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [] })
     expect(route).not.toHaveProperty('hero')
+  })
+
+  it('removes a sacrificed NPC and retains its lineage event once', () => {
+    const route = { ...initialCampaignRoute(), rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine' as const, floor: 1 }] }
+    const event = { id: 'sacrifice:mine-wilds-pass:scout-1', kind: 'npcSacrifice' as const, npcId: 'scout-1', npcName: 'Lost Scout', biome: 'mine' as const, floor: 1, gateId: 'mine-wilds-pass', seed: 702 }
+    expect(recordCampaignSacrifice(recordCampaignSacrifice(route, event), event)).toMatchObject({ rescuedNpcs: [], lineageEvents: [event] })
   })
 })

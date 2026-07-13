@@ -97,7 +97,8 @@ export interface HubState {
 }
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
-export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[] }
+export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
+export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[] }
 
 export interface LegacyRecord {
   id: string
@@ -137,6 +138,7 @@ export interface RunState {
   areaFloor?: number
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
+  lineageEvents?: LineageEvent[]
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
