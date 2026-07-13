@@ -18,7 +18,7 @@ export function hasLine(state: RunState, from: { x: number; y: number }, to: { x
   let error = dx + dy
   while (true) {
     if (x === to.x && y === to.y) return true
-    if (!(x === from.x && y === from.y) && getTile(state.floor, x, y)?.kind === 'wall') return false
+    if (!(x === from.x && y === from.y) && ['wall', 'rubble', 'bramble'].includes(getTile(state.floor, x, y)?.kind ?? '')) return false
     const twice = 2 * error
     if (twice >= dy) { error += dy; x += sx }
     if (twice <= dx) { error += dx; y += sy }

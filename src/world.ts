@@ -5,7 +5,7 @@ import { objectiveForFloor } from './objectives'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
-const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'crate', 'chest'].includes(kind)
+const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'].includes(kind)
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
@@ -93,7 +93,7 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
     }
   }
   if (floor.biome === 'mine') decorateMine(floor, rng, rooms)
-  if (floor.biome === 'wilds') { paint('water', 20); paint('web', 9); paint('spikes', 4) }
+  if (floor.biome === 'wilds') decorateWilds(floor, rng)
   if (floor.biome === 'caverns') { paint('lava', 16); paint('fireVent', 10); paint('gas', 8) }
   if (floor.biome === 'ruins') { paint('dart', 10); paint('spikes', 8); paint('crumble', 8); paint('boulder', 6) }
   if (floor.index % 4 === 3) {
@@ -127,6 +127,22 @@ function decorateMine(floor: Floor, rng: Rng, rooms: Room[]): void {
   paint('crumble', 12)
   paint('rubble', 6)
   paint('boulder', 5)
+}
+
+function decorateWilds(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (rng.chance(45) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('water', 9, true)
+  paint('bramble', 8, true)
+  paint('web', 10)
 }
 
 function placeEvents(floor: Floor, rooms: Room[]): void {

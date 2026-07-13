@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
+import { hasLine } from './engine/visibility'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH } from './types'
 import { generateAreaFloor, generateFloor, getTile, validateFloor } from './world'
 
@@ -15,7 +16,7 @@ const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
       const y = current.y + dy
       const next = getTile(floor, x, y)
       const key = `${x},${y}`
-      if (!next || seen.has(key) || ['wall', 'lava', 'pit', 'rubble', 'crate', 'chest', 'lockedDoor'].includes(next.kind)) continue
+      if (!next || seen.has(key) || ['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'lockedDoor'].includes(next.kind)) continue
       seen.add(key)
       queue.push({ x, y })
     }
@@ -57,6 +58,22 @@ describe('expedition generation', () => {
       expect(kinds).toContain('rubble')
       expect(exitReachable(floor)).toBe(true)
     }
+  })
+
+  it('uses water, brambles, and webs to vary solvable Wilds sightlines', () => {
+    for (const seed of [8, 42, 1000]) {
+      const floor = generateAreaFloor(seed, 'wilds', 0)
+      const kinds = floor.tiles.map(tile => tile.kind)
+      expect(kinds).toContain('water')
+      expect(kinds).toContain('bramble')
+      expect(kinds).toContain('web')
+      expect(exitReachable(floor)).toBe(true)
+    }
+    const run = newRun(12)
+    run.floor.tiles[1 * 48 + 2].kind = 'bramble'
+    run.hero.x = 1
+    run.hero.y = 1
+    expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(false)
   })
 
   it('starts an explorer on a visible, passable map cell', () => {
