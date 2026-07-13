@@ -136,6 +136,7 @@ from kenjaku.simulation import (
     PairedMatchPolicy,
     format_self_play_match_report,
     format_self_play_sandbox_report,
+    run_paired_seed_matches_3p,
     run_paired_seed_matches_4p,
     run_self_play_match_sandbox,
     run_self_play_sandbox,
@@ -796,6 +797,30 @@ def build_parser() -> argparse.ArgumentParser:
     paired_match.add_argument("--report", type=Path)
     paired_match.add_argument("--json", action="store_true")
     paired_match.set_defaults(func=_paired_match_4p)
+
+    paired_match_3p = subparsers.add_parser(
+        "paired-match-3p",
+        help="compare two Sanma sandbox policies on identical derived match seeds",
+    )
+    paired_match_3p.add_argument("--pairs", type=int, default=1, help="number of paired matches")
+    paired_match_3p.add_argument("--max-rounds", type=int, default=12)
+    paired_match_3p.add_argument("--max-turns-per-round", type=int, default=512)
+    paired_match_3p.add_argument("--seed", default="kenjaku-paired-match-3p-v0")
+    paired_match_3p.add_argument(
+        "--candidate-discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+    )
+    paired_match_3p.add_argument(
+        "--baseline-discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+    )
+    paired_match_3p.add_argument("--candidate-heuristic-seats", default="")
+    paired_match_3p.add_argument("--baseline-heuristic-seats", default="")
+    paired_match_3p.add_argument("--report", type=Path)
+    paired_match_3p.add_argument("--json", action="store_true")
+    paired_match_3p.set_defaults(func=_paired_match_3p)
 
     train_ppo = subparsers.add_parser(
         "train-ppo-sandbox",
@@ -3562,9 +3587,21 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
 
 
 def _paired_match_4p(args: argparse.Namespace) -> int:
+    return _paired_match(args, runner=run_paired_seed_matches_4p)
+
+
+def _paired_match_3p(args: argparse.Namespace) -> int:
+    return _paired_match(args, runner=run_paired_seed_matches_3p)
+
+
+def _paired_match(
+    args: argparse.Namespace,
+    *,
+    runner: Callable[..., dict[str, Any]],
+) -> int:
     pin_seeds(args.seed)
     try:
-        report = run_paired_seed_matches_4p(
+        report = runner(
             pairs=args.pairs,
             seed=args.seed,
             max_rounds=args.max_rounds,

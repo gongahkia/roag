@@ -19,6 +19,7 @@ EXPECTED_COMMANDS = (
     "self-play-sandbox",
     "self-play-match-sandbox",
     "paired-match-4p",
+    "paired-match-3p",
     "train-ppo-sandbox",
     "train-population-sandbox",
     "training-dashboard",

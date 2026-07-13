@@ -1,4 +1,4 @@
-"""Deterministic paired-seed 4-player sandbox match comparisons."""
+"""Deterministic paired-seed sandbox match comparisons."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from kenjaku.simulation.self_play import (
 )
 
 PAIRED_SEED_MATCH_4P_REPORT_KIND = "kenjaku-paired-seed-match-4p-report-v0"
+PAIRED_SEED_MATCH_3P_REPORT_KIND = "kenjaku-paired-seed-match-3p-report-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,8 +42,8 @@ class PairedMatchPolicy:
                 raise ValueError(f"unsupported paired {name} policy: {policy}")
         if self.ron_policy not in SELF_PLAY_MATCH_RON_POLICIES:
             raise ValueError("unsupported paired ron policy: " + self.ron_policy)
-        if any(type(seat) is not int or not 0 <= seat < 4 for seat in self.heuristic_seats):
-            raise ValueError("paired heuristic_seats must contain 4p seat integers")
+        if any(type(seat) is not int or seat < 0 for seat in self.heuristic_seats):
+            raise ValueError("paired heuristic_seats must contain non-negative seat integers")
         if len(set(self.heuristic_seats)) != len(self.heuristic_seats):
             raise ValueError("paired heuristic_seats must not contain duplicates")
 
@@ -68,33 +69,88 @@ def run_paired_seed_matches_4p(
     baseline: PairedMatchPolicy,
 ) -> dict[str, Any]:
     """Run candidate and baseline 4p profiles on exactly the same match seeds."""
+    return _run_paired_seed_matches(
+        pairs=pairs,
+        seed=seed,
+        max_rounds=max_rounds,
+        max_turns_per_round=max_turns_per_round,
+        candidate=candidate,
+        baseline=baseline,
+        ruleset="tenhou-4p",
+        players=4,
+        kind=PAIRED_SEED_MATCH_4P_REPORT_KIND,
+        seed_stage="paired-seed-match-4p",
+    )
+
+
+def run_paired_seed_matches_3p(
+    *,
+    pairs: int,
+    seed: str,
+    max_rounds: int,
+    max_turns_per_round: int,
+    candidate: PairedMatchPolicy,
+    baseline: PairedMatchPolicy,
+) -> dict[str, Any]:
+    """Run candidate and baseline Sanma profiles on exactly the same match seeds."""
+    return _run_paired_seed_matches(
+        pairs=pairs,
+        seed=seed,
+        max_rounds=max_rounds,
+        max_turns_per_round=max_turns_per_round,
+        candidate=candidate,
+        baseline=baseline,
+        ruleset="tenhou-3p",
+        players=3,
+        kind=PAIRED_SEED_MATCH_3P_REPORT_KIND,
+        seed_stage="paired-seed-match-3p",
+    )
+
+
+def _run_paired_seed_matches(
+    *,
+    pairs: int,
+    seed: str,
+    max_rounds: int,
+    max_turns_per_round: int,
+    candidate: PairedMatchPolicy,
+    baseline: PairedMatchPolicy,
+    ruleset: str,
+    players: int,
+    kind: str,
+    seed_stage: str,
+) -> dict[str, Any]:
     if pairs <= 0:
         raise ValueError("pairs must be positive")
     if max_rounds <= 0:
         raise ValueError("max_rounds must be positive")
     if max_turns_per_round <= 0:
         raise ValueError("max_turns_per_round must be positive")
+    _validate_profile_seats(candidate, players=players)
+    _validate_profile_seats(baseline, players=players)
     rows: list[dict[str, Any]] = []
     for pair_index in range(pairs):
-        pair_seed = derive_seed(seed, "paired-seed-match-4p", pair_index)
+        pair_seed = derive_seed(seed, seed_stage, pair_index)
         candidate_report = _run_profile(
             candidate,
             seed=pair_seed,
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
+            ruleset=ruleset,
         )
         baseline_report = _run_profile(
             baseline,
             seed=pair_seed,
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
+            ruleset=ruleset,
         )
         rows.append(_paired_row(pair_index, pair_seed, candidate_report, baseline_report))
     completed = [row for row in rows if row["completed"]]
     return {
-        "kind": PAIRED_SEED_MATCH_4P_REPORT_KIND,
-        "ruleset": "tenhou-4p",
-        "players": 4,
+        "kind": kind,
+        "ruleset": ruleset,
+        "players": players,
         "seed": seed,
         "seed_provenance": {"derivation": "kenjaku-seed-v1-blake2b"},
         "pairs": pairs,
@@ -106,7 +162,10 @@ def run_paired_seed_matches_4p(
         "summary": {
             "completed_pairs": len(completed),
             "incomplete_pairs": pairs - len(completed),
-            "mean_placement_adjusted_score_delta_by_seat": _mean_score_delta(completed),
+            "mean_placement_adjusted_score_delta_by_seat": _mean_score_delta(
+                completed,
+                players=players,
+            ),
         },
     }
 
@@ -117,13 +176,14 @@ def _run_profile(
     seed: str,
     max_rounds: int,
     max_turns_per_round: int,
+    ruleset: str,
 ) -> dict[str, Any]:
     return run_self_play_match_sandbox(
         games=1,
         max_rounds=max_rounds,
         max_turns_per_round=max_turns_per_round,
         seed=seed,
-        ruleset="tenhou-4p",
+        ruleset=ruleset,
         discard_policy=profile.discard_policy,
         call_policy=profile.call_policy,
         riichi_policy=profile.riichi_policy,
@@ -173,10 +233,15 @@ def _game_outcome(game: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _mean_score_delta(rows: list[dict[str, Any]]) -> list[float] | None:
+def _mean_score_delta(rows: list[dict[str, Any]], *, players: int) -> list[float] | None:
     if not rows:
         return None
     return [
         sum(float(row["placement_adjusted_score_delta_by_seat"][seat]) for row in rows) / len(rows)
-        for seat in range(4)
+        for seat in range(players)
     ]
+
+
+def _validate_profile_seats(profile: PairedMatchPolicy, *, players: int) -> None:
+    if any(seat >= players for seat in profile.heuristic_seats):
+        raise ValueError(f"paired heuristic_seats must contain {players}p seat integers")
