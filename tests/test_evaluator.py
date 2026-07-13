@@ -7,6 +7,7 @@ from kenjaku.evaluator import (
     evaluate_defense_risk,
     evaluate_hand_value_potential,
     evaluate_legal_defense_risks,
+    evaluate_placement_endgame,
     evaluate_shanten_ukeire,
 )
 from kenjaku.training import DiscardExample
@@ -90,6 +91,30 @@ class ShantenUkeireEvaluatorTests(unittest.TestCase):
         self.assertIn("genbutsu", genbutsu.safety_factors)
         self.assertFalse(genbutsu.calibrated_probability)
         self.assertEqual([candidate.tile.notation for candidate in candidates], ["5m", "7m", "4m"])
+
+    def test_evaluates_four_player_and_sanma_placement_endgame_features(self) -> None:
+        four_player = evaluate_placement_endgame(
+            (35000, 30000, 25000, 10000),
+            seat=1,
+            round_wind=TileType.parse("S"),
+        )
+        sanma = evaluate_placement_endgame(
+            (37000, 40000, 33000),
+            seat=2,
+            ruleset="tenhou-3p",
+            round_wind=TileType.parse("S"),
+        )
+
+        self.assertEqual(four_player.rank, 2)
+        self.assertEqual(four_player.points_to_next_rank, 5100)
+        self.assertEqual(four_player.points_to_return, 0)
+        self.assertEqual(four_player.projected_uma_score, 10.0)
+        self.assertTrue(four_player.all_last)
+        self.assertEqual(sanma.rank, 3)
+        self.assertEqual(sanma.points_to_next_rank, 4100)
+        self.assertEqual(sanma.points_to_return, 7000)
+        self.assertEqual(sanma.projected_uma_score, -27.0)
+        self.assertTrue(sanma.all_last)
 
 
 def _counts(text: str) -> tuple[int, ...]:

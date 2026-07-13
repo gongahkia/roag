@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from kenjaku.core import TENHOU_3P, TENHOU_4P, RuleSet, Tile, TileType, shanten, tile_counts
+from kenjaku.simulation.config import default_sandbox_rule_config
 from kenjaku.training.defense_risk import (
     DefenseRiskScore,
     candidate_defense_risk,
@@ -41,6 +42,17 @@ class DefenseRiskPotential:
     calibrated_probability: bool
     safety_factors: tuple[str, ...]
     danger_factors: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementEndgamePotential:
+    ruleset: str
+    seat: int
+    rank: int
+    points_to_next_rank: int
+    points_to_return: int
+    projected_uma_score: float
+    all_last: bool
 
 
 def evaluate_shanten_ukeire(
@@ -140,6 +152,38 @@ def evaluate_defense_risk(
 
 def evaluate_legal_defense_risks(example: DiscardExample) -> tuple[DefenseRiskPotential, ...]:
     return tuple(_defense_risk_potential(score) for score in legal_candidate_defense_risks(example))
+
+
+def evaluate_placement_endgame(
+    points: Sequence[int],
+    *,
+    seat: int,
+    ruleset: str = TENHOU_4P.name,
+    round_wind: TileType | None = None,
+) -> PlacementEndgamePotential:
+    config = default_sandbox_rule_config(ruleset)
+    players = len(config.uma_by_rank)
+    if len(points) != players:
+        raise ValueError("points must match ruleset player count")
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in points):
+        raise ValueError("points must be integers")
+    if not 0 <= seat < players:
+        raise ValueError("seat must be within ruleset player range")
+    placement = tuple(sorted(range(players), key=lambda index: (-points[index], index)))
+    rank_index = placement.index(seat)
+    next_seat = placement[rank_index - 1] if rank_index else None
+    points_to_next_rank = 0 if next_seat is None else points[next_seat] - points[seat] + 100
+    projected_uma_score = (points[seat] - config.return_points) / 1000
+    projected_uma_score += config.uma_by_rank[rank_index]
+    return PlacementEndgamePotential(
+        ruleset=ruleset,
+        seat=seat,
+        rank=rank_index + 1,
+        points_to_next_rank=points_to_next_rank,
+        points_to_return=max(0, config.return_points - points[seat]),
+        projected_uma_score=projected_uma_score,
+        all_last=round_wind == config.all_last_round_wind,
+    )
 
 
 def _defense_risk_potential(score: DefenseRiskScore) -> DefenseRiskPotential:
