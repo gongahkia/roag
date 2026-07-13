@@ -1,7 +1,8 @@
 import { ITEM, biomeName, shopStock } from '../content'
-import { FLOOR_COUNT, type Direction, type Modal, type RunState, DIRECTIONS, inBounds } from '../types'
+import { FLOOR_COUNT, type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
 import { actorAt, generateFloor, getTile } from '../world'
 import { advance, explode } from './combat'
+import { resolveLineEffect } from './line-effect'
 import { gainXp } from './progression'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
@@ -124,14 +125,11 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   if (index === -1) return []
   state.hero.inventory.splice(index, 1)
   const delta = DIRECTIONS[direction]
-  let point = { x: state.hero.x, y: state.hero.y }
-  for (let i = 0; i < 5; i++) {
-    const next = { x: point.x + delta.x, y: point.y + delta.y }
-    if (!inBounds(next.x, next.y) || getTile(state.floor, next.x, next.y)?.kind === 'wall') break
-    point = next
-    const target = actorAt(state.floor, point.x, point.y)
-    if (target?.hostile) { target.health -= 3 + state.hero.stats.strength; log(state, `${ITEM[id].name} hits ${target.name}.`); break }
-  }
+  const destination = { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }
+  const cells = resolveLineEffect(state.floor, state.hero, destination).cells
+  const point = cells.at(-1) ?? { x: state.hero.x, y: state.hero.y }
+  const target = actorAt(state.floor, point.x, point.y)
+  if (target?.hostile) { target.health -= 3 + state.hero.stats.strength; log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5)
   else state.floor.items.push({ id, x: point.x, y: point.y, count: 1 })
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)

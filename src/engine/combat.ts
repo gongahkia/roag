@@ -4,7 +4,8 @@ import { DIRECTIONS } from '../types'
 import { actorAt, getTile, isPassable } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
-import { hasLine, refreshFov } from './visibility'
+import { canAffect } from './line-effect'
+import { refreshFov } from './visibility'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -98,7 +99,7 @@ function heroAttack(state: RunState, target: Actor): ActionResult {
 function actorTurn(state: RunState, actor: Actor): ActionResult {
   const range = distance(actor, state.hero)
   if (range <= 1) return monsterAttack(state, actor)
-  if (actor.ai === 'ranged' && range <= 7 && hasLine(state, actor, state.hero)) return monsterAttack(state, actor, 1)
+  if (actor.ai === 'ranged' && range <= 7 && canAffect(state.floor, actor, state.hero)) return monsterAttack(state, actor, 1)
   if (range > 10 && actor.ai !== 'guardian') return []
   const candidates = Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: actor.x + delta.x, y: actor.y + delta.y }))
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))

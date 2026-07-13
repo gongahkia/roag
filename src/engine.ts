@@ -9,4 +9,6 @@ export { ACTIONS, ENEMY_ACTIONS, PLAYER_ACTIONS, actionById } from './engine/act
 export type { ActionCost, ActionDefinition, ActionOwner, ActionResolver, ActionShape } from './engine/actions'
 export { actionCells } from './engine/geometry'
 export type { GridBounds } from './engine/geometry'
+export { canAffect, lineCells, resolveLineEffect } from './engine/line-effect'
+export type { EffectBlocker, EffectModifier, LineEffect, TerrainModifier } from './engine/line-effect'
 export { refreshFov } from './engine/visibility'
