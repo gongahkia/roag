@@ -129,6 +129,8 @@ export interface RunState {
   status: 'title' | 'playing' | 'dead' | 'victory'
   modal?: Modal
   turn: number
+  area?: Biome
+  areaFloor?: number
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }

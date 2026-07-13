@@ -44,6 +44,12 @@ export function generateFloor(runSeed: number, index: number): Floor {
   return floor
 }
 
+export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins'] as const).indexOf(biome) * 4 + areaFloor
+export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number): Floor => {
+  if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid area floor: ${areaFloor}`)
+  return generateFloor(runSeed, areaFloorIndex(biome, areaFloor))
+}
+
 interface Room { x: number; y: number; w: number; h: number }
 const center = (room: Room): Point => ({ x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) })
 const overlaps = (a: Room, b: Room) => a.x - 2 < b.x + b.w && a.x + a.w + 2 > b.x && a.y - 2 < b.y + b.h && a.y + a.h + 2 > b.y

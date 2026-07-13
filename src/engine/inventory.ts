@@ -1,6 +1,6 @@
 import { ITEM, biomeName, shopStock } from '../content'
-import { FLOOR_COUNT, type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
-import { actorAt, generateFloor, getTile } from '../world'
+import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
+import { actorAt, generateAreaFloor, getTile } from '../world'
 import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
@@ -61,8 +61,11 @@ export function descend(state: RunState): ActionResult {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   if (tile?.kind !== 'exit') { log(state, 'You are not at the exit.'); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
-  if (state.floor.index === FLOOR_COUNT - 1) { state.status = 'victory'; state.modal = undefined; log(state, 'The Ash Regent is defeated. You return with the dawn.'); return [event('win')] }
-  state.floor = generateFloor(state.seed, state.floor.index + 1)
+  const areaFloor = state.areaFloor ?? state.floor.index % 4
+  if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is secured. Return to the hub.`); return [event('areaComplete')] }
+  const nextAreaFloor = areaFloor + 1
+  state.floor = generateAreaFloor(state.seed, state.area ?? state.floor.biome, nextAreaFloor)
+  state.areaFloor = nextAreaFloor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4)

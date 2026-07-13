@@ -1,5 +1,5 @@
-import { generateFloor } from '../world'
-import type { Hero, RunState } from '../types'
+import { generateAreaFloor } from '../world'
+import type { Biome, Hero, RunState } from '../types'
 import { refreshFov } from './visibility'
 
 export const newHero = (): Hero => ({
@@ -7,12 +7,12 @@ export const newHero = (): Hero => ({
   stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: ['tonic', 'rock', 'bombPack', 'ropeBundle', 'ember'], equipment: { mainHand: 'whip' }, conditions: [], cooldowns: {}
 })
 
-export function newRun(seed = Math.floor(Math.random() * 0x7fffffff)): RunState {
-  const floor = generateFloor(seed, 0)
-  const hero = newHero()
+export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero): RunState {
+  const floor = generateAreaFloor(seed, area, areaFloor)
+  const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 2, seed, floor, hero, messages: ['You enter the Shale Mine.', 'H opens help.'], status: 'playing', turn: 0 }
+  const state: RunState = { version: 2, seed, floor, hero, messages: [`You enter the ${area === 'mine' ? 'Shale Mine' : area}.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor }
   refreshFov(state)
   return state
 }

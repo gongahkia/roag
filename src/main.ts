@@ -1,9 +1,9 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { createHubState, event, hasEvent, hubView, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
+import { createHubState, event, hasEvent, hubView, initialRoute, navigate, newRun, nextArea, perform, quickCast, unlockNextArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadRecords, loadRun, saveRecords, saveRun } from './storage'
-import type { Direction, HubState, Records, RunState } from './types'
+import type { Direction, Hero, HubState, Records, RunState } from './types'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -14,6 +14,7 @@ let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
+let heir: Hero | undefined
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
@@ -58,17 +59,29 @@ window.addEventListener('keydown', keyboardEvent => {
   audio.play(events)
   renderer.trigger(events, state)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
+  if (hasEvent(events, 'areaComplete')) completeArea()
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   redraw()
 })
 
 function start(): void {
-  state = newRun(route.heirSeed)
+  state = newRun(route.heirSeed, route.biome, 0, heir)
+  heir = state.hero
   saved = structuredClone(state)
   recordedEnd = false
   void saveRun(state)
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
+}
+
+function completeArea(): void {
+  if (!state) return
+  const completed = state.area ?? state.floor.biome
+  heir = structuredClone(state.hero)
+  hub = { ...hub, unlockedAreas: unlockNextArea(hub.unlockedAreas, completed) }
+  saved = undefined
+  void deleteRun()
+  route = { ...route, screen: 'hub', biome: nextArea(completed) ?? completed, hubAction: 'routes' }
 }
 
 function toggleVisualMode(): void {

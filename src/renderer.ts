@@ -150,7 +150,7 @@ export class TerminalRenderer {
   private sidebar(state: RunState): void {
     const hero = state.hero
     this.text(50, 1, 'EXPEDITION', colors.gold)
-    this.text(50, 2, `${String(state.floor.index + 1).padStart(2, '0')}/16 ${biomeName[state.floor.biome]}`, colors.text)
+    this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 29)
     this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
     this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
