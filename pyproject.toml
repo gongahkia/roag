@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 ml = [
   "onnx",
+  "onnxruntime",
   "onnxscript",
   "torch",
 ]
@@ -36,6 +37,7 @@ dev-ml = [
   "pyright",
   "ruff",
   "onnx",
+  "onnxruntime",
   "onnxscript",
   "torch",
   "twine",
