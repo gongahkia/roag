@@ -131,7 +131,7 @@ export type Modal =
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills' }
   | { kind: 'shop'; merchantId: string }
-  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[] }

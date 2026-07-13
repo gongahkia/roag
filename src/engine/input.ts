@@ -1,4 +1,4 @@
-import type { Direction, RunState } from '../types'
+import type { Direction, Modal, RunState } from '../types'
 import { moveHero } from './combat'
 import { bomb, castFirstSpell, castSpell, descend, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
 import { chooseSkill } from './progression'
@@ -41,8 +41,15 @@ function performModal(state: RunState, command: string): ActionResult {
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)
+  if (command === 'Enter' && modal.direction) return commitTarget(state, modal)
   const direction = directionFor(command)
   if (!direction || direction === 'wait') return []
+  state.modal = { ...modal, direction }
+  return [event('menu')]
+}
+
+function commitTarget(state: RunState, modal: Extract<Modal, { kind: 'target' }>): ActionResult {
+  const direction = modal.direction!
   state.modal = undefined
   if (modal.action === 'bomb') return bomb(state, direction)
   if (modal.action === 'throw' && modal.item) return throwItem(state, modal.item, direction)

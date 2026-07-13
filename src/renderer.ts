@@ -1,5 +1,5 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices, type ActionResult, type ScreenRoute } from './engine'
+import { skillChoices, targetPreview, type ActionResult, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
@@ -91,23 +91,30 @@ export class TerminalRenderer {
   }
 
   private stage(state: RunState): void {
-    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y)
+    const preview = state.modal?.kind === 'target' ? targetPreview(state, state.modal) : undefined
+    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
     this.ruleVertical(48, 0, 35)
   }
 
-  private drawMapCell(state: RunState, x: number, y: number): void {
+  private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
     const tile = getTile(state.floor, x, y)!
     if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); return }
     const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
+    const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
+    const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
     const [glyph, color] = tileGlyph[tile.kind]
     if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
     else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     if (!tile.visible) return
     if (this.spriteMode && telegraph) {
       this.ctx.fillStyle = telegraph.danger === 'major' ? '#ee6f7870' : '#f4d26a70'
+      this.ctx.fillRect(x * CW, y * CH, CW, CH)
+    }
+    if (this.spriteMode && (previewPath || previewCell)) {
+      this.ctx.fillStyle = previewCell ? '#bea6ff90' : '#8fb8ed70'
       this.ctx.fillRect(x * CW, y * CH, CW, CH)
     }
     const item = state.floor.items.find(current => current.x === x && current.y === y)
@@ -118,6 +125,7 @@ export class TerminalRenderer {
       const presentation = presentTelegraph(telegraph, state.turn, '')
       this.cell(x, y, presentation.glyph, presentation.color)
     }
+    if (!this.spriteMode && previewPath) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue)
   }
 
   private sidebar(state: RunState): void {
@@ -169,7 +177,7 @@ export class TerminalRenderer {
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'shop') return this.shop(state)
-    if (modal.kind === 'target') return this.target(modal)
+    if (modal.kind === 'target') return this.target(state, modal)
   }
 
   private help(): void {
@@ -200,11 +208,12 @@ export class TerminalRenderer {
     this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)
   }
 
-  private target(modal: Extract<Modal, { kind: 'target' }>): void {
+  private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
     this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
     const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'cast script' : 'throw item'
-    this.text(21, 20, `Use an 8-way direction to ${action}.`, colors.text)
-    this.text(21, 23, 'Esc/backtick cancels.', colors.dim)
+    const preview = targetPreview(state, modal)
+    this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
+    this.text(21, 23, modal.direction ? 'Enter confirms · direction changes preview' : 'Esc/backtick cancels.', colors.dim)
   }
 
   private end(state: RunState, won: boolean): void {
