@@ -5,6 +5,8 @@ import { appendLegacyRecord } from './campaign'
 
 export const REVENANT_CHANCE = 20
 export interface RevenantEncounter { actor: Actor; reward: { gold: number; item: 'tonic' } }
+export const SACRIFICIAL_ANCHOR_CHANCE = 20
+export interface SacrificialAnchor { recordId: string; tags: ['sacrificial-anchor']; effect: 'clearObstacle' }
 
 export const legacyRecordForDeath = (state: RunState, heirName: string, lineage: readonly string[]): LegacyRecord => ({
   id: `legacy:${state.seed}:${state.floor.index}:${state.turn}`,
@@ -61,4 +63,16 @@ export const claimRevenantReward = (campaign: CampaignRouteState, state: RunStat
   state.hero.gold += encounter.reward.gold
   if (state.hero.inventory.length < 12) state.hero.inventory.push(encounter.reward.item)
   return { campaign: { ...campaign, legacyRecords: campaign.legacyRecords.map(current => current.id === recordId ? { ...current, encounter: { kind: 'revenant', resolved: true } } : current) }, recovered: true }
+}
+
+export const createSacrificialAnchor = (record: LegacyRecord, seed: number): SacrificialAnchor | undefined => record.cause === 'sacrificed' && rngFor(seed, 'legacy', `anchor:${record.id}`).chance(SACRIFICIAL_ANCHOR_CHANCE) ? { recordId: record.id, tags: ['sacrificial-anchor'], effect: 'clearObstacle' } : undefined
+export const activateSacrificialAnchor = (campaign: CampaignRouteState, state: RunState, recordId: string, seed: number): { campaign: CampaignRouteState; activated: boolean; point?: Point } => {
+  const record = campaign.legacyRecords.find(current => current.id === recordId)
+  const anchor = record && !record.encounter.resolved ? createSacrificialAnchor(record, seed) : undefined
+  if (!record || !anchor) return { campaign, activated: false }
+  const obstacles = state.floor.tiles.flatMap((tile, index) => ['rubble', 'bramble'].includes(tile.kind) ? [{ x: index % 48, y: Math.floor(index / 48) }] : []).filter(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) <= 5)
+  if (!obstacles.length) return { campaign, activated: false }
+  const point = rngFor(seed, 'legacy', `anchor-target:${record.id}:${state.floor.index}`).pick(obstacles)
+  state.floor.tiles[point.y * 48 + point.x].kind = 'floor'
+  return { campaign: { ...campaign, legacyRecords: campaign.legacyRecords.map(current => current.id === recordId ? { ...current, encounter: { kind: 'anchor', resolved: true } } : current) }, activated: true, point }
 }

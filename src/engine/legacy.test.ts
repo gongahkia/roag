@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignRoute } from './campaign'
-import { REVENANT_CHANCE, claimRevenantReward, createRevenantEncounter, echoCacheEpitaph, legacyRecordForDeath, recordDeath, recoverEchoCache, selectLegacyEncounter } from './legacy'
+import { REVENANT_CHANCE, SACRIFICIAL_ANCHOR_CHANCE, activateSacrificialAnchor, claimRevenantReward, createRevenantEncounter, createSacrificialAnchor, echoCacheEpitaph, legacyRecordForDeath, recordDeath, recoverEchoCache, selectLegacyEncounter } from './legacy'
+import { gateForArea, resolveAreaGate } from './gates'
 import { createLegacy, createRun } from '../test/factories'
 
 describe('legacy death records', () => {
@@ -51,5 +52,20 @@ describe('legacy death records', () => {
     expect(first).toMatchObject({ recovered: true, campaign: { legacyRecords: [{ encounter: { kind: 'revenant', resolved: true } }] } })
     expect(state.hero).toMatchObject({ gold: 40, inventory: ['tonic'] })
     expect(claimRevenantReward(first.campaign, state, record.id, seed).recovered).toBe(false)
+  })
+
+  it('uses a rare sacrificial anchor to clear a local obstacle without bypassing NPC gates', () => {
+    const record = createLegacy({ cause: 'sacrificed' })
+    const seed = Array.from({ length: 100 }, (_, candidate) => candidate).find(candidate => createSacrificialAnchor(record, candidate))!
+    expect(SACRIFICIAL_ANCHOR_CHANCE).toBe(20)
+    expect(createSacrificialAnchor(record, seed)).toEqual({ recordId: record.id, tags: ['sacrificial-anchor'], effect: 'clearObstacle' })
+    const state = createRun()
+    state.floor.tiles[state.hero.y * 48 + state.hero.x + 1].kind = 'rubble'
+    const campaign = { ...initialCampaignRoute(), legacyRecords: [record] }
+    const activated = activateSacrificialAnchor(campaign, state, record.id, seed)
+    expect(activated).toMatchObject({ activated: true, point: { x: 2, y: 1 }, campaign: { legacyRecords: [{ encounter: { kind: 'anchor', resolved: true } }] } })
+    expect(state.floor.tiles[state.hero.y * 48 + state.hero.x + 1].kind).toBe('floor')
+    expect(resolveAreaGate(state, gateForArea('mine'), 0).resolved).toBe(false)
+    expect(activateSacrificialAnchor(activated.campaign, state, record.id, seed).activated).toBe(false)
   })
 })
