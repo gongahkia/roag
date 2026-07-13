@@ -13,6 +13,7 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.schema import ActionV1 as _ActionV1
+from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
 from kenjaku.schema import ObservationV1 as _ObservationV1
 
 TenhouGame = _io.TenhouGame  # stable since 0.2.0
@@ -36,6 +37,7 @@ DiscardFrequencyBaseline = _models.DiscardFrequencyBaseline  # stable since 0.2.
 RiichiFrequencyBaseline = _models.RiichiFrequencyBaseline  # stable since 0.2.0
 CallFrequencyBaseline = _models.CallFrequencyBaseline  # stable since 0.2.0
 ActionV1 = _ActionV1  # stable since 0.2.0
+LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
 
 
@@ -98,6 +100,7 @@ API_EXPORT_DOCS = {
     "RiichiFrequencyBaseline": "Frequency baseline for riichi/pass decisions.",
     "CallFrequencyBaseline": "Frequency baseline for call/pass decisions.",
     "ActionV1": "Versioned ruleset-specific policy action.",
+    "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
@@ -165,6 +168,7 @@ __all__ = [
     "RiichiFrequencyBaseline",
     "CallFrequencyBaseline",
     "ActionV1",
+    "LegalActionMaskV1",
     "ObservationV1",
     "export_decision_snapshots",
     "load_decision_snapshots",

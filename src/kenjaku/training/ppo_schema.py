@@ -4,25 +4,26 @@ from collections.abc import Sequence
 from typing import Any
 
 from kenjaku.core import TileType
+from kenjaku.schema import (
+    LEGAL_ACTION_MASK_V1_DIM,
+    LEGAL_ACTION_MASK_V1_KYUSHU_INDEX,
+    LEGAL_ACTION_MASK_V1_PASS_INDEX,
+    LEGAL_ACTION_MASK_V1_RIICHI_INDEX,
+    LEGAL_ACTION_MASK_V1_TILE_ACTION_OFFSETS,
+    LEGAL_ACTION_MASK_V1_TSUMO_INDEX,
+    legal_action_mask_v1_from_payloads,
+    legal_action_mask_v1_index_from_payload,
+)
 
 PPO_SANDBOX_POLICY_KIND = "sandbox-linear-ppo-actor-critic-v0"
 PPO_DECISION_TYPES = ("discard", "pass", "call", "kan", "kita", "riichi", "ron")
 PPO_STATE_DIM = 58
-PPO_ACTION_KIND_OFFSETS = {
-    "discard": 0,
-    "ron": 34,
-    "chi": 68,
-    "pon": 102,
-    "minkan": 136,
-    "ankan": 170,
-    "kakan": 204,
-    "kita": 238,
-}
-PPO_PASS_ACTION_INDEX = 272
-PPO_TSUMO_ACTION_INDEX = 273
-PPO_RIICHI_ACTION_INDEX = 274
-PPO_KYUSHU_ACTION_INDEX = 275
-PPO_ACTION_DIM = 276
+PPO_ACTION_KIND_OFFSETS = LEGAL_ACTION_MASK_V1_TILE_ACTION_OFFSETS
+PPO_PASS_ACTION_INDEX = LEGAL_ACTION_MASK_V1_PASS_INDEX
+PPO_TSUMO_ACTION_INDEX = LEGAL_ACTION_MASK_V1_TSUMO_INDEX
+PPO_RIICHI_ACTION_INDEX = LEGAL_ACTION_MASK_V1_RIICHI_INDEX
+PPO_KYUSHU_ACTION_INDEX = LEGAL_ACTION_MASK_V1_KYUSHU_INDEX
+PPO_ACTION_DIM = LEGAL_ACTION_MASK_V1_DIM
 
 
 def ppo_state_features(entry: dict[str, Any]) -> list[float]:
@@ -61,27 +62,10 @@ def ppo_state_features(entry: dict[str, Any]) -> list[float]:
 
 
 def ppo_legal_action_mask(actions: Sequence[dict[str, Any]]) -> list[bool]:
-    mask = [False] * PPO_ACTION_DIM
-    for action in actions:
-        mask[ppo_action_index(action)] = True
-    if not any(mask):
+    if not actions:
         raise ValueError("PPO legal action mask cannot be empty")
-    return mask
+    return legal_action_mask_v1_from_payloads(actions)
 
 
 def ppo_action_index(action: dict[str, Any]) -> int:
-    kind = str(action["kind"])
-    if kind in PPO_ACTION_KIND_OFFSETS:
-        tile = action.get("tile")
-        if not isinstance(tile, str):
-            raise ValueError(f"{kind} action requires tile payload")
-        return PPO_ACTION_KIND_OFFSETS[kind] + TileType.parse(tile).index
-    if kind == "pass":
-        return PPO_PASS_ACTION_INDEX
-    if kind == "tsumo":
-        return PPO_TSUMO_ACTION_INDEX
-    if kind == "riichi":
-        return PPO_RIICHI_ACTION_INDEX
-    if kind == "kyushu":
-        return PPO_KYUSHU_ACTION_INDEX
-    raise ValueError("unsupported PPO action kind: " + kind)
+    return legal_action_mask_v1_index_from_payload(action)
