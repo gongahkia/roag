@@ -13,6 +13,7 @@ import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 import { evaluateEquipmentEffects } from './equipment'
+import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -50,7 +51,7 @@ export function operate(state: RunState): ActionResult {
   if (tile?.kind === 'rescue' || friend?.name === 'lost scout') {
     const npc = recordRescue(state, friend)
     state.hero.maxHealth += 2
-    state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8)
+    state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8 + vitalityRescueRecovery(state.hero))
     state.hero.gold += 35
     state.floor.actors = state.floor.actors.filter(actor => actor !== friend)
     const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
@@ -83,7 +84,7 @@ export function descend(state: RunState): ActionResult {
   state.areaFloor = nextAreaFloor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y
-  state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4)
+  state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4 + vitalityRecovery(state.hero))
   state.hero.focus = state.hero.maxFocus
   log(state, `You descend into the ${biomeName[state.floor.biome]}.`)
   refreshFov(state)
@@ -200,7 +201,7 @@ export function shopChoice(state: RunState, command: string): ActionResult {
 function useItem(state: RunState, id: string, inventoryIndex: number): ActionResult {
   const item = ITEM[id]
   if (item.slot) return equip(state, id, inventoryIndex)
-  if (item.use === 'heal') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 10); consume(state, inventoryIndex); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
+  if (item.use === 'heal') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 10 + vitalityRecovery(state.hero)); consume(state, inventoryIndex); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
   if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, [event('spell')]) }
   if (item.use === 'teleport') {

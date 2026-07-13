@@ -17,6 +17,7 @@ import { evaluateEquipmentEffects } from './equipment'
 import { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from './strength'
 import { resolveDisplacement } from './displacement'
 import { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegraphAvoidance } from './agility'
+import { vitalityHazardReduction, vitalityShield } from './vitality'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -52,11 +53,11 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   state.hero.x = destination.x
   state.hero.y = destination.y
   const events: ActionResult = [event('move')]
-  if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap'))
-  if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava'))
-  if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas'))
+  if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap', true))
+  if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava', true))
+  if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas', true))
   if (tile.kind === 'crumble') { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
-  if (tile.kind === 'boulder') { tile.kind = 'floor'; events.push(...damageHero(state, 6, 'a rolling boulder')) }
+  if (tile.kind === 'boulder') { tile.kind = 'floor'; events.push(...damageHero(state, 6, 'a rolling boulder', true)) }
   return advance(state, events)
 }
 
@@ -91,8 +92,8 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   return events
 }
 
-export function damageHero(state: RunState, amount: number, source: string): ActionResult {
-  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero))
+export function damageHero(state: RunState, amount: number, source: string, hazard = false): ActionResult {
+  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - (hazard ? vitalityHazardReduction(state.hero) : 0))
   state.hero.health -= amount
   log(state, `${source} harms you for ${amount}.`)
   if (state.hero.health > 0) return [event('hurt')]
@@ -209,7 +210,7 @@ function tickEnvironment(state: RunState, events: ActionResult): void {
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
-  if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent'))
+  if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent', true))
   if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus++
 }
 
