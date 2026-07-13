@@ -8,16 +8,17 @@ const tileColor: Record<string, string> = {
 }
 
 export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/jomon-atlas-source.png' } as const
+export const HERO_SPRITE = 21
 
-const tileSprite: Partial<Record<Tile['kind'], number>> = {
+export const tileSprite: Partial<Record<Tile['kind'], number>> = {
   wall: 0, floor: 1, exit: 2, door: 3, lockedDoor: 4, water: 5, lava: 6, pit: 7, rope: 8, spikes: 9, dart: 10, fireVent: 11, crumble: 12, boulder: 13, web: 14, gas: 15,
   crate: 16, chest: 17, altar: 18, shop: 19, rescue: 20
 }
-const actorSprite: Record<string, number> = {
+export const actorSprite: Record<string, number> = {
   rat: 32, mole: 33, sapper: 34, beetle: 35, driller: 36, foreman: 37, thornling: 38, boar: 39, spitter: 40, wisp: 41, frog: 42, heartwood: 43, crawler: 44, magma: 45, echo: 46, seer: 47,
   slug: 48, geode: 49, scarab: 50, sentinel: 51, oracle: 52, shade: 53, cultist: 54, regent: 55, merchant: 19, ally: 20
 }
-const itemSprite: Record<string, number> = {
+export const itemSprite: Record<string, number> = {
   whip: 64, machete: 65, pickaxe: 66, spear: 67, sunblade: 68, buckler: 69, lantern: 70, cap: 71, mask: 72, coat: 73, mail: 74, boots: 75, featherboots: 76, ward: 77, sunseal: 78, tonic: 79,
   focusTonic: 80, mapScroll: 81, blinkRune: 82, bombPack: 83, ropeBundle: 84, key: 85, rock: 86, fireJar: 87, ember: 88, mend: 89, sight: 90, gust: 91, wardScript: 92, gate: 93, gold: 114
 }
@@ -135,7 +136,7 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, x: num
 }
 
 export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false): void {
-  if (textureAtlas.draw(ctx, hero ? 21 : actor ? actorSprite[actor.kind] : undefined, x, y, dim)) return
+  if (textureAtlas.draw(ctx, hero ? HERO_SPRITE : actor ? actorSprite[actor.kind] : undefined, x, y, dim)) return
   const px = x * 10 + 1
   const py = y * 14 + 3
   const color = hero ? '#e8edf4' : actor?.color ?? '#d6dce8'
