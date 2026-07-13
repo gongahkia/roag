@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,6 +27,7 @@ from kenjaku.simulation.environment import (
     next_round_sandbox_environment,
     resolve_sandbox_ruleset,
 )
+from kenjaku.simulation.heuristic_opponents import choose_heuristic_sandbox_action
 
 SELF_PLAY_SANDBOX_REPORT_KIND = "kenjaku-self-play-sandbox-report-v0"
 SELF_PLAY_MATCH_REPORT_KIND = "kenjaku-self-play-match-report-v0"
@@ -74,6 +76,7 @@ def run_self_play_match_sandbox(
     kan_policy: str = "pass",
     kita_policy: str = "pass",
     ron_policy: str = "win",
+    heuristic_seats: Sequence[int] = (),
     include_trajectories: bool = False,
 ) -> dict[str, Any]:
     if games <= 0:
@@ -93,6 +96,7 @@ def run_self_play_match_sandbox(
     if rule_config is not None:
         ruleset = rule_config.ruleset
     rules = resolve_sandbox_ruleset(ruleset)
+    resolved_heuristic_seats = _validate_heuristic_seats(heuristic_seats, players=rules.players)
     resolved_rule_config = (
         default_sandbox_rule_config(rules.name) if rule_config is None else rule_config
     )
@@ -121,6 +125,7 @@ def run_self_play_match_sandbox(
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
             policies=policies,
+            heuristic_seats=resolved_heuristic_seats,
             policy_counts=policy_counts,
             include_trajectory=include_trajectories,
         )
@@ -145,6 +150,13 @@ def run_self_play_match_sandbox(
         "rule_config": resolved_rule_config.to_versioned_payload(),
         "players": rules.players,
         "policies": policies,
+        "opponents": {
+            "heuristic_seats": list(resolved_heuristic_seats),
+            "seat_policy_kind": [
+                "heuristic" if seat in resolved_heuristic_seats else "configured"
+                for seat in range(rules.players)
+            ],
+        },
         "decisions": total_decisions,
         "average_decisions": total_decisions / games,
         "rounds": total_rounds,
@@ -162,6 +174,8 @@ def run_self_play_match_sandbox(
             "kita_policy": True,
             "ron_policy": True,
             "pass_policy": True,
+            "heuristic_policy": True,
+            "mixed_heuristic_opponents": True,
             "trajectory_states": include_trajectories,
             "trajectory_legal_actions": include_trajectories,
             "trajectory_rewards": include_trajectories,
@@ -341,6 +355,11 @@ def format_self_play_match_report(report: dict[str, Any]) -> str:
         f"ruleset: {report['ruleset']}",
         "policies: "
         + " ".join(f"{name}={policy}" for name, policy in sorted(report["policies"].items())),
+        "opponents: "
+        + " ".join(
+            f"{seat}={policy}"
+            for seat, policy in enumerate(report["opponents"]["seat_policy_kind"])
+        ),
         f"rounds: {report['rounds']}",
         f"average_rounds: {float(report['average_rounds']):.2f}",
         f"decisions: {report['decisions']}",
@@ -395,6 +414,7 @@ def _simulate_match_game(
     max_rounds: int,
     max_turns_per_round: int,
     policies: dict[str, str],
+    heuristic_seats: tuple[int, ...],
     policy_counts: list[int],
     include_trajectory: bool,
 ) -> dict[str, Any]:
@@ -410,6 +430,7 @@ def _simulate_match_game(
             round_index=round_index,
             max_turns=max_turns_per_round,
             policies=policies,
+            heuristic_seats=heuristic_seats,
             policy_counts=policy_counts,
             decisions=decisions,
             include_trajectory=include_trajectory,
@@ -472,6 +493,7 @@ def _simulate_match_round(
     round_index: int,
     max_turns: int,
     policies: dict[str, str],
+    heuristic_seats: tuple[int, ...],
     policy_counts: list[int],
     decisions: list[dict[str, Any]],
     include_trajectory: bool,
@@ -493,6 +515,7 @@ def _simulate_match_round(
             seat=seat,
             actions=legal_actions,
             policies=policies,
+            heuristic_seats=heuristic_seats,
             policy_counts=policy_counts,
             seed=seed,
             step=round_index * max_turns + step,
@@ -524,10 +547,13 @@ def _choose_match_action(
     seat: int,
     actions: tuple[Action, ...],
     policies: dict[str, str],
+    heuristic_seats: tuple[int, ...],
     policy_counts: list[int],
     seed: int,
     step: int,
 ) -> Action:
+    if seat in heuristic_seats:
+        return choose_heuristic_sandbox_action(state, seat=seat, legal_actions=actions)
     if _has_pending_match_reaction(state):
         ron_actions = _actions_for_kinds(actions, {ActionKind.RON})
         if ron_actions and policies["ron"] != "pass":
@@ -761,6 +787,16 @@ def _has_pending_match_reaction(state: SandboxEnvironmentState) -> bool:
 def _validate_match_action_policy(decision_type: str, policy: str) -> None:
     if policy not in SELF_PLAY_MATCH_ACTION_POLICIES:
         raise ValueError(f"unsupported match {decision_type} policy: {policy}")
+
+
+def _validate_heuristic_seats(seats: Sequence[int], *, players: int) -> tuple[int, ...]:
+    if isinstance(seats, str):
+        raise ValueError("heuristic_seats must be a sequence of seat integers")
+    if any(type(seat) is not int or not 0 <= seat < players for seat in seats):
+        raise ValueError("heuristic_seats must contain valid seat integers")
+    if len(set(seats)) != len(seats):
+        raise ValueError("heuristic_seats must not contain duplicates")
+    return tuple(sorted(seats))
 
 
 def _simulate_episode(

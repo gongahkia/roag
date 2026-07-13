@@ -745,6 +745,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="ron/tsumo win policy",
     )
     self_play_match.add_argument(
+        "--heuristic-seats",
+        default="",
+        help="comma-separated seats using deterministic heuristic actions",
+    )
+    self_play_match.add_argument(
         "--include-trajectories",
         action="store_true",
         help="include state/action/reward trajectories in JSON output",
@@ -3502,6 +3507,7 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
             kan_policy=args.kan_policy,
             kita_policy=args.kita_policy,
             ron_policy=args.ron_policy,
+            heuristic_seats=_parse_seat_list(args.heuristic_seats),
             include_trajectories=include_trajectories,
         )
     except ValueError as error:
@@ -9485,6 +9491,15 @@ def _validated_positive_float(value: float, option: str) -> float:
     if value <= 0.0:
         raise SystemExit(f"{option} must be positive")
     return value
+
+
+def _parse_seat_list(value: str) -> tuple[int, ...]:
+    if not value:
+        return ()
+    try:
+        return tuple(int(part) for part in value.split(","))
+    except ValueError as error:
+        raise ValueError("heuristic_seats must be comma-separated integers") from error
 
 
 def _add_adamw_guardrail_args(parser: argparse.ArgumentParser) -> None:

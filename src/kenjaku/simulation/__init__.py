@@ -58,6 +58,7 @@ from kenjaku.simulation.environment import (
     pass_pending_discard_reactions,
     resolve_sandbox_ruleset,
 )
+from kenjaku.simulation.heuristic_opponents import choose_heuristic_sandbox_action
 from kenjaku.simulation.heuristic_trajectories import (
     HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS,
     HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND,
@@ -157,6 +158,7 @@ __all__ = [
     "build_heuristic_distillation_trajectory_manifest",
     "generate_heuristic_distillation_trajectory_manifest",
     "write_heuristic_distillation_trajectory_manifest",
+    "choose_heuristic_sandbox_action",
     "generate_legal_random_state_3p",
     "generate_legal_random_state_4p",
     "next_round_sandbox_environment",
