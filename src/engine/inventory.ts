@@ -3,8 +3,7 @@ import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
 import { actorAt, generateAreaFloor, getTile } from '../world'
 import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
-import { addCondition, modifyIncomingDamage } from './conditions'
-import { resolveDisplacement } from './displacement'
+import { modifyIncomingDamage } from './conditions'
 import { gateForArea } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
@@ -13,10 +12,10 @@ import { consume, distance, event, log, turnRng, type ActionResult } from './sha
 import { refreshFov } from './visibility'
 import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
-import { intellectWardBonus } from './intellect'
 import { scriptCastProfile } from './scripts'
 import { castEmber } from './ember'
 import { castVerdant, isVerdantSpell } from './verdant'
+import { castAstral, isAstralSpell } from './astral'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -168,12 +167,9 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   state.hero.focus -= profile.focusCost
   const delta = DIRECTIONS[direction]
   const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
-  const target = actorAt(state.floor, point.x, point.y)
   if (item.spell === 'ember') castEmber(state, point)
   if (isVerdantSpell(item.spell)) castVerdant(state, item.spell, point)
-  if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
-  if (item.spell === 'ward') { state.hero.maxHealth += 2 + intellectWardBonus(state.hero); if (intellectWardBonus(state.hero)) addCondition(state.hero, { kind: 'shielded', duration: 3, potency: intellectWardBonus(state.hero) }) }
-  if (item.spell === 'gate') { state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }
+  if (isAstralSpell(item.spell)) castAstral(state, item.spell, point)
   const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)

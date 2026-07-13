@@ -39,7 +39,7 @@ const hasGateTag = (state: RunState, tag: string): boolean => {
   if (tag === 'ward') return items.some(item => ['ward', 'wardScript'].includes(item))
   if (tag === 'astral') return state.hero.skills.some(skill => skill.startsWith('astral')) || hasAstralGateAccess(state.hero)
   if (tag === 'relic') return items.includes('sunseal')
-  if (tag === 'script' || tag === 'arcane') return items.some(item => ['ember', 'mend', 'sight', 'gust', 'wardScript', 'gate'].includes(item))
+  if (tag === 'script' || tag === 'arcane') return items.some(item => ['ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'gust', 'pull', 'wardScript', 'gate'].includes(item))
   if (tag === 'rubble') return items.includes('pickaxe') || state.hero.bombs > 0
   if (tag === 'piercing') return items.some(item => ['spear', 'pickaxe'].includes(item))
   return false

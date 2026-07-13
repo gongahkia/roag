@@ -60,6 +60,8 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'root', name: 'Root Script', glyph: '?', color: '#6dad62', value: 115, use: 'spell', spell: 'root' },
   { id: 'waterScript', name: 'Tide Script', glyph: '?', color: '#7bcfe0', value: 120, use: 'spell', spell: 'water' },
   { id: 'lull', name: 'Lull Script', glyph: '?', color: '#b6df8a', value: 135, use: 'spell', spell: 'lull' },
+  { id: 'blink', name: 'Blink Script', glyph: '?', color: '#bda8eb', value: 135, use: 'spell', spell: 'blink' },
+  { id: 'pull', name: 'Pull Script', glyph: '?', color: '#d2b1ed', value: 125, use: 'spell', spell: 'pull' },
   { id: 'gust', name: 'Gust Script', glyph: '?', color: '#c1b8f4', value: 115, use: 'spell', spell: 'gust' },
   { id: 'wardScript', name: 'Ward Script', glyph: '?', color: '#ecb7e3', value: 130, use: 'spell', spell: 'ward' },
   { id: 'gate', name: 'Gate Script', glyph: '?', color: '#f1db78', value: 160, use: 'spell', spell: 'gate' }
@@ -69,11 +71,13 @@ export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Re
 export const SCRIPTS: ScriptDefinition[] = [
   { itemId: 'ember', id: 'ember', school: 'ember', tags: ['fire', 'damage'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
   { itemId: 'mend', id: 'mend', school: 'verdant', tags: ['healing'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
-  { itemId: 'sight', id: 'sight', school: 'verdant', tags: ['vision'], focusCost: 3, shape: 'burst', range: 1, upgrades: ['range', 'focusCost'] },
   { itemId: 'root', id: 'root', school: 'verdant', tags: ['root', 'control'], focusCost: 3, shape: 'line', range: 2, upgrades: ['potency', 'range'] },
   { itemId: 'waterScript', id: 'water', school: 'verdant', tags: ['water', 'terrain'], focusCost: 3, shape: 'line', range: 2, upgrades: ['range', 'potency'] },
   { itemId: 'lull', id: 'lull', school: 'verdant', tags: ['creature', 'control'], focusCost: 4, shape: 'line', range: 2, upgrades: ['potency', 'range'] },
+  { itemId: 'sight', id: 'sight', school: 'astral', tags: ['vision'], focusCost: 3, shape: 'burst', range: 1, upgrades: ['range', 'focusCost'] },
+  { itemId: 'blink', id: 'blink', school: 'astral', tags: ['teleport', 'movement'], focusCost: 3, shape: 'line', range: 3, upgrades: ['range', 'focusCost'] },
   { itemId: 'gust', id: 'gust', school: 'astral', tags: ['force', 'movement'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
+  { itemId: 'pull', id: 'pull', school: 'astral', tags: ['force', 'control'], focusCost: 3, shape: 'line', range: 2, upgrades: ['potency', 'range'] },
   { itemId: 'wardScript', id: 'ward', school: 'astral', tags: ['ward'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
   { itemId: 'gate', id: 'gate', school: 'astral', tags: ['teleport'], focusCost: 3, shape: 'line', range: 1, upgrades: ['range', 'focusCost'] }
 ]
@@ -118,8 +122,8 @@ export const biomeName: Record<Biome, string> = { mine: 'Shale Mine', wilds: 'Ve
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll'],
-  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blinkRune'],
-  ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'key']
+  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
+  ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
 }
 
 const idPattern = /^[a-z][a-zA-Z0-9]*$/
