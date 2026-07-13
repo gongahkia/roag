@@ -5,7 +5,7 @@ import { createEnemy } from '../test/factories'
 describe('tag and modifier evaluation', () => {
   it('queries item, skill, script, terrain, and actor tags canonically', () => {
     const query = { items: ['machete'], skills: ['str1'], scripts: ['ember'], terrain: ['gas'], actors: [createEnemy({ kind: 'sapper', status: ['marked'] })] } as const
-    expect(queryTags(query)).toEqual(['actor', 'arcane', 'cleave', 'ember', 'equipment', 'gas', 'hostile', 'item', 'marked', 'monster', 'sapper', 'script', 'skill', 'strength', 'weapon', 'wilds'])
+    expect(queryTags(query)).toEqual(['actor', 'arcane', 'cleave', 'damage', 'ember', 'equipment', 'fire', 'gas', 'hostile', 'item', 'marked', 'monster', 'sapper', 'script', 'skill', 'strength', 'weapon', 'wilds'])
     expect(queryTags({ ...query, items: ['machete', 'machete'] })).toEqual(queryTags(query))
     expect(hasTags(query, ['cleave', 'script', 'gas', 'marked'])).toBe(true)
   })

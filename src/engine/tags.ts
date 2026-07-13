@@ -1,4 +1,4 @@
-import { ITEM, MONSTERS, SKILLS } from '../content'
+import { ITEM, MONSTERS, SCRIPTS, SKILLS } from '../content'
 import { terrainTags } from './terrain'
 import type { Actor, ItemId, TileKind } from '../types'
 
@@ -25,7 +25,9 @@ export const skillTags = (id: string): string[] => {
 export const scriptTags = (id: ItemId): string[] => {
   const item = requireItem(id)
   if (item.use !== 'spell') throw new Error(`non-script tag source: ${id}`)
-  return itemTags(id)
+  const script = SCRIPTS.find(current => current.itemId === id)
+  if (!script) throw new Error(`missing script tag source: ${id}`)
+  return canonical([...itemTags(id), script.school, ...script.tags])
 }
 export const actorTags = (actor: Actor): string[] => canonical(['actor', actor.role, actor.kind, actor.hostile ? 'hostile' : 'friendly', ...(MONSTERS.find(monster => monster.id === actor.kind)?.tags ?? []), ...(actor.status ?? [])])
 export const queryTags = (query: TagQuery): string[] => canonical([

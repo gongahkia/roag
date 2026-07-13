@@ -16,6 +16,7 @@ import { scriptCastProfile } from './scripts'
 import { castEmber } from './ember'
 import { castVerdant, isVerdantSpell } from './verdant'
 import { castAstral, isAstralSpell } from './astral'
+import { announceSynergies, resolveSynergies } from './synergies'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -165,11 +166,16 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   const profile = scriptCastProfile(state.hero, id)
   if (state.hero.focus < profile.focusCost) { log(state, 'You lack focus.'); return [] }
   state.hero.focus -= profile.focusCost
+  const geometry = resolveSynergies({ scripts: [id], skills: state.hero.skills }, { range: profile.range })
   const delta = DIRECTIONS[direction]
-  const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
-  if (item.spell === 'ember') castEmber(state, point)
+  const point = { x: state.hero.x + delta.x * Math.max(1, Math.floor(geometry.values.range ?? profile.range)), y: state.hero.y + delta.y * Math.max(1, Math.floor(geometry.values.range ?? profile.range)) }
+  const tile = getTile(state.floor, point.x, point.y)
+  const impact = resolveSynergies({ scripts: [id], terrain: tile ? [tile.kind] : [] })
+  if (item.spell === 'ember') castEmber(state, point, impact.values.damage ?? 0)
   if (isVerdantSpell(item.spell)) castVerdant(state, item.spell, point)
   if (isAstralSpell(item.spell)) castAstral(state, item.spell, point)
+  announceSynergies(state, geometry)
+  announceSynergies(state, impact)
   const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
