@@ -78,6 +78,14 @@ if TYPE_CHECKING:
         save_behavior_distillation_checkpoint,
         train_multi_task_behavior_distillation,
     )
+    from kenjaku.training.calibration import (
+        CALIBRATION_DECISION_FAMILIES,
+        CALIBRATION_TEMPERATURES,
+        CalibrationExample,
+        apply_temperature,
+        evaluate_decision_family_calibration,
+        fit_decision_family_temperatures,
+    )
     from kenjaku.training.population import (
         POPULATION_SANDBOX_REPORT_KIND,
         POPULATION_SANDBOX_SNAPSHOT_KIND,
@@ -106,6 +114,12 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORT_MODULES = {
+    "CALIBRATION_DECISION_FAMILIES": "kenjaku.training.calibration",
+    "CALIBRATION_TEMPERATURES": "kenjaku.training.calibration",
+    "CalibrationExample": "kenjaku.training.calibration",
+    "apply_temperature": "kenjaku.training.calibration",
+    "evaluate_decision_family_calibration": "kenjaku.training.calibration",
+    "fit_decision_family_temperatures": "kenjaku.training.calibration",
     "BEHAVIOR_DISTILLATION_TRAINER_KIND": "kenjaku.training.behavior_distillation",
     "BEHAVIOR_DISTILLATION_CHECKPOINT_KIND": "kenjaku.training.behavior_distillation",
     "HEURISTIC_DISTILLATION_FAMILIES": "kenjaku.training.behavior_distillation",
@@ -151,6 +165,8 @@ def __getattr__(name: str) -> Any:
     return value
 
 __all__ = [
+    "CALIBRATION_DECISION_FAMILIES",
+    "CALIBRATION_TEMPERATURES",
     "BEHAVIOR_DISTILLATION_TRAINER_KIND",
     "BEHAVIOR_DISTILLATION_CHECKPOINT_KIND",
     "BC_DECISION_TYPES",
@@ -158,6 +174,7 @@ __all__ = [
     "BC_EXAMPLE_ROW_KIND",
     "BcExampleLoad",
     "BcExampleShard",
+    "CalibrationExample",
     "BehaviorDistillationExample",
     "BehaviorDistillationTrainingResult",
     "CallExample",
@@ -171,6 +188,7 @@ __all__ = [
     "actual_discard_seen_after_riichi",
     "actual_discard_seen_before_riichi",
     "active_riichi_opponents",
+    "apply_temperature",
     "bc_example_from_payload",
     "bc_example_to_payload",
     "build_bc_manifest",
@@ -191,12 +209,14 @@ __all__ = [
     "discard_shanten_delta",
     "distillation_examples_from_manifest",
     "evaluate_multi_task_behavior_distillation",
+    "evaluate_decision_family_calibration",
     "load_behavior_distillation_checkpoint",
     "resolve_action_kind_loss_weights",
     "save_behavior_distillation_checkpoint",
     "evaluate_ppo_sandbox_policy",
     "format_ppo_sandbox_report",
     "format_population_sandbox_report",
+    "fit_decision_family_temperatures",
     "has_active_riichi_opponent",
     "HEURISTIC_DISTILLATION_FAMILIES",
     "iter_call_examples",
