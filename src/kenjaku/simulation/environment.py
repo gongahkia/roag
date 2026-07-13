@@ -2594,6 +2594,7 @@ def _terminal_win_point_updates(
     yaku_by_seat = dict(winning_yaku_by_seat)
     estimates: list[SandboxScoreEstimate] = []
     for winner_index, winner_seat in enumerate(winner_seats):
+        winner_honba = state.honba if discarder_seat is None or winner_index == 0 else 0
         riichi_stick_points = (
             riichi_sticks_for_winners * config.riichi_deposit_points if winner_index == 0 else 0
         )
@@ -2632,7 +2633,7 @@ def _terminal_win_point_updates(
                 winning_tile=winning_tile,
             ),
             kita_dora_count=len(_kita_tiles_by_seat(state)[winner_seat]),
-            honba=state.honba,
+            honba=winner_honba,
             riichi_stick_points=riichi_stick_points,
         )
         estimates.append(estimate)
