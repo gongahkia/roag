@@ -61,6 +61,7 @@ def evaluate_shanten_ukeire(
     ruleset: str = TENHOU_4P.name,
     visible_counts: Sequence[int] | None = None,
 ) -> ShantenUkeire:
+    """Return exact shanten and remaining-copy improving draws."""
     rules = _ruleset(ruleset)
     hand = _validate_counts(hand_counts, label="hand")
     if sum(hand) > 13:
@@ -98,6 +99,7 @@ def evaluate_hand_value_potential(
     seat_wind: TileType | None = None,
     round_wind: TileType | None = None,
 ) -> HandValuePotential:
+    """Return visible bonus and structural yaku-potential features."""
     rules = _ruleset(ruleset)
     hand = tuple(tiles)
     counts = tile_counts(hand)
@@ -147,10 +149,12 @@ def evaluate_defense_risk(
     example: DiscardExample,
     tile: TileType | int,
 ) -> DefenseRiskPotential:
+    """Return uncalibrated defense-risk features for one discard candidate."""
     return _defense_risk_potential(candidate_defense_risk(example, tile))
 
 
 def evaluate_legal_defense_risks(example: DiscardExample) -> tuple[DefenseRiskPotential, ...]:
+    """Return uncalibrated defense-risk features for legal discards."""
     return tuple(_defense_risk_potential(score) for score in legal_candidate_defense_risks(example))
 
 
@@ -161,6 +165,7 @@ def evaluate_placement_endgame(
     ruleset: str = TENHOU_4P.name,
     round_wind: TileType | None = None,
 ) -> PlacementEndgamePotential:
+    """Return ruleset-specific placement and endgame-pressure features."""
     config = default_sandbox_rule_config(ruleset)
     players = len(config.uma_by_rank)
     if len(points) != players:

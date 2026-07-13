@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import Tile
-from kenjaku.heuristics import rank_discard_heuristic
+from kenjaku.core import Action, ActionKind, Tile, TileType
+from kenjaku.heuristics import rank_call_pass_heuristic, rank_discard_heuristic
+from kenjaku.training import CallExample
 
 
 class DiscardHeuristicTests(unittest.TestCase):
@@ -43,9 +44,78 @@ class DiscardHeuristicTests(unittest.TestCase):
                 ruleset="tenhou-3p",
             )
 
+    def test_ranks_only_legal_call_pass_candidates_with_proxy_factors(self) -> None:
+        candidates = rank_call_pass_heuristic(
+            _call_example(legal_call_kinds=(ActionKind.CHI, ActionKind.PON))
+        )
+
+        self.assertEqual({candidate.kind for candidate in candidates}, {
+            ActionKind.PASS,
+            ActionKind.CHI,
+            ActionKind.PON,
+        })
+        self.assertEqual(tuple(factor.name for factor in candidates[0].factors), (
+            "after_shanten_proxy",
+            "shanten_delta_proxy",
+            "ukeire_proxy",
+            "consumed_count",
+        ))
+        self.assertEqual(
+            candidates,
+            tuple(
+                sorted(
+                    candidates,
+                    key=lambda item: (
+                        item.factors[0].value,
+                        -item.score,
+                        (ActionKind.PASS, ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN).index(
+                            item.kind
+                        ),
+                    ),
+                )
+            ),
+        )
+
+    def test_sanma_call_ranking_does_not_invent_chi(self) -> None:
+        candidates = rank_call_pass_heuristic(
+            _call_example(
+                legal_call_kinds=(ActionKind.PON, ActionKind.MINKAN),
+                scores=(35000, 35000, 35000),
+            )
+        )
+
+        self.assertEqual(
+            tuple(candidate.kind for candidate in candidates if candidate.kind == ActionKind.CHI),
+            (),
+        )
+
 
 def _tiles(text: str) -> tuple[Tile, ...]:
     return tuple(Tile.parse(token) for token in text.split())
+
+
+def _call_example(
+    *,
+    legal_call_kinds: tuple[ActionKind, ...],
+    scores: tuple[int, ...] = (25000, 25000, 25000, 25000),
+) -> CallExample:
+    counts = [0] * 34
+    for token in ["2m", "3m", "4m", "5m", "5m", "5m", "6m", "7m", "8m", "1p", "2p", "3p", "E"]:
+        counts[TileType.parse(token).index] += 1
+    return CallExample(
+        round_index=0,
+        event_index=0,
+        call_event_index=None,
+        seat=1,
+        from_seat=0,
+        dealer=0,
+        scores=scores,
+        discarded_tile=Tile.parse("5m"),
+        legal_call_kinds=legal_call_kinds,
+        hand_counts=tuple(counts),
+        visible_counts=(0,) * 34,
+        action=Action.pass_(),
+    )
 
 
 if __name__ == "__main__":
