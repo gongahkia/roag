@@ -24,6 +24,6 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   if (hazardous(terrain) && range > 1) return { action: action('enemy-reposition'), phase, reason: `escaping ${terrain}` }
   if (actor.role === 'guardian' && guardianPhaseFor(actor) === 'cataclysm' && range <= 2) return { action: action('guardian-slam'), phase, reason: 'cataclysm arena pressure' }
   if (range <= 1) return { action: action('enemy-strike'), phase, reason: 'adjacent target' }
-  if (actor.ai === 'ranged' && range <= 7 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-shot'), phase, reason: `clear line at range ${range}` }
+  if (actor.ai === 'ranged' && range <= 7 && (actor.kind === 'fusewarden' || canAffect(state.floor, actor, state.hero))) return { action: action('enemy-shot'), phase, reason: actor.kind === 'fusewarden' ? `fuse line at range ${range}` : `clear line at range ${range}` }
   return { action: action('enemy-approach'), phase, reason: `closing range ${range}` }
 }

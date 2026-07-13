@@ -28,7 +28,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'rail', 'telegraph', 'cover', 'explosive'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -90,6 +90,8 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'sapper', name: 'Powder Sapper', glyph: 's', color: '#d6a263', health: 8, attack: 5, defense: 9, speed: 100, ai: 'ranged', xp: 14, biome: 'mine' },
   { id: 'beetle', name: 'Brass Beetle', glyph: 'b', color: '#d6c16d', health: 13, attack: 5, defense: 13, speed: 75, ai: 'chase', xp: 18, biome: 'mine' },
   { id: 'driller', name: 'Tunnel Driller', glyph: 'd', color: '#dfb77a', health: 11, attack: 6, defense: 12, speed: 100, ai: 'ranged', xp: 20, biome: 'mine' },
+  { id: 'railguard', name: 'Rail Guard', glyph: 'g', color: '#cad1dc', health: 12, attack: 6, defense: 12, speed: 100, ai: 'chase', xp: 22, biome: 'mine', tags: ['mine', 'rail'] },
+  { id: 'fusewarden', name: 'Fuse Warden', glyph: 'f', color: '#f0a35e', health: 10, attack: 7, defense: 10, speed: 95, ai: 'ranged', xp: 24, biome: 'mine', tags: ['mine', 'telegraph', 'cover', 'explosive'] },
   { id: 'foreman', name: 'The Foreman', glyph: 'F', color: '#ffe080', health: 42, attack: 8, defense: 14, speed: 105, ai: 'guardian', xp: 70, biome: 'mine' },
   { id: 'thornling', name: 'Thornling', glyph: 't', color: '#86c064', health: 8, attack: 4, defense: 10, speed: 105, ai: 'chase', xp: 11, biome: 'wilds' },
   { id: 'boar', name: 'Moss Boar', glyph: 'b', color: '#a77d58', health: 15, attack: 7, defense: 11, speed: 115, ai: 'chase', xp: 19, biome: 'wilds' },

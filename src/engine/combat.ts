@@ -79,7 +79,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   if (resolvedTelegraphs.length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
-    actor.energy += conditionSpeed(actor, actor.speed)
+    actor.energy += conditionSpeed(actor, actor.speed) + (actor.kind === 'railguard' && getTile(state.floor, actor.x, actor.y)?.kind === 'rail' ? 50 : 0)
     while (actor.energy >= 100 && state.status === 'playing') {
       actor.energy -= 100
       events.push(...actorTurn(state, actor))
@@ -173,6 +173,7 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
 function announceProjectile(state: RunState, actor: Actor): ActionResult {
   const id = `${actor.id}:shot`
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
+  if (actor.kind === 'fusewarden') log(state, 'The Fuse Warden primes a blast line; find cover.')
   const bolt = projectBolt(state.floor, actor, state.hero)
   if (bolt.cover || !bolt.collision) { log(state, `${actor.name}'s shot is blocked by cover.`); return [] }
   announceTelegraph(state, { id, sourceId: actor.id, actionId: 'enemy-shot', cells: bolt.cells, danger: 'major', windup: 1, collision: { point: bolt.collision.point, by: bolt.collision.by }, cover: bolt.cover })
