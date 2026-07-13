@@ -21,6 +21,7 @@ export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
   private spriteMode = false
+  private boardZoom = 1
   private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
@@ -40,6 +41,7 @@ export class TerminalRenderer {
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
+  setBoardZoom(value: number): void { this.boardZoom = Math.max(.5, Math.min(5, value)) }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   get isSpriteMode(): boolean { return this.spriteMode }
   trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
@@ -118,6 +120,17 @@ export class TerminalRenderer {
 
   private stage(state: RunState): void {
     const preview = state.modal?.kind === 'target' ? targetPreview(state, state.modal) : undefined
+    const boardWidth = 48 * CW
+    const boardHeight = 35 * CH
+    const focusX = (state.hero.x + .5) * CW
+    const focusY = (state.hero.y + .5) * CH
+    this.ctx.save()
+    this.ctx.beginPath()
+    this.ctx.rect(0, 0, boardWidth, boardHeight)
+    this.ctx.clip()
+    this.ctx.translate(focusX, focusY)
+    this.ctx.scale(this.boardZoom, this.boardZoom)
+    this.ctx.translate(-focusX, -focusY)
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) {
       this.ctx.fillStyle = '#f4d26a'
@@ -128,6 +141,7 @@ export class TerminalRenderer {
     }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
+    this.ctx.restore()
     this.ruleVertical(48, 0, 35)
   }
 

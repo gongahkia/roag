@@ -18,10 +18,20 @@ let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
+let gameZoom = loadGameZoom()
+const zoomHud = document.createElement('output')
+zoomHud.className = 'game-zoom-hud'
+zoomHud.setAttribute('aria-live', 'polite')
+document.body.append(zoomHud)
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('jomon-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
 renderer.setSettings(settings)
+applyGameZoom()
+canvas.addEventListener('wheel', mouseEvent => {
+  mouseEvent.preventDefault()
+  setGameZoom(gameZoom + (mouseEvent.deltaY < 0 ? .25 : -.25))
+}, { passive: false })
 
 void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
   saved = run
@@ -36,6 +46,7 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
@@ -74,6 +85,33 @@ window.addEventListener('keydown', keyboardEvent => {
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   redraw()
 })
+
+function loadGameZoom(): number {
+  try {
+    const stored = localStorage.getItem('jomon-board-zoom')
+    const value = stored === null ? Number.NaN : Number(stored)
+    return Number.isFinite(value) ? Math.max(.5, Math.min(5, value)) : 1
+  } catch { return 1 }
+}
+
+function setGameZoom(value: number): void {
+  gameZoom = Math.max(.5, Math.min(5, Math.round(value * 4) / 4))
+  try { localStorage.setItem('jomon-board-zoom', String(gameZoom)) } catch { }
+  applyGameZoom()
+  redraw()
+}
+
+function applyGameZoom(): void {
+  renderer.setBoardZoom(gameZoom)
+  zoomHud.textContent = `board ${Math.round(gameZoom * 100)}% · wheel or +/- · 0 reset`
+}
+
+function zoomForKey(keyboardEvent: KeyboardEvent): boolean {
+  if (keyboardEvent.key === '+' || keyboardEvent.key === '=' || keyboardEvent.code === 'NumpadAdd') { setGameZoom(gameZoom + .25); return true }
+  if (keyboardEvent.key === '-' || keyboardEvent.key === '_' || keyboardEvent.code === 'NumpadSubtract') { setGameZoom(gameZoom - .25); return true }
+  if (keyboardEvent.key === '0' || keyboardEvent.code === 'Numpad0') { setGameZoom(1); return true }
+  return false
+}
 
 function handleSettingsInput(key: string): void {
   if (!state?.modal || state.modal.kind !== 'settings') return
