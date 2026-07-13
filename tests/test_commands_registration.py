@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import unittest
+from pathlib import Path
 
 from kenjaku.commands import COMMAND_MODULES
 
@@ -74,6 +75,20 @@ class CommandRegistrationTests(unittest.TestCase):
             module.register(subparsers)
 
         self.assertEqual(tuple(subparsers.choices), EXPECTED_COMMANDS)
+
+    def test_bot_parser_is_owned_by_the_bot_command_module(self) -> None:
+        parser = argparse.ArgumentParser(prog="kenjaku")
+        subparsers = parser.add_subparsers(dest="command")
+        from kenjaku.commands import bot
+
+        bot.register(subparsers)
+        args = parser.parse_args(["bot", "--player-id", "0"])
+
+        self.assertEqual(args.policy, "frequency")
+        self.assertEqual(args.policy_type, "auto")
+        self.assertEqual(args.device, "cpu")
+        legacy_source = Path("src/kenjaku/commands/_legacy.py").read_text(encoding="utf-8")
+        self.assertNotIn('subparsers.add_parser(\n        "bot"', legacy_source)
 
 
 if __name__ == "__main__":

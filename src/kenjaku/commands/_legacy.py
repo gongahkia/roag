@@ -1106,42 +1106,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tenhou_to_mjai.set_defaults(func=_tenhou_to_mjai)
 
-    bot = subparsers.add_parser(
-        "bot",
-        help="run a stdin/stdout MJAI bot adapter",
-    )
-    bot.add_argument(
-        "--policy",
-        default="frequency",
-        help="policy name or checkpoint path; defaults to frequency",
-    )
-    bot.add_argument(
-        "--policy-type",
-        choices=[
-            "auto",
-            "frequency",
-            "linear-discard",
-            "mlp",
-            "mlp-discard",
-            "transformer",
-            "transformer-discard",
-        ],
-        default="auto",
-        help="checkpoint family; auto detects paths",
-    )
-    bot.add_argument(
-        "--player-id",
-        type=int,
-        required=True,
-        help="MJAI seat id, 0 through 3",
-    )
-    bot.add_argument(
-        "--device",
-        default="cpu",
-        help="PyTorch device for mlp or transformer policies",
-    )
-    bot.set_defaults(func=_bot)
-
     defense_risk = subparsers.add_parser(
         "defense-risk-summary",
         help="summarize heuristic discard danger scores from Tenhou XML",
