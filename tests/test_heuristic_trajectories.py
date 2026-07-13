@@ -13,6 +13,7 @@ from kenjaku.simulation import (
     build_heuristic_distillation_trajectory_manifest,
     default_sandbox_rule_config,
     generate_heuristic_distillation_trajectory_manifest,
+    validate_synthetic_corpus_integrity,
     write_heuristic_distillation_trajectory_manifest,
 )
 from kenjaku.simulation.synthetic_matches import SYNTHETIC_MATCH_MANIFEST_V1_KIND
@@ -39,6 +40,7 @@ class HeuristicDistillationTrajectoryTests(unittest.TestCase):
                 self.assertGreater(manifest["trajectory_count"], 0)
                 self.assertEqual(manifest["trajectory_count"], len(manifest["trajectories"]))
                 self.assertGreater(manifest["summary"]["family_candidate_counts"]["discard"], 0)
+                self.assertTrue(validate_synthetic_corpus_integrity(manifest)["valid"])
                 for trajectory in manifest["trajectories"]:
                     legal_actions = trajectory["legal_actions"]
                     labelled_actions = [
@@ -82,7 +84,9 @@ class HeuristicDistillationTrajectoryTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             path = Path(directory) / "nested" / "heuristic-trajectories.json"
             write_heuristic_distillation_trajectory_manifest(path, manifest)
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), manifest)
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(loaded, manifest)
+            self.assertTrue(validate_synthetic_corpus_integrity(loaded)["valid"])
 
         with self.assertRaisesRegex(ValueError, "not a synthetic"):
             build_heuristic_distillation_trajectory_manifest({})

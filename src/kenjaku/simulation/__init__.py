@@ -10,6 +10,11 @@ from kenjaku.simulation.config import (
     tenhou_3p_default,
     tenhou_4p_default,
 )
+from kenjaku.simulation.corpus_integrity import (
+    SYNTHETIC_CORPUS_INTEGRITY_V1_FIELDS,
+    SYNTHETIC_CORPUS_INTEGRITY_V1_KIND,
+    validate_synthetic_corpus_integrity,
+)
 from kenjaku.simulation.environment import (
     HONBA_RON_POINTS,
     HONBA_TSUMO_POINTS_PER_LOSER,
@@ -114,6 +119,9 @@ __all__ = [
     "apply_ron_action",
     "apply_ron_actions",
     "apply_tsumo_action",
+    "SYNTHETIC_CORPUS_INTEGRITY_V1_FIELDS",
+    "SYNTHETIC_CORPUS_INTEGRITY_V1_KIND",
+    "validate_synthetic_corpus_integrity",
     "draw_for_current_seat",
     "initial_sandbox_environment",
     "legal_ankan_actions",

@@ -204,7 +204,6 @@ def _trajectory_record(
             if _action_key(action) not in ranked_actions
         ],
         "chosen_action": _action_payload(_action_from_payload(decision.get("chosen_action"))),
-        "rewards": _required_number_list(decision, "rewards"),
     }
 
 
@@ -384,10 +383,3 @@ def _required_int(payload: Mapping[str, Any], field: str) -> int:
     if type(value) is not int:
         raise ValueError("trajectory " + field + " must be an integer")
     return value
-
-
-def _required_number_list(payload: Mapping[str, Any], field: str) -> list[int | float]:
-    value = payload.get(field)
-    if not isinstance(value, list) or any(type(item) not in {int, float} for item in value):
-        raise ValueError("trajectory " + field + " must be a numeric array")
-    return list(value)
