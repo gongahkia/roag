@@ -47,6 +47,10 @@ window.addEventListener('keydown', keyboardEvent => {
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
+  if (route.screen === 'level' && state && (state.status === 'dead' || state.status === 'victory')) {
+    if ((command ?? keyboardEvent.key).toLowerCase() === 'n') beginNewDelivery()
+    return
+  }
   if (route.screen !== 'level') {
     let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
     if (nextRoute === route) return
@@ -68,10 +72,12 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (!state || state.status === 'dead' || state.status === 'victory' || !command) return
   const direction = directionFor(command)
+  const previousX = state.hero.x
   let events = [] as ReturnType<typeof perform>
   if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
   else if (keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
   else events = perform(state, command)
+  if (state.hero.x !== previousX) renderer.setHeroFacingLeft(state.hero.x < previousX)
   audio.play(events)
   renderer.trigger(events, state)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
@@ -134,12 +140,20 @@ function start(): void {
   campaign = { ...campaign, selectedBiome: route.biome }
   void saveCampaignRoute(campaign)
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
+  renderer.setHeroFacingLeft(false)
   heir = state.hero
   saved = structuredClone(state)
   recordedEnd = false
   void saveRun(state)
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
+}
+
+function beginNewDelivery(): void {
+  route = { ...route, screen: 'level', heirSeed: Math.floor(Math.random() * 0x7fffffff) }
+  heir = undefined
+  start()
+  redraw()
 }
 
 function completeArea(): void {

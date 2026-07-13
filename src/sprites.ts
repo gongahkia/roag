@@ -82,17 +82,20 @@ export class TextureAtlas {
   onReady(listener: () => void): void { if (this.ready) listener(); else this.listeners.add(listener) }
   setSourceDetail(value: boolean): void { this.sourceDetail = value }
 
-  draw(ctx: CanvasRenderingContext2D, index: number | undefined, x: number, y: number, dim = false): boolean {
+  draw(ctx: CanvasRenderingContext2D, index: number | undefined, x: number, y: number, dim = false, flip = false): boolean {
     if (!this.ready || index === undefined) return false
     const sourceX = index % ATLAS_SPEC.columns * 16
     const sourceY = Math.floor(index / ATLAS_SPEC.columns) * 16
+    const destinationX = x * 10 - 2
+    const destinationY = y * 14
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
     ctx.imageSmoothingEnabled = false
+    if (flip) { ctx.translate(destinationX + 14, 0); ctx.scale(-1, 1) }
     if (this.sourceDetail) {
       const source = atlasSourceRect(index)
-      ctx.drawImage(this.image, source.x, source.y, source.width, source.height, x * 10 - 2, y * 14, 14, 14)
-    } else ctx.drawImage(this.cells, sourceX, sourceY, 16, 16, x * 10 - 2, y * 14, 14, 14)
+      ctx.drawImage(this.image, source.x, source.y, source.width, source.height, flip ? 0 : destinationX, destinationY, 14, 14)
+    } else ctx.drawImage(this.cells, sourceX, sourceY, 16, 16, flip ? 0 : destinationX, destinationY, 14, 14)
     ctx.restore()
     return true
   }
@@ -167,8 +170,8 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, x: num
   ctx.restore()
 }
 
-export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false): void {
-  if (textureAtlas.draw(ctx, hero ? HERO_SPRITE : actor ? actorSprite[actor.kind] : undefined, x, y, dim)) return
+export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false, flip = false): void {
+  if (textureAtlas.draw(ctx, hero ? HERO_SPRITE : actor ? actorSprite[actor.kind] : undefined, x, y, dim, flip)) return
   const px = x * 10 + 1
   const py = y * 14 + 3
   const color = hero ? '#e8edf4' : actor?.color ?? '#d6dce8'

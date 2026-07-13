@@ -21,6 +21,7 @@ export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
   private spriteMode = false
+  private heroFacingLeft = false
   private boardZoom = 1
   private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
@@ -41,6 +42,7 @@ export class TerminalRenderer {
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
+  setHeroFacingLeft(value: boolean): void { this.heroFacingLeft = value }
   setBoardZoom(value: number): void {
     this.boardZoom = Math.max(.5, Math.min(5, value))
     textureAtlas.setSourceDetail(this.boardZoom > 1)
@@ -135,18 +137,12 @@ export class TerminalRenderer {
     this.ctx.beginPath()
     this.ctx.rect(0, 0, boardWidth, boardHeight)
     this.ctx.clip()
-    if (this.boardZoom > 1) {
-      this.ctx.translate(centerX, centerY)
-      this.ctx.scale(this.boardZoom, this.boardZoom)
-      this.ctx.translate(-focusX, -focusY)
-    } else {
-      this.ctx.translate(centerX, centerY)
-      this.ctx.scale(this.boardZoom, this.boardZoom)
-      this.ctx.translate(-centerX, -centerY)
-    }
+    this.ctx.translate(centerX, centerY)
+    this.ctx.scale(this.boardZoom, this.boardZoom)
+    this.ctx.translate(-focusX, -focusY)
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) {
-      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
+      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft)
     }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
