@@ -12,6 +12,7 @@ import kenjaku.models as _models
 import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
+from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
@@ -42,6 +43,7 @@ ActionV1 = _ActionV1  # stable since 0.2.0
 CheckpointManifestV1 = _CheckpointManifestV1  # stable since 0.2.0
 DecisionResultV1 = _DecisionResultV1  # stable since 0.2.0
 LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
+LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
 
 
@@ -107,6 +109,7 @@ API_EXPORT_DOCS = {
     "CheckpointManifestV1": "Versioned checkpoint identity and compatibility contract.",
     "DecisionResultV1": "Versioned selected action with structured rationale.",
     "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
+    "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
@@ -177,6 +180,7 @@ __all__ = [
     "CheckpointManifestV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
+    "LocalArtifactRegistry",
     "ObservationV1",
     "export_decision_snapshots",
     "load_decision_snapshots",

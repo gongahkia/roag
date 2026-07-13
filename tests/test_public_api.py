@@ -35,6 +35,7 @@ EXPECTED_EXPORTS = [
     "CheckpointManifestV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
+    "LocalArtifactRegistry",
     "ObservationV1",
     "export_decision_snapshots",
     "load_decision_snapshots",
