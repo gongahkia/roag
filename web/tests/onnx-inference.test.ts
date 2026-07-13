@@ -13,6 +13,26 @@ import {
   type OnnxRuntimeFactory
 } from "../src/lib/onnx-inference";
 
+const ONNX_WASM_TEST_MODEL = Buffer.from(
+  "CAo6rAEKMwoRbGVnYWxfYWN0aW9uX21hc2sSDWFjdGlvbl9sb2dpdHMiBENhc3QqCQoCdG8YAaABAhIMYnJvd3Nlci10ZXN0Wh8KDG9ic2VydmF0aW9ucxIPCg0IARIJCgIIAQoDCKIEWiQKEWxlZ2FsX2FjdGlvbl9tYXNrEg8KDQgJEgkKAggBCgMIlAJiIAoNYWN0aW9uX2xvZ2l0cxIPCg0IARIJCgIIAQoDCJQCQgQKABAS",
+  "base64"
+);
+
+test("executes the fixed graph with ONNX Runtime WebAssembly", async () => {
+  const policy = await loadLocalMultiActionOnnxPolicy(localModel("model.onnx", "application/onnx", undefined, ONNX_WASM_TEST_MODEL), {
+    webGpuAvailable: false
+  });
+  const logits = await policy.infer(
+    Array(MULTI_ACTION_ONNX_OBSERVATION_DIM).fill(0),
+    legalMask(9)
+  );
+
+  assert.equal(policy.provider, "wasm");
+  assert.equal(logits[9], 1);
+  assert.equal(logits[8], 0);
+  await policy.release();
+});
+
 test("runs a local ONNX model with WebGPU when it is available", async () => {
   const providers: OnnxExecutionProvider[] = [];
   const tensors: unknown[] = [];
@@ -108,13 +128,17 @@ test("rejects a model with an incompatible graph contract", async () => {
   assert.equal(runtime.releases, 1);
 });
 
-function localModel(name = "model.onnx", type = "application/onnx", size?: number): LocalBinaryFile {
-  const bytes = new Uint8Array([8, 6, 7, 5, 3, 0, 9]);
+function localModel(
+  name = "model.onnx",
+  type = "application/onnx",
+  size?: number,
+  bytes = new Uint8Array([8, 6, 7, 5, 3, 0, 9])
+): LocalBinaryFile {
   return {
     name,
     type,
     size: size ?? bytes.byteLength,
-    arrayBuffer: async () => bytes.buffer.slice(0)
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
   };
 }
 
