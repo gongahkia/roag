@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from hashlib import blake2b
 from typing import Any
 
 from kenjaku.core import (
@@ -23,6 +22,7 @@ from kenjaku.core import (
     yaku_han_for_names,
     yakuman_multiplier_for_names,
 )
+from kenjaku.reproducibility import seed_to_int
 from kenjaku.simulation.config import (
     SANDBOX_RULESETS as _SANDBOX_RULESETS,
 )
@@ -49,9 +49,7 @@ HONBA_TSUMO_POINTS_PER_LOSER = _TENHOU_4P_RULE_CONFIG.honba_tsumo_points_per_los
 SANDBOX_EXHAUSTIVE_DRAW_NOTEN_POOL = _TENHOU_4P_RULE_CONFIG.exhaustive_draw_noten_pool
 SANDBOX_DEAD_WALL_TILES = _TENHOU_4P_RULE_CONFIG.dead_wall_tiles
 SANDBOX_3P_REPLACEMENT_TILES = _TENHOU_3P_RULE_CONFIG.replacement_tiles
-SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = (
-    _TENHOU_3P_RULE_CONFIG.non_replacement_dead_wall_tiles
-)
+SANDBOX_3P_NON_REPLACEMENT_DEAD_WALL_TILES = _TENHOU_3P_RULE_CONFIG.non_replacement_dead_wall_tiles
 SANDBOX_INITIAL_DORA_INDICATORS = _TENHOU_4P_RULE_CONFIG.initial_dora_indicators
 SANDBOX_SCORE_PAYMENT_MODEL = _TENHOU_4P_RULE_CONFIG.score_payment_model
 SANDBOX_KITA_TILE = _TENHOU_4P_RULE_CONFIG.kita_tile
@@ -2535,10 +2533,7 @@ def _shuffled_wall(rng: random.Random, *, rules: RuleSet) -> list[Tile]:
 
 
 def _seed_int(seed: str | int) -> int:
-    if isinstance(seed, int):
-        return seed
-    digest = blake2b(seed.encode(), digest_size=8).digest()
-    return int.from_bytes(digest, "big")
+    return seed_to_int(seed)
 
 
 def _melds_by_seat(state: SandboxEnvironmentState) -> tuple[tuple[Meld, ...], ...]:

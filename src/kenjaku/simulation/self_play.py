@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from hashlib import blake2b
 from typing import Any
 
 from kenjaku.core import Action, ActionKind, RuleSet, Tile, TileType
+from kenjaku.reproducibility import derive_seed_int
 from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.environment import (
     SANDBOX_RULESETS,
@@ -133,6 +133,7 @@ def run_self_play_match_sandbox(
     return {
         "kind": SELF_PLAY_MATCH_REPORT_KIND,
         "seed": seed,
+        "seed_provenance": {"derivation": "kenjaku-seed-v1-blake2b"},
         "games": games,
         "completed_games": sum(1 for game in game_payloads if game["completed"]),
         "max_rounds": max_rounds,
@@ -222,6 +223,7 @@ def run_self_play_sandbox(
     return {
         "kind": SELF_PLAY_SANDBOX_REPORT_KIND,
         "seed": seed,
+        "seed_provenance": {"derivation": "kenjaku-seed-v1-blake2b"},
         "policy": {
             "kind": f"{policy}-discard-sandbox-v0",
             "name": policy,
@@ -1090,8 +1092,7 @@ def _auto_pass_reactions(state: SandboxEnvironmentState) -> SandboxEnvironmentSt
 
 
 def _episode_seed(seed: str, episode_index: int) -> int:
-    digest = blake2b(f"{seed}:{episode_index}".encode(), digest_size=8).digest()
-    return int.from_bytes(digest, "big")
+    return derive_seed_int(seed, "simulation", episode_index)
 
 
 def _tile_count_payload(counts: list[int]) -> dict[str, int]:

@@ -885,8 +885,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--torch-seed",
         dest="torch_seed",
         type=int,
-        default=0,
-        help="model initialization and mini-batch random seed",
+        help="optional model initialization seed; defaults to one derived from --seed",
     )
     train_ppo.add_argument(
         "--device",

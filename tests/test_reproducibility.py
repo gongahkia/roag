@@ -15,10 +15,20 @@ from typing import cast
 from unittest import mock
 
 from kenjaku import cli
-from kenjaku.reproducibility import pin_seeds
+from kenjaku.reproducibility import derive_seed, derive_seed_int, pin_seeds
 
 
 class ReproducibilityTests(unittest.TestCase):
+    def test_stage_seed_derivation_is_stable_and_domain_separated(self) -> None:
+        first = derive_seed("root", "simulation", 0)
+
+        self.assertEqual(first, derive_seed("root", "simulation", 0))
+        self.assertNotEqual(first, derive_seed("root", "training", 0))
+        self.assertEqual(
+            derive_seed_int("root", "simulation", 0),
+            derive_seed_int("root", "simulation", 0),
+        )
+
     def test_pin_seeds_reseeds_python_random(self) -> None:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)

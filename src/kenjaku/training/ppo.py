@@ -12,6 +12,7 @@ from typing import Any
 
 from kenjaku.logging import get_logger
 from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_device
+from kenjaku.reproducibility import derive_seed, derive_seed_int
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.training.history import normalize_training_history
@@ -331,7 +332,7 @@ def train_ppo_sandbox(
     reward_scale: float = 100.0,
     supervised_warmup_epochs: int = 0,
     device: str = "auto",
-    torch_seed: int = 0,
+    torch_seed: int | None = None,
     resume_checkpoint: str | Path | None = None,
     metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> SandboxPpoTrainingResult:
@@ -357,6 +358,10 @@ def train_ppo_sandbox(
         device=device,
     )
     resolved_device = resolve_torch_device(device)
+    resolved_torch_seed = (
+        derive_seed_int(seed, "training", "model") if torch_seed is None else torch_seed
+    )
+    optimization_seed_root: int | str = seed if torch_seed is None else torch_seed
 
     history: list[dict[str, Any]] = []
     start_update = 0
@@ -366,7 +371,7 @@ def train_ppo_sandbox(
     if resume_path is None:
         model = SandboxLinearPpoActorCritic(
             hidden_dim=hidden_dim,
-            seed=torch_seed,
+            seed=resolved_torch_seed,
             device=resolved_device,
         )
     else:
@@ -419,7 +424,7 @@ def train_ppo_sandbox(
             games=rollout_games,
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
-            seed=f"{seed}:update:{update}",
+            seed=derive_seed(seed, "training", "rollout", update),
             ruleset=ruleset,
             rule_config=rule_config,
             discard_policy=rollout_discard_policy,
@@ -440,7 +445,7 @@ def train_ppo_sandbox(
                     batch_size=batch_size,
                     learning_rate=learning_rate,
                     max_grad_norm=max_grad_norm,
-                    seed=torch_seed + update,
+                    seed=derive_seed_int(optimization_seed_root, "training", "warmup", update),
                 )
             )
 
@@ -467,7 +472,7 @@ def train_ppo_sandbox(
             entropy_coef=entropy_coef,
             value_coef=value_coef,
             max_grad_norm=max_grad_norm,
-            seed=torch_seed + update,
+            seed=derive_seed_int(optimization_seed_root, "training", "optimizer", update),
         )
         optimizer_state["steps"] = int(optimizer_state.get("steps", 0)) + int(
             train_metrics["batches"]
@@ -557,6 +562,7 @@ def train_ppo_sandbox(
         final_eval=final_eval,
         final_rollout_summary=final_rollout_summary,
         resume_checkpoint=resume_path,
+        torch_seed=resolved_torch_seed,
     )
     return SandboxPpoTrainingResult(
         model=model,
@@ -1223,10 +1229,17 @@ def _ppo_report(
     final_eval: dict[str, Any],
     final_rollout_summary: dict[str, Any],
     resume_checkpoint: Path | None,
+    torch_seed: int,
 ) -> dict[str, Any]:
     return {
         "kind": PPO_SANDBOX_REPORT_KIND,
         "seed": seed,
+        "seed_provenance": {
+            "derivation": "kenjaku-seed-v1-blake2b",
+            "model_seed": torch_seed,
+            "rollout_stage": "training/rollout/<update>",
+            "optimizer_stage": "training/optimizer/<update>",
+        },
         "ruleset": ruleset,
         "device": device,
         "model": {

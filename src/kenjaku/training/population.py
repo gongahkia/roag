@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from kenjaku.logging import get_logger
+from kenjaku.reproducibility import derive_seed, derive_seed_int
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.environment import resolve_sandbox_ruleset
@@ -106,7 +107,7 @@ def train_population_sandbox(
             snapshot_id=f"pool-{index}",
             generation=0,
             role="initial",
-            seed=f"{seed}:initial:{index}",
+            seed=derive_seed(seed, "initial", index),
             total_steps=total_steps,
             max_rounds=max_rounds,
             max_turns_per_round=max_turns_per_round,
@@ -135,7 +136,7 @@ def train_population_sandbox(
             pool=pool,
             players=rules.players,
             matchups_per_candidate=matchups_per_candidate,
-            seed=f"{seed}:initial-eval:{snapshot['id']}",
+            seed=derive_seed(seed, "initial-eval", str(snapshot["id"])),
             ruleset=rules.name,
             rule_config=rule_config,
             evaluation_games=evaluation_games,
@@ -165,7 +166,7 @@ def train_population_sandbox(
                 snapshot_id=snapshot_id,
                 generation=generation,
                 role="candidate",
-                seed=f"{seed}:generation:{generation}:candidate:{candidate_index}",
+                seed=derive_seed(seed, "generation", generation, "candidate", candidate_index),
                 total_steps=total_steps,
                 max_rounds=max_rounds,
                 max_turns_per_round=max_turns_per_round,
@@ -182,7 +183,14 @@ def train_population_sandbox(
                 pool=pool,
                 players=rules.players,
                 matchups_per_candidate=matchups_per_candidate,
-                seed=f"{seed}:generation:{generation}:candidate:{candidate_index}:eval",
+                seed=derive_seed(
+                    seed,
+                    "generation",
+                    generation,
+                    "candidate",
+                    candidate_index,
+                    "eval",
+                ),
                 ruleset=rules.name,
                 rule_config=rule_config,
                 evaluation_games=evaluation_games,
@@ -240,6 +248,7 @@ def train_population_sandbox(
     return {
         "kind": POPULATION_SANDBOX_REPORT_KIND,
         "seed": seed,
+        "seed_provenance": {"derivation": "kenjaku-seed-v1-blake2b"},
         "ruleset": rules.name,
         "players": rules.players,
         "pool_size": pool_size,
@@ -357,7 +366,7 @@ def _train_population_snapshot(
         learning_rate=learning_rate,
         hidden_dim=hidden_dim,
         device="cpu",
-        torch_seed=_stable_seed(seed),
+        torch_seed=derive_seed_int(seed, "training", "model"),
     )
     checkpoint_path = _write_snapshot_checkpoint(
         result,
@@ -417,13 +426,13 @@ def _evaluate_population_snapshot(
             snapshot,
             pool=pool,
             players=players,
-            seed=f"{seed}:matchup:{matchup_index}",
+            seed=derive_seed(seed, "matchup", matchup_index),
         )
         report = run_self_play_match_sandbox(
             games=evaluation_games,
             max_rounds=evaluation_max_rounds,
             max_turns_per_round=evaluation_max_turns_per_round,
-            seed=f"{seed}:matchup:{matchup_index}:rollout",
+            seed=derive_seed(seed, "matchup", matchup_index, "rollout"),
             ruleset=ruleset,
             rule_config=rule_config,
             ron_policy="pass",
@@ -549,7 +558,4 @@ def _empty_population_metrics() -> dict[str, int | float]:
 
 
 def _stable_seed(seed: str) -> int:
-    value = 0x345678
-    for character in seed:
-        value = ((value * 1000003) ^ ord(character)) & 0xFFFFFFFF
-    return value
+    return derive_seed_int(seed, "opponent-sampling")

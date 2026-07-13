@@ -127,6 +127,7 @@ class SelfPlaySandboxTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["kind"], SELF_PLAY_SANDBOX_REPORT_KIND)
+        self.assertEqual(first["seed_provenance"]["derivation"], "kenjaku-seed-v1-blake2b")
         self.assertEqual(first["episodes"], 2)
         self.assertEqual(first["ruleset"], "tenhou-4p")
         self.assertEqual(first["players"], 4)
