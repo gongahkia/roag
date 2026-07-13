@@ -120,6 +120,9 @@ export interface LegacyRecord {
   encounter: LegacyEncounterState
 }
 
+export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 'legacy'
+export interface EncyclopediaState { enemies: string[]; telegraphs: string[]; tags: string[]; gates: string[]; legacyRecords: LegacyRecord[] }
+
 interface CampaignBase {
   version: 2
   seed: number
@@ -150,12 +153,14 @@ export interface RunState {
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
+  encyclopedia?: EncyclopediaState
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
 
 export type Modal =
   | { kind: 'help' }
+  | { kind: 'encyclopedia'; section: EncyclopediaSection; page?: number }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills' }
   | { kind: 'shop'; merchantId: string }

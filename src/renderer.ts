@@ -1,6 +1,6 @@
 import { ITEM, biomeName } from './content'
 import { merchantStock } from './engine/rewards'
-import { gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
+import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
 import { mineSeason } from './season'
@@ -179,7 +179,7 @@ export class TerminalRenderer {
     this.text(50, 29, `OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`.slice(0, 29), objective.status === 'complete' ? colors.green : colors.gold)
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
-    this.text(50, 32, `A skills  S script  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)
+    this.text(50, 32, `A skills  J journal  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)
   }
 
   private log(state: RunState): void {
@@ -195,6 +195,7 @@ export class TerminalRenderer {
     this.ctx.fillStyle = '#05070bbb'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (modal.kind === 'help') return this.help()
+    if (modal.kind === 'encyclopedia') return this.encyclopedia(state, modal)
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'shop') return this.shop(state)
@@ -204,8 +205,21 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'casts the first ready script. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, merchants, scouts, and altars.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens level disciplines. S chooses a script.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'casts the first ready script. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, merchants, scouts, and altars.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S casts scripts. J opens encyclopedia.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
+  }
+
+  private encyclopedia(state: RunState, modal: Extract<Modal, { kind: 'encyclopedia' }>): void {
+    const entries = encyclopediaEntries(state, modal.section)
+    const page = Math.min(modal.page ?? 0, Math.max(0, Math.ceil(entries.length / 10) - 1))
+    const sections = ['ENEMIES', 'TELEGRAPHS', 'TAGS', 'GATES', 'LEGACY']
+    this.box(8, 4, 64, 34, 'EXPEDITION ENCYCLOPEDIA')
+    this.text(12, 8, sections.map((section, index) => `${index + 1} ${section}`).join('  '), colors.green)
+    this.text(12, 10, `${modal.section.toUpperCase()} ${page + 1}/${Math.max(1, Math.ceil(entries.length / 10))}`, colors.gold)
+    const visible = entries.slice(page * 10, page * 10 + 10)
+    if (!visible.length) this.text(12, 14, 'No discoveries yet.', colors.dim)
+    visible.forEach((entry, index) => this.text(12, 14 + index * 2, entry.slice(0, 56), colors.text))
+    this.text(12, 34, '1-5 section · [ ] page · Esc/backtick closes', colors.dim)
   }
 
   private inventory(state: RunState, mode: string): void {

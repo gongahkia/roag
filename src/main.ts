@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
@@ -24,6 +24,7 @@ void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, lo
   saved = run
   records = loadedRecords
   campaign = loadedCampaign
+  if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { ...route, biome: campaign.selectedBiome }
   redraw()
@@ -73,7 +74,7 @@ window.addEventListener('keydown', keyboardEvent => {
 function start(): void {
   campaign = { ...campaign, selectedBiome: route.biome }
   void saveCampaignRoute(campaign)
-  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs)
+  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
   heir = state.hero
   saved = structuredClone(state)
   recordedEnd = false
@@ -154,4 +155,4 @@ function directionFor(command: string): Direction | undefined {
   return directions[command] ?? directions[command.toLowerCase()]
 }
 
-function shouldPrevent(command: string): boolean { return Boolean(directionFor(command)) || [' ', 'Escape', '`', 'h', 'H', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }
+function shouldPrevent(command: string): boolean { return Boolean(directionFor(command)) || [' ', 'Escape', '`', '[', ']', 'h', 'H', 'j', 'J', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }

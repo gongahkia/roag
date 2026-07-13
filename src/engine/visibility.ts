@@ -1,5 +1,6 @@
 import type { RunState } from '../types'
 import { getTile } from '../world'
+import { observeEncyclopedia } from './encyclopedia'
 
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
@@ -7,6 +8,7 @@ export function refreshFov(state: RunState): void {
   for (let y = Math.max(0, state.hero.y - range); y <= Math.min(34, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(47, state.hero.x + range); x++) {
     if (hasLine(state, state.hero, { x, y })) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
   }
+  observeEncyclopedia(state)
 }
 
 export function hasLine(state: RunState, from: { x: number; y: number }, to: { x: number; y: number }): boolean {

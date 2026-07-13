@@ -12,6 +12,7 @@ export function perform(state: RunState, command: string): ActionResult {
   if (state.modal) return performModal(state, command)
   const lower = command.toLowerCase()
   if (lower === 'h') { state.modal = { kind: 'help' }; return [event('menu')] }
+  if (lower === 'j') { state.modal = { kind: 'encyclopedia', section: 'enemies' }; return [event('menu')] }
   if (lower === 'u') { state.modal = { kind: 'inventory', mode: 'use' }; return [event('menu')] }
   if (lower === 'd') { state.modal = { kind: 'inventory', mode: 'drop' }; return [event('menu')] }
   if (lower === 't') { state.modal = { kind: 'inventory', mode: 'throw' }; return [event('menu')] }
@@ -41,6 +42,7 @@ function performModal(state: RunState, command: string): ActionResult {
   const modal = state.modal!
   if (command === 'Escape' || command === '`') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'help') { state.modal = undefined; return [event('menu')] }
+  if (modal.kind === 'encyclopedia') return performEncyclopediaModal(state, modal, command)
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)
@@ -50,6 +52,15 @@ function performModal(state: RunState, command: string): ActionResult {
   if (!direction || direction === 'wait') return []
   state.modal = { ...modal, direction }
   return [event('menu')]
+}
+
+function performEncyclopediaModal(state: RunState, modal: Extract<Modal, { kind: 'encyclopedia' }>, command: string): ActionResult {
+  const sections = ['enemies', 'telegraphs', 'tags', 'gates', 'legacy'] as const
+  const choice = Number(command) - 1
+  if (Number.isInteger(choice) && sections[choice]) { state.modal = { kind: 'encyclopedia', section: sections[choice] }; return [event('menu')] }
+  if (command === 'ArrowLeft' || command === '[') { state.modal = { ...modal, page: Math.max(0, (modal.page ?? 0) - 1) }; return [event('menu')] }
+  if (command === 'ArrowRight' || command === ']') { state.modal = { ...modal, page: (modal.page ?? 0) + 1 }; return [event('menu')] }
+  return []
 }
 
 function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' }>, command: string): ActionResult {
