@@ -1,6 +1,9 @@
 """Offline simulation harnesses."""
 
 from kenjaku.simulation.config import (
+    SANDBOX_RULE_CONFIG_FIELDS,
+    SANDBOX_RULE_CONFIG_V1_FIELDS,
+    SANDBOX_RULE_CONFIG_V1_KIND,
     SandboxRuleConfig,
     default_sandbox_rule_config,
     load_sandbox_rule_config,
@@ -130,6 +133,9 @@ __all__ = [
     "run_self_play_match_sandbox",
     "run_self_play_sandbox",
     "SandboxRuleConfig",
+    "SANDBOX_RULE_CONFIG_FIELDS",
+    "SANDBOX_RULE_CONFIG_V1_FIELDS",
+    "SANDBOX_RULE_CONFIG_V1_KIND",
     "default_sandbox_rule_config",
     "load_sandbox_rule_config",
     "tenhou_3p_default",

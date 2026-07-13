@@ -9,6 +9,38 @@ from typing import Any, cast
 from kenjaku.core import TENHOU_3P, TENHOU_4P, TileType
 
 SANDBOX_RULESETS = (TENHOU_4P.name, TENHOU_3P.name)
+SANDBOX_RULE_CONFIG_V1_KIND = "kenjaku-sandbox-rule-config-v1"
+SANDBOX_RULE_CONFIG_V1_FIELDS = ("kind", "ruleset", "config")
+SANDBOX_RULE_CONFIG_FIELDS = (
+    "ruleset",
+    "initial_points",
+    "return_points",
+    "uma_by_rank",
+    "riichi_deposit_points",
+    "honba_ron_points",
+    "honba_tsumo_points_per_loser",
+    "exhaustive_draw_noten_pool",
+    "dead_wall_tiles",
+    "replacement_tiles",
+    "non_replacement_dead_wall_tiles",
+    "initial_dora_indicators",
+    "score_payment_model",
+    "kita_tile",
+    "seat_winds",
+    "initial_round_wind",
+    "all_last_round_wind",
+    "max_sudden_death_round_wind",
+    "round_winds",
+    "dragon_tiles_order",
+    "yaku_han",
+    "limit_base_points",
+    "limit_ron_points",
+    "limit_dealer_ron_points",
+    "limit_tsumo_child_points",
+    "limit_tsumo_dealer_points",
+    "limit_tsumo_points_per_loser",
+    "abortive_draw_reasons",
+)
 _DEFAULT_SEAT_WINDS = (
     TileType.parse("E"),
     TileType.parse("S"),
@@ -176,6 +208,40 @@ class SandboxRuleConfig:
             "abortive_draw_reasons": sorted(self.abortive_draw_reasons),
         }
 
+    def to_versioned_payload(self) -> dict[str, Any]:
+        """Serialize this complete ruleset config in the strict v1 envelope."""
+        return {
+            "kind": SANDBOX_RULE_CONFIG_V1_KIND,
+            "ruleset": self.ruleset,
+            "config": self.to_payload(),
+        }
+
+    def to_versioned_json(self, *, indent: int | None = None) -> str:
+        """Serialize the strict v1 envelope with deterministic key ordering."""
+        return json.dumps(self.to_versioned_payload(), indent=indent, sort_keys=True)
+
+    @classmethod
+    def from_versioned_payload(cls, payload: Mapping[str, Any]) -> SandboxRuleConfig:
+        """Parse one complete strict v1 rule-config envelope."""
+        _require_exact_fields(payload, SANDBOX_RULE_CONFIG_V1_FIELDS, "SandboxRuleConfigV1")
+        if payload.get("kind") != SANDBOX_RULE_CONFIG_V1_KIND:
+            raise ValueError(f"SandboxRuleConfigV1 kind must be {SANDBOX_RULE_CONFIG_V1_KIND}")
+        ruleset = payload.get("ruleset")
+        config_payload = payload.get("config")
+        if not isinstance(ruleset, str):
+            raise ValueError("SandboxRuleConfigV1 ruleset must be a string")
+        if not isinstance(config_payload, Mapping):
+            raise ValueError("SandboxRuleConfigV1 config must be an object")
+        _require_exact_fields(
+            config_payload,
+            SANDBOX_RULE_CONFIG_FIELDS,
+            "SandboxRuleConfigV1 config",
+        )
+        config = _config_from_payload(config_payload)
+        if config.ruleset != ruleset:
+            raise ValueError("SandboxRuleConfigV1 ruleset must match config ruleset")
+        return config
+
 
 def tenhou_4p_default() -> SandboxRuleConfig:
     return _default_config(
@@ -327,6 +393,21 @@ def _sequence(value: Any) -> tuple[Any, ...]:
     if not isinstance(value, list | tuple | set | frozenset):
         raise ValueError("sandbox rule config sequence fields must be arrays")
     return tuple(value)
+
+
+def _require_exact_fields(payload: Mapping[str, Any], fields: tuple[str, ...], name: str) -> None:
+    actual = set(payload)
+    expected = set(fields)
+    if actual == expected:
+        return
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+    details = []
+    if missing:
+        details.append("missing=" + ",".join(missing))
+    if unexpected:
+        details.append("unexpected=" + ",".join(unexpected))
+    raise ValueError(f"{name} fields must match v1 schema: {'; '.join(details)}")
 
 
 def _load_yaml(text: str) -> Any:

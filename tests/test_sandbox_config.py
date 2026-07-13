@@ -5,11 +5,41 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.simulation.config import load_sandbox_rule_config, tenhou_4p_default
+from kenjaku.simulation.config import (
+    SANDBOX_RULE_CONFIG_V1_KIND,
+    SandboxRuleConfig,
+    load_sandbox_rule_config,
+    tenhou_3p_default,
+    tenhou_4p_default,
+)
 from kenjaku.simulation.environment import initial_sandbox_environment
 
 
 class SandboxRuleConfigTests(unittest.TestCase):
+    def test_versioned_payload_round_trips_both_tenhou_defaults(self) -> None:
+        for config in (tenhou_4p_default(), tenhou_3p_default()):
+            with self.subTest(ruleset=config.ruleset):
+                payload = config.to_versioned_payload()
+
+                self.assertEqual(payload["kind"], SANDBOX_RULE_CONFIG_V1_KIND)
+                self.assertEqual(payload["ruleset"], config.ruleset)
+                self.assertEqual(SandboxRuleConfig.from_versioned_payload(payload), config)
+                self.assertEqual(json.loads(config.to_versioned_json()), payload)
+
+    def test_versioned_payload_rejects_wrong_kind_missing_fields_and_rule_mismatch(self) -> None:
+        payload = tenhou_4p_default().to_versioned_payload()
+        payload["kind"] = "other"
+        with self.assertRaisesRegex(ValueError, "kind must be"):
+            SandboxRuleConfig.from_versioned_payload(payload)
+        payload = tenhou_4p_default().to_versioned_payload()
+        payload["config"].pop("initial_points")
+        with self.assertRaisesRegex(ValueError, "missing=initial_points"):
+            SandboxRuleConfig.from_versioned_payload(payload)
+        payload = tenhou_4p_default().to_versioned_payload()
+        payload["ruleset"] = "tenhou-3p"
+        with self.assertRaisesRegex(ValueError, "must match config ruleset"):
+            SandboxRuleConfig.from_versioned_payload(payload)
+
     def test_loads_custom_json_config(self) -> None:
         base = tenhou_4p_default().to_payload()
         base.update(
