@@ -57,7 +57,7 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   const alternative = gate.tagAlternatives[choice]
   if (!alternative) return { resolved: false, message: 'Invalid gate alternative.' }
   const cost = alternative.cost ?? gate.cost
-  if (state.hero.gold < cost.gold) return { resolved: false, message: 'Insufficient beads for this passage.' }
+  if (state.hero.gold < cost.gold) return { resolved: false, message: 'Insufficient cash for this passage.' }
   if (!cost.items.every(item => state.hero.inventory.includes(item))) return { resolved: false, message: 'Required gate item is missing.' }
   if (alternative.kind === 'npc' && !hasNpcOffering(state)) return { resolved: false, message: 'A rescued NPC is required.' }
   if (alternative.kind === 'tag' && !alternative.tags.every(tag => hasGateTag(state, tag))) return { resolved: false, message: `Required tags missing: ${alternative.tags.join(' + ')}.` }
@@ -76,7 +76,7 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
 export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false): string[] => {
   const selected = choice === undefined ? undefined : gate.tagAlternatives[choice]
   const choiceCost = selected?.cost ?? gate.cost
-  const cost = `${choiceCost.gold} beads${choiceCost.items.length ? ` + ${choiceCost.items.join(', ')}` : ''}`
+  const cost = `${choiceCost.gold} cash${choiceCost.items.length ? ` + ${choiceCost.items.join(', ')}` : ''}`
   const destination = `${biomeName[gate.unlockedDestination.biome]} stage ${gate.unlockedDestination.floor + 1}`
   const requirement = (option: GateAlternative): string => option.kind === 'npc' ? 'leave one companion behind' : option.tags.join(' + ')
   if (!selected) return [...gate.tagAlternatives.map((option, index) => `${index + 1}. ${option.label}: ${requirement(option)}`), `FINAL: pay ${cost}; open ${destination}.`, 'number chooses · Esc cancels']

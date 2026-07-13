@@ -163,7 +163,7 @@ export class TerminalRenderer {
     this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
     this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
     this.meter(64, 6, 14, hero.focus, hero.maxFocus, colors.blue)
-    this.text(50, 8, `BEADS ${String(hero.gold).padStart(3)} B ${hero.bombs} R ${hero.ropes}`, colors.gold)
+    this.text(50, 8, `CASH ${String(hero.gold).padStart(4)} B ${hero.bombs} R ${hero.ropes}`, colors.gold)
     this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
     this.ruleHorizontal(50, 10, 29)
     this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
@@ -257,8 +257,8 @@ export class TerminalRenderer {
 
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
-    merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} beads`, item.color) })
-    this.text(17, 29, `your beads: ${state.hero.gold}`, colors.gold)
+    merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} cash`, item.color) })
+    this.text(17, 29, `your cash: ${state.hero.gold}`, colors.gold)
     this.text(17, 32, 'number buys · Esc/backtick leaves', colors.dim)
   }
 
@@ -282,7 +282,7 @@ export class TerminalRenderer {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     this.box(17, 14, 46, 16, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
     this.text(23, 19, won ? 'The sealed parcel reaches its keeper.' : 'The path keeps its due.', won ? colors.gold : colors.red)
-    this.text(23, 22, `beads ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
+    this.text(23, 22, `cash ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
     this.text(23, 26, 'N starts a new delivery.', colors.green)
   }
 

@@ -23,7 +23,7 @@ import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } fro
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
-  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} beads.`); return advance(state, [event('pickup')]) }
+  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} cash.`); return advance(state, [event('pickup')]) }
   if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take a carved key.'); return advance(state, [event('pickup')]) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }
   state.hero.inventory.push(item.id)
@@ -66,7 +66,7 @@ export function operate(state: RunState): ActionResult {
     return advance(state, [event('rescue')])
   }
   if (tile?.kind === 'altar') {
-    if (state.hero.gold < 75) { log(state, 'The shrine asks for 75 beads.'); return [] }
+    if (state.hero.gold < 75) { log(state, 'The shrine asks for 75 cash.'); return [] }
     spendGold(state, 75)
     const reward = contextualReward(state, 'altar')
     if (state.hero.inventory.length < 12) state.hero.inventory.push(reward)
@@ -193,7 +193,7 @@ export function shopChoice(state: RunState, command: string): ActionResult {
   const id = merchantStock(state)[Number(command) - 1]
   if (!id) return []
   const item = ITEM[id]
-  if (state.hero.gold < item.value) { log(state, 'Not enough beads.'); return [event('menu')] }
+  if (state.hero.gold < item.value) { log(state, 'Not enough cash.'); return [event('menu')] }
   const blocker = purchaseBlocker(state.hero, id)
   if (blocker) { log(state, blocker); return [event('menu')] }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [event('menu')] }
