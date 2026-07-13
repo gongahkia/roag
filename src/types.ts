@@ -122,6 +122,7 @@ export interface LegacyRecord {
 
 export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 'legacy'
 export interface EncyclopediaState { enemies: string[]; telegraphs: string[]; tags: string[]; gates: string[]; legacyRecords: LegacyRecord[] }
+export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script'
 
 interface CampaignBase {
   version: 2
@@ -161,6 +162,7 @@ export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
 export type Modal =
   | { kind: 'help' }
   | { kind: 'encyclopedia'; section: EncyclopediaSection; page?: number }
+  | { kind: 'settings'; page?: number; awaiting?: KeyBindingId }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills' }
   | { kind: 'shop'; merchantId: string }

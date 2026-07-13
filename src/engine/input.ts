@@ -10,6 +10,7 @@ export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
   if (hasCondition(state.hero, 'staggered')) { log(state, 'You are staggered.'); return advance(state, [event('danger')]) }
   if (state.modal) return performModal(state, command)
+  if (command === 'settings') { state.modal = { kind: 'settings' }; return [event('menu')] }
   const lower = command.toLowerCase()
   if (lower === 'h') { state.modal = { kind: 'help' }; return [event('menu')] }
   if (lower === 'j') { state.modal = { kind: 'encyclopedia', section: 'enemies' }; return [event('menu')] }
@@ -42,6 +43,7 @@ function performModal(state: RunState, command: string): ActionResult {
   const modal = state.modal!
   if (command === 'Escape' || command === '`') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'help') { state.modal = undefined; return [event('menu')] }
+  if (modal.kind === 'settings') return []
   if (modal.kind === 'encyclopedia') return performEncyclopediaModal(state, modal, command)
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []

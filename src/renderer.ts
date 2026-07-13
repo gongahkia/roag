@@ -3,6 +3,7 @@ import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
+import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
@@ -23,6 +24,7 @@ export class TerminalRenderer {
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
   private lastHub?: HubView
+  private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -37,6 +39,7 @@ export class TerminalRenderer {
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
+  setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   get isSpriteMode(): boolean { return this.spriteMode }
   trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
 
@@ -196,6 +199,7 @@ export class TerminalRenderer {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (modal.kind === 'help') return this.help()
     if (modal.kind === 'encyclopedia') return this.encyclopedia(state, modal)
+    if (modal.kind === 'settings') return this.settingsModal(modal)
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'shop') return this.shop(state)
@@ -220,6 +224,17 @@ export class TerminalRenderer {
     if (!visible.length) this.text(12, 14, 'No discoveries yet.', colors.dim)
     visible.forEach((entry, index) => this.text(12, 14 + index * 2, entry.slice(0, 56), colors.text))
     this.text(12, 34, '1-5 section · [ ] page · Esc/backtick closes', colors.dim)
+  }
+
+  private settingsModal(modal: Extract<Modal, { kind: 'settings' }>): void {
+    const page = Math.min(modal.page ?? 0, settingsPageCount() - 1)
+    this.box(13, 5, 54, 32, 'SETTINGS')
+    this.text(17, 9, `PAGE ${page + 1}/${settingsPageCount()} · reduced flash ${this.settings.reducedFlash ? 'ON' : 'OFF'}`, colors.gold)
+    settingChoices(this.settings, page).forEach((choice, index) => {
+      const awaiting = choice.kind === 'binding' && modal.awaiting === choice.binding.id
+      this.text(17, 12 + index * 2, `${index + 1}. ${choice.label.padEnd(16)} ${awaiting ? 'PRESS A KEY' : choice.value}`, awaiting ? colors.green : colors.text)
+    })
+    this.text(17, 33, 'number edits · [ ] page · Esc/backtick closes', colors.dim)
   }
 
   private inventory(state: RunState, mode: string): void {

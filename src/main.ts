@@ -2,12 +2,14 @@ import './style.css'
 import { AudioBus } from './audio'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
+import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
 const audio = new AudioBus()
+let settings: GameSettings = loadSettings()
 let state: RunState | undefined
 let saved: RunState | undefined
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
@@ -19,6 +21,7 @@ let campaign: CampaignRouteState = initialCampaignRoute()
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
+renderer.setSettings(settings)
 
 void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
   saved = run
@@ -33,11 +36,12 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
-  const command = keyboardEvent.key
-  if (shouldPrevent(command)) keyboardEvent.preventDefault()
-  if (command.toLowerCase() === 'v') { toggleVisualMode(); return }
+  const command = commandForKey(keyboardEvent.key, settings)
+  if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
+  if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
+  if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
-    let nextRoute = navigate(route, command, Boolean(saved))
+    let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
     if (nextRoute === route) return
     if (nextRoute.screen === 'approach') {
       const heirSeed = Math.floor(Math.random() * 0x7fffffff)
@@ -55,7 +59,7 @@ window.addEventListener('keydown', keyboardEvent => {
     redraw()
     return
   }
-  if (!state || state.status === 'dead' || state.status === 'victory') return
+  if (!state || state.status === 'dead' || state.status === 'victory' || !command) return
   const direction = directionFor(command)
   let events = [] as ReturnType<typeof perform>
   if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
@@ -70,6 +74,28 @@ window.addEventListener('keydown', keyboardEvent => {
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   redraw()
 })
+
+function handleSettingsInput(key: string): void {
+  if (!state?.modal || state.modal.kind !== 'settings') return
+  const modal = state.modal
+  if (key === 'Escape' || key === '`') {
+    if (modal.awaiting) state.modal = { kind: 'settings', page: modal.page }
+    else state.modal = undefined
+  } else if (modal.awaiting) {
+    const next = setKeyBinding(settings, modal.awaiting, key)
+    if (next === settings) state.messages.unshift('That key is already bound.')
+    else { settings = next; saveSettings(settings); renderer.setSettings(settings) }
+    state.modal = { kind: 'settings', page: modal.page }
+  } else if (key === '[' || key === 'ArrowLeft') state.modal = { kind: 'settings', page: Math.max(0, (modal.page ?? 0) - 1) }
+  else if (key === ']' || key === 'ArrowRight') state.modal = { kind: 'settings', page: Math.min(settingsPageCount() - 1, (modal.page ?? 0) + 1) }
+  else {
+    const choice = settingChoices(settings, modal.page ?? 0)[Number(key) - 1]
+    if (choice?.kind === 'reducedFlash') { settings = { ...settings, reducedFlash: !settings.reducedFlash }; saveSettings(settings); renderer.setSettings(settings) }
+    if (choice?.kind === 'binding') state.modal = { kind: 'settings', page: modal.page, awaiting: choice.binding.id }
+  }
+  audio.play([event('menu')])
+  redraw()
+}
 
 function start(): void {
   campaign = { ...campaign, selectedBiome: route.biome }
@@ -155,4 +181,4 @@ function directionFor(command: string): Direction | undefined {
   return directions[command] ?? directions[command.toLowerCase()]
 }
 
-function shouldPrevent(command: string): boolean { return Boolean(directionFor(command)) || [' ', 'Escape', '`', '[', ']', 'h', 'H', 'j', 'J', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }
+function shouldPrevent(command: string): boolean { return command === 'settings' || Boolean(directionFor(command)) || [' ', 'Escape', '`', '[', ']', 'h', 'H', 'j', 'J', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }

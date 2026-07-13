@@ -3,6 +3,7 @@ import type { RunState } from '../types'
 import { visualFeedback } from './feedback'
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number }
+export const flashDuration = (duration: number, reducedFlash: boolean): number => reducedFlash ? Math.max(1, Math.round(duration / 4)) : duration
 
 export class TerminalEffects {
   private shakeUntil = 0
@@ -10,8 +11,10 @@ export class TerminalEffects {
   private flashColor = '#ffffff'
   private particles: Particle[] = []
   private lastUpdate = performance.now()
+  private reducedFlash = false
 
   constructor(private readonly cellWidth: number, private readonly cellHeight: number, private readonly mapWidth: number, private readonly mapHeight: number) {}
+  setReducedFlash(value: boolean): void { this.reducedFlash = value }
 
   trigger(events: ActionResult, state: RunState | undefined, canvas: HTMLCanvasElement): void {
     const now = performance.now()
@@ -20,7 +23,7 @@ export class TerminalEffects {
       const feedback = visualFeedback(type)
       if (!feedback) continue
       this.shakeUntil = Math.max(this.shakeUntil, now + feedback.shake)
-      this.flashUntil = Math.max(this.flashUntil, now + feedback.flash)
+      this.flashUntil = Math.max(this.flashUntil, now + flashDuration(feedback.flash, this.reducedFlash))
       this.flashColor = feedback.color
       if (feedback.particles) this.burst(point.x, point.y, feedback.particles.color, feedback.particles.count, feedback.particles.speed, feedback.particles.life)
     }
