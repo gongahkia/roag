@@ -27,7 +27,7 @@ export { advanceGuardianPhase, arenaPhaseFor, guardianPhaseFor } from './engine/
 export type { ArenaPhase, GuardianTransition } from './engine/guardians'
 export { createHubState, heirNameFor, hubView } from './engine/hub'
 export type { HubAction, HubView } from './engine/hub'
-export { AREA_ORDER, nextArea, unlockNextArea } from './engine/campaign'
+export { AREA_ORDER, completeCampaignArea, initialCampaignRoute, nextArea, unlockNextArea } from './engine/campaign'
 export { resolveTerrainReactions, terrainTags } from './engine/terrain'
 export type { TerrainEffect, TerrainReaction, TerrainTag } from './engine/terrain'
 export { refreshFov } from './engine/visibility'

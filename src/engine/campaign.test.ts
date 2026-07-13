@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextArea, unlockNextArea } from './campaign'
+import { completeCampaignArea, initialCampaignRoute, nextArea, unlockNextArea } from './campaign'
 import { descend } from './inventory'
 import { newRun } from './run'
 
@@ -26,5 +26,11 @@ describe('four-area campaign flow', () => {
     const wilds = newRun(702, nextArea('mine')!, 0, mine.hero)
     expect(unlockNextArea(['mine'], 'mine')).toEqual(['mine', 'wilds'])
     expect(wilds).toMatchObject({ area: 'wilds', areaFloor: 0, floor: { biome: 'wilds' }, hero: { gold: 55 } })
+  })
+
+  it('records routes without embedding hero power', () => {
+    const route = completeCampaignArea(initialCampaignRoute(), 'mine')
+    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds' })
+    expect(route).not.toHaveProperty('hero')
   })
 })

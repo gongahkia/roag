@@ -8,7 +8,7 @@ const hero: Hero = {
 
 const legacy: LegacyRecord = { id: 'heir-1', heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: 3, seed: 7 }
 const campaign = (phase: Campaign['phase']): Campaign => {
-  const base = { version: 2 as const, seed: 7, areas: [{ biome: 'mine' as const, status: 'active' as const, floor: 0, completed: false }], hub: { season: 1, supplies: [], rescued: [], unlockedAreas: ['mine' as const] }, legacy: [] }
+  const base = { version: 2 as const, seed: 7, areas: [{ biome: 'mine' as const, status: 'active' as const, floor: 0, completed: false }], hub: { season: 1, supplies: [], rescued: [], unlockedAreas: ['mine' as const], completedAreas: [] }, legacy: [] }
   if (phase === 'title') return { ...base, phase }
   if (phase === 'hub') return { ...base, phase, hero }
   if (phase === 'area') return { ...base, phase, hero, activeBiome: 'mine' }

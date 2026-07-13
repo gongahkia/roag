@@ -95,7 +95,7 @@ export class TerminalRenderer {
     this.text(19, 16, `RESCUED: ${hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'none'}`, colors.text)
     const action = route.hubAction ?? 'routes'
     this.text(19, 19, `H routes  R roster  S supplies  [${action.toUpperCase()}]`, colors.green)
-    if (action === 'routes') this.text(19, 21, `UNLOCKED: ${(hub?.state.unlockedAreas ?? ['mine']).join(', ')}`, colors.text)
+    if (action === 'routes') this.text(19, 21, `UNLOCKED: ${(hub?.state.unlockedAreas ?? ['mine']).join(', ')} · CLEARED: ${(hub?.state.completedAreas ?? []).join(', ') || 'none'}`, colors.text)
     if (action === 'roster') this.text(19, 21, hub?.state.rescued.length ? hub.state.rescued.join(', ') : 'No rescued NPCs yet.', colors.text)
     if (action === 'supplies') this.text(19, 21, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
     this.text(19, 24, 'A / ENTER  choose an expedition area', colors.green)

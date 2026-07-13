@@ -93,7 +93,10 @@ export interface HubState {
   supplies: ItemId[]
   rescued: string[]
   unlockedAreas: Biome[]
+  completedAreas: Biome[]
 }
+
+export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome }
 
 export interface LegacyRecord {
   id: string

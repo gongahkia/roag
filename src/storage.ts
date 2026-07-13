@@ -1,9 +1,10 @@
-import type { Actor, ConditionState, Floor, GroundItem, Hero, Modal, Point, Records, RunState, RunStateV1, Telegraph, Tile } from './types'
+import type { Actor, CampaignRouteState, ConditionState, Floor, GroundItem, Hero, Modal, Point, Records, RunState, RunStateV1, Telegraph, Tile } from './types'
 
 const DB = 'blockscape-expedition-v2'
 const STORE = 'state'
 const RUN = 'active-run'
 const RECORDS = 'records'
+const CAMPAIGN_ROUTE = 'campaign-route'
 
 type RunRecord = Omit<RunState, 'version'> & { version: number }
 type UnknownRecord = Record<string, unknown>
@@ -32,12 +33,16 @@ const isModal = (value: unknown): value is Modal | undefined => {
 const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.areaFloor === undefined || isNumber(value.areaFloor))
 const isRunState = (value: unknown): value is RunState => isRunRecord(value) && value.version === 2
 const isRunStateV1 = (value: unknown): value is RunStateV1 => isRunRecord(value) && value.version === 1
+const isCampaignRoute = (value: unknown): value is CampaignRouteState => isRecord(value) && value.version === 1 && Array.isArray(value.completedAreas) && value.completedAreas.every(area => oneOf(area, ['mine', 'wilds', 'caverns', 'ruins'])) && Array.isArray(value.unlockedAreas) && value.unlockedAreas.every(area => oneOf(area, ['mine', 'wilds', 'caverns', 'ruins'])) && oneOf(value.selectedBiome, ['mine', 'wilds', 'caverns', 'ruins']) && value.unlockedAreas.includes(value.selectedBiome)
 
 export const migrateRunRecord = (value: unknown): RunState | undefined => {
   if (isRunState(value)) return value
   if (isRunStateV1(value)) return { ...value, version: 2 }
   return undefined
 }
+
+export const initialCampaignRoute = (): CampaignRouteState => ({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine' })
+export const migrateCampaignRoute = (value: unknown): CampaignRouteState => isCampaignRoute(value) ? { version: 1, completedAreas: [...value.completedAreas], unlockedAreas: [...value.unlockedAreas], selectedBiome: value.selectedBiome } : initialCampaignRoute()
 
 const database = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const request = indexedDB.open(DB, 1)
@@ -89,3 +94,5 @@ export async function deleteRun(): Promise<void> {
 const emptyRecords = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [] })
 export const loadRecords = async (): Promise<Records> => (await get<Records>(RECORDS)) ?? emptyRecords()
 export const saveRecords = (records: Records) => put(RECORDS, records)
+export const loadCampaignRoute = async (): Promise<CampaignRouteState> => migrateCampaignRoute(await get<unknown>(CAMPAIGN_ROUTE))
+export const saveCampaignRoute = (route: CampaignRouteState) => put(CAMPAIGN_ROUTE, migrateCampaignRoute(route))

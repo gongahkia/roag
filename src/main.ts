@@ -1,9 +1,9 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { createHubState, event, hasEvent, hubView, initialRoute, navigate, newRun, nextArea, perform, quickCast, unlockNextArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
-import { deleteRun, loadRecords, loadRun, saveRecords, saveRun } from './storage'
-import type { Direction, Hero, HubState, Records, RunState } from './types'
+import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
+import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -15,13 +15,17 @@ let recordedEnd = false
 let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
 let heir: Hero | undefined
+let campaign: CampaignRouteState = initialCampaignRoute()
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
 
-void Promise.all([loadRun(), loadRecords()]).then(([run, loadedRecords]) => {
+void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
   saved = run
   records = loadedRecords
+  campaign = loadedCampaign
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  route = { ...route, biome: campaign.selectedBiome }
   redraw()
 })
 redraw()
@@ -37,7 +41,7 @@ window.addEventListener('keydown', keyboardEvent => {
     if (nextRoute.screen === 'approach') {
       const heirSeed = Math.floor(Math.random() * 0x7fffffff)
       nextRoute = { ...nextRoute, heirSeed }
-      hub = createHubState(heirSeed)
+      hub = { ...createHubState(heirSeed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
     }
     if (nextRoute.screen === 'title') nextRoute = { ...nextRoute, heirSeed: undefined }
     if (nextRoute.screen === 'level') {
@@ -65,6 +69,8 @@ window.addEventListener('keydown', keyboardEvent => {
 })
 
 function start(): void {
+  campaign = { ...campaign, selectedBiome: route.biome }
+  void saveCampaignRoute(campaign)
   state = newRun(route.heirSeed, route.biome, 0, heir)
   heir = state.hero
   saved = structuredClone(state)
@@ -78,10 +84,12 @@ function completeArea(): void {
   if (!state) return
   const completed = state.area ?? state.floor.biome
   heir = structuredClone(state.hero)
-  hub = { ...hub, unlockedAreas: unlockNextArea(hub.unlockedAreas, completed) }
+  campaign = completeCampaignArea(campaign, completed)
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas }
+  void saveCampaignRoute(campaign)
   saved = undefined
   void deleteRun()
-  route = { ...route, screen: 'hub', biome: nextArea(completed) ?? completed, hubAction: 'routes' }
+  route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
 }
 
 function toggleVisualMode(): void {
@@ -101,7 +109,7 @@ function finish(won: boolean): void {
   records.runs.unshift({ seed: state.seed, floor: state.floor.index + 1, score: state.hero.gold, won, date: new Date().toISOString() })
   records.runs = records.runs.slice(0, 20)
   saved = undefined
-  void Promise.all([deleteRun(), saveRecords(records)])
+  void Promise.all([deleteRun(), saveRecords(records), saveCampaignRoute(campaign)])
 }
 
 function run(game: RunState, command: string): ReturnType<typeof perform> {
