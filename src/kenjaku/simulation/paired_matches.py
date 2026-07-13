@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from random import Random
 from typing import Any
@@ -19,6 +21,7 @@ PAIRED_SEED_MATCH_3P_REPORT_KIND = "kenjaku-paired-seed-match-3p-report-v0"
 DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES = 10_000
 PAIRED_MATCH_BOOTSTRAP_CONFIDENCE_LEVEL = 0.95
 PAIRED_MATCH_BOOTSTRAP_METHOD = "paired-bootstrap-percentile"
+PAIRED_MATCH_CHECKPOINT_PROMOTION_GATE_KIND = "kenjaku-paired-match-promotion-gate-v0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +75,7 @@ def run_paired_seed_matches_4p(
     candidate: PairedMatchPolicy,
     baseline: PairedMatchPolicy,
     bootstrap_resamples: int = DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+    promotion_seat: int = 0,
 ) -> dict[str, Any]:
     """Run candidate and baseline 4p profiles on exactly the same match seeds."""
     return _run_paired_seed_matches(
@@ -86,6 +90,7 @@ def run_paired_seed_matches_4p(
         kind=PAIRED_SEED_MATCH_4P_REPORT_KIND,
         seed_stage="paired-seed-match-4p",
         bootstrap_resamples=bootstrap_resamples,
+        promotion_seat=promotion_seat,
     )
 
 
@@ -98,6 +103,7 @@ def run_paired_seed_matches_3p(
     candidate: PairedMatchPolicy,
     baseline: PairedMatchPolicy,
     bootstrap_resamples: int = DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+    promotion_seat: int = 0,
 ) -> dict[str, Any]:
     """Run candidate and baseline Sanma profiles on exactly the same match seeds."""
     return _run_paired_seed_matches(
@@ -112,6 +118,7 @@ def run_paired_seed_matches_3p(
         kind=PAIRED_SEED_MATCH_3P_REPORT_KIND,
         seed_stage="paired-seed-match-3p",
         bootstrap_resamples=bootstrap_resamples,
+        promotion_seat=promotion_seat,
     )
 
 
@@ -128,6 +135,7 @@ def _run_paired_seed_matches(
     kind: str,
     seed_stage: str,
     bootstrap_resamples: int,
+    promotion_seat: int,
 ) -> dict[str, Any]:
     if pairs <= 0:
         raise ValueError("pairs must be positive")
@@ -137,6 +145,8 @@ def _run_paired_seed_matches(
         raise ValueError("max_turns_per_round must be positive")
     if bootstrap_resamples <= 0:
         raise ValueError("bootstrap_resamples must be positive")
+    if type(promotion_seat) is not int or not 0 <= promotion_seat < players:
+        raise ValueError(f"promotion_seat must be a {players}p seat index")
     _validate_profile_seats(candidate, players=players)
     _validate_profile_seats(baseline, players=players)
     rows: list[dict[str, Any]] = []
@@ -164,7 +174,7 @@ def _run_paired_seed_matches(
         seed=derive_seed(seed, "paired-seed-match-bootstrap", ruleset),
         resamples=bootstrap_resamples,
     )
-    return {
+    report = {
         "kind": kind,
         "ruleset": ruleset,
         "players": players,
@@ -186,6 +196,11 @@ def _run_paired_seed_matches(
             "placement_adjusted_score_delta_ci_by_seat": confidence_intervals,
         },
     }
+    report["checkpoint_promotion"] = checkpoint_promotion_gate(
+        report,
+        evaluation_seat=promotion_seat,
+    )
+    return report
 
 
 def _run_profile(
@@ -297,6 +312,98 @@ def _nearest_rank_percentile(values: list[float], percentile: float) -> float:
     ordered = sorted(values)
     index = max(0, int(percentile * len(ordered) - 1e-12))
     return ordered[index]
+
+
+def checkpoint_promotion_gate(
+    report: Mapping[str, Any],
+    *,
+    evaluation_seat: int = 0,
+) -> dict[str, Any]:
+    """Allow promotion only when one seat's paired-bootstrap 95% CI is positive."""
+    kind = report.get("kind")
+    if kind not in (PAIRED_SEED_MATCH_3P_REPORT_KIND, PAIRED_SEED_MATCH_4P_REPORT_KIND):
+        raise ValueError("report must be a paired-seed match report")
+    players = report.get("players")
+    expected_players = 3 if kind == PAIRED_SEED_MATCH_3P_REPORT_KIND else 4
+    if type(players) is not int or players != expected_players:
+        raise ValueError(f"paired report players must be {expected_players}")
+    ruleset = report.get("ruleset")
+    if ruleset != f"tenhou-{players}p":
+        raise ValueError("paired report ruleset must match its player count")
+    if type(evaluation_seat) is not int or not 0 <= evaluation_seat < players:
+        raise ValueError(f"evaluation_seat must be a {players}p seat index")
+    summary = report.get("summary")
+    if not isinstance(summary, Mapping):
+        raise ValueError("paired report summary is required")
+    intervals = summary.get("placement_adjusted_score_delta_ci_by_seat")
+    if intervals is None:
+        return _checkpoint_promotion_gate(
+            report=report,
+            evaluation_seat=evaluation_seat,
+            interval=None,
+            allowed=False,
+            reason="no_completed_paired_matches",
+        )
+    if not isinstance(intervals, list) or len(intervals) != players:
+        raise ValueError("paired report confidence intervals must contain one entry per seat")
+    interval = intervals[evaluation_seat]
+    if not isinstance(interval, Mapping):
+        raise ValueError("paired report confidence interval must be an object")
+    level = interval.get("level")
+    method = interval.get("method")
+    resamples = interval.get("resamples")
+    low = interval.get("low")
+    high = interval.get("high")
+    if (
+        not isinstance(level, (int, float))
+        or isinstance(level, bool)
+        or float(level) != PAIRED_MATCH_BOOTSTRAP_CONFIDENCE_LEVEL
+        or method != PAIRED_MATCH_BOOTSTRAP_METHOD
+        or type(resamples) is not int
+        or resamples <= 0
+        or not isinstance(low, (int, float))
+        or isinstance(low, bool)
+        or not isinstance(high, (int, float))
+        or isinstance(high, bool)
+        or not math.isfinite(float(low))
+        or not math.isfinite(float(high))
+        or float(low) > float(high)
+    ):
+        raise ValueError(
+            "paired report requires a finite 95% confidence interval from paired bootstrap"
+        )
+    allowed = float(low) > 0.0
+    return _checkpoint_promotion_gate(
+        report=report,
+        evaluation_seat=evaluation_seat,
+        interval=dict(interval),
+        allowed=allowed,
+        reason=(
+            "paired_95_percent_ci_strictly_positive"
+            if allowed
+            else "paired_95_percent_ci_not_strictly_positive"
+        ),
+    )
+
+
+def _checkpoint_promotion_gate(
+    *,
+    report: Mapping[str, Any],
+    evaluation_seat: int,
+    interval: dict[str, Any] | None,
+    allowed: bool,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "kind": PAIRED_MATCH_CHECKPOINT_PROMOTION_GATE_KIND,
+        "paired_report_kind": report["kind"],
+        "ruleset": report["ruleset"],
+        "metric": "placement_adjusted_score_delta",
+        "evaluation_seat": evaluation_seat,
+        "confidence_interval": interval,
+        "allowed": allowed,
+        "reason": reason,
+    }
 
 
 def _validate_profile_seats(profile: PairedMatchPolicy, *, players: int) -> None:

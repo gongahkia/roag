@@ -800,6 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
     )
+    paired_match.add_argument("--promotion-seat", type=int, default=0)
     paired_match.add_argument("--report", type=Path)
     paired_match.add_argument("--json", action="store_true")
     paired_match.set_defaults(func=_paired_match_4p)
@@ -829,6 +830,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
     )
+    paired_match_3p.add_argument("--promotion-seat", type=int, default=0)
     paired_match_3p.add_argument("--report", type=Path)
     paired_match_3p.add_argument("--json", action="store_true")
     paired_match_3p.set_defaults(func=_paired_match_3p)
@@ -3626,6 +3628,7 @@ def _paired_match(
                 heuristic_seats=_parse_seat_list(args.baseline_heuristic_seats),
             ),
             bootstrap_resamples=args.bootstrap_resamples,
+            promotion_seat=args.promotion_seat,
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error

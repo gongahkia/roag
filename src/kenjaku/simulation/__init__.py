@@ -79,9 +79,11 @@ from kenjaku.simulation.match_replay import (
 )
 from kenjaku.simulation.paired_matches import (
     DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES,
+    PAIRED_MATCH_CHECKPOINT_PROMOTION_GATE_KIND,
     PAIRED_SEED_MATCH_3P_REPORT_KIND,
     PAIRED_SEED_MATCH_4P_REPORT_KIND,
     PairedMatchPolicy,
+    checkpoint_promotion_gate,
     run_paired_seed_matches_3p,
     run_paired_seed_matches_4p,
 )
@@ -162,9 +164,11 @@ __all__ = [
     "reconstruct_self_play_match_report",
     "validate_self_play_match_replay",
     "DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES",
+    "PAIRED_MATCH_CHECKPOINT_PROMOTION_GATE_KIND",
     "PAIRED_SEED_MATCH_3P_REPORT_KIND",
     "PAIRED_SEED_MATCH_4P_REPORT_KIND",
     "PairedMatchPolicy",
+    "checkpoint_promotion_gate",
     "run_paired_seed_matches_4p",
     "run_paired_seed_matches_3p",
     "HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS",
