@@ -26,7 +26,8 @@ export function generateFloor(runSeed: number, index: number): Floor {
     items: [],
     start: { x: 2, y: 2 },
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
-    guardianDefeated: index % 4 !== 3
+    guardianDefeated: index % 4 !== 3,
+    telegraphs: []
   }
   const rooms = carveRooms(floor, layoutRng)
   connectRooms(floor, rooms)

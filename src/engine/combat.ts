@@ -5,6 +5,7 @@ import { actorAt, getTile, isPassable } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
 import { canAffect } from './line-effect'
+import { resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
@@ -38,6 +39,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
+  if (resolveTelegraphs(state).length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
     actor.energy += actor.speed
