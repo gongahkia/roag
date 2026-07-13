@@ -16,6 +16,7 @@ import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
 import { intellectWardBonus } from './intellect'
 import { scriptCastProfile } from './scripts'
 import { castEmber } from './ember'
+import { castVerdant, isVerdantSpell } from './verdant'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -169,8 +170,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
   const target = actorAt(state.floor, point.x, point.y)
   if (item.spell === 'ember') castEmber(state, point)
-  if (item.spell === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect)
-  if (item.spell === 'sight') for (const tile of state.floor.tiles) tile.explored = true
+  if (isVerdantSpell(item.spell)) castVerdant(state, item.spell, point)
   if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
   if (item.spell === 'ward') { state.hero.maxHealth += 2 + intellectWardBonus(state.hero); if (intellectWardBonus(state.hero)) addCondition(state.hero, { kind: 'shielded', duration: 3, potency: intellectWardBonus(state.hero) }) }
   if (item.spell === 'gate') { state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }

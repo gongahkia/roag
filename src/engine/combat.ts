@@ -149,6 +149,7 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   advanceGuardianPhase(state, actor)
   const intent = planEnemyIntent(state, actor)
   log(state, `${actor.name}: ${intent.action.name} (${intent.reason}).`)
+  if (hasCondition(actor, 'rooted') && (intent.action.id === 'enemy-approach' || intent.action.id === 'enemy-reposition')) { log(state, `${actor.name} is rooted.`); return [] }
   if (intent.action.id === 'enemy-strike') return monsterAttack(state, actor)
   if (intent.action.id === 'enemy-shot') return announceProjectile(state, actor)
   if (intent.action.id === 'guardian-slam') return announceGuardianSlam(state, actor)
@@ -229,7 +230,7 @@ function dropLoot(state: RunState, actor: Actor): void {
   const rng = turnRng(state, 'loot', `drop:${actor.id}`)
   state.floor.items.push({ id: 'gold', x: actor.x, y: actor.y, count: actor.role === 'guardian' ? rng.int(130, 210) : rng.int(5, 18) })
   const tables: Record<string, string[]> = {
-    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic'], caverns: ['focusTonic', 'ember', 'mend', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'blinkRune']
+    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'blinkRune']
   }
   if (actor.role === 'guardian' || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
 }
