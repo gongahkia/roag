@@ -88,6 +88,12 @@ from kenjaku.simulation.synthetic_matches import (
     generate_synthetic_match_manifest,
     write_synthetic_match_manifest,
 )
+from kenjaku.simulation.synthetic_splits import (
+    SYNTHETIC_MATCH_SPLIT_MANIFEST_V1_FIELDS,
+    SYNTHETIC_MATCH_SPLIT_MANIFEST_V1_KIND,
+    build_synthetic_match_split_manifest,
+    write_synthetic_match_split_manifest,
+)
 
 __all__ = [
     "apply_ankan_action",
@@ -140,6 +146,8 @@ __all__ = [
     "SandboxFinalResult",
     "SYNTHETIC_MATCH_MANIFEST_V1_FIELDS",
     "SYNTHETIC_MATCH_MANIFEST_V1_KIND",
+    "SYNTHETIC_MATCH_SPLIT_MANIFEST_V1_FIELDS",
+    "SYNTHETIC_MATCH_SPLIT_MANIFEST_V1_KIND",
     "SELF_PLAY_MATCH_ACTION_POLICIES",
     "SELF_PLAY_MATCH_DISCARD_POLICIES",
     "SELF_PLAY_MATCH_REPORT_KIND",
@@ -156,6 +164,8 @@ __all__ = [
     "run_self_play_sandbox",
     "generate_synthetic_match_manifest",
     "write_synthetic_match_manifest",
+    "build_synthetic_match_split_manifest",
+    "write_synthetic_match_split_manifest",
     "SandboxRuleConfig",
     "SANDBOX_RULE_CONFIG_FIELDS",
     "SANDBOX_RULE_CONFIG_V1_FIELDS",
