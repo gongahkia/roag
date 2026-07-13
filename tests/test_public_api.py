@@ -33,6 +33,7 @@ EXPECTED_EXPORTS = [
     "CallFrequencyBaseline",
     "ActionV1",
     "CheckpointManifestV1",
+    "ConformanceFixtureV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
     "LocalArtifactRegistry",

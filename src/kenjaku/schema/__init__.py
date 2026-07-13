@@ -15,6 +15,11 @@ from kenjaku.schema.checkpoint_manifest_v1 import (
     CheckpointRequirementV1,
     SemanticVersion,
 )
+from kenjaku.schema.conformance_fixture_v1 import (
+    CONFORMANCE_FIXTURE_V1_FIELDS,
+    CONFORMANCE_FIXTURE_V1_KIND,
+    ConformanceFixtureV1,
+)
 from kenjaku.schema.decision_result_v1 import (
     DECISION_FACTOR_V1_FIELDS,
     DECISION_RATIONALE_V1_FIELDS,
@@ -103,6 +108,9 @@ __all__ = [
     "CheckpointManifestV1",
     "CheckpointRequirementV1",
     "SemanticVersion",
+    "CONFORMANCE_FIXTURE_V1_FIELDS",
+    "CONFORMANCE_FIXTURE_V1_KIND",
+    "ConformanceFixtureV1",
     "DECISION_FACTOR_V1_FIELDS",
     "DECISION_RATIONALE_V1_FIELDS",
     "DECISION_RESULT_V1_FIELDS",
