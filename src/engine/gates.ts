@@ -13,3 +13,11 @@ export const AREA_GATES: Record<Biome, AreaGate> = {
 }
 
 export const gateForArea = (biome: Biome): AreaGate => AREA_GATES[biome]
+
+export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false): string[] => {
+  const selected = choice === undefined ? undefined : gate.tagAlternatives[choice]
+  const cost = `${gate.cost.gold} gold${gate.cost.items.length ? ` + ${gate.cost.items.join(', ')}` : ''}`
+  const destination = `${gate.unlockedDestination.biome} floor ${gate.unlockedDestination.floor + 1}`
+  if (!selected) return [...gate.tagAlternatives.map((option, index) => `${index + 1}. ${option.label}: ${option.tags.join(' + ')}`), `IRREVOCABLE: pay ${cost}; unlock ${destination}.`, 'number chooses · Esc cancels']
+  return [`CHOICE: ${selected.label} (${selected.tags.join(' + ')})`, `IRREVOCABLE: pay ${cost}; unlock ${destination}.`, confirming ? 'ENTER confirms this irreversible gate choice.' : 'ENTER reviews confirmation · number changes choice']
+}

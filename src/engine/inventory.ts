@@ -6,6 +6,7 @@ import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
 import { resolveDisplacement } from './displacement'
 import { resolveTerrainReactions } from './terrain'
+import { gateForArea } from './gates'
 import { gainXp } from './progression'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
@@ -26,6 +27,12 @@ export function operate(state: RunState): ActionResult {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const container = nearbyContainer(state)
+  if (nearbyGate(state)) {
+    const gate = gateForArea(state.area ?? state.floor.biome)
+    state.modal = { kind: 'gate', gateId: gate.id }
+    log(state, gate.npcOffering)
+    return [event('menu')]
+  }
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
   if (container) {
     container.tile.kind = 'floor'
@@ -228,3 +235,5 @@ const nearbyContainer = (state: RunState): { tile: NonNullable<ReturnType<typeof
   }
   return undefined
 }
+
+const nearbyGate = (state: RunState): boolean => Object.values(DIRECTIONS).some(delta => getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)?.kind === 'lockedDoor')

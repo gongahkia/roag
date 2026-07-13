@@ -143,6 +143,7 @@ export type Modal =
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills' }
   | { kind: 'shop'; merchantId: string }
+  | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
   | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }

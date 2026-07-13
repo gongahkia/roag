@@ -27,7 +27,9 @@ const isModal = (value: unknown): value is Modal | undefined => {
   if (!isRecord(value)) return false
   if (value.kind === 'help' || value.kind === 'skills') return true
   if (value.kind === 'inventory') return oneOf(value.mode, ['use', 'drop', 'throw', 'equip'])
-  return value.kind === 'shop' ? isString(value.merchantId) : value.kind === 'target' && oneOf(value.action, ['throw', 'spell', 'bomb']) && (value.item === undefined || isString(value.item))
+  if (value.kind === 'shop') return isString(value.merchantId)
+  if (value.kind === 'gate') return isString(value.gateId) && (value.choice === undefined || isNumber(value.choice)) && (value.confirming === undefined || typeof value.confirming === 'boolean')
+  return value.kind === 'target' && oneOf(value.action, ['throw', 'spell', 'bomb']) && (value.item === undefined || isString(value.item))
 }
 
 const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.areaFloor === undefined || isNumber(value.areaFloor))

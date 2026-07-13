@@ -4,6 +4,7 @@ import { bomb, castFirstSpell, castSpell, descend, inventoryChoice, operate, pic
 import { chooseSkill } from './progression'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
+import { gateForArea } from './gates'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -43,10 +44,23 @@ function performModal(state: RunState, command: string): ActionResult {
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)
+  if (modal.kind === 'gate') return performGateModal(state, modal, command)
   if (command === 'Enter' && modal.direction) return commitTarget(state, modal)
   const direction = directionFor(command)
   if (!direction || direction === 'wait') return []
   state.modal = { ...modal, direction }
+  return [event('menu')]
+}
+
+function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' }>, command: string): ActionResult {
+  const choice = Number(command) - 1
+  const gate = gateForArea(state.area ?? state.floor.biome)
+  if (Number.isInteger(choice) && choice >= 0 && choice < gate.tagAlternatives.length) { state.modal = { ...modal, choice, confirming: false }; return [event('menu')] }
+  if (command !== 'Enter') return []
+  if (modal.choice === undefined) { log(state, 'Choose a gate alternative first.'); return [] }
+  if (!modal.confirming) { state.modal = { ...modal, confirming: true }; return [event('menu')] }
+  state.modal = undefined
+  log(state, 'Gate choice confirmed.')
   return [event('menu')]
 }
 

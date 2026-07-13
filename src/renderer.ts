@@ -1,5 +1,5 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
+import { gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
 import { mineSeason } from './season'
@@ -197,6 +197,7 @@ export class TerminalRenderer {
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'shop') return this.shop(state)
+    if (modal.kind === 'gate') return this.gate(state, modal)
     if (modal.kind === 'target') return this.target(state, modal)
   }
 
@@ -226,6 +227,13 @@ export class TerminalRenderer {
     shopStock(state.floor.biome).forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
     this.text(17, 30, `your gold: ${state.hero.gold}`, colors.gold)
     this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)
+  }
+
+  private gate(state: RunState, modal: Extract<Modal, { kind: 'gate' }>): void {
+    const gate = gateForArea(state.area ?? state.floor.biome)
+    this.box(8, 6, 64, 29, 'RESOLVE AREA GATE')
+    this.text(12, 10, gate.npcOffering, colors.gold)
+    gateModalLines(gate, modal.choice, modal.confirming).forEach((line, index) => this.text(12, 14 + index * 3, line, line.startsWith('IRREVOCABLE') ? colors.red : modal.confirming && line.startsWith('ENTER') ? colors.gold : colors.text))
   }
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
