@@ -2,12 +2,12 @@ import { ITEM } from './content'
 import type { Actor, Tile } from './types'
 
 const size = 8
-const atlasUrl = new URL('./assets/jomon-atlas.png', import.meta.url).href
+const atlasUrl = new URL('./assets/jomon-atlas-source.png', import.meta.url).href
 const tileColor: Record<string, string> = {
   wall: '#798795', floor: '#4f5c6c', exit: '#f4d26a', door: '#c9935e', lockedDoor: '#e9c965', water: '#559dcc', lava: '#eb7258', pit: '#05070b', rope: '#d6a867', spikes: '#d4dae2', dart: '#d4dae2', fireVent: '#ff825e', crumble: '#99795f', boulder: '#abb0b4', web: '#d3d8e4', gas: '#8dbd82', support: '#b99b72', rail: '#c5b2a0', rubble: '#8e9298', bramble: '#6c9f64', darkness: '#30384d', crate: '#c99162', chest: '#f4d26a', altar: '#cda2e3', shop: '#f4d26a', rescue: '#83d6af'
 }
 
-export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/jomon-atlas.png' } as const
+export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/jomon-atlas-source.png' } as const
 
 const tileSprite: Partial<Record<Tile['kind'], number>> = {
   wall: 0, floor: 1, exit: 2, door: 3, lockedDoor: 4, water: 5, lava: 6, pit: 7, rope: 8, spikes: 9, dart: 10, fireVent: 11, crumble: 12, boulder: 13, web: 14, gas: 15,
@@ -20,38 +20,6 @@ const actorSprite: Record<string, number> = {
 const itemSprite: Record<string, number> = {
   whip: 64, machete: 65, pickaxe: 66, spear: 67, sunblade: 68, buckler: 69, lantern: 70, cap: 71, mask: 72, coat: 73, mail: 74, boots: 75, featherboots: 76, ward: 77, sunseal: 78, tonic: 79,
   focusTonic: 80, mapScroll: 81, blinkRune: 82, bombPack: 83, ropeBundle: 84, key: 85, rock: 86, fireJar: 87, ember: 88, mend: 89, sight: 90, gust: 91, wardScript: 92, gate: 93, gold: 114
-}
-
-const isBakedChecker = (data: Uint8ClampedArray, index: number): boolean => {
-  const r = data[index]
-  const g = data[index + 1]
-  const b = data[index + 2]
-  return data[index + 3] > 0 && r >= 235 && g >= 235 && b >= 235 && Math.max(r, g, b) - Math.min(r, g, b) <= 8
-}
-
-const clearBakedChecker = (ctx: CanvasRenderingContext2D, width: number, height: number): void => {
-  const image = ctx.getImageData(0, 0, width, height)
-  const seen = new Uint8Array(width * height)
-  const queue: number[] = []
-  const visit = (x: number, y: number): void => {
-    const point = y * width + x
-    if (seen[point] || !isBakedChecker(image.data, point * 4)) return
-    seen[point] = 1
-    queue.push(point)
-  }
-  for (let x = 0; x < width; x++) { visit(x, 0); visit(x, height - 1) }
-  for (let y = 1; y < height - 1; y++) { visit(0, y); visit(width - 1, y) }
-  for (let cursor = 0; cursor < queue.length; cursor++) {
-    const point = queue[cursor]
-    const x = point % width
-    const y = Math.floor(point / width)
-    image.data[point * 4 + 3] = 0
-    if (x) visit(x - 1, y)
-    if (x + 1 < width) visit(x + 1, y)
-    if (y) visit(x, y - 1)
-    if (y + 1 < height) visit(x, y + 1)
-  }
-  ctx.putImageData(image, 0, 0)
 }
 
 export class TextureAtlas {
@@ -76,7 +44,6 @@ export class TextureAtlas {
         const targetY = Math.floor(index / ATLAS_SPEC.columns) * 16
         ctx.drawImage(this.image, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, 16, 16)
       }
-      clearBakedChecker(ctx, this.cells.width, this.cells.height)
       this.ready = true
       this.listeners.forEach(listener => listener())
     }
