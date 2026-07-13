@@ -28,7 +28,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -117,6 +117,10 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'oracle', name: 'Dust Oracle', glyph: 'o', color: '#e9c489', health: 15, attack: 11, defense: 13, speed: 100, ai: 'ranged', xp: 45, biome: 'ruins' },
   { id: 'shade', name: 'Vault Shade', glyph: 'h', color: '#c1a5ed', health: 14, attack: 10, defense: 16, speed: 125, ai: 'wander', xp: 48, biome: 'ruins' },
   { id: 'cultist', name: 'Ash Cultist', glyph: 'c', color: '#df9a7c', health: 18, attack: 11, defense: 14, speed: 100, ai: 'ranged', xp: 51, biome: 'ruins' },
+  { id: 'wardacolyte', name: 'Ward Acolyte', glyph: 'a', color: '#c29ce6', health: 15, attack: 8, defense: 13, speed: 90, ai: 'ranged', xp: 37, biome: 'ruins', tags: ['ruins', 'ward', 'ritual'] },
+  { id: 'dartadept', name: 'Dart Adept', glyph: 'd', color: '#d8b576', health: 13, attack: 9, defense: 12, speed: 100, ai: 'ranged', xp: 38, biome: 'ruins', tags: ['ruins', 'dart', 'telegraph'] },
+  { id: 'lockkeeper', name: 'Lock Keeper', glyph: 'k', color: '#c4b488', health: 18, attack: 9, defense: 15, speed: 80, ai: 'chase', xp: 42, biome: 'ruins', tags: ['ruins', 'lock', 'counterplay'] },
+  { id: 'ritualist', name: 'Ash Ritualist', glyph: 'r', color: '#d88ea4', health: 14, attack: 10, defense: 13, speed: 95, ai: 'ranged', xp: 44, biome: 'ruins', tags: ['ruins', 'ritual', 'telegraph'] },
   { id: 'regent', name: 'The Ash Regent', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
 ]
 

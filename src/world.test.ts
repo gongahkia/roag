@@ -28,7 +28,7 @@ describe('expedition generation', () => {
   it('provides the locked full content roster', () => {
     expect(ITEMS).toHaveLength(35)
     expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(4)
-    expect(MONSTERS.filter(monster => monster.ai !== 'guardian')).toHaveLength(29)
+    expect(MONSTERS.filter(monster => monster.ai !== 'guardian')).toHaveLength(33)
   })
 
   it('builds valid deterministic floors across the complete run', () => {

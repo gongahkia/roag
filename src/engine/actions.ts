@@ -28,6 +28,10 @@ export const ENEMY_ACTIONS: ActionDefinition[] = [
   { id: 'enemy-web', owner: 'enemy', name: 'Snare', cost: { resource: 'none' }, range: 6, shape: 'line', tags: ['ranged', 'telegraphed', 'terrain'], resolver: 'script' },
   { id: 'enemy-fire', owner: 'enemy', name: 'Fire Line', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['ranged', 'telegraphed', 'terrain'], resolver: 'script' },
   { id: 'enemy-pull', owner: 'enemy', name: 'Pull', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['ranged', 'telegraphed', 'control'], resolver: 'script' },
+  { id: 'enemy-ward', owner: 'enemy', name: 'Ward', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['defense', 'ritual'], resolver: 'script' },
+  { id: 'enemy-dart', owner: 'enemy', name: 'Dart Line', cost: { resource: 'none' }, range: 6, shape: 'line', tags: ['ranged', 'telegraphed', 'terrain'], resolver: 'script' },
+  { id: 'enemy-lock', owner: 'enemy', name: 'Seal Door', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['terrain', 'control'], resolver: 'script' },
+  { id: 'enemy-ritual', owner: 'enemy', name: 'Marking Ritual', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['ranged', 'telegraphed', 'control'], resolver: 'script' },
   { id: 'guardian-slam', owner: 'enemy', name: 'Slam', cost: { resource: 'none' }, range: 1, shape: 'cross', tags: ['guardian', 'area'], resolver: 'melee' },
   { id: 'enemy-approach', owner: 'enemy', name: 'Advance', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement'], resolver: 'move' },
   { id: 'enemy-reposition', owner: 'enemy', name: 'Reposition', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement', 'terrain'], resolver: 'move' }
