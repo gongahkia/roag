@@ -1,0 +1,31 @@
+export type ActionOwner = 'player' | 'enemy'
+export type ActionShape = 'adjacent' | 'line' | 'cone' | 'burst' | 'cross'
+export type ActionResolver = 'melee' | 'projectile' | 'throw' | 'bomb' | 'script'
+export type ActionCost = { resource: 'none' } | { resource: 'focus' | 'bomb' | 'item'; amount: number }
+
+export interface ActionDefinition {
+  id: string
+  owner: ActionOwner
+  name: string
+  cost: ActionCost
+  range: number
+  shape: ActionShape
+  tags: string[]
+  resolver: ActionResolver
+}
+
+export const PLAYER_ACTIONS: ActionDefinition[] = [
+  { id: 'player-strike', owner: 'player', name: 'Strike', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['melee'], resolver: 'melee' },
+  { id: 'player-throw', owner: 'player', name: 'Throw', cost: { resource: 'item', amount: 1 }, range: 5, shape: 'line', tags: ['ranged', 'thrown'], resolver: 'throw' },
+  { id: 'player-bomb', owner: 'player', name: 'Bomb', cost: { resource: 'bomb', amount: 1 }, range: 1, shape: 'burst', tags: ['area', 'terrain'], resolver: 'bomb' },
+  { id: 'player-script', owner: 'player', name: 'Script', cost: { resource: 'focus', amount: 3 }, range: 1, shape: 'adjacent', tags: ['script'], resolver: 'script' }
+]
+
+export const ENEMY_ACTIONS: ActionDefinition[] = [
+  { id: 'enemy-strike', owner: 'enemy', name: 'Strike', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['melee'], resolver: 'melee' },
+  { id: 'enemy-shot', owner: 'enemy', name: 'Shot', cost: { resource: 'none' }, range: 7, shape: 'line', tags: ['ranged', 'telegraphed'], resolver: 'projectile' },
+  { id: 'guardian-slam', owner: 'enemy', name: 'Slam', cost: { resource: 'none' }, range: 1, shape: 'cross', tags: ['guardian', 'area'], resolver: 'melee' }
+]
+
+export const ACTIONS: ActionDefinition[] = [...PLAYER_ACTIONS, ...ENEMY_ACTIONS]
+export const actionById = (id: string): ActionDefinition | undefined => ACTIONS.find(action => action.id === id)
