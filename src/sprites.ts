@@ -4,7 +4,7 @@ import type { Actor, Tile } from './types'
 const size = 8
 const atlasUrl = new URL('./assets/jomon-atlas-source.png', import.meta.url).href
 const tileColor: Record<string, string> = {
-  wall: '#798795', floor: '#4f5c6c', exit: '#f4d26a', door: '#c9935e', lockedDoor: '#e9c965', water: '#559dcc', lava: '#eb7258', pit: '#05070b', rope: '#d6a867', spikes: '#d4dae2', dart: '#d4dae2', fireVent: '#ff825e', crumble: '#99795f', boulder: '#abb0b4', web: '#d3d8e4', gas: '#8dbd82', support: '#b99b72', rail: '#c5b2a0', rubble: '#8e9298', bramble: '#6c9f64', darkness: '#30384d', crate: '#c99162', chest: '#f4d26a', altar: '#cda2e3', shop: '#f4d26a', rescue: '#83d6af'
+  wall: '#798795', floor: '#4f5c6c', exit: '#f4d26a', door: '#c9935e', lockedDoor: '#e9c965', water: '#559dcc', lava: '#eb7258', pit: '#05070b', rope: '#d6a867', spikes: '#d4dae2', dart: '#d4dae2', fireVent: '#ff825e', crumble: '#99795f', boulder: '#abb0b4', web: '#d3d8e4', gas: '#8dbd82', support: '#86633f', rail: '#725637', rubble: '#8e9298', bramble: '#6c9f64', darkness: '#30384d', crate: '#c99162', chest: '#f4d26a', altar: '#cda2e3', shop: '#f4d26a', rescue: '#83d6af'
 }
 
 export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/jomon-atlas-source.png' } as const
@@ -93,13 +93,20 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, x: num
     ctx.fillRect(px + 5, py + 6, 2, 1)
   } else if (tile.kind === 'support') {
     ctx.fillStyle = color
-    ctx.fillRect(px + 3, py, 2, 8)
-    ctx.fillRect(px, py + 2, 8, 1)
+    ctx.fillRect(px + 1, py, 2, 8)
+    ctx.fillRect(px + 5, py, 2, 8)
+    ctx.fillStyle = '#4e3828'
+    ctx.fillRect(px, py + 2, 8, 2)
+    ctx.fillRect(px + 2, py + 6, 4, 1)
   } else if (tile.kind === 'rail') {
     ctx.fillStyle = color
-    ctx.fillRect(px, py + 2, 8, 1)
-    ctx.fillRect(px, py + 6, 8, 1)
-    for (let i = 1; i < 8; i += 3) ctx.fillRect(px + i, py + 1, 1, 7)
+    ctx.fillRect(px, py + 3, 8, 3)
+    ctx.fillStyle = '#a08052'
+    ctx.fillRect(px + 1, py + 3, 6, 1)
+    ctx.fillRect(px + 2, py + 5, 4, 1)
+    ctx.fillStyle = '#3f3024'
+    ctx.fillRect(px, py + 4, 2, 1)
+    ctx.fillRect(px + 5, py + 4, 3, 1)
   } else if (tile.kind === 'rubble') {
     ctx.fillStyle = color
     ctx.fillRect(px + 1, py + 5, 3, 2)

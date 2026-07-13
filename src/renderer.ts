@@ -119,7 +119,13 @@ export class TerminalRenderer {
   private stage(state: RunState): void {
     const preview = state.modal?.kind === 'target' ? targetPreview(state, state.modal) : undefined
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
-    if (this.spriteMode) drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
+    if (this.spriteMode) {
+      this.ctx.fillStyle = '#f4d26a'
+      this.ctx.fillRect(state.hero.x * CW + 3, state.hero.y * CH + 1, 4, 1)
+      this.ctx.fillRect(state.hero.x * CW + 1, state.hero.y * CH + 3, 1, 5)
+      this.ctx.fillRect(state.hero.x * CW + 8, state.hero.y * CH + 3, 1, 5)
+      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y)
+    }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
     this.ruleVertical(48, 0, 35)
