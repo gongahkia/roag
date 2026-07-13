@@ -14,7 +14,8 @@ import { consume, distance, event, log, turnRng, type ActionResult } from './sha
 import { refreshFov } from './visibility'
 import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
-import { intellectFocusDiscount, intellectScriptRange, intellectWardBonus } from './intellect'
+import { intellectWardBonus } from './intellect'
+import { scriptCastProfile } from './scripts'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -161,12 +162,11 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
 
 export function castSpell(state: RunState, id: string, direction: Direction): ActionResult {
   const item = ITEM[id]
-  const cost = Math.max(1, 3 - intellectFocusDiscount(state.hero))
-  if (state.hero.focus < cost) { log(state, 'You lack focus.'); return [] }
-  state.hero.focus -= cost
+  const profile = scriptCastProfile(state.hero, id)
+  if (state.hero.focus < profile.focusCost) { log(state, 'You lack focus.'); return [] }
+  state.hero.focus -= profile.focusCost
   const delta = DIRECTIONS[direction]
-  const range = intellectScriptRange(state.hero)
-  const point = { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }
+  const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
   const target = actorAt(state.floor, point.x, point.y)
   if (item.spell === 'ember') {
     if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect)

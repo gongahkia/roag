@@ -44,5 +44,7 @@ export { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from 
 export { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegraphAvoidance } from './engine/agility'
 export { vitalityHazardReduction, vitalityRecovery, vitalityRescueRecovery, vitalityShield } from './engine/vitality'
 export { hasAstralGateAccess, intellectFocusDiscount, intellectFocusRecovery, intellectScriptRange, intellectWardBonus } from './engine/intellect'
+export { scriptCastProfile, scriptForItem } from './engine/scripts'
+export type { ScriptDefinition, ScriptSchool, ScriptUpgradeHook } from './content'
 export { refreshFov } from './engine/visibility'
 export { completeObjective, objectiveForFloor } from './objectives'

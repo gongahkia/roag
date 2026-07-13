@@ -3,6 +3,9 @@ import type { ActionShape } from './engine/actions'
 import { validateEquipmentEffects, type EquipmentEffect } from './effects'
 
 export interface WeaponProfile { damage: number; reach: number; shape: ActionShape; cooldown: number; tags: string[] }
+export type ScriptSchool = 'ember' | 'verdant' | 'astral'
+export type ScriptUpgradeHook = 'focusCost' | 'range' | 'potency'
+export interface ScriptDefinition { itemId: ItemId; id: string; school: ScriptSchool; tags: string[]; focusCost: number; shape: ActionShape; range: number; upgrades: ScriptUpgradeHook[] }
 
 export interface ItemDefinition {
   id: ItemId
@@ -22,7 +25,7 @@ export interface ItemDefinition {
 
 export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[] }
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
-export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
+export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
 export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect'] as const
 
@@ -60,6 +63,15 @@ export const ITEMS: ItemDefinition[] = [
 ]
 
 export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Record<string, ItemDefinition>
+export const SCRIPTS: ScriptDefinition[] = [
+  { itemId: 'ember', id: 'ember', school: 'ember', tags: ['fire', 'damage'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
+  { itemId: 'mend', id: 'mend', school: 'verdant', tags: ['healing'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
+  { itemId: 'sight', id: 'sight', school: 'verdant', tags: ['vision'], focusCost: 3, shape: 'burst', range: 1, upgrades: ['range', 'focusCost'] },
+  { itemId: 'gust', id: 'gust', school: 'astral', tags: ['force', 'movement'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
+  { itemId: 'wardScript', id: 'ward', school: 'astral', tags: ['ward'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
+  { itemId: 'gate', id: 'gate', school: 'astral', tags: ['teleport'], focusCost: 3, shape: 'line', range: 1, upgrades: ['range', 'focusCost'] }
+]
+export const SCRIPT_BY_ITEM = Object.fromEntries(SCRIPTS.map(script => [script.itemId, script])) as Record<string, ScriptDefinition>
 
 export const MONSTERS: MonsterDefinition[] = [
   { id: 'rat', name: 'Tunnel Rat', glyph: 'r', color: '#b8a598', health: 5, attack: 2, defense: 8, speed: 110, ai: 'chase', xp: 6, biome: 'mine' },
@@ -136,6 +148,20 @@ const validatePrerequisites = (skills: readonly SkillDefinition[]): void => {
   }
   for (const skill of skills) visit(skill)
 }
+const validateScripts = (scripts: readonly ScriptDefinition[], items: readonly ItemDefinition[]): void => {
+  const ids = new Set<string>()
+  const itemIds = new Set<string>()
+  const validShapes: ActionShape[] = ['adjacent', 'line', 'cone', 'burst', 'cross']
+  for (const script of scripts) {
+    if (!script.id || ids.has(script.id) || itemIds.has(script.itemId)) throw new Error(`invalid script: ${script.id}`)
+    ids.add(script.id)
+    itemIds.add(script.itemId)
+    const item = items.find(current => current.id === script.itemId)
+    if (!item || item.use !== 'spell' || item.spell !== script.id) throw new Error(`invalid script item: ${script.itemId}`)
+    if (!['ember', 'verdant', 'astral'].includes(script.school) || !script.tags.length || !Number.isInteger(script.focusCost) || script.focusCost < 1 || !validShapes.includes(script.shape) || !Number.isInteger(script.range) || script.range < 1 || new Set(script.upgrades).size !== script.upgrades.length || !script.upgrades.every(upgrade => ['focusCost', 'range', 'potency'].includes(upgrade))) throw new Error(`invalid script definition: ${script.id}`)
+  }
+  if (scripts.length !== items.filter(item => item.use === 'spell').length) throw new Error('missing script definition')
+}
 
 export const validateContent = (registry: ContentRegistry): void => {
   validateIds('item', registry.items)
@@ -148,6 +174,7 @@ export const validateContent = (registry: ContentRegistry): void => {
     if (item.use === 'spell' && !item.spell) throw new Error(`spell item missing spell id: ${item.id}`)
     if (item.use !== 'spell' && item.spell) throw new Error(`non-spell item has spell id: ${item.id}`)
   }
+  validateScripts(registry.scripts, registry.items)
   for (const monster of registry.monsters) validateTags('monster', monster.id, monster.tags, tags)
   for (const skill of registry.skills) validateTags('skill', skill.id, skill.tags, tags)
   const itemIds = new Set(registry.items.map(item => item.id))
@@ -155,7 +182,7 @@ export const validateContent = (registry: ContentRegistry): void => {
   validatePrerequisites(registry.skills)
 }
 
-export const CONTENT: ContentRegistry = { items: ITEMS, monsters: MONSTERS, skills: SKILLS, tags: CONTENT_TAGS, shopStock: SHOP_STOCK }
+export const CONTENT: ContentRegistry = { items: ITEMS, monsters: MONSTERS, skills: SKILLS, scripts: SCRIPTS, tags: CONTENT_TAGS, shopStock: SHOP_STOCK }
 validateContent(CONTENT)
 
 export const shopStock = (biome: Biome): ItemId[] => SHOP_STOCK[biome]

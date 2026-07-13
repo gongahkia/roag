@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { CONTENT, ITEMS, SKILLS, SHOP_STOCK, validateContent } from './content'
+import { CONTENT, ITEMS, SCRIPTS, SKILLS, SHOP_STOCK, validateContent } from './content'
 
 describe('content registry validation', () => {
   it('accepts the startup registry', () => {
     expect(() => validateContent(CONTENT)).not.toThrow()
+    expect(SCRIPTS).toHaveLength(ITEMS.filter(item => item.use === 'spell').length)
   })
 
   it('rejects invalid ids and tags', () => {
@@ -15,5 +16,6 @@ describe('content registry validation', () => {
   it('rejects invalid references and prerequisites', () => {
     expect(() => validateContent({ ...CONTENT, shopStock: { ...SHOP_STOCK, mine: ['missing'] } })).toThrow('unknown shop item')
     expect(() => validateContent({ ...CONTENT, skills: [{ ...SKILLS[0], prerequisites: ['missing'] }, ...SKILLS.slice(1)] })).toThrow('unknown skill prerequisite')
+    expect(() => validateContent({ ...CONTENT, scripts: [{ ...SCRIPTS[0], focusCost: 0 }, ...SCRIPTS.slice(1)] })).toThrow('invalid script definition')
   })
 })
