@@ -12,8 +12,11 @@ export const HERO_SPRITE = 21
 export type AtlasSourceRect = { x: number; y: number; width: number; height: number }
 const atlasSourceColumns = [14, 125, 232, 337, 442, 549, 656, 763, 869, 972, 1077, 1186, 1294, 1403, 1512, 1623, 1745] as const
 const atlasSourceRows = [13, 130, 257, 387, 525, 648, 748, 829, 887] as const
+export const atlasSourceOverrides: Partial<Record<number, AtlasSourceRect>> = {}
 
 export function atlasSourceRect(index: number): AtlasSourceRect {
+  const override = atlasSourceOverrides[index]
+  if (override) return override
   const column = index % ATLAS_SPEC.columns
   const row = Math.floor(index / ATLAS_SPEC.columns)
   return { x: atlasSourceColumns[column], y: atlasSourceRows[row], width: atlasSourceColumns[column + 1] - atlasSourceColumns[column], height: atlasSourceRows[row + 1] - atlasSourceRows[row] }
