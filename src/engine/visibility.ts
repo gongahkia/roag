@@ -27,4 +27,4 @@ export function hasLine(state: RunState, from: { x: number; y: number }, to: { x
   }
 }
 
-const hasLight = (state: RunState): boolean => state.hero.equipment.offHand === 'lantern' || state.hero.inventory.includes('sight')
+export const hasLight = (state: RunState): boolean => state.hero.equipment.offHand === 'lantern' || state.hero.inventory.includes('sight')

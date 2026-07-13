@@ -28,7 +28,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -107,6 +107,10 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'echo', name: 'Echo Bat', glyph: 'e', color: '#ba9ddd', health: 9, attack: 7, defense: 12, speed: 140, ai: 'wander', xp: 26, biome: 'caverns' },
   { id: 'seer', name: 'Cave Seer', glyph: 's', color: '#ba8ae7', health: 13, attack: 9, defense: 12, speed: 95, ai: 'ranged', xp: 30, biome: 'caverns' },
   { id: 'slug', name: 'Salt Slug', glyph: 'u', color: '#a8c5cf', health: 19, attack: 8, defense: 15, speed: 65, ai: 'chase', xp: 31, biome: 'caverns' },
+  { id: 'cinderimp', name: 'Cinder Imp', glyph: 'i', color: '#ee865d', health: 10, attack: 7, defense: 10, speed: 100, ai: 'ranged', xp: 28, biome: 'caverns', tags: ['caverns', 'fire', 'telegraph'] },
+  { id: 'fumeeel', name: 'Fume Eel', glyph: 'u', color: '#8fc59a', health: 13, attack: 7, defense: 12, speed: 100, ai: 'chase', xp: 29, biome: 'caverns', tags: ['caverns', 'gas', 'mobility'] },
+  { id: 'gloomseer', name: 'Gloom Seer', glyph: 'G', color: '#7c6d9f', health: 12, attack: 8, defense: 13, speed: 95, ai: 'ranged', xp: 32, biome: 'caverns', tags: ['caverns', 'darkness', 'light', 'counterplay'] },
+  { id: 'crystalpuller', name: 'Crystal Puller', glyph: 'p', color: '#9ecce3', health: 14, attack: 7, defense: 13, speed: 90, ai: 'ranged', xp: 33, biome: 'caverns', tags: ['caverns', 'displacement', 'telegraph'] },
   { id: 'geode', name: 'Geode Wyrm', glyph: 'G', color: '#8ce5f2', health: 62, attack: 12, defense: 16, speed: 100, ai: 'guardian', xp: 115, biome: 'caverns' },
   { id: 'scarab', name: 'Ash Scarab', glyph: 's', color: '#d8b363', health: 16, attack: 8, defense: 15, speed: 95, ai: 'chase', xp: 32, biome: 'ruins' },
   { id: 'sentinel', name: 'Stone Sentinel', glyph: 'S', color: '#9da5aa', health: 23, attack: 10, defense: 17, speed: 75, ai: 'chase', xp: 40, biome: 'ruins' },

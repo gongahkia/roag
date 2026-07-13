@@ -68,12 +68,21 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   const resolvedTelegraphs = resolveTelegraphs(state)
   for (const telegraph of resolvedTelegraphs) {
-    if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web') continue
+    if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web' && telegraph.actionId !== 'enemy-fire' && telegraph.actionId !== 'enemy-pull') continue
     const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
     const hit = telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y)
     const avoidance = agilityTelegraphAvoidance(state.hero)
     const dodged = Boolean(avoidance && turnRng(state, 'combat', `telegraph-dodge:${telegraph.id}`).chance(avoidance))
-    if (source?.hostile && hit && !dodged && telegraph.actionId === 'enemy-root') { addCondition(state.hero, { kind: 'rooted', duration: 2, potency: 1 }); log(state, 'Vines root you in place.') }
+    if (telegraph.actionId === 'enemy-fire') {
+      const tile = telegraph.cells[0] ? getTile(state.floor, telegraph.cells[0].x, telegraph.cells[0].y) : undefined
+      if (tile?.kind === 'floor') tile.kind = 'fireVent'
+      if (source?.hostile && hit && !dodged) events.push(...monsterAttack(state, source, 1))
+      else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
+      else log(state, 'The fire line scorches empty ground.')
+      continue
+    }
+    if (source?.hostile && hit && !dodged && telegraph.actionId === 'enemy-pull') { resolveDisplacement(state, source, state.hero, 'pull'); log(state, 'Crystal force drags you closer.') }
+    else if (source?.hostile && hit && !dodged && telegraph.actionId === 'enemy-root') { addCondition(state.hero, { kind: 'rooted', duration: 2, potency: 1 }); log(state, 'Vines root you in place.') }
     else if (source?.hostile && hit && !dodged && telegraph.actionId === 'enemy-web') { const tile = getTile(state.floor, state.hero.x, state.hero.y); if (tile?.kind === 'floor') tile.kind = 'web'; addCondition(state.hero, { kind: 'slowed', duration: 2, potency: 1 }); log(state, 'Webs slow your escape.') }
     else if (source?.hostile && hit && !dodged) events.push(...monsterAttack(state, source, telegraph.actionId === 'guardian-slam' ? 2 : 1))
     else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
@@ -82,7 +91,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   if (resolvedTelegraphs.length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
-    const terrainMomentum = actor.kind === 'railguard' && getTile(state.floor, actor.x, actor.y)?.kind === 'rail' ? 50 : actor.kind === 'marshskater' && getTile(state.floor, actor.x, actor.y)?.kind === 'water' ? 50 : 0
+    const terrainMomentum = actor.kind === 'railguard' && getTile(state.floor, actor.x, actor.y)?.kind === 'rail' ? 50 : actor.kind === 'marshskater' && getTile(state.floor, actor.x, actor.y)?.kind === 'water' ? 50 : actor.kind === 'fumeeel' && getTile(state.floor, actor.x, actor.y)?.kind === 'gas' ? 50 : 0
     actor.energy += conditionSpeed(actor, actor.speed) + terrainMomentum
     while (actor.energy >= 100 && state.status === 'playing') {
       actor.energy -= 100
@@ -164,6 +173,8 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (intent.action.id === 'enemy-shot') return announceProjectile(state, actor)
   if (intent.action.id === 'enemy-root') return announceWildsSnare(state, actor, 'enemy-root', 'Vine Binder marks a rooting line.')
   if (intent.action.id === 'enemy-web') return announceWildsSnare(state, actor, 'enemy-web', 'Web Weaver marks a snare line.')
+  if (intent.action.id === 'enemy-fire') return announceCavernLine(state, actor, 'enemy-fire', 'Cinder Imp marks a fire line.')
+  if (intent.action.id === 'enemy-pull') return announceCavernLine(state, actor, 'enemy-pull', 'Crystal Puller marks a pull line.')
   if (intent.action.id === 'guardian-slam') return announceGuardianSlam(state, actor)
   const candidates = Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: actor.x + delta.x, y: actor.y + delta.y }))
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))
@@ -187,6 +198,14 @@ function announceProjectile(state: RunState, actor: Actor): ActionResult {
 }
 
 function announceWildsSnare(state: RunState, actor: Actor, actionId: 'enemy-root' | 'enemy-web', message: string): ActionResult {
+  const id = `${actor.id}:${actionId}`
+  if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
+  log(state, message)
+  announceTelegraph(state, { id, sourceId: actor.id, actionId, cells: [{ x: state.hero.x, y: state.hero.y }], danger: 'minor', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
+  return [event('danger')]
+}
+
+function announceCavernLine(state: RunState, actor: Actor, actionId: 'enemy-fire' | 'enemy-pull', message: string): ActionResult {
   const id = `${actor.id}:${actionId}`
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
   log(state, message)
