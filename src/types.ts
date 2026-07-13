@@ -67,6 +67,49 @@ export interface Hero {
   lastUnequipped?: ItemId
 }
 
+export type CampaignPhase = 'title' | 'hub' | 'area' | 'dead' | 'victory'
+export type AreaStatus = 'locked' | 'available' | 'active' | 'completed'
+export type LegacyCause = 'defeated' | 'sacrificed' | 'retired'
+
+export interface AreaState {
+  biome: Biome
+  status: AreaStatus
+  floor: number
+  completed: boolean
+}
+
+export interface HubState {
+  season: number
+  supplies: ItemId[]
+  rescued: string[]
+  unlockedAreas: Biome[]
+}
+
+export interface LegacyRecord {
+  id: string
+  heirName: string
+  cause: LegacyCause
+  biome: Biome
+  floor: number
+  seed: number
+}
+
+interface CampaignBase {
+  version: 2
+  seed: number
+  phase: CampaignPhase
+  areas: AreaState[]
+  hub: HubState
+  legacy: LegacyRecord[]
+}
+
+export interface TitleCampaign extends CampaignBase { phase: 'title' }
+export interface HubCampaign extends CampaignBase { phase: 'hub'; hero: Hero }
+export interface AreaCampaign extends CampaignBase { phase: 'area'; hero: Hero; activeBiome: Biome }
+export interface DeadCampaign extends CampaignBase { phase: 'dead'; legacyRecord: LegacyRecord }
+export interface VictoryCampaign extends CampaignBase { phase: 'victory'; hero: Hero }
+export type Campaign = TitleCampaign | HubCampaign | AreaCampaign | DeadCampaign | VictoryCampaign
+
 export interface RunState {
   version: 2
   seed: number
