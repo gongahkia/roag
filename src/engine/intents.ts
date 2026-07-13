@@ -29,6 +29,9 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   if (actor.kind === 'foreman' && guardianPhaseFor(actor) !== 'opening' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('foreman-cavein'), phase, reason: `cave-in at range ${range}` }
   if (actor.kind === 'heartwood' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('heartwood-charge'), phase, reason: `bramble charge at range ${range}` }
   if (actor.kind === 'geode' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('geode-fissure'), phase, reason: `fissure line at range ${range}` }
+  if (actor.kind === 'regent' && guardianPhaseFor(actor) === 'opening' && !hasCondition(actor, 'shielded')) return { action: action('regent-ward'), phase, reason: 'raising an opening ward' }
+  if (actor.kind === 'regent' && guardianPhaseFor(actor) === 'pressure' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('regent-decree'), phase, reason: `ash decree at range ${range}` }
+  if (actor.kind === 'regent' && guardianPhaseFor(actor) === 'cataclysm' && range >= 2 && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('regent-judgment'), phase, reason: `final judgment at range ${range}` }
   if (actor.role === 'guardian' && guardianPhaseFor(actor) === 'cataclysm' && range <= 2) return { action: action('guardian-slam'), phase, reason: 'cataclysm arena pressure' }
   if (range <= 1) return { action: action('enemy-strike'), phase, reason: 'adjacent target' }
   if (actor.kind === 'wardacolyte' && !hasCondition(actor, 'shielded')) return { action: action('enemy-ward'), phase, reason: 'raising a ward' }

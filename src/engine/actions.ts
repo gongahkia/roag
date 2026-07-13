@@ -35,6 +35,9 @@ export const ENEMY_ACTIONS: ActionDefinition[] = [
   { id: 'foreman-cavein', owner: 'enemy', name: 'Cave-In', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['guardian', 'telegraphed', 'terrain'], resolver: 'script' },
   { id: 'heartwood-charge', owner: 'enemy', name: 'Bramble Charge', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['guardian', 'telegraphed', 'movement', 'terrain'], resolver: 'script' },
   { id: 'geode-fissure', owner: 'enemy', name: 'Fissure Line', cost: { resource: 'none' }, range: 6, shape: 'line', tags: ['guardian', 'telegraphed', 'terrain', 'control'], resolver: 'script' },
+  { id: 'regent-ward', owner: 'enemy', name: 'Regent Ward', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['guardian', 'defense', 'ritual'], resolver: 'script' },
+  { id: 'regent-decree', owner: 'enemy', name: 'Ash Decree', cost: { resource: 'none' }, range: 5, shape: 'line', tags: ['guardian', 'telegraphed', 'terrain', 'control'], resolver: 'script' },
+  { id: 'regent-judgment', owner: 'enemy', name: 'Final Judgment', cost: { resource: 'none' }, range: 6, shape: 'line', tags: ['guardian', 'telegraphed', 'terrain', 'control'], resolver: 'script' },
   { id: 'guardian-slam', owner: 'enemy', name: 'Slam', cost: { resource: 'none' }, range: 1, shape: 'cross', tags: ['guardian', 'area'], resolver: 'melee' },
   { id: 'enemy-approach', owner: 'enemy', name: 'Advance', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement'], resolver: 'move' },
   { id: 'enemy-reposition', owner: 'enemy', name: 'Reposition', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['movement', 'terrain'], resolver: 'move' }

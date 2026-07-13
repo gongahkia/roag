@@ -8,6 +8,13 @@ export interface GuardianTransition { from: GuardianPhase; to: GuardianPhase; ar
 
 export const guardianPhaseFor = (guardian: Actor): GuardianPhase => guardian.health * 3 <= guardian.maxHealth ? 'cataclysm' : guardian.health * 3 <= guardian.maxHealth * 2 ? 'pressure' : 'opening'
 export const arenaPhaseFor = (phase: GuardianPhase): ArenaPhase => phase === 'opening' ? 'stable' : phase === 'pressure' ? 'hazard' : 'collapse'
+const arenaTileFor = (guardian: Actor, phase: GuardianPhase): TileKind => {
+  if (guardian.kind === 'foreman') return phase === 'pressure' ? 'rail' : 'crumble'
+  if (guardian.kind === 'heartwood') return phase === 'pressure' ? 'bramble' : 'water'
+  if (guardian.kind === 'geode') return phase === 'pressure' ? 'gas' : 'lava'
+  if (guardian.kind === 'regent') return phase === 'pressure' ? 'dart' : 'darkness'
+  return phase === 'pressure' ? 'gas' : 'fireVent'
+}
 
 export const advanceGuardianPhase = (state: RunState, guardian: Actor): GuardianTransition | undefined => {
   if (guardian.role !== 'guardian') return undefined
@@ -15,7 +22,7 @@ export const advanceGuardianPhase = (state: RunState, guardian: Actor): Guardian
   const previous = guardian.guardianPhase ?? 'opening'
   guardian.guardianPhase = next
   if (previous === next) return undefined
-  const tile: TileKind = guardian.kind === 'foreman' ? next === 'pressure' ? 'rail' : 'crumble' : guardian.kind === 'heartwood' ? next === 'pressure' ? 'bramble' : 'water' : guardian.kind === 'geode' ? next === 'pressure' ? 'gas' : 'lava' : next === 'pressure' ? 'gas' : 'fireVent'
+  const tile = arenaTileFor(guardian, next)
   const guardianTile = getTile(state.floor, guardian.x, guardian.y)
   const candidates = guardian.kind === 'foreman' && next === 'pressure' && (guardianTile?.kind === 'floor' || guardianTile?.kind === 'rail')
     ? [{ x: guardian.x, y: guardian.y }]
