@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { event, hasEvent, newRun, perform, quickCast } from './engine'
+import { event, hasEvent, initialRoute, navigate, newRun, perform, quickCast, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadRecords, loadRun, saveRecords, saveRun } from './storage'
 import type { Direction, Records, RunState } from './types'
@@ -12,6 +12,7 @@ let state: RunState | undefined
 let saved: RunState | undefined
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
 let recordedEnd = false
+let route: ScreenRoute = initialRoute()
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
@@ -19,31 +20,39 @@ renderer.setSpriteMode(loadVisualMode())
 void Promise.all([loadRun(), loadRecords()]).then(([run, loadedRecords]) => {
   saved = run
   records = loadedRecords
-  renderer.render(state, records)
+  redraw()
 })
-renderer.render(state, records)
+redraw()
 
-window.addEventListener('keydown', event => {
-  if (event.metaKey || event.ctrlKey) return
-  const command = event.key
-  if (shouldPrevent(command)) event.preventDefault()
+window.addEventListener('keydown', keyboardEvent => {
+  if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  const command = keyboardEvent.key
+  if (shouldPrevent(command)) keyboardEvent.preventDefault()
   if (command.toLowerCase() === 'v') { toggleVisualMode(); return }
-  if (!state || state.status === 'dead' || state.status === 'victory') {
-    if (command.toLowerCase() === 'n') start()
-    else if (command.toLowerCase() === 'l' && saved) { state = structuredClone(saved); recordedEnd = false; renderer.render(state, records) }
-    else if (command.toLowerCase() === 'h') renderer.render({ ...newRun(1), status: 'playing', modal: { kind: 'help' } }, records)
+  if (route.screen !== 'level') {
+    const nextRoute = navigate(route, command, Boolean(saved))
+    if (nextRoute.screen === route.screen) return
+    if (nextRoute.screen === 'level') {
+      if (route.screen === 'area') start()
+      else if (saved) { state = structuredClone(saved); recordedEnd = false }
+      else return
+    }
+    route = nextRoute
+    audio.play([event('menu')])
+    redraw()
     return
   }
+  if (!state || state.status === 'dead' || state.status === 'victory') return
   const direction = directionFor(command)
   let events = [] as ReturnType<typeof perform>
-  if (event.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
-  else if (event.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
+  if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
+  else if (keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
   else events = perform(state, command)
   audio.play(events)
   renderer.trigger(events, state)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
-  renderer.render(state, records)
+  redraw()
 })
 
 function start(): void {
@@ -53,14 +62,15 @@ function start(): void {
   void saveRun(state)
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
-  renderer.render(state, records)
 }
 
 function toggleVisualMode(): void {
   renderer.setSpriteMode(!renderer.isSpriteMode)
   try { localStorage.setItem('blockscape-visual-mode', renderer.isSpriteMode ? 'sprites' : 'ascii') } catch { }
-  renderer.render(state, records)
+  redraw()
 }
+
+function redraw(): void { renderer.render(route, state, records) }
 
 function finish(won: boolean): void {
   if (!state) return

@@ -1,5 +1,5 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices, type ActionResult } from './engine'
+import { skillChoices, type ActionResult, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
@@ -16,6 +16,7 @@ export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
   private spriteMode = false
+  private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
 
@@ -28,14 +29,15 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
-    textureAtlas.onReady(() => this.render(this.lastState, this.lastRecords))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords))
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
   get isSpriteMode(): boolean { return this.spriteMode }
   trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
 
-  render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
+    this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
     const now = performance.now()
@@ -46,7 +48,10 @@ export class TerminalRenderer {
     this.effects.applyShake(this.ctx, now)
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    if (!state || state.status === 'title') this.title(records)
+    if (route.screen === 'title') this.title(records)
+    else if (route.screen === 'hub') this.hub()
+    else if (route.screen === 'area') this.area(route)
+    else if (!state || state.status === 'title') this.title(records)
     else {
       this.stage(state)
       this.sidebar(state)
@@ -57,17 +62,31 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastState, this.lastRecords))
+    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
     this.box(13, 10, 54, 24, 'BLOCKSCAPE: EXPEDITION')
     this.text(19, 14, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
-    this.text(20, 18, 'N  begin a new expedition', colors.green)
+    this.text(20, 18, 'N  visit the expedition hub', colors.green)
     this.text(20, 20, 'L  resume saved floor', colors.text)
     this.text(20, 22, 'H  controls and systems', colors.text)
     this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
     this.text(22, 30, 'one life · sixteen floors · four biomes', colors.purple)
+  }
+
+  private hub(): void {
+    this.box(13, 10, 54, 24, 'EXPEDITION HUB')
+    this.text(19, 15, 'THE SHALERIDGE OUTFIT', colors.gold)
+    this.text(19, 19, 'A / ENTER  choose an expedition area', colors.green)
+    this.text(19, 22, 'ESC        return to title', colors.dim)
+  }
+
+  private area(route: ScreenRoute): void {
+    this.box(13, 10, 54, 24, 'AREA BRIEFING')
+    this.text(19, 15, `${biomeName[route.biome]} — floor 01/04`, colors.gold)
+    this.text(19, 19, 'E / ENTER  embark', colors.green)
+    this.text(19, 22, 'ESC        return to hub', colors.dim)
   }
 
   private stage(state: RunState): void {
