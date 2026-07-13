@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
 import {
@@ -6,6 +6,10 @@ import {
   type DecisionCounterfactualsView
 } from "./components/DecisionRationaleDetails";
 import { readLocalMjsonFile } from "./lib/local-file";
+import {
+  loadLocalMultiActionOnnxPolicy,
+  type BrowserMultiActionOnnxPolicy
+} from "./lib/onnx-inference";
 import { buildReplayTimeline, type ReplayBoardState, type ReplayTimelineStep } from "./lib/replay";
 
 const rationalePreview: DecisionCounterfactualsView = {
@@ -52,7 +56,14 @@ function App() {
   const [timeline, setTimeline] = useState<readonly ReplayTimelineStep[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [fileStatus, setFileStatus] = useState("No local trajectory loaded.");
+  const [modelStatus, setModelStatus] = useState("No local ONNX model loaded.");
+  const [policy, setPolicy] = useState<BrowserMultiActionOnnxPolicy | null>(null);
+  const modelLoadSequence = useRef(0);
   const selectedStep = timeline[selectedIndex];
+
+  useEffect(() => () => {
+    if (policy) void policy.release();
+  }, [policy]);
 
   async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -71,12 +82,37 @@ function App() {
     }
   }
 
+  async function onModelChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    const sequence = modelLoadSequence.current + 1;
+    modelLoadSequence.current = sequence;
+    setModelStatus(`Loading ${file.name} from this device.`);
+    try {
+      const nextPolicy = await loadLocalMultiActionOnnxPolicy(file);
+      if (sequence !== modelLoadSequence.current) {
+        await nextPolicy.release();
+        return;
+      }
+      setPolicy(nextPolicy);
+      setModelStatus(
+        `Loaded ${file.name} with ${nextPolicy.provider.toUpperCase()}${nextPolicy.usedFallback ? " fallback" : ""}.`
+      );
+    } catch (error) {
+      if (sequence === modelLoadSequence.current) {
+        setModelStatus(error instanceof Error ? error.message : "local ONNX model could not be loaded");
+      }
+    } finally {
+      event.currentTarget.value = "";
+    }
+  }
+
   return (
     <main className="app-shell">
       <header>
         <p className="eyebrow">Kenjaku browser</p>
         <h1>Local trajectory inspection</h1>
-        <p className="lede">Trajectory data stays in this browser and is never uploaded.</p>
+        <p className="lede">Trajectory data and ONNX models stay in this browser and are never uploaded.</p>
       </header>
       <section aria-labelledby="local-file-heading" className="panel">
         <h2 id="local-file-heading">Local trajectory</h2>
@@ -85,6 +121,14 @@ function App() {
           <input accept=".mjson,.jsonl,application/json,text/plain" onChange={onFileChange} type="file" />
         </label>
         <p aria-live="polite">{fileStatus}</p>
+      </section>
+      <section aria-labelledby="local-model-heading" className="panel">
+        <h2 id="local-model-heading">Local ONNX model</h2>
+        <label className="file-picker">
+          Choose ONNX model
+          <input accept=".onnx,application/onnx,application/octet-stream" onChange={onModelChange} type="file" />
+        </label>
+        <p aria-live="polite">{modelStatus}</p>
       </section>
       {selectedStep ? (
         <ReplayViewer
