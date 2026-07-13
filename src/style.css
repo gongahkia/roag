@@ -13,11 +13,12 @@ body.atlas-page main { display: block; width: auto; height: auto; min-height: 10
 .atlas-game-link { color: #d6dce8; }
 .atlas-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; color: #aebaca; font-size: 12px; }
 .atlas-controls label { display: grid; gap: 5px; }
-.atlas-controls input { width: 100px; padding: 7px 8px; border: 1px solid #34455d; border-radius: 4px; color: #e5edf8; background: #121a27; font: inherit; }
+.atlas-controls input,.atlas-controls select { width: 160px; padding: 7px 8px; border: 1px solid #34455d; border-radius: 4px; color: #e5edf8; background: #121a27; font: inherit; }
+.atlas-controls input { width: 100px; }
 .atlas-controls output { padding-bottom: 7px; }
 .atlas-layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 20px; align-items: start; }
 .atlas-grid-wrap { overflow: auto; border: 1px solid #29394f; border-radius: 6px; background: #111827; }
-.atlas-grid { display: grid; grid-template-columns: repeat(16,72px); width: max-content; }
+.atlas-grid { display: grid; width: max-content; }
 .atlas-cell { position: relative; width: 72px; height: 72px; padding: 0; border: 1px solid #24334a; background: #07101d; cursor: pointer; }
 .atlas-cell::after { position: absolute; top: 3px; left: 4px; color: #dbe7f6; font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; content: attr(data-index); text-shadow: 0 1px 2px #000,0 0 2px #000; }
 .atlas-cell canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }

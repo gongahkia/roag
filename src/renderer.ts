@@ -5,7 +5,7 @@ import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
-import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
+import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
 
@@ -22,6 +22,8 @@ export class TerminalRenderer {
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
   private spriteMode = false
   private heroFacingLeft = false
+  private heroAnimation: HeroAnimation = 'idle'
+  private heroAnimationUntil = 0
   private boardZoom = 1
   private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
@@ -41,15 +43,21 @@ export class TerminalRenderer {
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
   }
 
-  setSpriteMode(value: boolean): void { this.spriteMode = value }
+  setSpriteMode(value: boolean): void { this.spriteMode = value; if (!value) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 } }
   setHeroFacingLeft(value: boolean): void { this.heroFacingLeft = value }
   setBoardZoom(value: number): void {
     this.boardZoom = Math.max(.5, Math.min(5, value))
-    textureAtlas.setSourceDetail(this.boardZoom > 1)
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   get isSpriteMode(): boolean { return this.spriteMode }
-  trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
+  trigger(events: ActionResult, state?: RunState, effectId?: string): void {
+    const now = performance.now()
+    if (events.some(event => event.type === 'death')) { this.heroAnimation = 'death'; this.heroAnimationUntil = Number.POSITIVE_INFINITY }
+    else if (events.some(event => event.type === 'hurt')) { this.heroAnimation = 'hit'; this.heroAnimationUntil = now + 320 }
+    else if (events.some(event => event.type === 'hit')) { this.heroAnimation = 'attack'; this.heroAnimationUntil = now + 360 }
+    else if (events.some(event => event.type === 'move')) { this.heroAnimation = 'walk'; this.heroAnimationUntil = now + 280 }
+    this.effects.trigger(events, state, this.canvas, effectId)
+  }
 
   render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView): void {
     this.lastRoute = route
@@ -79,7 +87,7 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
+    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -142,7 +150,8 @@ export class TerminalRenderer {
     this.ctx.translate(-focusX, -focusY)
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) {
-      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft)
+      const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
+      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation)
     }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
@@ -157,9 +166,10 @@ export class TerminalRenderer {
     const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
     const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
     const [glyph, color] = tileGlyph[tile.kind]
-    if (this.spriteMode) drawTileSprite(this.ctx, tile, x, y, !tile.visible)
+    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, !tile.visible)
     else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     if (!tile.visible) return
+    if (this.spriteMode && (tile.kind === 'fireVent' || tile.kind === 'gas')) drawEffectSprite(this.ctx, tile.kind === 'fireVent' ? 'fire' : 'smokeGas', x, y, Math.floor(performance.now() / 120) % 4)
     if (this.spriteMode && telegraph) {
       this.ctx.fillStyle = telegraph.danger === 'major' ? '#ee6f7870' : '#f4d26a70'
       this.ctx.fillRect(x * CW, y * CH, CW, CH)

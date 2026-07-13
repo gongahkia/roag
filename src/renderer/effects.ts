@@ -1,8 +1,10 @@
 import type { ActionResult } from '../engine'
 import type { RunState } from '../types'
+import { drawEffectSprite } from '../sprites'
 import { visualFeedback } from './feedback'
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number }
+interface SpriteEffect { id: string; x: number; y: number; started: number; duration: number }
 export const flashDuration = (duration: number, reducedFlash: boolean): number => reducedFlash ? Math.max(1, Math.round(duration / 4)) : duration
 
 export class TerminalEffects {
@@ -10,16 +12,19 @@ export class TerminalEffects {
   private flashUntil = 0
   private flashColor = '#ffffff'
   private particles: Particle[] = []
+  private spriteEffects: SpriteEffect[] = []
   private lastUpdate = performance.now()
   private reducedFlash = false
 
   constructor(private readonly cellWidth: number, private readonly cellHeight: number, private readonly mapWidth: number, private readonly mapHeight: number) {}
   setReducedFlash(value: boolean): void { this.reducedFlash = value }
 
-  trigger(events: ActionResult, state: RunState | undefined, canvas: HTMLCanvasElement): void {
+  trigger(events: ActionResult, state: RunState | undefined, canvas: HTMLCanvasElement, effectId?: string): void {
     const now = performance.now()
     const point = state ? { x: state.hero.x * this.cellWidth + this.cellWidth / 2, y: state.hero.y * this.cellHeight + this.cellHeight / 2 } : { x: canvas.width / 2, y: canvas.height / 2 }
     for (const type of new Set(events.map(event => event.type))) {
+      const sprite = eventEffect(type, effectId)
+      if (sprite && state) this.spriteEffects.push({ id: sprite, x: state.hero.x, y: state.hero.y, started: now, duration: 480 })
       const feedback = visualFeedback(type)
       if (!feedback) continue
       this.shakeUntil = Math.max(this.shakeUntil, now + feedback.shake)
@@ -39,6 +44,7 @@ export class TerminalEffects {
       particle.life -= delta
     }
     this.particles = this.particles.filter(particle => particle.life > 0)
+    this.spriteEffects = this.spriteEffects.filter(effect => now < effect.started + effect.duration)
   }
 
   applyShake(ctx: CanvasRenderingContext2D, now: number): void {
@@ -56,7 +62,7 @@ export class TerminalEffects {
     ctx.restore()
   }
 
-  drawMap(ctx: CanvasRenderingContext2D): void {
+  drawMap(ctx: CanvasRenderingContext2D, now = performance.now()): void {
     ctx.save()
     ctx.beginPath()
     ctx.rect(0, 0, this.mapWidth * this.cellWidth, this.mapHeight * this.cellHeight)
@@ -66,10 +72,14 @@ export class TerminalEffects {
       ctx.fillStyle = particle.color
       ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size)
     }
+    for (const effect of this.spriteEffects) {
+      const frame = Math.min(3, Math.floor((now - effect.started) / 120))
+      drawEffectSprite(ctx, effect.id, effect.x, effect.y, frame)
+    }
     ctx.restore()
   }
 
-  needsFrame(now: number): boolean { return now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length > 0 }
+  needsFrame(now: number): boolean { return now < Math.max(this.shakeUntil, this.flashUntil) || this.particles.length > 0 || this.spriteEffects.length > 0 }
 
   private burst(x: number, y: number, color: string, count: number, speed: number, life: number): void {
     for (let i = 0; i < count; i++) {
@@ -78,4 +88,16 @@ export class TerminalEffects {
       this.particles.push({ x, y, vx: Math.cos(angle) * magnitude, vy: Math.sin(angle) * magnitude - .2, life, maxLife: life, color, size: Math.random() > .72 ? 2 : 1 })
     }
   }
+}
+
+function eventEffect(type: ActionResult[number]['type'], spell?: string): string | undefined {
+  if (type === 'spell') return spell ?? 'mend'
+  if (type === 'hit') return 'attackSlash'
+  if (type === 'hurt') return 'hitSpark'
+  if (type === 'boom') return 'bombBlast'
+  if (type === 'danger') return 'smokeGas'
+  if (type === 'death') return 'deathPuff'
+  if (type === 'win' || type === 'floor') return 'gate'
+  if (type === 'pickup' || type === 'rescue') return 'mend'
+  return undefined
 }

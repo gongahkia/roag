@@ -1,5 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
+import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -72,6 +73,7 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (!state || state.status === 'dead' || state.status === 'victory' || !command) return
   const direction = directionFor(command)
+  const spellEffect = spellEffectForInput(state, keyboardEvent, direction)
   const previousX = state.hero.x
   let events = [] as ReturnType<typeof perform>
   if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
@@ -79,7 +81,7 @@ window.addEventListener('keydown', keyboardEvent => {
   else events = perform(state, command)
   if (state.hero.x !== previousX) renderer.setHeroFacingLeft(state.hero.x < previousX)
   audio.play(events)
-  renderer.trigger(events, state)
+  renderer.trigger(events, state, spellEffect)
   if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
   if (hasEvent(events, 'areaComplete')) completeArea()
@@ -226,6 +228,12 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
 function directionFor(command: string): Direction | undefined {
   const directions: Record<string, Direction> = { i: 'nw', o: 'n', p: 'ne', k: 'w', ';': 'e', ',': 'sw', '.': 's', '/': 'se', ArrowUp: 'n', ArrowDown: 's', ArrowLeft: 'w', ArrowRight: 'e', Numpad7: 'nw', Numpad8: 'n', Numpad9: 'ne', Numpad4: 'w', Numpad5: 'wait', Numpad6: 'e', Numpad1: 'sw', Numpad2: 's', Numpad3: 'se', l: 'wait', Enter: 'wait' }
   return directions[command] ?? directions[command.toLowerCase()]
+}
+
+function spellEffectForInput(game: RunState, keyboardEvent: KeyboardEvent, direction: Direction | undefined): string | undefined {
+  const modalItem = game.modal?.kind === 'target' && game.modal.action === 'spell' ? game.modal.item : undefined
+  const quickCastItem = keyboardEvent.altKey && direction && direction !== 'wait' ? game.hero.inventory.find(id => ITEM[id]?.use === 'spell') : undefined
+  return ITEM[modalItem ?? quickCastItem ?? '']?.spell
 }
 
 function shouldPrevent(command: string): boolean { return command === 'settings' || Boolean(directionFor(command)) || [' ', 'Escape', '`', '[', ']', 'h', 'H', 'j', 'J', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }
