@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -42,6 +42,7 @@ SELF_PLAY_SANDBOX_REWARD_MODES = (
     "normalized-point-delta",
     "placement-delta",
 )
+MatchActionSelector = Callable[[SandboxEnvironmentState, int, tuple[Action, ...]], Action]
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +78,7 @@ def run_self_play_match_sandbox(
     kita_policy: str = "pass",
     ron_policy: str = "win",
     heuristic_seats: Sequence[int] = (),
+    action_selector: MatchActionSelector | None = None,
     include_trajectories: bool = False,
 ) -> dict[str, Any]:
     if games <= 0:
@@ -93,6 +95,8 @@ def run_self_play_match_sandbox(
     _validate_match_action_policy("kita", kita_policy)
     if ron_policy not in SELF_PLAY_MATCH_RON_POLICIES:
         raise ValueError("unsupported match ron policy: " + ron_policy)
+    if action_selector is not None and not callable(action_selector):
+        raise ValueError("action_selector must be callable")
     if rule_config is not None:
         ruleset = rule_config.ruleset
     rules = resolve_sandbox_ruleset(ruleset)
@@ -126,6 +130,7 @@ def run_self_play_match_sandbox(
             max_turns_per_round=max_turns_per_round,
             policies=policies,
             heuristic_seats=resolved_heuristic_seats,
+            action_selector=action_selector,
             policy_counts=policy_counts,
             include_trajectory=include_trajectories,
         )
@@ -415,6 +420,7 @@ def _simulate_match_game(
     max_turns_per_round: int,
     policies: dict[str, str],
     heuristic_seats: tuple[int, ...],
+    action_selector: MatchActionSelector | None,
     policy_counts: list[int],
     include_trajectory: bool,
 ) -> dict[str, Any]:
@@ -431,6 +437,7 @@ def _simulate_match_game(
             max_turns=max_turns_per_round,
             policies=policies,
             heuristic_seats=heuristic_seats,
+            action_selector=action_selector,
             policy_counts=policy_counts,
             decisions=decisions,
             include_trajectory=include_trajectory,
@@ -494,6 +501,7 @@ def _simulate_match_round(
     max_turns: int,
     policies: dict[str, str],
     heuristic_seats: tuple[int, ...],
+    action_selector: MatchActionSelector | None,
     policy_counts: list[int],
     decisions: list[dict[str, Any]],
     include_trajectory: bool,
@@ -516,6 +524,7 @@ def _simulate_match_round(
             actions=legal_actions,
             policies=policies,
             heuristic_seats=heuristic_seats,
+            action_selector=action_selector,
             policy_counts=policy_counts,
             seed=seed,
             step=round_index * max_turns + step,
@@ -548,10 +557,16 @@ def _choose_match_action(
     actions: tuple[Action, ...],
     policies: dict[str, str],
     heuristic_seats: tuple[int, ...],
+    action_selector: MatchActionSelector | None,
     policy_counts: list[int],
     seed: int,
     step: int,
 ) -> Action:
+    if action_selector is not None:
+        action = action_selector(state, seat, actions)
+        if action not in actions:
+            raise ValueError("action_selector returned an illegal sandbox action")
+        return action
     if seat in heuristic_seats:
         return choose_heuristic_sandbox_action(state, seat=seat, legal_actions=actions)
     if _has_pending_match_reaction(state):

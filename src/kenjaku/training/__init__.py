@@ -116,6 +116,12 @@ if TYPE_CHECKING:
         RL_ROLLBACK_GUARD_KIND,
         assess_rl_rollback_guard,
     )
+    from kenjaku.training.self_play_fine_tuning import (
+        SELF_PLAY_PPO_FINE_TUNING_KIND,
+        SelfPlayPpoFineTuningResult,
+        fine_tune_behavior_checkpoint_with_self_play_ppo,
+        save_self_play_fine_tuned_checkpoint,
+    )
 
 _LAZY_EXPORT_MODULES = {
     "CALIBRATION_DECISION_FAMILIES": "kenjaku.training.calibration",
@@ -141,6 +147,10 @@ _LAZY_EXPORT_MODULES = {
     "train_population_sandbox": "kenjaku.training.population",
     "RL_ROLLBACK_GUARD_KIND": "kenjaku.training.rollback_guard",
     "assess_rl_rollback_guard": "kenjaku.training.rollback_guard",
+    "SELF_PLAY_PPO_FINE_TUNING_KIND": "kenjaku.training.self_play_fine_tuning",
+    "SelfPlayPpoFineTuningResult": "kenjaku.training.self_play_fine_tuning",
+    "fine_tune_behavior_checkpoint_with_self_play_ppo": "kenjaku.training.self_play_fine_tuning",
+    "save_self_play_fine_tuned_checkpoint": "kenjaku.training.self_play_fine_tuning",
     "PPO_ACTION_DIM": "kenjaku.training.ppo",
     "PPO_SANDBOX_CHECKPOINT_KIND": "kenjaku.training.ppo",
     "PPO_SANDBOX_POLICY_KIND": "kenjaku.training.ppo",
@@ -265,6 +275,10 @@ __all__ = [
     "train_population_sandbox",
     "RL_ROLLBACK_GUARD_KIND",
     "assess_rl_rollback_guard",
+    "SELF_PLAY_PPO_FINE_TUNING_KIND",
+    "SelfPlayPpoFineTuningResult",
+    "fine_tune_behavior_checkpoint_with_self_play_ppo",
+    "save_self_play_fine_tuned_checkpoint",
     "train_multi_task_behavior_distillation",
     "write_bc_example_row",
     "write_bc_manifest",
