@@ -9,6 +9,7 @@ import { resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 import { resolveTerrainReactions, type TerrainTag } from './terrain'
+import { actionCells } from './geometry'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -16,8 +17,10 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (hasCondition(state.hero, 'rooted')) { log(state, 'Roots hold you in place.'); return advance(state, [event('danger')]) }
   const x = state.hero.x + delta.x
   const y = state.hero.y + delta.y
-  const target = actorAt(state.floor, x, y)
-  if (target?.hostile) return heroAttack(state, target)
+  const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
+  const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
+  const targets = actionCells(profile.shape, state.hero, direction, profile.reach).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
+  if (targets.length) return heroAttack(state, targets, weapon?.id, profile.damage, profile.cooldown)
   const tile = getTile(state.floor, x, y)
   if (!tile) return []
   if (tile.kind === 'door') { tile.kind = 'floor'; log(state, 'You open the door.'); return advance(state, [event('move')]) }
@@ -53,6 +56,10 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   }
   tickEnvironment(state, events)
   tickConditionEffects(state, events)
+  for (const [id, cooldown] of Object.entries(state.hero.cooldowns ?? {})) {
+    if (cooldown <= 1) delete state.hero.cooldowns![id]
+    else state.hero.cooldowns![id] = cooldown - 1
+  }
   refreshFov(state)
   return events
 }
@@ -86,24 +93,25 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
   log(state, 'The blast tears through the stone.')
 }
 
-function heroAttack(state: RunState, target: Actor): ActionResult {
-  const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
-  const rng = turnRng(state, 'combat', `hero:${target.id}`)
-  if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) {
-    log(state, `Your ${weapon?.name ?? 'fists'} miss ${target.name}.`)
-    return advance(state, [event('hit')])
+function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefined, baseDamage: number, cooldown: number): ActionResult {
+  if (weaponId && (state.hero.cooldowns?.[weaponId] ?? 0) > 0) { log(state, 'Your weapon is recovering.'); return [] }
+  for (const target of targets) {
+    const rng = turnRng(state, 'combat', `hero:${target.id}`)
+    if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) { log(state, `Your attack misses ${target.name}.`); continue }
+    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    target.health -= damage
+    log(state, `You strike ${target.name} for ${damage}.`)
+    if (target.health <= 0) {
+      log(state, `${target.name} falls.`)
+      dropLoot(state, target)
+      if (target.role === 'guardian') { state.floor.guardianDefeated = true; log(state, 'The way to the exit is open.') }
+      gainXp(state, monsterXp(target.kind))
+    }
   }
-  const damage = modifyIncomingDamage(target, Math.max(1, (weapon?.damage ?? 2) + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8)))
-  target.health -= damage
-  log(state, `You strike ${target.name} for ${damage}.`)
-  if (target.health <= 0) {
-    log(state, `${target.name} falls.`)
-    dropLoot(state, target)
-    state.floor.actors = state.floor.actors.filter(actor => actor !== target)
-    if (target.role === 'guardian') { state.floor.guardianDefeated = true; log(state, 'The way to the exit is open.') }
-    gainXp(state, monsterXp(target.kind))
-  }
-  return advance(state, [event('hit')])
+  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
+  const events = advance(state, [event('hit')])
+  if (weaponId && cooldown) (state.hero.cooldowns ??= {})[weaponId] = cooldown
+  return events
 }
 
 function actorTurn(state: RunState, actor: Actor): ActionResult {

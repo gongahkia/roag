@@ -1,4 +1,7 @@
 import type { Biome, EquipmentSlot, ItemId, StatName } from './types'
+import type { ActionShape } from './engine/actions'
+
+export interface WeaponProfile { damage: number; reach: number; shape: ActionShape; cooldown: number; tags: string[] }
 
 export interface ItemDefinition {
   id: ItemId
@@ -6,7 +9,7 @@ export interface ItemDefinition {
   glyph: string
   color: string
   slot?: EquipmentSlot
-  damage?: number
+  weapon?: WeaponProfile
   defense?: number
   value: number
   use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'spell'
@@ -22,11 +25,11 @@ export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: r
 export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect'] as const
 
 export const ITEMS: ItemDefinition[] = [
-  { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', damage: 4, value: 45 },
-  { id: 'machete', name: 'Brush Machete', glyph: '/', color: '#b8d6a0', slot: 'mainHand', damage: 6, value: 75 },
-  { id: 'pickaxe', name: 'Prospector Pick', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', damage: 7, value: 110 },
-  { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', damage: 8, value: 140, throwable: true },
-  { id: 'sunblade', name: 'Sun Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', damage: 11, value: 260 },
+  { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45 },
+  { id: 'machete', name: 'Brush Machete', glyph: '/', color: '#b8d6a0', slot: 'mainHand', weapon: { damage: 6, reach: 1, shape: 'adjacent', cooldown: 1, tags: ['cleave', 'wilds'] }, value: 75 },
+  { id: 'pickaxe', name: 'Prospector Pick', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'cross', cooldown: 2, tags: ['rubble', 'piercing'] }, value: 110 },
+  { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['piercing', 'reach'] }, value: 140, throwable: true },
+  { id: 'sunblade', name: 'Sun Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
   { id: 'buckler', name: 'Tin Buckler', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80 },
   { id: 'lantern', name: 'Glow Lantern', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
   { id: 'cap', name: 'Miner Cap', glyph: '[', color: '#d3b05c', slot: 'head', defense: 1, value: 55 },

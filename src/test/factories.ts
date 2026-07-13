@@ -8,7 +8,7 @@ export const createArea = (overrides: Partial<AreaState> = {}): AreaState => ({ 
 
 export const createHero = (overrides: Partial<Hero> = {}): Hero => ({
   x: 1, y: 1, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: 0, ropes: 0, keys: 0, xp: 0, level: 1,
-  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: [], equipment: {}, conditions: [], ...overrides
+  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: [], equipment: {}, conditions: [], cooldowns: {}, ...overrides
 })
 
 export const createEnemy = (overrides: Partial<Actor> = {}): Actor => ({

@@ -72,6 +72,7 @@ export interface Hero {
   equipment: Partial<Record<EquipmentSlot, ItemId>>
   lastUnequipped?: ItemId
   conditions?: ConditionState[]
+  cooldowns?: Record<string, number>
 }
 
 export type CampaignPhase = 'title' | 'hub' | 'area' | 'dead' | 'victory'
