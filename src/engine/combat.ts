@@ -3,39 +3,39 @@ import type { Actor, Direction, RunState } from '../types'
 import { DIRECTIONS } from '../types'
 import { actorAt, getTile, isPassable } from '../world'
 import { gainXp, monsterXp } from './progression'
-import { distance, equipmentDefense, log, turnRng, type GameEvent } from './shared'
+import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
 import { hasLine, refreshFov } from './visibility'
 
-export function moveHero(state: RunState, direction: Direction): GameEvent[] {
+export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
-  if (direction === 'wait') return advance(state, ['move'])
+  if (direction === 'wait') return advance(state, [event('move')])
   const x = state.hero.x + delta.x
   const y = state.hero.y + delta.y
   const target = actorAt(state.floor, x, y)
   if (target?.hostile) return heroAttack(state, target)
   const tile = getTile(state.floor, x, y)
   if (!tile) return []
-  if (tile.kind === 'door') { tile.kind = 'floor'; log(state, 'You open the door.'); return advance(state, ['move']) }
+  if (tile.kind === 'door') { tile.kind = 'floor'; log(state, 'You open the door.'); return advance(state, [event('move')]) }
   if (tile.kind === 'lockedDoor') {
     if (state.hero.keys < 1) { log(state, 'A key is required.'); return [] }
     state.hero.keys--
     tile.kind = 'floor'
     log(state, 'You unlock the door.')
-    return advance(state, ['move'])
+    return advance(state, [event('move')])
   }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   state.hero.x = x
   state.hero.y = y
-  const events: GameEvent[] = ['move']
+  const events: ActionResult = [event('move')]
   if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap'))
   if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava'))
   if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas'))
-  if (tile.kind === 'crumble') { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push('danger') }
+  if (tile.kind === 'crumble') { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
   if (tile.kind === 'boulder') { tile.kind = 'floor'; events.push(...damageHero(state, 6, 'a rolling boulder')) }
   return advance(state, events)
 }
 
-export function advance(state: RunState, events: GameEvent[]): GameEvent[] {
+export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
@@ -50,15 +50,15 @@ export function advance(state: RunState, events: GameEvent[]): GameEvent[] {
   return events
 }
 
-export function damageHero(state: RunState, amount: number, source: string): GameEvent[] {
+export function damageHero(state: RunState, amount: number, source: string): ActionResult {
   state.hero.health -= amount
   log(state, `${source} harms you for ${amount}.`)
-  if (state.hero.health > 0) return ['hurt']
+  if (state.hero.health > 0) return [event('hurt')]
   state.hero.health = 0
   state.status = 'dead'
   state.modal = undefined
   log(state, 'Your expedition ends here.')
-  return ['death']
+  return [event('death')]
 }
 
 export function explode(state: RunState, x: number, y: number, damage: number): void {
@@ -75,12 +75,12 @@ export function explode(state: RunState, x: number, y: number, damage: number): 
   log(state, 'The blast tears through the stone.')
 }
 
-function heroAttack(state: RunState, target: Actor): GameEvent[] {
+function heroAttack(state: RunState, target: Actor): ActionResult {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const rng = turnRng(state, 'combat', `hero:${target.id}`)
   if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) {
     log(state, `Your ${weapon?.name ?? 'fists'} miss ${target.name}.`)
-    return advance(state, ['hit'])
+    return advance(state, [event('hit')])
   }
   const damage = Math.max(1, (weapon?.damage ?? 2) + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8))
   target.health -= damage
@@ -92,10 +92,10 @@ function heroAttack(state: RunState, target: Actor): GameEvent[] {
     if (target.role === 'guardian') { state.floor.guardianDefeated = true; log(state, 'The way to the exit is open.') }
     gainXp(state, monsterXp(target.kind))
   }
-  return advance(state, ['hit'])
+  return advance(state, [event('hit')])
 }
 
-function actorTurn(state: RunState, actor: Actor): GameEvent[] {
+function actorTurn(state: RunState, actor: Actor): ActionResult {
   const range = distance(actor, state.hero)
   if (range <= 1) return monsterAttack(state, actor)
   if (actor.ai === 'ranged' && range <= 7 && hasLine(state, actor, state.hero)) return monsterAttack(state, actor, 1)
@@ -111,15 +111,15 @@ function actorTurn(state: RunState, actor: Actor): GameEvent[] {
   return []
 }
 
-function monsterAttack(state: RunState, actor: Actor, ranged = 0): GameEvent[] {
+function monsterAttack(state: RunState, actor: Actor, ranged = 0): ActionResult {
   const rng = turnRng(state, 'combat', `attack:${actor.id}`)
   const dodge = 10 + state.hero.stats.agility + equipmentDefense(state.hero)
-  if (rng.int(1, 20) + actor.attack < dodge) { log(state, `${actor.name} misses.`); return ['hurt'] }
+  if (rng.int(1, 20) + actor.attack < dodge) { log(state, `${actor.name} misses.`); return [event('hurt')] }
   const damage = Math.max(1, actor.attack + ranged + rng.int(0, 3) - Math.floor(state.hero.stats.vitality / 2) - equipmentDefense(state.hero))
   return damageHero(state, damage, actor.name)
 }
 
-function tickEnvironment(state: RunState, events: GameEvent[]): void {
+function tickEnvironment(state: RunState, events: ActionResult): void {
   for (const actor of state.floor.actors) {
     const tile = getTile(state.floor, actor.x, actor.y)
     if (!tile || !actor.hostile) continue

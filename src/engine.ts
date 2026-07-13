@@ -1,5 +1,6 @@
 export { perform, quickCast } from './engine/input'
 export { skillChoices } from './engine/progression'
 export { newHero, newRun } from './engine/run'
-export type { GameEvent } from './engine/shared'
+export type { ActionResult, GameEvent, GameEventType } from './engine/shared'
+export { event, hasEvent } from './engine/shared'
 export { refreshFov } from './engine/visibility'

@@ -1,5 +1,5 @@
 import { ITEM, biomeName, shopStock } from './content'
-import { skillChoices, type GameEvent } from './engine'
+import { skillChoices, type ActionResult } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
@@ -33,7 +33,7 @@ export class TerminalRenderer {
 
   setSpriteMode(value: boolean): void { this.spriteMode = value }
   get isSpriteMode(): boolean { return this.spriteMode }
-  trigger(events: GameEvent[], state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
+  trigger(events: ActionResult, state?: RunState): void { this.effects.trigger(events, state, this.canvas) }
 
   render(state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }): void {
     this.lastState = state

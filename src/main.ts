@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { newRun, perform, quickCast } from './engine'
+import { event, hasEvent, newRun, perform, quickCast } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadRecords, loadRun, saveRecords, saveRun } from './storage'
 import type { Direction, Records, RunState } from './types'
@@ -41,8 +41,8 @@ window.addEventListener('keydown', event => {
   else events = perform(state, command)
   audio.play(events)
   renderer.trigger(events, state)
-  if (events.includes('floor')) { saved = structuredClone(state); void saveRun(state) }
-  if ((events.includes('death') || events.includes('win')) && !recordedEnd) finish(events.includes('win'))
+  if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
+  if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   renderer.render(state, records)
 })
 
@@ -51,8 +51,8 @@ function start(): void {
   saved = structuredClone(state)
   recordedEnd = false
   void saveRun(state)
-  audio.play(['menu'])
-  renderer.trigger(['floor'], state)
+  audio.play([event('menu')])
+  renderer.trigger([event('floor')], state)
   renderer.render(state, records)
 }
 
