@@ -65,6 +65,15 @@ from kenjaku.training.riichi_examples import RiichiExample, iter_riichi_examples
 from kenjaku.training.splits import deterministic_split
 
 if TYPE_CHECKING:
+    from kenjaku.training.behavior_distillation import (
+        BEHAVIOR_DISTILLATION_TRAINER_KIND,
+        HEURISTIC_DISTILLATION_FAMILIES,
+        BehaviorDistillationExample,
+        BehaviorDistillationTrainingResult,
+        distillation_examples_from_manifest,
+        evaluate_multi_task_behavior_distillation,
+        train_multi_task_behavior_distillation,
+    )
     from kenjaku.training.population import (
         POPULATION_SANDBOX_REPORT_KIND,
         POPULATION_SANDBOX_SNAPSHOT_KIND,
@@ -93,6 +102,13 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORT_MODULES = {
+    "BEHAVIOR_DISTILLATION_TRAINER_KIND": "kenjaku.training.behavior_distillation",
+    "HEURISTIC_DISTILLATION_FAMILIES": "kenjaku.training.behavior_distillation",
+    "BehaviorDistillationExample": "kenjaku.training.behavior_distillation",
+    "BehaviorDistillationTrainingResult": "kenjaku.training.behavior_distillation",
+    "distillation_examples_from_manifest": "kenjaku.training.behavior_distillation",
+    "evaluate_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
+    "train_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
     "POPULATION_SANDBOX_REPORT_KIND": "kenjaku.training.population",
     "POPULATION_SANDBOX_SNAPSHOT_KIND": "kenjaku.training.population",
     "format_population_sandbox_report": "kenjaku.training.population",
@@ -127,11 +143,14 @@ def __getattr__(name: str) -> Any:
     return value
 
 __all__ = [
+    "BEHAVIOR_DISTILLATION_TRAINER_KIND",
     "BC_DECISION_TYPES",
     "BC_EXAMPLE_MANIFEST_KIND",
     "BC_EXAMPLE_ROW_KIND",
     "BcExampleLoad",
     "BcExampleShard",
+    "BehaviorDistillationExample",
+    "BehaviorDistillationTrainingResult",
     "CallExample",
     "collect_ppo_sandbox_rollout",
     "actual_discard_has_kabe",
@@ -161,10 +180,13 @@ __all__ = [
     "DealInExample",
     "deterministic_split",
     "discard_shanten_delta",
+    "distillation_examples_from_manifest",
+    "evaluate_multi_task_behavior_distillation",
     "evaluate_ppo_sandbox_policy",
     "format_ppo_sandbox_report",
     "format_population_sandbox_report",
     "has_active_riichi_opponent",
+    "HEURISTIC_DISTILLATION_FAMILIES",
     "iter_call_examples",
     "iter_deal_in_examples",
     "iter_discard_examples",
@@ -203,6 +225,7 @@ __all__ = [
     "summarize_deal_in_examples",
     "train_ppo_sandbox",
     "train_population_sandbox",
+    "train_multi_task_behavior_distillation",
     "write_bc_example_row",
     "write_bc_manifest",
 ]
