@@ -94,7 +94,7 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   }
   if (floor.biome === 'mine') decorateMine(floor, rng, rooms)
   if (floor.biome === 'wilds') decorateWilds(floor, rng)
-  if (floor.biome === 'caverns') { paint('lava', 16); paint('fireVent', 10); paint('gas', 8) }
+  if (floor.biome === 'caverns') decorateCaverns(floor, rng)
   if (floor.biome === 'ruins') { paint('dart', 10); paint('spikes', 8); paint('crumble', 8); paint('boulder', 6) }
   if (floor.index % 4 === 3) {
     const chamber = rooms[rooms.length - 1]
@@ -143,6 +143,23 @@ function decorateWilds(floor: Floor, rng: Rng): void {
   paint('water', 9, true)
   paint('bramble', 8, true)
   paint('web', 10)
+}
+
+function decorateCaverns(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (rng.chance(40) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('lava', 8, true)
+  paint('gas', 7, true)
+  paint('fireVent', 10)
+  paint('darkness', 11, true)
 }
 
 function placeEvents(floor: Floor, rooms: Room[]): void {

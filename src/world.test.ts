@@ -76,6 +76,25 @@ describe('expedition generation', () => {
     expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(false)
   })
 
+  it('uses lava, gas, vents, and lantern-sensitive Cavern routes', () => {
+    for (const seed of [9, 43, 1001]) {
+      const floor = generateAreaFloor(seed, 'caverns', 0)
+      const kinds = floor.tiles.map(tile => tile.kind)
+      expect(kinds).toContain('lava')
+      expect(kinds).toContain('gas')
+      expect(kinds).toContain('fireVent')
+      expect(kinds).toContain('darkness')
+      expect(exitReachable(floor)).toBe(true)
+    }
+    const run = newRun(13, 'caverns')
+    run.floor.tiles[1 * 48 + 2].kind = 'darkness'
+    run.hero.x = 1
+    run.hero.y = 1
+    expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(false)
+    run.hero.equipment.offHand = 'lantern'
+    expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(true)
+  })
+
   it('starts an explorer on a visible, passable map cell', () => {
     const run = newRun(42)
     expect(getTile(run.floor, run.hero.x, run.hero.y)?.visible).toBe(true)

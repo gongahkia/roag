@@ -3,7 +3,8 @@ import { getTile } from '../world'
 
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
-  for (let y = Math.max(0, state.hero.y - 10); y <= Math.min(34, state.hero.y + 10); y++) for (let x = Math.max(0, state.hero.x - 10); x <= Math.min(47, state.hero.x + 10); x++) {
+  const range = state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10
+  for (let y = Math.max(0, state.hero.y - range); y <= Math.min(34, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(47, state.hero.x + range); x++) {
     if (hasLine(state, state.hero, { x, y })) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
   }
 }
@@ -19,8 +20,11 @@ export function hasLine(state: RunState, from: { x: number; y: number }, to: { x
   while (true) {
     if (x === to.x && y === to.y) return true
     if (!(x === from.x && y === from.y) && ['wall', 'rubble', 'bramble'].includes(getTile(state.floor, x, y)?.kind ?? '')) return false
+    if (!hasLight(state) && getTile(state.floor, x, y)?.kind === 'darkness') return false
     const twice = 2 * error
     if (twice >= dy) { error += dy; x += sx }
     if (twice <= dx) { error += dx; y += sy }
   }
 }
+
+const hasLight = (state: RunState): boolean => state.hero.equipment.offHand === 'lantern' || state.hero.inventory.includes('sight')
