@@ -89,7 +89,7 @@ export const MONSTERS: MonsterDefinition[] = [
 ]
 
 export const SKILLS: SkillDefinition[] = [
-  ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: `Strength +1${i > 1 ? ', melee damage +1' : ''}`, tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
+  ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: ['Strength +1, melee damage +1', 'Strength +1, melee damage +1', 'Strength +1, break rubble', 'Strength +1, guard 2 damage', 'Strength +1, melee knockback', 'Strength +1, melee damage +2'][i], tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
   ...(['Quick Step', 'Sure Aim', 'Skirmisher', 'Evasion', 'Fleet', 'Ghostwalk'] as const).map((name, i) => ({ id: `agi${i + 1}`, name, stat: 'agility' as StatName, level: i + 1, text: `Agility +1${i > 1 ? ', dodge +1' : ''}`, tags: ['agility'], prerequisites: i ? [`agi${i}`] : [] })),
   ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i +1}`, name, stat: 'vitality' as StatName, level: i + 1, text: `Vitality +1, maximum health +2`, tags: ['vitality'], prerequisites: i ? [`vit${i}`] : [] })),
   ...(['Spark', 'Insight', 'Conjure', 'Divine', 'Sorcery', 'Archmage'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: `Intellect +1, maximum focus +2`, tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))

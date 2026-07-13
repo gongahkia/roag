@@ -6,7 +6,7 @@ import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
 import { announceTelegraph, resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
-import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
+import { addCondition, conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 import { resolveTerrainReactions, type TerrainTag } from './terrain'
 import { actionCells } from './geometry'
 import { planEnemyIntent } from './intents'
@@ -14,6 +14,8 @@ import { projectBolt } from './projectiles'
 import { advanceGuardianPhase } from './guardians'
 import { completeObjective } from '../objectives'
 import { evaluateEquipmentEffects } from './equipment'
+import { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from './strength'
+import { resolveDisplacement } from './displacement'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -36,6 +38,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     log(state, 'You unlock the door.')
     return advance(state, [event('move')])
   }
+  if (tile.kind === 'rubble' && canBreakRubble(state.hero)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You break through the rubble.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   state.hero.x = x
   state.hero.y = y
@@ -78,7 +81,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
 }
 
 export function damageHero(state: RunState, amount: number, source: string): ActionResult {
-  amount = modifyIncomingDamage(state.hero, amount)
+  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero))
   state.hero.health -= amount
   log(state, `${source} harms you for ${amount}.`)
   if (state.hero.health > 0) return [event('hurt')]
@@ -111,9 +114,10 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
   for (const target of targets) {
     const rng = turnRng(state, 'combat', `hero:${target.id}`)
     if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) { log(state, `Your attack misses ${target.name}.`); continue }
-    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + state.hero.stats.strength + strengthMeleeBonus(state.hero) + rng.int(0, 3) - Math.floor(target.defense / 8)))
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
+    if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })
     if (target.health <= 0) {
       log(state, `${target.name} falls.`)
       dropLoot(state, target)
