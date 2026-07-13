@@ -4,6 +4,7 @@ import { actionCells } from './geometry'
 describe('action-cell geometry', () => {
   it('returns ordered line and adjacent cells', () => {
     expect(actionCells('adjacent', { x: 1, y: 1 }, 'e', 1)).toEqual([{ x: 2, y: 1 }])
+    expect(actionCells('adjacent', { x: 1, y: 1 }, 'e', 2)).toEqual([{ x: 2, y: 1 }, { x: 3, y: 1 }])
     expect(actionCells('line', { x: 1, y: 1 }, 'e', 3)).toEqual([{ x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }])
   })
 

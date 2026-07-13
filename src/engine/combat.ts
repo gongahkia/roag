@@ -16,6 +16,7 @@ import { completeObjective } from '../objectives'
 import { evaluateEquipmentEffects } from './equipment'
 import { canBreakRubble, canKnockback, strengthGuard, strengthMeleeBonus } from './strength'
 import { resolveDisplacement } from './displacement'
+import { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegraphAvoidance } from './agility'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -25,10 +26,10 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const y = state.hero.y + delta.y
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
-  const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach, cooldown: profile.cooldown }).values
+  const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
   const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(modified.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
   if (targets.length) return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown)))
-  const tile = getTile(state.floor, x, y)
+  let tile = getTile(state.floor, x, y)
   if (!tile) return []
   if (tile.kind === 'door') { tile.kind = 'floor'; log(state, 'You open the door.'); return advance(state, [event('move')]) }
   if (tile.kind === 'lockedDoor') {
@@ -40,8 +41,16 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   }
   if (tile.kind === 'rubble' && canBreakRubble(state.hero)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You break through the rubble.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
-  state.hero.x = x
-  state.hero.y = y
+  let destination = { x, y }
+  for (let step = 1; tile.kind === 'floor' && step < agilityMoveDistance(state.hero); step++) {
+    const next = { x: destination.x + delta.x, y: destination.y + delta.y }
+    const nextTile = getTile(state.floor, next.x, next.y)
+    if (!nextTile || nextTile.kind !== 'floor' || !isPassable(state.floor, next.x, next.y)) break
+    destination = next
+    tile = nextTile
+  }
+  state.hero.x = destination.x
+  state.hero.y = destination.y
   const events: ActionResult = [event('move')]
   if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap'))
   if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava'))
@@ -58,7 +67,9 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
     if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam') continue
     const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
     const hit = telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y)
-    if (source?.hostile && hit) events.push(...monsterAttack(state, source, telegraph.actionId === 'guardian-slam' ? 2 : 1))
+    const avoidance = agilityTelegraphAvoidance(state.hero)
+    if (source?.hostile && hit && !(avoidance && turnRng(state, 'combat', `telegraph-dodge:${telegraph.id}`).chance(avoidance))) events.push(...monsterAttack(state, source, telegraph.actionId === 'guardian-slam' ? 2 : 1))
+    else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
     else log(state, `${telegraph.actionId === 'guardian-slam' ? 'The slam' : 'The bolt'} passes harmlessly.`)
   }
   if (resolvedTelegraphs.length) events.push(event('danger'))
@@ -183,7 +194,7 @@ function directionToward(from: { x: number; y: number }, to: { x: number; y: num
 
 function monsterAttack(state: RunState, actor: Actor, ranged = 0): ActionResult {
   const rng = turnRng(state, 'combat', `attack:${actor.id}`)
-  const dodge = 10 + state.hero.stats.agility + equipmentDefense(state.hero)
+  const dodge = 10 + state.hero.stats.agility + agilityEvasion(state.hero) + equipmentDefense(state.hero)
   if (rng.int(1, 20) + actor.attack < dodge) { log(state, `${actor.name} misses.`); return [event('hurt')] }
   const damage = Math.max(1, actor.attack + ranged + rng.int(0, 3) - Math.floor(state.hero.stats.vitality / 2) - equipmentDefense(state.hero))
   return damageHero(state, damage, actor.name)

@@ -17,7 +17,7 @@ export const actionCells = (shape: ActionShape, origin: Point, direction: Exclud
     cells.push(point)
   }
   const atDistance = (distance: number): Point => ({ x: origin.x + vector.x * distance, y: origin.y + vector.y * distance })
-  if (shape === 'adjacent') add(atDistance(1))
+  if (shape === 'adjacent') for (let distance = 1; distance <= range; distance++) add(atDistance(distance))
   if (shape === 'line') for (let distance = 1; distance <= range; distance++) add(atDistance(distance))
   if (shape === 'cone') {
     const perpendicular = { x: -vector.y, y: vector.x }
