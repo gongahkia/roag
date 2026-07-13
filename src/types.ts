@@ -102,8 +102,10 @@ export interface HubState {
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
-export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[] }
+export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
 
+export interface LegacyCache { gold: number; items: ItemId[] }
+export interface LegacyEncounterState { kind: 'cache' | 'revenant' | 'anchor'; resolved: boolean }
 export interface LegacyRecord {
   id: string
   heirName: string
@@ -111,6 +113,10 @@ export interface LegacyRecord {
   biome: Biome
   floor: number
   seed: number
+  lineage: string[]
+  location: Point
+  cache: LegacyCache
+  encounter: LegacyEncounterState
 }
 
 interface CampaignBase {

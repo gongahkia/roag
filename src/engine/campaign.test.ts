@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completeCampaignArea, initialCampaignRoute, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
+import { appendLegacyRecord, completeCampaignArea, initialCampaignRoute, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
 import { descend } from './inventory'
 import { newRun } from './run'
 
@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [] })
+    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
     expect(route).not.toHaveProperty('hero')
   })
 
@@ -50,5 +50,11 @@ describe('four-area campaign flow', () => {
     const route = { ...initialCampaignRoute(), rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine' as const, floor: 1 }] }
     const event = { id: 'sacrifice:mine-wilds-pass:scout-1', kind: 'npcSacrifice' as const, npcId: 'scout-1', npcName: 'Lost Scout', biome: 'mine' as const, floor: 1, gateId: 'mine-wilds-pass', seed: 702 }
     expect(recordCampaignSacrifice(recordCampaignSacrifice(route, event), event)).toMatchObject({ rescuedNpcs: [], lineageEvents: [event] })
+  })
+
+  it('keeps the latest twelve full legacy records', () => {
+    let route = initialCampaignRoute()
+    for (let i = 0; i < 13; i++) route = appendLegacyRecord(route, { id: `legacy-${i}`, heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: i % 4, seed: i, lineage: ['Ari'], location: { x: i, y: 1 }, cache: { gold: i, items: ['tonic'] }, encounter: { kind: 'cache', resolved: false } })
+    expect(route.legacyRecords.map(record => record.id)).toEqual(Array.from({ length: 12 }, (_, i) => `legacy-${i + 1}`))
   })
 })

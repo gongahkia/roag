@@ -18,7 +18,7 @@ export const createEnemy = (overrides: Partial<Actor> = {}): Actor => ({
 
 export const createGate = (overrides: Partial<GateFixture> = {}): GateFixture => ({ id: 'gate-1', biome: 'mine', state: 'locked', requirements: ['key'], ...overrides })
 
-export const createLegacy = (overrides: Partial<LegacyRecord> = {}): LegacyRecord => ({ id: 'legacy-1', heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: 0, seed: 1, ...overrides })
+export const createLegacy = (overrides: Partial<LegacyRecord> = {}): LegacyRecord => ({ id: 'legacy-1', heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: 0, seed: 1, lineage: [], location: { x: 1, y: 1 }, cache: { gold: 0, items: [] }, encounter: { kind: 'cache', resolved: false }, ...overrides })
 
 export const createFloor = (overrides: Partial<Floor> = {}): Floor => {
   const start = { x: 1, y: 1 }
