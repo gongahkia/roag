@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { completeCampaignArea, createHubState, event, hasEvent, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
@@ -126,6 +126,7 @@ function redraw(): void { renderer.render(route, state, records, hubView(route.h
 function finish(won: boolean): void {
   if (!state) return
   recordedEnd = true
+  if (!won) campaign = recordDeath(campaign, state, heirNameFor(route.heirSeed ?? state.seed))
   records.bestDepth = Math.max(records.bestDepth, state.floor.index + 1)
   if (won) records.wins++
   else records.deaths++
