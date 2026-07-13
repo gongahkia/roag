@@ -153,11 +153,11 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
 }
 
 function monster(definition: MonsterDefinition, point: Point, i: number): Actor {
-  return { id: `${definition.id}-${i}`, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai }
+  return { id: `${definition.id}-${i}`, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [] }
 }
 
 function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: string, color: string): Actor {
-  return { id: `${role}-${pointKey(point)}`, role, kind: role, name, x: point.x, y: point.y, health: 99, maxHealth: 99, attack: 0, defense: 99, speed: 0, energy: 0, glyph, color, hostile: false }
+  return { id: `${role}-${pointKey(point)}`, role, kind: role, name, x: point.x, y: point.y, health: 99, maxHealth: 99, attack: 0, defense: 99, speed: 0, energy: 0, glyph, color, hostile: false, conditions: [] }
 }
 
 function ensureReachable(floor: Floor): void {

@@ -11,9 +11,11 @@ export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'wate
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
+export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
 
 export interface Point { x: number; y: number }
 export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
+export interface ConditionState { kind: ConditionKind; duration: number; potency: number }
 export interface Actor {
   id: string
   role: ActorRole
@@ -32,6 +34,7 @@ export interface Actor {
   hostile: boolean
   ai?: 'chase' | 'ranged' | 'wander' | 'guardian'
   status?: string[]
+  conditions?: ConditionState[]
 }
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number }
@@ -68,6 +71,7 @@ export interface Hero {
   inventory: ItemId[]
   equipment: Partial<Record<EquipmentSlot, ItemId>>
   lastUnequipped?: ItemId
+  conditions?: ConditionState[]
 }
 
 export type CampaignPhase = 'title' | 'hub' | 'area' | 'dead' | 'victory'

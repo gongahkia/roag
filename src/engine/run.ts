@@ -4,7 +4,7 @@ import { refreshFov } from './visibility'
 
 export const newHero = (): Hero => ({
   x: 0, y: 0, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: 4, ropes: 4, keys: 0, xp: 0, level: 1,
-  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: ['tonic', 'rock', 'bombPack', 'ropeBundle', 'ember'], equipment: { mainHand: 'whip' }
+  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: ['tonic', 'rock', 'bombPack', 'ropeBundle', 'ember'], equipment: { mainHand: 'whip' }, conditions: []
 })
 
 export function newRun(seed = Math.floor(Math.random() * 0x7fffffff)): RunState {

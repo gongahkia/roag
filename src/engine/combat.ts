@@ -7,10 +7,12 @@ import { event, distance, equipmentDefense, log, turnRng, type ActionResult } fr
 import { canAffect } from './line-effect'
 import { resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
+import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
   if (direction === 'wait') return advance(state, [event('move')])
+  if (hasCondition(state.hero, 'rooted')) { log(state, 'Roots hold you in place.'); return advance(state, [event('danger')]) }
   const x = state.hero.x + delta.x
   const y = state.hero.y + delta.y
   const target = actorAt(state.floor, x, y)
@@ -42,18 +44,20 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   if (resolveTelegraphs(state).length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
-    actor.energy += actor.speed
+    actor.energy += conditionSpeed(actor, actor.speed)
     while (actor.energy >= 100 && state.status === 'playing') {
       actor.energy -= 100
       events.push(...actorTurn(state, actor))
     }
   }
   tickEnvironment(state, events)
+  tickConditionEffects(state, events)
   refreshFov(state)
   return events
 }
 
 export function damageHero(state: RunState, amount: number, source: string): ActionResult {
+  amount = modifyIncomingDamage(state.hero, amount)
   state.hero.health -= amount
   log(state, `${source} harms you for ${amount}.`)
   if (state.hero.health > 0) return [event('hurt')]
@@ -71,7 +75,7 @@ export function explode(state: RunState, x: number, y: number, damage: number): 
     const tile = getTile(state.floor, tx, ty)
     if (tile && tile.kind === 'wall' && tx > 0 && tx < 47 && ty > 0 && ty < 34) tile.kind = 'floor'
     const actor = actorAt(state.floor, tx, ty)
-    if (actor?.hostile) actor.health -= damage
+    if (actor?.hostile) actor.health -= modifyIncomingDamage(actor, damage)
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), 'your bomb')
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
@@ -85,7 +89,7 @@ function heroAttack(state: RunState, target: Actor): ActionResult {
     log(state, `Your ${weapon?.name ?? 'fists'} miss ${target.name}.`)
     return advance(state, [event('hit')])
   }
-  const damage = Math.max(1, (weapon?.damage ?? 2) + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8))
+  const damage = modifyIncomingDamage(target, Math.max(1, (weapon?.damage ?? 2) + state.hero.stats.strength + rng.int(0, 3) - Math.floor(target.defense / 8)))
   target.health -= damage
   log(state, `You strike ${target.name} for ${damage}.`)
   if (target.health <= 0) {
@@ -99,6 +103,7 @@ function heroAttack(state: RunState, target: Actor): ActionResult {
 }
 
 function actorTurn(state: RunState, actor: Actor): ActionResult {
+  if (hasCondition(actor, 'staggered')) return []
   const range = distance(actor, state.hero)
   if (range <= 1) return monsterAttack(state, actor)
   if (actor.ai === 'ranged' && range <= 7 && canAffect(state.floor, actor, state.hero)) return monsterAttack(state, actor, 1)
@@ -133,6 +138,16 @@ function tickEnvironment(state: RunState, events: ActionResult): void {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent'))
   if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus++
+}
+
+function tickConditionEffects(state: RunState, events: ActionResult): void {
+  const heroTick = tickConditions(state.hero)
+  if (heroTick.burningDamage) events.push(...damageHero(state, heroTick.burningDamage, 'burning'))
+  for (const actor of state.floor.actors) {
+    const tick = tickConditions(actor)
+    if (tick.burningDamage) { actor.health -= tick.burningDamage; log(state, `${actor.name} burns for ${tick.burningDamage}.`) }
+  }
+  state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
 }
 
 function dropLoot(state: RunState, actor: Actor): void {

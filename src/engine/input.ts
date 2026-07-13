@@ -1,11 +1,13 @@
 import type { Direction, Modal, RunState } from '../types'
-import { moveHero } from './combat'
+import { advance, moveHero } from './combat'
 import { bomb, castFirstSpell, castSpell, descend, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
 import { chooseSkill } from './progression'
-import { event, type ActionResult } from './shared'
+import { event, log, type ActionResult } from './shared'
+import { hasCondition } from './conditions'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
+  if (hasCondition(state.hero, 'staggered')) { log(state, 'You are staggered.'); return advance(state, [event('danger')]) }
   if (state.modal) return performModal(state, command)
   const lower = command.toLowerCase()
   if (lower === 'h') { state.modal = { kind: 'help' }; return [event('menu')] }

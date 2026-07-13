@@ -8,11 +8,11 @@ export const createArea = (overrides: Partial<AreaState> = {}): AreaState => ({ 
 
 export const createHero = (overrides: Partial<Hero> = {}): Hero => ({
   x: 1, y: 1, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: 0, ropes: 0, keys: 0, xp: 0, level: 1,
-  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: [], equipment: {}, ...overrides
+  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: [], equipment: {}, conditions: [], ...overrides
 })
 
 export const createEnemy = (overrides: Partial<Actor> = {}): Actor => ({
-  id: 'enemy-1', role: 'monster', kind: 'rat', name: 'Test Rat', x: 3, y: 1, health: 5, maxHealth: 5, attack: 2, defense: 8, speed: 100, energy: 0, glyph: 'r', color: '#ffffff', hostile: true, ai: 'chase', ...overrides
+  id: 'enemy-1', role: 'monster', kind: 'rat', name: 'Test Rat', x: 3, y: 1, health: 5, maxHealth: 5, attack: 2, defense: 8, speed: 100, energy: 0, glyph: 'r', color: '#ffffff', hostile: true, ai: 'chase', conditions: [], ...overrides
 })
 
 export const createGate = (overrides: Partial<GateFixture> = {}): GateFixture => ({ id: 'gate-1', biome: 'mine', state: 'locked', requirements: ['key'], ...overrides })
