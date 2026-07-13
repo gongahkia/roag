@@ -1,4 +1,4 @@
-import { ATLAS_SPEC, HERO_SPRITE, actorSprite, itemSprite, tileSprite } from './sprites'
+import { ATLAS_SPEC, HERO_SPRITE, actorSprite, atlasSourceRect, itemSprite, tileSprite } from './sprites'
 
 type Mapping = { label: string; index: number }
 
@@ -68,16 +68,10 @@ for (let index = 0; index < ATLAS_SPEC.columns * ATLAS_SPEC.rows; index++) {
   grid.append(cell)
 }
 
-function sourceRect(index: number): { x: number; y: number; width: number; height: number } {
-  const width = image.naturalWidth / ATLAS_SPEC.columns
-  const height = image.naturalHeight / ATLAS_SPEC.rows
-  return { x: index % ATLAS_SPEC.columns * width, y: Math.floor(index / ATLAS_SPEC.columns) * height, width, height }
-}
-
 function drawSprite(canvas: HTMLCanvasElement, index: number): void {
   if (!loaded) return
   const context = canvas.getContext('2d')!
-  const rect = sourceRect(index)
+  const rect = atlasSourceRect(index)
   context.clearRect(0, 0, canvas.width, canvas.height)
   context.imageSmoothingEnabled = false
   context.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, canvas.width, canvas.height)
@@ -88,7 +82,7 @@ function select(index: number): void {
   indexInput.value = String(index)
   const row = Math.floor(index / ATLAS_SPEC.columns) + 1
   const column = index % ATLAS_SPEC.columns + 1
-  const rect = loaded ? sourceRect(index) : undefined
+  const rect = atlasSourceRect(index)
   const assigned = mappingFor(index)
   cells.forEach((cell, cellIndex) => {
     const active = cellIndex === index
@@ -96,7 +90,7 @@ function select(index: number): void {
     cell.setAttribute('aria-selected', String(active))
   })
   positionOutput.textContent = `row ${row}, col ${column}`
-  sourceOutput.textContent = rect ? `source x ${rect.x.toFixed(3)}, y ${rect.y.toFixed(3)} · ${rect.width.toFixed(3)} × ${rect.height.toFixed(3)}` : 'loading source bounds…'
+  sourceOutput.textContent = `source x ${rect.x}, y ${rect.y} · ${rect.width} × ${rect.height}`
   title.textContent = `Cell ${index}`
   mappingOutput.textContent = assigned.length ? assigned.map(mapping => mapping.label).join(' · ') : 'No renderer mapping.'
   drawSprite(preview, index)

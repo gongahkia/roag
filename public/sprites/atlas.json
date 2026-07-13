@@ -1,6 +1,6 @@
 {
   "image": "src/assets/expedition-atlas.png",
-  "sourceCellSize": "image width / 16; image height / 8",
+  "sourceCellSize": "custom source bounds in src/sprites.ts",
   "columns": 16,
   "rows": 8,
   "transparentBackground": true,

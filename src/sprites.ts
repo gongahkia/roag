@@ -9,6 +9,15 @@ const tileColor: Record<string, string> = {
 
 export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/jomon-atlas-source.png' } as const
 export const HERO_SPRITE = 21
+export type AtlasSourceRect = { x: number; y: number; width: number; height: number }
+const atlasSourceColumns = [14, 125, 232, 337, 442, 549, 656, 763, 869, 972, 1077, 1186, 1294, 1403, 1512, 1623, 1745] as const
+const atlasSourceRows = [13, 130, 257, 387, 525, 648, 748, 829, 887] as const
+
+export function atlasSourceRect(index: number): AtlasSourceRect {
+  const column = index % ATLAS_SPEC.columns
+  const row = Math.floor(index / ATLAS_SPEC.columns)
+  return { x: atlasSourceColumns[column], y: atlasSourceRows[row], width: atlasSourceColumns[column + 1] - atlasSourceColumns[column], height: atlasSourceRows[row + 1] - atlasSourceRows[row] }
+}
 
 export const tileSprite: Partial<Record<Tile['kind'], number>> = {
   wall: 0, floor: 1, exit: 2, door: 3, lockedDoor: 4, water: 5, lava: 6, pit: 7, rope: 8, spikes: 9, dart: 10, fireVent: 11, crumble: 12, boulder: 13, web: 14, gas: 15,
@@ -36,14 +45,11 @@ export class TextureAtlas {
       const ctx = this.cells.getContext('2d')!
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      const sourceWidth = this.image.naturalWidth / ATLAS_SPEC.columns
-      const sourceHeight = this.image.naturalHeight / ATLAS_SPEC.rows
       for (let index = 0; index < ATLAS_SPEC.columns * ATLAS_SPEC.rows; index++) {
-        const sourceX = index % ATLAS_SPEC.columns * sourceWidth
-        const sourceY = Math.floor(index / ATLAS_SPEC.columns) * sourceHeight
+        const source = atlasSourceRect(index)
         const targetX = index % ATLAS_SPEC.columns * 16
         const targetY = Math.floor(index / ATLAS_SPEC.columns) * 16
-        ctx.drawImage(this.image, sourceX, sourceY, sourceWidth, sourceHeight, targetX, targetY, 16, 16)
+        ctx.drawImage(this.image, source.x, source.y, source.width, source.height, targetX, targetY, 16, 16)
       }
       this.ready = true
       this.listeners.forEach(listener => listener())
