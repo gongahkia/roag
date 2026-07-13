@@ -12,6 +12,7 @@ export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
 export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
+export type GuardianPhase = 'opening' | 'pressure' | 'cataclysm'
 
 export interface Point { x: number; y: number }
 export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
@@ -35,6 +36,7 @@ export interface Actor {
   ai?: 'chase' | 'ranged' | 'wander' | 'guardian'
   status?: string[]
   conditions?: ConditionState[]
+  guardianPhase?: GuardianPhase
 }
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number }

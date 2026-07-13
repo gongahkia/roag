@@ -153,7 +153,7 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
 }
 
 function monster(definition: MonsterDefinition, point: Point, i: number): Actor {
-  return { id: `${definition.id}-${i}`, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [] }
+  return { id: `${definition.id}-${i}`, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const } : {}) }
 }
 
 function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: string, color: string): Actor {
