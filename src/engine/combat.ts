@@ -68,7 +68,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   const resolvedTelegraphs = resolveTelegraphs(state)
   for (const telegraph of resolvedTelegraphs) {
-    if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web' && telegraph.actionId !== 'enemy-fire' && telegraph.actionId !== 'enemy-pull' && telegraph.actionId !== 'enemy-dart' && telegraph.actionId !== 'enemy-ritual' && telegraph.actionId !== 'foreman-cavein' && telegraph.actionId !== 'heartwood-charge') continue
+    if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web' && telegraph.actionId !== 'enemy-fire' && telegraph.actionId !== 'enemy-pull' && telegraph.actionId !== 'enemy-dart' && telegraph.actionId !== 'enemy-ritual' && telegraph.actionId !== 'foreman-cavein' && telegraph.actionId !== 'heartwood-charge' && telegraph.actionId !== 'geode-fissure') continue
     const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
     const hit = telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y)
     const avoidance = agilityTelegraphAvoidance(state.hero)
@@ -109,6 +109,16 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
       if (source?.hostile && hit && !dodged) { resolveDisplacement(state, source, state.hero, 'knockback'); log(state, 'The Heartwood Stag drives you through the thorns.') }
       else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
       else log(state, 'The charge tears through empty brush.')
+      continue
+    }
+    if (telegraph.actionId === 'geode-fissure') {
+      for (const cell of telegraph.cells) {
+        const tile = getTile(state.floor, cell.x, cell.y)
+        if (tile?.kind === 'floor') tile.kind = 'fireVent'
+      }
+      if (source?.hostile && hit && !dodged) events.push(...monsterAttack(state, source, 2))
+      else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
+      else log(state, 'The fissure line seals the passage with flame.')
       continue
     }
     if (source?.hostile && hit && !dodged && telegraph.actionId === 'enemy-pull') { resolveDisplacement(state, source, state.hero, 'pull'); log(state, 'Crystal force drags you closer.') }
@@ -211,6 +221,7 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (intent.action.id === 'enemy-ritual') return announceRuinsLine(state, actor, 'enemy-ritual', 'Ash Ritualist begins a marking ritual.')
   if (intent.action.id === 'foreman-cavein') return announceForemanCavein(state, actor)
   if (intent.action.id === 'heartwood-charge') return announceHeartwoodCharge(state, actor)
+  if (intent.action.id === 'geode-fissure') return announceGeodeFissure(state, actor)
   if (intent.action.id === 'guardian-slam') return announceGuardianSlam(state, actor)
   const candidates = Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: actor.x + delta.x, y: actor.y + delta.y }))
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))
@@ -281,6 +292,15 @@ function announceHeartwoodCharge(state: RunState, actor: Actor): ActionResult {
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
   log(state, 'The Heartwood Stag lowers its antlers; move clear.')
   announceTelegraph(state, { id, sourceId: actor.id, actionId: 'heartwood-charge', cells: [{ x: state.hero.x, y: state.hero.y }], danger: 'major', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
+  return [event('danger')]
+}
+
+function announceGeodeFissure(state: RunState, actor: Actor): ActionResult {
+  const id = `${actor.id}:fissure`
+  if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
+  const cells = actionCells('line', actor, directionToward(actor, state.hero), Math.min(6, distance(actor, state.hero)))
+  log(state, 'The Geode Wyrm marks a fissure line; move clear.')
+  announceTelegraph(state, { id, sourceId: actor.id, actionId: 'geode-fissure', cells, danger: 'major', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
   return [event('danger')]
 }
 

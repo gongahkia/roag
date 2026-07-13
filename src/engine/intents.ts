@@ -28,6 +28,7 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   if (hazardous(terrain) && range > 1 && actor.kind !== 'fumeeel') return { action: action('enemy-reposition'), phase, reason: `escaping ${terrain}` }
   if (actor.kind === 'foreman' && guardianPhaseFor(actor) !== 'opening' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('foreman-cavein'), phase, reason: `cave-in at range ${range}` }
   if (actor.kind === 'heartwood' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('heartwood-charge'), phase, reason: `bramble charge at range ${range}` }
+  if (actor.kind === 'geode' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('geode-fissure'), phase, reason: `fissure line at range ${range}` }
   if (actor.role === 'guardian' && guardianPhaseFor(actor) === 'cataclysm' && range <= 2) return { action: action('guardian-slam'), phase, reason: 'cataclysm arena pressure' }
   if (range <= 1) return { action: action('enemy-strike'), phase, reason: 'adjacent target' }
   if (actor.kind === 'wardacolyte' && !hasCondition(actor, 'shielded')) return { action: action('enemy-ward'), phase, reason: 'raising a ward' }
