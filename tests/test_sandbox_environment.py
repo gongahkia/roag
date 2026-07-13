@@ -3680,6 +3680,8 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate.yaku_han, 4)
         self.assertEqual(estimate.visible_dora_count, 0)
         self.assertEqual(estimate.han, 4)
+        self.assertEqual(estimate.fu, 50)
+        self.assertEqual(estimate.ron_payment, 8000)
         self.assertEqual(terminal.terminal_rewards, (-1.0, 1.0, 0.0, 0.0))
         self.assertIsNone(terminal.pending_chankan_tile)
         self.assertIsNone(terminal.pending_chankan_seat)

@@ -285,7 +285,7 @@ def _fu_for_grouping(
 ) -> FuCalculation:
     components = [FuComponent("base", 20)]
     closed_hand = all(group.kind == "ankan" for group in meld_groups)
-    if closed_hand and win_kind == WIN_KIND_RON:
+    if closed_hand and _is_ron_like(win_kind):
         components.append(FuComponent("closed ron", 10))
 
     pair_group = next(group for group in grouping if group.kind == "pair")
@@ -381,7 +381,7 @@ def _group_fu(group: _Group, *, winning_tile: TileType, win_kind: str) -> int:
     if group.kind == "pon":
         return 4 if terminal_or_honor else 2
     if group.kind == "triplet":
-        closed = not (win_kind == WIN_KIND_RON and winning_tile.index == tile_index)
+        closed = not (_is_ron_like(win_kind) and winning_tile.index == tile_index)
         if closed:
             return 8 if terminal_or_honor else 4
         return 4 if terminal_or_honor else 2
