@@ -13,6 +13,9 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
+from kenjaku.decision_rationale import (
+    build_decision_counterfactuals as _build_decision_counterfactuals,
+)
 from kenjaku.decision_rationale import extract_heuristic_rationale as _extract_heuristic_rationale
 from kenjaku.decision_rationale import render_decision_rationale as _render_decision_rationale
 from kenjaku.evaluator import DefenseRiskPotential as _DefenseRiskPotential
@@ -37,6 +40,8 @@ from kenjaku.schema import OBSERVATION_V1_TENSOR_KIND as _OBSERVATION_V1_TENSOR_
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
+from kenjaku.schema import DecisionCounterfactualsV1 as _DecisionCounterfactualsV1
+from kenjaku.schema import DecisionCounterfactualV1 as _DecisionCounterfactualV1
 from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
 from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
 from kenjaku.schema import ObservationV1 as _ObservationV1
@@ -68,6 +73,8 @@ ActionV1 = _ActionV1  # stable since 0.2.0
 CheckpointManifestV1 = _CheckpointManifestV1  # stable since 0.2.0
 ConformanceFixtureV1 = _ConformanceFixtureV1  # stable since 0.2.0
 DecisionResultV1 = _DecisionResultV1  # stable since 0.2.0
+DecisionCounterfactualsV1 = _DecisionCounterfactualsV1  # stable since 0.2.0
+DecisionCounterfactualV1 = _DecisionCounterfactualV1  # stable since 0.2.0
 LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
 LegalActionOracleV1 = _LegalActionOracleV1  # stable since 0.2.0
 LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
@@ -95,6 +102,7 @@ HeuristicActionCandidate = _HeuristicActionCandidate  # stable since 0.2.0
 rank_special_action_heuristic = _rank_special_action_heuristic  # stable since 0.2.0
 extract_heuristic_rationale = _extract_heuristic_rationale  # stable since 0.2.0
 render_decision_rationale = _render_decision_rationale  # stable since 0.2.0
+build_decision_counterfactuals = _build_decision_counterfactuals  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -159,6 +167,8 @@ API_EXPORT_DOCS = {
     "CheckpointManifestV1": "Versioned checkpoint identity and compatibility contract.",
     "ConformanceFixtureV1": "Versioned deterministic synthetic rule scenario.",
     "DecisionResultV1": "Versioned selected action with structured rationale.",
+    "DecisionCounterfactualsV1": "Versioned scored alternatives for one selected decision.",
+    "DecisionCounterfactualV1": "One scored alternative action and rationale.",
     "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
     "LegalActionOracleV1": "Versioned legal-action set and mask for one sandbox seat.",
     "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
@@ -186,6 +196,7 @@ API_EXPORT_DOCS = {
     "rank_special_action_heuristic": "Rank legal riichi, kan, Kita, hora, and pass actions.",
     "extract_heuristic_rationale": "Convert heuristic factors into a versioned rationale.",
     "render_decision_rationale": "Render a structured rationale as human-readable text.",
+    "build_decision_counterfactuals": "Build sorted scored alternatives for one decision.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
@@ -255,6 +266,8 @@ __all__ = [
     "CheckpointManifestV1",
     "ConformanceFixtureV1",
     "DecisionResultV1",
+    "DecisionCounterfactualsV1",
+    "DecisionCounterfactualV1",
     "LegalActionMaskV1",
     "LegalActionOracleV1",
     "LocalArtifactRegistry",
@@ -282,6 +295,7 @@ __all__ = [
     "rank_special_action_heuristic",
     "extract_heuristic_rationale",
     "render_decision_rationale",
+    "build_decision_counterfactuals",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",

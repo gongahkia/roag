@@ -20,6 +20,13 @@ from kenjaku.schema.conformance_fixture_v1 import (
     CONFORMANCE_FIXTURE_V1_KIND,
     ConformanceFixtureV1,
 )
+from kenjaku.schema.decision_counterfactuals_v1 import (
+    DECISION_COUNTERFACTUAL_V1_FIELDS,
+    DECISION_COUNTERFACTUALS_V1_FIELDS,
+    DECISION_COUNTERFACTUALS_V1_KIND,
+    DecisionCounterfactualsV1,
+    DecisionCounterfactualV1,
+)
 from kenjaku.schema.decision_result_v1 import (
     DECISION_FACTOR_V1_FIELDS,
     DECISION_RATIONALE_V1_FIELDS,
@@ -125,6 +132,11 @@ __all__ = [
     "DecisionFactorV1",
     "DecisionRationaleV1",
     "DecisionResultV1",
+    "DECISION_COUNTERFACTUALS_V1_FIELDS",
+    "DECISION_COUNTERFACTUALS_V1_KIND",
+    "DECISION_COUNTERFACTUAL_V1_FIELDS",
+    "DecisionCounterfactualsV1",
+    "DecisionCounterfactualV1",
     "LEGAL_ACTION_MASK_V1_DIM",
     "LEGAL_ACTION_MASK_V1_FIELDS",
     "LEGAL_ACTION_MASK_V1_KIND",

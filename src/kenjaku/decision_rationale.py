@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import math
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
 
 from kenjaku.heuristics import (
     HeuristicActionCandidate,
@@ -10,7 +12,14 @@ from kenjaku.heuristics import (
     HeuristicDiscardCandidate,
     HeuristicFactor,
 )
-from kenjaku.schema import DecisionFactorV1, DecisionRationaleV1
+from kenjaku.schema import (
+    ActionV1,
+    DecisionCounterfactualsV1,
+    DecisionCounterfactualV1,
+    DecisionFactorV1,
+    DecisionRationaleV1,
+    DecisionResultV1,
+)
 
 HeuristicRationaleCandidate = (
     HeuristicDiscardCandidate | HeuristicCallCandidate | HeuristicActionCandidate
@@ -54,6 +63,57 @@ def render_decision_rationale(rationale: DecisionRationaleV1) -> str:
     return " ".join(_render_factor(factor) for factor in rationale.factors)
 
 
+def build_decision_counterfactuals(
+    decision: DecisionResultV1,
+    *,
+    selected_score: float,
+    alternatives: Iterable[tuple[ActionV1, float, DecisionRationaleV1]],
+    limit: int = 3,
+) -> DecisionCounterfactualsV1:
+    """Build a deterministically sorted top-alternative payload for one selected decision."""
+    if not isinstance(decision, DecisionResultV1):
+        raise ValueError("decision must be a DecisionResultV1")
+    _validate_finite_number(selected_score, "selected_score")
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+        raise ValueError("limit must be a non-negative integer")
+    candidates: list[tuple[ActionV1, float, DecisionRationaleV1]] = []
+    actions: set[ActionV1] = set()
+    for candidate in alternatives:
+        if isinstance(candidate, (str, bytes)) or not isinstance(candidate, Sequence):
+            raise ValueError("alternatives entries must contain action, score, and rationale")
+        if len(candidate) != 3:
+            raise ValueError("alternatives entries must contain action, score, and rationale")
+        action, score, rationale = candidate
+        if not isinstance(action, ActionV1):
+            raise ValueError("alternative action must be an ActionV1")
+        if action.ruleset != decision.ruleset:
+            raise ValueError("alternative action ruleset must match decision ruleset")
+        if action == decision.selected_action:
+            raise ValueError("alternatives cannot repeat the selected action")
+        if action in actions:
+            raise ValueError("alternative actions must be unique")
+        _validate_finite_number(score, "alternative score")
+        if not isinstance(rationale, DecisionRationaleV1):
+            raise ValueError("alternative rationale must be a DecisionRationaleV1")
+        actions.add(action)
+        candidates.append((action, float(score), rationale))
+    candidates.sort(key=lambda candidate: (-candidate[1], _action_sort_key(candidate[0])))
+    counterfactuals = tuple(
+        DecisionCounterfactualV1(
+            action=action,
+            score=score,
+            score_delta=score - selected_score,
+            rationale=rationale,
+        )
+        for action, score, rationale in candidates[:limit]
+    )
+    return DecisionCounterfactualsV1(
+        decision=decision,
+        selected_score=selected_score,
+        top_alternatives=counterfactuals,
+    )
+
+
 def _decision_factor(factor: HeuristicFactor, evidence: Sequence[str]) -> DecisionFactorV1:
     if not isinstance(factor, HeuristicFactor):
         raise ValueError("heuristic candidate factors must be HeuristicFactor values")
@@ -84,3 +144,19 @@ def _render_factor(factor: DecisionFactorV1) -> str:
 
 def _number_text(value: float) -> str:
     return format(value, ".6g")
+
+
+def _action_sort_key(action: ActionV1) -> tuple[Any, ...]:
+    return (
+        action.action,
+        "" if action.tile is None else action.tile,
+        action.tsumogiri,
+        action.consumed,
+    )
+
+
+def _validate_finite_number(value: Any, field: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a number")
+    if not math.isfinite(value):
+        raise ValueError(f"{field} must be finite")
