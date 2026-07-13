@@ -12,9 +12,14 @@ export interface ItemDefinition {
   use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'spell'
   spell?: string
   throwable?: boolean
+  tags?: string[]
 }
 
-export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome }
+export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[] }
+export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
+export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
+
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', damage: 4, value: 45 },
@@ -78,18 +83,73 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'regent', name: 'The Ash Regent', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
 ]
 
-export const SKILLS: Array<{ id: string; name: string; stat: StatName; level: number; text: string }> = [
-  ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: `Strength +1${i > 1 ? ', melee damage +1' : ''}` })),
-  ...(['Quick Step', 'Sure Aim', 'Skirmisher', 'Evasion', 'Fleet', 'Ghostwalk'] as const).map((name, i) => ({ id: `agi${i + 1}`, name, stat: 'agility' as StatName, level: i + 1, text: `Agility +1${i > 1 ? ', dodge +1' : ''}` })),
-  ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i + 1}`, name, stat: 'vitality' as StatName, level: i + 1, text: `Vitality +1, maximum health +2` })),
-  ...(['Spark', 'Insight', 'Conjure', 'Divine', 'Sorcery', 'Archmage'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: `Intellect +1, maximum focus +2` }))
+export const SKILLS: SkillDefinition[] = [
+  ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: `Strength +1${i > 1 ? ', melee damage +1' : ''}`, tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
+  ...(['Quick Step', 'Sure Aim', 'Skirmisher', 'Evasion', 'Fleet', 'Ghostwalk'] as const).map((name, i) => ({ id: `agi${i + 1}`, name, stat: 'agility' as StatName, level: i + 1, text: `Agility +1${i > 1 ? ', dodge +1' : ''}`, tags: ['agility'], prerequisites: i ? [`agi${i}`] : [] })),
+  ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i +1}`, name, stat: 'vitality' as StatName, level: i + 1, text: `Vitality +1, maximum health +2`, tags: ['vitality'], prerequisites: i ? [`vit${i}`] : [] })),
+  ...(['Spark', 'Insight', 'Conjure', 'Divine', 'Sorcery', 'Archmage'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: `Intellect +1, maximum focus +2`, tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
 ]
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
 export const biomeName: Record<Biome, string> = { mine: 'Shale Mine', wilds: 'Verdant Wilds', caverns: 'Glass Caverns', ruins: 'Ashen Ruins' }
-export const shopStock = (biome: Biome): ItemId[] => ({
+export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'boots', 'fireJar', 'mapScroll'],
   caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'blinkRune'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'key']
-})[biome]
+}
+
+const idPattern = /^[a-z][a-zA-Z0-9]*$/
+const validateIds = (label: string, definitions: ReadonlyArray<{ id: string }>): void => {
+  const ids = new Set<string>()
+  for (const definition of definitions) {
+    if (!idPattern.test(definition.id)) throw new Error(`invalid ${label} id: ${definition.id}`)
+    if (ids.has(definition.id)) throw new Error(`duplicate ${label} id: ${definition.id}`)
+    ids.add(definition.id)
+  }
+}
+
+const validateTags = (label: string, id: string, tags: readonly string[] | undefined, knownTags: ReadonlySet<string>): void => {
+  for (const tag of tags ?? []) if (!knownTags.has(tag)) throw new Error(`invalid ${label} tag on ${id}: ${tag}`)
+}
+
+const validatePrerequisites = (skills: readonly SkillDefinition[]): void => {
+  const skillIds = new Set(skills.map(skill => skill.id))
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+  const visit = (skill: SkillDefinition): void => {
+    if (visited.has(skill.id)) return
+    if (visiting.has(skill.id)) throw new Error(`cyclic skill prerequisite: ${skill.id}`)
+    visiting.add(skill.id)
+    for (const prerequisite of skill.prerequisites) {
+      if (!skillIds.has(prerequisite)) throw new Error(`unknown skill prerequisite on ${skill.id}: ${prerequisite}`)
+      if (prerequisite === skill.id) throw new Error(`self-referencing skill prerequisite: ${skill.id}`)
+      visit(skills.find(candidate => candidate.id === prerequisite)!)
+    }
+    visiting.delete(skill.id)
+    visited.add(skill.id)
+  }
+  for (const skill of skills) visit(skill)
+}
+
+export const validateContent = (registry: ContentRegistry): void => {
+  validateIds('item', registry.items)
+  validateIds('monster', registry.monsters)
+  validateIds('skill', registry.skills)
+  const tags = new Set(registry.tags)
+  for (const item of registry.items) {
+    validateTags('item', item.id, item.tags, tags)
+    if (item.use === 'spell' && !item.spell) throw new Error(`spell item missing spell id: ${item.id}`)
+    if (item.use !== 'spell' && item.spell) throw new Error(`non-spell item has spell id: ${item.id}`)
+  }
+  for (const monster of registry.monsters) validateTags('monster', monster.id, monster.tags, tags)
+  for (const skill of registry.skills) validateTags('skill', skill.id, skill.tags, tags)
+  const itemIds = new Set(registry.items.map(item => item.id))
+  for (const [biome, stock] of Object.entries(registry.shopStock)) for (const id of stock) if (!itemIds.has(id)) throw new Error(`unknown shop item in ${biome}: ${id}`)
+  validatePrerequisites(registry.skills)
+}
+
+export const CONTENT: ContentRegistry = { items: ITEMS, monsters: MONSTERS, skills: SKILLS, tags: CONTENT_TAGS, shopStock: SHOP_STOCK }
+validateContent(CONTENT)
+
+export const shopStock = (biome: Biome): ItemId[] => SHOP_STOCK[biome]
