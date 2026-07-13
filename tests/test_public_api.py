@@ -54,6 +54,8 @@ EXPECTED_EXPORTS = [
     "rank_discard_heuristic",
     "HeuristicCallCandidate",
     "rank_call_pass_heuristic",
+    "HeuristicActionCandidate",
+    "rank_special_action_heuristic",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",

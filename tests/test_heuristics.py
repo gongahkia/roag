@@ -3,7 +3,16 @@ from __future__ import annotations
 import unittest
 
 from kenjaku.core import Action, ActionKind, Tile, TileType
-from kenjaku.heuristics import rank_call_pass_heuristic, rank_discard_heuristic
+from kenjaku.heuristics import (
+    rank_call_pass_heuristic,
+    rank_discard_heuristic,
+    rank_special_action_heuristic,
+)
+from kenjaku.simulation import (
+    SandboxEnvironmentState,
+    apply_discard_action,
+    draw_for_current_seat,
+)
 from kenjaku.training import CallExample
 
 
@@ -87,6 +96,104 @@ class DiscardHeuristicTests(unittest.TestCase):
         self.assertEqual(
             tuple(candidate.kind for candidate in candidates if candidate.kind == ActionKind.CHI),
             (),
+        )
+
+    def test_ranks_riichi_and_kan_actions_from_legal_sandbox_actions(self) -> None:
+        riichi_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1m"), Tile.parse("9s")),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+        ankan_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("1p"),),
+            hands=(
+                _tiles("1p 1p 1p 2p 3p 4p 5p 6p 7p 1s 2s 3s E"),
+                (),
+                (),
+                (),
+            ),
+        )
+        tsumo_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                (),
+                (),
+                (),
+            ),
+        )
+
+        riichi_candidates = rank_special_action_heuristic(draw_for_current_seat(riichi_state))
+        ankan_candidates = rank_special_action_heuristic(draw_for_current_seat(ankan_state))
+        tsumo_candidates = rank_special_action_heuristic(draw_for_current_seat(tsumo_state))
+
+        self.assertEqual(riichi_candidates[0].action.kind, ActionKind.RIICHI)
+        self.assertIn(ActionKind.ANKAN, {candidate.action.kind for candidate in ankan_candidates})
+        self.assertEqual(tsumo_candidates[0].action.kind, ActionKind.TSUMO)
+        self.assertEqual(tuple(factor.name for factor in riichi_candidates[0].factors), (
+            "terminal_hora",
+            "riichi_declaration",
+            "riichi_deposit_kpoints",
+            "replacement_draw",
+            "pass_action",
+        ))
+
+    def test_ranks_hora_above_pass_and_limits_kita_to_sanma(self) -> None:
+        ron_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(Tile.parse("5m"),),
+            hands=(
+                _tiles("1m 1m 1m 2m 3m 4m 5p 6p 7p 8s 9s E S"),
+                _tiles("1m 2m 3m 1p 2p 3p 2s 3s 4s E E E 5m"),
+                (),
+                (),
+            ),
+        )
+        drawn = draw_for_current_seat(ron_state)
+        reaction_state, _discard = apply_discard_action(drawn, Action.discard("5m"))
+        north = Tile.parse("N")
+        sanma_kita_state = SandboxEnvironmentState(
+            ruleset="tenhou-3p",
+            players=3,
+            wall=(),
+            hands=((north,), (), ()),
+            drawn_tile=north,
+        )
+        four_player_north_state = SandboxEnvironmentState(
+            ruleset="tenhou-4p",
+            players=4,
+            wall=(),
+            hands=((north,), (), (), ()),
+            drawn_tile=north,
+        )
+
+        ron_candidates = rank_special_action_heuristic(reaction_state, seat=1)
+        sanma_kita_candidates = rank_special_action_heuristic(sanma_kita_state)
+        four_player_north_candidates = rank_special_action_heuristic(four_player_north_state)
+
+        self.assertEqual(
+            tuple(candidate.action.kind for candidate in ron_candidates),
+            (ActionKind.RON, ActionKind.PASS),
+        )
+        self.assertGreater(ron_candidates[0].score, ron_candidates[1].score)
+        self.assertEqual(
+            tuple(candidate.action.kind for candidate in sanma_kita_candidates),
+            (ActionKind.KITA,),
+        )
+        self.assertNotIn(
+            ActionKind.KITA,
+            {candidate.action.kind for candidate in four_player_north_candidates},
         )
 
 

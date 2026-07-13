@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from kenjaku.core import TENHOU_4P, ActionKind, Tile, TileType, tile_counts
+from kenjaku.core import TENHOU_4P, Action, ActionKind, Tile, TileType, tile_counts
 from kenjaku.evaluator import evaluate_hand_value_potential, evaluate_shanten_ukeire
 from kenjaku.models.linear_call import (
     CALL_DECISION_KINDS,
@@ -11,6 +11,7 @@ from kenjaku.models.linear_call import (
     _safe_shanten,
     _ukeire_proxy,
 )
+from kenjaku.simulation.environment import SandboxEnvironmentState, legal_sandbox_actions
 from kenjaku.training import CallExample
 
 
@@ -31,6 +32,13 @@ class HeuristicDiscardCandidate:
 @dataclass(frozen=True, slots=True)
 class HeuristicCallCandidate:
     kind: ActionKind
+    score: float
+    factors: tuple[HeuristicFactor, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class HeuristicActionCandidate:
+    action: Action
     score: float
     factors: tuple[HeuristicFactor, ...]
 
@@ -134,6 +142,40 @@ def rank_call_pass_heuristic(example: CallExample) -> tuple[HeuristicCallCandida
     )
 
 
+def rank_special_action_heuristic(
+    state: SandboxEnvironmentState,
+    *,
+    seat: int | None = None,
+) -> tuple[HeuristicActionCandidate, ...]:
+    """Rank legal riichi, kan, Kita, hora, and pass actions by fixed priority.
+
+    The result is a deterministic priority heuristic, not a win-probability or
+    expected-value estimate.
+    """
+    candidates: list[HeuristicActionCandidate] = []
+    for action in legal_sandbox_actions(state, seat=seat):
+        if action.kind not in _SPECIAL_ACTION_KINDS:
+            continue
+        factors = _special_action_factors(state, action)
+        candidates.append(
+            HeuristicActionCandidate(
+                action=action,
+                score=sum(factor.contribution for factor in factors),
+                factors=factors,
+            )
+        )
+    return tuple(
+        sorted(
+            candidates,
+            key=lambda candidate: (
+                -candidate.score,
+                _SPECIAL_ACTION_KIND_ORDER.index(candidate.action.kind),
+                -1 if candidate.action.tile is None else candidate.action.tile.index,
+            ),
+        )
+    )
+
+
 def _remove_one_tile(tiles: tuple[Tile, ...], tile_type: TileType) -> tuple[Tile, ...]:
     for index, tile in enumerate(tiles):
         if tile.type == tile_type and not tile.red:
@@ -158,3 +200,46 @@ def _call_candidate_kinds(example: CallExample) -> tuple[ActionKind, ...]:
 
 def _call_shanten_factor(candidate: HeuristicCallCandidate) -> float:
     return candidate.factors[0].value
+
+
+_SPECIAL_ACTION_KINDS = frozenset(
+    {
+        ActionKind.RIICHI,
+        ActionKind.ANKAN,
+        ActionKind.KAKAN,
+        ActionKind.KITA,
+        ActionKind.RON,
+        ActionKind.TSUMO,
+        ActionKind.PASS,
+    }
+)
+_SPECIAL_ACTION_KIND_ORDER = (
+    ActionKind.TSUMO,
+    ActionKind.RON,
+    ActionKind.RIICHI,
+    ActionKind.ANKAN,
+    ActionKind.KAKAN,
+    ActionKind.KITA,
+    ActionKind.PASS,
+)
+
+
+def _special_action_factors(
+    state: SandboxEnvironmentState,
+    action: Action,
+) -> tuple[HeuristicFactor, ...]:
+    is_hora = action.kind in {ActionKind.RON, ActionKind.TSUMO}
+    is_riichi = action.kind is ActionKind.RIICHI
+    is_replacement_draw = action.kind in {ActionKind.ANKAN, ActionKind.KAKAN, ActionKind.KITA}
+    riichi_cost = state.rule_config.riichi_deposit_points if is_riichi else 0
+    return (
+        HeuristicFactor("terminal_hora", float(is_hora), 100.0 if is_hora else 0.0),
+        HeuristicFactor("riichi_declaration", float(is_riichi), 2.0 if is_riichi else 0.0),
+        HeuristicFactor("riichi_deposit_kpoints", riichi_cost / 1000.0, -riichi_cost / 1000.0),
+        HeuristicFactor(
+            "replacement_draw",
+            float(is_replacement_draw),
+            0.25 if is_replacement_draw else 0.0,
+        ),
+        HeuristicFactor("pass_action", float(action.kind is ActionKind.PASS), 0.0),
+    )
