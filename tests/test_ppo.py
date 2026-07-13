@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-import torch
 
 from kenjaku.training.ppo import (
     PPO_ACTION_DIM,
@@ -21,7 +20,13 @@ from kenjaku.training.ppo import (
     ppo_state_features,
 )
 
+TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 
+if TORCH_AVAILABLE:
+    import torch
+
+
+@unittest.skipUnless(TORCH_AVAILABLE, "PyTorch is not available")
 class PpoTests(unittest.TestCase):
     def test_ppo_state_features_encodes_drawn_tile_and_padding(self) -> None:
         features = ppo_state_features(_entry(drawn_tile="5m", points=[25000, 24000]))

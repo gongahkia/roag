@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +12,7 @@ from kenjaku.training.population import (
 )
 
 
+@unittest.skipUnless(importlib.util.find_spec("torch") is not None, "PyTorch is not available")
 class PopulationSandboxTests(unittest.TestCase):
     def test_population_trainer_maintains_pool_and_reports_matchups(self) -> None:
         with TemporaryDirectory() as directory:

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
+import unittest
+
 from tests.commands.conftest import (
     CliCommandTests,
     Path,
@@ -11,6 +14,7 @@ from tests.commands.conftest import (
 )
 
 
+@unittest.skipUnless(importlib.util.find_spec("torch") is not None, "PyTorch is not available")
 class TrainingCommandTests(CliCommandTests):
     def test_train_ppo_sandbox_command_writes_report_checkpoint_and_json(self) -> None:
         with TemporaryDirectory() as directory:

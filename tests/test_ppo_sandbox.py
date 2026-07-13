@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-from torch import nn
 
 from kenjaku.training.ppo import (
     PPO_ACTION_DIM,
@@ -28,7 +27,13 @@ from kenjaku.training.ppo import (
     train_ppo_sandbox,
 )
 
+TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 
+if TORCH_AVAILABLE:
+    from torch import nn
+
+
+@unittest.skipUnless(TORCH_AVAILABLE, "PyTorch is not available")
 class PpoSandboxTests(unittest.TestCase):
     def test_rollout_tensor_contract_encodes_state_masks_and_actions(self) -> None:
         rollout = collect_ppo_sandbox_rollout(
