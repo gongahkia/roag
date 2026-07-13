@@ -730,7 +730,7 @@ def legal_ankan_actions(state: SandboxEnvironmentState) -> tuple[Action, ...]:
     counts = _hand_type_counts(hand)
     actions: list[Action] = []
     for tile_type in rules.tile_types:
-        if counts[tile_type.index] >= 4:
+        if counts[tile_type.index] == 4:
             if _is_riichi(
                 state,
                 seat=state.current_seat,
