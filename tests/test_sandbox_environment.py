@@ -4408,6 +4408,11 @@ class SandboxEnvironmentTests(unittest.TestCase):
         self.assertEqual(estimate.bonus_han, 2)
         self.assertEqual(estimate.kita_dora_count, 1)
         self.assertEqual(estimate.han, 5)
+        self.assertEqual(estimate.fu, 40)
+        self.assertEqual(estimate.tsumo_child_payment, 4000)
+        self.assertIsNone(estimate.tsumo_dealer_payment)
+        self.assertEqual(terminal.terminal_point_deltas, (8000, -4000, -4000))
+        self.assertEqual(terminal.points, (43000, 31000, 31000))
         self.assertEqual(
             terminal.to_payload()["terminal_score_estimates"][0]["yaku_han"],
             3,
