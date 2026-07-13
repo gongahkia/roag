@@ -1,8 +1,17 @@
 import { MONSTERS, SKILLS } from '../content'
-import type { RunState, StatName } from '../types'
+import type { RunState } from '../types'
+import { rngFor } from '../rng'
 import { log } from './shared'
 
-export const skillChoices = (state: RunState) => (['strength', 'agility', 'vitality', 'intellect'] as StatName[]).map(stat => SKILLS.find(skill => skill.stat === stat && !state.hero.skills.includes(skill.id))).filter((skill): skill is typeof SKILLS[number] => Boolean(skill))
+export const skillChoices = (state: RunState) => {
+  const owned = new Set(state.hero.skills)
+  const eligible = SKILLS.filter(skill => !owned.has(skill.id) && skill.prerequisites.every(prerequisite => owned.has(prerequisite))).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  const rng = rngFor(state.seed, 'progression', 'offers', state.hero.level, [...owned].sort().join(','))
+  const continuations = rng.shuffle(eligible.filter(skill => skill.prerequisites.length > 0))
+  const offers = continuations.length ? [continuations[0]] : []
+  for (const skill of rng.shuffle([...eligible])) if (offers.length < 3 && !offers.includes(skill)) offers.push(skill)
+  return offers
+}
 
 export function chooseSkill(state: RunState, command: string): boolean {
   const choice = skillChoices(state)[Number(command) - 1]
