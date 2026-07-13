@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from kenjaku.schema.observation_v1 import (
+    OBSERVATION_V1_FIELDS,
+    OBSERVATION_V1_KIND,
+    MeldV1,
+    ObservationV1,
+)
 from kenjaku.schema.responses import (
     AnalyzeHandResponse,
     BenchmarkDealInResponse,
@@ -46,6 +52,10 @@ from kenjaku.schema.responses import (
 )
 
 __all__ = [
+    "OBSERVATION_V1_FIELDS",
+    "OBSERVATION_V1_KIND",
+    "MeldV1",
+    "ObservationV1",
     "AnalyzeHandResponse",
     "BenchmarkDealInResponse",
     "BenchmarkDiscardResponse",

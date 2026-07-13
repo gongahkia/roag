@@ -31,6 +31,7 @@ EXPECTED_EXPORTS = [
     "DiscardFrequencyBaseline",
     "RiichiFrequencyBaseline",
     "CallFrequencyBaseline",
+    "ObservationV1",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",

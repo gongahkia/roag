@@ -12,6 +12,7 @@ import kenjaku.models as _models
 import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
+from kenjaku.schema import ObservationV1 as _ObservationV1
 
 TenhouGame = _io.TenhouGame  # stable since 0.2.0
 TenhouParseFailure = _io.TenhouParseFailure  # stable since 0.2.0
@@ -33,6 +34,7 @@ DealInLinearModel = _models.DealInLinearModel  # stable since 0.2.0
 DiscardFrequencyBaseline = _models.DiscardFrequencyBaseline  # stable since 0.2.0
 RiichiFrequencyBaseline = _models.RiichiFrequencyBaseline  # stable since 0.2.0
 CallFrequencyBaseline = _models.CallFrequencyBaseline  # stable since 0.2.0
+ObservationV1 = _ObservationV1  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -93,6 +95,7 @@ API_EXPORT_DOCS = {
     "DiscardFrequencyBaseline": "Frequency baseline for discard decisions.",
     "RiichiFrequencyBaseline": "Frequency baseline for riichi/pass decisions.",
     "CallFrequencyBaseline": "Frequency baseline for call/pass decisions.",
+    "ObservationV1": "Versioned actor-private/public-table policy observation.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
@@ -158,6 +161,7 @@ __all__ = [
     "DiscardFrequencyBaseline",
     "RiichiFrequencyBaseline",
     "CallFrequencyBaseline",
+    "ObservationV1",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",
