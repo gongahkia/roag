@@ -66,7 +66,8 @@ function App() {
   }, [policy]);
 
   async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
     try {
       const result = await readLocalMjsonFile(file);
@@ -78,12 +79,13 @@ function App() {
     } catch (error) {
       setFileStatus(error instanceof Error ? error.message : "local file could not be read");
     } finally {
-      event.currentTarget.value = "";
+      input.value = "";
     }
   }
 
   async function onModelChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
     const sequence = modelLoadSequence.current + 1;
     modelLoadSequence.current = sequence;
@@ -103,7 +105,7 @@ function App() {
         setModelStatus(error instanceof Error ? error.message : "local ONNX model could not be loaded");
       }
     } finally {
-      event.currentTarget.value = "";
+      input.value = "";
     }
   }
 

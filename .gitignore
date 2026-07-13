@@ -26,3 +26,5 @@ env/
 /wandb/
 
 .playwright-cli/
+web/playwright-report/
+web/test-results/
