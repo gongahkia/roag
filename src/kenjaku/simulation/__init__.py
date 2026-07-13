@@ -106,6 +106,12 @@ from kenjaku.simulation.synthetic_splits import (
     build_synthetic_match_split_manifest,
     write_synthetic_match_split_manifest,
 )
+from kenjaku.simulation.unified_policy import (
+    SandboxPolicyInputs,
+    UnifiedPolicySandboxAdapter,
+    sandbox_policy_inputs,
+    select_sandbox_action_from_logits,
+)
 
 __all__ = [
     "apply_ankan_action",
@@ -194,4 +200,8 @@ __all__ = [
     "load_sandbox_rule_config",
     "tenhou_3p_default",
     "tenhou_4p_default",
+    "SandboxPolicyInputs",
+    "UnifiedPolicySandboxAdapter",
+    "sandbox_policy_inputs",
+    "select_sandbox_action_from_logits",
 ]
