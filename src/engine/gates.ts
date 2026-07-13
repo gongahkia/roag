@@ -1,6 +1,7 @@
 import { DIRECTIONS, type Biome, type ItemId, type LineageEvent, type Point, type RescuedNpc, type RunState } from '../types'
 import { getTile } from '../world'
 import { hasAstralGateAccess } from './intellect'
+import { spendGold } from './economy'
 
 export interface GateCost { gold: number; items: ItemId[] }
 export interface GateAlternative { label: string; kind: 'npc' | 'tag' | 'bomb'; tags: string[]; cost?: GateCost }
@@ -8,9 +9,9 @@ export interface GateDestination { biome: Biome; floor: number; point: Point }
 export interface AreaGate { id: string; biome: Biome; npcOffering: string; tagAlternatives: GateAlternative[]; cost: GateCost; unlockedDestination: GateDestination }
 
 export const AREA_GATES: Record<Biome, AreaGate> = {
-  mine: { id: 'mine-wilds-pass', biome: 'mine', npcOffering: 'A rescued companion can be sacrificed to open the Verdant Wilds route.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'] }, { label: 'burn the thicket', kind: 'tag', tags: ['fire'] }, { label: 'blast a breach', kind: 'bomb', tags: ['bomb'] }], cost: { gold: 0, items: [] }, unlockedDestination: { biome: 'wilds', floor: 0, point: { x: 2, y: 2 } } },
-  wilds: { id: 'wilds-caverns-pass', biome: 'wilds', npcOffering: 'A rescued companion can be sacrificed to open a Glass Caverns crossing.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'] }, { label: 'light and rope', kind: 'tag', tags: ['light', 'rope'] }, { label: 'mobility route', kind: 'tag', tags: ['mobility'] }], cost: { gold: 0, items: [] }, unlockedDestination: { biome: 'caverns', floor: 0, point: { x: 2, y: 2 } } },
-  caverns: { id: 'caverns-ruins-pass', biome: 'caverns', npcOffering: 'A rescued companion can be sacrificed to open an Ashen Ruins lift.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'] }, { label: 'ward and astral route', kind: 'tag', tags: ['ward', 'astral'] }, { label: 'sun-seal relic', kind: 'tag', tags: ['relic'], cost: { gold: 0, items: ['sunseal'] } }], cost: { gold: 0, items: [] }, unlockedDestination: { biome: 'ruins', floor: 0, point: { x: 2, y: 2 } } },
+  mine: { id: 'mine-wilds-pass', biome: 'mine', npcOffering: 'A rescued companion can be sacrificed to open the Verdant Wilds route.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'burn the thicket', kind: 'tag', tags: ['fire'], cost: { gold: 20, items: [] } }, { label: 'blast a breach', kind: 'bomb', tags: ['bomb'], cost: { gold: 8, items: [] } }], cost: { gold: 20, items: [] }, unlockedDestination: { biome: 'wilds', floor: 0, point: { x: 2, y: 2 } } },
+  wilds: { id: 'wilds-caverns-pass', biome: 'wilds', npcOffering: 'A rescued companion can be sacrificed to open a Glass Caverns crossing.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'light and rope', kind: 'tag', tags: ['light', 'rope'], cost: { gold: 25, items: [] } }, { label: 'mobility route', kind: 'tag', tags: ['mobility'], cost: { gold: 15, items: [] } }], cost: { gold: 25, items: [] }, unlockedDestination: { biome: 'caverns', floor: 0, point: { x: 2, y: 2 } } },
+  caverns: { id: 'caverns-ruins-pass', biome: 'caverns', npcOffering: 'A rescued companion can be sacrificed to open an Ashen Ruins lift.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ward and astral route', kind: 'tag', tags: ['ward', 'astral'], cost: { gold: 40, items: [] } }, { label: 'sun-seal relic', kind: 'tag', tags: ['relic'], cost: { gold: 0, items: ['sunseal'] } }], cost: { gold: 40, items: [] }, unlockedDestination: { biome: 'ruins', floor: 0, point: { x: 2, y: 2 } } },
   ruins: { id: 'ruins-seal', biome: 'ruins', npcOffering: 'The archivist offers a sun-seal passage.', tagAlternatives: [{ label: 'ward', kind: 'tag', tags: ['ward'] }, { label: 'script', kind: 'tag', tags: ['script', 'arcane'] }], cost: { gold: 75, items: [] }, unlockedDestination: { biome: 'ruins', floor: 3, point: { x: 45, y: 32 } } }
 }
 
@@ -60,7 +61,7 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   if (alternative.kind === 'npc' && !hasNpcOffering(state)) return { resolved: false, message: 'A rescued NPC is required.' }
   if (alternative.kind === 'tag' && !alternative.tags.every(tag => hasGateTag(state, tag))) return { resolved: false, message: `Required tags missing: ${alternative.tags.join(' + ')}.` }
   if (alternative.kind === 'bomb' && state.hero.bombs < 1) return { resolved: false, message: 'A bomb is required.' }
-  state.hero.gold -= cost.gold
+  spendGold(state, cost.gold)
   for (const item of cost.items) state.hero.inventory.splice(state.hero.inventory.indexOf(item), 1)
   if (alternative.kind === 'bomb') state.hero.bombs--
   const sacrificedNpc = alternative.kind === 'npc' ? state.rescuedNpcs!.shift()! : undefined

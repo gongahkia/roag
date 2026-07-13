@@ -32,7 +32,7 @@ describe('Intellect disciplines', () => {
     expect(ward.hero.maxHealth).toBe(26)
     expect(ward.hero.conditions).toContainEqual({ kind: 'shielded', duration: 2, potency: 3 })
 
-    const gate = createRun({ area: 'caverns', hero: createHero({ skills: ['int6'], inventory: ['ward'] }) })
+    const gate = createRun({ area: 'caverns', hero: createHero({ gold: 40, skills: ['int6'], inventory: ['ward'] }) })
     expect(resolveAreaGate(gate, gateForArea('caverns'), 1)).toMatchObject({ resolved: true, destination: 'ruins' })
   })
 })

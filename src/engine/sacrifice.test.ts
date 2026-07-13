@@ -13,6 +13,7 @@ describe('NPC sacrifice gates', () => {
 
     const fallback = createRun({ area: 'mine' })
     fallback.hero.inventory = ['ember']
+    fallback.hero.gold = 20
     expect(resolveAreaGate(fallback, gate, 0)).toMatchObject({ resolved: false })
     expect(resolveAreaGate(fallback, gate, 1)).toMatchObject({ resolved: true, destination: 'wilds' })
   })

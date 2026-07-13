@@ -9,9 +9,11 @@ describe('Wilds gate solutions', () => {
     expect(resolveAreaGate(npc, gate, 0)).toMatchObject({ resolved: true, destination: 'wilds' })
     const fire = createRun()
     fire.hero.inventory = ['ember']
+    fire.hero.gold = 20
     expect(resolveAreaGate(fire, gate, 1)).toMatchObject({ resolved: true, destination: 'wilds' })
     const bomb = createRun()
     bomb.hero.bombs = 1
+    bomb.hero.gold = 8
     expect(resolveAreaGate(bomb, gate, 2)).toMatchObject({ resolved: true, destination: 'wilds' })
     expect(bomb.hero.bombs).toBe(0)
   })

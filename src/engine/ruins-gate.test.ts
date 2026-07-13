@@ -10,6 +10,7 @@ describe('Ruins gate solutions', () => {
     const wardAstral = createRun({ area: 'caverns' })
     wardAstral.hero.inventory = ['ward']
     wardAstral.hero.skills = ['astral1']
+    wardAstral.hero.gold = 40
     expect(resolveAreaGate(wardAstral, gate, 1)).toMatchObject({ resolved: true, destination: 'ruins' })
     const relic = createRun({ area: 'caverns' })
     relic.hero.inventory = ['sunseal']

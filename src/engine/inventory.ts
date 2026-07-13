@@ -18,11 +18,12 @@ import { castVerdant, isVerdantSpell } from './verdant'
 import { castAstral, isAstralSpell } from './astral'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { contextualReward, merchantStock } from './rewards'
+import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
-  if (item.id === 'gold') { state.hero.gold += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${item.count} gold.`); return advance(state, [event('pickup')]) }
+  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} gold.`); return advance(state, [event('pickup')]) }
   if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take an iron key.'); return advance(state, [event('pickup')]) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }
   state.hero.inventory.push(item.id)
@@ -45,7 +46,7 @@ export function operate(state: RunState): ActionResult {
   if (container) {
     container.tile.kind = 'floor'
     const loot = contextualReward(state, 'container')
-    state.hero.gold += container.kind === 'chest' ? 60 : 18
+    grantGold(state, container.kind === 'chest' ? 60 : 18)
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
     log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
@@ -56,7 +57,7 @@ export function operate(state: RunState): ActionResult {
     const npc = recordRescue(state, friend)
     state.hero.maxHealth += 2
     state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8 + vitalityRescueRecovery(state.hero))
-    state.hero.gold += 35
+    grantGold(state, 35)
     state.floor.actors = state.floor.actors.filter(actor => actor !== friend)
     const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
     if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
@@ -66,7 +67,7 @@ export function operate(state: RunState): ActionResult {
   }
   if (tile?.kind === 'altar') {
     if (state.hero.gold < 75) { log(state, 'The altar asks for 75 gold.'); return [] }
-    state.hero.gold -= 75
+    spendGold(state, 75)
     const reward = contextualReward(state, 'altar')
     if (state.hero.inventory.length < 12) state.hero.inventory.push(reward)
     else state.floor.items.push({ id: reward, x: state.hero.x, y: state.hero.y, count: 1 })
@@ -193,8 +194,10 @@ export function shopChoice(state: RunState, command: string): ActionResult {
   if (!id) return []
   const item = ITEM[id]
   if (state.hero.gold < item.value) { log(state, 'Not enough gold.'); return [event('menu')] }
+  const blocker = purchaseBlocker(state.hero, id)
+  if (blocker) { log(state, blocker); return [event('menu')] }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [event('menu')] }
-  state.hero.gold -= item.value
+  spendGold(state, item.value)
   state.hero.inventory.push(id)
   log(state, `You buy ${item.name}.`)
   return advance(state, [event('pickup')])
@@ -211,8 +214,8 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
     if (choices.length) { const target = turnRng(state, 'combat', 'blink').pick(choices); state.hero.x = target.x; state.hero.y = target.y }
     consume(state, inventoryIndex); refreshFov(state); log(state, 'Space folds.'); return advance(state, [event('spell')])
   }
-  if (item.use === 'bomb') { state.hero.bombs += 3; consume(state, inventoryIndex); log(state, 'You gain three bombs.'); return advance(state, [event('pickup')]) }
-  if (item.use === 'rope') { state.hero.ropes += 3; consume(state, inventoryIndex); log(state, 'You gain three ropes.'); return advance(state, [event('pickup')]) }
+  if (item.use === 'bomb') { const restored = restoreBombs(state.hero, 3); if (!restored) { log(state, 'Your bomb reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} bombs.`); return advance(state, [event('pickup')]) }
+  if (item.use === 'rope') { const restored = restoreRopes(state.hero, 3); if (!restored) { log(state, 'Your rope reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} ropes.`); return advance(state, [event('pickup')]) }
   if (item.use === 'key') { state.hero.keys++; consume(state, inventoryIndex); return advance(state, [event('pickup')]) }
   if (item.use === 'spell') { state.modal = { kind: 'target', action: 'spell', item: id }; return [event('menu')] }
   log(state, 'That cannot be used here.')

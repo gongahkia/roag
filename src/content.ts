@@ -1,6 +1,7 @@
 import type { Biome, EquipmentSlot, ItemId, StatName } from './types'
 import type { ActionShape } from './engine/actions'
 import { validateEquipmentEffects, type EquipmentEffect } from './effects'
+import { validateItemPrice } from './engine/economy'
 
 export interface WeaponProfile { damage: number; reach: number; shape: ActionShape; cooldown: number; tags: string[] }
 export type ScriptSchool = 'ember' | 'verdant' | 'astral'
@@ -179,6 +180,7 @@ export const validateContent = (registry: ContentRegistry): void => {
   validateIds('skill', registry.skills)
   const tags = new Set(registry.tags)
   for (const item of registry.items) {
+    validateItemPrice(item.value)
     validateTags('item', item.id, item.tags, tags)
     validateEquipmentEffects(item.effects, item.id)
     if (item.use === 'spell' && !item.spell) throw new Error(`spell item missing spell id: ${item.id}`)

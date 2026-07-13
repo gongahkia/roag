@@ -42,8 +42,8 @@ describe('campaign, gate, and lineage integration', () => {
 
   it('keeps a non-NPC gate route open in every area and records an NPC sacrifice only when chosen', () => {
     const alternatives = [
-      ['mine', 1, ['ember'], [], 0, 0], ['mine', 2, [], [], 0, 1], ['wilds', 1, ['lantern', 'ropeBundle'], [], 0, 0], ['wilds', 2, ['blinkRune'], [], 0, 0],
-      ['caverns', 1, ['ward'], ['astral1'], 0, 0], ['caverns', 2, ['sunseal'], [], 0, 0], ['ruins', 0, ['ward'], [], 75, 0], ['ruins', 1, ['ember'], [], 75, 0]
+      ['mine', 1, ['ember'], [], 20, 0], ['mine', 2, [], [], 8, 1], ['wilds', 1, ['lantern', 'ropeBundle'], [], 25, 0], ['wilds', 2, ['blinkRune'], [], 15, 0],
+      ['caverns', 1, ['ward'], ['astral1'], 40, 0], ['caverns', 2, ['sunseal'], [], 0, 0], ['ruins', 0, ['ward'], [], 75, 0], ['ruins', 1, ['ember'], [], 75, 0]
     ] as const
     for (const [biome, choice, inventory, skills, gold, bombs] of alternatives) {
       const state = createRun({ area: biome })

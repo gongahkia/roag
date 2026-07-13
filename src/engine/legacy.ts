@@ -2,6 +2,7 @@ import { ITEM } from '../content'
 import { rngFor } from '../rng'
 import type { Actor, Biome, CampaignRouteState, LegacyRecord, Point, RunState } from '../types'
 import { appendLegacyRecord } from './campaign'
+import { grantGold } from './economy'
 
 export const REVENANT_CHANCE = 20
 export interface RevenantEncounter { actor: Actor; reward: { gold: number; item: 'tonic' } }
@@ -36,7 +37,7 @@ export const echoCacheEpitaph = (record: LegacyRecord): string => `${record.heir
 export const recoverEchoCache = (campaign: CampaignRouteState, state: RunState, recordId: string): { campaign: CampaignRouteState; recovered: boolean } => {
   const record = campaign.legacyRecords.find(current => current.id === recordId)
   if (!record || record.encounter.kind !== 'cache' || record.encounter.resolved) return { campaign, recovered: false }
-  state.hero.gold += record.cache.gold
+  grantGold(state, record.cache.gold)
   for (const item of record.cache.items) if (state.hero.inventory.length < 12) state.hero.inventory.push(item)
   return { campaign: { ...campaign, legacyRecords: campaign.legacyRecords.map(current => current.id === recordId ? { ...current, encounter: { ...current.encounter, resolved: true } } : current) }, recovered: true }
 }
@@ -60,7 +61,7 @@ export const claimRevenantReward = (campaign: CampaignRouteState, state: RunStat
   const record = campaign.legacyRecords.find(current => current.id === recordId)
   const encounter = record && !record.encounter.resolved ? createRevenantEncounter(record, seed, { x: 0, y: 0 }) : undefined
   if (!record || !encounter) return { campaign, recovered: false }
-  state.hero.gold += encounter.reward.gold
+  grantGold(state, encounter.reward.gold)
   if (state.hero.inventory.length < 12) state.hero.inventory.push(encounter.reward.item)
   return { campaign: { ...campaign, legacyRecords: campaign.legacyRecords.map(current => current.id === recordId ? { ...current, encounter: { kind: 'revenant', resolved: true } } : current) }, recovered: true }
 }

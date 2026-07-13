@@ -14,6 +14,7 @@ describe('gate resolution modal', () => {
   it('requires selection then confirmation through keyboard input', () => {
     const state = createRun()
     state.hero.bombs = 1
+    state.hero.gold = 8
     state.modal = { kind: 'gate', gateId: 'mine-wilds-pass' }
     expect(perform(state, '3')).toEqual([{ type: 'menu' }])
     expect(state.modal).toMatchObject({ kind: 'gate', choice: 2, confirming: false })

@@ -9,9 +9,11 @@ describe('Caverns gate solutions', () => {
     expect(resolveAreaGate(npc, gate, 0)).toMatchObject({ resolved: true, destination: 'caverns' })
     const lightRope = createRun({ area: 'wilds' })
     lightRope.hero.inventory = ['lantern', 'ropeBundle']
+    lightRope.hero.gold = 25
     expect(resolveAreaGate(lightRope, gate, 1)).toMatchObject({ resolved: true, destination: 'caverns' })
     const mobility = createRun({ area: 'wilds' })
     mobility.hero.inventory = ['blinkRune']
+    mobility.hero.gold = 15
     expect(resolveAreaGate(mobility, gate, 2)).toMatchObject({ resolved: true, destination: 'caverns' })
   })
 

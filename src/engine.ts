@@ -47,6 +47,7 @@ export { hasAstralGateAccess, intellectFocusDiscount, intellectFocusRecovery, in
 export { scriptCastProfile, scriptForItem } from './engine/scripts'
 export { contextualReward, merchantStock, missingCapabilities, rewardTags } from './engine/rewards'
 export type { RewardSource } from './engine/rewards'
+export { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold, MAX_BOMBS, MAX_GOLD, MAX_ROPES } from './engine/economy'
 export type { ScriptDefinition, ScriptSchool, ScriptUpgradeHook } from './content'
 export { refreshFov } from './engine/visibility'
 export { completeObjective, objectiveForFloor } from './objectives'
