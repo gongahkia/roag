@@ -13,6 +13,7 @@ import kenjaku.training as _training
 import kenjaku.training.decision_snapshots as _decision_snapshots
 import kenjaku.training.interpretability_overlay as _interpretability_overlay
 from kenjaku.schema import ActionV1 as _ActionV1
+from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
 from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
 from kenjaku.schema import ObservationV1 as _ObservationV1
@@ -38,6 +39,7 @@ DiscardFrequencyBaseline = _models.DiscardFrequencyBaseline  # stable since 0.2.
 RiichiFrequencyBaseline = _models.RiichiFrequencyBaseline  # stable since 0.2.0
 CallFrequencyBaseline = _models.CallFrequencyBaseline  # stable since 0.2.0
 ActionV1 = _ActionV1  # stable since 0.2.0
+CheckpointManifestV1 = _CheckpointManifestV1  # stable since 0.2.0
 DecisionResultV1 = _DecisionResultV1  # stable since 0.2.0
 LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
@@ -102,6 +104,7 @@ API_EXPORT_DOCS = {
     "RiichiFrequencyBaseline": "Frequency baseline for riichi/pass decisions.",
     "CallFrequencyBaseline": "Frequency baseline for call/pass decisions.",
     "ActionV1": "Versioned ruleset-specific policy action.",
+    "CheckpointManifestV1": "Versioned checkpoint identity and compatibility contract.",
     "DecisionResultV1": "Versioned selected action with structured rationale.",
     "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
@@ -171,6 +174,7 @@ __all__ = [
     "RiichiFrequencyBaseline",
     "CallFrequencyBaseline",
     "ActionV1",
+    "CheckpointManifestV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
     "ObservationV1",

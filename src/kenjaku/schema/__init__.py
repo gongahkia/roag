@@ -6,6 +6,15 @@ from kenjaku.schema.action_v1 import (
     ACTION_V1_KIND,
     ActionV1,
 )
+from kenjaku.schema.checkpoint_manifest_v1 import (
+    CHECKPOINT_COMPATIBILITY_V1_FIELDS,
+    CHECKPOINT_MANIFEST_V1_FIELDS,
+    CHECKPOINT_MANIFEST_V1_KIND,
+    CheckpointCompatibilityV1,
+    CheckpointManifestV1,
+    CheckpointRequirementV1,
+    SemanticVersion,
+)
 from kenjaku.schema.decision_result_v1 import (
     DECISION_FACTOR_V1_FIELDS,
     DECISION_RATIONALE_V1_FIELDS,
@@ -87,6 +96,13 @@ __all__ = [
     "ACTION_V1_FIELDS",
     "ACTION_V1_KIND",
     "ActionV1",
+    "CHECKPOINT_COMPATIBILITY_V1_FIELDS",
+    "CHECKPOINT_MANIFEST_V1_FIELDS",
+    "CHECKPOINT_MANIFEST_V1_KIND",
+    "CheckpointCompatibilityV1",
+    "CheckpointManifestV1",
+    "CheckpointRequirementV1",
+    "SemanticVersion",
     "DECISION_FACTOR_V1_FIELDS",
     "DECISION_RATIONALE_V1_FIELDS",
     "DECISION_RESULT_V1_FIELDS",

@@ -32,6 +32,7 @@ EXPECTED_EXPORTS = [
     "RiichiFrequencyBaseline",
     "CallFrequencyBaseline",
     "ActionV1",
+    "CheckpointManifestV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
     "ObservationV1",
