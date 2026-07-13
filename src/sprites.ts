@@ -12,7 +12,25 @@ export const HERO_SPRITE = 21
 export type AtlasSourceRect = { x: number; y: number; width: number; height: number }
 const atlasSourceColumns = [14, 125, 232, 337, 442, 549, 656, 763, 869, 972, 1077, 1186, 1294, 1403, 1512, 1623, 1745] as const
 const atlasSourceRows = [13, 130, 257, 387, 525, 648, 748, 829, 887] as const
-export const atlasSourceOverrides: Partial<Record<number, AtlasSourceRect>> = {}
+const rect = (x: number, y: number, width: number, height: number): AtlasSourceRect => ({ x, y, width, height })
+export const atlasSourceOverrides: Partial<Record<number, AtlasSourceRect>> = {
+  32: rect(23, 299, 105, 65), 33: rect(137, 289, 89, 82), 34: rect(239, 267, 87, 110), 35: rect(343, 278, 93, 100),
+  36: rect(450, 294, 97, 80), 37: rect(557, 265, 100, 113), 38: rect(672, 272, 85, 105), 39: rect(772, 278, 104, 95),
+  40: rect(889, 280, 96, 98), 41: rect(1014, 275, 54, 100), 42: rect(1093, 294, 89, 84), 43: rect(1212, 262, 96, 125),
+  44: rect(1328, 289, 90, 85), 45: rect(1431, 302, 111, 78), 46: rect(1544, 292, 110, 84), 47: rect(1656, 284, 87, 96),
+  48: rect(24, 422, 103, 85), 49: rect(137, 396, 95, 119), 50: rect(245, 424, 102, 85), 51: rect(357, 404, 83, 107),
+  52: rect(454, 407, 93, 106), 53: rect(571, 401, 81, 110), 54: rect(678, 405, 83, 108), 55: rect(781, 388, 117, 129),
+  56: rect(919, 436, 82, 69), 57: rect(1031, 407, 112, 110), 58: rect(1170, 421, 91, 86), 59: rect(1287, 433, 103, 74),
+  60: rect(1409, 443, 100, 63), 61: rect(1527, 438, 109, 73), 62: rect(0, 0, 1, 1), 63: rect(0, 0, 1, 1),
+  64: rect(23, 546, 82, 75), 65: rect(137, 541, 81, 89), 66: rect(240, 535, 100, 97), 67: rect(356, 535, 88, 96),
+  68: rect(460, 536, 90, 98), 69: rect(574, 541, 87, 91), 70: rect(684, 552, 88, 82), 71: rect(800, 549, 75, 82),
+  72: rect(904, 535, 84, 98), 73: rect(1010, 538, 102, 97), 74: rect(1132, 540, 97, 95), 75: rect(1248, 554, 88, 72),
+  76: rect(1349, 540, 82, 90), 77: rect(1457, 541, 62, 101), 78: rect(1557, 552, 71, 79), 79: rect(1668, 538, 58, 91),
+  80: rect(34, 654, 56, 87), 81: rect(123, 661, 96, 77), 82: rect(249, 658, 77, 80), 83: rect(359, 654, 61, 86),
+  84: rect(457, 661, 93, 78), 85: rect(579, 655, 78, 83), 86: rect(687, 669, 64, 66), 87: rect(799, 654, 80, 87),
+  88: rect(913, 654, 67, 87), 89: rect(1028, 656, 71, 85), 90: rect(1140, 655, 70, 86), 91: rect(1246, 656, 61, 85),
+  92: rect(1353, 654, 56, 86), 93: rect(1448, 655, 67, 86), 94: rect(0, 0, 1, 1), 95: rect(0, 0, 1, 1)
+}
 
 export function atlasSourceRect(index: number): AtlasSourceRect {
   const override = atlasSourceOverrides[index]
