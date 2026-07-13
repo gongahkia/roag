@@ -3,6 +3,7 @@ import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './engine/gates'
+import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -38,6 +39,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
+  placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
   placeEvents(floor, rooms)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms)
@@ -96,6 +98,19 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
     setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   }
+}
+
+function placePuzzleTemplate(floor: Floor, rng: Rng, rooms: Room[]): void {
+  const templates = puzzleTemplatesFor(floor.biome)
+  if (!templates.length) return
+  const template = rng.pick(templates)
+  const room = rng.pick(rooms.slice(1, -1).length ? rooms.slice(1, -1) : rooms)
+  const point = center(room)
+  for (const placement of template.placements) {
+    const tile = getTile(floor, point.x + placement.dx, point.y + placement.dy)
+    if (tile && tile.kind !== 'wall' && tile.kind !== 'exit') tile.kind = placement.kind
+  }
+  floor.puzzleIds = [...(floor.puzzleIds ?? []), template.id]
 }
 
 function decorateMine(floor: Floor, rng: Rng, rooms: Room[]): void {
@@ -313,6 +328,8 @@ const canReachObjective = (reachable: ReadonlySet<string>, target: Point): boole
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
+  errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor))
+  if (floor.biome === 'mine' && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
   if (floor.tiles.length !== MAP_WIDTH * MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
   if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
   if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')

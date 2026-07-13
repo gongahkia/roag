@@ -57,6 +57,7 @@ export interface Floor {
   guardianDefeated: boolean
   objective: FloorObjective
   telegraphs?: Telegraph[]
+  puzzleIds?: string[]
 }
 
 export interface Hero {
