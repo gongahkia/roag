@@ -8,7 +8,6 @@ import type { Direction, Records, RunState } from './types'
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
 const audio = new AudioBus()
-const visualToggle = document.querySelector<HTMLButtonElement>('#visual-toggle')!
 let state: RunState | undefined
 let saved: RunState | undefined
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
@@ -16,7 +15,6 @@ let recordedEnd = false
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
-refreshVisualToggle()
 
 void Promise.all([loadRun(), loadRecords()]).then(([run, loadedRecords]) => {
   saved = run
@@ -48,8 +46,6 @@ window.addEventListener('keydown', event => {
   renderer.render(state, records)
 })
 
-visualToggle.addEventListener('click', toggleVisualMode)
-
 function start(): void {
   state = newRun()
   saved = structuredClone(state)
@@ -63,11 +59,8 @@ function start(): void {
 function toggleVisualMode(): void {
   renderer.setSpriteMode(!renderer.isSpriteMode)
   try { localStorage.setItem('blockscape-visual-mode', renderer.isSpriteMode ? 'sprites' : 'ascii') } catch { }
-  refreshVisualToggle()
   renderer.render(state, records)
 }
-
-function refreshVisualToggle(): void { visualToggle.textContent = renderer.isSpriteMode ? 'V · SPRITES' : 'V · ASCII' }
 
 function finish(won: boolean): void {
   if (!state) return
