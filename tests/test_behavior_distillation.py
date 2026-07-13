@@ -4,15 +4,26 @@ import copy
 import importlib.util
 import unittest
 from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kenjaku.core import Action, ActionKind, Tile
-from kenjaku.models.multi_action_policy import MELD_SELECTION_DIM
-from kenjaku.schema import LEGAL_ACTION_MASK_V1_RIICHI_INDEX, OBSERVATION_V1_TENSOR_DIM
+from kenjaku.models.multi_action_policy import (
+    MELD_SELECTION_DIM,
+    MULTI_ACTION_POLICY_HEAD_KIND,
+)
+from kenjaku.schema import (
+    LEGAL_ACTION_MASK_V1_RIICHI_INDEX,
+    OBSERVATION_V1_TENSOR_DIM,
+    CheckpointManifestV1,
+)
 from kenjaku.simulation import HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND
 from kenjaku.training.behavior_distillation import (
     BehaviorDistillationExample,
     distillation_examples_from_manifest,
+    load_behavior_distillation_checkpoint,
     resolve_action_kind_loss_weights,
+    save_behavior_distillation_checkpoint,
     train_multi_task_behavior_distillation,
 )
 
@@ -100,6 +111,49 @@ class BehaviorDistillationTrainerTests(unittest.TestCase):
         self.assertEqual(first.train_metrics["value_examples"], 1)
         self.assertEqual(first.history, second.history)
 
+    def test_checkpoint_resume_requires_matching_manifest(self) -> None:
+        examples = distillation_examples_from_manifest(_manifest())
+        manifest = _checkpoint_manifest("distillation-test")
+        incompatible = _checkpoint_manifest("other-checkpoint")
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "trainer.pt"
+            first = train_multi_task_behavior_distillation(
+                examples,
+                epochs=1,
+                batch_size=2,
+                learning_rate=0.01,
+                device="cpu",
+                seed=5,
+                checkpoint_manifest=manifest,
+            )
+            save_behavior_distillation_checkpoint(first, path)
+            loaded = load_behavior_distillation_checkpoint(path)
+            resumed = train_multi_task_behavior_distillation(
+                examples,
+                epochs=1,
+                batch_size=2,
+                learning_rate=0.01,
+                device="cpu",
+                seed=5,
+                checkpoint_manifest=manifest,
+                resume_checkpoint=path,
+            )
+
+            self.assertEqual(loaded["checkpoint_manifest"], manifest)
+            self.assertEqual(resumed.completed_epochs, 2)
+            self.assertEqual(len(resumed.history), 2)
+            with self.assertRaisesRegex(ValueError, "manifest differs"):
+                train_multi_task_behavior_distillation(
+                    examples,
+                    epochs=1,
+                    batch_size=2,
+                    learning_rate=0.01,
+                    device="cpu",
+                    seed=5,
+                    checkpoint_manifest=incompatible,
+                    resume_checkpoint=path,
+                )
+
 
 def _manifest() -> dict[str, object]:
     discard = _action(ActionKind.DISCARD, "1m")
@@ -161,6 +215,15 @@ def _manifest() -> dict[str, object]:
             "unranked_action_count": 1,
         },
     }
+
+
+def _checkpoint_manifest(checkpoint_id: str) -> CheckpointManifestV1:
+    return CheckpointManifestV1.for_current_schemas(
+        checkpoint_id=checkpoint_id,
+        model_kind=MULTI_ACTION_POLICY_HEAD_KIND,
+        model_version="0.2.0",
+        rulesets=("tenhou-4p", "tenhou-3p"),
+    )
 
 
 def _state(

@@ -66,13 +66,16 @@ from kenjaku.training.splits import deterministic_split
 
 if TYPE_CHECKING:
     from kenjaku.training.behavior_distillation import (
+        BEHAVIOR_DISTILLATION_CHECKPOINT_KIND,
         BEHAVIOR_DISTILLATION_TRAINER_KIND,
         HEURISTIC_DISTILLATION_FAMILIES,
         BehaviorDistillationExample,
         BehaviorDistillationTrainingResult,
         distillation_examples_from_manifest,
         evaluate_multi_task_behavior_distillation,
+        load_behavior_distillation_checkpoint,
         resolve_action_kind_loss_weights,
+        save_behavior_distillation_checkpoint,
         train_multi_task_behavior_distillation,
     )
     from kenjaku.training.population import (
@@ -104,12 +107,15 @@ if TYPE_CHECKING:
 
 _LAZY_EXPORT_MODULES = {
     "BEHAVIOR_DISTILLATION_TRAINER_KIND": "kenjaku.training.behavior_distillation",
+    "BEHAVIOR_DISTILLATION_CHECKPOINT_KIND": "kenjaku.training.behavior_distillation",
     "HEURISTIC_DISTILLATION_FAMILIES": "kenjaku.training.behavior_distillation",
     "BehaviorDistillationExample": "kenjaku.training.behavior_distillation",
     "BehaviorDistillationTrainingResult": "kenjaku.training.behavior_distillation",
     "distillation_examples_from_manifest": "kenjaku.training.behavior_distillation",
     "evaluate_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
+    "load_behavior_distillation_checkpoint": "kenjaku.training.behavior_distillation",
     "resolve_action_kind_loss_weights": "kenjaku.training.behavior_distillation",
+    "save_behavior_distillation_checkpoint": "kenjaku.training.behavior_distillation",
     "train_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
     "POPULATION_SANDBOX_REPORT_KIND": "kenjaku.training.population",
     "POPULATION_SANDBOX_SNAPSHOT_KIND": "kenjaku.training.population",
@@ -146,6 +152,7 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "BEHAVIOR_DISTILLATION_TRAINER_KIND",
+    "BEHAVIOR_DISTILLATION_CHECKPOINT_KIND",
     "BC_DECISION_TYPES",
     "BC_EXAMPLE_MANIFEST_KIND",
     "BC_EXAMPLE_ROW_KIND",
@@ -184,7 +191,9 @@ __all__ = [
     "discard_shanten_delta",
     "distillation_examples_from_manifest",
     "evaluate_multi_task_behavior_distillation",
+    "load_behavior_distillation_checkpoint",
     "resolve_action_kind_loss_weights",
+    "save_behavior_distillation_checkpoint",
     "evaluate_ppo_sandbox_policy",
     "format_ppo_sandbox_report",
     "format_population_sandbox_report",

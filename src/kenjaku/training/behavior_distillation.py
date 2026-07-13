@@ -7,12 +7,14 @@ import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.models.multi_action_policy import (
     MELD_ARGUMENT_ACTIONS,
     MELD_SELECTION_DIM,
+    MULTI_ACTION_POLICY_HEAD_KIND,
     TILE_ARGUMENT_ACTIONS,
     TILE_ARGUMENT_DIM,
     MaskedMultiActionPolicyHead,
@@ -30,6 +32,7 @@ from kenjaku.schema import (
     LEGAL_ACTION_MASK_V1_TSUMO_INDEX,
     OBSERVATION_V1_TENSOR_DIM,
     ActionV1,
+    CheckpointManifestV1,
     LegalActionMaskV1,
     MeldV1,
     ObservationV1,
@@ -38,6 +41,7 @@ from kenjaku.schema import (
 )
 
 BEHAVIOR_DISTILLATION_TRAINER_KIND = "multi-task-behavior-distillation-trainer-v0"
+BEHAVIOR_DISTILLATION_CHECKPOINT_KIND = "kenjaku-behavior-distillation-checkpoint-v0"
 HEURISTIC_DISTILLATION_FAMILIES = ("discard", "call_pass", "special_action")
 _TASK_NAMES = ("action", "tile", "meld", "value")
 _SINGLE_ACTION_KINDS = {
@@ -91,6 +95,11 @@ class BehaviorDistillationTrainingResult:
     train_metrics: dict[str, int | float | None]
     eval_metrics: dict[str, int | float | None]
     history: list[dict[str, Any]]
+    optimizer_state: dict[str, Any]
+    completed_epochs: int
+    config: MultiActionPolicyConfig
+    seed: int
+    checkpoint_manifest: CheckpointManifestV1 | None
 
 
 def distillation_examples_from_manifest(
@@ -125,6 +134,8 @@ def train_multi_task_behavior_distillation(
     seed: int = 0,
     action_kind_weights: Mapping[ActionKind | str, float] | None = None,
     balance_action_kinds: bool = False,
+    checkpoint_manifest: CheckpointManifestV1 | None = None,
+    resume_checkpoint: str | Path | None = None,
 ) -> BehaviorDistillationTrainingResult:
     """Train multi-task labels with optional action-kind imbalance correction."""
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
@@ -143,12 +154,37 @@ def train_multi_task_behavior_distillation(
     )
 
     resolved_device = resolve_torch_device(device)
-    torch.manual_seed(seed)
-    if resolved_device.type == "cuda":
-        torch.cuda.manual_seed_all(seed)
-    model = MaskedMultiActionPolicyHead(config, seed=seed).to(resolved_device)
+    resume_payload = None if resume_checkpoint is None else load_behavior_distillation_checkpoint(
+        resume_checkpoint,
+        device=resolved_device,
+    )
+    if resume_payload is None:
+        torch.manual_seed(seed)
+        if resolved_device.type == "cuda":
+            torch.cuda.manual_seed_all(seed)
+        resolved_config = config or MultiActionPolicyConfig()
+        model = MaskedMultiActionPolicyHead(resolved_config, seed=seed).to(resolved_device)
+        history: list[dict[str, Any]] = []
+        completed_epochs = 0
+    else:
+        saved_manifest = resume_payload["checkpoint_manifest"]
+        if checkpoint_manifest is None:
+            raise ValueError("resume requires checkpoint_manifest for validation")
+        if saved_manifest != checkpoint_manifest:
+            raise ValueError("resume checkpoint manifest differs from requested manifest")
+        saved_config = _config_from_payload(resume_payload["model"]["config"])
+        if config is not None and config != saved_config:
+            raise ValueError("resume checkpoint model config differs from requested config")
+        if int(resume_payload["training"]["seed"]) != seed:
+            raise ValueError("resume checkpoint seed differs from requested seed")
+        resolved_config = saved_config
+        model = MaskedMultiActionPolicyHead(resolved_config, seed=seed).to(resolved_device)
+        model.load_state_dict(resume_payload["model_state_dict"])
+        history = list(resume_payload["training"]["history"])
+        completed_epochs = int(resume_payload["training"]["completed_epochs"])
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    history: list[dict[str, Any]] = []
+    if resume_payload is not None:
+        optimizer.load_state_dict(resume_payload["optimizer_state_dict"])
 
     def record(epoch: int) -> tuple[dict[str, int | float | None], dict[str, int | float | None]]:
         train_metrics = evaluate_multi_task_behavior_distillation(
@@ -171,7 +207,7 @@ def train_multi_task_behavior_distillation(
     else:
         train_metrics: dict[str, int | float | None] | None = None
         eval_metrics: dict[str, int | float | None] | None = None
-        for epoch in range(1, epochs + 1):
+        for epoch in range(completed_epochs + 1, completed_epochs + epochs + 1):
             model.train()
             indices = list(range(len(train_examples)))
             random.Random(seed + epoch).shuffle(indices)
@@ -203,7 +239,91 @@ def train_multi_task_behavior_distillation(
         train_metrics=train_metrics,
         eval_metrics=eval_metrics,
         history=history,
+        optimizer_state=optimizer.state_dict(),
+        completed_epochs=completed_epochs + epochs,
+        config=resolved_config,
+        seed=seed,
+        checkpoint_manifest=checkpoint_manifest,
     )
+
+
+def save_behavior_distillation_checkpoint(
+    result: BehaviorDistillationTrainingResult,
+    path: str | Path,
+    *,
+    checkpoint_manifest: CheckpointManifestV1 | None = None,
+) -> None:
+    """Persist trainer state with a validated public-schema checkpoint manifest."""
+    torch, _nn, _functional, _data_loader, _dataset_base = require_torch_modules()
+    manifest = checkpoint_manifest or result.checkpoint_manifest
+    if manifest is None:
+        raise ValueError("behavior distillation checkpoints require checkpoint_manifest")
+    _validate_checkpoint_manifest(manifest)
+    checkpoint_path = Path(path)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "kind": BEHAVIOR_DISTILLATION_CHECKPOINT_KIND,
+            "checkpoint_manifest": manifest.to_dict(),
+            "model": {"kind": result.model.kind, "config": _config_payload(result.config)},
+            "training": {
+                "seed": result.seed,
+                "completed_epochs": result.completed_epochs,
+                "history": result.history,
+            },
+            "metrics": {"train": result.train_metrics, "eval": result.eval_metrics},
+            "model_state_dict": result.model.state_dict(),
+            "optimizer_state_dict": result.optimizer_state,
+        },
+        checkpoint_path,
+    )
+
+
+def load_behavior_distillation_checkpoint(
+    path: str | Path,
+    *,
+    device: Any = "cpu",
+) -> dict[str, Any]:
+    """Load and structurally validate a behavior-distillation checkpoint."""
+    torch, _nn, _functional, _data_loader, _dataset_base = require_torch_modules()
+    try:
+        payload = torch.load(Path(path), map_location=device, weights_only=False)
+    except TypeError:
+        payload = torch.load(Path(path), map_location=device)
+    if (
+        not isinstance(payload, Mapping)
+        or payload.get("kind") != BEHAVIOR_DISTILLATION_CHECKPOINT_KIND
+    ):
+        raise ValueError(f"checkpoint kind must be {BEHAVIOR_DISTILLATION_CHECKPOINT_KIND}")
+    manifest_payload = payload.get("checkpoint_manifest")
+    if not isinstance(manifest_payload, Mapping):
+        raise ValueError("checkpoint missing checkpoint_manifest")
+    manifest = CheckpointManifestV1.from_dict(manifest_payload)
+    _validate_checkpoint_manifest(manifest)
+    model = payload.get("model")
+    training = payload.get("training")
+    if not isinstance(model, Mapping) or not isinstance(training, Mapping):
+        raise ValueError("checkpoint missing model or training metadata")
+    if model.get("kind") != MULTI_ACTION_POLICY_HEAD_KIND:
+        raise ValueError("checkpoint model kind is unsupported")
+    _config_from_payload(model.get("config"))
+    if not isinstance(payload.get("model_state_dict"), Mapping):
+        raise ValueError("checkpoint missing model_state_dict")
+    if not isinstance(payload.get("optimizer_state_dict"), Mapping):
+        raise ValueError("checkpoint missing optimizer_state_dict")
+    if not isinstance(training.get("history"), list):
+        raise ValueError("checkpoint training history must be an array")
+    if type(training.get("completed_epochs")) is not int or training["completed_epochs"] < 0:
+        raise ValueError("checkpoint completed_epochs must be non-negative")
+    if type(training.get("seed")) is not int:
+        raise ValueError("checkpoint seed must be an integer")
+    return {
+        "checkpoint_manifest": manifest,
+        "model": dict(model),
+        "training": dict(training),
+        "model_state_dict": dict(payload["model_state_dict"]),
+        "optimizer_state_dict": dict(payload["optimizer_state_dict"]),
+    }
 
 
 def evaluate_multi_task_behavior_distillation(
@@ -556,6 +676,41 @@ def _require_valid_manifest(manifest: Mapping[str, Any]) -> None:
     if not isinstance(errors, list) or not errors:
         raise ValueError("invalid distillation manifest")
     raise ValueError("invalid distillation manifest: " + str(errors[0]))
+
+
+def _validate_checkpoint_manifest(manifest: CheckpointManifestV1) -> None:
+    if not isinstance(manifest, CheckpointManifestV1):
+        raise ValueError("checkpoint_manifest must be a CheckpointManifestV1")
+    if manifest.model_kind != MULTI_ACTION_POLICY_HEAD_KIND:
+        raise ValueError("checkpoint_manifest model_kind is unsupported")
+    if manifest.compatibility != manifest.compatibility.current():
+        raise ValueError("checkpoint_manifest compatibility differs from current schemas")
+
+
+def _config_payload(config: MultiActionPolicyConfig) -> dict[str, int]:
+    return {
+        "input_dim": config.input_dim,
+        "hidden_dim": config.hidden_dim,
+        "action_dim": config.action_dim,
+    }
+
+
+def _config_from_payload(payload: Any) -> MultiActionPolicyConfig:
+    if not isinstance(payload, Mapping):
+        raise ValueError("checkpoint model config must be an object")
+    if set(payload) != {"input_dim", "hidden_dim", "action_dim"}:
+        raise ValueError("checkpoint model config fields are invalid")
+    values = []
+    for field in ("input_dim", "hidden_dim", "action_dim"):
+        value = payload[field]
+        if type(value) is not int:
+            raise ValueError("checkpoint model config values must be integers")
+        values.append(value)
+    return MultiActionPolicyConfig(
+        input_dim=values[0],
+        hidden_dim=values[1],
+        action_dim=values[2],
+    )
 
 
 def _validate_mask(mask: tuple[bool, ...], width: int, name: str) -> None:
