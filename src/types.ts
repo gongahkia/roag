@@ -121,6 +121,8 @@ export interface RunState {
   turn: number
 }
 
+export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
+
 export type Modal =
   | { kind: 'help' }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
