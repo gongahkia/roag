@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignRoute } from './campaign'
-import { legacyRecordForDeath, recordDeath } from './legacy'
+import { legacyRecordForDeath, recordDeath, selectLegacyEncounter } from './legacy'
 import { createRun } from '../test/factories'
 
 describe('legacy death records', () => {
@@ -17,5 +17,13 @@ describe('legacy death records', () => {
     const route = recordDeath(initialCampaignRoute(), createRun({ seed: 8 }), 'Ari Vale')
     expect(route.legacyRecords).toHaveLength(1)
     expect(route.legacyRecords[0]).toMatchObject({ cause: 'defeated', heirName: 'Ari Vale' })
+  })
+
+  it('selects one eligible legacy encounter per area deterministically', () => {
+    const campaign = recordDeath(recordDeath(initialCampaignRoute(), createRun({ seed: 8 }), 'Ari Vale'), createRun({ seed: 9 }), 'Bea Morrow')
+    const first = selectLegacyEncounter(campaign, 'mine', 44)
+    expect(first.record?.biome).toBe('mine')
+    expect(selectLegacyEncounter(first.campaign, 'mine', 44).record).toBeUndefined()
+    expect(selectLegacyEncounter(campaign, 'wilds', 44).record).toBeUndefined()
   })
 })

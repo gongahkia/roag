@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], legacyEncounterAreas: [] })
     expect(route).not.toHaveProperty('hero')
   })
 
