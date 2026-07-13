@@ -5,6 +5,7 @@ import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
 import { resolveDisplacement } from './displacement'
+import { resolveTerrainReactions } from './terrain'
 import { gainXp } from './progression'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
@@ -132,7 +133,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   const point = cells.at(-1) ?? { x: state.hero.x, y: state.hero.y }
   const target = actorAt(state.floor, point.x, point.y)
   if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength); log(state, `${ITEM[id].name} hits ${target.name}.`) }
-  if (id === 'fireJar') explode(state, point.x, point.y, 5)
+  if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
   else state.floor.items.push({ id, x: point.x, y: point.y, count: 1 })
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   return advance(state, [event(id === 'fireJar' ? 'boom' : 'hit')])
@@ -144,7 +145,15 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   state.hero.focus -= 3
   const delta = DIRECTIONS[direction]
   const target = actorAt(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
-  if (item.spell === 'ember') { if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect); else getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)!.kind = 'fireVent' }
+  if (item.spell === 'ember') {
+    if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect)
+    else {
+      const point = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
+      const reactions = resolveTerrainReactions(state.floor, [point], ['fire'])
+      if (!reactions.length) getTile(state.floor, point.x, point.y)!.kind = 'fireVent'
+      for (const reaction of reactions) log(state, `Terrain reaction: ${reaction.reaction}.`)
+    }
+  }
   if (item.spell === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect)
   if (item.spell === 'sight') for (const tile of state.floor.tiles) tile.explored = true
   if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')

@@ -8,6 +8,7 @@ import { canAffect } from './line-effect'
 import { resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 import { conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
+import { resolveTerrainReactions, type TerrainTag } from './terrain'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -68,16 +69,19 @@ export function damageHero(state: RunState, amount: number, source: string): Act
   return [event('death')]
 }
 
-export function explode(state: RunState, x: number, y: number, damage: number): void {
+export function explode(state: RunState, x: number, y: number, damage: number, tags: TerrainTag[] = ['bomb']): void {
+  const points = [] as Array<{ x: number; y: number }>
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const tx = x + dx
     const ty = y + dy
+    points.push({ x: tx, y: ty })
     const tile = getTile(state.floor, tx, ty)
     if (tile && tile.kind === 'wall' && tx > 0 && tx < 47 && ty > 0 && ty < 34) tile.kind = 'floor'
     const actor = actorAt(state.floor, tx, ty)
     if (actor?.hostile) actor.health -= modifyIncomingDamage(actor, damage)
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), 'your bomb')
   }
+  for (const effect of resolveTerrainReactions(state.floor, points, tags)) log(state, `Terrain reaction: ${effect.reaction}.`)
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   log(state, 'The blast tears through the stone.')
 }
