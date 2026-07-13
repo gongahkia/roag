@@ -8,11 +8,14 @@ from kenjaku.models.multi_action_policy import (
     MELD_SELECTION_DIM,
     MULTI_ACTION_POLICY_ACTION_DIM,
     MULTI_ACTION_POLICY_INPUT_DIM,
+    PLACEMENT_ADJUSTED_VALUE_HEAD_KIND,
     ActionSpecificArgumentHeads,
     MaskedMultiActionPolicyHead,
     MultiActionPolicyConfig,
+    PlacementAdjustedValueHead,
     meld_selection_index,
     meld_selection_mask,
+    placement_adjusted_outcome,
 )
 from kenjaku.schema import LEGAL_ACTION_MASK_V1_DIM, OBSERVATION_V1_TENSOR_DIM
 
@@ -71,6 +74,47 @@ class MeldSelectionTests(unittest.TestCase):
             meld_selection_index(Action(ActionKind.CHI, TileType.parse("3m")))
         with self.assertRaisesRegex(ValueError, "cannot be empty"):
             meld_selection_mask(())
+
+
+class PlacementAdjustedOutcomeTests(unittest.TestCase):
+    def test_uses_return_uma_and_oka_for_four_player_and_sanma_targets(self) -> None:
+        four_player = {
+            "points": [33000, 28000, 25000, 14000],
+            "placement": [0, 1, 2, 3],
+            "return_points": 30000,
+            "oka_points": 20000,
+            "uma_by_rank": [20.0, 10.0, -10.0, -20.0],
+        }
+        sanma = {
+            "points": [41000, 35000, 29000],
+            "placement": [0, 1, 2],
+            "return_points": 40000,
+            "oka_points": 15000,
+            "uma_by_rank": [20.0, 0.0, -20.0],
+        }
+
+        self.assertEqual(
+            tuple(placement_adjusted_outcome(four_player, seat=seat) for seat in range(4)),
+            (43.0, 8.0, -15.0, -36.0),
+        )
+        self.assertEqual(
+            tuple(placement_adjusted_outcome(sanma, seat=seat) for seat in range(3)),
+            (36.0, -5.0, -31.0),
+        )
+
+    def test_rejects_invalid_placement_target(self) -> None:
+        payload = {
+            "points": [25000, 25000, 25000, 25000],
+            "placement": [0, 0, 2, 3],
+            "return_points": 30000,
+            "oka_points": 20000,
+            "uma_by_rank": [20.0, 10.0, -10.0, -20.0],
+        }
+
+        with self.assertRaisesRegex(ValueError, "placement"):
+            placement_adjusted_outcome(payload, seat=0)
+        with self.assertRaisesRegex(ValueError, "seat"):
+            placement_adjusted_outcome({**payload, "placement": [0, 1, 2, 3]}, seat=4)
 
 
 @unittest.skipUnless(TORCH_AVAILABLE, "PyTorch is not available")
@@ -141,6 +185,20 @@ class MaskedMultiActionPolicyHeadTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(meld_logits[0, meld_selection_index(pon)]))
         with self.assertRaisesRegex(ValueError, "no tile argument"):
             model.tile_logits(observations[:1], ActionKind.PASS, tile_masks[:1])
+
+    def test_exposes_shared_placement_adjusted_value_head(self) -> None:
+        config = MultiActionPolicyConfig(hidden_dim=8)
+        first = MaskedMultiActionPolicyHead(config, seed=13)
+        second = MaskedMultiActionPolicyHead(config, seed=13)
+        observations = torch.zeros((2, MULTI_ACTION_POLICY_INPUT_DIM))
+
+        values = first.value(observations)
+
+        self.assertIsInstance(first.value_head, PlacementAdjustedValueHead)
+        self.assertEqual(first.value_head.kind, PLACEMENT_ADJUSTED_VALUE_HEAD_KIND)
+        self.assertEqual(tuple(values.shape), (2,))
+        self.assertTrue(torch.equal(values, second.value(observations)))
+        self.assertEqual(tuple(first.value(observations[0]).shape), ())
 
 
 if __name__ == "__main__":

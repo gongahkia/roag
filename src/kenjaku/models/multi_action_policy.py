@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,6 +31,7 @@ MELD_ARGUMENT_ACTIONS = (
     ActionKind.ANKAN.value,
     ActionKind.KAKAN.value,
 )
+PLACEMENT_ADJUSTED_VALUE_HEAD_KIND = "placement-adjusted-value-head-v0"
 
 try:
     from torch import nn as _nn
@@ -129,6 +130,38 @@ def meld_selection_mask(actions: Sequence[Action]) -> tuple[bool, ...]:
     return tuple(mask)
 
 
+def placement_adjusted_outcome(final_result: Mapping[str, Any] | object, *, seat: int) -> float:
+    """Return one seat's final score with return, Uma, and Oka adjustments."""
+    if not isinstance(seat, int) or isinstance(seat, bool):
+        raise ValueError("seat must be an integer")
+    if not isinstance(final_result, Mapping):
+        to_payload = getattr(final_result, "to_payload", None)
+        if not callable(to_payload):
+            raise ValueError("final_result must be a final-result payload")
+        final_result = to_payload()
+        if not isinstance(final_result, Mapping):
+            raise ValueError("final_result payload must be an object")
+    points = _integer_tuple(final_result, "points")
+    placement = _integer_tuple(final_result, "placement")
+    uma_by_rank = _number_tuple(final_result, "uma_by_rank")
+    return_points = _integer_value(final_result, "return_points")
+    oka_points = _integer_value(final_result, "oka_points")
+    players = len(points)
+    if players not in {3, 4}:
+        raise ValueError("final_result must contain three or four players")
+    if not 0 <= seat < players:
+        raise ValueError("seat outside final_result player range")
+    if sorted(placement) != list(range(players)):
+        raise ValueError("final_result placement must order every seat exactly once")
+    if len(uma_by_rank) != players:
+        raise ValueError("final_result Uma count must match player count")
+    rank_index = placement.index(seat)
+    score = (points[seat] - return_points) / 1000.0 + uma_by_rank[rank_index]
+    if rank_index == 0:
+        score += oka_points / 1000.0
+    return score
+
+
 class MaskedMultiActionPolicyHead(_TorchModuleBase):
     """MLP policy logits with every illegal shared action coordinate excluded."""
 
@@ -180,9 +213,14 @@ class MaskedMultiActionPolicyHead(_TorchModuleBase):
         """Return masked canonical-meld logits for legal meld compositions."""
         return self.argument_heads.meld_logits(self.encode(observations), legal_masks)
 
+    def value(self, observations: Any) -> Any:
+        """Predict the actor's placement-adjusted final-score outcome."""
+        return self.value_head(self.encode(observations))
+
     def _init_modules(self, nn: Any) -> None:
         self.net = _policy_network(nn, self.input_dim, self.hidden_dim, self.action_dim)
         self.argument_heads = ActionSpecificArgumentHeads(self.hidden_dim)
+        self.value_head = PlacementAdjustedValueHead(self.hidden_dim)
 
     def _batched_observations(self, observations: Any) -> tuple[Any, bool]:
         if not hasattr(observations, "ndim"):
@@ -288,11 +326,63 @@ class ActionSpecificArgumentHeads(_TorchModuleBase):
         return masks
 
 
+class PlacementAdjustedValueHead(_TorchModuleBase):
+    """Scalar regression head for actor-relative placement-adjusted final scores."""
+
+    def __init__(self, hidden_dim: int) -> None:
+        _torch, nn, _functional, _data_loader, _dataset_base = require_torch_modules()
+        super().__init__()
+        if hidden_dim <= 0:
+            raise ValueError("hidden_dim must be positive")
+        self.kind = PLACEMENT_ADJUSTED_VALUE_HEAD_KIND
+        self.hidden_dim = hidden_dim
+        self.head = nn.Linear(hidden_dim, 1)
+
+    def forward(self, representations: Any) -> Any:
+        """Return one scalar value per representation, preserving single-input shape."""
+        if not hasattr(representations, "ndim"):
+            raise ValueError("representations must be a torch tensor")
+        if representations.ndim == 1:
+            if representations.shape[0] != self.hidden_dim:
+                raise ValueError(f"representations must have {self.hidden_dim} features")
+            return self.head(representations).squeeze(-1)
+        if representations.ndim != 2:
+            raise ValueError("representations must have rank 1 or 2")
+        if representations.shape[1] != self.hidden_dim:
+            raise ValueError(f"representations must have {self.hidden_dim} features")
+        return self.head(representations).squeeze(-1)
+
+
 def _tile_argument_action(action: ActionKind | str) -> str:
     action_name = action.value if isinstance(action, ActionKind) else action
     if action_name not in TILE_ARGUMENT_ACTIONS:
         raise ValueError(f"{action_name} has no tile argument head")
     return action_name
+
+
+def _integer_tuple(payload: Mapping[str, Any], field: str) -> tuple[int, ...]:
+    values = payload.get(field)
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise ValueError(f"final_result {field} must be an array")
+    if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+        raise ValueError(f"final_result {field} entries must be integers")
+    return tuple(values)
+
+
+def _number_tuple(payload: Mapping[str, Any], field: str) -> tuple[float, ...]:
+    values = payload.get(field)
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise ValueError(f"final_result {field} must be an array")
+    if any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in values):
+        raise ValueError(f"final_result {field} entries must be numbers")
+    return tuple(float(value) for value in values)
+
+
+def _integer_value(payload: Mapping[str, Any], field: str) -> int:
+    value = payload.get(field)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"final_result {field} must be an integer")
+    return value
 
 
 def _policy_network(nn: Any, input_dim: int, hidden_dim: int, action_dim: int) -> Any:
