@@ -22,6 +22,9 @@ from kenjaku.evaluator import evaluate_hand_value_potential as _evaluate_hand_va
 from kenjaku.evaluator import evaluate_legal_defense_risks as _evaluate_legal_defense_risks
 from kenjaku.evaluator import evaluate_placement_endgame as _evaluate_placement_endgame
 from kenjaku.evaluator import evaluate_shanten_ukeire as _evaluate_shanten_ukeire
+from kenjaku.heuristics import HeuristicDiscardCandidate as _HeuristicDiscardCandidate
+from kenjaku.heuristics import HeuristicFactor as _HeuristicFactor
+from kenjaku.heuristics import rank_discard_heuristic as _rank_discard_heuristic
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
@@ -69,6 +72,9 @@ evaluate_defense_risk = _evaluate_defense_risk  # stable since 0.2.0
 evaluate_legal_defense_risks = _evaluate_legal_defense_risks  # stable since 0.2.0
 PlacementEndgamePotential = _PlacementEndgamePotential  # stable since 0.2.0
 evaluate_placement_endgame = _evaluate_placement_endgame  # stable since 0.2.0
+HeuristicFactor = _HeuristicFactor  # stable since 0.2.0
+HeuristicDiscardCandidate = _HeuristicDiscardCandidate  # stable since 0.2.0
+rank_discard_heuristic = _rank_discard_heuristic  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -147,6 +153,9 @@ API_EXPORT_DOCS = {
     "evaluate_legal_defense_risks": "Rank legal discard candidates by defense risk.",
     "PlacementEndgamePotential": "Current placement and endgame-pressure features.",
     "evaluate_placement_endgame": "Evaluate ruleset-specific placement and endgame features.",
+    "HeuristicFactor": "One signed heuristic-ranking factor.",
+    "HeuristicDiscardCandidate": "One structured discard-ranking candidate.",
+    "rank_discard_heuristic": "Rank legal discard types with structured factors.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
