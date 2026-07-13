@@ -19,6 +19,8 @@ from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
 from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
 from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
 from kenjaku.schema import ObservationV1 as _ObservationV1
+from kenjaku.simulation import LegalActionOracleV1 as _LegalActionOracleV1
+from kenjaku.simulation import legal_action_oracle_v1 as _legal_action_oracle_v1
 
 TenhouGame = _io.TenhouGame  # stable since 0.2.0
 TenhouParseFailure = _io.TenhouParseFailure  # stable since 0.2.0
@@ -45,8 +47,10 @@ CheckpointManifestV1 = _CheckpointManifestV1  # stable since 0.2.0
 ConformanceFixtureV1 = _ConformanceFixtureV1  # stable since 0.2.0
 DecisionResultV1 = _DecisionResultV1  # stable since 0.2.0
 LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
+LegalActionOracleV1 = _LegalActionOracleV1  # stable since 0.2.0
 LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
+legal_action_oracle_v1 = _legal_action_oracle_v1  # stable since 0.2.0
 
 
 def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
@@ -112,8 +116,10 @@ API_EXPORT_DOCS = {
     "ConformanceFixtureV1": "Versioned deterministic synthetic rule scenario.",
     "DecisionResultV1": "Versioned selected action with structured rationale.",
     "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
+    "LegalActionOracleV1": "Versioned legal-action set and mask for one sandbox seat.",
     "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
+    "legal_action_oracle_v1": "Compute legal public v1 actions for one sandbox seat.",
     "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
     "load_decision_snapshots": "Load decision snapshot JSONL rows.",
     "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
@@ -184,8 +190,10 @@ __all__ = [
     "ConformanceFixtureV1",
     "DecisionResultV1",
     "LegalActionMaskV1",
+    "LegalActionOracleV1",
     "LocalArtifactRegistry",
     "ObservationV1",
+    "legal_action_oracle_v1",
     "export_decision_snapshots",
     "load_decision_snapshots",
     "build_interpretability_overlay",

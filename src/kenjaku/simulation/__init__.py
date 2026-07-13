@@ -50,6 +50,12 @@ from kenjaku.simulation.environment import (
     pass_pending_discard_reactions,
     resolve_sandbox_ruleset,
 )
+from kenjaku.simulation.legal_action_oracle import (
+    LEGAL_ACTION_ORACLE_V1_FIELDS,
+    LEGAL_ACTION_ORACLE_V1_KIND,
+    LegalActionOracleV1,
+    legal_action_oracle_v1,
+)
 from kenjaku.simulation.self_play import (
     SELF_PLAY_MATCH_ACTION_POLICIES,
     SELF_PLAY_MATCH_DISCARD_POLICIES,
@@ -94,6 +100,10 @@ __all__ = [
     "legal_ron_actions",
     "legal_sandbox_actions",
     "legal_tsumo_actions",
+    "LEGAL_ACTION_ORACLE_V1_FIELDS",
+    "LEGAL_ACTION_ORACLE_V1_KIND",
+    "LegalActionOracleV1",
+    "legal_action_oracle_v1",
     "next_round_sandbox_environment",
     "pass_pending_discard_reactions",
     "resolve_sandbox_ruleset",
