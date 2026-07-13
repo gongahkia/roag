@@ -1,10 +1,10 @@
 import type { FloorObjective, ObjectiveKind, RunState } from './types'
 
 const objectives: readonly Omit<FloorObjective, 'id' | 'status'>[] = [
-  { kind: 'recoverSupplies', label: 'Secure a supply cache' },
-  { kind: 'rescueScout', label: 'Rescue the lost scout' },
-  { kind: 'invokeAltar', label: 'Invoke the shrine altar' },
-  { kind: 'defeatGuardian', label: 'Defeat the area guardian' }
+  { kind: 'recoverSupplies', label: 'Secure a trail cache' },
+  { kind: 'rescueScout', label: 'Aid a stranded traveler' },
+  { kind: 'invokeAltar', label: 'Make a shrine offering' },
+  { kind: 'defeatGuardian', label: 'Pass the trail guardian' }
 ]
 
 export const objectiveForFloor = (index: number): FloorObjective => {

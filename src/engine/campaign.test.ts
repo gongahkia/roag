@@ -27,7 +27,7 @@ describe('four-area campaign flow', () => {
     state.hero.x = state.floor.exit.x
     state.hero.y = state.floor.exit.y
     expect(descend(state)).toEqual([])
-    expect(state.messages[0]).toBe('Objective incomplete: Secure a supply cache.')
+    expect(state.messages[0]).toBe('Objective incomplete: Secure a trail cache.')
     state.floor.objective.status = 'complete'
     expect(descend(state)).toEqual([{ type: 'floor' }])
   })

@@ -198,7 +198,7 @@ function placeEvents(floor: Floor, rooms: Room[]): void {
   const kind: Tile['kind'] = floor.index % 4 === 0 ? 'shop' : floor.index % 4 === 1 ? 'rescue' : floor.index % 4 === 2 ? 'altar' : 'shop'
   setKind(floor, point.x, point.y, kind)
   if (kind === 'shop') floor.actors.push(friendly('merchant', `${floor.biome} trader`, point, '$', '#f4d26a'))
-  if (kind === 'rescue') floor.actors.push(friendly('ally', 'lost scout', point, '&', '#8ae0b3'))
+  if (kind === 'rescue') floor.actors.push(friendly('ally', 'stranded traveler', point, '&', '#8ae0b3'))
   if (kind === 'altar') floor.actors.push(friendly('ally', 'shrine keeper', point, '_', '#d6a8eb'))
 }
 

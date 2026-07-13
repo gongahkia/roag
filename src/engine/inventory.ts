@@ -23,8 +23,8 @@ import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } fro
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
-  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} gold.`); return advance(state, [event('pickup')]) }
-  if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take an iron key.'); return advance(state, [event('pickup')]) }
+  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} beads.`); return advance(state, [event('pickup')]) }
+  if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take a carved key.'); return advance(state, [event('pickup')]) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }
   state.hero.inventory.push(item.id)
   state.floor.items = state.floor.items.filter(current => current !== item)
@@ -50,10 +50,10 @@ export function operate(state: RunState): ActionResult {
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
     log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
-    if (completeObjective(state, 'recoverSupplies')) log(state, 'Objective complete: supply cache secured.')
+    if (completeObjective(state, 'recoverSupplies')) log(state, 'Objective complete: trail cache secured.')
     return advance(state, [event('pickup')])
   }
-  if (tile?.kind === 'rescue' || friend?.name === 'lost scout') {
+  if (tile?.kind === 'rescue' || friend?.name === 'stranded traveler' || friend?.name === 'lost scout') {
     const npc = recordRescue(state, friend)
     state.hero.maxHealth += 2
     state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8 + vitalityRescueRecovery(state.hero))
@@ -61,19 +61,19 @@ export function operate(state: RunState): ActionResult {
     state.floor.actors = state.floor.actors.filter(actor => actor !== friend)
     const eventTile = friend ? getTile(state.floor, friend.x, friend.y) : tile
     if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
-    log(state, `${npc.name} reaches the expedition hub.`)
-    if (completeObjective(state, 'rescueScout')) log(state, 'Objective complete: scout rescued.')
+    log(state, `${npc.name} reaches the village outpost.`)
+    if (completeObjective(state, 'rescueScout')) log(state, 'Objective complete: traveler aided.')
     return advance(state, [event('rescue')])
   }
   if (tile?.kind === 'altar') {
-    if (state.hero.gold < 75) { log(state, 'The altar asks for 75 gold.'); return [] }
+    if (state.hero.gold < 75) { log(state, 'The shrine asks for 75 beads.'); return [] }
     spendGold(state, 75)
     const reward = contextualReward(state, 'altar')
     if (state.hero.inventory.length < 12) state.hero.inventory.push(reward)
     else state.floor.items.push({ id: reward, x: state.hero.x, y: state.hero.y, count: 1 })
     gainXp(state, 35)
-    log(state, `The altar grants insight and ${ITEM[reward].name}.`)
-    if (completeObjective(state, 'invokeAltar')) log(state, 'Objective complete: altar invoked.')
+    log(state, `The shrine grants insight and ${ITEM[reward].name}.`)
+    if (completeObjective(state, 'invokeAltar')) log(state, 'Objective complete: shrine offering made.')
     return advance(state, [event('spell')])
   }
   log(state, 'Nothing answers.')
@@ -86,7 +86,7 @@ export function descend(state: RunState): ActionResult {
   if (state.floor.objective.status !== 'complete') { log(state, `Objective incomplete: ${state.floor.objective.label}.`); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
   const areaFloor = state.areaFloor ?? state.floor.index % 4
-  if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is secured. Return to the hub.`); return [event('areaComplete')] }
+  if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
   state.floor = generateAreaFloor(state.seed, state.area ?? state.floor.biome, nextAreaFloor)
   state.areaFloor = nextAreaFloor
@@ -94,7 +94,7 @@ export function descend(state: RunState): ActionResult {
   state.hero.y = state.floor.start.y
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4 + vitalityRecovery(state.hero))
   state.hero.focus = state.hero.maxFocus
-  log(state, `You descend into the ${biomeName[state.floor.biome]}.`)
+  log(state, `You continue through ${biomeName[state.floor.biome]}.`)
   refreshFov(state)
   return [event('floor')]
 }
@@ -131,14 +131,14 @@ export function useRope(state: RunState): ActionResult {
 
 export function castFirstSpell(state: RunState): ActionResult {
   const id = state.hero.inventory.find(item => ITEM[item].use === 'spell')
-  if (!id) { log(state, 'You know no ready script.'); return [] }
+  if (!id) { log(state, 'You know no ready charm.'); return [] }
   state.modal = { kind: 'target', action: 'spell', item: id }
   return [event('menu')]
 }
 
 export function quickCast(state: RunState, direction: Direction): ActionResult {
   const id = state.hero.inventory.find(item => ITEM[item].use === 'spell')
-  if (!id) { log(state, 'You know no ready script.'); return [] }
+  if (!id) { log(state, 'You know no ready charm.'); return [] }
   return castSpell(state, id, direction)
 }
 
@@ -193,7 +193,7 @@ export function shopChoice(state: RunState, command: string): ActionResult {
   const id = merchantStock(state)[Number(command) - 1]
   if (!id) return []
   const item = ITEM[id]
-  if (state.hero.gold < item.value) { log(state, 'Not enough gold.'); return [event('menu')] }
+  if (state.hero.gold < item.value) { log(state, 'Not enough beads.'); return [event('menu')] }
   const blocker = purchaseBlocker(state.hero, id)
   if (blocker) { log(state, blocker); return [event('menu')] }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [event('menu')] }

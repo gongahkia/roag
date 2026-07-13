@@ -31,41 +31,41 @@ export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: r
 export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual'] as const
 
 export const ITEMS: ItemDefinition[] = [
-  { id: 'whip', name: 'Surveyor Whip', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
-  { id: 'machete', name: 'Brush Machete', glyph: '/', color: '#b8d6a0', slot: 'mainHand', weapon: { damage: 6, reach: 1, shape: 'adjacent', cooldown: 1, tags: ['cleave', 'wilds'] }, value: 75 },
-  { id: 'pickaxe', name: 'Prospector Pick', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'cross', cooldown: 2, tags: ['rubble', 'piercing'] }, value: 110 },
+  { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
+  { id: 'machete', name: 'Brush Blade', glyph: '/', color: '#b8d6a0', slot: 'mainHand', weapon: { damage: 6, reach: 1, shape: 'adjacent', cooldown: 1, tags: ['cleave', 'wilds'] }, value: 75 },
+  { id: 'pickaxe', name: 'Obsidian Axe', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'cross', cooldown: 2, tags: ['rubble', 'piercing'] }, value: 110 },
   { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['piercing', 'reach'] }, value: 140, throwable: true },
-  { id: 'sunblade', name: 'Sun Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
-  { id: 'buckler', name: 'Tin Buckler', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80, effects: [{ id: 'guarded', kind: 'passive', add: { defense: 1 } }] },
-  { id: 'lantern', name: 'Glow Lantern', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
-  { id: 'cap', name: 'Miner Cap', glyph: '[', color: '#d3b05c', slot: 'head', defense: 1, value: 55 },
+  { id: 'sunblade', name: 'Sunstone Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
+  { id: 'buckler', name: 'Woven Guard', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80, effects: [{ id: 'guarded', kind: 'passive', add: { defense: 1 } }] },
+  { id: 'lantern', name: 'Resin Lamp', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
+  { id: 'cap', name: 'Bark Cap', glyph: '[', color: '#d3b05c', slot: 'head', defense: 1, value: 55 },
   { id: 'mask', name: 'Moss Mask', glyph: '[', color: '#71a66d', slot: 'head', defense: 2, value: 120 },
-  { id: 'coat', name: 'Canvas Coat', glyph: '[', color: '#ad8056', slot: 'body', defense: 2, value: 100 },
-  { id: 'mail', name: 'Crystal Mail', glyph: '[', color: '#8bb7d1', slot: 'body', defense: 4, value: 230 },
+  { id: 'coat', name: 'Bark-fiber Coat', glyph: '[', color: '#ad8056', slot: 'body', defense: 2, value: 100 },
+  { id: 'mail', name: 'Stone Bead Coat', glyph: '[', color: '#8bb7d1', slot: 'body', defense: 4, value: 230 },
   { id: 'boots', name: 'Trail Boots', glyph: ';', color: '#c28b5d', slot: 'boots', defense: 1, value: 70 },
   { id: 'featherboots', name: 'Feather Boots', glyph: ';', color: '#e7e9f0', slot: 'boots', defense: 2, value: 180 },
-  { id: 'ward', name: 'Ward Charm', glyph: 'o', color: '#ca9fe4', slot: 'charm', defense: 2, value: 160, effects: [{ id: 'arcane-return', kind: 'triggered', trigger: 'spell', requires: ['arcane'], add: { focus: 1 } }] },
-  { id: 'sunseal', name: 'Sun Seal', glyph: 'o', color: '#ffe181', slot: 'charm', defense: 3, value: 280 },
+  { id: 'ward', name: 'Spirit Charm', glyph: 'o', color: '#ca9fe4', slot: 'charm', defense: 2, value: 160, effects: [{ id: 'arcane-return', kind: 'triggered', trigger: 'spell', requires: ['arcane'], add: { focus: 1 } }] },
+  { id: 'sunseal', name: 'Sunstone Seal', glyph: 'o', color: '#ffe181', slot: 'charm', defense: 3, value: 280 },
   { id: 'tonic', name: 'Vital Tonic', glyph: '!', color: '#eb6571', value: 35, use: 'heal', throwable: true },
   { id: 'focusTonic', name: 'Focus Tonic', glyph: '!', color: '#7fa8e8', value: 50, use: 'focus', throwable: true },
-  { id: 'mapScroll', name: 'Survey Scroll', glyph: '?', color: '#e6d2a6', value: 65, use: 'map' },
-  { id: 'blinkRune', name: 'Blink Rune', glyph: '?', color: '#bda8eb', value: 90, use: 'teleport' },
-  { id: 'bombPack', name: 'Bomb Bundle', glyph: '*', color: '#ea8e64', value: 80, use: 'bomb' },
+  { id: 'mapScroll', name: 'Trail Map', glyph: '?', color: '#e6d2a6', value: 65, use: 'map' },
+  { id: 'blinkRune', name: 'Swift-foot Charm', glyph: '?', color: '#bda8eb', value: 90, use: 'teleport' },
+  { id: 'bombPack', name: 'Fire-ash Bundle', glyph: '*', color: '#ea8e64', value: 80, use: 'bomb' },
   { id: 'ropeBundle', name: 'Rope Bundle', glyph: '~', color: '#dab272', value: 55, use: 'rope' },
-  { id: 'key', name: 'Iron Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
+  { id: 'key', name: 'Carved Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },
-  { id: 'ember', name: 'Ember Script', glyph: '?', color: '#ff9c63', value: 120, use: 'spell', spell: 'ember' },
-  { id: 'mend', name: 'Mending Script', glyph: '?', color: '#91e0b1', value: 110, use: 'spell', spell: 'mend' },
-  { id: 'sight', name: 'Sight Script', glyph: '?', color: '#9dd7e4', value: 105, use: 'spell', spell: 'sight' },
-  { id: 'root', name: 'Root Script', glyph: '?', color: '#6dad62', value: 115, use: 'spell', spell: 'root' },
-  { id: 'waterScript', name: 'Tide Script', glyph: '?', color: '#7bcfe0', value: 120, use: 'spell', spell: 'water' },
-  { id: 'lull', name: 'Lull Script', glyph: '?', color: '#b6df8a', value: 135, use: 'spell', spell: 'lull' },
-  { id: 'blink', name: 'Blink Script', glyph: '?', color: '#bda8eb', value: 135, use: 'spell', spell: 'blink' },
-  { id: 'pull', name: 'Pull Script', glyph: '?', color: '#d2b1ed', value: 125, use: 'spell', spell: 'pull' },
-  { id: 'gust', name: 'Gust Script', glyph: '?', color: '#c1b8f4', value: 115, use: 'spell', spell: 'gust' },
-  { id: 'wardScript', name: 'Ward Script', glyph: '?', color: '#ecb7e3', value: 130, use: 'spell', spell: 'ward' },
-  { id: 'gate', name: 'Gate Script', glyph: '?', color: '#f1db78', value: 160, use: 'spell', spell: 'gate' }
+  { id: 'ember', name: 'Ember Charm', glyph: '?', color: '#ff9c63', value: 120, use: 'spell', spell: 'ember' },
+  { id: 'mend', name: 'Mending Charm', glyph: '?', color: '#91e0b1', value: 110, use: 'spell', spell: 'mend' },
+  { id: 'sight', name: 'Sight Charm', glyph: '?', color: '#9dd7e4', value: 105, use: 'spell', spell: 'sight' },
+  { id: 'root', name: 'Root Charm', glyph: '?', color: '#6dad62', value: 115, use: 'spell', spell: 'root' },
+  { id: 'waterScript', name: 'Tide Charm', glyph: '?', color: '#7bcfe0', value: 120, use: 'spell', spell: 'water' },
+  { id: 'lull', name: 'Lull Charm', glyph: '?', color: '#b6df8a', value: 135, use: 'spell', spell: 'lull' },
+  { id: 'blink', name: 'Blink Charm', glyph: '?', color: '#bda8eb', value: 135, use: 'spell', spell: 'blink' },
+  { id: 'pull', name: 'Pull Charm', glyph: '?', color: '#d2b1ed', value: 125, use: 'spell', spell: 'pull' },
+  { id: 'gust', name: 'Gust Charm', glyph: '?', color: '#c1b8f4', value: 115, use: 'spell', spell: 'gust' },
+  { id: 'wardScript', name: 'Ward Charm', glyph: '?', color: '#ecb7e3', value: 130, use: 'spell', spell: 'ward' },
+  { id: 'gate', name: 'Gate Charm', glyph: '?', color: '#f1db78', value: 160, use: 'spell', spell: 'gate' }
 ]
 
 export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Record<string, ItemDefinition>
@@ -85,14 +85,14 @@ export const SCRIPTS: ScriptDefinition[] = [
 export const SCRIPT_BY_ITEM = Object.fromEntries(SCRIPTS.map(script => [script.itemId, script])) as Record<string, ScriptDefinition>
 
 export const MONSTERS: MonsterDefinition[] = [
-  { id: 'rat', name: 'Tunnel Rat', glyph: 'r', color: '#b8a598', health: 5, attack: 2, defense: 8, speed: 110, ai: 'chase', xp: 6, biome: 'mine' },
-  { id: 'mole', name: 'Iron Mole', glyph: 'm', color: '#9298a2', health: 9, attack: 4, defense: 10, speed: 90, ai: 'chase', xp: 10, biome: 'mine' },
-  { id: 'sapper', name: 'Powder Sapper', glyph: 's', color: '#d6a263', health: 8, attack: 5, defense: 9, speed: 100, ai: 'ranged', xp: 14, biome: 'mine' },
-  { id: 'beetle', name: 'Brass Beetle', glyph: 'b', color: '#d6c16d', health: 13, attack: 5, defense: 13, speed: 75, ai: 'chase', xp: 18, biome: 'mine' },
-  { id: 'driller', name: 'Tunnel Driller', glyph: 'd', color: '#dfb77a', health: 11, attack: 6, defense: 12, speed: 100, ai: 'ranged', xp: 20, biome: 'mine' },
-  { id: 'railguard', name: 'Rail Guard', glyph: 'g', color: '#cad1dc', health: 12, attack: 6, defense: 12, speed: 100, ai: 'chase', xp: 22, biome: 'mine', tags: ['mine', 'rail'] },
-  { id: 'fusewarden', name: 'Fuse Warden', glyph: 'f', color: '#f0a35e', health: 10, attack: 7, defense: 10, speed: 95, ai: 'ranged', xp: 24, biome: 'mine', tags: ['mine', 'telegraph', 'cover', 'explosive'] },
-  { id: 'foreman', name: 'The Foreman', glyph: 'F', color: '#ffe080', health: 42, attack: 8, defense: 14, speed: 105, ai: 'guardian', xp: 70, biome: 'mine' },
+  { id: 'rat', name: 'Field Rat', glyph: 'r', color: '#b8a598', health: 5, attack: 2, defense: 8, speed: 110, ai: 'chase', xp: 6, biome: 'mine' },
+  { id: 'mole', name: 'Burrowing Mole', glyph: 'm', color: '#9298a2', health: 9, attack: 4, defense: 10, speed: 90, ai: 'chase', xp: 10, biome: 'mine' },
+  { id: 'sapper', name: 'Fire-ash Thrower', glyph: 's', color: '#d6a263', health: 8, attack: 5, defense: 9, speed: 100, ai: 'ranged', xp: 14, biome: 'mine' },
+  { id: 'beetle', name: 'Obsidian Beetle', glyph: 'b', color: '#d6c16d', health: 13, attack: 5, defense: 13, speed: 75, ai: 'chase', xp: 18, biome: 'mine' },
+  { id: 'driller', name: 'Stone Breaker', glyph: 'd', color: '#dfb77a', health: 11, attack: 6, defense: 12, speed: 100, ai: 'ranged', xp: 20, biome: 'mine' },
+  { id: 'railguard', name: 'Trail Guard', glyph: 'g', color: '#cad1dc', health: 12, attack: 6, defense: 12, speed: 100, ai: 'chase', xp: 22, biome: 'mine', tags: ['mine', 'rail'] },
+  { id: 'fusewarden', name: 'Fire Keeper', glyph: 'f', color: '#f0a35e', health: 10, attack: 7, defense: 10, speed: 95, ai: 'ranged', xp: 24, biome: 'mine', tags: ['mine', 'telegraph', 'cover', 'explosive'] },
+  { id: 'foreman', name: 'The Obsidian Warden', glyph: 'F', color: '#ffe080', health: 42, attack: 8, defense: 14, speed: 105, ai: 'guardian', xp: 70, biome: 'mine' },
   { id: 'thornling', name: 'Thornling', glyph: 't', color: '#86c064', health: 8, attack: 4, defense: 10, speed: 105, ai: 'chase', xp: 11, biome: 'wilds' },
   { id: 'boar', name: 'Moss Boar', glyph: 'b', color: '#a77d58', health: 15, attack: 7, defense: 11, speed: 115, ai: 'chase', xp: 19, biome: 'wilds' },
   { id: 'spitter', name: 'Vine Spitter', glyph: 'v', color: '#67ba7b', health: 10, attack: 6, defense: 9, speed: 90, ai: 'ranged', xp: 16, biome: 'wilds' },
@@ -121,18 +121,18 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'dartadept', name: 'Dart Adept', glyph: 'd', color: '#d8b576', health: 13, attack: 9, defense: 12, speed: 100, ai: 'ranged', xp: 38, biome: 'ruins', tags: ['ruins', 'dart', 'telegraph'] },
   { id: 'lockkeeper', name: 'Lock Keeper', glyph: 'k', color: '#c4b488', health: 18, attack: 9, defense: 15, speed: 80, ai: 'chase', xp: 42, biome: 'ruins', tags: ['ruins', 'lock', 'counterplay'] },
   { id: 'ritualist', name: 'Ash Ritualist', glyph: 'r', color: '#d88ea4', health: 14, attack: 10, defense: 13, speed: 95, ai: 'ranged', xp: 44, biome: 'ruins', tags: ['ruins', 'ritual', 'telegraph'] },
-  { id: 'regent', name: 'The Ash Regent', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
+  { id: 'regent', name: 'The Stone Keeper', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
 ]
 
 export const SKILLS: SkillDefinition[] = [
   ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: ['Strength +1, melee damage +1', 'Strength +1, melee damage +1', 'Strength +1, break rubble', 'Strength +1, guard 2 damage', 'Strength +1, melee knockback', 'Strength +1, melee damage +2'][i], tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
   ...(['Quick Step', 'Sure Aim', 'Skirmisher', 'Evasion', 'Fleet', 'Ghostwalk'] as const).map((name, i) => ({ id: `agi${i + 1}`, name, stat: 'agility' as StatName, level: i + 1, text: ['Agility +1, move +1 floor tile', 'Agility +1, melee reach +1', 'Agility +1, evade telegraphs 20%', 'Agility +1, dodge +3', 'Agility +1, move +1 floor tile', 'Agility +1, evade telegraphs +35%'][i], tags: ['agility'], prerequisites: i ? [`agi${i}`] : [] })),
   ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i +1}`, name, stat: 'vitality' as StatName, level: i + 1, text: ['Vitality +1, maximum health +2', 'Vitality +1, recovery +1', 'Vitality +1, shield 1 damage', 'Vitality +1, recovery +3', 'Vitality +1, hazards -2 damage', 'Vitality +1, rescue recovery +6'][i], tags: ['vitality'], prerequisites: i ? [`vit${i}`] : [] })),
-  ...(['Spark', 'Insight', 'Conjure', 'Divine', 'Sorcery', 'Archmage'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: ['Intellect +1, scripts cost 1 less', 'Intellect +1, focus recovery +1', 'Intellect +1, script range +1', 'Intellect +1, wards shield 2', 'Intellect +1, script range +1', 'Intellect +1, focus recovery +1, astral gates'][i], tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
+  ...(['Spark', 'Insight', 'Ritualist', 'Sky Reader', 'Spirit Walker', 'Wayfinder'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: ['Intellect +1, charms cost 1 less', 'Intellect +1, focus recovery +1', 'Intellect +1, charm range +1', 'Intellect +1, wards shield 2', 'Intellect +1, charm range +1', 'Intellect +1, focus recovery +1, sky paths'][i], tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
 ]
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Shale Mine', wilds: 'Verdant Wilds', caverns: 'Glass Caverns', ruins: 'Ashen Ruins' }
+export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll'],

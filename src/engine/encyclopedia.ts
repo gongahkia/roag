@@ -1,4 +1,4 @@
-import { MONSTERS } from '../content'
+import { biomeName, MONSTERS } from '../content'
 import type { Actor, EncyclopediaSection, EncyclopediaState, LegacyRecord, RunState } from '../types'
 import { AREA_GATES } from './gates'
 import { actionById } from './actions'
@@ -10,6 +10,7 @@ export const ENCYCLOPEDIA_SECTIONS: readonly EncyclopediaSection[] = ['enemies',
 const copyLegacy = (records: readonly LegacyRecord[]): LegacyRecord[] => records.slice(-12).map(record => ({ ...record, lineage: [...record.lineage], location: { ...record.location }, cache: { gold: record.cache.gold, items: [...record.cache.items] }, encounter: { ...record.encounter } }))
 const add = (entries: string[], value: string): string[] => entries.includes(value) ? entries : [...entries, value].sort()
 const addMany = (entries: string[], values: readonly string[]): string[] => values.reduce((current, value) => add(current, value), entries)
+const displayTag = (tag: string): string => tag === 'script' ? 'charm' : tag
 
 export const encyclopedia = (state: RunState): EncyclopediaState => state.encyclopedia ??= { enemies: [], telegraphs: [], tags: [], gates: [], legacyRecords: [] }
 export const hydrateEncyclopediaLegacy = (state: RunState, records: readonly LegacyRecord[]): void => { encyclopedia(state).legacyRecords = copyLegacy(records) }
@@ -47,7 +48,7 @@ export const encyclopediaEntries = (state: RunState, section: EncyclopediaSectio
   const book = encyclopedia(state)
   if (section === 'enemies') return book.enemies.map(id => { const monster = MONSTERS.find(current => current.id === id); return monster ? `${monster.name} — ${(monster.tags ?? [monster.biome]).join(', ')}` : id })
   if (section === 'telegraphs') return book.telegraphs.map(id => { const action = actionById(id); return action ? `${action.name} — ${action.tags.join(', ')}` : id })
-  if (section === 'tags') return book.tags.map(tag => `#${tag}`)
-  if (section === 'gates') return book.gates.map(id => { const gate = Object.values(AREA_GATES).find(current => current.id === id); return gate ? `${gate.biome} → ${gate.unlockedDestination.biome}: ${gate.tagAlternatives.map(option => option.label).join(' / ')}` : id })
-  return book.legacyRecords.map(record => `${record.heirName}: ${record.cause}, ${record.biome} ${record.floor + 1}, ${record.encounter.resolved ? 'resolved' : 'active'}`)
+  if (section === 'tags') return book.tags.map(tag => `#${displayTag(tag)}`)
+  if (section === 'gates') return book.gates.map(id => { const gate = Object.values(AREA_GATES).find(current => current.id === id); return gate ? `${biomeName[gate.biome]} → ${biomeName[gate.unlockedDestination.biome]}: ${gate.tagAlternatives.map(option => option.label).join(' / ')}` : id })
+  return book.legacyRecords.map(record => `${record.heirName}: ${record.cause}, ${biomeName[record.biome]} ${record.floor + 1}, ${record.encounter.resolved ? 'resolved' : 'active'}`)
 }

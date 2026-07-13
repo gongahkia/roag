@@ -1,4 +1,4 @@
-import { ITEM } from '../content'
+import { biomeName, ITEM } from '../content'
 import { rngFor } from '../rng'
 import type { Actor, Biome, CampaignRouteState, LegacyRecord, Point, RunState } from '../types'
 import { appendLegacyRecord } from './campaign'
@@ -33,7 +33,7 @@ export const selectLegacyEncounter = (campaign: CampaignRouteState, biome: Biome
   return { record, campaign: { ...campaign, legacyEncounterAreas: [...campaign.legacyEncounterAreas, biome] } }
 }
 
-export const echoCacheEpitaph = (record: LegacyRecord): string => `${record.heirName} fell on ${record.biome} floor ${record.floor + 1}: ${record.cause}.`
+export const echoCacheEpitaph = (record: LegacyRecord): string => `${record.heirName} fell on ${biomeName[record.biome]} floor ${record.floor + 1}: ${record.cause}.`
 export const recoverEchoCache = (campaign: CampaignRouteState, state: RunState, recordId: string): { campaign: CampaignRouteState; recovered: boolean } => {
   const record = campaign.legacyRecords.find(current => current.id === recordId)
   if (!record || record.encounter.kind !== 'cache' || record.encounter.resolved) return { campaign, recovered: false }

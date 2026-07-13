@@ -1,4 +1,5 @@
 import { DIRECTIONS, type Biome, type ItemId, type LineageEvent, type Point, type RescuedNpc, type RunState } from '../types'
+import { biomeName } from '../content'
 import { getTile } from '../world'
 import { hasAstralGateAccess } from './intellect'
 import { spendGold } from './economy'
@@ -9,10 +10,10 @@ export interface GateDestination { biome: Biome; floor: number; point: Point }
 export interface AreaGate { id: string; biome: Biome; npcOffering: string; tagAlternatives: GateAlternative[]; cost: GateCost; unlockedDestination: GateDestination }
 
 export const AREA_GATES: Record<Biome, AreaGate> = {
-  mine: { id: 'mine-wilds-pass', biome: 'mine', npcOffering: 'A rescued companion can be sacrificed to open the Verdant Wilds route.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'burn the thicket', kind: 'tag', tags: ['fire'], cost: { gold: 20, items: [] } }, { label: 'blast a breach', kind: 'bomb', tags: ['bomb'], cost: { gold: 8, items: [] } }], cost: { gold: 20, items: [] }, unlockedDestination: { biome: 'wilds', floor: 0, point: { x: 2, y: 2 } } },
-  wilds: { id: 'wilds-caverns-pass', biome: 'wilds', npcOffering: 'A rescued companion can be sacrificed to open a Glass Caverns crossing.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'light and rope', kind: 'tag', tags: ['light', 'rope'], cost: { gold: 25, items: [] } }, { label: 'mobility route', kind: 'tag', tags: ['mobility'], cost: { gold: 15, items: [] } }], cost: { gold: 25, items: [] }, unlockedDestination: { biome: 'caverns', floor: 0, point: { x: 2, y: 2 } } },
-  caverns: { id: 'caverns-ruins-pass', biome: 'caverns', npcOffering: 'A rescued companion can be sacrificed to open an Ashen Ruins lift.', tagAlternatives: [{ label: 'sacrifice a companion', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ward and astral route', kind: 'tag', tags: ['ward', 'astral'], cost: { gold: 40, items: [] } }, { label: 'sun-seal relic', kind: 'tag', tags: ['relic'], cost: { gold: 0, items: ['sunseal'] } }], cost: { gold: 40, items: [] }, unlockedDestination: { biome: 'ruins', floor: 0, point: { x: 2, y: 2 } } },
-  ruins: { id: 'ruins-seal', biome: 'ruins', npcOffering: 'The archivist offers a sun-seal passage.', tagAlternatives: [{ label: 'ward', kind: 'tag', tags: ['ward'] }, { label: 'script', kind: 'tag', tags: ['script', 'arcane'] }], cost: { gold: 75, items: [] }, unlockedDestination: { biome: 'ruins', floor: 3, point: { x: 45, y: 32 } } }
+  mine: { id: 'mine-wilds-pass', biome: 'mine', npcOffering: 'A companion can hold the trail to Cedar Wilds.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'burn the thicket', kind: 'tag', tags: ['fire'], cost: { gold: 20, items: [] } }, { label: 'clear a breach', kind: 'bomb', tags: ['bomb'], cost: { gold: 8, items: [] } }], cost: { gold: 20, items: [] }, unlockedDestination: { biome: 'wilds', floor: 0, point: { x: 2, y: 2 } } },
+  wilds: { id: 'wilds-caverns-pass', biome: 'wilds', npcOffering: 'A companion can hold the Sea Caves crossing.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'light and rope', kind: 'tag', tags: ['light', 'rope'], cost: { gold: 25, items: [] } }, { label: 'find a safe crossing', kind: 'tag', tags: ['mobility'], cost: { gold: 15, items: [] } }], cost: { gold: 25, items: [] }, unlockedDestination: { biome: 'caverns', floor: 0, point: { x: 2, y: 2 } } },
+  caverns: { id: 'caverns-ruins-pass', biome: 'caverns', npcOffering: 'A companion can hold the Stone Circle path.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ward and sky charm', kind: 'tag', tags: ['ward', 'astral'], cost: { gold: 40, items: [] } }, { label: 'sunstone seal', kind: 'tag', tags: ['relic'], cost: { gold: 0, items: ['sunseal'] } }], cost: { gold: 40, items: [] }, unlockedDestination: { biome: 'ruins', floor: 0, point: { x: 2, y: 2 } } },
+  ruins: { id: 'ruins-seal', biome: 'ruins', npcOffering: 'The distant keeper offers the final passage.', tagAlternatives: [{ label: 'spirit charm', kind: 'tag', tags: ['ward'] }, { label: 'ritual charm', kind: 'tag', tags: ['script', 'arcane'] }], cost: { gold: 75, items: [] }, unlockedDestination: { biome: 'ruins', floor: 3, point: { x: 45, y: 32 } } }
 }
 
 export const gateForArea = (biome: Biome): AreaGate => AREA_GATES[biome]
@@ -56,7 +57,7 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   const alternative = gate.tagAlternatives[choice]
   if (!alternative) return { resolved: false, message: 'Invalid gate alternative.' }
   const cost = alternative.cost ?? gate.cost
-  if (state.hero.gold < cost.gold) return { resolved: false, message: 'Insufficient gold for this gate.' }
+  if (state.hero.gold < cost.gold) return { resolved: false, message: 'Insufficient beads for this passage.' }
   if (!cost.items.every(item => state.hero.inventory.includes(item))) return { resolved: false, message: 'Required gate item is missing.' }
   if (alternative.kind === 'npc' && !hasNpcOffering(state)) return { resolved: false, message: 'A rescued NPC is required.' }
   if (alternative.kind === 'tag' && !alternative.tags.every(tag => hasGateTag(state, tag))) return { resolved: false, message: `Required tags missing: ${alternative.tags.join(' + ')}.` }
@@ -69,15 +70,15 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   if (lineageEvent && !(state.lineageEvents ?? []).some(event => event.id === lineageEvent.id)) state.lineageEvents = [...(state.lineageEvents ?? []), lineageEvent].slice(-12)
   openNearbyGate(state)
   state.gateDestination = gate.unlockedDestination.biome
-  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, lineageEvent, message: `${gate.unlockedDestination.biome} route unlocked.` }
+  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, lineageEvent, message: `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
 }
 
 export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false): string[] => {
   const selected = choice === undefined ? undefined : gate.tagAlternatives[choice]
   const choiceCost = selected?.cost ?? gate.cost
-  const cost = `${choiceCost.gold} gold${choiceCost.items.length ? ` + ${choiceCost.items.join(', ')}` : ''}`
-  const destination = `${gate.unlockedDestination.biome} floor ${gate.unlockedDestination.floor + 1}`
-  const requirement = (option: GateAlternative): string => option.kind === 'npc' ? 'sacrifice one rescued NPC' : option.tags.join(' + ')
-  if (!selected) return [...gate.tagAlternatives.map((option, index) => `${index + 1}. ${option.label}: ${requirement(option)}`), `IRREVOCABLE: pay ${cost}; unlock ${destination}.`, 'number chooses · Esc cancels']
-  return [`CHOICE: ${selected.label} (${requirement(selected)})`, `IRREVOCABLE: pay ${cost}; unlock ${destination}.`, confirming ? 'ENTER confirms this irreversible gate choice.' : 'ENTER reviews confirmation · number changes choice']
+  const cost = `${choiceCost.gold} beads${choiceCost.items.length ? ` + ${choiceCost.items.join(', ')}` : ''}`
+  const destination = `${biomeName[gate.unlockedDestination.biome]} stage ${gate.unlockedDestination.floor + 1}`
+  const requirement = (option: GateAlternative): string => option.kind === 'npc' ? 'leave one companion behind' : option.tags.join(' + ')
+  if (!selected) return [...gate.tagAlternatives.map((option, index) => `${index + 1}. ${option.label}: ${requirement(option)}`), `FINAL: pay ${cost}; open ${destination}.`, 'number chooses · Esc cancels']
+  return [`CHOICE: ${selected.label} (${requirement(selected)})`, `FINAL: pay ${cost}; open ${destination}.`, confirming ? 'ENTER confirms this final passage choice.' : 'ENTER reviews confirmation · number changes choice']
 }

@@ -6,7 +6,7 @@ import { presentTelegraph } from './renderer/telegraphs'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawItemSprite, drawTileSprite, textureAtlas } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Modal, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
 
 const CW = 10
@@ -15,6 +15,7 @@ const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d
 const tileGlyph: Record<string, [string, string]> = {
   wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
+const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
@@ -75,41 +76,43 @@ export class TerminalRenderer {
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
-    this.box(13, 10, 54, 24, 'JOMON: EXPEDITION')
-    this.text(19, 14, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
-    this.text(20, 18, 'N  begin a new heir', colors.green)
+    this.box(13, 10, 54, 24, 'JOMON: SECRET DELIVERY')
+    this.text(19, 14, 'CARRY A SEALED PARCEL FOR YOUR VILLAGE', colors.gold)
+    this.text(20, 18, 'N  begin a new delivery', colors.green)
     this.text(20, 20, 'L  resume saved floor', colors.text)
     this.text(20, 22, 'H  controls and systems', colors.text)
     this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
-    this.text(22, 30, 'one life · sixteen floors · four biomes', colors.purple)
+    this.text(22, 30, 'one life · sixteen paths · four regions', colors.purple)
   }
 
   private approach(route: ScreenRoute): void {
     const season = mineSeason(route.heirSeed ?? 0)
-    this.box(13, 10, 54, 24, 'MINE APPROACH')
+    this.box(13, 10, 54, 24, 'VILLAGE TRAILHEAD')
     this.text(19, 15, season.name.toUpperCase(), season.color)
-    this.text(19, 18, season.scene, colors.text)
-    this.text(19, 22, 'ENTER  continue to expedition hub', colors.green)
+    this.text(19, 18, 'Your village entrusts you with a sealed parcel.', colors.text)
+    this.text(19, 20, season.scene, colors.text)
+    this.text(19, 22, 'ENTER  continue to village outpost', colors.green)
     this.text(19, 24, 'ESC    return to title', colors.dim)
   }
 
   private hub(route: ScreenRoute, hub?: HubView): void {
-    this.box(13, 10, 54, 24, 'EXPEDITION HUB')
-    this.text(19, 14, `HEIR: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
-    this.text(19, 16, `RESCUED: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
+    this.box(13, 10, 54, 24, 'VILLAGE OUTPOST')
+    this.text(19, 14, `COURIER: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
+    this.text(19, 16, 'PARCEL: sealed — do not open', colors.text)
+    this.text(19, 18, `COMPANIONS: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
     const action = route.hubAction ?? 'routes'
-    this.text(19, 19, `H routes  R roster  S supplies  [${action.toUpperCase()}]`, colors.green)
-    if (action === 'routes') this.text(19, 21, `UNLOCKED: ${(hub?.state.unlockedAreas ?? ['mine']).join(', ')} · CLEARED: ${(hub?.state.completedAreas ?? []).join(', ') || 'none'}`, colors.text)
-    if (action === 'roster') this.text(19, 21, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${npc.biome})`).join(', ') : 'No rescued NPCs yet.', colors.text)
-    if (action === 'supplies') this.text(19, 21, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
-    this.text(19, 24, 'A / ENTER  choose an expedition area', colors.green)
-    this.text(19, 26, 'ESC        return to title', colors.dim)
+    this.text(19, 20, `H trails  R companions  S supplies  [${action.toUpperCase()}]`, colors.green)
+    if (action === 'routes') this.text(19, 22, `OPEN: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
+    if (action === 'roster') this.text(19, 22, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', colors.text)
+    if (action === 'supplies') this.text(19, 22, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
+    this.text(19, 25, 'A / ENTER  choose a delivery trail', colors.green)
+    this.text(19, 27, 'ESC        return to title', colors.dim)
   }
 
   private area(route: ScreenRoute): void {
-    this.box(13, 10, 54, 24, 'AREA BRIEFING')
-    this.text(19, 15, `${biomeName[route.biome]} — floor 01/04`, colors.gold)
-    this.text(19, 19, 'E / ENTER  embark', colors.green)
+    this.box(13, 10, 54, 24, 'DELIVERY TRAIL')
+    this.text(19, 15, `${biomeName[route.biome]} — stage 01/04`, colors.gold)
+    this.text(19, 19, 'E / ENTER  travel', colors.green)
     this.text(19, 22, 'ESC        return to hub', colors.dim)
   }
 
@@ -153,14 +156,14 @@ export class TerminalRenderer {
 
   private sidebar(state: RunState): void {
     const hero = state.hero
-    this.text(50, 1, 'EXPEDITION', colors.gold)
+    this.text(50, 1, 'DELIVERY', colors.gold)
     this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 29)
     this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
     this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
     this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
     this.meter(64, 6, 14, hero.focus, hero.maxFocus, colors.blue)
-    this.text(50, 8, `$ ${String(hero.gold).padStart(5)}  B ${hero.bombs}  R ${hero.ropes}`, colors.gold)
+    this.text(50, 8, `BEADS ${String(hero.gold).padStart(3)} B ${hero.bombs} R ${hero.ropes}`, colors.gold)
     this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
     this.ruleHorizontal(50, 10, 29)
     this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
@@ -209,15 +212,15 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'casts the first ready script. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, merchants, scouts, and altars.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S casts scripts. J opens encyclopedia.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
   }
 
   private encyclopedia(state: RunState, modal: Extract<Modal, { kind: 'encyclopedia' }>): void {
     const entries = encyclopediaEntries(state, modal.section)
     const page = Math.min(modal.page ?? 0, Math.max(0, Math.ceil(entries.length / 10) - 1))
-    const sections = ['ENEMIES', 'TELEGRAPHS', 'TAGS', 'GATES', 'LEGACY']
-    this.box(8, 4, 64, 34, 'EXPEDITION ENCYCLOPEDIA')
+    const sections = ['ENEMIES', 'WARNINGS', 'TAGS', 'TRAILS', 'JOURNEYS']
+    this.box(8, 4, 64, 34, 'TRAIL JOURNAL')
     this.text(12, 8, sections.map((section, index) => `${index + 1} ${section}`).join('  '), colors.green)
     this.text(12, 10, `${modal.section.toUpperCase()} ${page + 1}/${Math.max(1, Math.ceil(entries.length / 10))}`, colors.gold)
     const visible = entries.slice(page * 10, page * 10 + 10)
@@ -254,21 +257,21 @@ export class TerminalRenderer {
 
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
-    merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
-    this.text(17, 29, `your gold: ${state.hero.gold}`, colors.gold)
+    merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} beads`, item.color) })
+    this.text(17, 29, `your beads: ${state.hero.gold}`, colors.gold)
     this.text(17, 32, 'number buys · Esc/backtick leaves', colors.dim)
   }
 
   private gate(state: RunState, modal: Extract<Modal, { kind: 'gate' }>): void {
     const gate = gateForArea(state.area ?? state.floor.biome)
-    this.box(8, 6, 64, 29, 'RESOLVE AREA GATE')
+    this.box(8, 6, 64, 29, 'OPEN TRAIL PASSAGE')
     this.text(12, 10, gate.npcOffering, colors.gold)
-    gateModalLines(gate, modal.choice, modal.confirming).forEach((line, index) => this.text(12, 14 + index * 3, line, line.startsWith('IRREVOCABLE') ? colors.red : modal.confirming && line.startsWith('ENTER') ? colors.gold : colors.text))
+    gateModalLines(gate, modal.choice, modal.confirming).forEach((line, index) => this.text(12, 14 + index * 3, line, line.startsWith('FINAL') ? colors.red : modal.confirming && line.startsWith('ENTER') ? colors.gold : colors.text))
   }
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
     this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
-    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'cast script' : 'throw item'
+    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : 'throw item'
     const preview = targetPreview(state, modal)
     this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
     this.text(21, 23, modal.direction ? 'Enter confirms · direction changes preview' : 'Esc/backtick cancels.', colors.dim)
@@ -277,10 +280,10 @@ export class TerminalRenderer {
   private end(state: RunState, won: boolean): void {
     this.ctx.fillStyle = '#05070bdd'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    this.box(17, 14, 46, 16, won ? 'EXPEDITION COMPLETE' : 'EXPEDITION LOST')
-    this.text(23, 19, won ? 'The dawn remembers your name.' : 'The depths keep their due.', won ? colors.gold : colors.red)
-    this.text(23, 22, `score ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
-    this.text(23, 26, 'N starts a new expedition.', colors.green)
+    this.box(17, 14, 46, 16, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
+    this.text(23, 19, won ? 'The sealed parcel reaches its keeper.' : 'The path keeps its due.', won ? colors.gold : colors.red)
+    this.text(23, 22, `beads ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
+    this.text(23, 26, 'N starts a new delivery.', colors.green)
   }
 
   private box(x: number, y: number, width: number, height: number, title: string): void {

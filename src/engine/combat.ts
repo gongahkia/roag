@@ -175,7 +175,7 @@ export function damageHero(state: RunState, amount: number, source: string, haza
   state.hero.health = 0
   state.status = 'dead'
   state.modal = undefined
-  log(state, 'Your expedition ends here.')
+  log(state, 'Your delivery ends here.')
   return [event('death')]
 }
 
@@ -200,7 +200,7 @@ export function resolveDefeatedActors(state: RunState): void {
   for (const actor of state.floor.actors.filter(actor => actor.health <= 0)) {
     log(state, `${actor.name} falls.`)
     dropLoot(state, actor)
-    if (actor.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian defeated.'); log(state, 'The way to the exit is open.') }
+    if (actor.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian passed.'); log(state, 'The way to the exit is open.') }
     gainXp(state, monsterXp(actor.kind))
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
@@ -241,7 +241,7 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (intent.action.id === 'foreman-cavein') return announceForemanCavein(state, actor)
   if (intent.action.id === 'heartwood-charge') return announceHeartwoodCharge(state, actor)
   if (intent.action.id === 'geode-fissure') return announceGeodeFissure(state, actor)
-  if (intent.action.id === 'regent-ward') { addCondition(actor, { kind: 'shielded', duration: 3, potency: 3 }); log(state, 'The Ash Regent raises an imperial ward.'); return [event('danger')] }
+  if (intent.action.id === 'regent-ward') { addCondition(actor, { kind: 'shielded', duration: 3, potency: 3 }); log(state, 'The Stone Keeper raises a spirit ward.'); return [event('danger')] }
   if (intent.action.id === 'regent-decree') return announceRegentDecree(state, actor)
   if (intent.action.id === 'regent-judgment') return announceRegentJudgment(state, actor)
   if (intent.action.id === 'guardian-slam') return announceGuardianSlam(state, actor)
@@ -304,7 +304,7 @@ function announceRuinsLine(state: RunState, actor: Actor, actionId: 'enemy-dart'
 function announceForemanCavein(state: RunState, actor: Actor): ActionResult {
   const id = `${actor.id}:cavein`
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
-  log(state, 'The Foreman marks a cave-in; move clear.')
+  log(state, 'The Obsidian Warden marks a cave-in; move clear.')
   announceTelegraph(state, { id, sourceId: actor.id, actionId: 'foreman-cavein', cells: [{ x: state.hero.x, y: state.hero.y }], danger: 'major', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
   return [event('danger')]
 }
@@ -329,7 +329,7 @@ function announceGeodeFissure(state: RunState, actor: Actor): ActionResult {
 function announceRegentDecree(state: RunState, actor: Actor): ActionResult {
   const id = `${actor.id}:decree`
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
-  log(state, 'The Ash Regent marks a decree; move clear.')
+  log(state, 'The Stone Keeper marks a decree; move clear.')
   announceTelegraph(state, { id, sourceId: actor.id, actionId: 'regent-decree', cells: [{ x: state.hero.x, y: state.hero.y }], danger: 'major', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
   return [event('danger')]
 }
@@ -338,7 +338,7 @@ function announceRegentJudgment(state: RunState, actor: Actor): ActionResult {
   const id = `${actor.id}:judgment`
   if (state.floor.telegraphs?.some(telegraph => telegraph.id === id)) return []
   const cells = actionCells('line', actor, directionToward(actor, state.hero), Math.min(6, distance(actor, state.hero)))
-  log(state, 'The Ash Regent marks a final judgment; move clear.')
+  log(state, 'The Stone Keeper marks a final judgment; move clear.')
   announceTelegraph(state, { id, sourceId: actor.id, actionId: 'regent-judgment', cells, danger: 'major', windup: 1, collision: { point: { ...state.hero }, by: 'target' }, cover: false })
   return [event('danger')]
 }
