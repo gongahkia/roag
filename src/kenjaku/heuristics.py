@@ -152,27 +152,9 @@ def rank_special_action_heuristic(
     The result is a deterministic priority heuristic, not a win-probability or
     expected-value estimate.
     """
-    candidates: list[HeuristicActionCandidate] = []
-    for action in legal_sandbox_actions(state, seat=seat):
-        if action.kind not in _SPECIAL_ACTION_KINDS:
-            continue
-        factors = _special_action_factors(state, action)
-        candidates.append(
-            HeuristicActionCandidate(
-                action=action,
-                score=sum(factor.contribution for factor in factors),
-                factors=factors,
-            )
-        )
-    return tuple(
-        sorted(
-            candidates,
-            key=lambda candidate: (
-                -candidate.score,
-                _SPECIAL_ACTION_KIND_ORDER.index(candidate.action.kind),
-                -1 if candidate.action.tile is None else candidate.action.tile.index,
-            ),
-        )
+    return _rank_special_actions(
+        legal_sandbox_actions(state, seat=seat),
+        riichi_deposit_points=state.rule_config.riichi_deposit_points,
     )
 
 
@@ -224,14 +206,47 @@ _SPECIAL_ACTION_KIND_ORDER = (
 )
 
 
+def _rank_special_actions(
+    actions: Iterable[Action],
+    *,
+    riichi_deposit_points: int,
+) -> tuple[HeuristicActionCandidate, ...]:
+    candidates: list[HeuristicActionCandidate] = []
+    for action in actions:
+        if action.kind not in _SPECIAL_ACTION_KINDS:
+            continue
+        factors = _special_action_factors(
+            action,
+            riichi_deposit_points=riichi_deposit_points,
+        )
+        candidates.append(
+            HeuristicActionCandidate(
+                action=action,
+                score=sum(factor.contribution for factor in factors),
+                factors=factors,
+            )
+        )
+    return tuple(
+        sorted(
+            candidates,
+            key=lambda candidate: (
+                -candidate.score,
+                _SPECIAL_ACTION_KIND_ORDER.index(candidate.action.kind),
+                -1 if candidate.action.tile is None else candidate.action.tile.index,
+            ),
+        )
+    )
+
+
 def _special_action_factors(
-    state: SandboxEnvironmentState,
     action: Action,
+    *,
+    riichi_deposit_points: int,
 ) -> tuple[HeuristicFactor, ...]:
     is_hora = action.kind in {ActionKind.RON, ActionKind.TSUMO}
     is_riichi = action.kind is ActionKind.RIICHI
     is_replacement_draw = action.kind in {ActionKind.ANKAN, ActionKind.KAKAN, ActionKind.KITA}
-    riichi_cost = state.rule_config.riichi_deposit_points if is_riichi else 0
+    riichi_cost = riichi_deposit_points if is_riichi else 0
     return (
         HeuristicFactor("terminal_hora", float(is_hora), 100.0 if is_hora else 0.0),
         HeuristicFactor("riichi_declaration", float(is_riichi), 2.0 if is_riichi else 0.0),

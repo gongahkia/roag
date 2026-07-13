@@ -53,6 +53,13 @@ from kenjaku.simulation.environment import (
     pass_pending_discard_reactions,
     resolve_sandbox_ruleset,
 )
+from kenjaku.simulation.heuristic_trajectories import (
+    HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS,
+    HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND,
+    build_heuristic_distillation_trajectory_manifest,
+    generate_heuristic_distillation_trajectory_manifest,
+    write_heuristic_distillation_trajectory_manifest,
+)
 from kenjaku.simulation.legal_action_oracle import (
     LEGAL_ACTION_ORACLE_V1_FIELDS,
     LEGAL_ACTION_ORACLE_V1_KIND,
@@ -131,6 +138,11 @@ __all__ = [
     "SELF_PLAY_MATCH_REPLAY_VALIDATION_KIND",
     "reconstruct_self_play_match_report",
     "validate_self_play_match_replay",
+    "HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS",
+    "HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND",
+    "build_heuristic_distillation_trajectory_manifest",
+    "generate_heuristic_distillation_trajectory_manifest",
+    "write_heuristic_distillation_trajectory_manifest",
     "generate_legal_random_state_3p",
     "generate_legal_random_state_4p",
     "next_round_sandbox_environment",

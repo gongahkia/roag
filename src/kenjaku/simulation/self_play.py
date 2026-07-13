@@ -683,6 +683,12 @@ def _match_state_payload(state: SandboxEnvironmentState) -> dict[str, Any]:
         "wall_remaining": payload["wall_remaining"],
         "drawn_tile": payload["drawn_tile"],
         "needs_discard": payload["needs_discard"],
+        "pending_discard": payload["pending_discard"],
+        "pending_discard_seat": payload["pending_discard_seat"],
+        "pending_chankan_tile": payload["pending_chankan_tile"],
+        "pending_chankan_seat": payload["pending_chankan_seat"],
+        "pending_kita_tile": payload["pending_kita_tile"],
+        "pending_kita_seat": payload["pending_kita_seat"],
         "pending_reaction_seats": payload["pending_reaction_seats"],
         "terminal_reason": payload["terminal_reason"],
     }
