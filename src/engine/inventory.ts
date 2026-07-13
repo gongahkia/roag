@@ -4,6 +4,7 @@ import { actorAt, generateFloor, getTile } from '../world'
 import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
+import { resolveDisplacement } from './displacement'
 import { gainXp } from './progression'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
@@ -146,7 +147,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   if (item.spell === 'ember') { if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect); else getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)!.kind = 'fireVent' }
   if (item.spell === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect)
   if (item.spell === 'sight') for (const tile of state.floor.tiles) tile.explored = true
-  if (item.spell === 'gust' && target) { target.x += delta.x; target.y += delta.y }
+  if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
   if (item.spell === 'ward') state.hero.maxHealth += 2
   if (item.spell === 'gate') { state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
