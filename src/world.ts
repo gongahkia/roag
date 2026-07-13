@@ -1,5 +1,5 @@
 import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
-import { mixSeed, Rng } from './rng'
+import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
@@ -14,8 +14,8 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
 }
 
 export function generateFloor(runSeed: number, index: number): Floor {
-  const seed = mixSeed(runSeed, index + 1)
-  const rng = new Rng(seed)
+  const seed = streamSeed(runSeed, 'generation', index)
+  const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
   const floor: Floor = {
     index,
@@ -28,17 +28,17 @@ export function generateFloor(runSeed: number, index: number): Floor {
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
     guardianDefeated: index % 4 !== 3
   }
-  const rooms = carveRooms(floor, rng)
+  const rooms = carveRooms(floor, layoutRng)
   connectRooms(floor, rooms)
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
-  decorateBiome(floor, rng, rooms)
+  decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
   placeEvents(floor, rooms)
-  placeDoorsAndLocks(floor, rng, rooms)
-  placeContainers(floor, rng, rooms)
-  placeActors(floor, rng, rooms)
-  placeItems(floor, rng, rooms)
+  placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
+  placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms)
+  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
+  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
   ensureReachable(floor)
   return floor
 }

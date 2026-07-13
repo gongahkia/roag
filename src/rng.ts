@@ -24,8 +24,22 @@ export class Rng {
   }
 }
 
+export const RNG_STREAMS = ['generation', 'combat', 'loot', 'gates', 'legacy'] as const
+export type RngStream = typeof RNG_STREAMS[number]
+export type RngScope = number | string
+
 export const mixSeed = (seed: number, value: number): number => {
   let n = (seed ^ Math.imul(value + 0x9e3779b9, 0x85ebca6b)) >>> 0
   n ^= n >>> 16
   return Math.imul(n, 0xc2b2ae35) >>> 0
 }
+
+const scopeSeed = (value: RngScope): number => {
+  if (typeof value === 'number') return value >>> 0
+  let seed = 0x811c9dc5
+  for (let index = 0; index < value.length; index++) seed = Math.imul(seed ^ value.charCodeAt(index), 0x01000193) >>> 0
+  return seed
+}
+
+export const streamSeed = (seed: number, stream: RngStream, ...scope: RngScope[]): number => scope.reduce<number>((current, value) => mixSeed(current, scopeSeed(value)), mixSeed(seed, scopeSeed(stream)))
+export const rngFor = (seed: number, stream: RngStream, ...scope: RngScope[]): Rng => new Rng(streamSeed(seed, stream, ...scope))

@@ -77,7 +77,7 @@ export function explode(state: RunState, x: number, y: number, damage: number): 
 
 function heroAttack(state: RunState, target: Actor): GameEvent[] {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
-  const rng = turnRng(state)
+  const rng = turnRng(state, 'combat', `hero:${target.id}`)
   if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) {
     log(state, `Your ${weapon?.name ?? 'fists'} miss ${target.name}.`)
     return advance(state, ['hit'])
@@ -104,14 +104,15 @@ function actorTurn(state: RunState, actor: Actor): GameEvent[] {
   const valid = candidates.filter(point => isPassable(state.floor, point.x, point.y) && !(point.x === state.hero.x && point.y === state.hero.y))
   if (!valid.length) return []
   valid.sort((a, b) => distance(a, state.hero) - distance(b, state.hero))
-  const next = actor.ai === 'wander' && turnRng(state).chance(45) ? turnRng(state).pick(valid) : valid[0]
+  const rng = turnRng(state, 'combat', `move:${actor.id}`)
+  const next = actor.ai === 'wander' && rng.chance(45) ? rng.pick(valid) : valid[0]
   actor.x = next.x
   actor.y = next.y
   return []
 }
 
 function monsterAttack(state: RunState, actor: Actor, ranged = 0): GameEvent[] {
-  const rng = turnRng(state)
+  const rng = turnRng(state, 'combat', `attack:${actor.id}`)
   const dodge = 10 + state.hero.stats.agility + equipmentDefense(state.hero)
   if (rng.int(1, 20) + actor.attack < dodge) { log(state, `${actor.name} misses.`); return ['hurt'] }
   const damage = Math.max(1, actor.attack + ranged + rng.int(0, 3) - Math.floor(state.hero.stats.vitality / 2) - equipmentDefense(state.hero))
@@ -123,16 +124,16 @@ function tickEnvironment(state: RunState, events: GameEvent[]): void {
     const tile = getTile(state.floor, actor.x, actor.y)
     if (!tile || !actor.hostile) continue
     if (tile.kind === 'lava') actor.health -= 4
-    if (tile.kind === 'fireVent' && turnRng(state).chance(25)) actor.health -= 3
+    if (tile.kind === 'fireVent' && turnRng(state, 'combat', `vent:${actor.id}`).chance(25)) actor.health -= 3
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
-  if (tile?.kind === 'fireVent' && turnRng(state).chance(20)) events.push(...damageHero(state, 3, 'a fire vent'))
+  if (tile?.kind === 'fireVent' && turnRng(state, 'combat', 'vent:hero').chance(20)) events.push(...damageHero(state, 3, 'a fire vent'))
   if (state.turn % 8 === 0 && state.hero.focus < state.hero.maxFocus) state.hero.focus++
 }
 
 function dropLoot(state: RunState, actor: Actor): void {
-  const rng = turnRng(state)
+  const rng = turnRng(state, 'loot', `drop:${actor.id}`)
   state.floor.items.push({ id: 'gold', x: actor.x, y: actor.y, count: actor.role === 'guardian' ? rng.int(130, 210) : rng.int(5, 18) })
   const tables: Record<string, string[]> = {
     mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic'], caverns: ['focusTonic', 'ember', 'mend', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'blinkRune']

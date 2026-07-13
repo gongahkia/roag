@@ -25,7 +25,7 @@ export function operate(state: RunState): GameEvent[] {
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return ['menu'] }
   if (container) {
     container.tile.kind = 'floor'
-    const loot = turnRng(state).pick(['tonic', 'focusTonic', 'bombPack', 'ropeBundle', 'rock', 'mapScroll', 'ward'])
+    const loot = turnRng(state, 'loot', `container:${container.x},${container.y}`).pick(['tonic', 'focusTonic', 'bombPack', 'ropeBundle', 'rock', 'mapScroll', 'ward'])
     state.hero.gold += container.kind === 'chest' ? 60 : 18
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
@@ -176,7 +176,7 @@ function useItem(state: RunState, id: string, inventoryIndex: number): GameEvent
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, ['spell']) }
   if (item.use === 'teleport') {
     const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [{ x: i % 48, y: Math.floor(i / 48) }] : [])
-    if (choices.length) { const target = turnRng(state).pick(choices); state.hero.x = target.x; state.hero.y = target.y }
+    if (choices.length) { const target = turnRng(state, 'combat', 'blink').pick(choices); state.hero.x = target.x; state.hero.y = target.y }
     consume(state, inventoryIndex); refreshFov(state); log(state, 'Space folds.'); return advance(state, ['spell'])
   }
   if (item.use === 'bomb') { state.hero.bombs += 3; consume(state, inventoryIndex); log(state, 'You gain three bombs.'); return advance(state, ['pickup']) }
