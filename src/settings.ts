@@ -5,7 +5,7 @@ export interface SettingsStore { getItem(key: string): string | null; setItem(ke
 export interface KeyBinding { id: KeyBindingId; label: string; defaultKey: string; command: string }
 export type SettingChoice = { kind: 'reducedFlash'; label: string; value: string } | { kind: 'binding'; binding: KeyBinding; label: string; value: string }
 
-export const SETTINGS_KEY = 'blockscape-settings'
+export const SETTINGS_KEY = 'jomon-settings'
 export const KEY_BINDINGS: readonly KeyBinding[] = [
   { id: 'northwest', label: 'Northwest', defaultKey: 'i', command: 'i' }, { id: 'north', label: 'North', defaultKey: 'o', command: 'o' }, { id: 'northeast', label: 'Northeast', defaultKey: 'p', command: 'p' },
   { id: 'west', label: 'West', defaultKey: 'k', command: 'k' }, { id: 'east', label: 'East', defaultKey: ';', command: ';' }, { id: 'southwest', label: 'Southwest', defaultKey: ',', command: ',' }, { id: 'south', label: 'South', defaultKey: '.', command: '.' }, { id: 'southeast', label: 'Southeast', defaultKey: '/', command: '/' }, { id: 'wait', label: 'Wait', defaultKey: 'l', command: 'l' },

@@ -75,7 +75,7 @@ export class TerminalRenderer {
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
-    this.box(13, 10, 54, 24, 'BLOCKSCAPE: EXPEDITION')
+    this.box(13, 10, 54, 24, 'JOMON: EXPEDITION')
     this.text(19, 14, 'AN ASCII DELVE INTO THE UNKNOWN', colors.gold)
     this.text(20, 18, 'N  begin a new heir', colors.green)
     this.text(20, 20, 'L  resume saved floor', colors.text)

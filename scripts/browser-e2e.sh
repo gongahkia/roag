@@ -3,7 +3,7 @@ set -euo pipefail
 
 PORT="${PORT:-4173}"
 URL="http://127.0.0.1:${PORT}"
-LOG="${TMPDIR:-/tmp}/blockscape-vite-${PORT}.log"
+LOG="${TMPDIR:-/tmp}/jomon-vite-${PORT}.log"
 CLI=(npx --yes --package @playwright/cli playwright-cli)
 
 "${CLI[@]}" install-browser chromium

@@ -19,7 +19,7 @@ let hub: HubState = createHubState(0)
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
 
-const loadVisualMode = (): boolean => { try { return localStorage.getItem('blockscape-visual-mode') === 'sprites' } catch { return false } }
+const loadVisualMode = (): boolean => { try { return localStorage.getItem('jomon-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
 renderer.setSettings(settings)
 
@@ -144,7 +144,7 @@ function persistRescuedRoster(): void {
 
 function toggleVisualMode(): void {
   renderer.setSpriteMode(!renderer.isSpriteMode)
-  try { localStorage.setItem('blockscape-visual-mode', renderer.isSpriteMode ? 'sprites' : 'ascii') } catch { }
+  try { localStorage.setItem('jomon-visual-mode', renderer.isSpriteMode ? 'sprites' : 'ascii') } catch { }
   redraw()
 }
 

@@ -1,7 +1,7 @@
 import type { Actor, Biome, CampaignRouteState, ConditionState, EncyclopediaState, Floor, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Records, RescuedNpc, RunState, RunStateV1, Telegraph, Tile } from './types'
 import { objectiveForFloor } from './objectives'
 
-const DB = 'blockscape-expedition-v2'
+const DB = 'jomon-expedition-v2'
 const STORE = 'state'
 const RUN = 'active-run'
 const RECORDS = 'records'
