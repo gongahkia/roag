@@ -43,6 +43,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     log(state, 'You unlock the door.')
     return advance(state, [event('move')])
   }
+  if (tile.kind === 'bramble' && weapon?.weapon?.tags.includes('cleave')) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You cut through the bramble.'); return advance(state, [event('move')]) }
   if (tile.kind === 'rubble' && canBreakRubble(state.hero)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You break through the rubble.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   let destination = { x, y }

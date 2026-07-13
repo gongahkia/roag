@@ -329,7 +329,7 @@ const canReachObjective = (reachable: ReadonlySet<string>, target: Point): boole
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
   errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor))
-  if (floor.biome === 'mine' && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
+  if (puzzleTemplatesFor(floor.biome).length && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
   if (floor.tiles.length !== MAP_WIDTH * MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
   if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
   if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')

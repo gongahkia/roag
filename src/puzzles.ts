@@ -6,7 +6,9 @@ export interface PuzzleTemplate { id: string; biome: Biome; solutions: readonly 
 
 export const PUZZLE_TEMPLATES: readonly PuzzleTemplate[] = [
   { id: 'mine-rail-switch', biome: 'mine', solutions: [{ id: 'rail-crossing', terrain: ['rail', 'support'] }, { id: 'rubble-shortcut', terrain: ['rubble'] }], placements: [{ dx: -1, dy: 0, kind: 'rail' }, { dx: 0, dy: 0, kind: 'support' }, { dx: 1, dy: 0, kind: 'rail' }, { dx: 0, dy: -1, kind: 'rubble' }, { dx: 0, dy: 1, kind: 'crumble' }] },
-  { id: 'mine-collapse-detour', biome: 'mine', solutions: [{ id: 'crumble-bridge', terrain: ['crumble'] }, { id: 'supported-detour', terrain: ['rail', 'support'] }], placements: [{ dx: -1, dy: 0, kind: 'rail' }, { dx: 0, dy: 0, kind: 'crumble' }, { dx: 1, dy: 0, kind: 'rail' }, { dx: 0, dy: -1, kind: 'support' }, { dx: 0, dy: 1, kind: 'rubble' }] }
+  { id: 'mine-collapse-detour', biome: 'mine', solutions: [{ id: 'crumble-bridge', terrain: ['crumble'] }, { id: 'supported-detour', terrain: ['rail', 'support'] }], placements: [{ dx: -1, dy: 0, kind: 'rail' }, { dx: 0, dy: 0, kind: 'crumble' }, { dx: 1, dy: 0, kind: 'rail' }, { dx: 0, dy: -1, kind: 'support' }, { dx: 0, dy: 1, kind: 'rubble' }] },
+  { id: 'wilds-waterway-fork', biome: 'wilds', solutions: [{ id: 'wade-water', terrain: ['water'] }, { id: 'cut-bramble', terrain: ['bramble'] }], placements: [{ dx: -1, dy: 0, kind: 'water' }, { dx: 0, dy: 0, kind: 'web' }, { dx: 1, dy: 0, kind: 'water' }, { dx: 0, dy: -1, kind: 'bramble' }, { dx: 0, dy: 1, kind: 'bramble' }] },
+  { id: 'wilds-web-detour', biome: 'wilds', solutions: [{ id: 'cross-web', terrain: ['web'] }, { id: 'cut-bramble', terrain: ['bramble'] }], placements: [{ dx: -1, dy: 0, kind: 'web' }, { dx: 0, dy: 0, kind: 'bramble' }, { dx: 1, dy: 0, kind: 'web' }, { dx: 0, dy: -1, kind: 'water' }, { dx: 0, dy: 1, kind: 'water' }] }
 ]
 
 export const puzzleTemplatesFor = (biome: Biome): readonly PuzzleTemplate[] => PUZZLE_TEMPLATES.filter(template => template.biome === biome)
