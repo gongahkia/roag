@@ -12,6 +12,7 @@ from kenjaku.simulation import HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIN
 from kenjaku.training.behavior_distillation import (
     BehaviorDistillationExample,
     distillation_examples_from_manifest,
+    resolve_action_kind_loss_weights,
     train_multi_task_behavior_distillation,
 )
 
@@ -54,6 +55,19 @@ class BehaviorDistillationExampleTests(unittest.TestCase):
                 action_mask=(False,) * 276,
                 action_target=0,
             )
+
+    def test_resolves_explicit_and_inverse_frequency_action_weights(self) -> None:
+        discard, special, _call = distillation_examples_from_manifest(_manifest())
+
+        weights = resolve_action_kind_loss_weights(
+            (discard, discard, special),
+            action_kind_weights={"discard": 2.0},
+            balance_action_kinds=True,
+        )
+
+        self.assertEqual(weights, {"discard": 1.5, "riichi": 1.5})
+        with self.assertRaisesRegex(ValueError, "positive"):
+            resolve_action_kind_loss_weights((discard,), action_kind_weights={"discard": 0.0})
 
 
 @unittest.skipUnless(TORCH_AVAILABLE, "PyTorch is not available")

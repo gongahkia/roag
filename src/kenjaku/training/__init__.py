@@ -72,6 +72,7 @@ if TYPE_CHECKING:
         BehaviorDistillationTrainingResult,
         distillation_examples_from_manifest,
         evaluate_multi_task_behavior_distillation,
+        resolve_action_kind_loss_weights,
         train_multi_task_behavior_distillation,
     )
     from kenjaku.training.population import (
@@ -108,6 +109,7 @@ _LAZY_EXPORT_MODULES = {
     "BehaviorDistillationTrainingResult": "kenjaku.training.behavior_distillation",
     "distillation_examples_from_manifest": "kenjaku.training.behavior_distillation",
     "evaluate_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
+    "resolve_action_kind_loss_weights": "kenjaku.training.behavior_distillation",
     "train_multi_task_behavior_distillation": "kenjaku.training.behavior_distillation",
     "POPULATION_SANDBOX_REPORT_KIND": "kenjaku.training.population",
     "POPULATION_SANDBOX_SNAPSHOT_KIND": "kenjaku.training.population",
@@ -182,6 +184,7 @@ __all__ = [
     "discard_shanten_delta",
     "distillation_examples_from_manifest",
     "evaluate_multi_task_behavior_distillation",
+    "resolve_action_kind_loss_weights",
     "evaluate_ppo_sandbox_policy",
     "format_ppo_sandbox_report",
     "format_population_sandbox_report",

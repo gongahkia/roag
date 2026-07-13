@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -22,6 +23,11 @@ from kenjaku.models.multi_action_policy import (
 from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_device
 from kenjaku.schema import (
     LEGAL_ACTION_MASK_V1_DIM,
+    LEGAL_ACTION_MASK_V1_KYUSHU_INDEX,
+    LEGAL_ACTION_MASK_V1_PASS_INDEX,
+    LEGAL_ACTION_MASK_V1_RIICHI_INDEX,
+    LEGAL_ACTION_MASK_V1_TILE_ACTION_OFFSETS,
+    LEGAL_ACTION_MASK_V1_TSUMO_INDEX,
     OBSERVATION_V1_TENSOR_DIM,
     ActionV1,
     LegalActionMaskV1,
@@ -34,6 +40,12 @@ from kenjaku.schema import (
 BEHAVIOR_DISTILLATION_TRAINER_KIND = "multi-task-behavior-distillation-trainer-v0"
 HEURISTIC_DISTILLATION_FAMILIES = ("discard", "call_pass", "special_action")
 _TASK_NAMES = ("action", "tile", "meld", "value")
+_SINGLE_ACTION_KINDS = {
+    LEGAL_ACTION_MASK_V1_PASS_INDEX: ActionKind.PASS.value,
+    LEGAL_ACTION_MASK_V1_TSUMO_INDEX: ActionKind.TSUMO.value,
+    LEGAL_ACTION_MASK_V1_RIICHI_INDEX: ActionKind.RIICHI.value,
+    LEGAL_ACTION_MASK_V1_KYUSHU_INDEX: ActionKind.KYUSHU.value,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,8 +123,10 @@ def train_multi_task_behavior_distillation(
     learning_rate: float,
     device: str = "auto",
     seed: int = 0,
+    action_kind_weights: Mapping[ActionKind | str, float] | None = None,
+    balance_action_kinds: bool = False,
 ) -> BehaviorDistillationTrainingResult:
-    """Train action, tile, meld, and optional value tasks with equal term weighting."""
+    """Train multi-task labels with optional action-kind imbalance correction."""
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
     if not train_examples:
         raise ValueError("no distillation training examples found")
@@ -122,6 +136,11 @@ def train_multi_task_behavior_distillation(
         raise ValueError("batch_size must be positive")
     if learning_rate <= 0:
         raise ValueError("learning_rate must be positive")
+    resolved_action_weights = resolve_action_kind_loss_weights(
+        train_examples,
+        action_kind_weights=action_kind_weights,
+        balance_action_kinds=balance_action_kinds,
+    )
 
     resolved_device = resolve_torch_device(device)
     torch.manual_seed(seed)
@@ -136,11 +155,13 @@ def train_multi_task_behavior_distillation(
             model,
             train_examples,
             device=resolved_device,
+            action_kind_weights=resolved_action_weights,
         )
         eval_metrics = evaluate_multi_task_behavior_distillation(
             model,
             eval_examples,
             device=resolved_device,
+            action_kind_weights=resolved_action_weights,
         )
         history.append({"epoch": epoch, "train": train_metrics, "eval": eval_metrics})
         return train_metrics, eval_metrics
@@ -165,6 +186,7 @@ def train_multi_task_behavior_distillation(
                         torch=torch,
                         functional=functional,
                         device=resolved_device,
+                        action_kind_weights=resolved_action_weights,
                     )
                 ]
                 if not losses:
@@ -189,6 +211,7 @@ def evaluate_multi_task_behavior_distillation(
     examples: Sequence[BehaviorDistillationExample],
     *,
     device: Any,
+    action_kind_weights: Mapping[str, float] | None = None,
 ) -> dict[str, int | float | None]:
     """Evaluate unweighted mean losses for each available distillation task."""
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
@@ -203,6 +226,7 @@ def evaluate_multi_task_behavior_distillation(
                 torch=torch,
                 functional=functional,
                 device=device,
+                action_kind_weights=action_kind_weights,
             ):
                 sums[task] += float(loss.detach().cpu())
                 counts[task] += 1
@@ -213,6 +237,26 @@ def evaluate_multi_task_behavior_distillation(
         metrics[task + "_examples"] = counts[task]
         metrics[task + "_loss"] = sums[task] / counts[task] if counts[task] else None
     return metrics
+
+
+def resolve_action_kind_loss_weights(
+    examples: Sequence[BehaviorDistillationExample],
+    *,
+    action_kind_weights: Mapping[ActionKind | str, float] | None = None,
+    balance_action_kinds: bool = False,
+) -> dict[str, float]:
+    """Resolve explicit and inverse-frequency weights for observed action kinds."""
+    explicit = _validated_action_kind_weights(action_kind_weights)
+    counts = Counter(_action_kind_for_index(example.action_target) for example in examples)
+    if not counts:
+        raise ValueError("cannot resolve action weights for zero examples")
+    total = sum(counts.values())
+    kinds = len(counts)
+    return {
+        kind: explicit.get(kind, 1.0)
+        * (total / (kinds * count) if balance_action_kinds else 1.0)
+        for kind, count in counts.items()
+    }
 
 
 def _trajectory_examples(
@@ -434,12 +478,17 @@ def _loss_terms(
     torch: Any,
     functional: Any,
     device: Any,
+    action_kind_weights: Mapping[str, float] | None = None,
 ) -> tuple[tuple[str, Any], ...]:
     observation = torch.tensor([example.observation], dtype=torch.float32, device=device)
     action_mask = torch.tensor([example.action_mask], dtype=torch.bool, device=device)
     action_target = torch.tensor([example.action_target], dtype=torch.long, device=device)
+    weight = (action_kind_weights or {}).get(_action_kind_for_index(example.action_target), 1.0)
     terms: list[tuple[str, Any]] = [
-        ("action", functional.cross_entropy(model(observation, action_mask), action_target))
+        (
+            "action",
+            functional.cross_entropy(model(observation, action_mask), action_target) * weight,
+        )
     ]
     if example.tile_action is not None:
         assert example.tile_mask is not None
@@ -452,7 +501,8 @@ def _loss_terms(
                 functional.cross_entropy(
                     model.tile_logits(observation, example.tile_action, tile_mask),
                     tile_target,
-                ),
+                )
+                * weight,
             )
         )
     if example.meld_mask is not None:
@@ -462,13 +512,38 @@ def _loss_terms(
         terms.append(
             (
                 "meld",
-                functional.cross_entropy(model.meld_logits(observation, meld_mask), meld_target),
+                functional.cross_entropy(model.meld_logits(observation, meld_mask), meld_target)
+                * weight,
             )
         )
     if example.value_target is not None:
         value_target = torch.tensor([example.value_target], dtype=torch.float32, device=device)
         terms.append(("value", functional.mse_loss(model.value(observation), value_target)))
     return tuple(terms)
+
+
+def _validated_action_kind_weights(
+    values: Mapping[ActionKind | str, float] | None,
+) -> dict[str, float]:
+    if values is None:
+        return {}
+    weights: dict[str, float] = {}
+    for key, value in values.items():
+        kind = ActionKind(key).value
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+            raise ValueError("action kind weights must be positive numbers")
+        weights[kind] = float(value)
+    return weights
+
+
+def _action_kind_for_index(index: int) -> str:
+    for kind, offset in LEGAL_ACTION_MASK_V1_TILE_ACTION_OFFSETS.items():
+        if offset <= index < offset + TILE_ARGUMENT_DIM:
+            return kind
+    kind = _SINGLE_ACTION_KINDS.get(index)
+    if kind is None:
+        raise ValueError(f"unsupported action target index: {index}")
+    return kind
 
 
 def _require_valid_manifest(manifest: Mapping[str, Any]) -> None:
