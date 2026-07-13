@@ -5,7 +5,6 @@ import { advance, explode } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { addCondition, modifyIncomingDamage } from './conditions'
 import { resolveDisplacement } from './displacement'
-import { resolveTerrainReactions } from './terrain'
 import { gateForArea } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
@@ -16,6 +15,7 @@ import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
 import { intellectWardBonus } from './intellect'
 import { scriptCastProfile } from './scripts'
+import { castEmber } from './ember'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -168,14 +168,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   const delta = DIRECTIONS[direction]
   const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
   const target = actorAt(state.floor, point.x, point.y)
-  if (item.spell === 'ember') {
-    if (target) target.health -= modifyIncomingDamage(target, 8 + state.hero.stats.intellect)
-    else {
-      const reactions = resolveTerrainReactions(state.floor, [point], ['fire'])
-      if (!reactions.length) getTile(state.floor, point.x, point.y)!.kind = 'fireVent'
-      for (const reaction of reactions) log(state, `Terrain reaction: ${reaction.reaction}.`)
-    }
-  }
+  if (item.spell === 'ember') castEmber(state, point)
   if (item.spell === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect)
   if (item.spell === 'sight') for (const tile of state.floor.tiles) tile.explored = true
   if (item.spell === 'gust' && target) resolveDisplacement(state, state.hero, target, 'push')
