@@ -7,3 +7,5 @@ Each rationale factor has a stable lowercase `factor` identifier, numeric `value
 The schema accepts uncalibrated decisions with `probability: null`, rejects non-finite values and unknown fields, and validates that the selected action uses the result ruleset.
 
 `extract_heuristic_rationale` converts the ordered factors from one heuristic candidate without fabricating a probability or evidence.
+
+`render_decision_rationale` renders the ordered factors as deterministic human-readable sentences, retaining signed contributions and supplied evidence.

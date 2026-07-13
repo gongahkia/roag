@@ -3,13 +3,13 @@ from __future__ import annotations
 import unittest
 
 from kenjaku.core import Action, ActionKind, Tile, TileType
-from kenjaku.decision_rationale import extract_heuristic_rationale
+from kenjaku.decision_rationale import extract_heuristic_rationale, render_decision_rationale
 from kenjaku.heuristics import (
     HeuristicActionCandidate,
     HeuristicFactor,
     rank_discard_heuristic,
 )
-from kenjaku.schema import ActionV1, DecisionResultV1
+from kenjaku.schema import ActionV1, DecisionFactorV1, DecisionRationaleV1, DecisionResultV1
 
 
 class DecisionRationaleTests(unittest.TestCase):
@@ -64,6 +64,40 @@ class DecisionRationaleTests(unittest.TestCase):
             extract_heuristic_rationale(candidate, evidence_by_factor={"risk": ()})
         with self.assertRaisesRegex(ValueError, "string sequence"):
             extract_heuristic_rationale(candidate, evidence_by_factor={"replacement_draw": "x"})
+
+    def test_renders_ordered_signed_factors_and_evidence_deterministically(self) -> None:
+        rationale = DecisionRationaleV1(
+            factors=(
+                DecisionFactorV1(
+                    factor="replacement_draw",
+                    value=1,
+                    contribution=0.25,
+                    evidence=("North replacement draw",),
+                ),
+                DecisionFactorV1(factor="defense_risk", value=0.12, contribution=-0.2),
+                DecisionFactorV1(factor="placement_uma", value=0, contribution=0),
+            )
+        )
+
+        first = render_decision_rationale(rationale)
+        second = render_decision_rationale(rationale)
+
+        self.assertEqual(first, second)
+        self.assertEqual(
+            first,
+            "replacement draw supported this action (+0.25; value 1). "
+            "Evidence: North replacement draw. "
+            "defense risk opposed this action (-0.2; value 0.12). "
+            "placement uma was neutral (0; value 0).",
+        )
+
+    def test_renders_empty_rationale_and_rejects_other_values(self) -> None:
+        self.assertEqual(
+            render_decision_rationale(DecisionRationaleV1()),
+            "No structured rationale factors are available.",
+        )
+        with self.assertRaisesRegex(ValueError, "DecisionRationaleV1"):
+            render_decision_rationale("rationale")
 
 
 def _tiles(value: str) -> tuple[Tile, ...]:
