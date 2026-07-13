@@ -133,8 +133,10 @@ from kenjaku.simulation import (
     SELF_PLAY_SANDBOX_POLICIES,
     SELF_PLAY_SANDBOX_REWARD_MODES,
     SELF_PLAY_SANDBOX_RULESETS,
+    PairedMatchPolicy,
     format_self_play_match_report,
     format_self_play_sandbox_report,
+    run_paired_seed_matches_4p,
     run_self_play_match_sandbox,
     run_self_play_sandbox,
 )
@@ -770,6 +772,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the match report as JSON instead of text",
     )
     self_play_match.set_defaults(func=_self_play_match_sandbox)
+
+    paired_match = subparsers.add_parser(
+        "paired-match-4p",
+        help="compare two 4p sandbox policies on identical derived match seeds",
+    )
+    paired_match.add_argument("--pairs", type=int, default=1, help="number of paired matches")
+    paired_match.add_argument("--max-rounds", type=int, default=12)
+    paired_match.add_argument("--max-turns-per-round", type=int, default=512)
+    paired_match.add_argument("--seed", default="kenjaku-paired-match-4p-v0")
+    paired_match.add_argument(
+        "--candidate-discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+    )
+    paired_match.add_argument(
+        "--baseline-discard-policy",
+        choices=SELF_PLAY_MATCH_DISCARD_POLICIES,
+        default="drawn",
+    )
+    paired_match.add_argument("--candidate-heuristic-seats", default="")
+    paired_match.add_argument("--baseline-heuristic-seats", default="")
+    paired_match.add_argument("--report", type=Path)
+    paired_match.add_argument("--json", action="store_true")
+    paired_match.set_defaults(func=_paired_match_4p)
 
     train_ppo = subparsers.add_parser(
         "train-ppo-sandbox",
@@ -3532,6 +3558,37 @@ def _self_play_match_sandbox(args: argparse.Namespace) -> int:
     if args.trajectory_jsonl is not None:
         print(f"trajectory_path: {args.trajectory_jsonl}")
         print(f"trajectory_rows: {trajectory_rows}")
+    return 0
+
+
+def _paired_match_4p(args: argparse.Namespace) -> int:
+    pin_seeds(args.seed)
+    try:
+        report = run_paired_seed_matches_4p(
+            pairs=args.pairs,
+            seed=args.seed,
+            max_rounds=args.max_rounds,
+            max_turns_per_round=args.max_turns_per_round,
+            candidate=PairedMatchPolicy(
+                discard_policy=args.candidate_discard_policy,
+                heuristic_seats=_parse_seat_list(args.candidate_heuristic_seats),
+            ),
+            baseline=PairedMatchPolicy(
+                discard_policy=args.baseline_discard_policy,
+                heuristic_seats=_parse_seat_list(args.baseline_heuristic_seats),
+            ),
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if args.report is not None:
+        _write_response_report(args.report, report)
+    if args.json:
+        _print_json_response(report)
+    else:
+        print("pairs: " + str(report["pairs"]))
+        print("completed_pairs: " + str(report["summary"]["completed_pairs"]))
+    if args.report is not None:
+        print(f"report_path: {args.report}")
     return 0
 
 

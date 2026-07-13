@@ -4,7 +4,7 @@ import argparse
 
 from kenjaku.commands._registry import handle, register_commands
 
-COMMANDS = ("self-play-sandbox", "self-play-match-sandbox")
+COMMANDS = ("self-play-sandbox", "self-play-match-sandbox", "paired-match-4p")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

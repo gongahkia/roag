@@ -77,6 +77,11 @@ from kenjaku.simulation.match_replay import (
     reconstruct_self_play_match_report,
     validate_self_play_match_replay,
 )
+from kenjaku.simulation.paired_matches import (
+    PAIRED_SEED_MATCH_4P_REPORT_KIND,
+    PairedMatchPolicy,
+    run_paired_seed_matches_4p,
+)
 from kenjaku.simulation.random_state import (
     generate_legal_random_state_3p,
     generate_legal_random_state_4p,
@@ -153,6 +158,9 @@ __all__ = [
     "SELF_PLAY_MATCH_REPLAY_VALIDATION_KIND",
     "reconstruct_self_play_match_report",
     "validate_self_play_match_replay",
+    "PAIRED_SEED_MATCH_4P_REPORT_KIND",
+    "PairedMatchPolicy",
+    "run_paired_seed_matches_4p",
     "HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS",
     "HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND",
     "build_heuristic_distillation_trajectory_manifest",

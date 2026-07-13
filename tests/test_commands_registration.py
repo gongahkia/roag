@@ -18,6 +18,7 @@ EXPECTED_COMMANDS = (
     "replay-viewer",
     "self-play-sandbox",
     "self-play-match-sandbox",
+    "paired-match-4p",
     "train-ppo-sandbox",
     "train-population-sandbox",
     "training-dashboard",
