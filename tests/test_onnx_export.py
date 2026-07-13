@@ -58,6 +58,7 @@ class MultiActionOnnxExportTests(unittest.TestCase):
 
             self.assertEqual(exported.path, output)
             self.assertEqual(exported.checkpoint_manifest, manifest)
+            self.assertEqual(exported.opset_version, 18)
             model = onnx.load_model(output)
             onnx.checker.check_model(model)
             self.assertEqual(
@@ -67,6 +68,12 @@ class MultiActionOnnxExportTests(unittest.TestCase):
             self.assertEqual(
                 {item.name for item in model.graph.output},
                 {MULTI_ACTION_ONNX_LOGITS_OUTPUT},
+            )
+            self.assertTrue(
+                all(
+                    item.type.tensor_type.shape.dim[0].dim_param
+                    for item in (*model.graph.input, *model.graph.output)
+                )
             )
             metadata = {item.key: item.value for item in model.metadata_props}
             self.assertEqual(metadata["kenjaku.export_kind"], MULTI_ACTION_ONNX_EXPORT_KIND)

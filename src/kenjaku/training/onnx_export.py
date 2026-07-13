@@ -162,5 +162,5 @@ def _validate_tensor_value(onnx: Any, value: Any, *, element_type: int, width: i
     tensor = value.type.tensor_type
     if tensor.elem_type != element_type or len(tensor.shape.dim) != 2:
         raise ValueError("exported ONNX tensor type differs from the multi-action contract")
-    if tensor.shape.dim[1].dim_value != width:
+    if not tensor.shape.dim[0].dim_param or tensor.shape.dim[1].dim_value != width:
         raise ValueError("exported ONNX tensor width differs from the multi-action contract")
