@@ -1,4 +1,5 @@
-import { ITEM, biomeName, shopStock } from './content'
+import { ITEM, biomeName } from './content'
+import { merchantStock } from './engine/rewards'
 import { gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { presentTelegraph } from './renderer/telegraphs'
@@ -224,9 +225,9 @@ export class TerminalRenderer {
 
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
-    shopStock(state.floor.biome).forEach((id, i) => { const item = ITEM[id]; this.text(17, 10 + i * 3, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
-    this.text(17, 30, `your gold: ${state.hero.gold}`, colors.gold)
-    this.text(17, 33, 'number buys · Esc/backtick leaves', colors.dim)
+    merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} gold`, item.color) })
+    this.text(17, 29, `your gold: ${state.hero.gold}`, colors.gold)
+    this.text(17, 32, 'number buys · Esc/backtick leaves', colors.dim)
   }
 
   private gate(state: RunState, modal: Extract<Modal, { kind: 'gate' }>): void {

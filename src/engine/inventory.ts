@@ -1,4 +1,4 @@
-import { ITEM, biomeName, shopStock } from '../content'
+import { ITEM, biomeName } from '../content'
 import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
 import { actorAt, generateAreaFloor, getTile } from '../world'
 import { advance, explode } from './combat'
@@ -17,6 +17,7 @@ import { castEmber } from './ember'
 import { castVerdant, isVerdantSpell } from './verdant'
 import { castAstral, isAstralSpell } from './astral'
 import { announceSynergies, resolveSynergies } from './synergies'
+import { contextualReward, merchantStock } from './rewards'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -43,7 +44,7 @@ export function operate(state: RunState): ActionResult {
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
   if (container) {
     container.tile.kind = 'floor'
-    const loot = turnRng(state, 'loot', `container:${container.x},${container.y}`).pick(['tonic', 'focusTonic', 'bombPack', 'ropeBundle', 'rock', 'mapScroll', 'ward'])
+    const loot = contextualReward(state, 'container')
     state.hero.gold += container.kind === 'chest' ? 60 : 18
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
@@ -66,8 +67,11 @@ export function operate(state: RunState): ActionResult {
   if (tile?.kind === 'altar') {
     if (state.hero.gold < 75) { log(state, 'The altar asks for 75 gold.'); return [] }
     state.hero.gold -= 75
+    const reward = contextualReward(state, 'altar')
+    if (state.hero.inventory.length < 12) state.hero.inventory.push(reward)
+    else state.floor.items.push({ id: reward, x: state.hero.x, y: state.hero.y, count: 1 })
     gainXp(state, 35)
-    log(state, 'The altar grants insight.')
+    log(state, `The altar grants insight and ${ITEM[reward].name}.`)
     if (completeObjective(state, 'invokeAltar')) log(state, 'Objective complete: altar invoked.')
     return advance(state, [event('spell')])
   }
@@ -185,7 +189,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
 }
 
 export function shopChoice(state: RunState, command: string): ActionResult {
-  const id = shopStock(state.floor.biome)[Number(command) - 1]
+  const id = merchantStock(state)[Number(command) - 1]
   if (!id) return []
   const item = ITEM[id]
   if (state.hero.gold < item.value) { log(state, 'Not enough gold.'); return [event('menu')] }

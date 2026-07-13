@@ -45,6 +45,8 @@ export { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegrap
 export { vitalityHazardReduction, vitalityRecovery, vitalityRescueRecovery, vitalityShield } from './engine/vitality'
 export { hasAstralGateAccess, intellectFocusDiscount, intellectFocusRecovery, intellectScriptRange, intellectWardBonus } from './engine/intellect'
 export { scriptCastProfile, scriptForItem } from './engine/scripts'
+export { contextualReward, merchantStock, missingCapabilities, rewardTags } from './engine/rewards'
+export type { RewardSource } from './engine/rewards'
 export type { ScriptDefinition, ScriptSchool, ScriptUpgradeHook } from './content'
 export { refreshFov } from './engine/visibility'
 export { completeObjective, objectiveForFloor } from './objectives'
