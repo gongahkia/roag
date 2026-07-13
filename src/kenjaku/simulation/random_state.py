@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from kenjaku.core import TENHOU_4P, Action, ActionKind
+from kenjaku.core import TENHOU_3P, TENHOU_4P, Action, ActionKind
 from kenjaku.reproducibility import derive_seed, derive_seed_int
 from kenjaku.simulation.environment import (
     SandboxEnvironmentState,
@@ -27,13 +27,38 @@ def generate_legal_random_state_4p(
     seed: int | str,
     decisions: int = 16,
 ) -> SandboxEnvironmentState:
+    return _generate_legal_random_state(
+        ruleset=TENHOU_4P.name,
+        seed=seed,
+        decisions=decisions,
+    )
+
+
+def generate_legal_random_state_3p(
+    *,
+    seed: int | str,
+    decisions: int = 16,
+) -> SandboxEnvironmentState:
+    return _generate_legal_random_state(
+        ruleset=TENHOU_3P.name,
+        seed=seed,
+        decisions=decisions,
+    )
+
+
+def _generate_legal_random_state(
+    *,
+    ruleset: str,
+    seed: int | str,
+    decisions: int,
+) -> SandboxEnvironmentState:
     if isinstance(decisions, bool) or not isinstance(decisions, int) or decisions < 0:
         raise ValueError("decisions must be a non-negative integer")
-    rng = random.Random(derive_seed_int(seed, "legal-random-state", TENHOU_4P.name))
+    rng = random.Random(derive_seed_int(seed, "legal-random-state", ruleset))
     reset = 0
-    state = _initial_state(seed, reset)
+    state = _initial_state(ruleset=ruleset, seed=seed, reset=reset)
     for _decision in range(decisions):
-        state, reset = _ready_state(state, seed=seed, reset=reset)
+        state, reset = _ready_state(state, ruleset=ruleset, seed=seed, reset=reset)
         seat = _acting_seat(state)
         transitions = tuple(
             transition
@@ -43,30 +68,31 @@ def generate_legal_random_state_4p(
         )
         if not transitions:
             reset += 1
-            state = _initial_state(seed, reset)
+            state = _initial_state(ruleset=ruleset, seed=seed, reset=reset)
             continue
         state = transitions[rng.randrange(len(transitions))]
-    state, _reset = _ready_state(state, seed=seed, reset=reset)
+    state, _reset = _ready_state(state, ruleset=ruleset, seed=seed, reset=reset)
     return state
 
 
-def _initial_state(seed: int | str, reset: int) -> SandboxEnvironmentState:
+def _initial_state(*, ruleset: str, seed: int | str, reset: int) -> SandboxEnvironmentState:
     return initial_sandbox_environment(
-        ruleset=TENHOU_4P.name,
-        seed=derive_seed(seed, "legal-random-state", TENHOU_4P.name, reset),
+        ruleset=ruleset,
+        seed=derive_seed(seed, "legal-random-state", ruleset, reset),
     )
 
 
 def _ready_state(
     state: SandboxEnvironmentState,
     *,
+    ruleset: str,
     seed: int | str,
     reset: int,
 ) -> tuple[SandboxEnvironmentState, int]:
     while True:
         if state.terminal_reason is not None:
             reset += 1
-            state = _initial_state(seed, reset)
+            state = _initial_state(ruleset=ruleset, seed=seed, reset=reset)
             continue
         if state.pending_reaction_seats or state.drawn_tile is not None or state.needs_discard:
             return state, reset
