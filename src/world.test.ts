@@ -95,6 +95,18 @@ describe('expedition generation', () => {
     expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(true)
   })
 
+  it('uses locks, darts, brittle floors, and ritual spaces on solvable Ruins routes', () => {
+    for (const seed of [10, 44, 1002]) {
+      const floor = generateAreaFloor(seed, 'ruins', 0)
+      const kinds = floor.tiles.map(tile => tile.kind)
+      expect(kinds).toContain('lockedDoor')
+      expect(kinds).toContain('dart')
+      expect(kinds).toContain('crumble')
+      expect(kinds).toContain('altar')
+      expect(exitReachable(floor)).toBe(true)
+    }
+  })
+
   it('starts an explorer on a visible, passable map cell', () => {
     const run = newRun(42)
     expect(getTile(run.floor, run.hero.x, run.hero.y)?.visible).toBe(true)

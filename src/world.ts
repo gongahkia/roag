@@ -84,18 +84,10 @@ const railH = (floor: Floor, from: number, to: number, y: number) => { for (let 
 const railV = (floor: Floor, from: number, to: number, x: number) => { for (let y = Math.min(from, to); y <= Math.max(from, to); y++) if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, 'rail') }
 
 function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
-  const candidates = floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
-  const safe = candidates.filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
-  const paint = (kind: Tile['kind'], count: number) => {
-    for (let i = 0; i < count; i++) {
-      const point = rng.pick(safe)
-      if (!actorAt(floor, point.x, point.y)) setKind(floor, point.x, point.y, kind)
-    }
-  }
   if (floor.biome === 'mine') decorateMine(floor, rng, rooms)
   if (floor.biome === 'wilds') decorateWilds(floor, rng)
   if (floor.biome === 'caverns') decorateCaverns(floor, rng)
-  if (floor.biome === 'ruins') { paint('dart', 10); paint('spikes', 8); paint('crumble', 8); paint('boulder', 6) }
+  if (floor.biome === 'ruins') decorateRuins(floor, rng, rooms)
   if (floor.index % 4 === 3) {
     const chamber = rooms[rooms.length - 1]
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
@@ -162,6 +154,26 @@ function decorateCaverns(floor: Floor, rng: Rng): void {
   paint('darkness', 11, true)
 }
 
+function decorateRuins(floor: Floor, rng: Rng, rooms: Room[]): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      candidates = safe()
+    }
+  }
+  paint('dart', 12)
+  paint('crumble', 10)
+  paint('boulder', 5)
+  const ritualRoom = rooms.length > 2 ? rooms[rooms.length - 2] : undefined
+  if (!ritualRoom) return
+  const altar = center(ritualRoom)
+  for (let y = altar.y - 1; y <= altar.y + 1; y++) for (let x = altar.x - 1; x <= altar.x + 1; x++) if (getTile(floor, x, y)?.kind !== 'wall') setKind(floor, x, y, 'floor')
+  setKind(floor, altar.x, altar.y, 'altar')
+}
+
 function placeEvents(floor: Floor, rooms: Room[]): void {
   const eventRoom = rooms[Math.max(1, Math.floor(rooms.length / 2))]
   const point = center(eventRoom)
@@ -173,10 +185,15 @@ function placeEvents(floor: Floor, rooms: Room[]): void {
 }
 
 function placeDoorsAndLocks(floor: Floor, rng: Rng, rooms: Room[]): void {
+  let placedRuinsLock = false
   for (const room of rooms.slice(1, -1)) {
     const point = center(room)
     const door = { x: Math.max(1, point.x - Math.floor(room.w / 2)), y: point.y }
-    if (getTile(floor, door.x, door.y)?.kind === 'floor') setKind(floor, door.x, door.y, rng.chance(25) ? 'lockedDoor' : 'door')
+    if (getTile(floor, door.x, door.y)?.kind === 'floor') {
+      const locked = floor.biome === 'ruins' ? !placedRuinsLock || rng.chance(65) : rng.chance(25)
+      setKind(floor, door.x, door.y, locked ? 'lockedDoor' : 'door')
+      if (locked) placedRuinsLock = true
+    }
   }
 }
 
@@ -216,7 +233,7 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
     const room = rng.pick(rooms)
     const point = { x: rng.int(room.x + 1, room.x + room.w - 2), y: rng.int(room.y + 1, room.y + room.h - 2) }
     const current = getTile(floor, point.x, point.y)
-    if (current && passable(current.kind) && current.kind !== 'exit' && !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && distance(point, floor.start) > 4) return point
+    if (current?.kind === 'floor' && !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && distance(point, floor.start) > 4) return point
   }
   return { ...floor.start }
 }
