@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import TileType
-from kenjaku.evaluator import evaluate_shanten_ukeire
+from kenjaku.core import Tile, TileType
+from kenjaku.evaluator import evaluate_hand_value_potential, evaluate_shanten_ukeire
 
 
 class ShantenUkeireEvaluatorTests(unittest.TestCase):
@@ -49,12 +49,40 @@ class ShantenUkeireEvaluatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "include the hand"):
             evaluate_shanten_ukeire(hand, visible_counts=visible)
 
+    def test_evaluates_visible_bonus_and_structural_value_potential(self) -> None:
+        result = evaluate_hand_value_potential(
+            _tiles("2p 3p 4p 5p 0p E E E 2p 3p 4p 6p"),
+            dora_indicators=(Tile.parse("4p"),),
+            seat_wind=TileType.parse("E"),
+        )
+
+        self.assertEqual(result.visible_dora, 2)
+        self.assertEqual(result.red_dora, 1)
+        self.assertEqual(result.yakuhai_triplets, (TileType.parse("E"),))
+        self.assertEqual(result.flush_candidate, "honitsu")
+        self.assertEqual(result.potential_yaku, ("yakuhai", "honitsu"))
+
+    def test_uses_sanma_one_nine_dora_wrap_and_rejects_excluded_tiles(self) -> None:
+        result = evaluate_hand_value_potential(
+            _tiles("1m 9m 9m 1p 2p 3p 1s 2s 3s E E E"),
+            ruleset="tenhou-3p",
+            dora_indicators=(Tile.parse("1m"),),
+        )
+
+        self.assertEqual(result.visible_dora, 2)
+        with self.assertRaisesRegex(ValueError, "unavailable"):
+            evaluate_hand_value_potential(_tiles("5m"), ruleset="tenhou-3p")
+
 
 def _counts(text: str) -> tuple[int, ...]:
     counts = [0] * 34
     for token in text.split():
         counts[TileType.parse(token).index] += 1
     return tuple(counts)
+
+
+def _tiles(text: str) -> tuple[Tile, ...]:
+    return tuple(Tile.parse(token) for token in text.split())
 
 
 if __name__ == "__main__":
