@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "cellSize": 16,
+  "terrainLayout": [
+    "wall", "floor", "exit", "door", "lockedDoor", "water", "lava", "pit",
+    "rope", "spikes", "dart", "fireVent", "crumble", "boulder", "web", "gas",
+    "support", "rail", "rubble", "bramble", "darkness", "crate", "chest", "altar",
+    "shop", "rescue"
+  ],
+  "sheets": [
+    {
+      "id": "terrain-mine",
+      "file": "terrain-mine.png",
+      "columns": 8,
+      "rows": 4,
+      "layout": "terrainLayout",
+      "props": ["mine.oreVein", "mine.lanternPost", "mine.brokenCart", "mine.warningMarker", "mine.skullMarker", "mine.discardedParcel"]
+    },
+    {
+      "id": "terrain-wilds",
+      "file": "terrain-wilds.png",
+      "columns": 8,
+      "rows": 4,
+      "layout": "terrainLayout",
+      "props": ["wilds.mushrooms", "wilds.danglingCharm", "wilds.birdNest", "wilds.rootShrine", "wilds.lostParcel", "wilds.rootArch"]
+    },
+    {
+      "id": "terrain-caverns",
+      "file": "terrain-caverns.png",
+      "columns": 8,
+      "rows": 4,
+      "layout": "terrainLayout",
+      "props": ["caverns.crystalCluster", "caverns.glowingFungus", "caverns.barnacledShrine", "caverns.brokenBoat", "caverns.eelTunnel", "caverns.sealedParcel"]
+    },
+    {
+      "id": "terrain-ruins",
+      "file": "terrain-ruins.png",
+      "columns": 8,
+      "rows": 4,
+      "layout": "terrainLayout",
+      "props": ["ruins.brokenStatue", "ruins.ritualBrazier", "ruins.glyphTablet", "ruins.collapsedArch", "ruins.sealedCache", "ruins.monolith"]
+    },
+    {
+      "id": "hero",
+      "file": "hero.png",
+      "columns": 4,
+      "rows": 4,
+      "animations": [
+        { "id": "hero.idle", "row": 0, "column": 0, "frames": 4, "frameDurationMs": 220, "flipSafe": true },
+        { "id": "hero.walk", "row": 1, "column": 0, "frames": 4, "frameDurationMs": 120, "flipSafe": true },
+        { "id": "hero.attack", "row": 2, "column": 0, "frames": 4, "frameDurationMs": 90, "flipSafe": true },
+        { "id": "hero.hit", "row": 3, "column": 0, "frames": 2, "frameDurationMs": 120, "flipSafe": true },
+        { "id": "hero.death", "row": 3, "column": 2, "frames": 2, "frameDurationMs": 220, "flipSafe": true }
+      ]
+    },
+    {
+      "id": "npcs-gold",
+      "file": "npcs-gold.png",
+      "columns": 4,
+      "rows": 3,
+      "animations": [
+        { "id": "merchant", "row": 0, "column": 0, "frames": 4, "frameDurationMs": 240, "flipSafe": false },
+        { "id": "ally", "row": 1, "column": 0, "frames": 4, "frameDurationMs": 240, "flipSafe": false },
+        { "id": "gold", "row": 2, "column": 0, "frames": 4, "frameDurationMs": 160, "flipSafe": false }
+      ]
+    },
+    {
+      "id": "actors-mine",
+      "file": "actors-mine.png",
+      "columns": 4,
+      "rows": 8,
+      "actorRows": ["rat", "mole", "sapper", "beetle", "driller", "railguard", "fusewarden", "foreman"],
+      "frames": 4,
+      "frameDurationMs": 160
+    },
+    {
+      "id": "actors-wilds",
+      "file": "actors-wilds.png",
+      "columns": 4,
+      "rows": 9,
+      "actorRows": ["thornling", "boar", "spitter", "wisp", "frog", "vinebinder", "marshskater", "webweaver", "heartwood"],
+      "frames": 4,
+      "frameDurationMs": 160
+    },
+    {
+      "id": "actors-caverns",
+      "file": "actors-caverns.png",
+      "columns": 4,
+      "rows": 10,
+      "actorRows": ["crawler", "magma", "echo", "seer", "slug", "cinderimp", "fumeeel", "gloomseer", "crystalpuller", "geode"],
+      "frames": 4,
+      "frameDurationMs": 160
+    },
+    {
+      "id": "actors-ruins",
+      "file": "actors-ruins.png",
+      "columns": 4,
+      "rows": 10,
+      "actorRows": ["scarab", "sentinel", "oracle", "shade", "cultist", "wardacolyte", "dartadept", "lockkeeper", "ritualist", "regent"],
+      "frames": 4,
+      "frameDurationMs": 160
+    },
+    {
+      "id": "items",
+      "file": "items.png",
+      "columns": 8,
+      "rows": 5,
+      "itemLayout": [
+        "whip", "machete", "pickaxe", "spear", "sunblade", "buckler", "lantern", "cap",
+        "mask", "coat", "mail", "boots", "featherboots", "ward", "sunseal", "tonic",
+        "focusTonic", "mapScroll", "blinkRune", "bombPack", "ropeBundle", "key", "rock", "fireJar",
+        "ember", "mend", "sight", "root", "waterScript", "lull", "blink", "pull",
+        "gust", "wardScript", "gate", null, null, null, null, null
+      ]
+    },
+    {
+      "id": "effects",
+      "file": "effects.png",
+      "columns": 4,
+      "rows": 17,
+      "effectRows": ["ember", "mend", "sight", "root", "water", "lull", "blink", "pull", "gust", "ward", "gate", "attackSlash", "hitSpark", "bombBlast", "fire", "smokeGas", "deathPuff"],
+      "frames": 4,
+      "frameDurationMs": 120
+    }
+  ]
+}
