@@ -39,6 +39,11 @@ from kenjaku.schema import (
     action_v1_mask_index,
     observation_v1_tensor,
 )
+from kenjaku.training.guardrails import (
+    DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    DEFAULT_TRAINING_TIMEOUT_SECONDS,
+    OptimizerResourceLimits,
+)
 
 BEHAVIOR_DISTILLATION_TRAINER_KIND = "multi-task-behavior-distillation-trainer-v0"
 BEHAVIOR_DISTILLATION_CHECKPOINT_KIND = "kenjaku-behavior-distillation-checkpoint-v0"
@@ -136,6 +141,8 @@ def train_multi_task_behavior_distillation(
     balance_action_kinds: bool = False,
     checkpoint_manifest: CheckpointManifestV1 | None = None,
     resume_checkpoint: str | Path | None = None,
+    max_optimizer_state_bytes: int | None = DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    timeout_seconds: float | None = DEFAULT_TRAINING_TIMEOUT_SECONDS,
 ) -> BehaviorDistillationTrainingResult:
     """Train multi-task labels with optional action-kind imbalance correction."""
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
@@ -152,6 +159,11 @@ def train_multi_task_behavior_distillation(
         action_kind_weights=action_kind_weights,
         balance_action_kinds=balance_action_kinds,
     )
+    limits = OptimizerResourceLimits(
+        max_optimizer_state_bytes=max_optimizer_state_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+    deadline = limits.deadline()
 
     resolved_device = resolve_torch_device(device)
     resume_payload = None if resume_checkpoint is None else load_behavior_distillation_checkpoint(
@@ -182,11 +194,13 @@ def train_multi_task_behavior_distillation(
         model.load_state_dict(resume_payload["model_state_dict"])
         history = list(resume_payload["training"]["history"])
         completed_epochs = int(resume_payload["training"]["completed_epochs"])
+    limits.enforce_adamw_state_budget(model.parameters())
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     if resume_payload is not None:
         optimizer.load_state_dict(resume_payload["optimizer_state_dict"])
 
     def record(epoch: int) -> tuple[dict[str, int | float | None], dict[str, int | float | None]]:
+        deadline.check("epoch evaluation")
         train_metrics = evaluate_multi_task_behavior_distillation(
             model,
             train_examples,
@@ -199,6 +213,7 @@ def train_multi_task_behavior_distillation(
             device=resolved_device,
             action_kind_weights=resolved_action_weights,
         )
+        deadline.check("epoch evaluation")
         history.append({"epoch": epoch, "train": train_metrics, "eval": eval_metrics})
         return train_metrics, eval_metrics
 
@@ -212,6 +227,7 @@ def train_multi_task_behavior_distillation(
             indices = list(range(len(train_examples)))
             random.Random(seed + epoch).shuffle(indices)
             for start in range(0, len(indices), batch_size):
+                deadline.check("optimizer step")
                 optimizer.zero_grad(set_to_none=True)
                 losses = [
                     loss

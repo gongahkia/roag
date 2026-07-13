@@ -15,6 +15,11 @@ from kenjaku.models.torch_discard import require_torch_modules, resolve_torch_de
 from kenjaku.reproducibility import derive_seed, derive_seed_int
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.simulation.config import SandboxRuleConfig
+from kenjaku.training.guardrails import (
+    DEFAULT_TRAINING_TIMEOUT_SECONDS,
+    OptimizerResourceLimits,
+    TrainingDeadline,
+)
 from kenjaku.training.history import normalize_training_history
 from kenjaku.training.ppo_schema import (
     PPO_ACTION_DIM,
@@ -334,6 +339,7 @@ def train_ppo_sandbox(
     device: str = "auto",
     torch_seed: int | None = None,
     resume_checkpoint: str | Path | None = None,
+    timeout_seconds: float | None = DEFAULT_TRAINING_TIMEOUT_SECONDS,
     metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> SandboxPpoTrainingResult:
     if rule_config is not None:
@@ -361,6 +367,7 @@ def train_ppo_sandbox(
     resolved_torch_seed = (
         derive_seed_int(seed, "training", "model") if torch_seed is None else torch_seed
     )
+    deadline = OptimizerResourceLimits(timeout_seconds=timeout_seconds).deadline()
     optimization_seed_root: int | str = seed if torch_seed is None else torch_seed
 
     history: list[dict[str, Any]] = []
@@ -410,6 +417,7 @@ def train_ppo_sandbox(
     )
 
     while environment_steps < target_steps:
+        deadline.check("rollout")
         update += 1
         logger.debug(
             "ppo update start",
@@ -435,6 +443,7 @@ def train_ppo_sandbox(
             ron_policy=rollout_ron_policy,
             reward_scale=reward_scale,
         )
+        deadline.check("rollout")
         arrays = _rollout_arrays(rollout)
         if update == start_update + 1 and supervised_warmup_epochs:
             warmup_rows.extend(
@@ -446,6 +455,7 @@ def train_ppo_sandbox(
                     learning_rate=learning_rate,
                     max_grad_norm=max_grad_norm,
                     seed=derive_seed_int(optimization_seed_root, "training", "warmup", update),
+                    deadline=deadline,
                 )
             )
 
@@ -473,6 +483,7 @@ def train_ppo_sandbox(
             value_coef=value_coef,
             max_grad_norm=max_grad_norm,
             seed=derive_seed_int(optimization_seed_root, "training", "optimizer", update),
+            deadline=deadline,
         )
         optimizer_state["steps"] = int(optimizer_state.get("steps", 0)) + int(
             train_metrics["batches"]
@@ -881,6 +892,7 @@ def _run_supervised_warmup(
     learning_rate: float,
     max_grad_norm: float,
     seed: int,
+    deadline: TrainingDeadline | None = None,
 ) -> list[dict[str, Any]]:
     tensors = _ppo_tensor_arrays(model, arrays)
     optimizer = model._torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -888,6 +900,8 @@ def _run_supervised_warmup(
     for epoch in range(1, epochs + 1):
         losses: list[float] = []
         for indices in _minibatch_indices(len(arrays["actions"]), batch_size, seed + epoch):
+            if deadline is not None:
+                deadline.check("supervised warmup optimizer step")
             batch = _tensor_indices(model, indices)
             optimizer.zero_grad()
             logits = model.logits_tensor(
@@ -920,6 +934,7 @@ def _run_ppo_update(
     value_coef: float,
     max_grad_norm: float,
     seed: int,
+    deadline: TrainingDeadline | None = None,
 ) -> dict[str, float]:
     tensors = _ppo_tensor_arrays(model, arrays)
     old_log_prob_tensor = _float_tensor(model, old_log_probs)
@@ -929,6 +944,8 @@ def _run_ppo_update(
     metrics: list[dict[str, float]] = []
     for epoch in range(ppo_epochs):
         for indices in _minibatch_indices(len(arrays["actions"]), batch_size, seed + epoch):
+            if deadline is not None:
+                deadline.check("PPO optimizer step")
             batch = _tensor_indices(model, indices)
             states = tensors["states"].index_select(0, batch)
             legal_masks = tensors["legal_masks"].index_select(0, batch)

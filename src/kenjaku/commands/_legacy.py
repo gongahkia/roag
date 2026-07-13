@@ -189,6 +189,11 @@ from kenjaku.training.external_baselines import (
     format_external_baseline_report,
     parse_external_baseline_spec,
 )
+from kenjaku.training.guardrails import (
+    DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    DEFAULT_TRAINING_TIMEOUT_SECONDS,
+    mib_to_bytes,
+)
 from kenjaku.training.interpretability_overlay import (
     build_interpretability_overlay,
     read_interpretability_snapshots,
@@ -901,6 +906,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Torch device for PPO training",
     )
+    _add_timeout_arg(train_ppo)
     train_ppo.add_argument(
         "--checkpoint",
         type=Path,
@@ -1004,6 +1010,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="reserved model width",
     )
+    _add_timeout_arg(train_population)
     train_population.add_argument(
         "--evaluation-games",
         type=int,
@@ -1803,6 +1810,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="training device",
     )
+    _add_adamw_guardrail_args(train_mlp)
     train_mlp.add_argument(
         "--report",
         type=Path,
@@ -1908,6 +1916,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="training device",
     )
+    _add_adamw_guardrail_args(train_transformer)
     train_transformer.add_argument(
         "--report",
         type=Path,
@@ -3564,6 +3573,7 @@ def _train_ppo_sandbox(args: argparse.Namespace) -> int:
                 device=args.device,
                 torch_seed=args.torch_seed,
                 resume_checkpoint=args.resume,
+                timeout_seconds=args.timeout_seconds,
                 metrics_callback=lambda row: metrics_sink.emit(
                     _ppo_training_metric_event(
                         model=PPO_SANDBOX_POLICY_KIND,
@@ -3621,8 +3631,9 @@ def _train_population_sandbox(args: argparse.Namespace) -> int:
             evaluation_max_turns_per_round=args.evaluation_max_turns_per_round,
             promotion_margin=args.promotion_margin,
             output_dir=args.output_dir,
+            timeout_seconds=args.timeout_seconds,
         )
-    except (RuntimeError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         raise SystemExit(str(error)) from error
 
     if args.report is not None:
@@ -5639,6 +5650,8 @@ def _train_discard_mlp(args: argparse.Namespace) -> int:
                 hidden_dim=args.hidden_dim,
                 device=args.device,
                 seed=args.seed,
+                max_optimizer_state_bytes=mib_to_bytes(args.max_optimizer_state_mib),
+                timeout_seconds=args.timeout_seconds,
                 metrics_callback=lambda row: metrics_sink.emit(
                     _discard_training_metric_event(
                         model=DISCARD_MLP_MODEL_KIND,
@@ -5753,6 +5766,8 @@ def _train_discard_transformer(args: argparse.Namespace) -> int:
                 device=args.device,
                 seed=args.seed,
                 value_head=args.value_head,
+                max_optimizer_state_bytes=mib_to_bytes(args.max_optimizer_state_mib),
+                timeout_seconds=args.timeout_seconds,
                 metrics_callback=lambda row: metrics_sink.emit(
                     _discard_training_metric_event(
                         model=DISCARD_TRANSFORMER_POLICY_KIND,
@@ -9470,6 +9485,25 @@ def _validated_positive_float(value: float, option: str) -> float:
     if value <= 0.0:
         raise SystemExit(f"{option} must be positive")
     return value
+
+
+def _add_adamw_guardrail_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--max-optimizer-state-mib",
+        type=int,
+        default=DEFAULT_MAX_OPTIMIZER_STATE_BYTES // (1024 * 1024),
+        help="maximum AdamW exp_avg/exp_avg_sq allocation in MiB",
+    )
+    _add_timeout_arg(parser)
+
+
+def _add_timeout_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=DEFAULT_TRAINING_TIMEOUT_SECONDS,
+        help="maximum local training wall-clock time",
+    )
 
 
 def _format_optional_accuracy(accuracy: float | None) -> str:

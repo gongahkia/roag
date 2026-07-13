@@ -10,6 +10,11 @@ from typing import Any, cast
 
 from kenjaku.core import TileType
 from kenjaku.training import DiscardExample
+from kenjaku.training.guardrails import (
+    DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    DEFAULT_TRAINING_TIMEOUT_SECONDS,
+    OptimizerResourceLimits,
+)
 
 DISCARD_MLP_INPUT_DIM = 68
 DISCARD_MLP_OUTPUT_DIM = 34
@@ -144,6 +149,8 @@ def train_discard_mlp(
     hidden_dim: int,
     device: str = "auto",
     seed: int = 0,
+    max_optimizer_state_bytes: int | None = DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    timeout_seconds: float | None = DEFAULT_TRAINING_TIMEOUT_SECONDS,
     metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> DiscardMlpTrainingResult:
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
@@ -158,6 +165,11 @@ def train_discard_mlp(
         raise ValueError("learning_rate must be positive")
     if hidden_dim <= 0:
         raise ValueError("hidden_dim must be positive")
+    limits = OptimizerResourceLimits(
+        max_optimizer_state_bytes=max_optimizer_state_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+    deadline = limits.deadline()
 
     resolved_device = resolve_torch_device(device)
     torch.manual_seed(seed)
@@ -165,6 +177,7 @@ def train_discard_mlp(
         torch.cuda.manual_seed_all(seed)
 
     model = discard_mlp_class(hidden_dim=hidden_dim).to(resolved_device)
+    limits.enforce_adamw_state_budget(model.parameters())
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     train_loader = discard_data_loader(
@@ -191,6 +204,7 @@ def train_discard_mlp(
         nonlocal final_train_metrics
         nonlocal final_eval_metrics
 
+        deadline.check("epoch evaluation")
         train_metrics = evaluate_discard_mlp(
             model,
             train_examples,
@@ -203,6 +217,7 @@ def train_discard_mlp(
             batch_size=batch_size,
             device=resolved_device,
         )
+        deadline.check("epoch evaluation")
         elapsed_seconds = perf_counter() - started_at
         row = {
             "epoch": epoch,
@@ -232,6 +247,7 @@ def train_discard_mlp(
     for epoch in range(1, epochs + 1):
         model.train()
         for state, legal_mask, target in train_loader:
+            deadline.check("optimizer step")
             state = state.to(resolved_device)
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)

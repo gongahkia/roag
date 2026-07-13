@@ -107,6 +107,32 @@ class TorchDiscardModelTests(unittest.TestCase):
         self.assertEqual(result.best_metrics["train"]["examples"], 2)
         self.assertEqual(set(result.best_model_state), set(result.model.state_dict()))
 
+    def test_training_rejects_oversized_adamw_state_and_expired_timeout(self) -> None:
+        examples = list(iter_discard_examples(parse_tenhou_xml_file(FIXTURE)))
+
+        with self.assertRaisesRegex(ValueError, "optimizer state exceeds"):
+            train_discard_mlp(
+                examples[:1],
+                (),
+                epochs=1,
+                batch_size=1,
+                learning_rate=0.001,
+                hidden_dim=8,
+                device="cpu",
+                max_optimizer_state_bytes=1,
+            )
+        with self.assertRaisesRegex(TimeoutError, "timeout"):
+            train_discard_mlp(
+                examples[:1],
+                (),
+                epochs=0,
+                batch_size=1,
+                learning_rate=0.001,
+                hidden_dim=8,
+                device="cpu",
+                timeout_seconds=1.0e-12,
+            )
+
     def test_saves_best_checkpoint_payload(self) -> None:
         examples = list(iter_discard_examples(parse_tenhou_xml_file(FIXTURE)))
         result = train_discard_mlp(

@@ -14,6 +14,11 @@ from kenjaku.models.torch_discard import (
     resolve_torch_device,
 )
 from kenjaku.training import DiscardExample
+from kenjaku.training.guardrails import (
+    DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    DEFAULT_TRAINING_TIMEOUT_SECONDS,
+    OptimizerResourceLimits,
+)
 
 TRANSFORMER_TILE_TYPES = 34
 TRANSFORMER_SEATS = 4
@@ -295,6 +300,8 @@ def train_discard_transformer(
     device: str = "auto",
     seed: int = 0,
     value_head: bool = False,
+    max_optimizer_state_bytes: int | None = DEFAULT_MAX_OPTIMIZER_STATE_BYTES,
+    timeout_seconds: float | None = DEFAULT_TRAINING_TIMEOUT_SECONDS,
     metrics_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> DiscardTransformerTrainingResult:
     torch, _nn, functional, _data_loader, _dataset_base = require_torch_modules()
@@ -307,6 +314,11 @@ def train_discard_transformer(
         raise ValueError("batch_size must be positive")
     if learning_rate <= 0:
         raise ValueError("learning_rate must be positive")
+    limits = OptimizerResourceLimits(
+        max_optimizer_state_bytes=max_optimizer_state_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+    deadline = limits.deadline()
 
     resolved_device = resolve_torch_device(device)
     torch.manual_seed(seed)
@@ -314,6 +326,7 @@ def train_discard_transformer(
         torch.cuda.manual_seed_all(seed)
 
     model = policy_class(config, value_head=value_head).to(resolved_device)
+    limits.enforce_adamw_state_budget(model.parameters())
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     train_loader = discard_transformer_data_loader(
         train_examples,
@@ -339,6 +352,7 @@ def train_discard_transformer(
         nonlocal final_train_metrics
         nonlocal final_eval_metrics
 
+        deadline.check("epoch evaluation")
         train_metrics = evaluate_discard_transformer(
             model,
             train_examples,
@@ -351,6 +365,7 @@ def train_discard_transformer(
             batch_size=batch_size,
             device=resolved_device,
         )
+        deadline.check("epoch evaluation")
         elapsed_seconds = perf_counter() - started_at
         row = {
             "epoch": epoch,
@@ -380,6 +395,7 @@ def train_discard_transformer(
     for epoch in range(1, epochs + 1):
         model.train()
         for state, legal_mask, target in train_loader:
+            deadline.check("optimizer step")
             state = state.to(resolved_device)
             legal_mask = legal_mask.to(resolved_device)
             target = target.to(resolved_device)

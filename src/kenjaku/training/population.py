@@ -10,6 +10,7 @@ from kenjaku.reproducibility import derive_seed, derive_seed_int
 from kenjaku.simulation import run_self_play_match_sandbox
 from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.environment import resolve_sandbox_ruleset
+from kenjaku.training.guardrails import DEFAULT_TRAINING_TIMEOUT_SECONDS
 from kenjaku.training.ppo import (
     SandboxPpoTrainingResult,
     save_ppo_sandbox_checkpoint,
@@ -42,6 +43,7 @@ def train_population_sandbox(
     evaluation_max_turns_per_round: int | None = None,
     promotion_margin: float = 0.0,
     output_dir: str | Path | None = None,
+    timeout_seconds: float | None = DEFAULT_TRAINING_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     if rule_config is not None:
         ruleset = rule_config.ruleset
@@ -118,6 +120,7 @@ def train_population_sandbox(
             learning_rate=learning_rate,
             hidden_dim=hidden_dim,
             artifact_dir=artifact_dir,
+            timeout_seconds=timeout_seconds,
         )
         pool.append(snapshot)
         snapshots.append(snapshot)
@@ -177,6 +180,7 @@ def train_population_sandbox(
                 learning_rate=learning_rate,
                 hidden_dim=hidden_dim,
                 artifact_dir=artifact_dir,
+                timeout_seconds=timeout_seconds,
             )
             evaluation = _evaluate_population_snapshot(
                 candidate,
@@ -352,6 +356,7 @@ def _train_population_snapshot(
     learning_rate: float,
     hidden_dim: int,
     artifact_dir: Path | None,
+    timeout_seconds: float | None,
 ) -> dict[str, Any]:
     result = train_ppo_sandbox(
         total_steps=total_steps,
@@ -367,6 +372,7 @@ def _train_population_snapshot(
         hidden_dim=hidden_dim,
         device="cpu",
         torch_seed=derive_seed_int(seed, "training", "model"),
+        timeout_seconds=timeout_seconds,
     )
     checkpoint_path = _write_snapshot_checkpoint(
         result,
