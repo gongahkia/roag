@@ -794,7 +794,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="drawn",
     )
     paired_match.add_argument("--candidate-heuristic-seats", default="")
-    paired_match.add_argument("--baseline-heuristic-seats", default="")
+    paired_match.add_argument("--baseline-heuristic-seats", default="0,1,2,3")
     paired_match.add_argument(
         "--bootstrap-resamples",
         type=int,
@@ -824,7 +824,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="drawn",
     )
     paired_match_3p.add_argument("--candidate-heuristic-seats", default="")
-    paired_match_3p.add_argument("--baseline-heuristic-seats", default="")
+    paired_match_3p.add_argument("--baseline-heuristic-seats", default="0,1,2")
     paired_match_3p.add_argument(
         "--bootstrap-resamples",
         type=int,

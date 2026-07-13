@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from hashlib import blake2b
 from random import Random
 from typing import Any
 
@@ -22,6 +24,8 @@ DEFAULT_PAIRED_MATCH_BOOTSTRAP_RESAMPLES = 10_000
 PAIRED_MATCH_BOOTSTRAP_CONFIDENCE_LEVEL = 0.95
 PAIRED_MATCH_BOOTSTRAP_METHOD = "paired-bootstrap-percentile"
 PAIRED_MATCH_CHECKPOINT_PROMOTION_GATE_KIND = "kenjaku-paired-match-promotion-gate-v0"
+FIXED_HEURISTIC_BASELINE_KIND = "kenjaku-fixed-heuristic-baseline-v1"
+FIXED_HEURISTIC_BASELINE_VERSION = "heuristic-opponent-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +68,29 @@ class PairedMatchPolicy:
             "ron": self.ron_policy,
             "heuristic_seats": list(sorted(self.heuristic_seats)),
         }
+
+
+def fixed_heuristic_baseline_policy(players: int) -> PairedMatchPolicy:
+    """Return the versioned all-seat heuristic profile for one ruleset."""
+    _validate_players(players)
+    return PairedMatchPolicy(heuristic_seats=tuple(range(players)))
+
+
+def fixed_heuristic_baseline_manifest(players: int) -> dict[str, Any]:
+    """Return canonical provenance for the fixed heuristic baseline."""
+    _validate_players(players)
+    payload = {
+        "kind": FIXED_HEURISTIC_BASELINE_KIND,
+        "version": FIXED_HEURISTIC_BASELINE_VERSION,
+        "ruleset": f"tenhou-{players}p",
+        "players": players,
+        "policy": fixed_heuristic_baseline_policy(players).to_dict(),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        **payload,
+        "fingerprint": "blake2b-128:" + blake2b(encoded, digest_size=16).hexdigest(),
+    }
 
 
 def run_paired_seed_matches_4p(
@@ -149,6 +176,7 @@ def _run_paired_seed_matches(
         raise ValueError(f"promotion_seat must be a {players}p seat index")
     _validate_profile_seats(candidate, players=players)
     _validate_profile_seats(baseline, players=players)
+    _validate_fixed_heuristic_baseline(baseline, players=players)
     rows: list[dict[str, Any]] = []
     for pair_index in range(pairs):
         pair_seed = derive_seed(seed, seed_stage, pair_index)
@@ -183,6 +211,7 @@ def _run_paired_seed_matches(
         "pairs": pairs,
         "candidate_policy": candidate.to_dict(),
         "baseline_policy": baseline.to_dict(),
+        "heuristic_baseline": fixed_heuristic_baseline_manifest(players),
         "max_rounds": max_rounds,
         "max_turns_per_round": max_turns_per_round,
         "rows": rows,
@@ -335,6 +364,14 @@ def checkpoint_promotion_gate(
     summary = report.get("summary")
     if not isinstance(summary, Mapping):
         raise ValueError("paired report summary is required")
+    if report.get("heuristic_baseline") != fixed_heuristic_baseline_manifest(players):
+        return _checkpoint_promotion_gate(
+            report=report,
+            evaluation_seat=evaluation_seat,
+            interval=None,
+            allowed=False,
+            reason="fixed_heuristic_baseline_mismatch",
+        )
     intervals = summary.get("placement_adjusted_score_delta_ci_by_seat")
     if intervals is None:
         return _checkpoint_promotion_gate(
@@ -404,6 +441,18 @@ def _checkpoint_promotion_gate(
         "allowed": allowed,
         "reason": reason,
     }
+
+
+def _validate_fixed_heuristic_baseline(baseline: PairedMatchPolicy, *, players: int) -> None:
+    if baseline != fixed_heuristic_baseline_policy(players):
+        raise ValueError(
+            "baseline must match fixed heuristic baseline " + FIXED_HEURISTIC_BASELINE_VERSION
+        )
+
+
+def _validate_players(players: int) -> None:
+    if type(players) is not int or players not in (3, 4):
+        raise ValueError("players must be 3 or 4")
 
 
 def _validate_profile_seats(profile: PairedMatchPolicy, *, players: int) -> None:
