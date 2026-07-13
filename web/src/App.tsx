@@ -1,8 +1,52 @@
 import { useState } from "react";
 import type { ChangeEvent } from "react";
 
+import {
+  DecisionRationaleDetails,
+  type DecisionCounterfactualsView
+} from "./components/DecisionRationaleDetails";
 import { readLocalMjsonFile } from "./lib/local-file";
 import { buildReplayTimeline, type ReplayBoardState, type ReplayTimelineStep } from "./lib/replay";
+
+const rationalePreview: DecisionCounterfactualsView = {
+  decision: {
+    selected_action: { action: "discard", tile: "5p" },
+    rationale: {
+      factors: [
+        {
+          factor: "shape_improvement",
+          value: 0.8,
+          contribution: 0.24,
+          evidence: ["Retains two-sided wait potential"]
+        },
+        {
+          factor: "defense_risk",
+          value: 0.15,
+          contribution: -0.06,
+          evidence: []
+        }
+      ]
+    }
+  },
+  selected_score: 0.42,
+  top_alternatives: [
+    {
+      action: { action: "discard", tile: "9p" },
+      score: 0.35,
+      score_delta: -0.07,
+      rationale: {
+        factors: [
+          {
+            factor: "shape_improvement",
+            value: 0.5,
+            contribution: 0.12,
+            evidence: ["Keeps a weaker wait"]
+          }
+        ]
+      }
+    }
+  ]
+};
 
 function App() {
   const [timeline, setTimeline] = useState<readonly ReplayTimelineStep[]>([]);
@@ -55,6 +99,8 @@ function App() {
           <p>Choose a local trajectory to inspect its board state and action requests.</p>
         </section>
       )}
+      <DecisionRationaleDetails counterfactuals={rationalePreview} title="Rationale preview" />
+      <p className="preview-note">Example payload; not an inference result.</p>
     </main>
   );
 }

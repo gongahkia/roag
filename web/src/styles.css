@@ -74,6 +74,26 @@ h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin-bottom: 0.5rem; }
 
 .tile-row b { background: #e8edf6; border-radius: 3px; color: #172033; font-size: 0.75rem; padding: 4px; }
 
+.rationale-details { margin-top: 20px; }
+
+.rationale-details summary { cursor: pointer; font-weight: 700; }
+
+.rationale-details details { margin-top: 10px; }
+
+.rationale-details dl { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.rationale-details dl div { background: #263852; border-radius: 6px; padding: 8px; }
+
+.rationale-details dt { color: #b4c1d5; font-size: 0.75rem; }
+
+.rationale-details dd { margin: 3px 0 0; }
+
+.factor-list, .alternative-list, .evidence-list { display: grid; gap: 8px; padding-left: 20px; }
+
+.factor-list > li, .alternative-list > li { background: #1f2d41; border: 1px solid #31445e; border-radius: 6px; padding: 8px; }
+
+.preview-note { color: #b4c1d5; font-size: 0.8rem; margin: 8px 0 0; }
+
 @media (max-width: 640px) {
   .replay-layout { grid-template-columns: 1fr; }
 }
