@@ -7,7 +7,7 @@ export interface DisplacementOutcome { kind: DisplacementKind; moved: boolean; f
 
 type Displaceable = Actor | Hero
 
-const blockingTile = (kind: TileKind): boolean => ['wall', 'door', 'lockedDoor', 'crate', 'chest', 'pit'].some(blocker => blocker === kind)
+const blockingTile = (kind: TileKind): boolean => ['wall', 'door', 'lockedDoor', 'rubble', 'crate', 'chest', 'pit'].some(blocker => blocker === kind)
 const label = (target: Displaceable): string => 'name' in target ? target.name : 'You'
 const hazardDamage = (kind: TileKind): number => kind === 'lava' ? 8 : kind === 'boulder' ? 6 : kind === 'spikes' || kind === 'dart' || kind === 'fireVent' ? 4 : kind === 'gas' ? 2 : 0
 

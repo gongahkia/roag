@@ -4,12 +4,12 @@ import type { Actor, Tile } from './types'
 const size = 8
 const atlasUrl = new URL('./assets/expedition-atlas.png', import.meta.url).href
 const tileColor: Record<string, string> = {
-  wall: '#798795', floor: '#4f5c6c', exit: '#f4d26a', door: '#c9935e', lockedDoor: '#e9c965', water: '#559dcc', lava: '#eb7258', pit: '#05070b', rope: '#d6a867', spikes: '#d4dae2', dart: '#d4dae2', fireVent: '#ff825e', crumble: '#99795f', boulder: '#abb0b4', web: '#d3d8e4', gas: '#8dbd82', crate: '#c99162', chest: '#f4d26a', altar: '#cda2e3', shop: '#f4d26a', rescue: '#83d6af'
+  wall: '#798795', floor: '#4f5c6c', exit: '#f4d26a', door: '#c9935e', lockedDoor: '#e9c965', water: '#559dcc', lava: '#eb7258', pit: '#05070b', rope: '#d6a867', spikes: '#d4dae2', dart: '#d4dae2', fireVent: '#ff825e', crumble: '#99795f', boulder: '#abb0b4', web: '#d3d8e4', gas: '#8dbd82', support: '#b99b72', rail: '#c5b2a0', rubble: '#8e9298', crate: '#c99162', chest: '#f4d26a', altar: '#cda2e3', shop: '#f4d26a', rescue: '#83d6af'
 }
 
 export const ATLAS_SPEC = { columns: 16, rows: 8, path: 'src/assets/expedition-atlas.png' } as const
 
-const tileSprite: Record<Tile['kind'], number> = {
+const tileSprite: Partial<Record<Tile['kind'], number>> = {
   wall: 0, floor: 1, exit: 2, door: 3, lockedDoor: 4, water: 5, lava: 6, pit: 7, rope: 8, spikes: 9, dart: 10, fireVent: 11, crumble: 12, boulder: 13, web: 14, gas: 15,
   crate: 16, chest: 17, altar: 18, shop: 19, rescue: 20
 }
@@ -91,6 +91,20 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, x: num
     ctx.fillRect(px, py + 3, 8, 3)
     ctx.fillRect(px + 2, py + 1, 3, 2)
     ctx.fillRect(px + 5, py + 6, 2, 1)
+  } else if (tile.kind === 'support') {
+    ctx.fillStyle = color
+    ctx.fillRect(px + 3, py, 2, 8)
+    ctx.fillRect(px, py + 2, 8, 1)
+  } else if (tile.kind === 'rail') {
+    ctx.fillStyle = color
+    ctx.fillRect(px, py + 2, 8, 1)
+    ctx.fillRect(px, py + 6, 8, 1)
+    for (let i = 1; i < 8; i += 3) ctx.fillRect(px + i, py + 1, 1, 7)
+  } else if (tile.kind === 'rubble') {
+    ctx.fillStyle = color
+    ctx.fillRect(px + 1, py + 5, 3, 2)
+    ctx.fillRect(px + 4, py + 3, 3, 3)
+    ctx.fillRect(px + 2, py + 1, 2, 2)
   } else if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') {
     ctx.fillStyle = color
     for (let i = 0; i < 8; i += 2) { ctx.fillRect(px + i, py + 5 - (i % 3), 1, 3 + (i % 3)) }

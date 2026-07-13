@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH } from './types'
-import { generateFloor, getTile, validateFloor } from './world'
+import { generateAreaFloor, generateFloor, getTile, validateFloor } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
   const seen = new Set<string>([`${floor.start.x},${floor.start.y}`])
@@ -15,7 +15,7 @@ const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
       const y = current.y + dy
       const next = getTile(floor, x, y)
       const key = `${x},${y}`
-      if (!next || seen.has(key) || ['wall', 'lava', 'pit', 'crate', 'chest', 'lockedDoor'].includes(next.kind)) continue
+      if (!next || seen.has(key) || ['wall', 'lava', 'pit', 'rubble', 'crate', 'chest', 'lockedDoor'].includes(next.kind)) continue
       seen.add(key)
       queue.push({ x, y })
     }
@@ -45,6 +45,18 @@ describe('expedition generation', () => {
 
   it('assigns deterministic objectives for all local floor roles', () => {
     expect(Array.from({ length: 4 }, (_, index) => generateFloor(99, index).objective.kind)).toEqual(['recoverSupplies', 'rescueScout', 'invokeAltar', 'defeatGuardian'])
+  })
+
+  it('uses supports, collapses, rails, and rubble on solvable Mine routes', () => {
+    for (const seed of [7, 41, 999]) {
+      const floor = generateAreaFloor(seed, 'mine', 0)
+      const kinds = floor.tiles.map(tile => tile.kind)
+      expect(kinds).toContain('support')
+      expect(kinds).toContain('crumble')
+      expect(kinds).toContain('rail')
+      expect(kinds).toContain('rubble')
+      expect(exitReachable(floor)).toBe(true)
+    }
   })
 
   it('starts an explorer on a visible, passable map cell', () => {

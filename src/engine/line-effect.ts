@@ -1,13 +1,13 @@
 import type { Floor, Point, TileKind } from '../types'
 import { actorAt, getTile } from '../world'
 
-export type EffectBlocker = 'wall' | 'door' | 'lockedDoor' | 'boulder' | 'crate' | 'chest' | 'actor' | 'bounds'
+export type EffectBlocker = 'wall' | 'door' | 'lockedDoor' | 'boulder' | 'rubble' | 'crate' | 'chest' | 'actor' | 'bounds'
 type TileEffectBlocker = Exclude<EffectBlocker, 'actor' | 'bounds'>
 export type TerrainModifier = 'dampened' | 'obscured' | 'amplified'
 export interface EffectModifier { point: Point; modifier: TerrainModifier }
 export interface LineEffect { cells: Point[]; modifiers: EffectModifier[]; blocked?: { point: Point; by: EffectBlocker } }
 
-const isEffectBlocker = (kind: TileKind): kind is TileEffectBlocker => ['wall', 'door', 'lockedDoor', 'boulder', 'crate', 'chest'].some(blocker => blocker === kind)
+const isEffectBlocker = (kind: TileKind): kind is TileEffectBlocker => ['wall', 'door', 'lockedDoor', 'boulder', 'rubble', 'crate', 'chest'].some(blocker => blocker === kind)
 const terrainModifier = (kind: TileKind): TerrainModifier | undefined => kind === 'water' ? 'dampened' : kind === 'gas' ? 'obscured' : kind === 'lava' || kind === 'fireVent' ? 'amplified' : undefined
 const samePoint = (first: Point, second: Point): boolean => first.x === second.x && first.y === second.y
 

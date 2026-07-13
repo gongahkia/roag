@@ -5,7 +5,7 @@ import { objectiveForFloor } from './objectives'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
-const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'crate', 'chest'].includes(kind)
+const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'crate', 'chest'].includes(kind)
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
@@ -80,6 +80,8 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
 const carveV = (floor: Floor, from: number, to: number, x: number) => { for (let y = Math.min(from, to); y <= Math.max(from, to); y++) setKind(floor, x, y, 'floor') }
 const setKind = (floor: Floor, x: number, y: number, kind: Tile['kind']) => { if (inBounds(x, y)) floor.tiles[indexOf(x, y)].kind = kind }
+const railH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, 'rail') }
+const railV = (floor: Floor, from: number, to: number, x: number) => { for (let y = Math.min(from, to); y <= Math.max(from, to); y++) if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, 'rail') }
 
 function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   const candidates = floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
@@ -90,7 +92,7 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
       if (!actorAt(floor, point.x, point.y)) setKind(floor, point.x, point.y, kind)
     }
   }
-  if (floor.biome === 'mine') { paint('crumble', 12); paint('boulder', 5); paint('spikes', 5) }
+  if (floor.biome === 'mine') decorateMine(floor, rng, rooms)
   if (floor.biome === 'wilds') { paint('water', 20); paint('web', 9); paint('spikes', 4) }
   if (floor.biome === 'caverns') { paint('lava', 16); paint('fireVent', 10); paint('gas', 8) }
   if (floor.biome === 'ruins') { paint('dart', 10); paint('spikes', 8); paint('crumble', 8); paint('boulder', 6) }
@@ -99,6 +101,32 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
     setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   }
+}
+
+function decorateMine(floor: Floor, rng: Rng, rooms: Room[]): void {
+  for (let i = 1; i < rooms.length; i++) {
+    const from = center(rooms[i - 1])
+    const to = center(rooms[i])
+    if (i % 2) { railH(floor, from.x, to.x, from.y); railV(floor, from.y, to.y, to.x) }
+    else { railV(floor, from.y, to.y, from.x); railH(floor, from.x, to.x, to.y) }
+  }
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, byRail = false) => {
+    let candidates = safe()
+    if (byRail) {
+      const adjacent = candidates.filter(point => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => getTile(floor, point.x + x, point.y + y)?.kind === 'rail'))
+      if (adjacent.length) candidates = adjacent
+    }
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      candidates = candidates.filter(candidate => candidate.x !== point.x || candidate.y !== point.y)
+    }
+  }
+  paint('support', 8, true)
+  paint('crumble', 12)
+  paint('rubble', 6)
+  paint('boulder', 5)
 }
 
 function placeEvents(floor: Floor, rooms: Room[]): void {

@@ -9,7 +9,7 @@ export const terrainTags = (kind: TileKind): TerrainTag[] => {
   if (kind === 'lava' || kind === 'fireVent') return ['fire']
   if (kind === 'gas') return ['gas']
   if (kind === 'water') return ['water']
-  if (kind === 'crumble' || kind === 'boulder') return ['rubble']
+  if (kind === 'crumble' || kind === 'boulder' || kind === 'rubble') return ['rubble']
   if (kind === 'pit') return ['pit']
   if (kind === 'crate' || kind === 'chest') return ['volatile']
   return []
