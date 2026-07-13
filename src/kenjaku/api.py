@@ -30,12 +30,15 @@ from kenjaku.heuristics import HeuristicFactor as _HeuristicFactor
 from kenjaku.heuristics import rank_call_pass_heuristic as _rank_call_pass_heuristic
 from kenjaku.heuristics import rank_discard_heuristic as _rank_discard_heuristic
 from kenjaku.heuristics import rank_special_action_heuristic as _rank_special_action_heuristic
+from kenjaku.schema import OBSERVATION_V1_TENSOR_DIM as _OBSERVATION_V1_TENSOR_DIM
+from kenjaku.schema import OBSERVATION_V1_TENSOR_KIND as _OBSERVATION_V1_TENSOR_KIND
 from kenjaku.schema import ActionV1 as _ActionV1
 from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
 from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
 from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
 from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
 from kenjaku.schema import ObservationV1 as _ObservationV1
+from kenjaku.schema import observation_v1_tensor as _observation_v1_tensor
 from kenjaku.simulation import LegalActionOracleV1 as _LegalActionOracleV1
 from kenjaku.simulation import legal_action_oracle_v1 as _legal_action_oracle_v1
 
@@ -67,6 +70,9 @@ LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
 LegalActionOracleV1 = _LegalActionOracleV1  # stable since 0.2.0
 LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
 ObservationV1 = _ObservationV1  # stable since 0.2.0
+OBSERVATION_V1_TENSOR_DIM = _OBSERVATION_V1_TENSOR_DIM  # stable since 0.2.0
+OBSERVATION_V1_TENSOR_KIND = _OBSERVATION_V1_TENSOR_KIND  # stable since 0.2.0
+observation_v1_tensor = _observation_v1_tensor  # stable since 0.2.0
 legal_action_oracle_v1 = _legal_action_oracle_v1  # stable since 0.2.0
 ShantenUkeire = _ShantenUkeire  # stable since 0.2.0
 evaluate_shanten_ukeire = _evaluate_shanten_ukeire  # stable since 0.2.0
@@ -153,6 +159,9 @@ API_EXPORT_DOCS = {
     "LegalActionOracleV1": "Versioned legal-action set and mask for one sandbox seat.",
     "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
     "ObservationV1": "Versioned actor-private/public-table policy observation.",
+    "OBSERVATION_V1_TENSOR_DIM": "Fixed width of the ObservationV1 tensor encoder.",
+    "OBSERVATION_V1_TENSOR_KIND": "Version identifier for the ObservationV1 tensor layout.",
+    "observation_v1_tensor": "Encode ObservationV1 into a fixed-width float tuple.",
     "legal_action_oracle_v1": "Compute legal public v1 actions for one sandbox seat.",
     "ShantenUkeire": "Exact shanten and remaining-copy ukeire result.",
     "evaluate_shanten_ukeire": "Evaluate shanten and improving draw availability.",
@@ -244,6 +253,9 @@ __all__ = [
     "LegalActionOracleV1",
     "LocalArtifactRegistry",
     "ObservationV1",
+    "OBSERVATION_V1_TENSOR_DIM",
+    "OBSERVATION_V1_TENSOR_KIND",
+    "observation_v1_tensor",
     "legal_action_oracle_v1",
     "ShantenUkeire",
     "evaluate_shanten_ukeire",

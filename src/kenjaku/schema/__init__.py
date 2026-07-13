@@ -45,6 +45,13 @@ from kenjaku.schema.legal_action_mask_v1 import (
     legal_action_mask_v1_index_from_parts,
     legal_action_mask_v1_index_from_payload,
 )
+from kenjaku.schema.observation_tensor import (
+    OBSERVATION_V1_TENSOR_DIM,
+    OBSERVATION_V1_TENSOR_KIND,
+    OBSERVATION_V1_TENSOR_LAYOUT,
+    encode_observation_v1,
+    observation_v1_tensor,
+)
 from kenjaku.schema.observation_v1 import (
     OBSERVATION_V1_FIELDS,
     OBSERVATION_V1_KIND,
@@ -136,6 +143,11 @@ __all__ = [
     "OBSERVATION_V1_KIND",
     "MeldV1",
     "ObservationV1",
+    "OBSERVATION_V1_TENSOR_DIM",
+    "OBSERVATION_V1_TENSOR_KIND",
+    "OBSERVATION_V1_TENSOR_LAYOUT",
+    "encode_observation_v1",
+    "observation_v1_tensor",
     "AnalyzeHandResponse",
     "BenchmarkDealInResponse",
     "BenchmarkDiscardResponse",
