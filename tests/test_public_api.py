@@ -50,6 +50,7 @@ EXPECTED_EXPORTS = [
     "PlacementEndgamePotential",
     "evaluate_placement_endgame",
     "HeuristicFactor",
+    "EvaluatorFactorAblation",
     "HeuristicDiscardCandidate",
     "rank_discard_heuristic",
     "HeuristicCallCandidate",

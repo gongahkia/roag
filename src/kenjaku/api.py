@@ -22,6 +22,7 @@ from kenjaku.evaluator import evaluate_hand_value_potential as _evaluate_hand_va
 from kenjaku.evaluator import evaluate_legal_defense_risks as _evaluate_legal_defense_risks
 from kenjaku.evaluator import evaluate_placement_endgame as _evaluate_placement_endgame
 from kenjaku.evaluator import evaluate_shanten_ukeire as _evaluate_shanten_ukeire
+from kenjaku.heuristics import EvaluatorFactorAblation as _EvaluatorFactorAblation
 from kenjaku.heuristics import HeuristicActionCandidate as _HeuristicActionCandidate
 from kenjaku.heuristics import HeuristicCallCandidate as _HeuristicCallCandidate
 from kenjaku.heuristics import HeuristicDiscardCandidate as _HeuristicDiscardCandidate
@@ -77,6 +78,7 @@ evaluate_legal_defense_risks = _evaluate_legal_defense_risks  # stable since 0.2
 PlacementEndgamePotential = _PlacementEndgamePotential  # stable since 0.2.0
 evaluate_placement_endgame = _evaluate_placement_endgame  # stable since 0.2.0
 HeuristicFactor = _HeuristicFactor  # stable since 0.2.0
+EvaluatorFactorAblation = _EvaluatorFactorAblation  # stable since 0.2.0
 HeuristicDiscardCandidate = _HeuristicDiscardCandidate  # stable since 0.2.0
 rank_discard_heuristic = _rank_discard_heuristic  # stable since 0.2.0
 HeuristicCallCandidate = _HeuristicCallCandidate  # stable since 0.2.0
@@ -162,6 +164,7 @@ API_EXPORT_DOCS = {
     "PlacementEndgamePotential": "Current placement and endgame-pressure features.",
     "evaluate_placement_endgame": "Evaluate ruleset-specific placement and endgame features.",
     "HeuristicFactor": "One signed heuristic-ranking factor.",
+    "EvaluatorFactorAblation": "Independent evaluator-factor-family ablation switches.",
     "HeuristicDiscardCandidate": "One structured discard-ranking candidate.",
     "rank_discard_heuristic": "Rank legal discard types with structured factors.",
     "HeuristicCallCandidate": "One structured call/pass-ranking candidate.",
@@ -252,6 +255,7 @@ __all__ = [
     "PlacementEndgamePotential",
     "evaluate_placement_endgame",
     "HeuristicFactor",
+    "EvaluatorFactorAblation",
     "HeuristicDiscardCandidate",
     "rank_discard_heuristic",
     "HeuristicCallCandidate",

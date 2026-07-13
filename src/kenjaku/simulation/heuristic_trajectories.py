@@ -7,12 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from kenjaku.core import TENHOU_4P, Action, ActionKind, Tile, TileType, tile_counts
-from kenjaku.heuristics import (
-    HeuristicFactor,
-    _rank_special_actions,
-    rank_call_pass_heuristic,
-    rank_discard_heuristic,
-)
 from kenjaku.simulation.config import SandboxRuleConfig
 from kenjaku.simulation.synthetic_matches import (
     SYNTHETIC_MATCH_MANIFEST_V1_KIND,
@@ -214,6 +208,8 @@ def _discard_ranking(
     ruleset: str,
     legal_actions: tuple[Action, ...],
 ) -> list[dict[str, Any]]:
+    from kenjaku.heuristics import rank_discard_heuristic
+
     hand = _state_hand(state, seat)
     if len(hand) != 14:
         return []
@@ -243,6 +239,8 @@ def _call_pass_ranking(
     players: int,
     legal_actions: tuple[Action, ...],
 ) -> list[dict[str, Any]]:
+    from kenjaku.heuristics import rank_call_pass_heuristic
+
     legal_call_kinds = tuple(
         kind
         for kind in (ActionKind.CHI, ActionKind.PON, ActionKind.MINKAN)
@@ -290,6 +288,8 @@ def _special_action_ranking(
     *,
     riichi_deposit_points: int,
 ) -> list[dict[str, Any]]:
+    from kenjaku.heuristics import _rank_special_actions
+
     return [
         _ranking_payload(
             action=candidate.action,
@@ -312,7 +312,7 @@ def _ranking_payload(
     action: Action,
     rank: int,
     score: float,
-    factors: Sequence[HeuristicFactor],
+    factors: Sequence[Any],
 ) -> dict[str, Any]:
     return {
         "action": _action_payload(action),

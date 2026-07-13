@@ -6,10 +6,6 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from kenjaku.core import ActionKind
-from kenjaku.simulation.heuristic_trajectories import (
-    HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS,
-    HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND,
-)
 
 SYNTHETIC_CORPUS_INTEGRITY_V1_KIND = "kenjaku-synthetic-corpus-integrity-v1"
 SYNTHETIC_CORPUS_INTEGRITY_V1_FIELDS = (
@@ -46,6 +42,11 @@ def validate_synthetic_corpus_integrity(
     required_action_kinds: Iterable[ActionKind | str] = (),
 ) -> dict[str, Any]:
     """Validate synthetic trajectory legality, label balance, and leakage boundaries."""
+    from kenjaku.simulation.heuristic_trajectories import (
+        HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS,
+        HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_KIND,
+    )
+
     required_kinds = _required_action_kinds(required_action_kinds)
     errors: list[str] = []
     if set(manifest) != set(HEURISTIC_DISTILLATION_TRAJECTORY_MANIFEST_V1_FIELDS):

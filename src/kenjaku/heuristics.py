@@ -4,7 +4,12 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from kenjaku.core import TENHOU_4P, Action, ActionKind, Tile, TileType, tile_counts
-from kenjaku.evaluator import evaluate_hand_value_potential, evaluate_shanten_ukeire
+from kenjaku.evaluator import (
+    evaluate_defense_risk,
+    evaluate_hand_value_potential,
+    evaluate_placement_endgame,
+    evaluate_shanten_ukeire,
+)
 from kenjaku.models.linear_call import (
     CALL_DECISION_KINDS,
     _candidate_proxy,
@@ -12,7 +17,7 @@ from kenjaku.models.linear_call import (
     _ukeire_proxy,
 )
 from kenjaku.simulation.environment import SandboxEnvironmentState, legal_sandbox_actions
-from kenjaku.training import CallExample
+from kenjaku.training import CallExample, DiscardExample
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,11 +48,24 @@ class HeuristicActionCandidate:
     factors: tuple[HeuristicFactor, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class EvaluatorFactorAblation:
+    shanten_ukeire: bool = True
+    hand_value: bool = True
+    defense_risk: bool = True
+    placement_endgame: bool = True
+
+
 def rank_discard_heuristic(
     tiles: Iterable[Tile],
     *,
     ruleset: str = TENHOU_4P.name,
     visible_counts: Sequence[int] | None = None,
+    defense_example: DiscardExample | None = None,
+    placement_points: Sequence[int] | None = None,
+    placement_seat: int | None = None,
+    placement_round_wind: TileType | None = None,
+    ablation: EvaluatorFactorAblation | None = None,
 ) -> tuple[HeuristicDiscardCandidate, ...]:
     """Rank legal discard types with structured efficiency and value factors."""
     hand = tuple(tiles)
@@ -55,6 +73,19 @@ def rank_discard_heuristic(
     if len(hand) != 14:
         raise ValueError("discard ranking requires exactly fourteen tiles")
     visible = counts if visible_counts is None else tuple(visible_counts)
+    switches = EvaluatorFactorAblation() if ablation is None else ablation
+    if (placement_points is None) != (placement_seat is None):
+        raise ValueError("placement points and seat must be provided together")
+    placement = (
+        None
+        if placement_points is None
+        else evaluate_placement_endgame(
+            placement_points,
+            seat=placement_seat,
+            ruleset=ruleset,
+            round_wind=placement_round_wind,
+        )
+    )
     candidates: list[HeuristicDiscardCandidate] = []
     for tile in sorted({item.type for item in hand}, key=lambda item: item.index):
         after_tiles = _remove_one_tile(hand, tile)
@@ -64,32 +95,54 @@ def rank_discard_heuristic(
             visible_counts=visible,
         )
         value = evaluate_hand_value_potential(after_tiles, ruleset=ruleset)
-        factors = (
-            HeuristicFactor("shanten", float(efficiency.shanten), -float(efficiency.shanten)),
-            HeuristicFactor("ukeire", float(efficiency.ukeire), efficiency.ukeire / 16.0),
-            HeuristicFactor(
-                "bonus_han",
-                float(value.visible_dora + value.red_dora),
-                float(value.visible_dora + value.red_dora) / 2.0,
+        bonus_han = float(value.visible_dora + value.red_dora)
+        structural_yaku = float(len(value.potential_yaku))
+        factors = [
+            _factor(
+                "shanten",
+                float(efficiency.shanten),
+                -float(efficiency.shanten),
+                switches.shanten_ukeire,
             ),
-            HeuristicFactor(
+            _factor(
+                "ukeire",
+                float(efficiency.ukeire),
+                efficiency.ukeire / 16.0,
+                switches.shanten_ukeire,
+            ),
+            _factor("bonus_han", bonus_han, bonus_han / 2.0, switches.hand_value),
+            _factor(
                 "structural_yaku",
-                float(len(value.potential_yaku)),
-                len(value.potential_yaku) / 4.0,
+                structural_yaku,
+                structural_yaku / 4.0,
+                switches.hand_value,
             ),
-        )
+        ]
+        if defense_example is not None:
+            risk = evaluate_defense_risk(defense_example, tile).risk
+            factors.append(_factor("defense_risk", risk, -risk, switches.defense_risk))
+        if placement is not None:
+            factors.append(
+                _factor(
+                    "placement_uma",
+                    placement.projected_uma_score,
+                    placement.projected_uma_score / 10.0,
+                    switches.placement_endgame,
+                )
+            )
+        frozen_factors = tuple(factors)
         candidates.append(
             HeuristicDiscardCandidate(
                 tile=tile,
-                score=sum(factor.contribution for factor in factors),
-                factors=factors,
+                score=sum(factor.contribution for factor in frozen_factors),
+                factors=frozen_factors,
             )
         )
     return tuple(
         sorted(
             candidates,
             key=lambda candidate: (
-                _shanten_factor(candidate),
+                _shanten_factor(candidate) if switches.shanten_ukeire else 0.0,
                 -candidate.score,
                 candidate.tile.index,
             ),
@@ -97,30 +150,38 @@ def rank_discard_heuristic(
     )
 
 
-def rank_call_pass_heuristic(example: CallExample) -> tuple[HeuristicCallCandidate, ...]:
+def rank_call_pass_heuristic(
+    example: CallExample,
+    *,
+    ablation: EvaluatorFactorAblation | None = None,
+) -> tuple[HeuristicCallCandidate, ...]:
     """Rank pass and legal calls with deterministic post-call proxy factors."""
     before_shanten = _safe_shanten(example.hand_counts)
+    switches = EvaluatorFactorAblation() if ablation is None else ablation
     candidates: list[HeuristicCallCandidate] = []
     for kind in _call_candidate_kinds(example):
         proxy = _candidate_proxy(example, kind, prefer_ukeire_tiebreaker=True)
         after_shanten = _safe_shanten(proxy.after_counts)
         ukeire = _ukeire_proxy(proxy.after_counts)
         factors = (
-            HeuristicFactor(
+            _factor(
                 "after_shanten_proxy",
                 float(after_shanten),
                 -float(after_shanten),
+                switches.shanten_ukeire,
             ),
-            HeuristicFactor(
+            _factor(
                 "shanten_delta_proxy",
                 float(after_shanten - before_shanten),
                 float(before_shanten - after_shanten),
+                switches.shanten_ukeire,
             ),
-            HeuristicFactor("ukeire_proxy", float(ukeire), ukeire / 16.0),
-            HeuristicFactor(
+            _factor("ukeire_proxy", float(ukeire), ukeire / 16.0, switches.shanten_ukeire),
+            _factor(
                 "consumed_count",
                 float(proxy.consumed_count),
                 -proxy.consumed_count / 4.0,
+                switches.shanten_ukeire,
             ),
         )
         candidates.append(
@@ -134,7 +195,7 @@ def rank_call_pass_heuristic(example: CallExample) -> tuple[HeuristicCallCandida
         sorted(
             candidates,
             key=lambda candidate: (
-                _call_shanten_factor(candidate),
+                _call_shanten_factor(candidate) if switches.shanten_ukeire else 0.0,
                 -candidate.score,
                 CALL_DECISION_KINDS.index(candidate.kind),
             ),
@@ -170,6 +231,10 @@ def _remove_one_tile(tiles: tuple[Tile, ...], tile_type: TileType) -> tuple[Tile
 
 def _shanten_factor(candidate: HeuristicDiscardCandidate) -> float:
     return candidate.factors[0].value
+
+
+def _factor(name: str, value: float, contribution: float, enabled: bool) -> HeuristicFactor:
+    return HeuristicFactor(name, value, contribution if enabled else 0.0)
 
 
 def _call_candidate_kinds(example: CallExample) -> tuple[ActionKind, ...]:

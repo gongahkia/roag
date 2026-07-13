@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from kenjaku.core import Action, ActionKind, Tile, TileType
+from kenjaku.core import Action, ActionKind, Tile, TileType, tile_counts
 from kenjaku.heuristics import (
+    EvaluatorFactorAblation,
     rank_call_pass_heuristic,
     rank_discard_heuristic,
     rank_special_action_heuristic,
@@ -13,7 +14,7 @@ from kenjaku.simulation import (
     apply_discard_action,
     draw_for_current_seat,
 )
-from kenjaku.training import CallExample
+from kenjaku.training import CallExample, DiscardExample
 
 
 class DiscardHeuristicTests(unittest.TestCase):
@@ -92,11 +93,36 @@ class DiscardHeuristicTests(unittest.TestCase):
                 scores=(35000, 35000, 35000),
             )
         )
-
         self.assertEqual(
             tuple(candidate.kind for candidate in candidates if candidate.kind == ActionKind.CHI),
             (),
         )
+
+    def test_ablation_switches_zero_every_evaluator_family_contribution(self) -> None:
+        candidates = rank_discard_heuristic(
+            _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 9p"),
+            defense_example=_defense_example(),
+            placement_points=(35000, 30000, 25000, 10000),
+            placement_seat=0,
+            ablation=EvaluatorFactorAblation(
+                shanten_ukeire=False,
+                hand_value=False,
+                defense_risk=False,
+                placement_endgame=False,
+            ),
+        )
+
+        factors = candidates[0].factors
+        self.assertEqual(
+            tuple(factor.name for factor in factors),
+            ("shanten", "ukeire", "bonus_han", "structural_yaku", "defense_risk", "placement_uma"),
+        )
+        self.assertTrue(all(factor.contribution == 0.0 for factor in factors))
+        with self.assertRaisesRegex(ValueError, "provided together"):
+            rank_discard_heuristic(
+                _tiles("1m 2m 3m 1p 2p 3p 1s 2s 3s E E E 5m 9p"),
+                placement_points=(25000, 25000, 25000, 25000),
+            )
 
     def test_ranks_riichi_and_kan_actions_from_legal_sandbox_actions(self) -> None:
         riichi_state = SandboxEnvironmentState(
@@ -222,6 +248,22 @@ def _call_example(
         hand_counts=tuple(counts),
         visible_counts=(0,) * 34,
         action=Action.pass_(),
+    )
+
+
+def _defense_example() -> DiscardExample:
+    hand = _tiles("4m 5m 7m")
+    return DiscardExample(
+        round_index=0,
+        event_index=0,
+        seat=0,
+        dealer=0,
+        scores=(25000, 25000, 25000, 25000),
+        hand_counts=tile_counts(hand),
+        visible_counts=tile_counts(hand),
+        action=Action.discard("4m"),
+        active_riichi_seats=(False, True, False, False),
+        river_counts_by_seat=((0,) * 34, (0,) * 34, (0,) * 34, (0,) * 34),
     )
 
 
