@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from kenjaku.schema.action_v1 import (
+    ACTION_V1_ACTIONS_BY_RULESET,
+    ACTION_V1_FIELDS,
+    ACTION_V1_KIND,
+    ActionV1,
+)
 from kenjaku.schema.observation_v1 import (
     OBSERVATION_V1_FIELDS,
     OBSERVATION_V1_KIND,
@@ -52,6 +58,10 @@ from kenjaku.schema.responses import (
 )
 
 __all__ = [
+    "ACTION_V1_ACTIONS_BY_RULESET",
+    "ACTION_V1_FIELDS",
+    "ACTION_V1_KIND",
+    "ActionV1",
     "OBSERVATION_V1_FIELDS",
     "OBSERVATION_V1_KIND",
     "MeldV1",
