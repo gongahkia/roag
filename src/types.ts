@@ -124,6 +124,13 @@ export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 
 export interface EncyclopediaState { enemies: string[]; telegraphs: string[]; tags: string[]; gates: string[]; legacyRecords: LegacyRecord[] }
 export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script'
 
+export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
+export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
+export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
+export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
+export type RunOutcome = 'lost' | 'complete' | 'suspended'
+export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
+
 interface CampaignBase {
   version: 2
   seed: number
@@ -155,6 +162,7 @@ export interface RunState {
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
   encyclopedia?: EncyclopediaState
+  telemetry?: RunTelemetry
 }
 
 export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
@@ -165,12 +173,13 @@ export type Modal =
   | { kind: 'settings'; page?: number; awaiting?: KeyBindingId }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills'; source?: 'level' }
+  | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
   | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
-export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[] }
+export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }
 
 export const DIRECTIONS: Record<Direction, Point> = {
   nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 },
