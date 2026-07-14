@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { advanceStory, createStory, isStoryPageComplete, openingLore, storyText, successionLore, TYPEWRITER_INTERVAL } from './lore'
+import { animationFrame, advanceStory, createStory, isStoryPageComplete, loadingAnimation, openingLore, storyText, successionLore, TYPEWRITER_INTERVAL } from './lore'
 import { createLegacy } from './test/factories'
 
 describe('trail lore', () => {
@@ -18,5 +18,11 @@ describe('trail lore', () => {
     const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)
     expect(next.story).toMatchObject({ page: 1 })
     expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 5)).toEqual({ finished: true })
+  })
+
+  it('cycles fixed-width ASCII animation frames deterministically', () => {
+    expect(animationFrame(loadingAnimation, 0)).toBe(loadingAnimation.frames[0])
+    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs)).toBe(loadingAnimation.frames[1])
+    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs * loadingAnimation.frames.length)).toBe(loadingAnimation.frames[0])
   })
 })

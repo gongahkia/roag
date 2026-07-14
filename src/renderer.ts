@@ -5,11 +5,11 @@ import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
-import { isStoryPageComplete, storyText, type LoadingState, type StoryState } from './lore'
+import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type GroundItem, type Modal, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
@@ -22,13 +22,18 @@ const tileGlyph: Record<string, [string, string]> = {
 const runeTileGlyph: Record<string, [string, string]> = {
   wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
 }
-const logoUrl = new URL('../asset/logo/jomon.png', import.meta.url).href
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
+const jomonMasthead = [
+  '     _  ___  __  __  ___  _   _',
+  '    | |/ _ \\|  \\/  |/ _ \\| \\ | |',
+  ' _  | | (_) | |\\/| | (_) |  \\| |',
+  '| |_| |\\___/|_|  |_|\\___/|_|\\_|',
+  ' \\___/                         '
+]
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
-  private readonly logo = new Image()
   private spriteMode = false
   private runeMode = false
   private heroFacingLeft = false
@@ -41,6 +46,7 @@ export class TerminalRenderer {
   private lastHub?: HubView
   private lastStory?: StoryState
   private lastLoading?: LoadingState
+  private lastAnalysis?: RunAnalysis
   private savedRun?: RunState
   private settings: GameSettings = defaultSettings()
 
@@ -53,9 +59,7 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
-    this.logo.onload = () => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading)
-    this.logo.src = logoUrl
-    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis))
   }
 
   setVisualMode(value: VisualMode): void {
@@ -79,13 +83,14 @@ export class TerminalRenderer {
     this.effects.trigger(events, state, this.canvas, effectId)
   }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
     this.lastHub = hub
     this.lastStory = story
     this.lastLoading = loading
+    this.lastAnalysis = analysis
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -95,12 +100,13 @@ export class TerminalRenderer {
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (route.screen === 'splash') this.splash()
-    else if (route.screen === 'title') this.title(records)
+    else if (route.screen === 'title') this.title()
     else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub)
     else if (route.screen === 'area') this.area(route)
     else if (route.screen === 'loading') this.loading(state, loading, now)
-    else if (!state || state.status === 'title') this.title(records)
+    else if (route.screen === 'analysis' && analysis) this.analysis(analysis)
+    else if (!state || state.status === 'title') this.title()
     else {
       this.stage(state)
       this.sidebar(state)
@@ -111,31 +117,23 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story && !isStoryPageComplete(story, now))) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading))
+    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis))
   }
 
-  private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
-    this.box(13, 10, 54, 24, 'JOMON: SECRET DELIVERY')
-    this.text(19, 14, 'CARRY A SEALED PARCEL FOR YOUR VILLAGE', colors.gold)
-    this.text(20, 18, 'N  begin a new delivery', colors.green)
-    this.text(20, 20, 'L  resume saved floor', colors.text)
-    this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
-    this.text(22, 30, 'one life · sixteen paths · four regions', colors.purple)
-  }
+  private title(): void { this.splash() }
 
   private splash(): void {
     this.ctx.fillStyle = colors.ink
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    if (this.logo.complete && this.logo.naturalWidth) this.ctx.drawImage(this.logo, Math.round((this.canvas.width - this.logo.naturalWidth) / 2), 48)
-    else this.text(33, 16, 'JOMON', colors.gold)
-    this.text(28, 28, 'JOMON: SECRET DELIVERY', colors.gold)
-    this.text(24, 31, 'A courier’s trail ends only when another begins.', colors.dim)
-    this.text(26, 35, '[N]  begin a new delivery', colors.green)
+    this.ascii(23, 10, jomonMasthead.join('\n'), colors.gold)
+    this.text(28, 20, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
     if (this.savedRun) {
       const region = biomeName[this.savedRun.area ?? this.savedRun.floor.biome]
-      this.text(26, 37, `[L]  resume · ${region} ${String(this.savedRun.floor.index).padStart(2, '0')}/04 · turn ${this.savedRun.turn}`, colors.text)
-    } else this.text(26, 37, '[L]  no active delivery', colors.dim)
-    this.text(18, 44, 'N  new delivery     L  resume active delivery', colors.dim)
+      this.text(22, 23, `A delivery waits in ${region}, trail ${String(this.savedRun.floor.index + 1).padStart(2, '0')} · turn ${this.savedRun.turn}.`, colors.dim)
+    } else this.text(22, 23, '(No active delivery. Begin a new one.)', colors.dim)
+    this.text(22, 37, '[N]  begin a new delivery', colors.green)
+    this.text(22, 39, '[L]  resume active delivery', this.savedRun ? colors.text : colors.dim)
+    this.text(19, 44, 'N  new delivery     L  resume active delivery', colors.dim)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
@@ -143,7 +141,8 @@ export class TerminalRenderer {
     this.box(13, 10, 54, 24, story?.scene.title ?? 'VILLAGE TRAILHEAD')
     if (story) {
       this.text(19, 14, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
-      this.wrap(storyText(story, now), 46).slice(0, 6).forEach((line, index) => this.text(19, 17 + index * 2, line, colors.text))
+      this.wrap(storyText(story, now), 27).slice(0, 6).forEach((line, index) => this.text(19, 17 + index * 2, line, colors.text))
+      this.ascii(49, 16, animationFrame(story.scene.animation, now), season.color)
       this.text(19, 31, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
       return
     }
@@ -169,9 +168,7 @@ export class TerminalRenderer {
     }
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    const dots = '.'.repeat(Math.floor(now / 280) % 4)
-    this.text(28, 20, 'THREADS OF THE TRAIL', colors.gold)
-    this.text(35, 23, `loading${dots}`, colors.dim)
+    this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
   }
 
   private hub(route: ScreenRoute, hub?: HubView): void {
@@ -356,6 +353,7 @@ export class TerminalRenderer {
     if (modal.kind === 'settings') return this.settingsModal(modal)
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
+    if (modal.kind === 'pause') return this.pause()
     if (modal.kind === 'shop') return this.shop(state)
     if (modal.kind === 'gate') return this.gate(state, modal)
     if (modal.kind === 'target') return this.target(state, modal)
@@ -363,8 +361,8 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'The current floor is saved only when you descend.', '', 'Press any key to return.']
-    lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
+    lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 9 ? colors.gold : colors.text))
   }
 
   private encyclopedia(state: RunState, modal: Extract<Modal, { kind: 'encyclopedia' }>): void {
@@ -413,6 +411,13 @@ export class TerminalRenderer {
     this.text(14, 31, 'number chooses · Esc/backtick cancels', colors.dim)
   }
 
+  private pause(): void {
+    this.box(23, 14, 34, 16, 'PAUSE DELIVERY')
+    this.text(28, 19, '1 / ENTER  continue', colors.green)
+    this.text(28, 22, '2 / Q      save & quit', colors.text)
+    this.text(28, 26, 'Esc/backtick continues', colors.dim)
+  }
+
   private shop(state: RunState): void {
     this.box(12, 5, 56, 32, 'TRADER STOCK')
     merchantStock(state).forEach((id, i) => { const item = ITEM[id]; this.text(17, 9 + i * 2, `${i + 1}. ${item.glyph} ${item.name.padEnd(24)} ${item.value} cash`, item.color) })
@@ -433,6 +438,45 @@ export class TerminalRenderer {
     const preview = targetPreview(state, modal)
     this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
     this.text(21, 23, modal.direction ? 'Enter confirms · direction changes preview' : 'Esc/backtick cancels.', colors.dim)
+  }
+
+  private analysis(analysis: RunAnalysis): void {
+    const metrics = analysis.metrics
+    const outcome = analysis.outcome === 'complete' ? 'DELIVERY COMPLETE' : analysis.outcome === 'lost' ? 'DELIVERY LOST' : 'DELIVERY SUSPENDED'
+    const color = analysis.outcome === 'complete' ? colors.gold : analysis.outcome === 'lost' ? colors.red : colors.blue
+    this.box(6, 2, 68, 42, outcome)
+    this.text(10, 6, `trail ${String(analysis.floor).padStart(2, '0')} · ${biomeName[analysis.biome]} · ${metrics.turns} turns`, color)
+    this.text(10, 9, 'TURN TIMELINE  ·  20 BINS', colors.gold)
+    const samples = metrics.samples.length ? metrics.samples : [{ turn: 0, floor: analysis.floor, health: 0, focus: 0, gold: 0, bombs: 0, ropes: 0, kills: 0, damageDealt: 0, damageTaken: 0 }]
+    this.text(10, 11, `HP   ${this.histogram(this.timeline(samples, sample => sample.health, false))}`, colors.red)
+    this.text(10, 13, `DMG  ${this.histogram(this.timeline(samples, sample => sample.damageDealt + sample.damageTaken, true))}`, colors.gold)
+    this.text(10, 15, `KIL  ${this.histogram(this.timeline(samples, sample => sample.kills, true))}`, colors.green)
+    this.text(10, 17, `USE  ${this.histogram(this.timeline(samples, sample => sample.bombs + sample.ropes, true, true))}`, colors.blue)
+    this.text(10, 21, `cash +${metrics.goldGained} · xp +${metrics.xpGained} · pickups ${metrics.pickups}`, colors.text)
+    this.text(10, 23, `kills ${metrics.kills} · dealt ${metrics.damageDealt} · taken ${metrics.damageTaken}`, colors.text)
+    this.text(10, 25, `bombs ${metrics.bombsUsed} · ropes ${metrics.ropesUsed} · rests ${metrics.actions.rests}`, colors.text)
+    this.text(10, 27, `moves ${metrics.actions.moves} · attacks ${metrics.actions.attacks} · casts ${metrics.actions.casts}`, colors.dim)
+    this.text(10, 30, 'FLOOR SPLITS', colors.gold)
+    metrics.floors.slice(-4).forEach((floor, index) => this.text(10, 32 + index * 2, `F${String(floor.floor).padStart(2, '0')}  turns ${String(floor.turns).padStart(3)}  kills ${String(floor.kills).padStart(2)}  dmg ${String(floor.damageDealt).padStart(3)}/${String(floor.damageTaken).padStart(3)}  loot ${floor.pickups}`, colors.text))
+    this.text(10, 41, 'ANY KEY  continue', colors.green)
+  }
+
+  private timeline(samples: readonly RunMetricSample[], value: (sample: RunMetricSample) => number, cumulative: boolean, descending = false): number[] {
+    const values: number[] = []
+    let previous = value(samples[0])
+    for (let bucket = 0; bucket < 20; bucket++) {
+      const index = Math.min(samples.length - 1, Math.max(0, Math.ceil(samples.length * (bucket + 1) / 20) - 1))
+      const current = value(samples[index])
+      values.push(cumulative ? Math.max(0, descending ? previous - current : current - previous) : current)
+      previous = current
+    }
+    return values
+  }
+
+  private histogram(values: readonly number[]): string {
+    const marks = ' .:-=+*#%@'
+    const max = Math.max(1, ...values)
+    return values.map(value => marks[Math.min(marks.length - 1, Math.round(value / max * (marks.length - 1)))]).join('')
   }
 
   private end(state: RunState, won: boolean): void {
@@ -469,6 +513,7 @@ export class TerminalRenderer {
       return lines
     })
   }
+  private ascii(x: number, y: number, value: string, color = colors.text): void { value.split('\n').forEach((line, index) => this.text(x, y + index, line, color)) }
   private text(x: number, y: number, value: string, color = colors.text, background?: string): void { for (let i = 0; i < value.length && x + i < TERMINAL_WIDTH; i++) this.cell(x + i, y, value[i], color, background) }
   private gridRect(x: number, y: number, width: number, height: number): void {
     this.ctx.save(); this.ctx.strokeStyle = colors.border; this.ctx.lineWidth = 1

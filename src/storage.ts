@@ -1,5 +1,6 @@
-import type { Actor, Biome, CampaignRouteState, ConditionState, EncyclopediaState, Floor, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Records, RescuedNpc, RunState, RunStateV1, Telegraph, Tile } from './types'
+import type { Actor, Biome, CampaignRouteState, ConditionState, EncyclopediaState, Floor, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Records, RescuedNpc, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunStateV1, RunTelemetry, Telegraph, Tile } from './types'
 import { objectiveForFloor } from './objectives'
+import { createRunTelemetry } from './telemetry'
 
 const DB = 'jomon-expedition-v2'
 const STORE = 'state'
@@ -25,6 +26,11 @@ const isRescuedNpc = (value: unknown): value is RescuedNpc => isRecord(value) &&
 const isLineageEvent = (value: unknown): value is LineageEvent => isRecord(value) && isString(value.id) && value.kind === 'npcSacrifice' && isString(value.npcId) && isString(value.npcName) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.floor) && isString(value.gateId) && isNumber(value.seed)
 const isLegacyRecord = (value: unknown): value is LegacyRecord => isRecord(value) && isString(value.id) && isString(value.heirName) && oneOf(value.cause, ['defeated', 'sacrificed', 'retired']) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.floor) && isNumber(value.seed) && Array.isArray(value.lineage) && value.lineage.every(isString) && isPoint(value.location) && isRecord(value.cache) && isNumber(value.cache.gold) && Array.isArray(value.cache.items) && value.cache.items.every(isString) && isRecord(value.encounter) && oneOf(value.encounter.kind, ['cache', 'revenant', 'anchor']) && typeof value.encounter.resolved === 'boolean'
 const isEncyclopedia = (value: unknown): value is EncyclopediaState => isRecord(value) && Array.isArray(value.enemies) && value.enemies.every(isString) && Array.isArray(value.telegraphs) && value.telegraphs.every(isString) && Array.isArray(value.tags) && value.tags.every(isString) && Array.isArray(value.gates) && value.gates.every(isString) && Array.isArray(value.legacyRecords) && value.legacyRecords.every(isLegacyRecord)
+const isRunMetricSample = (value: unknown): value is RunMetricSample => isRecord(value) && isNumber(value.turn) && isNumber(value.floor) && isNumber(value.health) && isNumber(value.focus) && isNumber(value.gold) && isNumber(value.bombs) && isNumber(value.ropes) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken)
+const isRunFloorMetrics = (value: unknown): value is RunFloorMetrics => isRecord(value) && isNumber(value.floor) && isNumber(value.turns) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken) && isNumber(value.goldGained) && isNumber(value.xpGained) && isNumber(value.pickups) && isNumber(value.bombsUsed) && isNumber(value.ropesUsed)
+const isRunActions = (value: unknown): boolean => isRecord(value) && ['moves', 'attacks', 'casts', 'pickups', 'bombs', 'ropes', 'rests'].every(key => isNumber(value[key]))
+const isRunTelemetry = (value: unknown): value is RunTelemetry => isRecord(value) && isNumber(value.turns) && isRunActions(value.actions) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken) && isNumber(value.goldGained) && isNumber(value.xpGained) && isNumber(value.pickups) && isNumber(value.bombsUsed) && isNumber(value.ropesUsed) && Array.isArray(value.samples) && value.samples.every(isRunMetricSample) && Array.isArray(value.floors) && value.floors.every(isRunFloorMetrics)
+const isRunAnalysis = (value: unknown): value is RunAnalysis => isRecord(value) && isNumber(value.seed) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.floor) && oneOf(value.outcome, ['lost', 'complete', 'suspended']) && isString(value.date) && isRunTelemetry(value.metrics)
 const isTelegraph = (value: unknown): value is Telegraph => isRecord(value) && isString(value.id) && isString(value.sourceId) && isString(value.actionId) && Array.isArray(value.cells) && value.cells.every(isPoint) && oneOf(value.danger, ['minor', 'major']) && isNumber(value.resolveTurn) && (value.collision === undefined || (isRecord(value.collision) && isPoint(value.collision.point) && isString(value.collision.by))) && (value.cover === undefined || typeof value.cover === 'boolean')
 const isFloor = (value: unknown): value is Floor => isRecord(value) && isNumber(value.index) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.seed) && Array.isArray(value.tiles) && value.tiles.every(isTile) && Array.isArray(value.actors) && value.actors.every(isActor) && Array.isArray(value.items) && value.items.every(isGroundItem) && isPoint(value.start) && isPoint(value.exit) && typeof value.guardianDefeated === 'boolean' && (value.objective === undefined || isObjective(value.objective)) && (value.telegraphs === undefined || (Array.isArray(value.telegraphs) && value.telegraphs.every(isTelegraph))) && (value.puzzleIds === undefined || (Array.isArray(value.puzzleIds) && value.puzzleIds.every(isString)))
 const isHero = (value: unknown): value is Hero => isRecord(value) && isNumber(value.x) && isNumber(value.y) && isNumber(value.health) && isNumber(value.maxHealth) && isNumber(value.focus) && isNumber(value.maxFocus) && isNumber(value.gold) && isNumber(value.bombs) && isNumber(value.ropes) && isNumber(value.keys) && isNumber(value.xp) && isNumber(value.level) && isRecord(value.stats) && isNumber(value.stats.strength) && isNumber(value.stats.agility) && isNumber(value.stats.vitality) && isNumber(value.stats.intellect) && Array.isArray(value.skills) && value.skills.every(isString) && Array.isArray(value.inventory) && value.inventory.every(isString) && isRecord(value.equipment) && Object.values(value.equipment).every(item => item === undefined || isString(item)) && (value.lastUnequipped === undefined || isString(value.lastUnequipped)) && (value.conditions === undefined || (Array.isArray(value.conditions) && value.conditions.every(isCondition))) && (value.cooldowns === undefined || (isRecord(value.cooldowns) && Object.values(value.cooldowns).every(isNumber)))
@@ -32,7 +38,7 @@ const isHero = (value: unknown): value is Hero => isRecord(value) && isNumber(va
 const isModal = (value: unknown): value is Modal | undefined => {
   if (value === undefined) return true
   if (!isRecord(value)) return false
-  if (value.kind === 'help' || value.kind === 'skills') return true
+  if (value.kind === 'help' || value.kind === 'skills' || value.kind === 'pause') return true
   if (value.kind === 'encyclopedia') return oneOf(value.section, ['enemies', 'telegraphs', 'tags', 'gates', 'legacy']) && (value.page === undefined || isNumber(value.page))
   if (value.kind === 'settings') return (value.page === undefined || isNumber(value.page)) && (value.awaiting === undefined || oneOf(value.awaiting, ['northwest', 'north', 'northeast', 'west', 'east', 'southwest', 'south', 'southeast', 'wait', 'help', 'encyclopedia', 'settings', 'use', 'drop', 'throw', 'equip', 'skills', 'bomb', 'rope', 'get', 'operate', 'descend', 'swap', 'script']))
   if (value.kind === 'inventory') return oneOf(value.mode, ['use', 'drop', 'throw', 'equip'])
@@ -41,14 +47,17 @@ const isModal = (value: unknown): value is Modal | undefined => {
   return value.kind === 'target' && oneOf(value.action, ['throw', 'spell', 'bomb']) && (value.item === undefined || isString(value.item))
 }
 
-const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.gateDestination === undefined || oneOf(value.gateDestination, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia))
+const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.gateDestination === undefined || oneOf(value.gateDestination, ['mine', 'wilds', 'caverns', 'ruins'])) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia)) && (value.telemetry === undefined || isRunTelemetry(value.telemetry))
 const isRunState = (value: unknown): value is RunState => isRunRecord(value) && value.version === 2
 const isRunStateV1 = (value: unknown): value is RunStateV1 => isRunRecord(value) && value.version === 1
 const isCampaignRoute = (value: unknown): value is CampaignRouteRecord => isRecord(value) && value.version === 1 && Array.isArray(value.completedAreas) && value.completedAreas.every(area => oneOf(area, ['mine', 'wilds', 'caverns', 'ruins'])) && Array.isArray(value.unlockedAreas) && value.unlockedAreas.every(area => oneOf(area, ['mine', 'wilds', 'caverns', 'ruins'])) && oneOf(value.selectedBiome, ['mine', 'wilds', 'caverns', 'ruins']) && value.unlockedAreas.includes(value.selectedBiome) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.legacyRecords === undefined || (Array.isArray(value.legacyRecords) && value.legacyRecords.every(isLegacyRecord))) && (value.legacyEncounterAreas === undefined || (Array.isArray(value.legacyEncounterAreas) && value.legacyEncounterAreas.every(area => oneOf(area, ['mine', 'wilds', 'caverns', 'ruins']))))
 
 export const migrateRunRecord = (value: unknown): RunState | undefined => {
-  if (isRunState(value)) return value.floor.objective ? value : { ...value, floor: { ...value.floor, objective: objectiveForFloor(value.floor.index) } }
-  if (isRunStateV1(value)) return { ...value, version: 2, floor: { ...value.floor, objective: value.floor.objective ?? objectiveForFloor(value.floor.index) } }
+  if (isRunState(value) || isRunStateV1(value)) {
+    const run: RunState = { ...value, version: 2, floor: value.floor.objective ? value.floor : { ...value.floor, objective: objectiveForFloor(value.floor.index) } }
+    run.telemetry ??= createRunTelemetry(run)
+    return run
+  }
   return undefined
 }
 
@@ -102,8 +111,14 @@ export async function deleteRun(): Promise<void> {
   } catch { }
 }
 
-const emptyRecords = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [] })
-export const loadRecords = async (): Promise<Records> => (await get<Records>(RECORDS)) ?? emptyRecords()
+const emptyRecords = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] })
+const migrateRecords = (value: unknown): Records => {
+  if (!isRecord(value)) return emptyRecords()
+  const runs = Array.isArray(value.runs) ? value.runs.filter(run => isRecord(run) && isNumber(run.seed) && isNumber(run.floor) && isNumber(run.score) && typeof run.won === 'boolean' && isString(run.date)).map(run => ({ seed: run.seed, floor: run.floor, score: run.score, won: run.won, date: run.date })) : []
+  const analyses = Array.isArray(value.analyses) ? value.analyses.filter(isRunAnalysis).slice(0, 20) : []
+  return { bestDepth: isNumber(value.bestDepth) ? value.bestDepth : 0, wins: isNumber(value.wins) ? value.wins : 0, deaths: isNumber(value.deaths) ? value.deaths : 0, runs, analyses }
+}
+export const loadRecords = async (): Promise<Records> => migrateRecords(await get<unknown>(RECORDS))
 export const saveRecords = (records: Records) => put(RECORDS, records)
 export const loadCampaignRoute = async (): Promise<CampaignRouteState> => migrateCampaignRoute(await get<unknown>(CAMPAIGN_ROUTE))
 export const saveCampaignRoute = (route: CampaignRouteState) => put(CAMPAIGN_ROUTE, migrateCampaignRoute(route))

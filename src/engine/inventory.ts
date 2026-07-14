@@ -126,7 +126,7 @@ export function useRope(state: RunState): ActionResult {
   }
   state.hero.ropes--
   log(state, 'You secure a rope.')
-  return advance(state, [event('pickup')])
+  return advance(state, [event('rope')])
 }
 
 export function castFirstSpell(state: RunState): ActionResult {

@@ -25,4 +25,14 @@ describe('player targeting preview', () => {
     expect(perform(state, 'Enter')).toEqual(expect.arrayContaining([{ type: 'boom' }]))
     expect(state.modal).toBeUndefined()
   })
+
+  it('rejects an unavailable bomb before targeting and keeps stocked bombs confirmable', () => {
+    const state = createRun()
+    expect(perform(state, 'b')).toEqual([])
+    expect(state.modal).toBeUndefined()
+    expect(state.messages[0]).toBe('No bombs remain.')
+    state.hero.bombs = 1
+    expect(perform(state, 'b')).toEqual([{ type: 'menu' }])
+    expect(state.modal).toEqual({ kind: 'target', action: 'bomb' })
+  })
 })

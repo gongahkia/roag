@@ -6,7 +6,8 @@ import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
-import type { CampaignRouteState, Direction, Hero, HubState, LegacyRecord, Records, RunState } from './types'
+import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
+import type { CampaignRouteState, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
@@ -15,7 +16,7 @@ const audio = new AudioBus()
 let settings: GameSettings = loadSettings()
 let state: RunState | undefined
 let saved: RunState | undefined
-let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [] }
+let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
@@ -25,6 +26,8 @@ let gameZoom = loadGameZoom()
 let story: StoryState | undefined
 let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
+let analysis: RunAnalysis | undefined
+let analysisNext: 'succession' | 'session' | undefined
 
 const showSessionSplash = (): boolean => {
   try {
@@ -59,17 +62,15 @@ window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
+  if (route.screen === 'analysis') {
+    if (!keyboardEvent.repeat) { keyboardEvent.preventDefault(); continueAnalysis() }
+    return
+  }
   if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
   if (route.screen === 'approach' && story) { handleStoryInput(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
-  if (route.screen === 'level' && state && (state.status === 'dead' || state.status === 'victory')) {
-    if (keyboardEvent.repeat) return
-    if (state.status === 'dead') beginSuccession()
-    else if ((command ?? keyboardEvent.key).toLowerCase() === 'n') beginNewDelivery()
-    return
-  }
   if (route.screen !== 'level') {
     let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
     if (nextRoute === route) return
@@ -97,14 +98,19 @@ window.addEventListener('keydown', keyboardEvent => {
   const previousX = state.hero.x
   const previousLevel = state.hero.level
   let events = [] as ReturnType<typeof perform>
-  if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
+  if (keyboardEvent.altKey && direction && direction !== 'wait') {
+    const before = telemetrySnapshot(state)
+    events = quickCast(state, direction)
+    observeTelemetryTurn(state, before, events, command)
+  }
   else if (keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
-  else events = perform(state, command)
+  else events = performTracked(state, command)
   if (state.hero.level > previousLevel) events.push(event('level'))
   if (state.hero.x !== previousX) renderer.setHeroFacingLeft(state.hero.x < previousX)
   audio.play(events)
   renderer.trigger(events, state, spellEffect)
-  if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
+  if (hasEvent(events, 'suspend')) { suspendRun(); return }
+  if (hasEvent(events, 'floor')) { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
   if (hasEvent(events, 'areaComplete')) completeArea()
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
@@ -167,17 +173,11 @@ function start(): void {
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   saved = structuredClone(state)
+  renderer.setSavedRun(saved)
   recordedEnd = false
   void saveRun(state)
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
-}
-
-function beginNewDelivery(): void {
-  route = { ...route, screen: 'level', heirSeed: Math.floor(Math.random() * 0x7fffffff) }
-  heir = undefined
-  start()
-  redraw()
 }
 
 function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>): void {
@@ -247,6 +247,7 @@ function completeArea(): void {
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   void saveCampaignRoute(campaign)
   saved = undefined
+  renderer.setSavedRun(undefined)
   void deleteRun()
   route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
 }
@@ -259,7 +260,7 @@ function unlockGateDestination(): void {
   route = { ...route, biome: campaign.selectedBiome }
   state.gateDestination = undefined
   void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
+  if (state.status === 'playing') { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
 }
 
 function persistRescuedRoster(): void {
@@ -269,7 +270,7 @@ function persistRescuedRoster(): void {
   campaign = { ...campaign, rescuedNpcs }
   hub = { ...hub, rescued: rescuedNpcs }
   void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
+  if (state.status === 'playing') { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
 }
 
 function toggleVisualMode(): void {
@@ -279,7 +280,7 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading) }
+function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis) }
 
 function finish(won: boolean): void {
   if (!state) return
@@ -295,7 +296,13 @@ function finish(won: boolean): void {
   else records.deaths++
   records.runs.unshift({ seed: state.seed, floor: state.floor.index + 1, score: state.hero.gold, won, date: new Date().toISOString() })
   records.runs = records.runs.slice(0, 20)
+  analysis = analysisFor(state, won ? 'complete' : 'lost')
+  records.analyses.unshift(analysis)
+  records.analyses = records.analyses.slice(0, 20)
+  analysisNext = won ? 'session' : 'succession'
   saved = undefined
+  renderer.setSavedRun(undefined)
+  route = { ...route, screen: 'analysis' }
   void Promise.all([deleteRun(), saveRecords(records), saveCampaignRoute(campaign)])
 }
 
@@ -304,12 +311,42 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
   for (let i = 0; i < 18; i++) {
     const x = game.hero.x
     const y = game.hero.y
-    const next = perform(game, command)
+    const next = performTracked(game, command)
     events.push(...next)
     const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && game.floor.tiles[actor.y * 48 + actor.x].visible)
     if (game.status !== 'playing' || game.modal || (x === game.hero.x && y === game.hero.y) || threats) break
   }
   return events
+}
+
+function performTracked(game: RunState, command: string): ReturnType<typeof perform> {
+  const before = telemetrySnapshot(game)
+  const events = perform(game, command)
+  observeTelemetryTurn(game, before, events, command)
+  return events
+}
+
+function suspendRun(): void {
+  if (!state) return
+  saved = structuredClone(state)
+  renderer.setSavedRun(saved)
+  analysis = analysisFor(state, 'suspended')
+  records.analyses.unshift(analysis)
+  records.analyses = records.analyses.slice(0, 20)
+  analysisNext = 'session'
+  route = { ...route, screen: 'analysis' }
+  void Promise.all([saveRun(saved), saveRecords(records)])
+  redraw()
+}
+
+function continueAnalysis(): void {
+  const next = analysisNext
+  analysis = undefined
+  analysisNext = undefined
+  if (next === 'succession') { beginSuccession(); return }
+  state = undefined
+  route = { screen: 'splash', biome: campaign.selectedBiome }
+  redraw()
 }
 
 function directionFor(command: string): Direction | undefined {

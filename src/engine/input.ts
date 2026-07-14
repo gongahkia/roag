@@ -19,7 +19,12 @@ export function perform(state: RunState, command: string): ActionResult {
   if (lower === 't') { state.modal = { kind: 'inventory', mode: 'throw' }; return [event('menu')] }
   if (lower === 'e') { state.modal = { kind: 'inventory', mode: 'equip' }; return [event('menu')] }
   if (lower === 'a') { state.modal = { kind: 'skills' }; return [event('menu')] }
-  if (lower === 'b') { state.modal = { kind: 'target', action: 'bomb' }; return [event('menu')] }
+  if (lower === 'b') {
+    if (state.hero.bombs < 1) { log(state, 'No bombs remain.'); return [] }
+    state.modal = { kind: 'target', action: 'bomb' }
+    return [event('menu')]
+  }
+  if (command === 'Escape') { state.modal = { kind: 'pause' }; return [event('menu')] }
   if (lower === 'r') return useRope(state)
   if (lower === 'g') return pickUp(state)
   if (lower === 'c') return operate(state)
@@ -44,6 +49,11 @@ function performModal(state: RunState, command: string): ActionResult {
   if (command === 'Escape' || command === '`') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'help') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'settings') return []
+  if (modal.kind === 'pause') {
+    if (command === 'Escape' || command === '`' || command === 'Enter' || command === '1') { state.modal = undefined; return [event('menu')] }
+    if (command === '2' || command.toLowerCase() === 'q') { state.modal = undefined; return [event('suspend')] }
+    return []
+  }
   if (modal.kind === 'encyclopedia') return performEncyclopediaModal(state, modal, command)
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []

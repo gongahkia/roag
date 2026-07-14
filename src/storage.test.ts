@@ -21,6 +21,12 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)).toMatchObject({ floor: { objective: { kind: 'recoverSupplies', status: 'active' } } })
   })
 
+  it('adds telemetry when loading a pre-telemetry run', () => {
+    const run = newRun(790)
+    delete run.telemetry
+    expect(migrateRunRecord(run)).toMatchObject({ telemetry: { turns: 0, samples: [{ turn: 0 }], floors: [{ floor: 1 }] } })
+  })
+
   it('rejects malformed records so the caller stays at title', () => {
     expect(migrateRunRecord({ version: 2, seed: 1 })).toBeUndefined()
   })

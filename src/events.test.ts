@@ -8,4 +8,12 @@ describe('action event protocol', () => {
     expect(events).toEqual([{ type: 'menu' }])
     expect(events.every(event => Object.keys(event).every(key => key === 'type'))).toBe(true)
   })
+
+  it('opens a pause modal and emits suspension only after explicit confirmation', () => {
+    const state = newRun(8)
+    expect(perform(state, 'Escape')).toEqual([{ type: 'menu' }])
+    expect(state.modal).toEqual({ kind: 'pause' })
+    expect(perform(state, '2')).toEqual([{ type: 'suspend' }])
+    expect(state.modal).toBeUndefined()
+  })
 })

@@ -6,9 +6,30 @@ import type { LegacyRecord } from './types'
 
 export const TYPEWRITER_INTERVAL = 28
 
-export interface LoreScene { title: string; pages: string[] }
+export interface AsciiAnimation { frames: string[]; frameMs: number }
+export interface LoreScene { title: string; pages: string[]; animation?: AsciiAnimation }
 export interface StoryState { scene: LoreScene; page: number; pageStartedAt: number; complete?: boolean }
 export interface LoadingState { phase: 'fade' | 'loading'; startedAt: number }
+
+export const trailAnimation: AsciiAnimation = { frameMs: 190, frames: [
+  '      .      \n   .  /|\\  .  \n  /\\ / | \\ /\\ \n /  V  @  V  \\\n/___|_/ \\_|___\\\n    /___\\',
+  '   .     .   \n    /|\\      \n  /\\ | \\ /\\ \n /  V @  V  \\\n/___|_/ \\_|___\\\n    /___\\',
+  ' .      .     \n   /|\\  .    \n  /\\ | \\ /\\ \n /  V  @ V  \\\n/___|_/ \\_|___\\\n    /___\\'
+] }
+
+export const threadsAnimation: AsciiAnimation = { frameMs: 170, frames: [
+  '  .-.-.      \n /  |  \\     \n|  / \\  |    \n| /   \\ |    \n|/  *  \\|    \n \\  |  /     \n  `-^-`',
+  '  .-.-.      \n /  |  \\     \n|  / \\  |    \n|/     \\|    \n|\\  *  /|    \n \\  |  /     \n  `-^-`',
+  '  .-.-.      \n /  |  \\     \n| /   \\ |    \n|/  *  \\|    \n|\\     /|    \n \\  |  /     \n  `-^-`'
+] }
+
+export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
+  '  [=     ]  \n  /|  .  |\\ \n /_|_____|_\\\n    / \\',
+  '  [==    ]  \n  /| . . |\\ \n /_|_____|_\\\n    / \\',
+  '  [===   ]  \n  /|.   .|\\ \n /_|_____|_\\\n    / \\',
+  '  [====  ]  \n  /| . . |\\ \n /_|_____|_\\\n    / \\',
+  '  [===== ]  \n  /|  .  |\\ \n /_|_____|_\\\n    / \\'
+] }
 
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]
 const characters = (value: string): string[] => Array.from(value)
@@ -26,7 +47,7 @@ export const openingLore = (heirSeed: number): LoreScene => {
     'A sealed parcel waits for a steady hand.',
     'The outpost keeps a parcel for the next courier.'
   ])
-  return { title: 'VILLAGE TRAILHEAD', pages: [`${opening}\n${season.scene}`, `${courier} takes the courier\'s mark.\n${charge}`] }
+  return { title: 'VILLAGE TRAILHEAD', animation: trailAnimation, pages: [`${opening}\n${season.scene}`, `${courier} takes the courier\'s mark.\n${charge}`] }
 }
 
 export const successionLore = (record: LegacyRecord, successorSeed: number): LoreScene => {
@@ -44,7 +65,7 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
     'No delivery ends while another hand answers.'
   ])
   return {
-    title: 'THREADS OF THE TRAIL',
+    title: 'THREADS OF THE TRAIL', animation: threadsAnimation,
     pages: [
       `${record.heirName} fell in ${biomeName[record.biome]}, trail ${record.floor + 1}.\nThe sealed parcel slipped into the dark.`,
       `${passage}\n${record.heirName}\'s path reaches ${successor}.`,
@@ -58,6 +79,7 @@ export const storyPage = (story: StoryState): string => story.scene.pages[story.
 export const storyProgress = (story: StoryState, now: number): number => story.complete ? characters(storyPage(story)).length : Math.min(characters(storyPage(story)).length, Math.floor(Math.max(0, now - story.pageStartedAt) / TYPEWRITER_INTERVAL))
 export const storyText = (story: StoryState, now: number): string => characters(storyPage(story)).slice(0, storyProgress(story, now)).join('')
 export const isStoryPageComplete = (story: StoryState, now: number): boolean => storyProgress(story, now) === characters(storyPage(story)).length
+export const animationFrame = (animation: AsciiAnimation | undefined, now: number): string => !animation?.frames.length ? '' : animation.frames[Math.floor(now / animation.frameMs) % animation.frames.length]
 
 export const advanceStory = (story: StoryState, now: number): { story?: StoryState; finished: boolean } => {
   if (!isStoryPageComplete(story, now)) return { story: { ...story, complete: true }, finished: false }
