@@ -17,7 +17,7 @@ export interface ActionDefinition {
 export const PLAYER_ACTIONS: ActionDefinition[] = [
   { id: 'player-strike', owner: 'player', name: 'Strike', cost: { resource: 'none' }, range: 1, shape: 'adjacent', tags: ['melee'], resolver: 'melee' },
   { id: 'player-throw', owner: 'player', name: 'Throw', cost: { resource: 'item', amount: 1 }, range: 5, shape: 'line', tags: ['ranged', 'thrown'], resolver: 'throw' },
-  { id: 'player-bomb', owner: 'player', name: 'Bomb', cost: { resource: 'bomb', amount: 1 }, range: 1, shape: 'burst', tags: ['area', 'terrain'], resolver: 'bomb' },
+  { id: 'player-bomb', owner: 'player', name: 'Bomb', cost: { resource: 'bomb', amount: 1 }, range: 2, shape: 'burst', tags: ['area', 'terrain'], resolver: 'bomb' },
   { id: 'player-script', owner: 'player', name: 'Charm', cost: { resource: 'focus', amount: 3 }, range: 1, shape: 'adjacent', tags: ['script'], resolver: 'script' }
 ]
 

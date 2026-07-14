@@ -2,11 +2,13 @@ import { ITEM, biomeName } from './content'
 import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
+import { isItemVisible } from './renderer/fog'
+import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type Modal, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type GroundItem, type Modal, type RunState } from './types'
 import { actorAt, getTile } from './world'
 
 const CW = 10
@@ -95,7 +97,6 @@ export class TerminalRenderer {
     this.text(19, 14, 'CARRY A SEALED PARCEL FOR YOUR VILLAGE', colors.gold)
     this.text(20, 18, 'N  begin a new delivery', colors.green)
     this.text(20, 20, 'L  resume saved floor', colors.text)
-    this.text(20, 22, 'H  controls and systems', colors.text)
     this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
     this.text(22, 30, 'one life · sixteen paths · four regions', colors.purple)
   }
@@ -149,6 +150,7 @@ export class TerminalRenderer {
     this.ctx.scale(this.boardZoom, this.boardZoom)
     this.ctx.translate(-focusX, -focusY)
     for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
+    if (this.spriteMode) this.drawTelegraphs(state)
     if (this.spriteMode) {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
       drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation)
@@ -161,32 +163,83 @@ export class TerminalRenderer {
 
   private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
     const tile = getTile(state.floor, x, y)!
-    if (!tile.explored) { this.cell(x, y, ' ', colors.ink, colors.ink); return }
+    const item = state.floor.items.find(current => current.x === x && current.y === y)
+    if (!tile.explored) {
+      if (isItemVisible(tile, item)) this.drawItem(item!, x, y)
+      else this.cell(x, y, ' ', colors.ink, colors.ink)
+      return
+    }
     const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
     const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
     const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
     const [glyph, color] = tileGlyph[tile.kind]
     if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, !tile.visible)
     else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
-    if (!tile.visible) return
-    if (this.spriteMode && (tile.kind === 'fireVent' || tile.kind === 'gas')) drawEffectSprite(this.ctx, tile.kind === 'fireVent' ? 'fire' : 'smokeGas', x, y, Math.floor(performance.now() / 120) % 4)
-    if (this.spriteMode && telegraph) {
-      this.ctx.fillStyle = telegraph.danger === 'major' ? '#ee6f7870' : '#f4d26a70'
-      this.ctx.fillRect(x * CW, y * CH, CW, CH)
+    if (!tile.visible) {
+      if (isItemVisible(tile, item)) this.drawItem(item!, x, y)
+      return
     }
+    if (this.spriteMode && (tile.kind === 'fireVent' || tile.kind === 'gas')) drawEffectSprite(this.ctx, tile.kind === 'fireVent' ? 'fire' : 'smokeGas', x, y, Math.floor(performance.now() / 120) % 4)
     if (this.spriteMode && (previewPath || previewCell)) {
       this.ctx.fillStyle = previewCell ? '#bea6ff90' : '#8fb8ed70'
       this.ctx.fillRect(x * CW, y * CH, CW, CH)
     }
-    const item = state.floor.items.find(current => current.x === x && current.y === y)
-    if (item) this.spriteMode ? drawItemSprite(this.ctx, item.id, x, y) : this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+    if (item) this.drawItem(item, x, y)
     const actor = actorAt(state.floor, x, y)
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')
       this.cell(x, y, presentation.glyph, presentation.color)
     }
-    if (!this.spriteMode && previewPath) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue)
+    if (!this.spriteMode && (previewPath || previewCell)) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue)
+  }
+
+  private drawItem(item: GroundItem, x: number, y: number): void {
+    if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y)
+    else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+  }
+
+  private drawTelegraphs(state: RunState): void {
+    for (const telegraph of state.floor.telegraphs ?? []) {
+      const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
+      const visibleCells = telegraph.cells.filter(cell => getTile(state.floor, cell.x, cell.y)?.visible)
+      const beam = telegraphBeam(source, telegraph.cells)
+      if (source && beam && getTile(state.floor, source.x, source.y)?.visible && visibleCells.length === telegraph.cells.length) {
+        this.drawTelegraphBeam(telegraph.danger, beam)
+        this.drawTelegraphReticle(telegraph.danger, beam.at(-1)!)
+      } else for (const cell of visibleCells) this.drawTelegraphReticle(telegraph.danger, cell)
+    }
+  }
+
+  private drawTelegraphBeam(danger: 'minor' | 'major', points: readonly { x: number; y: number }[]): void {
+    this.ctx.save()
+    this.ctx.strokeStyle = danger === 'major' ? colors.red : colors.gold
+    this.ctx.lineWidth = 2
+    this.ctx.lineCap = 'round'
+    this.ctx.setLineDash([2, 3])
+    this.ctx.beginPath()
+    this.ctx.moveTo((points[0].x + .5) * CW, (points[0].y + .5) * CH)
+    for (const point of points.slice(1)) this.ctx.lineTo((point.x + .5) * CW, (point.y + .5) * CH)
+    this.ctx.stroke()
+    this.ctx.restore()
+  }
+
+  private drawTelegraphReticle(danger: 'minor' | 'major', point: { x: number; y: number }): void {
+    const left = point.x * CW + 2
+    const right = (point.x + 1) * CW - 2
+    const top = point.y * CH + 2
+    const bottom = (point.y + 1) * CH - 2
+    const arm = 3
+    this.ctx.save()
+    this.ctx.strokeStyle = danger === 'major' ? colors.red : colors.gold
+    this.ctx.lineWidth = 2
+    this.ctx.beginPath()
+    this.ctx.moveTo(left + arm, top); this.ctx.lineTo(left, top); this.ctx.lineTo(left, top + arm)
+    this.ctx.moveTo(right - arm, top); this.ctx.lineTo(right, top); this.ctx.lineTo(right, top + arm)
+    this.ctx.moveTo(left + arm, bottom); this.ctx.lineTo(left, bottom); this.ctx.lineTo(left, bottom - arm)
+    this.ctx.moveTo(right - arm, bottom); this.ctx.lineTo(right, bottom); this.ctx.lineTo(right, bottom - arm)
+    this.ctx.stroke()
+    this.ctx.restore()
   }
 
   private sidebar(state: RunState): void {

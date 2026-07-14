@@ -41,7 +41,7 @@ export interface Actor {
   guardianPhase?: GuardianPhase
 }
 
-export interface GroundItem { id: ItemId; x: number; y: number; count: number }
+export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }

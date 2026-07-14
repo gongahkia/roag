@@ -107,7 +107,7 @@ export function inventoryChoice(state: RunState, modal: Extract<Modal, { kind: '
   if (modal.mode === 'use') return useItem(state, id, index)
   if (modal.mode === 'drop') {
     state.hero.inventory.splice(index, 1)
-    state.floor.items.push({ id, x: state.hero.x, y: state.hero.y, count: 1 })
+    state.floor.items.push({ id, x: state.hero.x, y: state.hero.y, count: 1, visibleInFog: true })
     log(state, `You drop ${ITEM[id].name}.`)
     return advance(state, [event('pickup')])
   }
@@ -146,7 +146,8 @@ export function bomb(state: RunState, direction: Direction): ActionResult {
   if (state.hero.bombs < 1) { log(state, 'No bombs remain.'); return [] }
   state.hero.bombs--
   const delta = DIRECTIONS[direction]
-  explode(state, state.hero.x + delta.x, state.hero.y + delta.y, 12)
+  log(state, 'You place a bomb.')
+  explode(state, state.hero.x + delta.x * 2, state.hero.y + delta.y * 2, 12)
   return advance(state, [event('boom')])
 }
 
@@ -161,7 +162,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   const target = actorAt(state.floor, point.x, point.y)
   if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength); log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
-  else state.floor.items.push({ id, x: point.x, y: point.y, count: 1 })
+  else state.floor.items.push({ id, x: point.x, y: point.y, count: 1, visibleInFog: true })
   resolveDefeatedActors(state)
   return advance(state, [event(id === 'fireJar' ? 'boom' : 'hit')])
 }
