@@ -14,6 +14,12 @@
       "columns": 8,
       "rows": 4,
       "layout": "terrainLayout",
+      "cellOffsets": [
+        {"x":-2,"y":-2}, {"x":-2,"y":-2}, {"x":0,"y":0}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":1,"y":-2}, {"x":2,"y":-2}, {"x":2,"y":-2},
+        {"x":-2,"y":0}, {"x":-2,"y":0}, {"x":-1,"y":0}, {"x":0,"y":0}, {"x":1,"y":0}, {"x":1,"y":0}, {"x":2,"y":0}, {"x":2,"y":0},
+        {"x":-2,"y":2}, {"x":-2,"y":2}, {"x":-1,"y":2}, {"x":0,"y":-1}, {"x":0,"y":2}, {"x":2,"y":-1}, {"x":2,"y":-2}, {"x":2,"y":2},
+        {"x":-2,"y":3}, {"x":-2,"y":3}, {"x":-1,"y":3}, {"x":0,"y":4}, {"x":0,"y":3}, {"x":1,"y":3}, {"x":2,"y":3}, {"x":2,"y":3}
+      ],
       "props": ["mine.oreVein", "mine.lanternPost", "mine.brokenCart", "mine.warningMarker", "mine.skullMarker", "mine.discardedParcel"]
     },
     {
@@ -22,6 +28,12 @@
       "columns": 8,
       "rows": 4,
       "layout": "terrainLayout",
+      "cellOffsets": [
+        {"x":-2,"y":-2}, {"x":0,"y":-2}, {"x":-1,"y":-2}, {"x":0,"y":-3}, {"x":0,"y":-3}, {"x":0,"y":-4}, {"x":0,"y":-3}, {"x":2,"y":-3},
+        {"x":-2,"y":-1}, {"x":-1,"y":-1}, {"x":-1,"y":0}, {"x":0,"y":-1}, {"x":0,"y":-1}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":1,"y":-2},
+        {"x":-1,"y":0}, {"x":0,"y":0}, {"x":0,"y":0}, {"x":0,"y":0}, {"x":0,"y":0}, {"x":0,"y":0}, {"x":1,"y":0}, {"x":1,"y":0},
+        {"x":-2,"y":2}, {"x":-2,"y":2}, {"x":0,"y":2}, {"x":1,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":1,"y":1}, {"x":1,"y":2}
+      ],
       "props": ["wilds.mushrooms", "wilds.danglingCharm", "wilds.birdNest", "wilds.rootShrine", "wilds.lostParcel", "wilds.rootArch"]
     },
     {
@@ -30,6 +42,12 @@
       "columns": 8,
       "rows": 4,
       "layout": "terrainLayout",
+      "cellOffsets": [
+        {"x":-1,"y":-4}, {"x":-1,"y":-4}, {"x":0,"y":-4}, {"x":0,"y":-4}, {"x":0,"y":-4}, {"x":0,"y":-5}, {"x":1,"y":-4}, {"x":1,"y":-4},
+        {"x":-2,"y":1}, {"x":-1,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":1,"y":1}, {"x":1,"y":1},
+        {"x":-2,"y":-1}, {"x":-1,"y":-1}, {"x":-1,"y":-1}, {"x":0,"y":-1}, {"x":0,"y":0}, {"x":1,"y":-1}, {"x":1,"y":-2}, {"x":2,"y":2},
+        {"x":-2,"y":5}, {"x":-1,"y":4}, {"x":0,"y":4}, {"x":0,"y":5}, {"x":0,"y":5}, {"x":0,"y":4}, {"x":1,"y":5}, {"x":2,"y":5}
+      ],
       "props": ["caverns.crystalCluster", "caverns.glowingFungus", "caverns.barnacledShrine", "caverns.brokenBoat", "caverns.eelTunnel", "caverns.sealedParcel"]
     },
     {
@@ -38,6 +56,12 @@
       "columns": 8,
       "rows": 4,
       "layout": "terrainLayout",
+      "cellOffsets": [
+        {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":1,"y":-2}, {"x":1,"y":-2},
+        {"x":-1,"y":-1}, {"x":0,"y":-2}, {"x":0,"y":-2}, {"x":0,"y":0}, {"x":0,"y":-2}, {"x":0,"y":-1}, {"x":0,"y":-1}, {"x":1,"y":0},
+        {"x":-1,"y":1}, {"x":0,"y":1}, {"x":0,"y":0}, {"x":0,"y":1}, {"x":0,"y":2}, {"x":0,"y":0}, {"x":1,"y":0}, {"x":1,"y":0},
+        {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":0,"y":2}, {"x":1,"y":2}, {"x":1,"y":2}
+      ],
       "props": ["ruins.brokenStatue", "ruins.ritualBrazier", "ruins.glyphTablet", "ruins.collapsedArch", "ruins.sealedCache", "ruins.monolith"]
     },
     {

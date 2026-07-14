@@ -77,13 +77,14 @@ function select(index: number): void {
   indexInput.value = String(index)
   const row = Math.floor(index / sheet.columns) + 1
   const column = index % sheet.columns + 1
+  const offset = sheet.cellOffsets[index] ?? { x: 0, y: 0 }
   cells.forEach((cell, cellIndex) => {
     const active = cellIndex === index
     cell.classList.toggle('is-selected', active)
     cell.setAttribute('aria-selected', String(active))
   })
   positionOutput.textContent = `row ${row}, col ${column}`
-  sourceOutput.textContent = `source x ${(column - 1) * 16}, y ${(row - 1) * 16} · 16 × 16`
+  sourceOutput.textContent = `source x ${(column - 1) * 16}, y ${(row - 1) * 16} · offset ${offset.x >= 0 ? '+' : ''}${offset.x}, ${offset.y >= 0 ? '+' : ''}${offset.y}`
   title.textContent = `${sheet.id} · cell ${index}`
   mappingOutput.textContent = mappingText(index)
   drawSprite(preview, index)
