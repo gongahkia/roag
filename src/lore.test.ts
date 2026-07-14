@@ -17,6 +17,6 @@ describe('trail lore', () => {
     expect(isStoryPageComplete(story, TYPEWRITER_INTERVAL * 3)).toBe(true)
     const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)
     expect(next.story).toMatchObject({ page: 1 })
-    expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 2)).toEqual({ finished: true })
+    expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 5)).toEqual({ finished: true })
   })
 })

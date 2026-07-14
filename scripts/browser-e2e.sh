@@ -17,7 +17,7 @@ curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" snapshot
 "${CLI[@]}" press n
 "${CLI[@]}" snapshot
-"${CLI[@]}" press Enter
+"${CLI[@]}" press Space
 "${CLI[@]}" snapshot
 "${CLI[@]}" press a
 "${CLI[@]}" press e

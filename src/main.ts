@@ -3,9 +3,10 @@ import { AudioBus } from './audio'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
+import { advanceStory, createStory, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
-import type { CampaignRouteState, Direction, Hero, HubState, Records, RunState } from './types'
+import type { CampaignRouteState, Direction, Hero, HubState, LegacyRecord, Records, RunState } from './types'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -20,6 +21,9 @@ let hub: HubState = createHubState(0)
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
 let gameZoom = loadGameZoom()
+let story: StoryState | undefined
+let loading: LoadingState | undefined
+let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 
 const loadVisualMode = (): boolean => { try { return localStorage.getItem('jomon-visual-mode') === 'sprites' } catch { return false } }
 renderer.setSpriteMode(loadVisualMode())
@@ -45,11 +49,15 @@ window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
+  if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
+  if (route.screen === 'approach' && story) { handleStoryInput(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen === 'level' && state && (state.status === 'dead' || state.status === 'victory')) {
-    if ((command ?? keyboardEvent.key).toLowerCase() === 'n') beginNewDelivery()
+    if (keyboardEvent.repeat) return
+    if (state.status === 'dead') beginSuccession()
+    else if ((command ?? keyboardEvent.key).toLowerCase() === 'n') beginNewDelivery()
     return
   }
   if (route.screen !== 'level') {
@@ -57,10 +65,12 @@ window.addEventListener('keydown', keyboardEvent => {
     if (nextRoute === route) return
     if (nextRoute.screen === 'approach') {
       const heirSeed = Math.floor(Math.random() * 0x7fffffff)
-      nextRoute = { ...nextRoute, heirSeed }
-      hub = { ...createHubState(heirSeed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+      beginTrailhead(heirSeed, openingLore(heirSeed))
+      audio.play([event('menu')])
+      redraw()
+      return
     }
-    if (nextRoute.screen === 'title') nextRoute = { ...nextRoute, heirSeed: undefined }
+    if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
     if (nextRoute.screen === 'level') {
       if (route.screen === 'area') start()
       else if (saved) { state = structuredClone(saved); recordedEnd = false }
@@ -158,6 +168,65 @@ function beginNewDelivery(): void {
   redraw()
 }
 
+function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>): void {
+  route = { screen: 'approach', biome: campaign.selectedBiome, heirSeed: seed }
+  heir = undefined
+  hub = { ...createHubState(seed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  story = createStory(scene, performance.now())
+}
+
+function handleStoryInput(keyboardEvent: KeyboardEvent): void {
+  if (!story || keyboardEvent.repeat) return
+  if (keyboardEvent.key === 'Escape') {
+    story = undefined
+    route = { ...route, screen: 'title', heirSeed: undefined }
+    audio.play([event('menu')])
+    redraw()
+    return
+  }
+  if (!isStoryKey(keyboardEvent)) return
+  keyboardEvent.preventDefault()
+  if (keyboardEvent.code === 'Space') finishStory()
+  else {
+    const next = advanceStory(story, performance.now())
+    story = next.story
+    if (next.finished) finishStory()
+    else { audio.play([event('menu')]); redraw() }
+  }
+}
+
+function isStoryKey(keyboardEvent: KeyboardEvent): boolean {
+  return !['Shift', 'Alt', 'Control', 'Meta', 'CapsLock', 'Tab'].includes(keyboardEvent.key)
+}
+
+function finishStory(): void {
+  story = undefined
+  route = { ...route, screen: 'hub', hubAction: 'routes' }
+  audio.play([event('menu')])
+  redraw()
+}
+
+function beginSuccession(): void {
+  if (!pendingSuccessor || loading) return
+  story = undefined
+  route = { ...route, screen: 'loading', heirSeed: pendingSuccessor.seed }
+  loading = { phase: 'fade', startedAt: performance.now() }
+  redraw()
+  window.setTimeout(() => {
+    if (loading?.phase !== 'fade') return
+    loading = { phase: 'loading', startedAt: performance.now() }
+    redraw()
+    window.setTimeout(() => {
+      const successor = pendingSuccessor
+      if (!successor || loading?.phase !== 'loading') return
+      loading = undefined
+      pendingSuccessor = undefined
+      beginTrailhead(successor.seed, successionLore(successor.record, successor.seed))
+      redraw()
+    }, 650)
+  }, 350)
+}
+
 function completeArea(): void {
   if (!state) return
   const completed = state.area ?? state.floor.biome
@@ -197,12 +266,17 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub)) }
+function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading) }
 
 function finish(won: boolean): void {
   if (!state) return
   recordedEnd = true
-  if (!won) campaign = recordDeath(campaign, state, heirNameFor(route.heirSeed ?? state.seed))
+  if (!won) {
+    campaign = recordDeath(campaign, state, heirNameFor(route.heirSeed ?? state.seed))
+    const record = campaign.legacyRecords.at(-1)
+    if (!record) throw new Error('missing death legacy record')
+    pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
+  }
   records.bestDepth = Math.max(records.bestDepth, state.floor.index + 1)
   if (won) records.wins++
   else records.deaths++
