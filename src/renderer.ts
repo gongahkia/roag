@@ -5,6 +5,7 @@ import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
+import { isStoryPageComplete, storyText, type LoadingState, type StoryState } from './lore'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
@@ -31,6 +32,8 @@ export class TerminalRenderer {
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
   private lastHub?: HubView
+  private lastStory?: StoryState
+  private lastLoading?: LoadingState
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -42,7 +45,7 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
-    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading))
   }
 
   setSpriteMode(value: boolean): void { this.spriteMode = value; if (!value) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 } }
@@ -61,11 +64,13 @@ export class TerminalRenderer {
     this.effects.trigger(events, state, this.canvas, effectId)
   }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
     this.lastHub = hub
+    this.lastStory = story
+    this.lastLoading = loading
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -75,9 +80,10 @@ export class TerminalRenderer {
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (route.screen === 'title') this.title(records)
-    else if (route.screen === 'approach') this.approach(route)
+    else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub)
     else if (route.screen === 'area') this.area(route)
+    else if (route.screen === 'loading') this.loading(state, loading, now)
     else if (!state || state.status === 'title') this.title(records)
     else {
       this.stage(state)
@@ -89,7 +95,7 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub))
+    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story && !isStoryPageComplete(story, now))) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading))
   }
 
   private title(records?: { bestDepth: number; wins: number; deaths: number }): void {
@@ -101,14 +107,40 @@ export class TerminalRenderer {
     this.text(22, 30, 'one life · sixteen paths · four regions', colors.purple)
   }
 
-  private approach(route: ScreenRoute): void {
+  private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
     const season = mineSeason(route.heirSeed ?? 0)
-    this.box(13, 10, 54, 24, 'VILLAGE TRAILHEAD')
+    this.box(13, 10, 54, 24, story?.scene.title ?? 'VILLAGE TRAILHEAD')
+    if (story) {
+      this.text(19, 14, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
+      this.wrap(storyText(story, now), 46).slice(0, 6).forEach((line, index) => this.text(19, 17 + index * 2, line, colors.text))
+      this.text(19, 31, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
+      return
+    }
     this.text(19, 15, season.name.toUpperCase(), season.color)
     this.text(19, 18, 'Your village entrusts you with a sealed parcel.', colors.text)
     this.text(19, 20, season.scene, colors.text)
     this.text(19, 22, 'ENTER  continue to village outpost', colors.green)
     this.text(19, 24, 'ESC    return to title', colors.dim)
+  }
+
+  private loading(state: RunState | undefined, loading: LoadingState | undefined, now: number): void {
+    if (loading?.phase === 'fade' && state) {
+      this.stage(state)
+      this.sidebar(state)
+      this.log(state)
+      this.end(state, false)
+      this.ctx.save()
+      this.ctx.globalAlpha = Math.min(1, Math.max(0, (now - loading.startedAt) / 350))
+      this.ctx.fillStyle = '#05070b'
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      this.ctx.restore()
+      return
+    }
+    this.ctx.fillStyle = '#05070b'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    const dots = '.'.repeat(Math.floor(now / 280) % 4)
+    this.text(28, 20, 'THREADS OF THE TRAIL', colors.gold)
+    this.text(35, 23, `loading${dots}`, colors.dim)
   }
 
   private hub(route: ScreenRoute, hub?: HubView): void {
@@ -371,7 +403,7 @@ export class TerminalRenderer {
     this.box(17, 14, 46, 16, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
     this.text(23, 19, won ? 'The sealed parcel reaches its keeper.' : 'The path keeps its due.', won ? colors.gold : colors.red)
     this.text(23, 22, `cash ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
-    this.text(23, 26, 'N starts a new delivery.', colors.green)
+    this.text(23, 26, won ? 'N starts a new delivery.' : 'ANY KEY continues the trail.', colors.green)
   }
 
   private box(x: number, y: number, width: number, height: number, title: string): void {
@@ -384,6 +416,20 @@ export class TerminalRenderer {
     const fill = Math.max(0, Math.round(width * value / max))
     this.text(x, y, '█'.repeat(fill), color)
     this.text(x + fill, y, '░'.repeat(width - fill), colors.dim)
+  }
+  private wrap(value: string, width: number): string[] {
+    return value.split('\n').flatMap(paragraph => {
+      if (!paragraph) return ['']
+      const lines: string[] = []
+      let line = ''
+      for (const word of paragraph.split(' ')) {
+        const next = line ? `${line} ${word}` : word
+        if (line && next.length > width) { lines.push(line); line = word }
+        else line = next
+      }
+      if (line) lines.push(line)
+      return lines
+    })
   }
   private text(x: number, y: number, value: string, color = colors.text, background?: string): void { for (let i = 0; i < value.length && x + i < TERMINAL_WIDTH; i++) this.cell(x + i, y, value[i], color, background) }
   private gridRect(x: number, y: number, width: number, height: number): void {

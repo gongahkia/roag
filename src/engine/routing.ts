@@ -1,7 +1,7 @@
 import type { Biome } from '../types'
 import type { HubAction } from './hub'
 
-export type Screen = 'title' | 'approach' | 'hub' | 'area' | 'level'
+export type Screen = 'title' | 'approach' | 'hub' | 'area' | 'level' | 'loading'
 export interface ScreenRoute { screen: Screen; biome: Biome; heirSeed?: number; hubAction?: HubAction }
 
 export const initialRoute = (): ScreenRoute => ({ screen: 'title', biome: 'mine' })
@@ -18,5 +18,6 @@ export const navigate = (route: ScreenRoute, key: string, hasSavedRun: boolean):
     return key === 'Escape' ? { ...route, screen: 'title' } : route
   }
   if (route.screen === 'area') return command === 'e' || key === 'Enter' ? { ...route, screen: 'level' } : key === 'Escape' ? { ...route, screen: 'hub' } : route
+  if (route.screen === 'loading') return route
   return key === 'Escape' ? { ...route, screen: 'area' } : route
 }
