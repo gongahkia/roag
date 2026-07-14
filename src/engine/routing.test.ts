@@ -16,4 +16,11 @@ describe('screen routing', () => {
     expect(navigate(initialRoute(), 'l', false).screen).toBe('title')
     expect(navigate(initialRoute(), 'l', true).screen).toBe('level')
   })
+
+  it('keeps the session load screen until new or resume is selected', () => {
+    const route = { screen: 'splash' as const, biome: 'mine' as const }
+    expect(navigate(route, 'Enter', false)).toBe(route)
+    expect(navigate(route, 'n', false)).toMatchObject({ screen: 'approach' })
+    expect(navigate(route, 'l', true)).toMatchObject({ screen: 'level' })
+  })
 })

@@ -45,6 +45,7 @@ canvas.addEventListener('wheel', mouseEvent => {
 
 void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
   saved = run
+  renderer.setSavedRun(saved)
   records = loadedRecords
   campaign = loadedCampaign
   if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
@@ -56,14 +57,6 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
-  if (route.screen === 'splash') {
-    if (keyboardEvent.repeat) return
-    keyboardEvent.preventDefault()
-    route = { ...route, screen: 'title' }
-    audio.play([event('menu')])
-    redraw()
-    return
-  }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }

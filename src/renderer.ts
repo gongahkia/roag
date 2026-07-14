@@ -41,6 +41,7 @@ export class TerminalRenderer {
   private lastHub?: HubView
   private lastStory?: StoryState
   private lastLoading?: LoadingState
+  private savedRun?: RunState
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -67,6 +68,7 @@ export class TerminalRenderer {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
+  setSavedRun(run: RunState | undefined): void { this.savedRun = run }
   get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
@@ -122,10 +124,18 @@ export class TerminalRenderer {
   }
 
   private splash(): void {
-    this.box(20, 3, 40, 38, 'JOMON')
-    if (this.logo.complete && this.logo.naturalWidth) this.ctx.drawImage(this.logo, Math.round((this.canvas.width - this.logo.naturalWidth) / 2), 92)
-    else this.text(34, 20, 'JOMON', colors.gold)
-    this.text(28, 34, 'ANY KEY  begin delivery', colors.green)
+    this.ctx.fillStyle = colors.ink
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    if (this.logo.complete && this.logo.naturalWidth) this.ctx.drawImage(this.logo, Math.round((this.canvas.width - this.logo.naturalWidth) / 2), 48)
+    else this.text(33, 16, 'JOMON', colors.gold)
+    this.text(28, 28, 'JOMON: SECRET DELIVERY', colors.gold)
+    this.text(24, 31, 'A courier’s trail ends only when another begins.', colors.dim)
+    this.text(26, 35, '[N]  begin a new delivery', colors.green)
+    if (this.savedRun) {
+      const region = biomeName[this.savedRun.area ?? this.savedRun.floor.biome]
+      this.text(26, 37, `[L]  resume · ${region} ${String(this.savedRun.floor.index).padStart(2, '0')}/04 · turn ${this.savedRun.turn}`, colors.text)
+    } else this.text(26, 37, '[L]  no active delivery', colors.dim)
+    this.text(18, 44, 'N  new delivery     L  resume active delivery', colors.dim)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {

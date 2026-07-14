@@ -15,8 +15,6 @@ for _ in {1..40}; do curl --fail --silent "$URL" >/dev/null && break; sleep .25;
 curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" open "$URL"
 "${CLI[@]}" snapshot
-"${CLI[@]}" press Enter
-"${CLI[@]}" snapshot
 "${CLI[@]}" press n
 "${CLI[@]}" snapshot
 "${CLI[@]}" press Space
