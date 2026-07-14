@@ -45,14 +45,14 @@ These are not legal clearance.
 Run these before posting and paste artifact paths into the release notes:
 
 ```bash
-python3.13 -m pip install -e ".[dev]"
-PYTHONPATH=src python3.13 -m unittest discover -s tests
-PYTHONPATH=src python3.13 -m compileall -q src tests
-python3.13 -m ruff check .
-PYTHONPATH=src python3.13 -m kenjaku status --json
-PYTHONPATH=src python3.13 -m kenjaku browser-demo --output-dir runs/browser-demo --no-serve
-PYTHONPATH=src python3.13 -m kenjaku benchmark-discard data/fixtures/tenhou --epochs 3 --models fast --report runs/fixture-discard-benchmark.json
-PYTHONPATH=src python3.13 -m kenjaku benchmark-report-summary runs/fixture-discard-benchmark.json
+uv sync --frozen --extra dev
+uv run python -m unittest discover -s tests
+uv run python -m compileall -q src tests
+uv run ruff check .
+uv run kenjaku status --json
+uv run kenjaku browser-demo --output-dir runs/browser-demo --no-serve
+uv run kenjaku benchmark-discard data/fixtures/tenhou --epochs 3 --models fast --report runs/fixture-discard-benchmark.json
+uv run kenjaku benchmark-report-summary runs/fixture-discard-benchmark.json
 ```
 
 Post only results that were produced by these commands or by later checked artifact paths.
@@ -86,11 +86,11 @@ Verified scope:
 - no complete Sanma ruleset
 
 Reproduce the local smoke checks:
-- python3.13 -m pip install -e ".[dev]"
-- PYTHONPATH=src python3.13 -m unittest discover -s tests
-- PYTHONPATH=src python3.13 -m compileall -q src tests
-- python3.13 -m ruff check .
-- PYTHONPATH=src python3.13 -m kenjaku status --json
+- uv sync --frozen --extra dev
+- uv run python -m unittest discover -s tests
+- uv run python -m compileall -q src tests
+- uv run ruff check .
+- uv run kenjaku status --json
 
 Use `data/README.md` and `docs/data-policy.md` before running any local replay workflow.
 ```

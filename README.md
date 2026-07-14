@@ -158,39 +158,38 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 
 Use a supported Python version: `>=3.11,<3.14`.
 
-After the first PyPI release is published:
+Kenjaku uses [uv](https://docs.astral.sh/uv/) as its package and environment manager.
+
+After the first PyPI release is published, install the CLI in a uv-managed tool environment:
 
 ```bash
-python3.13 -m pip install kenjaku
-python3.13 -m pip install "kenjaku[ml]"
+uv tool install kenjaku
 kenjaku --version
 ```
 
 The plain install covers dependency-free parsing, sandbox, snapshot, report, and baseline paths.
-Use `kenjaku[ml]` for PyTorch MLP and transformer commands.
-
-From a source checkout:
+For PyTorch MLP and transformer commands, install the ML extra instead:
 
 ```bash
-python3.13 -m pip install -e ".[dev]"
-PYTHONPATH=src python3.13 -m unittest discover -s tests
-PYTHONPATH=src python3.13 -m compileall -q src tests
-python3.13 -m ruff check .
-PYTHONPATH=src python3.13 -m kenjaku --version
-PYTHONPATH=src python3.13 -m kenjaku status
+uv tool install "kenjaku[ml]"
 ```
 
-Use `python3.13 -m pip install -e ".[dev-ml]"` when working on PyTorch MLP or
-transformer commands.
-If you are working from this checkout without installing the package, keep `PYTHONPATH=src`.
-
-Dependency locks are managed by uv:
+From a source checkout, create/update the locked development environment and run all commands
+through uv (do not use a system `pip`):
 
 ```bash
-uv lock --upgrade
 uv sync --frozen --extra dev
-uv sync --frozen --extra dev-ml
+uv run python -m unittest discover -s tests
+uv run python -m compileall -q src tests
+uv run ruff check .
+uv run kenjaku --version
+uv run kenjaku status
 ```
+
+Use `uv sync --frozen --extra dev-ml` for PyTorch MLP or transformer commands. To refresh the
+lockfile deliberately, run `uv lock --upgrade`.
+
+`uv run` automatically uses the project `.venv`; activating it manually is optional.
 
 ## Fixture Smokes
 

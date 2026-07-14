@@ -6,27 +6,27 @@ service automation unless platform permission is explicit.
 
 ## Environment Setup
 
-Use Python `>=3.11,<3.14`. Local examples use Homebrew `python3.13`.
+Use Python `>=3.11,<3.14` and [uv](https://docs.astral.sh/uv/) for environments and packages.
+Local examples use Homebrew `python3.13` through uv.
 
 ```bash
-python3.13 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-pre-commit install
-PYTHONPATH=src python -m kenjaku --version
+uv sync --frozen --extra dev
+uv run pre-commit install
+uv run kenjaku --version
 ```
 
-If you do not install the editable package, keep `PYTHONPATH=src` on CLI and test commands.
+Run project commands with `uv run`; it manages and uses the project `.venv`. Do not install
+project dependencies into the system Python with `pip`.
 
 ## Verification
 
 Run the narrowest relevant tests first, then the standard checks before opening a PR:
 
 ```bash
-PYTHONPATH=src python3.13 -m unittest discover -s tests
-PYTHONPATH=src python3.13 -m compileall -q src tests scripts
-python3.13 -m ruff check .
-pre-commit run --all-files
+uv run python -m unittest discover -s tests
+uv run python -m compileall -q src tests scripts
+uv run ruff check .
+uv run pre-commit run --all-files
 ```
 
 Run Pyright for the strict core/io/models scope:
