@@ -6,6 +6,7 @@ const cellWidth = 10
 const cellHeight = 14
 const spriteSize = 14
 const sourceSize = 16
+const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c' }
 
 const sheetUrls = {
   'terrain-mine': new URL('./assets/generated-sprites/terrain-mine.png', import.meta.url).href,
@@ -141,6 +142,11 @@ export class TextureAtlas {
 export const textureAtlas = new TextureAtlas()
 
 export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome: Biome, x: number, y: number, dim: boolean): void {
+  ctx.save()
+  ctx.globalAlpha = dim ? .38 : 1
+  ctx.fillStyle = terrainBase[biome]
+  ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight)
+  ctx.restore()
   const index = tileSprite[tile.kind]
   const sheet = manifestSheets.get(terrainSheet[biome])!
   if (textureAtlas.draw(ctx, ref(sheet.id, index % 8, Math.floor(index / 8), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) return
