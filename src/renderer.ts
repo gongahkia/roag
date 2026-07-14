@@ -123,17 +123,16 @@ export class TerminalRenderer {
   private title(): void { this.splash() }
 
   private splash(): void {
-    this.ctx.fillStyle = colors.ink
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    this.ascii(23, 10, jomonMasthead.join('\n'), colors.gold)
-    this.text(28, 20, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
+    this.box(13, 10, 54, 24, 'JOMON: SECRET DELIVERY')
+    this.ascii(23, 13, jomonMasthead.join('\n'), colors.gold)
+    this.text(22, 20, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
     if (this.savedRun) {
       const region = biomeName[this.savedRun.area ?? this.savedRun.floor.biome]
-      this.text(22, 23, `A delivery waits in ${region}, trail ${String(this.savedRun.floor.index + 1).padStart(2, '0')} · turn ${this.savedRun.turn}.`, colors.dim)
-    } else this.text(22, 23, '(No active delivery. Begin a new one.)', colors.dim)
-    this.text(22, 37, '[N]  begin a new delivery', colors.green)
-    this.text(22, 39, '[L]  resume active delivery', this.savedRun ? colors.text : colors.dim)
-    this.text(19, 44, 'N  new delivery     L  resume active delivery', colors.dim)
+      this.text(19, 22, `A delivery waits in ${region}, trail ${String(this.savedRun.floor.index + 1).padStart(2, '0')} · turn ${this.savedRun.turn}.`, colors.dim)
+    } else this.text(19, 22, '(No active delivery. Begin a new one.)', colors.dim)
+    this.text(19, 27, '[N]  begin a new delivery', colors.green)
+    this.text(19, 29, '[L]  resume active delivery', this.savedRun ? colors.text : colors.dim)
+    this.text(19, 31, 'N new delivery · L resume active delivery', colors.dim)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
