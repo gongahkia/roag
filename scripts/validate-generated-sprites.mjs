@@ -22,9 +22,10 @@ for (const sheet of manifest.sheets) {
   const width = png.readUInt32BE(16)
   const height = png.readUInt32BE(20)
   if (width !== sheet.columns * manifest.cellSize || height !== sheet.rows * manifest.cellSize) throw new Error(`${sheet.file}: expected ${sheet.columns * manifest.cellSize}x${sheet.rows * manifest.cellSize}, got ${width}x${height}`)
-  if (sheet.id.startsWith('terrain-')) {
+  if (sheet.id.startsWith('terrain-') && !Array.isArray(sheet.cellOffsets)) throw new Error(`${sheet.file}: missing cell offsets`)
+  if (sheet.cellOffsets !== undefined) {
     const offsets = sheet.cellOffsets
-    if (!Array.isArray(offsets) || offsets.length !== sheet.columns * sheet.rows) throw new Error(`${sheet.file}: expected ${sheet.columns * sheet.rows} cell offsets`)
+    if (offsets.length !== sheet.columns * sheet.rows) throw new Error(`${sheet.file}: expected ${sheet.columns * sheet.rows} cell offsets`)
     if (offsets.some(offset => !Number.isInteger(offset?.x) || !Number.isInteger(offset?.y) || Math.abs(offset.x) > 6 || Math.abs(offset.y) > 6)) throw new Error(`${sheet.file}: invalid cell offset`)
   }
 }

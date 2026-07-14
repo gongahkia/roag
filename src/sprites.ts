@@ -25,7 +25,7 @@ const sheetUrls = {
 export type SpriteSheetId = keyof typeof sheetUrls
 export type HeroAnimation = 'idle' | 'walk' | 'attack' | 'hit' | 'death'
 export interface SpriteOffset { x: number; y: number }
-export interface SpriteRef { sheet: SpriteSheetId; column: number; row: number; frames: number; frameDurationMs: number; sourceOffset?: SpriteOffset }
+export interface SpriteRef { sheet: SpriteSheetId; column: number; row: number; frames: number; frameDurationMs: number; sourceOffset?: SpriteOffset; frameOffsets?: SpriteOffset[] }
 interface ManifestAnimation { id: string; row: number; column: number; frames: number; frameDurationMs: number; flipSafe: boolean }
 interface ManifestSheet {
   id: SpriteSheetId
@@ -49,10 +49,10 @@ const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
 const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins' }
 export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
 
-const ref = (sheet: SpriteSheetId, column: number, row: number, frames = 1, frameDurationMs = 160, sourceOffset?: SpriteOffset): SpriteRef => ({ sheet, column, row, frames, frameDurationMs, sourceOffset })
+const ref = (sheet: SpriteSheetId, column: number, row: number, frames = 1, frameDurationMs = 160, sourceOffset?: SpriteOffset, frameOffsets?: SpriteOffset[]): SpriteRef => ({ sheet, column, row, frames, frameDurationMs, sourceOffset, frameOffsets })
 const rowRefs = (sheetId: SpriteSheetId): Record<string, SpriteRef> => {
   const sheet = manifestSheets.get(sheetId)!
-  return Object.fromEntries((sheet.actorRows ?? []).map((id, row) => [id, ref(sheetId, 0, row, sheet.frames, sheet.frameDurationMs)]))
+  return Object.fromEntries((sheet.actorRows ?? []).map((id, row) => [id, ref(sheetId, 0, row, sheet.frames, sheet.frameDurationMs, undefined, sheet.cellOffsets?.slice(row * sheet.columns, row * sheet.columns + (sheet.frames ?? 1)))]))
 }
 export const actorSprite: Record<string, SpriteRef> = {
   ...rowRefs('actors-mine'),
@@ -64,13 +64,13 @@ export const actorSprite: Record<string, SpriteRef> = {
 }
 
 const itemSheet = manifestSheets.get('items')!
-export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns))]] : [])) as Record<string, SpriteRef>
+export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns), 1, 160, itemSheet.cellOffsets?.[index])]] : [])) as Record<string, SpriteRef>
 itemSprite.gold = ref('npcs-gold', 0, 2, 4, 160)
 
 const heroSheet = manifestSheets.get('hero')!
 const heroSprite = Object.fromEntries((heroSheet.animations ?? []).map(animation => [animation.id.replace('hero.', ''), ref('hero', animation.column, animation.row, animation.frames, animation.frameDurationMs)])) as Record<HeroAnimation, SpriteRef>
 const effectSheet = manifestSheets.get('effects')!
-export const effectSprite = Object.fromEntries((effectSheet.effectRows ?? []).map((id, row) => [id, ref('effects', 0, row, effectSheet.frames, effectSheet.frameDurationMs)])) as Record<string, SpriteRef>
+export const effectSprite = Object.fromEntries((effectSheet.effectRows ?? []).map((id, row) => [id, ref('effects', 0, row, effectSheet.frames, effectSheet.frameDurationMs, undefined, effectSheet.cellOffsets?.slice(row * effectSheet.columns, row * effectSheet.columns + (effectSheet.frames ?? 1)))])) as Record<string, SpriteRef>
 
 function labelsFor(sheet: ManifestSheet): string[] {
   const labels = Array<string>(sheet.columns * sheet.rows).fill('')
@@ -117,8 +117,9 @@ export class TextureAtlas {
     const image = this.images.get(sprite.sheet)
     if (!image?.complete || !image.naturalWidth) return false
     const frame = frameOverride === undefined ? Math.floor(performance.now() / sprite.frameDurationMs) % sprite.frames : Math.max(0, Math.min(sprite.frames - 1, frameOverride))
-    const destinationX = x * cellWidth - 2 + Math.round((sprite.sourceOffset?.x ?? 0) * spriteSize / sourceSize)
-    const destinationY = y * cellHeight + Math.round((sprite.sourceOffset?.y ?? 0) * spriteSize / sourceSize)
+    const sourceOffset = sprite.frameOffsets?.[frame] ?? sprite.sourceOffset
+    const destinationX = x * cellWidth - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize)
+    const destinationY = y * cellHeight + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize)
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
     ctx.imageSmoothingEnabled = false
