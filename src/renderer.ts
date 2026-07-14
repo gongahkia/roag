@@ -10,6 +10,7 @@ import { defaultSettings, settingChoices, settingsPageCount, type GameSettings }
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type GroundItem, type Modal, type RunState } from './types'
+import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
 const CW = 10
@@ -18,12 +19,18 @@ const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d
 const tileGlyph: Record<string, [string, string]> = {
   wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
+const runeTileGlyph: Record<string, [string, string]> = {
+  wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
+}
+const logoUrl = new URL('../asset/logo/jomon.png', import.meta.url).href
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
   private readonly effects = new TerminalEffects(CW, CH, 48, 35)
+  private readonly logo = new Image()
   private spriteMode = false
+  private runeMode = false
   private heroFacingLeft = false
   private heroAnimation: HeroAnimation = 'idle'
   private heroAnimationUntil = 0
@@ -45,16 +52,22 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
+    this.logo.onload = () => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading)
+    this.logo.src = logoUrl
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading))
   }
 
-  setSpriteMode(value: boolean): void { this.spriteMode = value; if (!value) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 } }
+  setVisualMode(value: VisualMode): void {
+    this.spriteMode = value === 'sprites'
+    this.runeMode = value === 'runes'
+    if (!this.spriteMode) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 }
+  }
   setHeroFacingLeft(value: boolean): void { this.heroFacingLeft = value }
   setBoardZoom(value: number): void {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
-  get isSpriteMode(): boolean { return this.spriteMode }
+  get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
     if (events.some(event => event.type === 'death')) { this.heroAnimation = 'death'; this.heroAnimationUntil = Number.POSITIVE_INFINITY }
@@ -79,7 +92,8 @@ export class TerminalRenderer {
     this.effects.applyShake(this.ctx, now)
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    if (route.screen === 'title') this.title(records)
+    if (route.screen === 'splash') this.splash()
+    else if (route.screen === 'title') this.title(records)
     else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub)
     else if (route.screen === 'area') this.area(route)
@@ -105,6 +119,13 @@ export class TerminalRenderer {
     this.text(20, 20, 'L  resume saved floor', colors.text)
     this.text(20, 26, `best depth ${records?.bestDepth ?? 0}  wins ${records?.wins ?? 0}  deaths ${records?.deaths ?? 0}`, colors.dim)
     this.text(22, 30, 'one life · sixteen paths · four regions', colors.purple)
+  }
+
+  private splash(): void {
+    this.box(20, 3, 40, 38, 'JOMON')
+    if (this.logo.complete && this.logo.naturalWidth) this.ctx.drawImage(this.logo, Math.round((this.canvas.width - this.logo.naturalWidth) / 2), 92)
+    else this.text(34, 20, 'JOMON', colors.gold)
+    this.text(28, 34, 'ANY KEY  begin delivery', colors.green)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
@@ -187,7 +208,7 @@ export class TerminalRenderer {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
       drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation)
     }
-    else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
+    else this.cell(state.hero.x, state.hero.y, this.runeMode ? '☉' : '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
     this.ctx.restore()
     this.ruleVertical(48, 0, 35)
@@ -204,7 +225,7 @@ export class TerminalRenderer {
     const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
     const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
     const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
-    const [glyph, color] = tileGlyph[tile.kind]
+    const [glyph, color] = (this.runeMode ? runeTileGlyph : tileGlyph)[tile.kind]
     if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, !tile.visible)
     else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     if (!tile.visible) {
@@ -218,7 +239,7 @@ export class TerminalRenderer {
     }
     if (item) this.drawItem(item, x, y)
     const actor = actorAt(state.floor, x, y)
-    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
+    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, this.runeMode ? '◈' : actor.glyph, actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')
       this.cell(x, y, presentation.glyph, presentation.color)
@@ -228,7 +249,7 @@ export class TerminalRenderer {
 
   private drawItem(item: GroundItem, x: number, y: number): void {
     if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y)
-    else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+    else this.cell(x, y, this.runeMode ? '✦' : ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
   }
 
   private drawTelegraphs(state: RunState): void {
@@ -305,7 +326,7 @@ export class TerminalRenderer {
     this.text(50, 29, `OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`.slice(0, 29), objective.status === 'complete' ? colors.green : colors.gold)
     this.text(50, 30, 'G get  U use  C act', colors.dim)
     this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
-    this.text(50, 32, `A skills  J journal  V ${this.spriteMode ? 'ascii' : 'sprites'}`, colors.dim)
+    this.text(50, 32, `A skills  J journal  V ${visualModeLabel(this.visualMode)}`, colors.dim)
   }
 
   private log(state: RunState): void {
