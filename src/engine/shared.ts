@@ -3,7 +3,7 @@ import { rngFor, type RngScope, type RngStream } from '../rng'
 import type { Hero, RunState } from '../types'
 import { evaluateEquipmentEffects } from './equipment'
 
-export type GameEventType = 'move' | 'hit' | 'hurt' | 'pickup' | 'spell' | 'boom' | 'danger' | 'menu' | 'death' | 'win' | 'floor' | 'areaComplete' | 'gateResolved' | 'rescue'
+export type GameEventType = 'move' | 'hit' | 'hurt' | 'pickup' | 'spell' | 'boom' | 'danger' | 'menu' | 'level' | 'death' | 'win' | 'floor' | 'areaComplete' | 'gateResolved' | 'rescue'
 export interface GameEvent { type: GameEventType }
 export type ActionResult = GameEvent[]
 export const event = (type: GameEventType): GameEvent => ({ type })

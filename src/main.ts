@@ -7,6 +7,7 @@ import { advanceStory, createStory, openingLore, successionLore, type LoadingSta
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
 import type { CampaignRouteState, Direction, Hero, HubState, LegacyRecord, Records, RunState } from './types'
+import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -25,8 +26,16 @@ let story: StoryState | undefined
 let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 
-const loadVisualMode = (): boolean => { try { return localStorage.getItem('jomon-visual-mode') === 'sprites' } catch { return false } }
-renderer.setSpriteMode(loadVisualMode())
+const showSessionSplash = (): boolean => {
+  try {
+    if (sessionStorage.getItem('jomon-session-splash')) return false
+    sessionStorage.setItem('jomon-session-splash', '1')
+    return true
+  } catch { return false }
+}
+const loadVisualMode = () => { try { return normalizeVisualMode(localStorage.getItem('jomon-visual-mode')) } catch { return 'ascii' as const } }
+if (showSessionSplash()) route = { ...route, screen: 'splash' }
+renderer.setVisualMode(loadVisualMode())
 renderer.setSettings(settings)
 applyGameZoom()
 canvas.addEventListener('wheel', mouseEvent => {
@@ -47,6 +56,14 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (route.screen === 'splash') {
+    if (keyboardEvent.repeat) return
+    keyboardEvent.preventDefault()
+    route = { ...route, screen: 'title' }
+    audio.play([event('menu')])
+    redraw()
+    return
+  }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
@@ -85,10 +102,12 @@ window.addEventListener('keydown', keyboardEvent => {
   const direction = directionFor(command)
   const spellEffect = spellEffectForInput(state, keyboardEvent, direction)
   const previousX = state.hero.x
+  const previousLevel = state.hero.level
   let events = [] as ReturnType<typeof perform>
   if (keyboardEvent.altKey && direction && direction !== 'wait') events = quickCast(state, direction)
   else if (keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
   else events = perform(state, command)
+  if (state.hero.level > previousLevel) events.push(event('level'))
   if (state.hero.x !== previousX) renderer.setHeroFacingLeft(state.hero.x < previousX)
   audio.play(events)
   renderer.trigger(events, state, spellEffect)
@@ -261,8 +280,9 @@ function persistRescuedRoster(): void {
 }
 
 function toggleVisualMode(): void {
-  renderer.setSpriteMode(!renderer.isSpriteMode)
-  try { localStorage.setItem('jomon-visual-mode', renderer.isSpriteMode ? 'sprites' : 'ascii') } catch { }
+  const mode = nextVisualMode(renderer.visualMode)
+  renderer.setVisualMode(mode)
+  try { localStorage.setItem('jomon-visual-mode', mode) } catch { }
   redraw()
 }
 

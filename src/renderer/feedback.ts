@@ -10,6 +10,7 @@ const feedback: Partial<Record<GameEventType, VisualFeedback>> = {
   pickup: { shake: 0, flash: 48, color: '#96d38b', particles: { color: '#96d38b', count: 10, speed: .7, life: 540 } },
   boom: { shake: 210, flash: 105, color: '#ff9a61', particles: { color: '#ff9a61', count: 28, speed: 2.4, life: 780 } },
   danger: { shake: 115, flash: 70, color: '#d2a4e8' },
+  level: { shake: 30, flash: 170, color: '#f4d26a', particles: { color: '#f4d26a', count: 26, speed: 1.5, life: 900 } },
   death: { shake: 210, flash: 105, color: '#d2a4e8', particles: { color: '#d2a4e8', count: 18, speed: 1.5, life: 700 } }
 }
 

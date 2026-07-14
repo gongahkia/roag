@@ -31,7 +31,7 @@ export function gainXp(state: RunState, amount: number): void {
   state.hero.level++
   state.hero.maxHealth += 1
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4)
-  state.modal = { kind: 'skills' }
+  state.modal = { kind: 'skills', source: 'level' }
   log(state, `Level ${state.hero.level}: choose a discipline.`)
 }
 

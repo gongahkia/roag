@@ -96,6 +96,7 @@ function eventEffect(type: ActionResult[number]['type'], spell?: string): string
   if (type === 'hurt') return 'hitSpark'
   if (type === 'boom') return 'bombBlast'
   if (type === 'danger') return 'smokeGas'
+  if (type === 'level') return 'gate'
   if (type === 'death') return 'deathPuff'
   if (type === 'win' || type === 'floor') return 'gate'
   if (type === 'pickup' || type === 'rescue') return 'mend'

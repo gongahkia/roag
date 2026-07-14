@@ -164,7 +164,7 @@ export type Modal =
   | { kind: 'encyclopedia'; section: EncyclopediaSection; page?: number }
   | { kind: 'settings'; page?: number; awaiting?: KeyBindingId }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
-  | { kind: 'skills' }
+  | { kind: 'skills'; source?: 'level' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
   | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }

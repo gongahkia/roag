@@ -389,11 +389,18 @@ export class TerminalRenderer {
   }
 
   private skills(state: RunState): void {
-    this.box(12, 8, 56, 24, 'CHOOSE A DISCIPLINE')
+    const leveling = state.modal?.kind === 'skills' && state.modal.source === 'level'
+    this.box(10, 6, 60, 28, leveling ? `LEVEL ${state.hero.level} — AWAKENING` : 'CHOOSE A DISCIPLINE')
+    if (leveling) this.text(14, 10, '✦ TRAIL MARK AWAKENS · MAX HP +1 · HP +4 ✦', colors.gold)
     const choices = skillChoices(state)
-    choices.forEach((skill, i) => this.text(16, 12 + i * 3, `${i + 1}. ${skill.name} — ${skill.text}`, skill.stat === 'intellect' ? colors.purple : colors.text))
-    if (!choices.length) this.text(16, 20, 'All disciplines are mastered.', colors.gold)
-    this.text(16, 28, 'number chooses · Esc/backtick cancels', colors.dim)
+    const statColor = { strength: colors.red, agility: colors.green, vitality: colors.blue, intellect: colors.purple }
+    choices.forEach((skill, i) => {
+      const y = (leveling ? 13 : 11) + i * 5
+      this.text(14, y, `${i + 1}. [${skill.stat.slice(0, 3).toUpperCase()}] ${skill.name}`, statColor[skill.stat])
+      this.text(17, y + 2, skill.text.slice(0, 47), colors.text)
+    })
+    if (!choices.length) this.text(14, 20, 'All disciplines are mastered.', colors.gold)
+    this.text(14, 31, 'number chooses · Esc/backtick cancels', colors.dim)
   }
 
   private shop(state: RunState): void {

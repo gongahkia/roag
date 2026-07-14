@@ -20,7 +20,7 @@ describe('discipline offers', () => {
     state.hero.skills = ['str1']
     expect(skillChoices(state).map(skill => skill.id)).toContain('str2')
     gainXp(state, 35)
-    expect(state).toMatchObject({ hero: { level: 2 }, modal: { kind: 'skills' } })
+    expect(state).toMatchObject({ hero: { level: 2 }, modal: { kind: 'skills', source: 'level' } })
     expect(skillChoices(state)).toHaveLength(3)
     expect(SKILLS.find(skill => skill.id === 'str2')!.prerequisites).toEqual(['str1'])
   })
