@@ -23,13 +23,6 @@ const runeTileGlyph: Record<string, [string, string]> = {
   wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
 }
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
-const jomonMasthead = [
-  '     _  ___  __  __  ___  _   _',
-  '    | |/ _ \\|  \\/  |/ _ \\| \\ | |',
-  ' _  | | (_) | |\\/| | (_) |  \\| |',
-  '| |_| |\\___/|_|  |_|\\___/|_|\\_|',
-  ' \\___/                         '
-]
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
@@ -47,7 +40,6 @@ export class TerminalRenderer {
   private lastStory?: StoryState
   private lastLoading?: LoadingState
   private lastAnalysis?: RunAnalysis
-  private savedRun?: RunState
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -72,7 +64,7 @@ export class TerminalRenderer {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
-  setSavedRun(run: RunState | undefined): void { this.savedRun = run }
+  setSavedRun(_run: RunState | undefined): void { }
   get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
@@ -123,16 +115,9 @@ export class TerminalRenderer {
   private title(): void { this.splash() }
 
   private splash(): void {
-    this.box(13, 10, 54, 24, 'JOMON: SECRET DELIVERY')
-    this.ascii(23, 13, jomonMasthead.join('\n'), colors.gold)
-    this.text(22, 20, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
-    if (this.savedRun) {
-      const region = biomeName[this.savedRun.area ?? this.savedRun.floor.biome]
-      this.text(19, 22, `A delivery waits in ${region}, trail ${String(this.savedRun.floor.index + 1).padStart(2, '0')} · turn ${this.savedRun.turn}.`, colors.dim)
-    } else this.text(19, 22, '(No active delivery. Begin a new one.)', colors.dim)
-    this.text(19, 27, '[N]  begin a new delivery', colors.green)
-    this.text(19, 29, '[L]  resume active delivery', this.savedRun ? colors.text : colors.dim)
-    this.text(19, 31, 'N new delivery · L resume active delivery', colors.dim)
+    this.box(13, 10, 54, 24, '')
+    this.text(27, 20, '[N]  begin a new delivery', colors.text)
+    this.text(27, 23, '[L]  resume active delivery', colors.text)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
