@@ -235,7 +235,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   }
   if (modal.kind === 'target') {
     if (modal.direction) return { command: 'Enter', reason: `confirm ${modal.action}`, score: 200 }
-    const target = targetDirection(state, mode, modal.action, modal.item)
+    const target = targetOutcome(state, mode, modal)
     return target ? { command: directionCommands[target.direction], reason: `${modal.action} target`, score: target.score } : { command: 'Escape', reason: `cancel ${modal.action}`, score: 200 }
   }
   if (modal.kind === 'shop') {
@@ -264,13 +264,6 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   const options = directions.map(([direction, delta]) => ({ direction, point: { x: state.hero.x + delta.x, y: state.hero.y + delta.y } }))
     .filter(option => passable(state, mode, option.point, true) && !telegraphDanger(state, option.point))
     .map(option => ({ ...option, pressure: hostilePressure(state, mode, option.point), repeats: context.recentPositions.filter(key => key === pointKey(option.point)).length }))
-  const source = state.floor.telegraphs?.find(telegraph => telegraph.resolveTurn <= state.turn + 1 && telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y))?.sourceId
-  const ranged = source ? state.floor.actors.find(actor => actor.id === source && actor.hostile && actor.ai === 'ranged') : undefined
-  if (ranged && state.hero.bombs > 0) {
-    const tactical = options.filter(option => chebyshev(option.point, ranged) >= 2)
-      .sort((a, b) => Math.abs(chebyshev(a.point, ranged) - 2) - Math.abs(chebyshev(b.point, ranged) - 2) || a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
-    if (tactical) return { command: directionCommands[tactical.direction], reason: `evade toward ranged:${ranged.id}`, score: 158 }
-  }
   const refuges = state.floor.tiles.flatMap((_, index) => {
     const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
     return known(state, mode, point) && passable(state, mode, point, true) && !telegraphDanger(state, point) && hostilePressure(state, mode, point) < 25 && chebyshev(state.hero, point) >= 2 ? [point] : []
@@ -312,10 +305,10 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   const events = perform(simulated, candidate.command)
   if (simulated.status === 'dead') return -10000
   if (simulated.modal) return 0
-  if (simulated.turn === turn) return -180
+  if (simulated.turn === turn) return -1000
   let adjustment = (simulated.hero.health - health) * 18
   if (telegraphDanger(simulated, simulated.hero)) adjustment -= 105
-  if (context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
+  if (pointKey(simulated.hero) !== pointKey(state.hero) && context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
   if (events.some(event => event.type === 'danger')) adjustment -= 14
   if (hostilePressure(simulated, mode, simulated.hero) >= 100) adjustment -= 32
   return adjustment
@@ -325,6 +318,8 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
   const foes = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= 4).sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b))
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand]?.weapon : undefined
+  const weaponId = state.hero.equipment.mainHand
+  if (weaponId && (state.hero.cooldowns?.[weaponId] ?? 0) > 0) return undefined
   const shape = weapon?.shape ?? 'adjacent'
   const reach = weapon?.reach ?? 1
   const estimatedDamage = (weapon?.damage ?? 2) + state.hero.stats.strength + 3
@@ -339,6 +334,30 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   const route = guardian ? stepTo(state, mode, adjacentCells(guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
   return undefined
+}
+
+const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNullable<RunState['modal']>, { kind: 'target' }>): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
+  const beforeEnemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((sum, actor) => sum + actor.health, 0)
+  const beforeEnemies = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
+  const scored = directions.flatMap(([direction]) => {
+    const simulated = structuredClone(state)
+    const health = simulated.hero.health
+    perform(simulated, directionCommands[direction])
+    const events = perform(simulated, 'Enter')
+    if (simulated.status === 'dead' || simulated.turn === state.turn) return []
+    const enemyHealth = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((sum, actor) => sum + actor.health, 0)
+    const enemies = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
+    const damage = beforeEnemyHealth - enemyHealth
+    const kills = beforeEnemies - enemies
+    const harm = health - simulated.hero.health
+    const base = targetDirection(state, mode, modal.action, modal.item)?.direction === direction ? 30 : 0
+    const score = base + damage * 14 + kills * 90 - harm * 42 - events.filter(event => event.type === 'danger').length * 10
+    if (modal.action === 'bomb' && damage < 1) return []
+    if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0) return []
+    if (harm >= Math.max(8, Math.floor(health / 2)) && kills < 1) return []
+    return [{ direction, score }]
+  }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
+  return scored[0]
 }
 
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
@@ -357,7 +376,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
   const tile = getTile(state.floor, heroPoint.x, heroPoint.y)
   if (tile?.kind === 'exit' && objectiveComplete) return [{ command: 'q', reason: 'descend', score: 180 }]
-  const item = !objectiveComplete && state.floor.items.find(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && (current.id === 'gold' || current.id === 'key' || state.hero.inventory.length < 12))
+  const canPick = (item: { id: string }): boolean => item.id === 'gold' || item.id === 'key' || state.hero.inventory.length < 12
+  const item = !objectiveComplete && state.floor.items.find(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current))
   if (item && hostilePressure(state, mode, state.hero) < 100) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: 160 })
   const use = bestUse(state, mode, policy)
   if (use) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? state.hero.health * 2 <= state.hero.maxHealth ? 220 : hostilePressure(state, mode, state.hero) > 0 ? 180 : 150 : 118, intent: { kind: 'use', item: use } })
@@ -396,18 +416,20 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const targets = objectiveTargets(state, mode)
     const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
     const route = stepTo(state, mode, needsAdjacent ? targets.flatMap(adjacentCells) : targets)
-    if (route) candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: 70 })
+    if (route) candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
   }
   if (objectiveComplete) {
-    const exitRoute = stepTo(state, mode, [state.floor.exit], false, true, true)
-    if (exitRoute) candidates.push({ command: exitRoute.command, reason: 'reach exit', score: 140 })
+    const exitRoute = stepTo(state, mode, [state.floor.exit], false, true)
+    if (exitRoute) candidates.push({ command: exitRoute.command, reason: 'reach exit', score: policy === 'clear' ? 240 : 140 })
     else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
   } else {
-    const items = state.floor.items.filter(current => isKnownItem(state, mode, current, Boolean(current.visibleInFog))).map(current => ({ x: current.x, y: current.y }))
+    const needsOffering = objective.kind === 'invokeAltar' && state.hero.gold < 75
+    const collectForObjective = policy !== 'clear' || needsOffering
+    const items = collectForObjective ? state.floor.items.filter(current => isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current)).map(current => ({ x: current.x, y: current.y })) : []
     const itemRoute = stepTo(state, mode, items)
     if (itemRoute) candidates.push({ command: itemRoute.command, reason: 'reach loot', score: 48 })
     const containers = state.floor.tiles.flatMap((current, index) => (current.kind === 'crate' || current.kind === 'chest') && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
-    const containerRoute = stepTo(state, mode, containers.flatMap(adjacentCells))
+    const containerRoute = collectForObjective ? stepTo(state, mode, containers.flatMap(adjacentCells)) : undefined
     if (containerRoute) candidates.push({ command: containerRoute.command, reason: 'reach container', score: 43 })
     const frontier = explorationMove(state, mode)
     if (frontier) candidates.push(frontier)

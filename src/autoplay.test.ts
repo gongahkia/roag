@@ -26,6 +26,22 @@ describe('autoplay', () => {
     expect(autoplayCommand(state, 'omniscient')).toBeDefined()
   })
 
+  it('does not route to or attempt non-currency loot with a full pack', () => {
+    const state = newRun(71)
+    state.hero.inventory = Array.from({ length: 12 }, () => 'rock')
+    state.floor.items = [{ id: 'tonic', x: state.hero.x, y: state.hero.y, count: 1 }]
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.command).not.toBe('g')
+    expect(decision?.candidates.some(candidate => candidate.reason === 'pickup:tonic')).toBe(false)
+  })
+
+  it('still collects gold with a full pack', () => {
+    const state = newRun(71)
+    state.hero.inventory = Array.from({ length: 12 }, () => 'rock')
+    state.floor.items = [{ id: 'gold', x: state.hero.x, y: state.hero.y, count: 7 }]
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('g')
+  })
+
   it('completes the Mine reference run using tactical actions', () => {
     const report = runAutoplay(newRun(7, 'mine'), { mode: 'omniscient', policy: 'clear', turnLimit: 800 })
     expect(report.outcome).toBe('complete')
