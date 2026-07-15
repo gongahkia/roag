@@ -1,4 +1,4 @@
-import type { Actor, Biome, CampaignRouteState, ConditionState, EncyclopediaState, Floor, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Records, RescuedNpc, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunStateV1, RunTelemetry, Telegraph, Tile } from './types'
+import type { Actor, Biome, CampaignRouteState, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, DeathMode, EncyclopediaState, Floor, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Records, RescuedNpc, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunStateV1, RunTelemetry, Telegraph, Tile } from './types'
 import { objectiveForFloor } from './objectives'
 import { createRunTelemetry } from './telemetry'
 
@@ -7,6 +7,8 @@ const STORE = 'state'
 const RUN = 'active-run'
 const RECORDS = 'records'
 const CAMPAIGN_ROUTE = 'campaign-route'
+const COURIER_INDEX = 'courier-index'
+const COURIER_PREFIX = 'courier:'
 
 type RunRecord = Omit<RunState, 'version'> & { version: number }
 type UnknownRecord = Record<string, unknown>
@@ -15,6 +17,9 @@ type CampaignRouteRecord = Omit<CampaignRouteState, 'rescuedNpcs' | 'lineageEven
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isString = (value: unknown): value is string => typeof value === 'string'
+const isCourierOrigin = (value: unknown): value is CourierOrigin => value === 'mineborn' || value === 'mosswalker' || value === 'cavernSeeker'
+const isCourierCalling = (value: unknown): value is CourierCalling => value === 'trailguard' || value === 'pathmaker' || value === 'spiritbearer'
+const isDeathMode = (value: unknown): value is DeathMode => value === 'checkpoint' || value === 'ironTrail'
 const oneOf = <T extends string>(value: unknown, values: readonly T[]): value is T => typeof value === 'string' && values.some(current => current === value)
 const isPoint = (value: unknown): value is Point => isRecord(value) && isNumber(value.x) && isNumber(value.y)
 const isTile = (value: unknown): value is Tile => isRecord(value) && oneOf(value.kind, ['wall', 'floor', 'exit', 'door', 'lockedDoor', 'water', 'lava', 'pit', 'rope', 'spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'web', 'gas', 'support', 'rail', 'rubble', 'bramble', 'darkness', 'crate', 'chest', 'altar', 'shop', 'rescue']) && typeof value.explored === 'boolean' && typeof value.visible === 'boolean'
@@ -33,7 +38,7 @@ const isRunTelemetry = (value: unknown): value is RunTelemetry => isRecord(value
 const isRunAnalysis = (value: unknown): value is RunAnalysis => isRecord(value) && isNumber(value.seed) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.floor) && oneOf(value.outcome, ['lost', 'complete', 'suspended']) && isString(value.date) && isRunTelemetry(value.metrics)
 const isTelegraph = (value: unknown): value is Telegraph => isRecord(value) && isString(value.id) && isString(value.sourceId) && isString(value.actionId) && Array.isArray(value.cells) && value.cells.every(isPoint) && oneOf(value.danger, ['minor', 'major']) && isNumber(value.resolveTurn) && (value.collision === undefined || (isRecord(value.collision) && isPoint(value.collision.point) && isString(value.collision.by))) && (value.cover === undefined || typeof value.cover === 'boolean')
 const isFloor = (value: unknown): value is Floor => isRecord(value) && isNumber(value.index) && oneOf(value.biome, ['mine', 'wilds', 'caverns', 'ruins']) && isNumber(value.seed) && Array.isArray(value.tiles) && value.tiles.every(isTile) && Array.isArray(value.actors) && value.actors.every(isActor) && Array.isArray(value.items) && value.items.every(isGroundItem) && isPoint(value.start) && isPoint(value.exit) && typeof value.guardianDefeated === 'boolean' && (value.objective === undefined || isObjective(value.objective)) && (value.telegraphs === undefined || (Array.isArray(value.telegraphs) && value.telegraphs.every(isTelegraph))) && (value.puzzleIds === undefined || (Array.isArray(value.puzzleIds) && value.puzzleIds.every(isString)))
-const isHero = (value: unknown): value is Hero => isRecord(value) && isNumber(value.x) && isNumber(value.y) && isNumber(value.health) && isNumber(value.maxHealth) && isNumber(value.focus) && isNumber(value.maxFocus) && isNumber(value.gold) && isNumber(value.bombs) && isNumber(value.ropes) && isNumber(value.keys) && isNumber(value.xp) && isNumber(value.level) && isRecord(value.stats) && isNumber(value.stats.strength) && isNumber(value.stats.agility) && isNumber(value.stats.vitality) && isNumber(value.stats.intellect) && Array.isArray(value.skills) && value.skills.every(isString) && Array.isArray(value.inventory) && value.inventory.every(isString) && isRecord(value.equipment) && Object.values(value.equipment).every(item => item === undefined || isString(item)) && (value.lastUnequipped === undefined || isString(value.lastUnequipped)) && (value.conditions === undefined || (Array.isArray(value.conditions) && value.conditions.every(isCondition))) && (value.cooldowns === undefined || (isRecord(value.cooldowns) && Object.values(value.cooldowns).every(isNumber)))
+const isHero = (value: unknown): value is Hero => isRecord(value) && isNumber(value.x) && isNumber(value.y) && isNumber(value.health) && isNumber(value.maxHealth) && isNumber(value.focus) && isNumber(value.maxFocus) && isNumber(value.gold) && isNumber(value.bombs) && isNumber(value.ropes) && isNumber(value.keys) && isNumber(value.xp) && isNumber(value.level) && isRecord(value.stats) && isNumber(value.stats.strength) && isNumber(value.stats.agility) && isNumber(value.stats.vitality) && isNumber(value.stats.intellect) && Array.isArray(value.skills) && value.skills.every(isString) && Array.isArray(value.inventory) && value.inventory.every(isString) && isRecord(value.equipment) && Object.values(value.equipment).every(item => item === undefined || isString(item)) && (value.name === undefined || isString(value.name)) && (value.origin === undefined || isCourierOrigin(value.origin)) && (value.calling === undefined || isCourierCalling(value.calling)) && (value.deathMode === undefined || isDeathMode(value.deathMode)) && (value.lastUnequipped === undefined || isString(value.lastUnequipped)) && (value.conditions === undefined || (Array.isArray(value.conditions) && value.conditions.every(isCondition))) && (value.cooldowns === undefined || (isRecord(value.cooldowns) && Object.values(value.cooldowns).every(isNumber)))
 
 const isModal = (value: unknown): value is Modal | undefined => {
   if (value === undefined) return true
@@ -54,7 +59,8 @@ const isCampaignRoute = (value: unknown): value is CampaignRouteRecord => isReco
 
 export const migrateRunRecord = (value: unknown): RunState | undefined => {
   if (isRunState(value) || isRunStateV1(value)) {
-    const run: RunState = { ...value, version: 2, floor: value.floor.objective ? value.floor : { ...value.floor, objective: objectiveForFloor(value.floor.index) } }
+    const hero: Hero = { ...value.hero, name: value.hero.name ?? 'Existing Courier', origin: value.hero.origin ?? 'mineborn', calling: value.hero.calling ?? 'trailguard', deathMode: value.hero.deathMode ?? 'checkpoint' }
+    const run: RunState = { ...value, version: 2, hero, floor: value.floor.objective ? value.floor : { ...value.floor, objective: objectiveForFloor(value.floor.index) } }
     run.telemetry ??= createRunTelemetry(run)
     return run
   }
@@ -122,3 +128,73 @@ export const loadRecords = async (): Promise<Records> => migrateRecords(await ge
 export const saveRecords = (records: Records) => put(RECORDS, records)
 export const loadCampaignRoute = async (): Promise<CampaignRouteState> => migrateCampaignRoute(await get<unknown>(CAMPAIGN_ROUTE))
 export const saveCampaignRoute = (route: CampaignRouteState) => put(CAMPAIGN_ROUTE, migrateCampaignRoute(route))
+
+interface CourierIndex { version: 1; ids: string[]; selectedId?: string }
+const emptyCourierIndex = (): CourierIndex => ({ version: 1, ids: [] })
+const isCourierIndex = (value: unknown): value is CourierIndex => isRecord(value) && value.version === 1 && Array.isArray(value.ids) && value.ids.every(isString) && (value.selectedId === undefined || isString(value.selectedId))
+const courierKey = (id: string): string => `${COURIER_PREFIX}${id}`
+const courierIdentity = (value: unknown): CourierSave['identity'] | undefined => {
+  if (!isRecord(value) || !isString(value.id) || !isString(value.name) || !isCourierOrigin(value.origin) || !isCourierCalling(value.calling) || !isDeathMode(value.deathMode) || !isString(value.createdAt)) return undefined
+  return { id: value.id, name: value.name, origin: value.origin, calling: value.calling, deathMode: value.deathMode, createdAt: value.createdAt, ...(isString(value.parentId) ? { parentId: value.parentId } : {}) }
+}
+const migrateCourier = (value: unknown): CourierSave | undefined => {
+  if (!isRecord(value) || value.version !== 1) return undefined
+  const identity = courierIdentity(value.identity)
+  if (!identity) return undefined
+  const run = migrateRunRecord(value.run)
+  const checkpoint = migrateRunRecord(value.checkpoint)
+  const campaign = migrateCampaignRoute(value.campaign)
+  const records = migrateRecords(value.records)
+  return { version: 1, identity, ...(run ? { run } : {}), ...(checkpoint ? { checkpoint } : {}), campaign, records, ...(value.archived === true ? { archived: true } : {}) }
+}
+const entryFor = (courier: CourierSave): CourierMenuEntry => ({
+  id: courier.identity.id, name: courier.identity.name, origin: courier.identity.origin, calling: courier.identity.calling, deathMode: courier.identity.deathMode,
+  ...(courier.run ? { area: courier.run.area ?? courier.run.floor.biome, floor: courier.run.floor.index + 1, turn: courier.run.turn } : {}), ...(courier.archived ? { archived: true } : {})
+})
+
+export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selectedId?: string }> {
+  const indexed = await get<unknown>(COURIER_INDEX)
+  const index = isCourierIndex(indexed) ? indexed : undefined
+  if (index) {
+    const couriers = (await Promise.all(index.ids.map(async id => migrateCourier(await get<unknown>(courierKey(id)))))).filter((courier): courier is CourierSave => Boolean(courier))
+    return { couriers, ...(couriers.some(courier => courier.identity.id === index.selectedId) ? { selectedId: index.selectedId } : { selectedId: couriers.find(courier => !courier.archived)?.identity.id }) }
+  }
+  const [run, records, campaign] = await Promise.all([loadRun(), loadRecords(), loadCampaignRoute()])
+  if (!run && records.runs.length === 0 && campaign.completedAreas.length === 0 && campaign.rescuedNpcs.length === 0) return { couriers: [] }
+  const id = crypto.randomUUID()
+  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run) } : {}), campaign, records }
+  await saveCourier(legacy, id)
+  return { couriers: [legacy], selectedId: id }
+}
+
+export async function saveCourier(courier: CourierSave, selectedId?: string): Promise<void> {
+  const existing = await get<unknown>(COURIER_INDEX)
+  const index = isCourierIndex(existing) ? existing : emptyCourierIndex()
+  const ids = index.ids.includes(courier.identity.id) ? index.ids : [...index.ids, courier.identity.id]
+  await Promise.all([put(courierKey(courier.identity.id), courier), put(COURIER_INDEX, { version: 1, ids, selectedId: selectedId ?? index.selectedId ?? courier.identity.id } satisfies CourierIndex)])
+}
+
+export async function selectCourier(id: string): Promise<void> {
+  const current = await get<unknown>(COURIER_INDEX)
+  const index = isCourierIndex(current) ? current : emptyCourierIndex()
+  if (index.ids.includes(id)) await put(COURIER_INDEX, { ...index, selectedId: id })
+}
+
+export async function deleteCourier(id: string): Promise<void> {
+  const current = await get<unknown>(COURIER_INDEX)
+  const index = isCourierIndex(current) ? current : emptyCourierIndex()
+  const ids = index.ids.filter(currentId => currentId !== id)
+  const selectedId = index.selectedId === id ? ids[0] : index.selectedId
+  try {
+    const db = await database()
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE, 'readwrite')
+      transaction.objectStore(STORE).delete(courierKey(id))
+      transaction.objectStore(STORE).put({ version: 1, ids, ...(selectedId ? { selectedId } : {}) } satisfies CourierIndex, COURIER_INDEX)
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+    })
+  } catch { }
+}
+
+export const courierMenuEntries = (couriers: readonly CourierSave[]): CourierMenuEntry[] => couriers.filter(courier => !courier.archived).map(entryFor)

@@ -10,12 +10,12 @@ import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type 
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
 const CW = 10
-const CH = 14
+const CH = 12
 const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
 const tileGlyph: Record<string, [string, string]> = {
   wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
@@ -26,6 +26,16 @@ const runeTileGlyph: Record<string, [string, string]> = {
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 const jomonMasthead = jomonMastheadSource.trimEnd()
 const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
+const courierOrigins = {
+  mineborn: { label: 'MINEBORN', description: 'Raised among rails, stone dust, and the measured weight of a sealed parcel.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
+  mosswalker: { label: 'MOSSWALKER', description: 'A trail reader who finds sure footing beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
+  cavernSeeker: { label: 'CAVERN SEEKER', description: 'A lantern scholar who follows echoes through the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } }
+} as const
+const courierCallings = {
+  trailguard: { label: 'TRAILGUARD', description: 'Carry a woven guard and hold the route when the trail closes in.', kit: 'Courier Cord · Woven Guard · tonic' },
+  pathmaker: { label: 'PATHMAKER', description: 'Carry extra fire-ash and rope to force a way through bad ground.', kit: 'Courier Cord · 6 bombs · 6 ropes · map' },
+  spiritbearer: { label: 'SPIRITBEARER', description: 'Begin with a focus tonic and a Sight Charm for the unseen route.', kit: 'Courier Cord · focus tonic · Sight Charm' }
+} as const
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
@@ -43,6 +53,8 @@ export class TerminalRenderer {
   private lastStory?: StoryState
   private lastLoading?: LoadingState
   private lastAnalysis?: RunAnalysis
+  private lastCourierMenu?: CourierMenuView
+  private lastCourierDraft?: CourierDraft
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -52,7 +64,7 @@ export class TerminalRenderer {
     canvas.width = TERMINAL_WIDTH * CW
     canvas.height = TERMINAL_HEIGHT * CH
     ctx.imageSmoothingEnabled = false
-    ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace'
+    ctx.font = '12px Cozette, ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis))
   }
@@ -77,7 +89,7 @@ export class TerminalRenderer {
     this.effects.trigger(events, state, this.canvas, effectId)
   }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis, courierMenu?: CourierMenuView, courierDraft?: CourierDraft): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
@@ -85,6 +97,8 @@ export class TerminalRenderer {
     this.lastStory = story
     this.lastLoading = loading
     this.lastAnalysis = analysis
+    this.lastCourierMenu = courierMenu
+    this.lastCourierDraft = courierDraft
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -93,8 +107,9 @@ export class TerminalRenderer {
     this.effects.applyShake(this.ctx, now)
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    if (route.screen === 'splash') this.splash()
-    else if (route.screen === 'title') this.title()
+    if (route.screen === 'splash') this.splash(courierMenu)
+    else if (route.screen === 'title') this.title(courierMenu)
+    else if (route.screen === 'createCourier' && courierDraft) this.createCourier(courierDraft)
     else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub)
     else if (route.screen === 'area') this.area(route)
@@ -111,18 +126,58 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis))
+    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
   }
 
-  private title(): void { this.splash() }
+  private title(menu?: CourierMenuView): void { this.splash(menu) }
 
-  private splash(): void {
-    this.box(13, 10, 54, 24, '')
-    this.ascii(Math.floor((TERMINAL_WIDTH - jomonMastheadWidth) / 2), 13, jomonMasthead, colors.text)
-    const begin = '[N]  begin a new delivery'
-    const resume = '[L]  resume active delivery'
-    this.text(Math.floor((TERMINAL_WIDTH - begin.length) / 2), 23, begin, colors.text)
-    this.text(Math.floor((TERMINAL_WIDTH - resume.length) / 2), 26, resume, colors.text)
+  private splash(menu?: CourierMenuView): void {
+    this.box(8, 5, 80, 50, '')
+    this.ascii(Math.floor((TERMINAL_WIDTH - jomonMastheadWidth) / 2), 9, jomonMasthead, colors.text)
+    const entries = menu?.entries ?? []
+    this.text(18, 23, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
+    if (!entries.length) this.text(18, 26, '(No active couriers. Please create a new one.)', colors.dim)
+    else entries.slice(0, 8).forEach((entry, index) => {
+      const selected = entry.id === menu?.selectedId
+      const marker = selected ? '>' : ' '
+      const mode = entry.deathMode === 'checkpoint' ? 'checkpoint' : 'iron trail'
+      this.text(18, 26 + index * 2, `${marker} ${entry.name.padEnd(16)} ${entry.origin.padEnd(14)} ${entry.calling.padEnd(14)} ${mode}`, selected ? colors.green : colors.text)
+    })
+    if (entries.length) {
+      const selected = entries.find(entry => entry.id === menu?.selectedId) ?? entries[0]
+      const status = selected.floor ? `trail ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'at the village outpost'
+      this.text(18, 43, `${selected.name} waits in ${selected.area ? biomeName[selected.area] : 'the village'} · ${status}.`, colors.dim)
+    }
+    const controls = entries.length ? '[L]/ENTER resume · [↑↓] change selection · [N] create courier · [D] delete courier' : '[N] create a new courier'
+    this.text(Math.floor((TERMINAL_WIDTH - controls.length) / 2), 51, controls, colors.text)
+    if (menu?.confirmingDelete) this.box(27, 27, 42, 9, 'RETIRE COURIER'), this.text(31, 31, 'D confirms · ESC cancels', colors.red)
+  }
+
+  private createCourier(draft: CourierDraft): void {
+    const origin = courierOrigins[draft.origin]
+    const calling = courierCallings[draft.calling]
+    const death = draft.deathMode === 'checkpoint' ? ['CHECKPOINT', 'Death restores the last cleared floor.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery.']
+    this.box(6, 3, 84, 53, 'CREATE COURIER')
+    this.text(10, 7, 'Out of the forgotten trail, a courier answers the village call...', colors.text)
+    this.creatorField(10, 11, 'NAME', draft.name || 'Unnamed Courier', draft.focus === 0)
+    this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
+    this.creatorField(10, 29, 'CALLING', calling.label, draft.focus === 2)
+    this.creatorField(10, 41, 'DEATH', death[0], draft.focus === 3)
+    this.wrap(origin.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 17 + index, line, colors.text))
+    this.text(40, 22, 'STATS', colors.gold)
+    ;(['strength', 'agility', 'vitality', 'intellect'] as const).forEach((stat, index) => {
+      const value = origin.stats[stat]
+      this.text(40, 24 + index, `${stat.slice(0, 3).toUpperCase()} ${value}  ${'█'.repeat(value)}${'░'.repeat(4 - value)}`, colors.text)
+    })
+    this.wrap(calling.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 30 + index, line, colors.text))
+    this.text(40, 35, `KIT  ${calling.kit}`, colors.gold)
+    this.text(40, 41, death[1], colors.text)
+    this.text(10, 51, 'TAB next field · ←→ choose · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
+  }
+
+  private creatorField(x: number, y: number, label: string, value: string, focus: boolean): void {
+    this.text(x, y, label, colors.gold)
+    this.text(x, y + 2, `${focus ? '>' : ' '} ${value}`, focus ? colors.green : colors.text)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {

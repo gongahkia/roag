@@ -1,12 +1,15 @@
 export const MAP_WIDTH = 48
 export const MAP_HEIGHT = 35
-export const TERMINAL_WIDTH = 80
-export const TERMINAL_HEIGHT = 45
+export const TERMINAL_WIDTH = 96
+export const TERMINAL_HEIGHT = 60
 export const FLOOR_COUNT = 16
 
 export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
+export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker'
+export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
+export type DeathMode = 'checkpoint' | 'ironTrail'
 export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
@@ -61,6 +64,10 @@ export interface Floor {
 }
 
 export interface Hero {
+  name: string
+  origin: CourierOrigin
+  calling: CourierCalling
+  deathMode: DeathMode
   x: number
   y: number
   health: number
@@ -81,6 +88,12 @@ export interface Hero {
   conditions?: ConditionState[]
   cooldowns?: Record<string, number>
 }
+
+export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
+export interface CourierSave { version: 1; identity: CourierIdentity; run?: RunState; checkpoint?: RunState; campaign: CampaignRouteState; records: Records; archived?: boolean }
+export interface CourierMenuEntry { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; area?: Biome; floor?: number; turn?: number; archived?: boolean }
+export interface CourierMenuView { entries: CourierMenuEntry[]; selectedId?: string; confirmingDelete?: boolean }
+export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; focus: 0 | 1 | 2 | 3 }
 
 export type CampaignPhase = 'title' | 'hub' | 'area' | 'dead' | 'victory'
 export type AreaStatus = 'locked' | 'available' | 'active' | 'completed'
