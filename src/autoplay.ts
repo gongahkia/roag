@@ -21,9 +21,9 @@ const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; failed: Map<string, number>; closedMerchants: Set<string>; recentPositions: string[]; intent?: Intent; shopTurns: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; closedMerchants: Set<string>; recentPositions: string[]; intent?: Intent; shopTurns: number; noProgressTurns: number; lastReason?: string }
 
-export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), failed: new Map(), closedMerchants: new Set(), recentPositions: [], shopTurns: 0 })
+export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), closedMerchants: new Set(), recentPositions: [], shopTurns: 0, noProgressTurns: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
@@ -49,14 +49,29 @@ export const autoplayTraceFingerprint = (state: RunState): string => {
   return (hash >>> 0).toString(36)
 }
 
+const autoplayProgressFingerprint = (state: RunState, includePosition: boolean): string => {
+  const hero = state.hero
+  const hostiles = state.floor.actors.filter(actor => actor.hostile && actor.health > 0)
+  const tileSummary = state.floor.tiles.reduce((summary, tile) => {
+    if (tile.explored) summary.explored++
+    if (tile.kind === 'crate' || tile.kind === 'chest') summary.containers++
+    return summary
+  }, { explored: 0, containers: 0 })
+  const position = includePosition ? `${hero.x},${hero.y}:` : ''
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}`
+}
+
 export const recordAutoplayTransition = (context: AutoplayContext, before: RunState, command: string, after: RunState): void => {
   const beforeKey = autoplayStateFingerprint(before)
   const afterKey = autoplayStateFingerprint(after)
   context.visits.set(afterKey, (context.visits.get(afterKey) ?? 0) + 1)
+  const strategicKey = autoplayProgressFingerprint(after, true)
+  context.strategicVisits.set(strategicKey, (context.strategicVisits.get(strategicKey) ?? 0) + 1)
+  context.noProgressTurns = after.turn > before.turn && autoplayProgressFingerprint(before, false) === autoplayProgressFingerprint(after, false) ? context.noProgressTurns + 1 : 0
   if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
   else context.failed.clear()
   context.recentPositions.push(pointKey(after.hero))
-  if (context.recentPositions.length > 12) context.recentPositions.shift()
+  if (context.recentPositions.length > 24) context.recentPositions.shift()
   if (before.modal?.kind === 'shop' && /^\d+$/.test(command) && after.turn > before.turn) context.shopTurns++
   if (after.modal?.kind !== 'shop') context.shopTurns = 0
 }
@@ -299,14 +314,17 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
 
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
   const recent = context.recentPositions
-  if (recent.length < 4) return false
-  const [a, b, c, d] = recent.slice(-4)
-  return a === c && b === d && a !== b
+  for (let period = 1; period <= Math.floor(recent.length / 2); period++) {
+    const current = recent.slice(-period)
+    const previous = recent.slice(-period * 2, -period)
+    if (current.every((position, index) => position === previous[index])) return true
+  }
+  return false
 }
 
-const cycleBreakMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
-  if (!breaksPositionCycle(context)) return undefined
-  const recent = new Set(context.recentPositions.slice(-6))
+const cycleBreakMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext, forced = false): Candidate | undefined => {
+  if (!forced && !breaksPositionCycle(context)) return undefined
+  const recent = new Set(context.recentPositions.slice(-12))
   const options = directions.map(([direction]) => {
     const point = projectedMove(state, mode, state.hero, direction, true, false)
     if (!point || telegraphDanger(state, point)) return undefined
@@ -459,8 +477,13 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (objective.status !== 'complete') {
     const targets = needsOffering ? [] : objectiveTargets(state, mode)
     const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
-    const route = stepTo(state, mode, needsAdjacent ? targets.flatMap(adjacentCells) : targets)
+    const routeTargets = needsAdjacent ? targets.flatMap(adjacentCells) : targets
+    const route = stepTo(state, mode, routeTargets)
     if (route) candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
+    else {
+      const blockedRoute = stepTo(state, mode, routeTargets, false, false, true)
+      if (blockedRoute) candidates.push({ command: blockedRoute.command, reason: `clear objective route:${objective.kind}`, score: policy === 'clear' ? 158 : 76 })
+    }
   }
   if (objectiveComplete) {
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, true, true)
@@ -486,6 +509,14 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
   const fingerprint = autoplayStateFingerprint(state)
   if ((context.visits.get(fingerprint) ?? 0) >= 6) return undefined
+  const strategicVisits = context.strategicVisits.get(autoplayProgressFingerprint(state, true)) ?? 0
+  if (strategicVisits >= 5 || context.noProgressTurns >= 48) return undefined
+  if (strategicVisits >= 3 || context.noProgressTurns >= 32 || breaksPositionCycle(context)) {
+    const recovery = cycleBreakMove(state, mode, context, true)
+    if (!recovery) return undefined
+    context.lastReason = recovery.reason
+    return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
+  }
   const candidates = immediateCandidates(state, mode, policy, context).map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 + candidateLookahead(state, mode, candidate, context) })).filter(candidate => Number.isFinite(candidate.score))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
   if (!selected || selected.score < -500) return undefined

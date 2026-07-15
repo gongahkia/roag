@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoplayCommand, autoplayDecision, createAutoplayContext } from './autoplay'
+import { autoplayCommand, autoplayDecision, createAutoplayContext, recordAutoplayTransition } from './autoplay'
 import { runAutoplay } from './autoplay-runner'
 import { newRun, skillChoices } from './engine'
 
@@ -41,6 +41,19 @@ describe('autoplay', () => {
     state.hero.inventory = Array.from({ length: 12 }, () => 'rock')
     state.floor.items = [{ id: 'gold', x: state.hero.x, y: state.hero.y, count: 7 }]
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('g')
+  })
+
+  it('halts strategic loops even when volatile actor state masks exact repeats', () => {
+    const context = createAutoplayContext()
+    let state = newRun(71)
+    for (let turn = 0; turn < 5; turn++) {
+      const next = structuredClone(state)
+      next.turn++
+      next.floor.actors[0].energy = turn + 1
+      recordAutoplayTransition(context, state, 'l', next)
+      state = next
+    }
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toBeUndefined()
   })
 
   it('completes the Mine reference run using tactical actions', () => {
