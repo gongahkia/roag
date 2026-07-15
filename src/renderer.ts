@@ -123,9 +123,11 @@ export class TerminalRenderer {
 
   private splash(): void {
     this.box(13, 10, 54, 24, '')
-    jomonMasthead.forEach((line, index) => this.text(Math.floor((TERMINAL_WIDTH - line.length) / 2), 13 + index, line, colors.text))
-    this.text(27, 23, '[N]  begin a new delivery', colors.text)
-    this.text(27, 26, '[L]  resume active delivery', colors.text)
+    jomonMasthead.forEach((line, index) => this.text(Math.ceil((TERMINAL_WIDTH - line.length) / 2) - (index < jomonMasthead.length - 1 ? 2 : 0), 13 + index, line, colors.text))
+    const begin = '[N]  begin a new delivery'
+    const resume = '[L]  resume active delivery'
+    this.text(Math.floor((TERMINAL_WIDTH - begin.length) / 2), 23, begin, colors.text)
+    this.text(Math.floor((TERMINAL_WIDTH - resume.length) / 2), 26, resume, colors.text)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
@@ -438,18 +440,21 @@ export class TerminalRenderer {
     const color = analysis.outcome === 'complete' ? colors.gold : analysis.outcome === 'lost' ? colors.red : colors.blue
     this.box(6, 2, 68, 42, outcome)
     this.text(10, 6, `trail ${String(analysis.floor).padStart(2, '0')} · ${biomeName[analysis.biome]} · ${metrics.turns} turns`, color)
-    this.text(10, 9, 'TURN TIMELINE  ·  20 BINS', colors.gold)
+    this.text(10, 8, 'RUN HISTOGRAMS  ·  FREQUENCY BY VALUE', colors.gold)
     const samples = metrics.samples.length ? metrics.samples : [{ turn: 0, floor: analysis.floor, health: 0, focus: 0, gold: 0, bombs: 0, ropes: 0, kills: 0, damageDealt: 0, damageTaken: 0 }]
-    this.text(10, 11, `HP   ${this.histogram(this.timeline(samples, sample => sample.health, false))}`, colors.red)
-    this.text(10, 13, `DMG  ${this.histogram(this.timeline(samples, sample => sample.damageDealt + sample.damageTaken, true))}`, colors.gold)
-    this.text(10, 15, `KIL  ${this.histogram(this.timeline(samples, sample => sample.kills, true))}`, colors.green)
-    this.text(10, 17, `USE  ${this.histogram(this.timeline(samples, sample => sample.bombs + sample.ropes, true, true))}`, colors.blue)
-    this.text(10, 21, `cash +${metrics.goldGained} · xp +${metrics.xpGained} · pickups ${metrics.pickups}`, colors.text)
-    this.text(10, 23, `kills ${metrics.kills} · dealt ${metrics.damageDealt} · taken ${metrics.damageTaken}`, colors.text)
-    this.text(10, 25, `bombs ${metrics.bombsUsed} · ropes ${metrics.ropesUsed} · rests ${metrics.actions.rests}`, colors.text)
-    this.text(10, 27, `moves ${metrics.actions.moves} · attacks ${metrics.actions.attacks} · casts ${metrics.actions.casts}`, colors.dim)
-    this.text(10, 30, 'FLOOR SPLITS', colors.gold)
-    metrics.floors.slice(-4).forEach((floor, index) => this.text(10, 32 + index * 2, `F${String(floor.floor).padStart(2, '0')}  turns ${String(floor.turns).padStart(3)}  kills ${String(floor.kills).padStart(2)}  dmg ${String(floor.damageDealt).padStart(3)}/${String(floor.damageTaken).padStart(3)}  loot ${floor.pickups}`, colors.text))
+    this.histogramPanel(8, 10, 'HEALTH', samples.map(sample => sample.health), colors.red)
+    this.histogramPanel(30, 10, 'FOCUS', samples.map(sample => sample.focus), colors.blue)
+    this.histogramPanel(52, 10, 'DAMAGE / TURN', this.timeline(samples, sample => sample.damageDealt + sample.damageTaken, true), colors.gold)
+    this.text(10, 30, 'RUN TOTALS', colors.gold)
+    this.text(10, 32, `cash +${metrics.goldGained} · xp +${metrics.xpGained} · pickups ${metrics.pickups}`, colors.text)
+    this.text(10, 33, `kills ${metrics.kills} · dealt ${metrics.damageDealt} · taken ${metrics.damageTaken}`, colors.text)
+    this.text(10, 34, `bombs ${metrics.bombsUsed} · ropes ${metrics.ropesUsed} · rests ${metrics.actions.rests} · moves ${metrics.actions.moves}`, colors.dim)
+    this.text(10, 36, 'FLOOR SPLITS', colors.gold)
+    metrics.floors.slice(-4).forEach((floor, index) => {
+      const x = index % 2 === 0 ? 10 : 42
+      const y = 38 + Math.floor(index / 2) * 2
+      this.text(x, y, `F${String(floor.floor).padStart(2, '0')}  ${floor.turns}T ${floor.kills}K ${floor.damageDealt}/${floor.damageTaken}D ${floor.pickups}L`, colors.text)
+    })
     this.text(10, 41, 'ANY KEY  continue', colors.green)
   }
 
@@ -465,10 +470,40 @@ export class TerminalRenderer {
     return values
   }
 
-  private histogram(values: readonly number[]): string {
-    const marks = ' .:-=+*#%@'
-    const max = Math.max(1, ...values)
-    return values.map(value => marks[Math.min(marks.length - 1, Math.round(value / max * (marks.length - 1)))]).join('')
+  private histogramPanel(x: number, y: number, title: string, values: readonly number[], color: string): void {
+    const width = 20
+    const graphWidth = width - 4
+    const graphHeight = 6
+    const data = this.histogramData(values, graphWidth)
+    this.box(x, y, width, 18, title)
+    this.text(x + 2, y + 3, `${String(data.low).padEnd(8)}${String(data.high).padStart(8)}`, colors.dim)
+    this.gridRect(x + 1, y + 4, width - 2, graphHeight + 3)
+    const maxCount = Math.max(1, ...data.counts)
+    this.ctx.save()
+    this.ctx.strokeStyle = color
+    this.ctx.lineWidth = 1
+    data.counts.forEach((count, index) => {
+      if (!count) return
+      const height = Math.max(1, Math.round(count / maxCount * graphHeight))
+      this.ctx.strokeRect((x + 2 + index) * CW + .5, (y + 12 - height) * CH + .5, CW - 1, height * CH - 1)
+    })
+    this.ctx.restore()
+    this.ruleHorizontal(x + 2, y + 12, graphWidth)
+    for (let tick = 0; tick < graphWidth; tick += 3) this.ruleVertical(x + 2 + tick, y + 12, 1)
+    this.text(x + 2, y + 14, `NOW ${data.last}`, color)
+    this.text(x + 2, y + 15, `PEAK ${data.high} · N ${values.length}`, colors.text)
+  }
+
+  private histogramData(values: readonly number[], bins: number): { low: number; high: number; last: number; counts: number[] } {
+    const source = values.length ? values : [0]
+    const low = Math.min(...source)
+    const high = Math.max(...source)
+    const counts = Array.from({ length: bins }, () => 0)
+    for (const value of source) {
+      const index = high === low ? 0 : Math.min(bins - 1, Math.floor((value - low) / (high - low) * bins))
+      counts[index]++
+    }
+    return { low, high, last: source.at(-1) ?? 0, counts }
   }
 
   private end(state: RunState, won: boolean): void {
