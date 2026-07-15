@@ -1,11 +1,11 @@
-import { autoplayCommand } from './autoplay'
+import { autoplayDecision, autoplayStateFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
 import { perform } from './engine'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import type { AutoplayMode, Biome, RunTelemetry, RunState } from './types'
+import type { AutoplayMode, AutoplayPolicy, AutoplayTraceEntry, Biome, RunTelemetry, RunState } from './types'
 
 export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
-export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; turnLimit?: number; stalledLimit?: number }
-export interface AutoplayReport { seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; outcome: AutoplayOutcome; turns: number; commands: string[]; metrics: RunTelemetry; fingerprint: string; error?: string }
+export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; turnLimit?: number; stalledLimit?: number }
+export interface AutoplayReport { seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; metrics: RunTelemetry; fingerprint: string; error?: string }
 
 const fingerprint = (state: RunState): string => JSON.stringify({
   status: state.status,
@@ -21,19 +21,27 @@ const fingerprint = (state: RunState): string => JSON.stringify({
 export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): AutoplayReport => {
   const state = structuredClone(input)
   const mode = options.mode ?? 'omniscient'
+  const policy = options.policy ?? 'clear'
   const turnLimit = options.turnLimit ?? 600
   const stalledLimit = options.stalledLimit ?? 12
   const commands: string[] = []
+  const trace: AutoplayTraceEntry[] = []
+  const context = createAutoplayContext()
   let stalled = 0
   let outcome: AutoplayOutcome = 'turn-limit'
   let error: string | undefined
   try {
     while (state.status === 'playing' && state.turn < turnLimit) {
-      const command = autoplayCommand(state, mode)
-      if (!command) { outcome = 'stalled'; break }
+      const decision = autoplayDecision(state, mode, policy, context)
+      if (!decision) { outcome = 'stalled'; break }
+      const command = decision.command
       const before = telemetrySnapshot(state)
+      const beforeState = structuredClone(state)
+      const beforeFingerprint = autoplayStateFingerprint(state)
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
+      recordAutoplayTransition(context, beforeState, command, state)
+      trace.push({ turn: before.turn, fingerprint: beforeFingerprint, command, reason: decision.reason, candidates: decision.candidates, events: events.map(event => event.type), nextFingerprint: autoplayStateFingerprint(state) })
       commands.push(command)
       if (events.some(event => event.type === 'areaComplete')) { outcome = 'complete'; break }
       stalled = state.turn === before.turn ? stalled + 1 : 0
@@ -44,5 +52,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
     outcome = 'error'
     error = caught instanceof Error ? caught.message : String(caught)
   }
-  return { seed: state.seed, biome: state.area ?? state.floor.biome, floor: state.floor.index + 1, mode, outcome, turns: state.turn, commands, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: state.area ?? state.floor.biome, floor: state.floor.index + 1, mode, policy, outcome, turns: state.turn, commands, trace, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), ...(error ? { error } : {}) }
 }

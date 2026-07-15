@@ -7,6 +7,7 @@ export const FLOOR_COUNT = 16
 export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
+export type AutoplayPolicy = 'survival' | 'clear' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
@@ -142,6 +143,10 @@ export interface RunActions { moves: number; attacks: number; casts: number; pic
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
 export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
 export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
+export interface AutoplayCandidate { command: string; reason: string; score: number }
+export interface AutoplayTraceEntry { turn: number; fingerprint: string; command: string; reason: string; candidates: AutoplayCandidate[]; events: string[]; nextFingerprint: string }
+export type AutoplayTerminal = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'manual'
+export interface AutoplayDiagnostic { id: string; date: string; seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayTerminal; turns: number; reason: string; trace: AutoplayTraceEntry[] }
 export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
