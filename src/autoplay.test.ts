@@ -46,14 +46,28 @@ describe('autoplay', () => {
   it('halts strategic loops even when volatile actor state masks exact repeats', () => {
     const context = createAutoplayContext()
     let state = newRun(71)
-    for (let turn = 0; turn < 5; turn++) {
+    let decision = autoplayDecision(state, 'omniscient', 'clear', context)
+    for (let turn = 0; turn < 24 && decision; turn++) {
       const next = structuredClone(state)
       next.turn++
       next.floor.actors[0].energy = turn + 1
       recordAutoplayTransition(context, state, 'l', next)
       state = next
+      decision = autoplayDecision(state, 'omniscient', 'clear', context)
     }
-    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toBeUndefined()
+    expect(decision).toBeUndefined()
+    expect(context.loopRecoveries).toBe(8)
+  })
+
+  it('uses the final bomb when critically threatened', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.actors = [hostile]
+    hostile.x = state.hero.x + 1
+    hostile.y = state.hero.y
+    state.hero.health = 1
+    state.hero.bombs = 1
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('b')
   })
 
   it('completes the Mine reference run using tactical actions', () => {
