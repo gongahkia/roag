@@ -65,21 +65,26 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
   const beforeKey = autoplayStateFingerprint(before)
   const afterKey = autoplayStateFingerprint(after)
   context.visits.set(afterKey, (context.visits.get(afterKey) ?? 0) + 1)
+  if (after.turn <= before.turn) {
+    if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
+    else context.failed.clear()
+    return
+  }
   const beforeProgress = autoplayProgressFingerprint(before, false)
   const afterProgress = autoplayProgressFingerprint(after, false)
-  const progressed = beforeProgress !== afterProgress
+  const progressed = beforeProgress !== afterProgress || after.hero.health > before.hero.health || after.hero.focus > before.hero.focus
   if (progressed) {
     context.strategicVisits.clear()
     context.recentPositions = []
   }
   const strategicKey = autoplayProgressFingerprint(after, true)
   context.strategicVisits.set(strategicKey, (context.strategicVisits.get(strategicKey) ?? 0) + 1)
-  context.noProgressTurns = after.turn > before.turn && !progressed ? context.noProgressTurns + 1 : 0
+  context.noProgressTurns = !progressed ? context.noProgressTurns + 1 : 0
   if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
   else context.failed.clear()
   context.recentPositions.push(pointKey(after.hero))
   if (context.recentPositions.length > 24) context.recentPositions.shift()
-  if (before.modal?.kind === 'shop' && /^\d+$/.test(command) && after.turn > before.turn) context.shopTurns++
+  if (before.modal?.kind === 'shop' && /^\d+$/.test(command)) context.shopTurns++
   if (after.modal?.kind !== 'shop') context.shopTurns = 0
 }
 
