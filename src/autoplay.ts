@@ -65,9 +65,16 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
   const beforeKey = autoplayStateFingerprint(before)
   const afterKey = autoplayStateFingerprint(after)
   context.visits.set(afterKey, (context.visits.get(afterKey) ?? 0) + 1)
+  const beforeProgress = autoplayProgressFingerprint(before, false)
+  const afterProgress = autoplayProgressFingerprint(after, false)
+  const progressed = beforeProgress !== afterProgress
+  if (progressed) {
+    context.strategicVisits.clear()
+    context.recentPositions = []
+  }
   const strategicKey = autoplayProgressFingerprint(after, true)
   context.strategicVisits.set(strategicKey, (context.strategicVisits.get(strategicKey) ?? 0) + 1)
-  context.noProgressTurns = after.turn > before.turn && autoplayProgressFingerprint(before, false) === autoplayProgressFingerprint(after, false) ? context.noProgressTurns + 1 : 0
+  context.noProgressTurns = after.turn > before.turn && !progressed ? context.noProgressTurns + 1 : 0
   if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
   else context.failed.clear()
   context.recentPositions.push(pointKey(after.hero))
@@ -314,10 +321,11 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
 
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
   const recent = context.recentPositions
-  for (let period = 1; period <= Math.floor(recent.length / 2); period++) {
+  for (let period = 1; period <= Math.floor(recent.length / 3); period++) {
     const current = recent.slice(-period)
     const previous = recent.slice(-period * 2, -period)
-    if (current.every((position, index) => position === previous[index])) return true
+    const earlier = recent.slice(-period * 3, -period * 2)
+    if (current.every((position, index) => position === previous[index] && position === earlier[index])) return true
   }
   return false
 }
@@ -474,15 +482,22 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (combat) candidates.push(combat)
   const objective = state.floor.objective
   const needsOffering = objective.kind === 'invokeAltar' && state.hero.gold < 75
+  let hasObjectiveRoute = false
   if (objective.status !== 'complete') {
     const targets = needsOffering ? [] : objectiveTargets(state, mode)
     const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
     const routeTargets = needsAdjacent ? targets.flatMap(adjacentCells) : targets
     const route = stepTo(state, mode, routeTargets)
-    if (route) candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
+    if (route) {
+      hasObjectiveRoute = true
+      candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
+    }
     else {
       const blockedRoute = stepTo(state, mode, routeTargets, false, false, true)
-      if (blockedRoute) candidates.push({ command: blockedRoute.command, reason: `clear objective route:${objective.kind}`, score: policy === 'clear' ? 158 : 76 })
+      if (blockedRoute) {
+        hasObjectiveRoute = true
+        candidates.push({ command: blockedRoute.command, reason: `clear objective route:${objective.kind}`, score: policy === 'clear' ? 158 : 76 })
+      }
     }
   }
   if (objectiveComplete) {
@@ -497,7 +512,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const containers = state.floor.tiles.flatMap((current, index) => (current.kind === 'crate' || current.kind === 'chest') && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
     const containerRoute = collectForObjective ? stepTo(state, mode, containers.flatMap(adjacentCells)) : undefined
     if (containerRoute) candidates.push({ command: containerRoute.command, reason: 'reach container', score: 43 })
-    const frontier = explorationMove(state, mode)
+    const frontier = hasObjectiveRoute && policy === 'clear' ? undefined : explorationMove(state, mode)
     if (frontier) candidates.push(frontier)
   }
   return candidates
