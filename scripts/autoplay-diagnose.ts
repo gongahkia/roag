@@ -1,7 +1,7 @@
 import { autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
-import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
+import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
 import { getTile, validateGeneration } from '../src/world'
 
 const biomes = ['mine', 'wilds', 'caverns', 'ruins'] as const
@@ -49,7 +49,7 @@ const objectivePoints = (state: RunState): Point[] => {
   const objective = state.floor.objective.kind
   if (objective === 'defeatGuardian') return state.floor.actors.filter(actor => actor.role === 'guardian' && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y }))
   const tileKind = objective === 'recoverSupplies' ? ['crate', 'chest'] : objective === 'rescueScout' ? ['rescue'] : ['altar']
-  return state.floor.tiles.flatMap((tile, index) => tileKind.includes(tile.kind) ? [{ x: index % 48, y: Math.floor(index / 48) }] : [])
+  return state.floor.tiles.flatMap((tile, index) => tileKind.includes(tile.kind) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
 }
 
 const routeReport = (state: RunState, targets: readonly Point[], adjacent: boolean) => ({
@@ -59,7 +59,7 @@ const routeReport = (state: RunState, targets: readonly Point[], adjacent: boole
 })
 
 const currentDiagnostics = (state: RunState) => {
-  const containers = state.floor.tiles.flatMap((tile, index) => tile.kind === 'crate' || tile.kind === 'chest' ? [{ point: { x: index % 48, y: Math.floor(index / 48) }, gold: tile.kind === 'chest' ? 60 : 18 }] : [])
+  const containers = state.floor.tiles.flatMap((tile, index) => tile.kind === 'crate' || tile.kind === 'chest' ? [{ point: { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }, gold: tile.kind === 'chest' ? 60 : 18 }] : [])
   const reachableContainerGold = containers.filter(container => canReach(state, [container.point], true, false)).reduce((sum, container) => sum + container.gold, 0)
   const targets = objectivePoints(state)
   return {

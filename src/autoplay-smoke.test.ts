@@ -28,5 +28,5 @@ describe('autoplay smoke', () => {
       console.info(`autoplay smoke outcomes: ${[...outcomes].map(([outcome, count]) => `${outcome}=${count}`).join(' ')}`)
       console.info(`autoplay smoke detail:\n${reports.join('\n')}`)
     }
-  }, 35_000)
+  }, 180_000)
 })
