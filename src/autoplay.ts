@@ -1,5 +1,5 @@
 import { ITEM } from './content'
-import { actionCells, skillChoices } from './engine'
+import { actionCells, perform, skillChoices } from './engine'
 import { agilityMoveDistance } from './engine/agility'
 import { resolveAreaGate, gateForArea } from './engine/gates'
 import { canAffect, resolveLineEffect } from './engine/line-effect'
@@ -59,7 +59,7 @@ const passable = (state: RunState, mode: AutoplayMode, point: Point, avoidHazard
 const isKnownItem = (state: RunState, mode: AutoplayMode, point: Point, visibleInFog = false): boolean => mode === 'omniscient' || visible(state, point) || visibleInFog
 const adjacentCells = (point: Point): Point[] => directions.map(([, delta]) => ({ x: point.x + delta.x, y: point.y + delta.y }))
 const hostileKnown = (state: RunState, mode: AutoplayMode) => state.floor.actors.filter(actor => actor.hostile && actor.health > 0 && (mode === 'omniscient' || visible(state, actor)))
-const resourceReserve = (policy: AutoplayPolicy): number => policy === 'clear' ? 0 : policy === 'survival' ? 1 : 2
+const resourceReserve = (policy: AutoplayPolicy): number => policy === 'clear' ? 1 : policy === 'survival' ? 1 : 2
 
 const hostilePressure = (state: RunState, mode: AutoplayMode, point: Point): number => hostileKnown(state, mode).reduce((pressure, actor) => {
   const range = chebyshev(actor, point)
@@ -290,6 +290,44 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   return option ? { command: directionCommands[option.direction], reason: standingInTelegraph ? 'evade telegraph' : 'retreat threat', score: 152 } : undefined
 }
 
+const breaksPositionCycle = (context: AutoplayContext): boolean => {
+  const recent = context.recentPositions
+  if (recent.length < 4) return false
+  const [a, b, c, d] = recent.slice(-4)
+  return a === c && b === d && a !== b
+}
+
+const cycleBreakMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+  if (!breaksPositionCycle(context)) return undefined
+  const recent = new Set(context.recentPositions.slice(-6))
+  const options = directions.map(([direction]) => {
+    const point = projectedMove(state, mode, state.hero, direction, true, false)
+    if (!point || telegraphDanger(state, point)) return undefined
+    return { direction, point, repeats: context.recentPositions.filter(position => position === pointKey(point)).length, pressure: hostilePressure(state, mode, point) }
+  }).filter((option): option is { direction: Exclude<Direction, 'wait'>; point: Point; repeats: number; pressure: number } => Boolean(option))
+  const fresh = options.filter(option => !recent.has(pointKey(option.point)))
+  const selected = (fresh.length ? fresh : options.filter(option => option.repeats < 2))
+    .sort((a, b) => a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
+  return selected ? { command: directionCommands[selected.direction], reason: 'break position cycle', score: 170 } : undefined
+}
+
+const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Candidate, context: AutoplayContext): number => {
+  if (candidate.intent || candidate.command === 'b') return 0
+  const simulated = structuredClone(state)
+  const health = simulated.hero.health
+  const turn = simulated.turn
+  const events = perform(simulated, candidate.command)
+  if (simulated.status === 'dead') return -10000
+  if (simulated.modal) return 0
+  if (simulated.turn === turn) return -180
+  let adjustment = (simulated.hero.health - health) * 18
+  if (telegraphDanger(simulated, simulated.hero)) adjustment -= 105
+  if (context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
+  if (events.some(event => event.type === 'danger')) adjustment -= 14
+  if (hostilePressure(simulated, mode, simulated.hero) >= 100) adjustment -= 32
+  return adjustment
+}
+
 const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
   const foes = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= 4).sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b))
@@ -340,14 +378,16 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const item = !objectiveComplete && state.floor.items.find(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && (current.id === 'gold' || current.id === 'key' || state.hero.inventory.length < 12))
   if (item && hostilePressure(state, mode, state.hero) < 100) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: 160 })
   const use = bestUse(state, mode, policy)
-  if (use) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? 150 : 118, intent: { kind: 'use', item: use } })
+  if (use) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? state.hero.health * 2 <= state.hero.maxHealth ? 220 : hostilePressure(state, mode, state.hero) > 0 ? 180 : 150 : 118, intent: { kind: 'use', item: use } })
   const equip = bestEquip(state)
   if (equip) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
+  const pressure = hostilePressure(state, mode, state.hero)
   const bomb = state.hero.bombs > resourceReserve(policy) ? targetDirection(state, mode, 'bomb') : undefined
-  if (bomb && bomb.score >= (policy === 'clear' ? 20 : 70)) candidates.push({ command: 'b', reason: 'bomb tactical cluster', score: (hostilePressure(state, mode, state.hero) > 0 ? 185 : 110) + bomb.score / 10 })
+  if (bomb && (bomb.score >= 140 || (bomb.score >= 70 && pressure >= 100))) candidates.push({ command: 'b', reason: 'bomb tactical cluster', score: (pressure > 0 ? 185 : 110) + bomb.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
-  if (throwable && throwTarget && throwTarget.score >= 80) candidates.push({ command: 't', reason: `throw:${throwable}`, score: 96 + throwTarget.score / 10, intent: { kind: 'throw', item: throwable } })
+  const throwThreshold = throwable === 'fireJar' ? 85 : throwable === 'spear' ? 54 : 34
+  if (throwable && throwTarget && throwTarget.score >= throwThreshold) candidates.push({ command: 't', reason: `throw:${throwable}`, score: 96 + throwTarget.score / 10, intent: { kind: 'throw', item: throwable } })
   const spell = state.hero.inventory.filter(id => ITEM[id]?.use === 'spell').map(id => ({ id, target: targetDirection(state, mode, 'spell', id), profile: scriptCastProfile(state.hero, id) }))
     .filter((choice): choice is { id: string; target: { direction: Exclude<Direction, 'wait'>; score: number }; profile: ReturnType<typeof scriptCastProfile> } => Boolean(choice.target) && state.hero.focus >= choice.profile.focusCost)
     .sort((a, b) => b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
@@ -363,6 +403,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   }
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
+  const cycleBreak = cycleBreakMove(state, mode, context)
+  if (cycleBreak) candidates.push(cycleBreak)
   const evade = evadeThreat(state, mode, context)
   if (evade) candidates.push(evade)
   const combat = combatMove(state, mode)
@@ -397,7 +439,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
   const fingerprint = autoplayStateFingerprint(state)
   if ((context.visits.get(fingerprint) ?? 0) >= 6) return undefined
-  const candidates = immediateCandidates(state, mode, policy, context).map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 }))
+  const candidates = immediateCandidates(state, mode, policy, context).map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 + candidateLookahead(state, mode, candidate, context) }))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
   if (!selected || selected.score <= 0) return undefined
   context.intent = selected.intent
