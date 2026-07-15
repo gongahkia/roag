@@ -1,4 +1,5 @@
 import { ITEM, biomeName } from './content'
+import jomonMastheadSource from '../JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
@@ -23,14 +24,8 @@ const runeTileGlyph: Record<string, [string, string]> = {
   wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
 }
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
-const jomonMasthead = [
-  '██╗ ██████╗ ███╗   ███╗ ██████╗ ███╗   ██╗',
-  '██║██╔═══██╗████╗ ████║██╔═══██╗████╗  ██║',
-  '██║██║   ██║██╔████╔██║██║   ██║██╔██╗ ██║',
-  '██║██║   ██║██║╚██╔╝██║██║   ██║██║╚██╗██║',
-  '╚█████╔╝╚██████╔╝██║ ╚═╝ ██║╚██████╔╝██║ ╚████║',
-  ' ╚════╝  ╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝'
-]
+const jomonMasthead = jomonMastheadSource.trimEnd()
+const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
@@ -123,7 +118,7 @@ export class TerminalRenderer {
 
   private splash(): void {
     this.box(13, 10, 54, 24, '')
-    jomonMasthead.forEach((line, index) => this.text(Math.ceil((TERMINAL_WIDTH - line.length) / 2) - (index < jomonMasthead.length - 1 ? 2 : 0), 13 + index, line, colors.text))
+    this.ascii(Math.floor((TERMINAL_WIDTH - jomonMastheadWidth) / 2), 13, jomonMasthead, colors.text)
     const begin = '[N]  begin a new delivery'
     const resume = '[L]  resume active delivery'
     this.text(Math.floor((TERMINAL_WIDTH - begin.length) / 2), 23, begin, colors.text)
