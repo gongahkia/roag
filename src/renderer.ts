@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from './content'
-import { autoplayModeLabel } from './autoplay'
+import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
@@ -12,7 +12,7 @@ import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type 
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
@@ -63,6 +63,7 @@ export class TerminalRenderer {
   private lastCourierMenu?: CourierMenuView
   private lastCourierDraft?: CourierDraft
   private lastAutoplayMode: AutoplayMode = 'off'
+  private autoplayDiagnostic?: AutoplayDiagnostic
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -88,6 +89,7 @@ export class TerminalRenderer {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
+  setAutoplayDiagnostic(value: AutoplayDiagnostic | undefined): void { this.autoplayDiagnostic = value }
   get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
@@ -434,7 +436,7 @@ export class TerminalRenderer {
     const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
     this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · F: autoplay · ESC: pause', colors.dim)
+    this.text(1, 52, `IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · F: autoplay · Shift+F: ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · ESC: pause`, colors.dim)
     this.text(1, 54, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
   }
 
@@ -505,10 +507,11 @@ export class TerminalRenderer {
   }
 
   private pause(): void {
-    this.box(23, 14, 34, 16, 'PAUSE DELIVERY')
+    this.box(20, 12, 40, 20, 'PAUSE DELIVERY')
     this.text(28, 19, '1 / ENTER  continue', colors.green)
     this.text(28, 22, '2 / Q      save & quit', colors.text)
-    this.text(28, 26, 'Esc/backtick continues', colors.dim)
+    if (this.autoplayDiagnostic) this.text(24, 26, `AUTO ${this.autoplayDiagnostic.outcome.toUpperCase()} · ${this.autoplayDiagnostic.reason}`.slice(0, 36), colors.dim)
+    this.text(28, 29, 'Esc/backtick continues', colors.dim)
   }
 
   private shop(state: RunState): void {

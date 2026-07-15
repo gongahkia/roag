@@ -67,9 +67,10 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
   const route = (avoidHazards: boolean): { command: string; target: Point } | undefined => {
     const initial = { x: state.hero.x, y: state.hero.y }
     const queue: Array<{ point: Point; first?: Direction }> = [{ point: initial }]
+    let cursor = 0
     const seen = new Set([pointKey(initial)])
-    while (queue.length) {
-      const current = queue.shift()!
+    while (cursor < queue.length) {
+      const current = queue[cursor++]
       if (current.first && targetKeys.has(pointKey(current.point))) return { command: directionCommands[current.first], target: current.point }
       for (const [direction, delta] of directions) {
         const point = { x: current.point.x + delta.x, y: current.point.y + delta.y }
@@ -101,7 +102,7 @@ const targetDirection = (state: RunState, mode: AutoplayMode, action: 'bomb' | '
   const foes = hostileKnown(state, mode)
   const scored = directions.map(([direction]) => {
     if (action === 'bomb') {
-      const cells = actionCells('burst', state.hero, direction, 2)
+      const cells = actionCells('burst', state.hero, direction, 2).filter(point => known(state, mode, point))
       return { direction, score: hostileInCells(state, cells) * 70 + terrainInCells(state, cells) * 20 }
     }
     if (action === 'throw') {
@@ -214,8 +215,6 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
 }
 
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
-  const unknown = directions.filter(([, delta]) => !known(state, mode, { x: state.hero.x + delta.x, y: state.hero.y + delta.y }))
-  if (unknown.length) return { command: directionCommands[unknown[0][0]], reason: 'explore frontier', score: 25 }
   const frontier = state.floor.tiles.flatMap((tile, index) => {
     if (!tile.explored || blockedTiles.has(tile.kind)) return []
     const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }

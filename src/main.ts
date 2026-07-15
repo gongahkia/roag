@@ -1,6 +1,7 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { AUTOPLAY_TURN_MS, autoplayCommand, autoplayModeLabel, nextAutoplayMode } from './autoplay'
+import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayStateFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
+import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
@@ -8,7 +9,7 @@ import { advanceStory, createStory, openingLore, successionLore, type LoadingSta
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import type { CampaignRouteState, CourierDraft, CourierSave, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
+import type { AutoplayDiagnostic, AutoplayTerminal, AutoplayTraceEntry, CampaignRouteState, CourierDraft, CourierSave, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
@@ -38,6 +39,10 @@ let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
 let analysisNext: 'checkpoint' | 'succession' | 'session' | undefined
 let autoplayTimer: number | undefined
+let autoplayContext: AutoplayContext = createAutoplayContext()
+let autoplayTrace: AutoplayTraceEntry[] = []
+let autoplayLogged = false
+let autoplayDiagnostic: AutoplayDiagnostic | undefined = latestAutoplayDiagnostic()
 
 const showSessionSplash = (): boolean => {
   try {
@@ -50,6 +55,7 @@ const loadVisualMode = () => { try { return normalizeVisualMode(localStorage.get
 if (showSessionSplash()) route = { ...route, screen: 'splash' }
 renderer.setVisualMode(loadVisualMode())
 renderer.setSettings(settings)
+renderer.setAutoplayDiagnostic(autoplayDiagnostic)
 applyGameZoom()
 canvas.addEventListener('wheel', mouseEvent => {
   mouseEvent.preventDefault()
@@ -66,7 +72,7 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
-  if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); toggleAutoplay(); return }
+  if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
@@ -203,7 +209,7 @@ function resumeCourier(): void {
   records = activeCourier.records
   campaign = activeCourier.campaign
   hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false }
+  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
   else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); route = { screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' } }
   void selectCourier(activeCourier.identity.id)
 }
@@ -282,6 +288,7 @@ function start(): void {
   activeCourier.heir = structuredClone(state.hero)
   saved = structuredClone(state)
   recordedEnd = false
+  resetAutoplaySession()
   activeCourier.checkpoint = structuredClone(state)
   persistActiveCourier()
   audio.play([event('menu')])
@@ -396,11 +403,37 @@ function toggleVisualMode(): void {
 }
 
 function toggleAutoplay(): void {
+  if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'mode toggled off')
   settings = { ...settings, autoplayMode: nextAutoplayMode(settings.autoplayMode) }
+  if (settings.autoplayMode !== 'off') resetAutoplaySession()
   saveSettings(settings)
-  if (state) state.messages.unshift(`Autoplay: ${autoplayModeLabel(settings.autoplayMode)}.`)
+  if (state) state.messages.unshift(`Autoplay: ${autoplayModeLabel(settings.autoplayMode)} · ${autoplayPolicyLabel(settings.autoplayPolicy)}.`)
   audio.play([event('menu')])
   redraw()
+}
+
+function toggleAutoplayPolicy(): void {
+  if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'policy changed')
+  settings = { ...settings, autoplayPolicy: nextAutoplayPolicy(settings.autoplayPolicy) }
+  resetAutoplaySession()
+  saveSettings(settings)
+  if (state) state.messages.unshift(`Autoplay policy: ${autoplayPolicyLabel(settings.autoplayPolicy)}.`)
+  audio.play([event('menu')])
+  redraw()
+}
+
+function resetAutoplaySession(): void {
+  autoplayContext = createAutoplayContext()
+  autoplayTrace = []
+  autoplayLogged = false
+}
+
+function finalizeAutoplay(outcome: AutoplayTerminal, reason: string): void {
+  if (autoplayLogged || !autoplayTrace.length || !state || settings.autoplayMode === 'off') return
+  autoplayLogged = true
+  autoplayDiagnostic = { id: `${state.seed}:${state.floor.seed}:${Date.now()}`, date: new Date().toISOString(), seed: state.seed, biome: state.area ?? state.floor.biome, floor: (state.areaFloor ?? state.floor.index % 4) + 1, mode: settings.autoplayMode, policy: settings.autoplayPolicy, outcome, turns: state.turn, reason, trace: structuredClone(autoplayTrace) }
+  saveAutoplayDiagnostic(autoplayDiagnostic)
+  renderer.setAutoplayDiagnostic(autoplayDiagnostic)
 }
 
 function canAutoplay(): boolean { return route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' }
@@ -415,15 +448,16 @@ function syncAutoplay(): void {
   autoplayTimer = window.setTimeout(() => {
     autoplayTimer = undefined
     if (!state || !canAutoplay()) return
-    const command = autoplayCommand(state, settings.autoplayMode)
-    if (!command) {
+    const decision = autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, autoplayContext)
+    if (!decision) {
+      finalizeAutoplay('stalled', 'cycle guard or no legal progress action')
       settings = { ...settings, autoplayMode: 'off' }
       saveSettings(settings)
-      state.messages.unshift('Autoplay stalled.')
+      state.messages.unshift('Autoplay stalled; trace saved locally.')
       redraw()
       return
     }
-    executeGameplayCommand(command)
+    executeGameplayCommand(decision.command, { autoplay: decision })
   }, AUTOPLAY_TURN_MS)
 }
 
@@ -431,12 +465,14 @@ function redraw(): void {
   canvas.dataset.route = route.screen
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
+  canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
 function finish(won: boolean): void {
   if (!state) return
+  finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
   recordedEnd = true
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
   if (!won && !checkpointDeath) {
@@ -476,11 +512,13 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
   return events
 }
 
-type GameplayCommandOptions = { quickCast?: boolean; run?: boolean; spellEffect?: string }
+type GameplayCommandOptions = { quickCast?: boolean; run?: boolean; spellEffect?: string; autoplay?: AutoplayDecision }
 
 function executeGameplayCommand(command: string, options: GameplayCommandOptions = {}): void {
   if (!state || route.screen !== 'level' || state.status !== 'playing') return
   const game = state
+  const autoplayBefore = options.autoplay ? structuredClone(game) : undefined
+  const autoplayFingerprint = options.autoplay ? autoplayStateFingerprint(game) : undefined
   const previousX = game.hero.x
   const previousLevel = game.hero.level
   let events = [] as ReturnType<typeof perform>
@@ -495,6 +533,13 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   else events = performTracked(game, command)
   if (game.hero.level > previousLevel) events.push(event('level'))
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
+  if (options.autoplay && autoplayBefore && autoplayFingerprint) {
+    recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
+    autoplayTrace.push({ turn: autoplayBefore.turn, fingerprint: autoplayFingerprint, command, reason: options.autoplay.reason, candidates: options.autoplay.candidates, events: events.map(entry => entry.type), nextFingerprint: autoplayStateFingerprint(game) })
+    if (autoplayTrace.length > 600) autoplayTrace = autoplayTrace.slice(-600)
+    if (hasEvent(events, 'areaComplete')) finalizeAutoplay('complete', 'area completed')
+    else if (hasEvent(events, 'death') || game.status === 'dead') finalizeAutoplay('dead', 'courier defeated')
+  }
   audio.play(events)
   renderer.trigger(events, game, options.spellEffect)
   if (hasEvent(events, 'suspend')) { suspendRun(); return }
@@ -516,6 +561,7 @@ function performTracked(game: RunState, command: string): ReturnType<typeof perf
 
 function suspendRun(): void {
   if (!state) return
+  finalizeAutoplay('manual', 'run suspended')
   saved = structuredClone(state)
   analysis = analysisFor(state, 'suspended')
   records.analyses.unshift(analysis)
