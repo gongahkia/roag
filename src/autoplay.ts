@@ -115,7 +115,7 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
     }
     return undefined
   }
-  return route(true, avoidThreats) ?? route(true, false)
+  return route(true, avoidThreats) ?? route(true, false) ?? route(false, false)
 }
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
@@ -261,18 +261,11 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   const currentPressure = hostilePressure(state, mode, state.hero)
   const standingInTelegraph = telegraphDanger(state, state.hero)
   if (!standingInTelegraph && currentPressure < 100) return undefined
-  const rangedCommitment = hostileKnown(state, mode).filter(actor => actor.ai === 'ranged' && chebyshev(state.hero, actor) <= 7)
-    .sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || b.attack - a.attack)[0]
-  if (standingInTelegraph && rangedCommitment && state.hero.bombs < 1 && state.hero.health > rangedCommitment.attack * 3 + 6) return undefined
   const options = directions.map(([direction, delta]) => ({ direction, point: { x: state.hero.x + delta.x, y: state.hero.y + delta.y } }))
     .filter(option => passable(state, mode, option.point, true) && !telegraphDanger(state, option.point))
     .map(option => ({ ...option, pressure: hostilePressure(state, mode, option.point), repeats: context.recentPositions.filter(key => key === pointKey(option.point)).length }))
   const source = state.floor.telegraphs?.find(telegraph => telegraph.resolveTurn <= state.turn + 1 && telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y))?.sourceId
   const ranged = source ? state.floor.actors.find(actor => actor.id === source && actor.hostile && actor.ai === 'ranged') : undefined
-  if (ranged && state.hero.bombs < 1 && state.hero.health > ranged.attack * 3 + 6) {
-    const approach = stepTo(state, mode, adjacentCells(ranged), false, false)
-    if (approach) return { command: approach.command, reason: `close telegrapher:${ranged.id}`, score: 168 }
-  }
   if (ranged && state.hero.bombs > 0) {
     const tactical = options.filter(option => chebyshev(option.point, ranged) >= 2)
       .sort((a, b) => Math.abs(chebyshev(a.point, ranged) - 2) - Math.abs(chebyshev(b.point, ranged) - 2) || a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
@@ -345,18 +338,7 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   const guardian = foes.find(foe => foe.role === 'guardian')
   const route = guardian ? stepTo(state, mode, adjacentCells(guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
-  if (state.hero.health * 2 < state.hero.maxHealth) return undefined
-  const ranged = hostileKnown(state, mode).filter(foe => foe.ai === 'ranged' && chebyshev(state.hero, foe) >= 3 && chebyshev(state.hero, foe) <= 7)
-    .sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || b.attack - a.attack)[0]
-  if (!ranged) return undefined
-  const useBomb = state.hero.bombs > 0
-  if (!useBomb && state.hero.health <= ranged.attack * 3 + 6) return undefined
-  const staging = state.floor.tiles.flatMap((_, index) => {
-    const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
-    return known(state, mode, point) && passable(state, mode, point, true) && chebyshev(point, ranged) === (useBomb ? 2 : 1) ? [point] : []
-  })
-  const stagingRoute = stepTo(state, mode, staging, false, false)
-  return stagingRoute ? { command: stagingRoute.command, reason: `${useBomb ? 'close' : 'engage'} ranged:${ranged.id}`, score: useBomb ? 96 : 86 } : undefined
+  return undefined
 }
 
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
