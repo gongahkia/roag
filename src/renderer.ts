@@ -64,7 +64,7 @@ export class TerminalRenderer {
     canvas.width = TERMINAL_WIDTH * CW
     canvas.height = TERMINAL_HEIGHT * CH
     ctx.imageSmoothingEnabled = false
-    ctx.font = '12px Cozette, ui-monospace, SFMono-Regular, Menlo, monospace'
+    ctx.font = '12px BigBlueTerm'
     ctx.textBaseline = 'top'
     void document.fonts.ready.then(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))

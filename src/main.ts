@@ -226,9 +226,9 @@ function resumeCourier(): void {
   void selectCourier(activeCourier.identity.id)
 }
 
-function persistActiveCourier(): void {
+function persistActiveCourier(restoreCheckpoint = false): void {
   if (!activeCourier) return
-  activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : undefined
+  activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
   if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
   activeCourier.campaign = campaign
   activeCourier.records = records
@@ -440,7 +440,7 @@ function finish(won: boolean): void {
   else saved = undefined
   if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
   route = { ...route, screen: 'analysis' }
-  persistActiveCourier()
+  persistActiveCourier(checkpointDeath)
 }
 
 function run(game: RunState, command: string): ReturnType<typeof perform> {
@@ -483,6 +483,7 @@ function continueAnalysis(): void {
   if (next === 'checkpoint' && activeCourier?.checkpoint) {
     state = structuredClone(activeCourier.checkpoint)
     saved = structuredClone(activeCourier.checkpoint)
+    persistActiveCourier()
     route = { screen: 'level', biome: campaign.selectedBiome }
     recordedEnd = false
     redraw()
