@@ -22,24 +22,29 @@ const fingerprint = (state: RunState): string => JSON.stringify({
 
 const exitPathState = (state: RunState): AutoplayFinalState['exitPath'] => {
   const blocked = new Set(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
-  const start = { x: state.hero.x, y: state.hero.y }
   const key = (x: number, y: number) => `${x},${y}`
-  const queue = [start]
-  const seen = new Set([key(start.x, start.y)])
-  while (queue.length) {
-    const point = queue.shift()!
-    if (point.x === state.floor.exit.x && point.y === state.floor.exit.y) return state.floor.actors.some(actor => actor.health > 0 && actor.x === state.floor.exit.x && actor.y === state.floor.exit.y) ? 'actor-blocked' : 'clear'
-    for (const delta of Object.values(DIRECTIONS)) {
-      const x = point.x + delta.x
-      const y = point.y + delta.y
-      const pointKey = key(x, y)
-      const tile = getTile(state.floor, x, y)
-      if (seen.has(pointKey) || !tile || blocked.has(tile.kind) || (tile.kind === 'lockedDoor' && state.hero.keys < 1)) continue
-      seen.add(pointKey)
-      queue.push({ x, y })
+  const reachesExit = (blockActors: boolean): boolean => {
+    const start = { x: state.hero.x, y: state.hero.y }
+    const queue = [start]
+    const seen = new Set([key(start.x, start.y)])
+    while (queue.length) {
+      const point = queue.shift()!
+      if (point.x === state.floor.exit.x && point.y === state.floor.exit.y) return true
+      for (const delta of Object.values(DIRECTIONS)) {
+        const x = point.x + delta.x
+        const y = point.y + delta.y
+        const pointKey = key(x, y)
+        const tile = getTile(state.floor, x, y)
+        if (seen.has(pointKey) || !tile || blocked.has(tile.kind) || (tile.kind === 'lockedDoor' && state.hero.keys < 1)) continue
+        if (blockActors && state.floor.actors.some(actor => actor.health > 0 && actor.x === x && actor.y === y)) continue
+        seen.add(pointKey)
+        queue.push({ x, y })
+      }
     }
+    return false
   }
-  return 'terrain-blocked'
+  if (!reachesExit(false)) return 'terrain-blocked'
+  return reachesExit(true) ? 'clear' : 'actor-blocked'
 }
 
 export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): AutoplayReport => {
@@ -65,7 +70,17 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
       recordAutoplayTransition(context, beforeState, command, state)
-      trace.push({ turn: before.turn, fingerprint: beforeFingerprint, command, reason: decision.reason, candidates: decision.candidates, events: events.map(event => event.type), nextFingerprint: autoplayStateFingerprint(state) })
+      trace.push({
+        turn: before.turn,
+        fingerprint: beforeFingerprint,
+        command,
+        reason: decision.reason,
+        candidates: decision.candidates,
+        events: events.map(event => event.type),
+        nextFingerprint: autoplayStateFingerprint(state),
+        before: { x: beforeState.hero.x, y: beforeState.hero.y, health: beforeState.hero.health, focus: beforeState.hero.focus, bombs: beforeState.hero.bombs, ropes: beforeState.hero.ropes, objective: beforeState.floor.objective.status },
+        after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
+      })
       commands.push(command)
       if (events.some(event => event.type === 'areaComplete')) { outcome = 'complete'; break }
       stalled = state.turn === before.turn ? stalled + 1 : 0

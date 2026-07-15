@@ -535,7 +535,17 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
   if (options.autoplay && autoplayBefore && autoplayFingerprint) {
     recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
-    autoplayTrace.push({ turn: autoplayBefore.turn, fingerprint: autoplayFingerprint, command, reason: options.autoplay.reason, candidates: options.autoplay.candidates, events: events.map(entry => entry.type), nextFingerprint: autoplayStateFingerprint(game) })
+    autoplayTrace.push({
+      turn: autoplayBefore.turn,
+      fingerprint: autoplayFingerprint,
+      command,
+      reason: options.autoplay.reason,
+      candidates: options.autoplay.candidates,
+      events: events.map(entry => entry.type),
+      nextFingerprint: autoplayStateFingerprint(game),
+      before: { x: autoplayBefore.hero.x, y: autoplayBefore.hero.y, health: autoplayBefore.hero.health, focus: autoplayBefore.hero.focus, bombs: autoplayBefore.hero.bombs, ropes: autoplayBefore.hero.ropes, objective: autoplayBefore.floor.objective.status },
+      after: { x: game.hero.x, y: game.hero.y, health: game.hero.health, focus: game.hero.focus, bombs: game.hero.bombs, ropes: game.hero.ropes, objective: game.floor.objective.status, ...(game.modal ? { modal: game.modal.kind } : {}) }
+    })
     if (autoplayTrace.length > 600) autoplayTrace = autoplayTrace.slice(-600)
     if (hasEvent(events, 'areaComplete')) finalizeAutoplay('complete', 'area completed')
     else if (hasEvent(events, 'death') || game.status === 'dead') finalizeAutoplay('dead', 'courier defeated')

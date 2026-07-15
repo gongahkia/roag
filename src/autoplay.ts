@@ -423,7 +423,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if ((context.visits.get(fingerprint) ?? 0) >= 6) return undefined
   const candidates = immediateCandidates(state, mode, policy, context).map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 + candidateLookahead(state, mode, candidate, context) }))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
-  if (!selected || selected.score <= 0) return undefined
+  if (!selected || selected.score < -150) return undefined
   context.intent = selected.intent
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
