@@ -13,6 +13,7 @@ describe('autoplay smoke', () => {
 
   it('runs deterministic visible and full-map agents without engine errors', () => {
     const outcomes = new Map<string, number>()
+    const reports: string[] = []
     for (const seed of [7, 42]) for (const biome of biomes) for (const mode of ['visible', 'omniscient'] as const) {
       const initial = newRun(seed, biome)
       const first = runAutoplay(initial, { mode, turnLimit: mode === 'visible' ? 350 : 600 })
@@ -21,7 +22,9 @@ describe('autoplay smoke', () => {
       expect(first).toEqual(second)
       expect(first.commands.length).toBeGreaterThan(0)
       outcomes.set(`${mode}:${first.outcome}`, (outcomes.get(`${mode}:${first.outcome}`) ?? 0) + 1)
+      reports.push(`${mode}/${biome}/${seed}: ${first.outcome} at ${first.turns} (${first.trace.slice(-6).map(entry => `${entry.command}/${entry.reason}/${entry.events.join('+') || '-'}`).join(' | ')})`)
     }
     console.info(`autoplay smoke outcomes: ${[...outcomes].map(([outcome, count]) => `${outcome}=${count}`).join(' ')}`)
-  })
+    console.info(`autoplay smoke detail:\n${reports.join('\n')}`)
+  }, 15_000)
 })

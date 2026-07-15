@@ -85,7 +85,7 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
     }
     return undefined
   }
-  return route(true) ?? route(false)
+  return route(true)
 }
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
@@ -129,7 +129,7 @@ const bestEquip = (state: RunState): string | undefined => state.hero.inventory.
 const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): string | undefined => {
   const items = state.hero.inventory
   const heal = items.find(id => ITEM[id]?.use === 'heal')
-  if (heal && state.hero.health * (policy === 'survival' ? 2 : 3) <= state.hero.maxHealth) return heal
+  if (heal && state.hero.health + 8 <= state.hero.maxHealth) return heal
   const focus = items.find(id => ITEM[id]?.use === 'focus')
   if (focus && state.hero.focus <= 2 && items.some(id => ITEM[id]?.use === 'spell')) return focus
   const map = items.find(id => ITEM[id]?.use === 'map')
@@ -140,21 +140,32 @@ const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, co
   if (rope && state.hero.ropes <= resourceReserve(policy)) return rope
   const key = items.find(id => ITEM[id]?.use === 'key')
   if (key && state.floor.tiles.some(tile => tile.kind === 'lockedDoor')) return key
-  const teleport = items.find(id => ITEM[id]?.use === 'teleport')
-  if (teleport && (context.visits.get(autoplayStateFingerprint(state)) ?? 0) >= 3) return teleport
   return undefined
+}
+
+const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefined => {
+  const reserve = policy === 'clear' ? 0 : policy === 'survival' ? 20 : 45
+  return merchantStock(state).filter(id => state.hero.gold - ITEM[id].value >= reserve && state.hero.inventory.length < 12).filter(id => {
+    const item = ITEM[id]
+    if (item.use === 'heal') return !state.hero.inventory.some(held => ITEM[held]?.use === 'heal')
+    if (item.use === 'bomb') return state.hero.bombs <= resourceReserve(policy)
+    if (item.use === 'rope') return state.hero.ropes <= resourceReserve(policy)
+    if (!item.slot) return false
+    return bestEquip({ ...state, hero: { ...state.hero, inventory: [...state.hero.inventory, id] } }) === id
+  }).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]
 }
 
 const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined => {
   const gate = gateForArea(state.area ?? state.floor.biome)
-  return gate.tagAlternatives.map((option, index) => {
+  const choices = gate.tagAlternatives.map((option, index) => {
     const clone = structuredClone(state)
     const resolution = resolveAreaGate(clone, gate, index)
     if (!resolution.resolved) return { index, score: Number.NEGATIVE_INFINITY }
     const cost = option.cost ?? gate.cost
     const irreversible = option.kind === 'npc' ? (policy === 'legacy' ? 1000 : policy === 'survival' ? 300 : 45) : option.kind === 'bomb' ? (policy === 'legacy' ? 180 : policy === 'survival' ? 80 : 20) : 0
     return { index, score: 1000 - cost.gold - cost.items.reduce((sum, id) => sum + ITEM[id].value, 0) - irreversible }
-  }).sort((a, b) => b.score - a.score || a.index - b.index)[0]?.index
+  }).filter(choice => Number.isFinite(choice.score)).sort((a, b) => b.score - a.score || a.index - b.index)
+  return choices[0]?.index
 }
 
 const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
@@ -187,8 +198,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   if (modal.kind === 'shop') {
     const maxTurns = policy === 'clear' ? 2 : 1
     if (context.shopTurns >= maxTurns) return { command: 'Escape', reason: 'leave merchant', score: 200 }
-    const stock = merchantStock(state).filter(id => state.hero.gold >= ITEM[id].value && state.hero.inventory.length < 12)
-    const desired = stock.filter(id => ITEM[id].use === 'heal' || ITEM[id].use === 'bomb' || ITEM[id].use === 'rope' || Boolean(ITEM[id].slot)).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]
+    const desired = bestShopItem(state, policy)
     const index = desired ? merchantStock(state).indexOf(desired) : -1
     return { command: index >= 0 ? String(index + 1) : 'Escape', reason: desired ? `buy:${desired}` : 'leave merchant', score: 200 }
   }
@@ -237,7 +247,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (equip) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
   const bomb = state.hero.bombs > resourceReserve(policy) ? targetDirection(state, mode, 'bomb') : undefined
   if (bomb && bomb.score >= (policy === 'clear' ? 20 : 70)) candidates.push({ command: 'b', reason: 'bomb tactical cluster', score: 110 + bomb.score / 10 })
-  const throwable = state.hero.inventory.filter(id => ITEM[id]?.throwable).sort((a, b) => Number(b === 'fireJar') - Number(a === 'fireJar'))[0]
+  const throwable = state.hero.inventory.filter(id => ['rock', 'fireJar', 'spear'].includes(id)).sort((a, b) => Number(b === 'fireJar') - Number(a === 'fireJar'))[0]
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   if (throwable && throwTarget && throwTarget.score >= 42) candidates.push({ command: 't', reason: `throw:${throwable}`, score: 105 + throwTarget.score / 10, intent: { kind: 'throw', item: throwable } })
   const spell = state.hero.inventory.find(id => ITEM[id]?.use === 'spell' && targetDirection(state, mode, 'spell', id))
@@ -246,8 +256,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const nearLockedDoor = adjacentCells(heroPoint).some(point => getTile(state.floor, point.x, point.y)?.kind === 'lockedDoor')
   const nearMerchant = state.floor.actors.some(actor => actor.role === 'merchant' && chebyshev(actor, state.hero) <= 1)
   const friendly = state.floor.actors.some(actor => actor.role === 'ally' && chebyshev(actor, state.hero) <= 1)
-  if (nearLockedDoor || nearMerchant || nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly) {
-    if (tile?.kind !== 'altar' || state.hero.gold >= 75) candidates.push({ command: 'c', reason: nearMerchant ? 'merchant' : nearLockedDoor ? 'gate' : 'operate objective', score: nearMerchant ? 82 : 135 })
+  const viableGate = nearLockedDoor && gateChoice(state, policy) !== undefined
+  if (viableGate || (nearMerchant && bestShopItem(state, policy)) || nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly) {
+    if (tile?.kind !== 'altar' || state.hero.gold >= 75) candidates.push({ command: 'c', reason: nearMerchant ? 'merchant' : viableGate ? 'gate' : 'operate objective', score: nearMerchant ? 82 : 135 })
   }
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
   const combat = combatMove(state, mode)
