@@ -1,9 +1,8 @@
 import { ITEM } from './content'
 import manifestData from './assets/generated-sprites/sprite-manifest.json'
+import { CELL_HEIGHT, CELL_WIDTH } from './renderer/metrics'
 import type { Actor, Biome, Tile } from './types'
 
-const cellWidth = 10
-const cellHeight = 14
 const spriteSize = 14
 const sourceSize = 16
 const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c' }
@@ -119,8 +118,8 @@ export class TextureAtlas {
     if (!image?.complete || !image.naturalWidth) return false
     const frame = frameOverride === undefined ? Math.floor(performance.now() / sprite.frameDurationMs) % sprite.frames : Math.max(0, Math.min(sprite.frames - 1, frameOverride))
     const sourceOffset = sprite.frameOffsets?.[frame] ?? sprite.sourceOffset
-    const destinationX = x * cellWidth - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize)
-    const destinationY = y * cellHeight + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize)
+    const destinationX = x * CELL_WIDTH - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize)
+    const destinationY = y * CELL_HEIGHT + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize)
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
     ctx.imageSmoothingEnabled = false
@@ -145,7 +144,7 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome:
   ctx.save()
   ctx.globalAlpha = dim ? .38 : 1
   ctx.fillStyle = terrainBase[biome]
-  ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight)
+  ctx.fillRect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT)
   ctx.restore()
   const index = tileSprite[tile.kind]
   const sheet = manifestSheets.get(terrainSheet[biome])!
@@ -159,11 +158,21 @@ export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | un
   fallbackActor(ctx, actor, hero, x, y, dim)
 }
 
-export function drawItemSprite(ctx: CanvasRenderingContext2D, id: string, x: number, y: number): void {
-  if (textureAtlas.draw(ctx, itemSprite[id], x, y)) return
+export function drawItemSprite(ctx: CanvasRenderingContext2D, id: string, x: number, y: number, clip = false): void {
+  if (clip) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT)
+    ctx.clip()
+  }
+  if (textureAtlas.draw(ctx, itemSprite[id], x, y)) {
+    if (clip) ctx.restore()
+    return
+  }
   const item = ITEM[id]
   ctx.fillStyle = item?.color ?? '#f4d26a'
-  ctx.fillRect(x * cellWidth + 3, y * cellHeight + 4, 5, 6)
+  ctx.fillRect(x * CELL_WIDTH + 3, y * CELL_HEIGHT + 4, 5, 6)
+  if (clip) ctx.restore()
 }
 
 export function drawEffectSprite(ctx: CanvasRenderingContext2D, id: string, x: number, y: number, frame: number): boolean {
@@ -174,7 +183,7 @@ function fallbackTile(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: n
   ctx.save()
   ctx.globalAlpha = dim ? .38 : 1
   ctx.fillStyle = tile.kind === 'wall' ? '#798795' : tile.kind === 'floor' ? '#4f5c6c' : '#f4d26a'
-  ctx.fillRect(x * cellWidth + 1, y * cellHeight + 3, 8, 8)
+  ctx.fillRect(x * CELL_WIDTH + 1, y * CELL_HEIGHT + 3, 8, 8)
   ctx.restore()
 }
 
@@ -182,6 +191,6 @@ function fallbackActor(ctx: CanvasRenderingContext2D, actor: Actor | undefined, 
   ctx.save()
   ctx.globalAlpha = dim ? .38 : 1
   ctx.fillStyle = hero ? '#f4d26a' : actor?.color ?? '#d6dce8'
-  ctx.fillRect(x * cellWidth + 2, y * cellHeight + 2, 6, 9)
+  ctx.fillRect(x * CELL_WIDTH + 2, y * CELL_HEIGHT + 2, 6, 9)
   ctx.restore()
 }

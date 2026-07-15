@@ -4,6 +4,7 @@ import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
+import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cellRect } from './renderer/metrics'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
@@ -14,14 +15,19 @@ import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type CourierDr
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
-const CW = 10
-const CH = 12
 const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
+const shade = (color: string, amount = .58): string => {
+  const match = /^#([0-9a-f]{6})$/i.exec(color)
+  if (!match) return colors.dim
+  const value = Number.parseInt(match[1], 16)
+  const channel = (shift: number) => Math.round(((value >> shift) & 0xff) * (1 - amount)).toString(16).padStart(2, '0')
+  return `#${channel(16)}${channel(8)}${channel(0)}`
+}
 const tileGlyph: Record<string, [string, string]> = {
   wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
 }
-const runeTileGlyph: Record<string, [string, string]> = {
-  wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
+const runeTileGlyph: Record<string, [string, string, string]> = {
+  wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714']
 }
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 const jomonMasthead = jomonMastheadSource.trimEnd()
@@ -39,7 +45,7 @@ const courierCallings = {
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
-  private readonly effects = new TerminalEffects(CW, CH, 48, 35)
+  private readonly effects = new TerminalEffects(CW, CH, MAP_WIDTH, MAP_HEIGHT)
   private spriteMode = false
   private runeMode = false
   private heroFacingLeft = false
@@ -239,8 +245,8 @@ export class TerminalRenderer {
 
   private stage(state: RunState): void {
     const preview = state.modal?.kind === 'target' ? targetPreview(state, state.modal) : undefined
-    const boardWidth = 48 * CW
-    const boardHeight = 35 * CH
+    const boardWidth = MAP_WIDTH * CW
+    const boardHeight = MAP_HEIGHT * CH
     const focusX = (state.hero.x + .5) * CW
     const focusY = (state.hero.y + .5) * CH
     const centerX = boardWidth / 2
@@ -254,32 +260,36 @@ export class TerminalRenderer {
     this.ctx.translate(centerX, centerY)
     this.ctx.scale(this.boardZoom, this.boardZoom)
     this.ctx.translate(-focusX, -focusY)
-    for (let y = 0; y < 35; y++) for (let x = 0; x < 48; x++) this.drawMapCell(state, x, y, preview)
+    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) this.drawMapCell(state, x, y, preview)
     if (this.spriteMode) this.drawTelegraphs(state)
     if (this.spriteMode) {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
       drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation)
     }
-    else this.cell(state.hero.x, state.hero.y, this.runeMode ? '☉' : '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
+    else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
+    if (this.spriteMode) this.spriteFog(state)
     this.ctx.restore()
-    this.ruleVertical(48, 0, 50)
+    this.ruleVertical(MAP_WIDTH, 0, 50)
   }
 
   private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
     const tile = getTile(state.floor, x, y)!
     const item = state.floor.items.find(current => current.x === x && current.y === y)
     if (!tile.explored) {
-      if (isItemVisible(tile, item)) this.drawItem(item!, x, y)
-      else this.cell(x, y, ' ', colors.ink, colors.ink)
+      if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
+      if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
       return
     }
     const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
     const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
     const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
-    const [glyph, color] = (this.runeMode ? runeTileGlyph : tileGlyph)[tile.kind]
-    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, !tile.visible)
-    else this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false)
+    else if (this.runeMode) this.drawRuneTile(tile.kind, tile.visible, x, y)
+    else {
+      const [glyph, color] = tileGlyph[tile.kind]
+      this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+    }
     if (!tile.visible) {
       if (isItemVisible(tile, item)) this.drawItem(item!, x, y)
       return
@@ -291,17 +301,44 @@ export class TerminalRenderer {
     }
     if (item) this.drawItem(item, x, y)
     const actor = actorAt(state.floor, x, y)
-    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, this.runeMode ? '◈' : actor.glyph, actor.color)
+    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')
       this.cell(x, y, presentation.glyph, presentation.color)
     }
-    if (!this.spriteMode && (previewPath || previewCell)) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue)
+    if (!this.spriteMode && (previewPath || previewCell)) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue, this.runeMode ? previewCell ? '#2a203d' : '#182842' : undefined)
   }
 
-  private drawItem(item: GroundItem, x: number, y: number): void {
-    if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y)
-    else this.cell(x, y, this.runeMode ? '✦' : ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+  private drawRuneTile(kind: string, visible: boolean, x: number, y: number): void {
+    const [glyph, fore, back] = runeTileGlyph[kind]
+    this.cell(x, y, glyph, visible ? fore : shade(fore), visible ? back : shade(back))
+  }
+
+  private drawItem(item: GroundItem, x: number, y: number, clip = false): void {
+    if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y, clip)
+    else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+  }
+
+  private spriteFog(state: RunState): void {
+    this.ctx.save()
+    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) {
+      const tile = getTile(state.floor, x, y)!
+      const rect = cellRect(x, y)
+      if (!tile.explored) {
+        this.ctx.fillStyle = colors.ink
+        this.ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+      } else if (!tile.visible) {
+        this.ctx.globalAlpha = .62
+        this.ctx.fillStyle = colors.ink
+        this.ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+        this.ctx.globalAlpha = 1
+      }
+    }
+    this.ctx.restore()
+    for (const item of state.floor.items) {
+      const tile = getTile(state.floor, item.x, item.y)
+      if (tile && !tile.visible && isItemVisible(tile, item)) this.drawItem(item, item.x, item.y, true)
+    }
   }
 
   private drawTelegraphs(state: RunState): void {
