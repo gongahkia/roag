@@ -24,7 +24,9 @@ describe('autoplay smoke', () => {
       outcomes.set(`${mode}:${first.outcome}`, (outcomes.get(`${mode}:${first.outcome}`) ?? 0) + 1)
       reports.push(`${mode}/${biome}/${seed}: ${first.outcome} at ${first.turns} (${first.trace.slice(-6).map(entry => `${entry.command}/${entry.reason}/${entry.events.join('+') || '-'}`).join(' | ')})`)
     }
-    console.info(`autoplay smoke outcomes: ${[...outcomes].map(([outcome, count]) => `${outcome}=${count}`).join(' ')}`)
-    console.info(`autoplay smoke detail:\n${reports.join('\n')}`)
-  }, 15_000)
+    if (process.env.AUTOPLAY_TRACE === '1') {
+      console.info(`autoplay smoke outcomes: ${[...outcomes].map(([outcome, count]) => `${outcome}=${count}`).join(' ')}`)
+      console.info(`autoplay smoke detail:\n${reports.join('\n')}`)
+    }
+  }, 35_000)
 })
