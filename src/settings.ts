@@ -1,6 +1,6 @@
-import type { KeyBindingId } from './types'
+import type { AutoplayMode, KeyBindingId } from './types'
 
-export interface GameSettings { version: 1; reducedFlash: boolean; bindings: Partial<Record<KeyBindingId, string>> }
+export interface GameSettings { version: 1; reducedFlash: boolean; autoplayMode: AutoplayMode; bindings: Partial<Record<KeyBindingId, string>> }
 export interface SettingsStore { getItem(key: string): string | null; setItem(key: string, value: string): void }
 export interface KeyBinding { id: KeyBindingId; label: string; defaultKey: string; command: string }
 export type SettingChoice = { kind: 'reducedFlash'; label: string; value: string } | { kind: 'binding'; binding: KeyBinding; label: string; value: string }
@@ -13,7 +13,7 @@ export const KEY_BINDINGS: readonly KeyBinding[] = [
   { id: 'use', label: 'Use', defaultKey: 'u', command: 'u' }, { id: 'drop', label: 'Drop', defaultKey: 'd', command: 'd' }, { id: 'throw', label: 'Throw', defaultKey: 't', command: 't' }, { id: 'equip', label: 'Equip', defaultKey: 'e', command: 'e' }, { id: 'skills', label: 'Skills', defaultKey: 'a', command: 'a' }, { id: 'bomb', label: 'Bomb', defaultKey: 'b', command: 'b' }, { id: 'rope', label: 'Rope', defaultKey: 'r', command: 'r' }, { id: 'get', label: 'Get', defaultKey: 'g', command: 'g' }, { id: 'operate', label: 'Operate', defaultKey: 'c', command: 'c' }, { id: 'descend', label: 'Descend', defaultKey: 'q', command: 'q' }, { id: 'swap', label: 'Swap', defaultKey: 'x', command: 'x' }, { id: 'script', label: 'Charm', defaultKey: 's', command: 's' }
 ]
 export const SETTINGS_PAGE_SIZE = 9
-export const defaultSettings = (): GameSettings => ({ version: 1, reducedFlash: false, bindings: {} })
+export const defaultSettings = (): GameSettings => ({ version: 1, reducedFlash: false, autoplayMode: 'off', bindings: {} })
 const binding = (id: KeyBindingId): KeyBinding => {
   const found = KEY_BINDINGS.find(current => current.id === id)
   if (!found) throw new Error(`unknown key binding: ${id}`)
@@ -31,7 +31,8 @@ export const normalizeSettings = (value: unknown): GameSettings => {
     const key = (source.bindings as Record<string, unknown>)[current.id]
     if (typeof key === 'string' && key.length > 0 && key.length <= 32) bindings[current.id] = normalizeKey(key)
   }
-  const candidate: GameSettings = { version: 1, reducedFlash: source.reducedFlash === true, bindings }
+  const autoplayMode: AutoplayMode = source.autoplayMode === 'visible' || source.autoplayMode === 'omniscient' ? source.autoplayMode : 'off'
+  const candidate: GameSettings = { version: 1, reducedFlash: source.reducedFlash === true, autoplayMode, bindings }
   for (const current of KEY_BINDINGS) if (KEY_BINDINGS.some(other => other.id !== current.id && keyFor(candidate, other) === keyFor(candidate, current))) delete candidate.bindings[current.id]
   return candidate
 }

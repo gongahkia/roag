@@ -1,4 +1,5 @@
 import { ITEM, biomeName } from './content'
+import { autoplayModeLabel } from './autoplay'
 import jomonMastheadSource from '../JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
@@ -11,7 +12,7 @@ import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type 
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
 
@@ -61,6 +62,7 @@ export class TerminalRenderer {
   private lastAnalysis?: RunAnalysis
   private lastCourierMenu?: CourierMenuView
   private lastCourierDraft?: CourierDraft
+  private lastAutoplayMode: AutoplayMode = 'off'
   private settings: GameSettings = defaultSettings()
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -72,8 +74,8 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '12px BigBlueTerm'
     ctx.textBaseline = 'top'
-    void document.fonts.ready.then(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
-    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
+    void document.fonts.ready.then(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
   }
 
   setVisualMode(value: VisualMode): void {
@@ -96,7 +98,7 @@ export class TerminalRenderer {
     this.effects.trigger(events, state, this.canvas, effectId)
   }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis, courierMenu?: CourierMenuView, courierDraft?: CourierDraft): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis, courierMenu?: CourierMenuView, courierDraft?: CourierDraft, autoplayMode: AutoplayMode = 'off'): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
@@ -106,6 +108,7 @@ export class TerminalRenderer {
     this.lastAnalysis = analysis
     this.lastCourierMenu = courierMenu
     this.lastCourierDraft = courierDraft
+    this.lastAutoplayMode = autoplayMode
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -133,7 +136,7 @@ export class TerminalRenderer {
     }
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
+    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
   }
 
   private title(menu?: CourierMenuView): void { this.splash(menu) }
@@ -423,7 +426,7 @@ export class TerminalRenderer {
     const objective = state.floor.objective
     this.wrap(`OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`, 45).slice(0, 2).forEach((line, index) => this.text(50, 44 + index, line, objective.status === 'complete' ? colors.green : colors.gold))
     this.text(50, 47, 'G get · U use · C act · T throw', colors.dim)
-    this.text(50, 48, `B bomb · R rope · A skills · J journal · V ${visualModeLabel(this.visualMode)}`, colors.dim)
+    this.text(50, 48, `B bomb · R rope · V ${visualModeLabel(this.visualMode)} · F ${autoplayModeLabel(this.lastAutoplayMode)}`, colors.dim)
   }
 
   private log(state: RunState): void {
@@ -431,7 +434,7 @@ export class TerminalRenderer {
     const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
     this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · ESC: pause', colors.dim)
+    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · F: autoplay · ESC: pause', colors.dim)
     this.text(1, 54, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
   }
 

@@ -1,5 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
+import { AUTOPLAY_TURN_MS, autoplayCommand, autoplayModeLabel, nextAutoplayMode } from './autoplay'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
@@ -36,6 +37,7 @@ let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
 let analysisNext: 'checkpoint' | 'succession' | 'session' | undefined
+let autoplayTimer: number | undefined
 
 const showSessionSplash = (): boolean => {
   try {
@@ -64,6 +66,8 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); toggleAutoplay(); return }
+  if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'analysis') {
@@ -93,29 +97,7 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (!state || state.status === 'dead' || state.status === 'victory' || !command) return
   const direction = directionFor(command)
-  const spellEffect = spellEffectForInput(state, keyboardEvent, direction)
-  const previousX = state.hero.x
-  const previousLevel = state.hero.level
-  let events = [] as ReturnType<typeof perform>
-  if (keyboardEvent.altKey && direction && direction !== 'wait') {
-    const before = telemetrySnapshot(state)
-    events = quickCast(state, direction)
-    observeTelemetryTurn(state, before, events, command)
-  }
-  else if (keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal) events = run(state, command)
-  else events = performTracked(state, command)
-  if (state.hero.level > previousLevel) events.push(event('level'))
-  if (state.hero.x !== previousX) renderer.setHeroFacingLeft(state.hero.x < previousX)
-  audio.play(events)
-  renderer.trigger(events, state, spellEffect)
-  if (hasEvent(events, 'suspend')) { suspendRun(); return }
-  if (hasEvent(events, 'floor')) { saved = structuredClone(state); checkpointActiveCourier() }
-  if (hasEvent(events, 'rescue')) persistRescuedRoster()
-  if (hasEvent(events, 'areaComplete')) completeArea()
-  if (hasEvent(events, 'gateResolved')) unlockGateDestination()
-  if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
-  else persistActiveCourier()
-  redraw()
+  executeGameplayCommand(command, { quickCast: Boolean(keyboardEvent.altKey && direction && direction !== 'wait'), run: Boolean(keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal), spellEffect: spellEffectForInput(state, keyboardEvent, direction) })
 })
 
 function activateCourier(id: string | undefined): void {
@@ -413,7 +395,45 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis, courierMenu(), courierDraft) }
+function toggleAutoplay(): void {
+  settings = { ...settings, autoplayMode: nextAutoplayMode(settings.autoplayMode) }
+  saveSettings(settings)
+  if (state) state.messages.unshift(`Autoplay: ${autoplayModeLabel(settings.autoplayMode)}.`)
+  audio.play([event('menu')])
+  redraw()
+}
+
+function canAutoplay(): boolean { return route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' }
+
+function syncAutoplay(): void {
+  if (!canAutoplay()) {
+    if (autoplayTimer !== undefined) window.clearTimeout(autoplayTimer)
+    autoplayTimer = undefined
+    return
+  }
+  if (autoplayTimer !== undefined) return
+  autoplayTimer = window.setTimeout(() => {
+    autoplayTimer = undefined
+    if (!state || !canAutoplay()) return
+    const command = autoplayCommand(state, settings.autoplayMode)
+    if (!command) {
+      settings = { ...settings, autoplayMode: 'off' }
+      saveSettings(settings)
+      state.messages.unshift('Autoplay stalled.')
+      redraw()
+      return
+    }
+    executeGameplayCommand(command)
+  }, AUTOPLAY_TURN_MS)
+}
+
+function redraw(): void {
+  canvas.dataset.route = route.screen
+  canvas.dataset.status = state?.status ?? 'none'
+  canvas.dataset.autoplay = settings.autoplayMode
+  renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  syncAutoplay()
+}
 
 function finish(won: boolean): void {
   if (!state) return
@@ -454,6 +474,37 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
     if (game.status !== 'playing' || game.modal || (x === game.hero.x && y === game.hero.y) || threats) break
   }
   return events
+}
+
+type GameplayCommandOptions = { quickCast?: boolean; run?: boolean; spellEffect?: string }
+
+function executeGameplayCommand(command: string, options: GameplayCommandOptions = {}): void {
+  if (!state || route.screen !== 'level' || state.status !== 'playing') return
+  const game = state
+  const previousX = game.hero.x
+  const previousLevel = game.hero.level
+  let events = [] as ReturnType<typeof perform>
+  if (options.quickCast) {
+    const direction = directionFor(command)
+    if (direction && direction !== 'wait') {
+      const before = telemetrySnapshot(game)
+      events = quickCast(game, direction)
+      observeTelemetryTurn(game, before, events, command)
+    }
+  } else if (options.run && !game.modal) events = run(game, command)
+  else events = performTracked(game, command)
+  if (game.hero.level > previousLevel) events.push(event('level'))
+  if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
+  audio.play(events)
+  renderer.trigger(events, game, options.spellEffect)
+  if (hasEvent(events, 'suspend')) { suspendRun(); return }
+  if (hasEvent(events, 'floor')) { saved = structuredClone(game); checkpointActiveCourier() }
+  if (hasEvent(events, 'rescue')) persistRescuedRoster()
+  if (hasEvent(events, 'areaComplete')) completeArea()
+  if (hasEvent(events, 'gateResolved')) unlockGateDestination()
+  if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
+  else persistActiveCourier()
+  redraw()
 }
 
 function performTracked(game: RunState, command: string): ReturnType<typeof perform> {

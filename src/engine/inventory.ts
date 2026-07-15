@@ -35,6 +35,7 @@ export function pickUp(state: RunState): ActionResult {
 export function operate(state: RunState): ActionResult {
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
+  const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
   const container = nearbyContainer(state)
   if (nearbyGate(state)) {
     const gate = gateForArea(state.area ?? state.floor.biome)
@@ -65,7 +66,7 @@ export function operate(state: RunState): ActionResult {
     if (completeObjective(state, 'rescueScout')) log(state, 'Objective complete: traveler aided.')
     return advance(state, [event('rescue')])
   }
-  if (tile?.kind === 'altar') {
+  if (altar?.kind === 'altar') {
     if (state.hero.gold < 75) { log(state, 'The shrine asks for 75 cash.'); return [] }
     spendGold(state, 75)
     const reward = contextualReward(state, 'altar')

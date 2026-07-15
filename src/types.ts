@@ -6,6 +6,7 @@ export const FLOOR_COUNT = 16
 
 export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
+export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'

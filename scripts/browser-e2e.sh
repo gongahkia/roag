@@ -30,5 +30,14 @@ curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" screenshot
 route="$("${CLI[@]}" eval "el => el.dataset.route" e3)"
 grep --fixed-strings --quiet 'level' <<<"$route"
+"${CLI[@]}" press f
+autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
+grep --fixed-strings --quiet 'visible' <<<"$autoplay"
+"${CLI[@]}" press f
+autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
+grep --fixed-strings --quiet 'omniscient' <<<"$autoplay"
+"${CLI[@]}" press f
+autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
+grep --fixed-strings --quiet 'off' <<<"$autoplay"
 console="$("${CLI[@]}" console error)"
 grep --fixed-strings --quiet 'Errors: 0' <<<"$console"

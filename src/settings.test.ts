@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { commandForKey, defaultSettings, loadSettings, saveSettings, setKeyBinding } from './settings'
+import { nextAutoplayMode } from './autoplay'
 import { flashDuration } from './renderer/effects'
 
 const memoryStore = () => {
@@ -24,5 +25,15 @@ describe('settings', () => {
     expect(setKeyBinding(initial, 'north', 'i')).toBe(initial)
     expect(flashDuration(80, false)).toBe(80)
     expect(flashDuration(80, true)).toBe(20)
+  })
+
+  it('persists and cycles autoplay mode', () => {
+    const store = memoryStore()
+    const visible = { ...defaultSettings(), autoplayMode: 'visible' as const }
+    saveSettings(visible, store)
+    expect(loadSettings(store).autoplayMode).toBe('visible')
+    expect(nextAutoplayMode('off')).toBe('visible')
+    expect(nextAutoplayMode('visible')).toBe('omniscient')
+    expect(nextAutoplayMode('omniscient')).toBe('off')
   })
 })

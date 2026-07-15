@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "./scripts/browser-e2e.sh"
+    "test:e2e": "./scripts/browser-e2e.sh",
+    "smoke:autoplay": "vitest run src/autoplay-smoke.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
