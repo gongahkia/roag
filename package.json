@@ -11,7 +11,8 @@
     "test:e2e": "./scripts/browser-e2e.sh",
     "smoke:autoplay": "AUTOPLAY_TRACE=1 vitest run src/autoplay-smoke.test.ts",
     "autoplay:headless": "vite-node scripts/autoplay-headless.ts",
-    "autoplay:benchmark": "vite-node scripts/autoplay-benchmark.ts"
+    "autoplay:benchmark": "vite-node scripts/autoplay-benchmark.ts",
+    "autoplay:diagnose": "vite-node scripts/autoplay-diagnose.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
