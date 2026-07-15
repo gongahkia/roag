@@ -48,7 +48,6 @@ canvas.addEventListener('wheel', mouseEvent => {
 
 void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
   saved = run
-  renderer.setSavedRun(saved)
   records = loadedRecords
   campaign = loadedCampaign
   if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
@@ -110,7 +109,7 @@ window.addEventListener('keydown', keyboardEvent => {
   audio.play(events)
   renderer.trigger(events, state, spellEffect)
   if (hasEvent(events, 'suspend')) { suspendRun(); return }
-  if (hasEvent(events, 'floor')) { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
+  if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
   if (hasEvent(events, 'areaComplete')) completeArea()
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
@@ -173,7 +172,6 @@ function start(): void {
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   saved = structuredClone(state)
-  renderer.setSavedRun(saved)
   recordedEnd = false
   void saveRun(state)
   audio.play([event('menu')])
@@ -247,7 +245,6 @@ function completeArea(): void {
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   void saveCampaignRoute(campaign)
   saved = undefined
-  renderer.setSavedRun(undefined)
   void deleteRun()
   route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
 }
@@ -260,7 +257,7 @@ function unlockGateDestination(): void {
   route = { ...route, biome: campaign.selectedBiome }
   state.gateDestination = undefined
   void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
+  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
 }
 
 function persistRescuedRoster(): void {
@@ -270,7 +267,7 @@ function persistRescuedRoster(): void {
   campaign = { ...campaign, rescuedNpcs }
   hub = { ...hub, rescued: rescuedNpcs }
   void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); renderer.setSavedRun(saved); void saveRun(state) }
+  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
 }
 
 function toggleVisualMode(): void {
@@ -301,7 +298,6 @@ function finish(won: boolean): void {
   records.analyses = records.analyses.slice(0, 20)
   analysisNext = won ? 'session' : 'succession'
   saved = undefined
-  renderer.setSavedRun(undefined)
   route = { ...route, screen: 'analysis' }
   void Promise.all([deleteRun(), saveRecords(records), saveCampaignRoute(campaign)])
 }
@@ -329,7 +325,6 @@ function performTracked(game: RunState, command: string): ReturnType<typeof perf
 function suspendRun(): void {
   if (!state) return
   saved = structuredClone(state)
-  renderer.setSavedRun(saved)
   analysis = analysisFor(state, 'suspended')
   records.analyses.unshift(analysis)
   records.analyses = records.analyses.slice(0, 20)

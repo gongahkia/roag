@@ -23,6 +23,14 @@ const runeTileGlyph: Record<string, [string, string]> = {
   wall: ['▓', '#74869a'], floor: ['·', '#49636f'], exit: ['◇', '#f4d26a'], door: ['╂', '#d1a66e'], lockedDoor: ['╬', '#e9c965'], water: ['≈', '#72b7d2'], lava: ['≋', '#f27a60'], pit: ['▾', '#202b38'], rope: ['║', '#d8ae73'], spikes: ['⌃', '#d9dce1'], dart: ['›', '#d9dce1'], fireVent: ['♨', '#ff855d'], crumble: ['⌁', '#b89a77'], boulder: ['◆', '#a7a0a0'], web: ['✣', '#d8dce1'], gas: ['⋇', '#9bc585'], support: ['╫', '#b99b72'], rail: ['╪', '#d7b95f'], rubble: ['░', '#a7afb8'], bramble: ['♧', '#7da56e'], darkness: ['◌', '#47556a'], crate: ['▤', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['⌘', '#d2a4e8'], shop: ['¤', '#f4d26a'], rescue: ['✚', '#8ae0b3']
 }
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
+const jomonMasthead = [
+  '██╗ ██████╗ ███╗   ███╗ ██████╗ ███╗   ██╗',
+  '██║██╔═══██╗████╗ ████║██╔═══██╗████╗  ██║',
+  '██║██║   ██║██╔████╔██║██║   ██║██╔██╗ ██║',
+  '██║██║   ██║██║╚██╔╝██║██║   ██║██║╚██╗██║',
+  '╚█████╔╝╚██████╔╝██║ ╚═╝ ██║╚██████╔╝██║ ╚████║',
+  ' ╚════╝  ╚═════╝ ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝'
+]
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
@@ -64,7 +72,6 @@ export class TerminalRenderer {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
-  setSavedRun(_run: RunState | undefined): void { }
   get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
@@ -116,8 +123,9 @@ export class TerminalRenderer {
 
   private splash(): void {
     this.box(13, 10, 54, 24, '')
-    this.text(27, 20, '[N]  begin a new delivery', colors.text)
-    this.text(27, 23, '[L]  resume active delivery', colors.text)
+    jomonMasthead.forEach((line, index) => this.text(Math.floor((TERMINAL_WIDTH - line.length) / 2), 13 + index, line, colors.text))
+    this.text(27, 23, '[N]  begin a new delivery', colors.text)
+    this.text(27, 26, '[L]  resume active delivery', colors.text)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
