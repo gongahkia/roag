@@ -1,6 +1,6 @@
 import './style.css'
 import { AudioBus } from './audio'
-import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayStateFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
+import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayTraceFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
@@ -518,7 +518,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (!state || route.screen !== 'level' || state.status !== 'playing') return
   const game = state
   const autoplayBefore = options.autoplay ? structuredClone(game) : undefined
-  const autoplayFingerprint = options.autoplay ? autoplayStateFingerprint(game) : undefined
+  const autoplayFingerprint = options.autoplay ? autoplayTraceFingerprint(game) : undefined
   const previousX = game.hero.x
   const previousLevel = game.hero.level
   let events = [] as ReturnType<typeof perform>
@@ -542,7 +542,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
       reason: options.autoplay.reason,
       candidates: options.autoplay.candidates,
       events: events.map(entry => entry.type),
-      nextFingerprint: autoplayStateFingerprint(game),
+      nextFingerprint: autoplayTraceFingerprint(game),
       before: { x: autoplayBefore.hero.x, y: autoplayBefore.hero.y, health: autoplayBefore.hero.health, focus: autoplayBefore.hero.focus, bombs: autoplayBefore.hero.bombs, ropes: autoplayBefore.hero.ropes, objective: autoplayBefore.floor.objective.status },
       after: { x: game.hero.x, y: game.hero.y, health: game.hero.health, focus: game.hero.focus, bombs: game.hero.bombs, ropes: game.hero.ropes, objective: game.floor.objective.status, ...(game.modal ? { modal: game.modal.kind } : {}) }
     })

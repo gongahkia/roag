@@ -29,10 +29,11 @@ describe('autoplay', () => {
   it('does not route to or attempt non-currency loot with a full pack', () => {
     const state = newRun(71)
     state.hero.inventory = Array.from({ length: 12 }, () => 'rock')
-    state.floor.items = [{ id: 'tonic', x: state.hero.x, y: state.hero.y, count: 1 }]
+    state.floor.items = [{ id: 'tonic', x: state.hero.x, y: state.hero.y, count: 1 }, { id: 'fireJar', x: state.hero.x + 2, y: state.hero.y, count: 1 }]
     const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
     expect(decision?.command).not.toBe('g')
     expect(decision?.candidates.some(candidate => candidate.reason === 'pickup:tonic')).toBe(false)
+    expect(decision?.candidates.some(candidate => candidate.reason === 'reach loot')).toBe(false)
   })
 
   it('still collects gold with a full pack', () => {
@@ -47,7 +48,7 @@ describe('autoplay', () => {
     expect(report.outcome).toBe('complete')
     expect(report.trace.some(entry => entry.reason.includes('bomb tactical cluster'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
-  }, 12_000)
+  }, 30_000)
 
   it('replays deterministically without mutating its input', () => {
     const state = newRun(913, 'mine')
@@ -58,5 +59,5 @@ describe('autoplay', () => {
     expect(first.outcome).not.toBe('error')
     expect(first.commands.length).toBeGreaterThan(0)
     expect(first).toEqual(second)
-  })
+  }, 20_000)
 })

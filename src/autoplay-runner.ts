@@ -1,13 +1,13 @@
-import { autoplayDecision, autoplayStateFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
+import { autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
 import { perform } from './engine'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { getTile } from './world'
-import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
+import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
 export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
 export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; turnLimit?: number; stalledLimit?: number }
 export interface AutoplayFinalState { status: RunState['status']; areaFloor: number; hero: { x: number; y: number; health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }; exit: { x: number; y: number }; objective: RunState['floor']['objective']; guardianDefeated: boolean; exitPath: 'clear' | 'actor-blocked' | 'terrain-blocked'; hostiles: Array<{ id: string; x: number; y: number; health: number; ai?: string }>; modal?: string }
-export interface AutoplayReport { seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; error?: string }
+export interface AutoplayReport { seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; stall?: AutoplayStall; error?: string }
 
 const fingerprint = (state: RunState): string => JSON.stringify({
   status: state.status,
@@ -57,16 +57,29 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const trace: AutoplayTraceEntry[] = []
   const context = createAutoplayContext()
   let stalled = 0
+  let stall: AutoplayStall | undefined
   let outcome: AutoplayOutcome = 'turn-limit'
   let error: string | undefined
   try {
     while (state.status === 'playing' && state.turn < turnLimit) {
       const decision = autoplayDecision(state, mode, policy, context)
-      if (!decision) { outcome = 'stalled'; break }
+      if (!decision) {
+        const stateFingerprint = autoplayStateFingerprint(state)
+        stall = {
+          turn: state.turn,
+          fingerprint: autoplayTraceFingerprint(state),
+          visits: context.visits.get(stateFingerprint) ?? 0,
+          ...(context.lastReason ? { lastReason: context.lastReason } : {}),
+          failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })).sort((a, b) => b.count - a.count || a.command.localeCompare(b.command)),
+          recentPositions: [...context.recentPositions]
+        }
+        outcome = 'stalled'
+        break
+      }
       const command = decision.command
       const before = telemetrySnapshot(state)
       const beforeState = structuredClone(state)
-      const beforeFingerprint = autoplayStateFingerprint(state)
+      const beforeFingerprint = autoplayTraceFingerprint(state)
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
       recordAutoplayTransition(context, beforeState, command, state)
@@ -77,14 +90,25 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         reason: decision.reason,
         candidates: decision.candidates,
         events: events.map(event => event.type),
-        nextFingerprint: autoplayStateFingerprint(state),
+        nextFingerprint: autoplayTraceFingerprint(state),
         before: { x: beforeState.hero.x, y: beforeState.hero.y, health: beforeState.hero.health, focus: beforeState.hero.focus, bombs: beforeState.hero.bombs, ropes: beforeState.hero.ropes, objective: beforeState.floor.objective.status },
         after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
       })
       commands.push(command)
       if (events.some(event => event.type === 'areaComplete')) { outcome = 'complete'; break }
       stalled = state.turn === before.turn ? stalled + 1 : 0
-      if (stalled >= stalledLimit) { outcome = 'stalled'; break }
+      if (stalled >= stalledLimit) {
+        stall = {
+          turn: state.turn,
+          fingerprint: autoplayTraceFingerprint(state),
+          visits: context.visits.get(autoplayStateFingerprint(state)) ?? 0,
+          ...(context.lastReason ? { lastReason: context.lastReason } : {}),
+          failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })).sort((a, b) => b.count - a.count || a.command.localeCompare(b.command)),
+          recentPositions: [...context.recentPositions]
+        }
+        outcome = 'stalled'
+        break
+      }
     }
     if (state.status === 'dead') outcome = 'dead'
   } catch (caught) {
@@ -102,5 +126,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
     hostiles: state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => ({ id: actor.id, x: actor.x, y: actor.y, health: actor.health, ...(actor.ai ? { ai: actor.ai } : {}) })),
     ...(state.modal ? { modal: state.modal.kind } : {})
   }
-  return { seed: state.seed, biome: state.area ?? state.floor.biome, floor: state.floor.index + 1, mode, policy, outcome, turns: state.turn, commands, trace, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), final, ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: state.area ?? state.floor.biome, floor: state.floor.index + 1, mode, policy, outcome, turns: state.turn, commands, trace, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), final, ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }

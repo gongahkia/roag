@@ -155,6 +155,7 @@ export interface AutoplayTraceEntry {
   before: { x: number; y: number; health: number; focus: number; bombs: number; ropes: number; objective: string }
   after: { x: number; y: number; health: number; focus: number; bombs: number; ropes: number; objective: string; modal?: string }
 }
+export interface AutoplayStall { turn: number; fingerprint: string; visits: number; lastReason?: string; failed: Array<{ command: string; count: number }>; recentPositions: string[] }
 export type AutoplayTerminal = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'manual'
 export interface AutoplayDiagnostic { id: string; date: string; seed: number; biome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayTerminal; turns: number; reason: string; trace: AutoplayTraceEntry[] }
 export type RunOutcome = 'lost' | 'complete' | 'suspended'
