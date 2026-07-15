@@ -140,7 +140,13 @@ export class TextureAtlas {
 
 export const textureAtlas = new TextureAtlas()
 
-export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome: Biome, x: number, y: number, dim: boolean): void {
+export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome: Biome, x: number, y: number, dim: boolean, clip = false): void {
+  if (clip) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT)
+    ctx.clip()
+  }
   ctx.save()
   ctx.globalAlpha = dim ? .38 : 1
   ctx.fillStyle = terrainBase[biome]
@@ -148,8 +154,12 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome:
   ctx.restore()
   const index = tileSprite[tile.kind]
   const sheet = manifestSheets.get(terrainSheet[biome])!
-  if (textureAtlas.draw(ctx, ref(sheet.id, index % 8, Math.floor(index / 8), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) return
+  if (textureAtlas.draw(ctx, ref(sheet.id, index % 8, Math.floor(index / 8), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) {
+    if (clip) ctx.restore()
+    return
+  }
   fallbackTile(ctx, tile, x, y, dim)
+  if (clip) ctx.restore()
 }
 
 export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false, flip = false, animation: HeroAnimation = 'idle'): void {

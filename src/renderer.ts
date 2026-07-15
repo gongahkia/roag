@@ -284,14 +284,14 @@ export class TerminalRenderer {
     const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
     const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
     const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
-    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false)
+    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false, !tile.visible)
     else if (this.runeMode) this.drawRuneTile(tile.kind, tile.visible, x, y)
     else {
       const [glyph, color] = tileGlyph[tile.kind]
       this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     }
     if (!tile.visible) {
-      if (isItemVisible(tile, item)) this.drawItem(item!, x, y)
+      if (isItemVisible(tile, item) && !this.spriteMode) this.drawItem(item!, x, y)
       return
     }
     if (this.spriteMode && (tile.kind === 'fireVent' || tile.kind === 'gas')) drawEffectSprite(this.ctx, tile.kind === 'fireVent' ? 'fire' : 'smokeGas', x, y, Math.floor(performance.now() / 120) % 4)
