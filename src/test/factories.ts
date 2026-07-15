@@ -8,6 +8,7 @@ const tiles = (): Tile[] => Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () =>
 export const createArea = (overrides: Partial<AreaState> = {}): AreaState => ({ biome: 'mine', status: 'active', floor: 0, completed: false, ...overrides })
 
 export const createHero = (overrides: Partial<Hero> = {}): Hero => ({
+  name: 'Test Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint',
   x: 1, y: 1, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: 0, ropes: 0, keys: 0, xp: 0, level: 1,
   stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 }, skills: [], inventory: [], equipment: {}, conditions: [], cooldowns: {}, ...overrides
 })

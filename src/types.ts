@@ -90,7 +90,7 @@ export interface Hero {
 }
 
 export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
-export interface CourierSave { version: 1; identity: CourierIdentity; run?: RunState; checkpoint?: RunState; campaign: CampaignRouteState; records: Records; archived?: boolean }
+export interface CourierSave { version: 1; identity: CourierIdentity; run?: RunState; checkpoint?: RunState; heir?: Hero; campaign: CampaignRouteState; records: Records; archived?: boolean }
 export interface CourierMenuEntry { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; area?: Biome; floor?: number; turn?: number; archived?: boolean }
 export interface CourierMenuView { entries: CourierMenuEntry[]; selectedId?: string; confirmingDelete?: boolean }
 export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; focus: 0 | 1 | 2 | 3 }

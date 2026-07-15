@@ -1,8 +1,9 @@
-:root { color: #d6dce8; background: #06070b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+@font-face { font-family: Cozette; src: url('/fonts/CozetteVector.woff2') format('woff2'); font-display: block; }
+:root { color: #d6dce8; background: #06070b; font-family: Cozette,ui-monospace,SFMono-Regular,Menlo,monospace; }
 * { box-sizing: border-box; }
 body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: #06070b; }
 main { display: grid; width: 100vw; height: 100dvh; place-items: center; }
-#game { display: block; width: min(100vw, 126.9841dvh); height: min(100dvh, 78.75vw); image-rendering: pixelated; outline: none; }
+#game { display: block; width: min(100vw,133.3333dvh); height: min(100dvh,75vw); image-rendering: pixelated; outline: none; }
 
 body.atlas-page { display: block; overflow: auto; background: #0a0d13; }
 body.atlas-page main { display: block; width: auto; height: auto; min-height: 100dvh; }
@@ -20,7 +21,7 @@ body.atlas-page main { display: block; width: auto; height: auto; min-height: 10
 .atlas-grid-wrap { overflow: auto; border: 1px solid #29394f; border-radius: 6px; background: #111827; }
 .atlas-grid { display: grid; width: max-content; }
 .atlas-cell { position: relative; width: 72px; height: 72px; padding: 0; border: 1px solid #24334a; background: #07101d; cursor: pointer; }
-.atlas-cell::after { position: absolute; top: 3px; left: 4px; color: #dbe7f6; font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; content: attr(data-index); text-shadow: 0 1px 2px #000,0 0 2px #000; }
+.atlas-cell::after { position: absolute; top: 3px; left: 4px; color: #dbe7f6; font: 10px/1 Cozette,ui-monospace,SFMono-Regular,Menlo,monospace; content: attr(data-index); text-shadow: 0 1px 2px #000,0 0 2px #000; }
 .atlas-cell canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .atlas-cell:hover { outline: 2px solid #8bbaf2; outline-offset: -2px; z-index: 1; }
 .atlas-cell.is-selected { outline: 3px solid #ffd166; outline-offset: -3px; z-index: 2; }

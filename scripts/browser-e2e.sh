@@ -17,11 +17,17 @@ curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" snapshot
 "${CLI[@]}" press n
 "${CLI[@]}" snapshot
+"${CLI[@]}" screenshot
+"${CLI[@]}" press a
+"${CLI[@]}" press r
+"${CLI[@]}" press i
+"${CLI[@]}" press Enter
 "${CLI[@]}" press Space
 "${CLI[@]}" snapshot
 "${CLI[@]}" press a
 "${CLI[@]}" press e
 "${CLI[@]}" snapshot
+"${CLI[@]}" screenshot
 route="$("${CLI[@]}" eval "el => el.dataset.route" e3)"
 grep --fixed-strings --quiet 'level' <<<"$route"
 console="$("${CLI[@]}" console error)"

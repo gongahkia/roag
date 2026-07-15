@@ -22,7 +22,7 @@ const starterKit = (calling: CourierCalling): Pick<Hero, 'bombs' | 'ropes' | 'in
 export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
   const origin = build.origin ?? 'mineborn'
   const calling = build.calling ?? 'trailguard'
-  const kit = starterKit(calling)
+  const kit = Object.keys(build).length ? starterKit(calling) : { bombs: 4, ropes: 4, inventory: ['tonic', 'rock', 'bombPack', 'ropeBundle', 'ember'], equipment: { mainHand: 'whip' } }
   return {
     name: build.name?.trim() || 'Existing Courier', origin, calling, deathMode: build.deathMode ?? 'checkpoint',
     x: 0, y: 0, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: kit.bombs, ropes: kit.ropes, keys: 0, xp: 0, level: 1,

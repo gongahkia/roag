@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Campaign, Hero, LegacyRecord } from './types'
 
 const hero: Hero = {
+  name: 'Ari', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint',
   x: 0, y: 0, health: 1, maxHealth: 1, focus: 0, maxFocus: 0, gold: 0, bombs: 0, ropes: 0, keys: 0, xp: 0, level: 1,
   stats: { strength: 1, agility: 1, vitality: 1, intellect: 1 }, skills: [], inventory: [], equipment: {}
 }

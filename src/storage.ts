@@ -143,9 +143,10 @@ const migrateCourier = (value: unknown): CourierSave | undefined => {
   if (!identity) return undefined
   const run = migrateRunRecord(value.run)
   const checkpoint = migrateRunRecord(value.checkpoint)
+  const heir = isHero(value.heir) ? { ...value.heir, name: value.heir.name ?? identity.name, origin: value.heir.origin ?? identity.origin, calling: value.heir.calling ?? identity.calling, deathMode: value.heir.deathMode ?? identity.deathMode } : undefined
   const campaign = migrateCampaignRoute(value.campaign)
   const records = migrateRecords(value.records)
-  return { version: 1, identity, ...(run ? { run } : {}), ...(checkpoint ? { checkpoint } : {}), campaign, records, ...(value.archived === true ? { archived: true } : {}) }
+  return { version: 1, identity, ...(run ? { run } : {}), ...(checkpoint ? { checkpoint } : {}), ...(heir ? { heir } : {}), campaign, records, ...(value.archived === true ? { archived: true } : {}) }
 }
 const entryFor = (courier: CourierSave): CourierMenuEntry => ({
   id: courier.identity.id, name: courier.identity.name, origin: courier.identity.origin, calling: courier.identity.calling, deathMode: courier.identity.deathMode,
@@ -162,7 +163,7 @@ export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selecte
   const [run, records, campaign] = await Promise.all([loadRun(), loadRecords(), loadCampaignRoute()])
   if (!run && records.runs.length === 0 && campaign.completedAreas.length === 0 && campaign.rescuedNpcs.length === 0) return { couriers: [] }
   const id = crypto.randomUUID()
-  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run) } : {}), campaign, records }
+  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run), heir: structuredClone(run.hero) } : {}), campaign, records }
   await saveCourier(legacy, id)
   return { couriers: [legacy], selectedId: id }
 }

@@ -66,7 +66,8 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '12px Cozette, ui-monospace, SFMono-Regular, Menlo, monospace'
     ctx.textBaseline = 'top'
-    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis))
+    void document.fonts.ready.then(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
+    textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft))
   }
 
   setVisualMode(value: VisualMode): void {
@@ -262,7 +263,7 @@ export class TerminalRenderer {
     else this.cell(state.hero.x, state.hero.y, this.runeMode ? '☉' : '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
     this.ctx.restore()
-    this.ruleVertical(48, 0, 35)
+    this.ruleVertical(48, 0, 50)
   }
 
   private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
@@ -350,43 +351,51 @@ export class TerminalRenderer {
     const hero = state.hero
     this.text(50, 1, 'DELIVERY', colors.gold)
     this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
-    this.ruleHorizontal(50, 3, 29)
+    this.ruleHorizontal(50, 3, 45)
     this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
-    this.meter(64, 5, 14, hero.health, hero.maxHealth, colors.red)
+    this.meter(65, 5, 28, hero.health, hero.maxHealth, colors.red)
     this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
-    this.meter(64, 6, 14, hero.focus, hero.maxFocus, colors.blue)
+    this.meter(65, 6, 28, hero.focus, hero.maxFocus, colors.blue)
     this.text(50, 8, `CASH ${String(hero.gold).padStart(4)} B ${hero.bombs} R ${hero.ropes}`, colors.gold)
     this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
-    this.ruleHorizontal(50, 10, 29)
-    this.text(50, 12, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}`, colors.text)
-    this.text(50, 13, `VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
-    this.text(50, 15, 'EQUIPMENT', colors.gold)
+    this.text(72, 9, `${hero.name} · ${hero.deathMode === 'checkpoint' ? 'checkpoint' : 'iron trail'}`, colors.dim)
+    this.text(50, 11, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}  VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
+    this.text(50, 13, 'EQUIPMENT', colors.gold)
     for (const [i, slot] of (Object.keys(SLOT_NAMES) as Array<keyof typeof SLOT_NAMES>).entries()) {
       const id = hero.equipment[slot]
-      this.text(50, 16 + i, `${SLOT_NAMES[slot].slice(0, 8).padEnd(8)} ${id ? ITEM[id].glyph : '-'}`, id ? ITEM[id].color : colors.dim)
+      const label = id ? `${ITEM[id].glyph} ${ITEM[id].name}` : '-'
+      this.text(50, 14 + i, `${SLOT_NAMES[slot].padEnd(9)} ${label}`, id ? ITEM[id].color : colors.dim)
     }
-    this.text(50, 23, 'VISIBLE THREATS', colors.gold)
+    this.text(50, 21, 'INVENTORY', colors.gold)
+    const inventory = hero.inventory.slice(0, 8)
+    if (!inventory.length) this.text(50, 22, 'pack empty', colors.dim)
+    inventory.forEach((id, index) => this.text(50, 22 + index, `${index + 1}. ${ITEM[id].glyph} ${ITEM[id].name}`, ITEM[id].color))
+    if (hero.inventory.length > inventory.length) this.text(50, 30, `+${hero.inventory.length - inventory.length} more · U/D/T/E`, colors.dim)
+    const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
+    this.text(50, 32, 'ON GROUND', colors.gold)
+    if (!ground.length) this.text(50, 33, 'none', colors.dim)
+    ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${ITEM[item.id]?.glyph ?? '*'} ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, ITEM[item.id]?.color ?? colors.text))
+    this.text(50, 37, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
-    foes.forEach((foe, i) => this.text(50, 24 + i, `${foe.glyph} ${foe.name.slice(0, 19).padEnd(19)} ${Math.max(0, foe.health)}`, foe.color))
+    foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
     state.floor.telegraphs?.slice(0, 2).forEach((telegraph, i) => {
       const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
       const presentation = presentTelegraph(telegraph, state.turn, source)
-      this.text(50, 27 + i, presentation.label.slice(0, 29), presentation.color)
+      this.text(50, 41 + i, presentation.label.slice(0, 45), presentation.color)
     })
     const objective = state.floor.objective
-    this.text(50, 29, `OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`.slice(0, 29), objective.status === 'complete' ? colors.green : colors.gold)
-    this.text(50, 30, 'G get  U use  C act', colors.dim)
-    this.text(50, 31, 'T throw  B bomb  R rope', colors.dim)
-    this.text(50, 32, `A skills  J journal  V ${visualModeLabel(this.visualMode)}`, colors.dim)
+    this.wrap(`OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`, 45).slice(0, 2).forEach((line, index) => this.text(50, 44 + index, line, objective.status === 'complete' ? colors.green : colors.gold))
+    this.text(50, 47, 'G get · U use · C act · T throw', colors.dim)
+    this.text(50, 48, `B bomb · R rope · A skills · J journal · V ${visualModeLabel(this.visualMode)}`, colors.dim)
   }
 
   private log(state: RunState): void {
-    this.ruleHorizontal(0, 35, 80)
-    this.text(1, 36, state.messages[0] ?? '', colors.text)
-    this.text(1, 37, state.messages[1] ?? '', colors.dim)
-    this.text(1, 38, state.messages[2] ?? '', colors.dim)
-    this.text(1, 41, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest', colors.dim)
-    this.text(1, 43, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
+    this.ruleHorizontal(0, 35, 48)
+    const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
+    lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
+    this.ruleHorizontal(0, 50, 96)
+    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · ESC: pause', colors.dim)
+    this.text(1, 54, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
   }
 
   private modal(state: RunState, modal: Modal): void {

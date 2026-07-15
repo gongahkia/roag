@@ -1,13 +1,13 @@
 import './style.css'
 import { AudioBus } from './audio'
 import { ITEM } from './content'
-import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
-import { deleteRun, loadCampaignRoute, loadRecords, loadRun, saveCampaignRoute, saveRecords, saveRun } from './storage'
+import { courierMenuEntries, deleteCourier, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import type { CampaignRouteState, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
+import type { CampaignRouteState, CourierDraft, CourierSave, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
@@ -16,6 +16,14 @@ const audio = new AudioBus()
 let settings: GameSettings = loadSettings()
 let state: RunState | undefined
 let saved: RunState | undefined
+let couriers: CourierSave[] = []
+let selectedCourierId: string | undefined
+let activeCourier: CourierSave | undefined
+let courierDraft: CourierDraft | undefined
+let confirmingCourierDelete = false
+let inheritedCampaign: CampaignRouteState | undefined
+let successorParentId: string | undefined
+let createAfterStory = false
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
@@ -27,7 +35,7 @@ let story: StoryState | undefined
 let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
-let analysisNext: 'succession' | 'session' | undefined
+let analysisNext: 'checkpoint' | 'succession' | 'session' | undefined
 
 const showSessionSplash = (): boolean => {
   try {
@@ -46,13 +54,10 @@ canvas.addEventListener('wheel', mouseEvent => {
   setGameZoom(gameZoom + (mouseEvent.deltaY < 0 ? .25 : -.25))
 }, { passive: false })
 
-void Promise.all([loadRun(), loadRecords(), loadCampaignRoute()]).then(([run, loadedRecords, loadedCampaign]) => {
-  saved = run
-  records = loadedRecords
-  campaign = loadedCampaign
-  if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
-  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  route = { ...route, biome: campaign.selectedBiome }
+void loadCouriers().then(loaded => {
+  couriers = loaded.couriers
+  selectedCourierId = loaded.selectedId
+  activateCourier(selectedCourierId)
   redraw()
 })
 redraw()
@@ -67,19 +72,14 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
   if (route.screen === 'approach' && story) { handleStoryInput(keyboardEvent); return }
+  if (route.screen === 'splash' || route.screen === 'title') { handleCourierTitle(keyboardEvent); return }
+  if (route.screen === 'createCourier') { handleCourierCreation(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
     let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
     if (nextRoute === route) return
-    if (nextRoute.screen === 'approach') {
-      const heirSeed = Math.floor(Math.random() * 0x7fffffff)
-      beginTrailhead(heirSeed, openingLore(heirSeed))
-      audio.play([event('menu')])
-      redraw()
-      return
-    }
     if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
     if (nextRoute.screen === 'level') {
       if (route.screen === 'area') start()
@@ -109,13 +109,139 @@ window.addEventListener('keydown', keyboardEvent => {
   audio.play(events)
   renderer.trigger(events, state, spellEffect)
   if (hasEvent(events, 'suspend')) { suspendRun(); return }
-  if (hasEvent(events, 'floor')) { saved = structuredClone(state); void saveRun(state) }
+  if (hasEvent(events, 'floor')) { saved = structuredClone(state); checkpointActiveCourier() }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
   if (hasEvent(events, 'areaComplete')) completeArea()
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
+  else persistActiveCourier()
   redraw()
 })
+
+function activateCourier(id: string | undefined): void {
+  selectedCourierId = id
+  activeCourier = couriers.find(courier => courier.identity.id === id && !courier.archived)
+  if (!activeCourier) { saved = undefined; state = undefined; records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }; campaign = initialCampaignRoute(); hub = createHubState(0); return }
+  saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
+  records = activeCourier.records
+  campaign = activeCourier.campaign
+  if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
+  hub = { ...createHubState(saved?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  route = { screen: route.screen === 'splash' ? 'splash' : 'title', biome: campaign.selectedBiome }
+  void selectCourier(activeCourier.identity.id)
+}
+
+function courierMenu() {
+  return { entries: courierMenuEntries(couriers), selectedId: selectedCourierId, confirmingDelete: confirmingCourierDelete }
+}
+
+function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
+  const key = keyboardEvent.key
+  const command = key.toLowerCase()
+  if (route.screen === 'splash' && !['n', 'N', 'l', 'L', 'Enter', 'ArrowUp', 'ArrowDown', 'd', 'D'].includes(key)) { route = { ...route, screen: 'title' }; redraw(); return }
+  route = { ...route, screen: 'title' }
+  const entries = courierMenuEntries(couriers)
+  const selectedIndex = Math.max(0, entries.findIndex(entry => entry.id === selectedCourierId))
+  if (confirmingCourierDelete) {
+    if (command === 'd') {
+      const id = selectedCourierId
+      if (id) { couriers = couriers.filter(courier => courier.identity.id !== id); void deleteCourier(id) }
+      confirmingCourierDelete = false
+      activateCourier(courierMenuEntries(couriers)[0]?.id)
+    } else if (key === 'Escape' || key === '`') confirmingCourierDelete = false
+    redraw()
+    return
+  }
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    if (entries.length) {
+      const offset = key === 'ArrowUp' ? entries.length - 1 : 1
+      activateCourier(entries[(selectedIndex + offset) % entries.length].id)
+    }
+  } else if (command === 'n') {
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
+    inheritedCampaign = undefined
+    successorParentId = undefined
+    route = { ...route, screen: 'createCourier' }
+  } else if ((command === 'l' || key === 'Enter') && activeCourier) resumeCourier()
+  else if (command === 'd' && activeCourier) confirmingCourierDelete = true
+  audio.play([event('menu')])
+  redraw()
+}
+
+function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
+  if (!courierDraft) return
+  const key = keyboardEvent.key
+  if (key === 'Escape' || key === '`') { courierDraft = undefined; route = { ...route, screen: 'title' }; redraw(); return }
+  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 3 : 1)) % 4) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'Enter') { createCourierFromDraft(); return }
+  if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
+    const forward = key === 'ArrowRight'
+    if (courierDraft.focus === 1) {
+      const options: CourierDraft['origin'][] = ['mineborn', 'mosswalker', 'cavernSeeker']
+      const index = options.indexOf(courierDraft.origin)
+      courierDraft = { ...courierDraft, origin: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
+    } else if (courierDraft.focus === 2) {
+      const options: CourierDraft['calling'][] = ['trailguard', 'pathmaker', 'spiritbearer']
+      const index = options.indexOf(courierDraft.calling)
+      courierDraft = { ...courierDraft, calling: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
+    } else courierDraft = { ...courierDraft, deathMode: courierDraft.deathMode === 'checkpoint' ? 'ironTrail' : 'checkpoint' }
+    redraw(); return
+  }
+  if (courierDraft.focus === 0) {
+    if (key === 'Backspace' || key === 'Delete') courierDraft = { ...courierDraft, name: courierDraft.name.slice(0, -1) }
+    else if (/^[a-zA-Z0-9 ]$/.test(key) && courierDraft.name.length < 20) courierDraft = { ...courierDraft, name: `${courierDraft.name}${key}` }
+  }
+  redraw()
+}
+
+function createCourierFromDraft(): void {
+  if (!courierDraft) return
+  const name = courierDraft.name.trim() || 'Unnamed Courier'
+  const id = crypto.randomUUID()
+  const identity = { id, name, origin: courierDraft.origin, calling: courierDraft.calling, deathMode: courierDraft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
+  const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute()), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
+  couriers = [...couriers, courier]
+  activeCourier = courier
+  selectedCourierId = id
+  records = courier.records
+  campaign = courier.campaign
+  heir = structuredClone(courier.heir)
+  courierDraft = undefined
+  inheritedCampaign = undefined
+  successorParentId = undefined
+  const seed = Math.floor(Math.random() * 0x7fffffff)
+  beginTrailhead(seed, openingLore(seed), heir)
+  void saveCourier(courier, id)
+  audio.play([event('menu')])
+  redraw()
+}
+
+function resumeCourier(): void {
+  if (!activeCourier) return
+  records = activeCourier.records
+  campaign = activeCourier.campaign
+  hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false }
+  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); route = { screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' } }
+  void selectCourier(activeCourier.identity.id)
+}
+
+function persistActiveCourier(): void {
+  if (!activeCourier) return
+  activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : undefined
+  if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
+  activeCourier.campaign = campaign
+  activeCourier.records = records
+  saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
+  couriers = couriers.map(courier => courier.identity.id === activeCourier!.identity.id ? activeCourier! : courier)
+  void saveCourier(activeCourier, selectedCourierId)
+}
+
+function checkpointActiveCourier(): void {
+  if (!activeCourier || !state) return
+  activeCourier.checkpoint = structuredClone(state)
+  persistActiveCourier()
+}
 
 function loadGameZoom(): number {
   try {
@@ -166,21 +292,23 @@ function handleSettingsInput(key: string): void {
 }
 
 function start(): void {
+  if (!activeCourier) return
   campaign = { ...campaign, selectedBiome: route.biome }
-  void saveCampaignRoute(campaign)
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
   renderer.setHeroFacingLeft(false)
   heir = state.hero
+  activeCourier.heir = structuredClone(state.hero)
   saved = structuredClone(state)
   recordedEnd = false
-  void saveRun(state)
+  activeCourier.checkpoint = structuredClone(state)
+  persistActiveCourier()
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
 }
 
-function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>): void {
+function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
   route = { screen: 'approach', biome: campaign.selectedBiome, heirSeed: seed }
-  heir = undefined
+  heir = nextHero
   hub = { ...createHubState(seed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   story = createStory(scene, performance.now())
 }
@@ -211,7 +339,11 @@ function isStoryKey(keyboardEvent: KeyboardEvent): boolean {
 
 function finishStory(): void {
   story = undefined
-  route = { ...route, screen: 'hub', hubAction: 'routes' }
+  if (createAfterStory) {
+    createAfterStory = false
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
+    route = { ...route, screen: 'createCourier' }
+  } else route = { ...route, screen: 'hub', hubAction: 'routes' }
   audio.play([event('menu')])
   redraw()
 }
@@ -231,6 +363,7 @@ function beginSuccession(): void {
       if (!successor || loading?.phase !== 'loading') return
       loading = undefined
       pendingSuccessor = undefined
+      createAfterStory = true
       beginTrailhead(successor.seed, successionLore(successor.record, successor.seed))
       redraw()
     }, 650)
@@ -243,9 +376,14 @@ function completeArea(): void {
   heir = structuredClone(state.hero)
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  void saveCampaignRoute(campaign)
+  if (!activeCourier) return
   saved = undefined
-  void deleteRun()
+  activeCourier.run = undefined
+  activeCourier.checkpoint = undefined
+  activeCourier.campaign = campaign
+  activeCourier.heir = structuredClone(heir)
+  state = undefined
+  persistActiveCourier()
   route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
 }
 
@@ -256,8 +394,7 @@ function unlockGateDestination(): void {
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { ...route, biome: campaign.selectedBiome }
   state.gateDestination = undefined
-  void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
+  if (state.status === 'playing') persistActiveCourier()
 }
 
 function persistRescuedRoster(): void {
@@ -266,8 +403,7 @@ function persistRescuedRoster(): void {
   for (const npc of state.rescuedNpcs) if (!rescuedNpcs.some(existing => existing.id === npc.id)) rescuedNpcs.push({ ...npc })
   campaign = { ...campaign, rescuedNpcs }
   hub = { ...hub, rescued: rescuedNpcs }
-  void saveCampaignRoute(campaign)
-  if (state.status === 'playing') { saved = structuredClone(state); void saveRun(state) }
+  if (state.status === 'playing') persistActiveCourier()
 }
 
 function toggleVisualMode(): void {
@@ -277,16 +413,19 @@ function toggleVisualMode(): void {
   redraw()
 }
 
-function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis) }
+function redraw(): void { canvas.dataset.route = route.screen; canvas.dataset.status = state?.status ?? 'none'; renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis, courierMenu(), courierDraft) }
 
 function finish(won: boolean): void {
   if (!state) return
   recordedEnd = true
-  if (!won) {
+  const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
+  if (!won && !checkpointDeath) {
     campaign = recordDeath(campaign, state, heirNameFor(route.heirSeed ?? state.seed))
     const record = campaign.legacyRecords.at(-1)
     if (!record) throw new Error('missing death legacy record')
     pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
+    inheritedCampaign = structuredClone(campaign)
+    successorParentId = activeCourier?.identity.id
   }
   records.bestDepth = Math.max(records.bestDepth, state.floor.index + 1)
   if (won) records.wins++
@@ -296,10 +435,12 @@ function finish(won: boolean): void {
   analysis = analysisFor(state, won ? 'complete' : 'lost')
   records.analyses.unshift(analysis)
   records.analyses = records.analyses.slice(0, 20)
-  analysisNext = won ? 'session' : 'succession'
-  saved = undefined
+  analysisNext = won ? 'session' : checkpointDeath ? 'checkpoint' : 'succession'
+  if (checkpointDeath && activeCourier?.checkpoint) saved = structuredClone(activeCourier.checkpoint)
+  else saved = undefined
+  if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
   route = { ...route, screen: 'analysis' }
-  void Promise.all([deleteRun(), saveRecords(records), saveCampaignRoute(campaign)])
+  persistActiveCourier()
 }
 
 function run(game: RunState, command: string): ReturnType<typeof perform> {
@@ -330,7 +471,7 @@ function suspendRun(): void {
   records.analyses = records.analyses.slice(0, 20)
   analysisNext = 'session'
   route = { ...route, screen: 'analysis' }
-  void Promise.all([saveRun(saved), saveRecords(records)])
+  persistActiveCourier()
   redraw()
 }
 
@@ -339,6 +480,14 @@ function continueAnalysis(): void {
   analysis = undefined
   analysisNext = undefined
   if (next === 'succession') { beginSuccession(); return }
+  if (next === 'checkpoint' && activeCourier?.checkpoint) {
+    state = structuredClone(activeCourier.checkpoint)
+    saved = structuredClone(activeCourier.checkpoint)
+    route = { screen: 'level', biome: campaign.selectedBiome }
+    recordedEnd = false
+    redraw()
+    return
+  }
   state = undefined
   route = { screen: 'splash', biome: campaign.selectedBiome }
   redraw()
