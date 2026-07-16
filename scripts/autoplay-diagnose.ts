@@ -11,11 +11,13 @@ const biomeValue = process.env.BIOME ?? 'mine'
 const modeValue = process.env.MODE ?? 'omniscient'
 const policyValue = process.env.POLICY ?? 'clear'
 const seed = Number(process.env.SEED ?? 7)
+const areaFloor = Number(process.env.AREA_FLOOR ?? 0)
 const turnLimit = Number(process.env.TURNS ?? 800)
 if (!biomes.includes(biomeValue as Biome)) throw new Error(`invalid BIOME: ${biomeValue}`)
 if (!modes.includes(modeValue as Exclude<AutoplayMode, 'off'>)) throw new Error(`invalid MODE: ${modeValue}`)
 if (!policies.includes(policyValue as AutoplayPolicy)) throw new Error(`invalid POLICY: ${policyValue}`)
 if (!Number.isInteger(seed) || seed < 0) throw new Error(`invalid SEED: ${process.env.SEED}`)
+if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid AREA_FLOOR: ${process.env.AREA_FLOOR}`)
 if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURNS: ${process.env.TURNS}`)
 
 const blocked = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
@@ -71,7 +73,7 @@ const currentDiagnostics = (state: RunState) => {
   }
 }
 
-const state = newRun(seed, biomeValue as Biome)
+const state = newRun(seed, biomeValue as Biome, areaFloor)
 const initialValidation = validateGeneration(state.floor)
 const context = createAutoplayContext()
 const trace: Array<{ turn: number; command: string; reason: string; candidates: unknown; events: string[]; before: { x: number; y: number; health: number }; after: { x: number; y: number; health: number } }> = []
@@ -96,6 +98,7 @@ if (state.status === 'dead') { outcome = 'dead'; halt = 'hero-dead' }
 console.log(JSON.stringify({
   seed,
   biome: biomeValue,
+  areaFloor,
   mode: modeValue,
   policy: policyValue,
   initialValidation,

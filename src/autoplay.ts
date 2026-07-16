@@ -368,6 +368,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
   if (simulated.modal) return 0
   if (simulated.turn === turn && simulated.floor.index === state.floor.index && simulated.areaFloor === state.areaFloor && simulated.floor.objective.status === state.floor.objective.status && !events.some(event => event.type === 'areaComplete' || event.type === 'floor' || event.type === 'gateResolved')) return Number.NEGATIVE_INFINITY
+  if (health * 3 <= state.hero.maxHealth && simulated.hero.health < health) return Number.NEGATIVE_INFINITY
   let adjustment = (simulated.hero.health - health) * 18
   if (telegraphDanger(simulated, simulated.hero)) adjustment -= 105
   if (pointKey(simulated.hero) !== pointKey(state.hero) && context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
@@ -396,8 +397,12 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
     if (!actionCells(shape, state.hero, direction, reach).some(point => point.x === foe.x && point.y === foe.y)) continue
     const lethal = foe.health <= estimatedDamage
     const safeExchange = state.hero.health > foe.attack * 2 + 4 && hostilePressure(state, mode, state.hero) < 180
-    if (lethal || safeExchange || foe.role === 'guardian') return { command: directionCommands[direction], reason: `melee:${foe.id}`, score: lethal ? 176 : safeExchange ? 164 : foe.role === 'guardian' ? 82 : 64 }
+    const rangedFinish = objectiveComplete && foe.ai === 'ranged' && state.hero.health > foe.attack + 4
+    if (lethal || safeExchange || rangedFinish || foe.role === 'guardian') return { command: directionCommands[direction], reason: `melee:${foe.id}`, score: lethal ? 176 : safeExchange || rangedFinish ? 164 : foe.role === 'guardian' ? 82 : 64 }
   }
+  const exitThreat = objectiveComplete ? foes.find(foe => foe.ai === 'ranged') : undefined
+  const threatRoute = exitThreat ? stepTo(state, mode, adjacentCells(exitThreat), false, false) : undefined
+  if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 270 }
   const guardian = foes.find(foe => foe.role === 'guardian')
   const route = guardian ? stepTo(state, mode, adjacentCells(guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
@@ -479,7 +484,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0)
   const bomb = canBomb ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && bombTarget.score > 0 && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)) || (mode === 'omniscient' && bombTarget.score >= 70))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : bomb ? 'bomb tactical cluster' : 'bomb escape route', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && bombTarget.score > 0 && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
@@ -526,22 +531,26 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       context.rejectedObjectiveTargets.clear()
       selectableTargets = availableTargets
     }
-    if (pinTarget && !context.objectiveTarget && selectableTargets.length) context.objectiveTarget = pointKey([...selectableTargets].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)[0])
-    const targets = pinTarget && context.objectiveTarget ? availableTargets.filter(target => pointKey(target) === context.objectiveTarget) : availableTargets
     const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
-    const routeTargets = needsAdjacent ? targets.flatMap(adjacentCells) : targets
-    const atRouteTarget = routeTargets.some(target => target.x === state.hero.x && target.y === state.hero.y)
-    const route = atRouteTarget ? undefined : stepTo(state, mode, routeTargets)
+    const orderedTargets = pinTarget && context.objectiveTarget
+      ? [...selectableTargets.filter(target => pointKey(target) === context.objectiveTarget), ...selectableTargets.filter(target => pointKey(target) !== context.objectiveTarget)]
+      : [...selectableTargets].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)
+    const routes = orderedTargets.flatMap(target => {
+      const routeTargets = needsAdjacent ? adjacentCells(target) : [target]
+      if (routeTargets.some(point => point.x === state.hero.x && point.y === state.hero.y)) return []
+      const direct = stepTo(state, mode, routeTargets)
+      if (direct) return [{ target, route: direct }]
+      const blocked = stepTo(state, mode, routeTargets, false, false, true)
+      return blocked ? [{ target, route: blocked, blocked: true }] : []
+    })
+    const route = routes.find(candidate => !candidate.blocked) ?? routes[0]
     if (route) {
+      if (pinTarget) context.objectiveTarget = pointKey(route.target)
       hasObjectiveRoute = true
-      candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
-    }
-    else {
-      const blockedRoute = atRouteTarget ? undefined : stepTo(state, mode, routeTargets, false, false, true)
-      if (blockedRoute) {
-        hasObjectiveRoute = true
-        candidates.push({ command: blockedRoute.command, reason: `clear objective route:${objective.kind}`, score: policy === 'clear' ? 158 : 76 })
-      }
+      candidates.push({ command: route.route.command, reason: route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, score: policy === 'clear' ? route.blocked ? 158 : 150 : route.blocked ? 76 : 70 })
+    } else if (pinTarget && context.objectiveTarget) {
+      context.rejectedObjectiveTargets.add(context.objectiveTarget)
+      context.objectiveTarget = undefined
     }
   }
   if (objectiveComplete) {
@@ -597,7 +606,9 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       context.recentPositions = []
       context.noProgressTurns = 0
     } else {
-      const recovery = combatMove(state, mode) ?? loopThreatMove(state, mode) ?? cycleBreakMove(state, mode, context, true)
+      const recovery = [combatMove(state, mode), loopThreatMove(state, mode), cycleBreakMove(state, mode, context, true)]
+        .filter((candidate): candidate is Candidate => Boolean(candidate))
+        .find(candidate => Number.isFinite(candidateLookahead(state, mode, candidate, context)))
       if (!recovery) {
         context.lastReason = 'no recovery action'
         return undefined

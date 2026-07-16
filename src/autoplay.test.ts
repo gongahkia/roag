@@ -96,6 +96,25 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('b')
   })
 
+  it('falls back to a reachable objective target when the pinned target is sealed off', () => {
+    const state = newRun(71)
+    state.floor.actors = []
+    state.floor.items = []
+    state.hero.gold = 75
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall'; tile.explored = true })
+    state.hero.x = 2
+    state.hero.y = 2
+    for (let x = 2; x <= 4; x++) state.floor.tiles[2 * 48 + x].kind = 'floor'
+    state.floor.tiles[2 * 48 + 5].kind = 'altar'
+    state.floor.tiles[10 * 48 + 10].kind = 'altar'
+    state.floor.objective = { ...state.floor.objective, kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    const context = createAutoplayContext()
+    context.objectiveId = state.floor.objective.id
+    context.objectiveTarget = '10,10'
+    autoplayDecision(state, 'omniscient', 'clear', context)
+    expect(context.objectiveTarget).toBe('5,2')
+  })
+
   it('completes the Mine reference run using tactical actions', () => {
     const report = runAutoplay(newRun(7, 'mine'), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
