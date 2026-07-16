@@ -22,4 +22,13 @@ describe('player-left items', () => {
     expect(operate(state).map(event => event.type)).toEqual(['spell'])
     expect(state.floor.objective.status).toBe('complete')
   })
+
+  it('uses a carried key for an ordinary locked door before opening an area gate', () => {
+    const state = createRun({ hero: createHero({ keys: 1 }) })
+    state.floor.tiles[indexOf(2, 1)].kind = 'lockedDoor'
+    expect(operate(state).map(event => event.type)).toEqual(['gateResolved'])
+    expect(state.hero.keys).toBe(0)
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
+    expect(state.modal).toBeUndefined()
+  })
 })

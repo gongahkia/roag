@@ -214,6 +214,7 @@ const bestEquip = (state: RunState): string | undefined => state.hero.inventory.
 
 const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): string | undefined => {
   const items = state.hero.inventory
+  const underImmediateDanger = telegraphDanger(state, state.hero) || hostilePressure(state, mode, state.hero) >= 100
   const heal = items.find(id => ITEM[id]?.use === 'heal')
   if (heal && (state.hero.health + 8 <= state.hero.maxHealth || (hostilePressure(state, mode, state.hero) > 0 && state.hero.health < state.hero.maxHealth))) return heal
   const focus = items.find(id => ITEM[id]?.use === 'focus')
@@ -221,9 +222,9 @@ const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): s
   const map = items.find(id => ITEM[id]?.use === 'map')
   if (map && mode === 'visible' && state.floor.tiles.some(tile => !tile.explored)) return map
   const bomb = items.find(id => ITEM[id]?.use === 'bomb')
-  if (bomb && state.hero.bombs <= resourceReserve(policy)) return bomb
+  if (bomb && state.hero.bombs <= resourceReserve(policy) && !underImmediateDanger) return bomb
   const rope = items.find(id => ITEM[id]?.use === 'rope')
-  if (rope && state.hero.ropes <= resourceReserve(policy)) return rope
+  if (rope && state.hero.ropes <= resourceReserve(policy) && !underImmediateDanger) return rope
   const key = items.find(id => ITEM[id]?.use === 'key')
   if (key && state.floor.tiles.some(tile => tile.kind === 'lockedDoor')) return key
   return undefined
@@ -479,7 +480,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0)
   const bomb = canBomb ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)) || (mode === 'omniscient' && bombTarget.score >= 70))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : bomb ? 'bomb tactical cluster' : 'bomb escape route', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && bombTarget.score > 0 && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)) || (mode === 'omniscient' && bombTarget.score >= 70))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : bomb ? 'bomb tactical cluster' : 'bomb escape route', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
