@@ -103,6 +103,21 @@ describe('autoplay', () => {
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
   }, 30_000)
 
+  it('chains completed areas into the next biome by default', () => {
+    const state = newRun(7, 'mine', 3)
+    state.floor.actors = []
+    state.floor.objective.status = 'complete'
+    state.floor.guardianDefeated = true
+    state.hero.x = state.floor.exit.x
+    state.hero.y = state.floor.exit.y
+    const chained = runAutoplay(state, { mode: 'omniscient', policy: 'clear', turnLimit: 1 })
+    const singleArea = runAutoplay(state, { mode: 'omniscient', policy: 'clear', turnLimit: 1, chainAreas: false })
+    expect(chained.completedAreas).toEqual(['mine'])
+    expect(chained.finalBiome).toBe('wilds')
+    expect(singleArea.outcome).toBe('complete')
+    expect(singleArea.finalBiome).toBe('mine')
+  })
+
   it('replays deterministically without mutating its input', () => {
     const state = newRun(913, 'mine')
     const before = structuredClone(state)

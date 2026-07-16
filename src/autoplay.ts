@@ -368,8 +368,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
   if (simulated.modal) return 0
   if (simulated.turn === turn && simulated.floor.index === state.floor.index && simulated.areaFloor === state.areaFloor && simulated.floor.objective.status === state.floor.objective.status && !events.some(event => event.type === 'areaComplete' || event.type === 'floor' || event.type === 'gateResolved')) return Number.NEGATIVE_INFINITY
-  const strategicRoute = candidate.reason === 'reach exit' || candidate.reason.startsWith('objective:') || candidate.reason.startsWith('clear objective route:')
-  let adjustment = (simulated.hero.health - health) * (strategicRoute ? 4 : 18)
+  let adjustment = (simulated.hero.health - health) * 18
   if (telegraphDanger(simulated, simulated.hero)) adjustment -= 105
   if (pointKey(simulated.hero) !== pointKey(state.hero) && context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
   if (events.some(event => event.type === 'danger')) adjustment -= 14
