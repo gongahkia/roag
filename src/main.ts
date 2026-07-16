@@ -450,10 +450,11 @@ function syncAutoplay(): void {
     if (!state || !canAutoplay()) return
     const decision = autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, autoplayContext)
     if (!decision) {
-      finalizeAutoplay('stalled', 'cycle guard or no legal progress action')
+      const reason = autoplayContext.lastReason ?? 'no legal progress action'
+      finalizeAutoplay('stalled', reason)
       settings = { ...settings, autoplayMode: 'off' }
       saveSettings(settings)
-      state.messages.unshift('Autoplay stalled; trace saved locally.')
+      state.messages.unshift(`Autoplay halted (${reason}); trace saved locally.`)
       redraw()
       return
     }
