@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoplayCommand, autoplayDecision, createAutoplayContext, recordAutoplayTransition } from './autoplay'
+import { AUTOPLAY_MAX_TURNS, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
 import { runAutoplay } from './autoplay-runner'
 import { newRun, skillChoices } from './engine'
 
@@ -57,6 +57,32 @@ describe('autoplay', () => {
     }
     expect(decision).toBeUndefined()
     expect(context.loopRecoveries).toBe(8)
+  })
+
+  it('stops a live autoplay session at the hard turn guard', () => {
+    const state = newRun(71)
+    const context = createAutoplayContext()
+    context.startedTurn = state.turn
+    state.turn += AUTOPLAY_MAX_TURNS
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toBeUndefined()
+    expect(context.lastReason).toBe(`turn guard:${AUTOPLAY_MAX_TURNS}`)
+  })
+
+  it('stops after repeated commands that cannot advance a turn', () => {
+    const state = newRun(71)
+    const context = createAutoplayContext()
+    context.noTurnCommands = 8
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toBeUndefined()
+    expect(context.lastReason).toBe('non-turn guard:8')
+  })
+
+  it('stops after repeated recovery at the same strategic state', () => {
+    const state = newRun(71)
+    const context = createAutoplayContext()
+    context.noProgressTurns = 32
+    context.recoveryVisits.set(autoplayRecoveryFingerprint(state), 8)
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toBeUndefined()
+    expect(context.lastReason).toBe('recovery cycle guard')
   })
 
   it('uses the final bomb when critically threatened', () => {

@@ -9,6 +9,9 @@ import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type 
 import { actorAt, getTile } from './world'
 
 export const AUTOPLAY_TURN_MS = Math.round(1000 / 6)
+export const AUTOPLAY_MAX_TURNS = 800
+const AUTOPLAY_MAX_NON_TURN_COMMANDS = 8
+const AUTOPLAY_MAX_RECOVERY_REPEATS = 8
 export const autoplayModes: readonly AutoplayMode[] = ['off', 'visible', 'omniscient']
 export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear', 'legacy']
 const directionCommands: Record<Direction, string> = { nw: 'i', n: 'o', ne: 'p', w: 'k', wait: 'l', e: ';', sw: ',', s: '.', se: '/' }
@@ -21,9 +24,9 @@ const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; shopTurns: number; noProgressTurns: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 
-export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, loopRecoveries: 0 })
+export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
@@ -61,20 +64,25 @@ const autoplayProgressFingerprint = (state: RunState, includePosition: boolean):
   return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}`
 }
 
+export const autoplayRecoveryFingerprint = (state: RunState): string => autoplayProgressFingerprint(state, true)
+
 export const recordAutoplayTransition = (context: AutoplayContext, before: RunState, command: string, after: RunState): void => {
   const beforeKey = autoplayStateFingerprint(before)
   const afterKey = autoplayStateFingerprint(after)
   context.visits.set(afterKey, (context.visits.get(afterKey) ?? 0) + 1)
   if (after.turn <= before.turn) {
+    context.noTurnCommands++
     if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
     else context.failed.clear()
     return
   }
+  context.noTurnCommands = 0
   const beforeProgress = autoplayProgressFingerprint(before, false)
   const afterProgress = autoplayProgressFingerprint(after, false)
   const progressed = beforeProgress !== afterProgress
   if (progressed) {
     context.strategicVisits.clear()
+    context.recoveryVisits.clear()
     context.recentPositions = []
     context.loopRecoveries = 0
   }
@@ -553,13 +561,32 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
 
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
+  context.startedTurn ??= state.turn
+  if (state.turn - context.startedTurn >= AUTOPLAY_MAX_TURNS) {
+    context.lastReason = `turn guard:${AUTOPLAY_MAX_TURNS}`
+    return undefined
+  }
+  if (context.noTurnCommands >= AUTOPLAY_MAX_NON_TURN_COMMANDS) {
+    context.lastReason = `non-turn guard:${AUTOPLAY_MAX_NON_TURN_COMMANDS}`
+    return undefined
+  }
   const modal = modalDecision(state, mode, policy, context)
   if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
   const fingerprint = autoplayStateFingerprint(state)
   const strategicVisits = context.strategicVisits.get(autoplayProgressFingerprint(state, true)) ?? 0
   if ((context.visits.get(fingerprint) ?? 0) >= 6 || strategicVisits >= 3 || context.noProgressTurns >= 32 || breaksPositionCycle(context)) {
-    if (context.loopRecoveries >= 8) return undefined
+    const recoveryKey = autoplayRecoveryFingerprint(state)
+    const recoveryVisits = context.recoveryVisits.get(recoveryKey) ?? 0
+    if (context.loopRecoveries >= 8) {
+      context.lastReason = 'loop recovery limit'
+      return undefined
+    }
+    if (recoveryVisits >= AUTOPLAY_MAX_RECOVERY_REPEATS) {
+      context.lastReason = 'recovery cycle guard'
+      return undefined
+    }
     context.loopRecoveries++
+    context.recoveryVisits.set(recoveryKey, recoveryVisits + 1)
     if (context.objectiveTarget && context.objectiveTargetCount > 1) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
@@ -568,7 +595,10 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       context.noProgressTurns = 0
     } else {
       const recovery = combatMove(state, mode) ?? loopThreatMove(state, mode) ?? cycleBreakMove(state, mode, context, true)
-      if (!recovery) return undefined
+      if (!recovery) {
+        context.lastReason = 'no recovery action'
+        return undefined
+      }
       context.lastReason = recovery.reason
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
