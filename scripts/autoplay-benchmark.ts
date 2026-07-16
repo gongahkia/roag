@@ -17,7 +17,7 @@ const modes = list(process.env.MODES, allModes, ['omniscient'], 'MODES') as Excl
 const policyValue = process.env.POLICY ?? 'clear'
 if (!allPolicies.includes(policyValue as AutoplayPolicy)) throw new Error(`invalid POLICY: ${policyValue}`)
 const policy = policyValue as AutoplayPolicy
-const turnLimit = Number(process.env.TURNS ?? 800)
+const turnLimit = Number(process.env.TURNS ?? 3200)
 if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURNS: ${process.env.TURNS}`)
 const fullTrace = process.env.FULL_TRACE === '1'
 const reports = seeds.flatMap(seed => biomes.flatMap(biome => modes.map(mode => runAutoplay(newRun(seed, biome), { mode, policy, turnLimit }))))

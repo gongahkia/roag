@@ -9,7 +9,7 @@ const biomeValue = process.env.BIOME ?? 'mine'
 const modeValue = process.env.MODE ?? 'omniscient'
 const policyValue = process.env.POLICY ?? 'clear'
 const seed = Number(process.env.SEED ?? 7)
-const turnLimit = Number(process.env.TURNS ?? 600)
+const turnLimit = Number(process.env.TURNS ?? 3200)
 if (!biomes.includes(biomeValue as Biome)) throw new Error(`invalid BIOME: ${biomeValue}`)
 if (!modes.includes(modeValue as Exclude<AutoplayMode, 'off'>)) throw new Error(`invalid MODE: ${modeValue}`)
 if (!policies.includes(policyValue as AutoplayPolicy)) throw new Error(`invalid POLICY: ${policyValue}`)

@@ -97,7 +97,7 @@ describe('autoplay', () => {
   })
 
   it('completes the Mine reference run using tactical actions', () => {
-    const report = runAutoplay(newRun(7, 'mine'), { mode: 'omniscient', policy: 'clear', turnLimit: 800 })
+    const report = runAutoplay(newRun(7, 'mine'), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
     expect(report.trace.some(entry => entry.reason.includes('bomb tactical cluster'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)

@@ -38,6 +38,13 @@ export function operate(state: RunState): ActionResult {
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
   const container = nearbyContainer(state)
   if (nearbyGate(state)) {
+    const lock = nearbyLockedDoor(state)
+    if (lock && state.hero.keys > 0) {
+      state.hero.keys--
+      lock.kind = 'floor'
+      log(state, 'You unlock the sealed door.')
+      return advance(state, [event('gateResolved')])
+    }
     const gate = gateForArea(state.area ?? state.floor.biome)
     state.modal = { kind: 'gate', gateId: gate.id }
     log(state, gate.npcOffering)
@@ -255,3 +262,4 @@ const nearbyContainer = (state: RunState): { tile: NonNullable<ReturnType<typeof
 }
 
 const nearbyGate = (state: RunState): boolean => Object.values(DIRECTIONS).some(delta => getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)?.kind === 'lockedDoor')
+const nearbyLockedDoor = (state: RunState): NonNullable<ReturnType<typeof getTile>> | undefined => Object.values(DIRECTIONS).map(delta => getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)).find(tile => tile?.kind === 'lockedDoor')
