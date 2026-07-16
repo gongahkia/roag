@@ -21,9 +21,9 @@ const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; shopTurns: number; noProgressTurns: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; shopTurns: number; noProgressTurns: number; loopRecoveries: number; lastReason?: string }
 
-export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], shopTurns: 0, noProgressTurns: 0, loopRecoveries: 0 })
+export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
@@ -72,7 +72,7 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
   }
   const beforeProgress = autoplayProgressFingerprint(before, false)
   const afterProgress = autoplayProgressFingerprint(after, false)
-  const progressed = beforeProgress !== afterProgress || after.hero.health > before.hero.health || after.hero.focus > before.hero.focus
+  const progressed = beforeProgress !== afterProgress
   if (progressed) {
     context.strategicVisits.clear()
     context.recentPositions = []
@@ -400,6 +400,13 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   return undefined
 }
 
+const loopThreatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
+  const threat = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= 10)
+    .sort((a, b) => Number(b.ai === 'ranged') - Number(a.ai === 'ranged') || chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.id.localeCompare(b.id))[0]
+  const route = threat ? stepTo(state, mode, adjacentCells(threat), false, false) : undefined
+  return route && threat ? { command: route.command, reason: `clear loop threat:${threat.id}`, score: 220 } : undefined
+}
+
 const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNullable<RunState['modal']>, { kind: 'target' }>): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
   const beforeEnemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((sum, actor) => sum + actor.health, 0)
   const beforeEnemies = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
@@ -463,7 +470,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0)
   const bomb = canBomb ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)) || bombTarget.score >= 70)) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : bomb ? 'bomb tactical cluster' : 'bomb escape route', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)) || (mode === 'omniscient' && bombTarget.score >= 70))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : bomb ? 'bomb tactical cluster' : 'bomb escape route', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
@@ -500,6 +507,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   let hasObjectiveRoute = false
   if (objective.status !== 'complete') {
     const availableTargets = needsOffering ? [] : objectiveTargets(state, mode)
+    context.objectiveTargetCount = availableTargets.length
     if (context.objectiveTarget && !availableTargets.some(target => pointKey(target) === context.objectiveTarget)) context.objectiveTarget = undefined
     const pinTarget = objective.kind !== 'recoverSupplies'
     let selectableTargets = availableTargets.filter(target => !context.rejectedObjectiveTargets.has(pointKey(target)))
@@ -511,13 +519,14 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const targets = pinTarget && context.objectiveTarget ? availableTargets.filter(target => pointKey(target) === context.objectiveTarget) : availableTargets
     const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
     const routeTargets = needsAdjacent ? targets.flatMap(adjacentCells) : targets
-    const route = stepTo(state, mode, routeTargets)
+    const atRouteTarget = routeTargets.some(target => target.x === state.hero.x && target.y === state.hero.y)
+    const route = atRouteTarget ? undefined : stepTo(state, mode, routeTargets)
     if (route) {
       hasObjectiveRoute = true
       candidates.push({ command: route.command, reason: `objective:${objective.kind}`, score: policy === 'clear' ? 150 : 70 })
     }
     else {
-      const blockedRoute = stepTo(state, mode, routeTargets, false, false, true)
+      const blockedRoute = atRouteTarget ? undefined : stepTo(state, mode, routeTargets, false, false, true)
       if (blockedRoute) {
         hasObjectiveRoute = true
         candidates.push({ command: blockedRoute.command, reason: `clear objective route:${objective.kind}`, score: policy === 'clear' ? 158 : 76 })
@@ -551,14 +560,14 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if ((context.visits.get(fingerprint) ?? 0) >= 6 || strategicVisits >= 3 || context.noProgressTurns >= 32 || breaksPositionCycle(context)) {
     if (context.loopRecoveries >= 8) return undefined
     context.loopRecoveries++
-    if (context.objectiveTarget) {
+    if (context.objectiveTarget && context.objectiveTargetCount > 1) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
       context.strategicVisits.clear()
       context.recentPositions = []
       context.noProgressTurns = 0
     } else {
-      const recovery = cycleBreakMove(state, mode, context, true)
+      const recovery = combatMove(state, mode) ?? loopThreatMove(state, mode) ?? cycleBreakMove(state, mode, context, true)
       if (!recovery) return undefined
       context.lastReason = recovery.reason
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }

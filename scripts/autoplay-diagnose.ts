@@ -81,7 +81,7 @@ while (state.status === 'playing' && state.turn < turnLimit) {
   const decision = autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, context)
   if (!decision) {
     const strategicVisits = Math.max(0, ...context.strategicVisits.values())
-    halt = (context.visits.get(autoplayStateFingerprint(state)) ?? 0) >= 6 ? 'visit-limit' : strategicVisits >= 5 ? 'strategic-visit-limit' : context.noProgressTurns >= 48 ? 'no-progress-limit' : 'no-viable-candidate'
+    halt = context.loopRecoveries >= 8 ? 'loop-recovery-limit' : (context.visits.get(autoplayStateFingerprint(state)) ?? 0) >= 6 ? 'visit-limit' : strategicVisits >= 3 ? 'strategic-visit-limit' : context.noProgressTurns >= 32 ? 'no-progress-limit' : 'no-viable-candidate'
     outcome = 'stalled'
     break
   }
@@ -106,6 +106,7 @@ console.log(JSON.stringify({
   visits: context.visits.get(autoplayStateFingerprint(state)) ?? 0,
   strategicVisits: Math.max(0, ...context.strategicVisits.values()),
   noProgressTurns: context.noProgressTurns,
+  loopRecoveries: context.loopRecoveries,
   lastReason: context.lastReason,
   failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })),
   recentPositions: context.recentPositions,
