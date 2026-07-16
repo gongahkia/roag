@@ -9,10 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "./scripts/browser-e2e.sh",
-    "smoke:autoplay": "vite-node scripts/autoplay-smoke.ts",
-    "autoplay:headless": "vite-node scripts/autoplay-headless.ts",
-    "autoplay:benchmark": "vite-node scripts/autoplay-benchmark.ts",
-    "autoplay:diagnose": "vite-node scripts/autoplay-diagnose.ts"
+    "smoke:autoplay": "vite-node --script scripts/autoplay-smoke.ts",
+    "autoplay:headless": "vite-node --script scripts/autoplay-headless.ts",
+    "autoplay:benchmark": "vite-node --script scripts/autoplay-benchmark.ts",
+    "autoplay:diagnose": "vite-node --script scripts/autoplay-diagnose.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
