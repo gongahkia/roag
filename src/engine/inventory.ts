@@ -37,20 +37,6 @@ export function operate(state: RunState): ActionResult {
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
   const container = nearbyContainer(state)
-  if (nearbyGate(state)) {
-    const lock = nearbyLockedDoor(state)
-    if (lock && state.hero.keys > 0) {
-      state.hero.keys--
-      lock.kind = 'floor'
-      log(state, 'You unlock the sealed door.')
-      return advance(state, [event('gateResolved')])
-    }
-    const gate = gateForArea(state.area ?? state.floor.biome)
-    state.modal = { kind: 'gate', gateId: gate.id }
-    log(state, gate.npcOffering)
-    return [event('menu')]
-  }
-  if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
   if (container) {
     container.tile.kind = 'floor'
     const loot = contextualReward(state, 'container')
@@ -84,6 +70,20 @@ export function operate(state: RunState): ActionResult {
     if (completeObjective(state, 'invokeAltar')) log(state, 'Objective complete: shrine offering made.')
     return advance(state, [event('spell')])
   }
+  if (nearbyGate(state)) {
+    const lock = nearbyLockedDoor(state)
+    if (lock && state.hero.keys > 0) {
+      state.hero.keys--
+      lock.kind = 'floor'
+      log(state, 'You unlock the sealed door.')
+      return advance(state, [event('gateResolved')])
+    }
+    const gate = gateForArea(state.area ?? state.floor.biome)
+    state.modal = { kind: 'gate', gateId: gate.id }
+    log(state, gate.npcOffering)
+    return [event('menu')]
+  }
+  if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
   log(state, 'Nothing answers.')
   return []
 }

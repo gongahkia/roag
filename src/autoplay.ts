@@ -485,21 +485,22 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
   const throwThreshold = throwable === 'fireJar' ? 85 : throwable === 'spear' ? 54 : 34
-  if (throwable && throwTarget && safeThrowTarget && throwTarget.score >= throwThreshold) candidates.push({ command: 't', reason: `throw:${throwable}`, score: 96 + throwTarget.score / 10, intent: { kind: 'throw', item: throwable } })
+  if (throwable && throwTarget && safeThrowTarget && throwTarget.score >= throwThreshold) candidates.push({ command: 't', reason: `throw:${throwable}`, score: 96 + throwTarget.score / 10 + (pressure >= 100 ? 60 : 0), intent: { kind: 'throw', item: throwable } })
   const spell = state.hero.inventory.filter(id => ITEM[id]?.use === 'spell').map(id => ({ id, target: targetDirection(state, mode, 'spell', id), resolved: usableTarget(state, mode, 'spell', id), profile: scriptCastProfile(state.hero, id) }))
     .filter((choice): choice is { id: string; target: { direction: Exclude<Direction, 'wait'>; score: number }; resolved: { direction: Exclude<Direction, 'wait'>; score: number }; profile: ReturnType<typeof scriptCastProfile> } => Boolean(choice.target && choice.resolved) && state.hero.focus >= choice.profile.focusCost)
     .sort((a, b) => b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
-  if (spell) candidates.push({ command: 'u', reason: `cast:${spell.id}`, score: 90 + spell.target.score / 5, intent: { kind: 'use', item: spell.id } })
+  if (spell) candidates.push({ command: 'u', reason: `cast:${spell.id}`, score: 90 + spell.target.score / 5 + (pressure >= 100 ? 60 : 0), intent: { kind: 'use', item: spell.id } })
   const nearbyContainer = adjacentCells(heroPoint).some(point => ['crate', 'chest'].includes(getTile(state.floor, point.x, point.y)?.kind ?? ''))
   const nearLockedDoor = adjacentCells(heroPoint).some(point => getTile(state.floor, point.x, point.y)?.kind === 'lockedDoor')
   const merchant = state.floor.actors.find(actor => actor.role === 'merchant' && chebyshev(actor, state.hero) <= 1)
   const nearMerchant = Boolean(merchant) && !context.closedMerchants.has(merchant!.id)
   const friendly = state.floor.actors.some(actor => actor.role === 'ally' && chebyshev(actor, state.hero) <= 1)
   const unlockedByKey = nearLockedDoor && state.hero.keys > 0
-  const viableGate = nearLockedDoor && !unlockedByKey && gateChoice(state, policy) !== undefined
-  if (unlockedByKey || viableGate || (!nearLockedDoor && !merchant && (nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly))) {
-    if (tile?.kind !== 'altar' || state.hero.gold >= 75) candidates.push({ command: 'c', reason: nearMerchant ? 'merchant' : viableGate ? 'gate' : 'operate objective', score: nearMerchant ? 82 : 135 })
-  }
+  const preserveOffering = state.floor.objective.kind === 'invokeAltar' && state.floor.objective.status !== 'complete' && state.hero.gold < 150
+  const viableGate = nearLockedDoor && !unlockedByKey && !preserveOffering && gateChoice(state, policy) !== undefined
+  const nearbyObjective = nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly
+  if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
+  else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
   const cycleBreak = cycleBreakMove(state, mode, context)

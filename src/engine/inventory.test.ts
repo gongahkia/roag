@@ -31,4 +31,14 @@ describe('player-left items', () => {
     expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
     expect(state.modal).toBeUndefined()
   })
+
+  it('operates a rescue before an adjacent locked door', () => {
+    const state = createRun()
+    state.floor.objective = { id: 'rescue', kind: 'rescueScout', label: 'Aid a stranded traveler', status: 'active' }
+    state.floor.tiles[indexOf(2, 1)].kind = 'rescue'
+    state.floor.tiles[indexOf(1, 2)].kind = 'lockedDoor'
+    state.floor.actors.push({ id: 'scout', role: 'ally', kind: 'scout', name: 'lost scout', x: 2, y: 1, health: 1, maxHealth: 1, attack: 0, defense: 0, speed: 0, energy: 0, glyph: '&', color: '#fff', hostile: false })
+    expect(operate(state).map(event => event.type)).toEqual(['rescue'])
+    expect(state.floor.objective.status).toBe('complete')
+  })
 })
