@@ -64,7 +64,7 @@ const strategicDistance = (state: RunState): number => {
       const matches = kind === 'recoverSupplies' ? tile.kind === 'crate' || tile.kind === 'chest' : kind === 'rescueScout' ? tile.kind === 'rescue' : tile.kind === 'altar'
       return matches ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : []
     })
-  const adjacent = kind !== 'defeatGuardian'
+  const adjacent = kind === 'recoverSupplies' || kind === 'rescueScout'
   return targets.reduce((nearest, target) => Math.min(nearest, Math.max(0, chebyshev(state.hero, target) - Number(adjacent))), Number.POSITIVE_INFINITY)
 }
 
@@ -101,12 +101,14 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
   const routeAdvanced = Number.isFinite(distance) && (context.bestStrategicDistance === undefined || distance < context.bestStrategicDistance)
   context.bestStrategicDistance = Math.min(context.bestStrategicDistance ?? Number.POSITIVE_INFINITY, distance)
   const progressed = beforeProgress !== afterProgress || routeAdvanced
+  const movedToFreshPosition = pointKey(before.hero) !== pointKey(after.hero) && !context.recentPositions.includes(pointKey(after.hero))
   if (progressed) {
     context.strategicVisits.clear()
     context.recoveryVisits.clear()
     context.recentPositions = []
     context.loopRecoveries = 0
   }
+  else if (movedToFreshPosition) context.loopRecoveries = 0
   const strategicKey = autoplayProgressFingerprint(after, true)
   context.strategicVisits.set(strategicKey, (context.strategicVisits.get(strategicKey) ?? 0) + 1)
   context.noProgressTurns = !progressed ? context.noProgressTurns + 1 : 0
@@ -158,7 +160,13 @@ const hostilePressure = (state: RunState, mode: AutoplayMode, point: Point): num
   return pressure
 }, 0)
 
+const directionTargetsHostile = (state: RunState, direction: Exclude<Direction, 'wait'>): boolean => {
+  const profile = heroAttackProfile(state)
+  return actionCells(profile.shape, state.hero, direction, profile.reach).some(point => Boolean(actorAt(state.floor, point.x, point.y)?.hostile))
+}
+
 const projectedMove = (state: RunState, mode: AutoplayMode, from: Point, direction: Exclude<Direction, 'wait'>, avoidHazards: boolean, ignoreActors: boolean): Point | undefined => {
+  if (pointKey(from) === pointKey(state.hero) && directionTargetsHostile(state, direction)) return undefined
   const delta = DIRECTIONS[direction]
   const first = { x: from.x + delta.x, y: from.y + delta.y }
   if (!passable(state, mode, first, avoidHazards, ignoreActors)) return undefined
@@ -467,18 +475,28 @@ const guardianApproachMove = (state: RunState, mode: AutoplayMode, context: Auto
   if (state.floor.objective.kind !== 'defeatGuardian' || state.floor.objective.status === 'complete') return undefined
   const guardian = hostileKnown(state, mode).find(actor => actor.role === 'guardian')
   if (!guardian) return undefined
-  const stances = attackStances(state, guardian)
-  const route = stepTo(state, mode, stances, false, false)
-  if (route) return { command: route.command, reason: `route guardian:${guardian.id}`, score: 175 }
-  const distanceToStance = (point: Point) => stances.reduce((nearest, stance) => Math.min(nearest, chebyshev(point, stance)), Number.POSITIVE_INFINITY)
-  const currentDistance = distanceToStance(state.hero)
-  const option = directions.map(([direction]) => {
-    const point = projectedMove(state, mode, state.hero, direction, true, false)
-    return point ? { direction, point, distance: distanceToStance(point), repeats: context.recentPositions.filter(position => position === pointKey(point)).length, pressure: hostilePressure(state, mode, point) } : undefined
-  }).filter((candidate): candidate is { direction: Exclude<Direction, 'wait'>; point: Point; distance: number; repeats: number; pressure: number } => Boolean(candidate))
-    .filter(candidate => candidate.distance < currentDistance)
-    .sort((a, b) => a.distance - b.distance || a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
-  return option ? { command: directionCommands[option.direction], reason: `close guardian:${guardian.id}`, score: 175 } : undefined
+  const options = [...directions.map(([direction]) => directionCommands[direction]), 'l']
+    .flatMap(command => {
+      const simulated = structuredClone(state)
+      const before = pointKey(simulated.hero)
+      perform(simulated, command)
+      if (simulated.status !== 'playing' || simulated.turn === state.turn) return []
+      const target = simulated.floor.actors.find(actor => actor.id === guardian.id && actor.health > 0)
+      if (!target) return []
+      const profile = heroAttackProfile(simulated)
+      const strikeReady = directions.some(([direction]) => actionCells(profile.shape, simulated.hero, direction, profile.reach).some(point => point.x === target.x && point.y === target.y))
+      const stances = attackStances(simulated, target)
+      const distance = stances.reduce((nearest, stance) => Math.min(nearest, chebyshev(simulated.hero, stance)), Number.POSITIVE_INFINITY)
+      const moved = pointKey(simulated.hero) !== before
+      if (!moved && !strikeReady) return []
+      const repeats = context.recentPositions.filter(position => position === pointKey(simulated.hero)).length
+      const danger = telegraphDanger(simulated, simulated.hero) ? 120 : hostilePressure(simulated, mode, simulated.hero) >= 100 ? 35 : 0
+      return [{ command, strikeReady, distance, repeats, danger }]
+    })
+    .sort((a, b) => Number(b.strikeReady) - Number(a.strikeReady) || a.distance - b.distance || a.repeats - b.repeats || a.danger - b.danger || a.command.localeCompare(b.command))[0]
+  if (!options) return undefined
+  const score = options.strikeReady ? 210 : 176 - options.distance * 8 - options.repeats * 36 - options.danger
+  return { command: options.command, reason: `track guardian:${guardian.id}`, score }
 }
 
 const guardianFinishMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
@@ -612,7 +630,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       context.rejectedObjectiveTargets.clear()
       selectableTargets = availableTargets
     }
-    const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'invokeAltar' || objective.kind === 'defeatGuardian'
+    const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'defeatGuardian'
     const orderedTargets = pinTarget && context.objectiveTarget
       ? [...selectableTargets.filter(target => pointKey(target) === context.objectiveTarget), ...selectableTargets.filter(target => pointKey(target) !== context.objectiveTarget)]
       : [...selectableTargets].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)
@@ -652,6 +670,13 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   return candidates
 }
 
+const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, context: AutoplayContext): Candidate[] => immediateCandidates(state, mode, policy, context)
+  .map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 + candidateLookahead(state, mode, candidate, context) }))
+  .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
+
+export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context)
+  .map(({ command, reason, score }) => ({ command, reason, score }))
+
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
   context.startedTurn ??= state.turn
@@ -670,10 +695,6 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if ((context.visits.get(fingerprint) ?? 0) >= 6 || strategicVisits >= 3 || context.noProgressTurns >= 32 || breaksPositionCycle(context)) {
     const recoveryKey = autoplayRecoveryFingerprint(state)
     const recoveryVisits = context.recoveryVisits.get(recoveryKey) ?? 0
-    if (context.loopRecoveries >= 8) {
-      context.lastReason = 'loop recovery limit'
-      return undefined
-    }
     if (recoveryVisits >= AUTOPLAY_MAX_RECOVERY_REPEATS) {
       context.lastReason = 'recovery cycle guard'
       return undefined
@@ -702,9 +723,12 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
   }
-  const candidates = immediateCandidates(state, mode, policy, context).map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 + candidateLookahead(state, mode, candidate, context) })).filter(candidate => Number.isFinite(candidate.score))
+  const candidates = scoredAutoplayCandidates(state, mode, policy, context).filter(candidate => Number.isFinite(candidate.score))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
-  if (!selected || selected.score < -500) return undefined
+  if (!selected || selected.score < -500) {
+    context.lastReason = 'no viable candidate'
+    return undefined
+  }
   context.intent = selected.intent
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }

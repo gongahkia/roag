@@ -3,7 +3,7 @@ import { AudioBus } from './audio'
 import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayTraceFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { ITEM } from './content'
-import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -359,13 +359,33 @@ function beginSuccession(): void {
   }, 350)
 }
 
-function completeArea(): void {
-  if (!state) return
+function completeArea(): 'continued' | 'finished' | 'returned' {
+  if (!state) return 'returned'
   const completed = state.area ?? state.floor.biome
   heir = structuredClone(state.hero)
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  if (!activeCourier) return
+  const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed)
+  if (successor) {
+    campaign = unlockCampaignArea(campaign, successor)
+    hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+    const next = newRun(state.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
+    next.turn = state.turn
+    next.lineageEvents = structuredClone(state.lineageEvents ?? [])
+    next.telemetry = structuredClone(state.telemetry!)
+    state = next
+    saved = structuredClone(next)
+    route = { ...route, screen: 'level', biome: successor }
+    autoplayContext = createAutoplayContext()
+    if (activeCourier) activeCourier.checkpoint = structuredClone(next)
+    persistActiveCourier()
+    return 'continued'
+  }
+  if (settings.autoplayMode !== 'off') {
+    persistActiveCourier()
+    return 'finished'
+  }
+  if (!activeCourier) return 'returned'
   saved = undefined
   activeCourier.run = undefined
   activeCourier.checkpoint = undefined
@@ -374,6 +394,7 @@ function completeArea(): void {
   state = undefined
   persistActiveCourier()
   route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
+  return 'returned'
 }
 
 function unlockGateDestination(): void {
@@ -548,16 +569,21 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
       after: { x: game.hero.x, y: game.hero.y, health: game.hero.health, focus: game.hero.focus, bombs: game.hero.bombs, ropes: game.hero.ropes, objective: game.floor.objective.status, ...(game.modal ? { modal: game.modal.kind } : {}) }
     })
     if (autoplayTrace.length > 600) autoplayTrace = autoplayTrace.slice(-600)
-    if (hasEvent(events, 'areaComplete')) finalizeAutoplay('complete', 'area completed')
-    else if (hasEvent(events, 'death') || game.status === 'dead') finalizeAutoplay('dead', 'courier defeated')
+    if (hasEvent(events, 'death') || game.status === 'dead') finalizeAutoplay('dead', 'courier defeated')
   }
   audio.play(events)
   renderer.trigger(events, game, options.spellEffect)
   if (hasEvent(events, 'suspend')) { suspendRun(); return }
   if (hasEvent(events, 'floor')) { saved = structuredClone(game); checkpointActiveCourier() }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
-  if (hasEvent(events, 'areaComplete')) completeArea()
+  const areaResult = hasEvent(events, 'areaComplete') ? completeArea() : undefined
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
+  if (areaResult === 'finished' && state) {
+    state.status = 'victory'
+    finish(true)
+    redraw()
+    return
+  }
   if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
   else persistActiveCourier()
   redraw()

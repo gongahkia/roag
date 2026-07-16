@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
+import { autoplayCandidateDiagnostics, autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
@@ -98,6 +98,13 @@ while (state.status === 'playing' && state.turn < turnLimit) {
 }
 if (state.status === 'dead') { outcome = 'dead'; halt = 'hero-dead' }
 const nextDecision = state.status === 'playing' ? autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, structuredClone(context)) : undefined
+const candidateDiagnostics = state.status === 'playing' ? autoplayCandidateDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, createAutoplayContext()) : []
+const candidateTransitions = candidateDiagnostics.map(candidate => {
+  const simulated = structuredClone(state)
+  const before = { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y }
+  const events = perform(simulated, candidate.command)
+  return { command: candidate.command, reason: candidate.reason, before, after: { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y, status: simulated.status }, events: events.map(event => event.type) }
+})
 
 console.log(JSON.stringify({
   seed,
@@ -119,6 +126,8 @@ console.log(JSON.stringify({
   loopRecoveries: context.loopRecoveries,
   lastReason: context.lastReason,
   nextDecision,
+  candidateDiagnostics,
+  candidateTransitions,
   failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })),
   recentPositions: context.recentPositions,
   state: { hero: { x: state.hero.x, y: state.hero.y, health: state.hero.health, maxHealth: state.hero.maxHealth, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, inventory: state.hero.inventory }, objective: state.floor.objective, guardianDefeated: state.floor.guardianDefeated },

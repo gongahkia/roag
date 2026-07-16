@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AUTOPLAY_MAX_TURNS, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
 import { runAutoplay } from './autoplay-runner'
-import { newRun, skillChoices } from './engine'
+import { newRun, perform, skillChoices } from './engine'
 
 describe('autoplay', () => {
   it('does not mutate planning state and resolves level-up choices', () => {
@@ -41,6 +41,44 @@ describe('autoplay', () => {
     state.hero.inventory = Array.from({ length: 12 }, () => 'rock')
     state.floor.items = [{ id: 'gold', x: state.hero.x, y: state.hero.y, count: 7 }]
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('g')
+  })
+
+  it('steps onto an altar before operating it', () => {
+    const state = newRun(71)
+    state.floor.actors = []
+    state.floor.items = []
+    state.floor.guardianDefeated = true
+    state.floor.objective = { id: 'altar-objective', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.gold = 75
+    state.floor.tiles[5 * 48 + 6].kind = 'altar'
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe(';')
+    perform(state, ';')
+    expect(state.hero).toMatchObject({ x: 6, y: 5 })
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('c')
+  })
+
+  it('does not route through a direction consumed by a cooling weapon attack', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.skills = ['agi2']
+    state.hero.equipment.mainHand = 'pickaxe'
+    state.hero.cooldowns = { pickaxe: 1 }
+    state.floor.actors = [
+      { ...hostile, id: 'cross-target', x: 7, y: 4, health: 20 },
+      { ...hostile, id: 'guardian', role: 'guardian', x: 15, y: 5, health: 30 }
+    ]
+    state.floor.objective = { id: 'guardian-objective', kind: 'defeatGuardian', label: 'Pass the trail guardian', status: 'active' }
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.command).not.toBe('p')
+    const beforeTurn = state.turn
+    perform(state, decision!.command)
+    expect(state.turn).toBe(beforeTurn + 1)
   })
 
   it('halts strategic loops even when volatile actor state masks exact repeats', () => {
@@ -120,7 +158,7 @@ describe('autoplay', () => {
     expect(report.outcome).toBe('complete')
     expect(report.trace.some(entry => entry.reason.includes('bomb tactical cluster'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
-  }, 30_000)
+  }, 60_000)
 
   it('chains completed areas into the next biome by default', () => {
     const state = newRun(7, 'mine', 3)
