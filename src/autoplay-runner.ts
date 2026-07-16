@@ -6,9 +6,9 @@ import { getTile } from './world'
 import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
 export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
-export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean }
+export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean; captureTrace?: boolean; includeState?: boolean }
 export interface AutoplayFinalState { status: RunState['status']; areaFloor: number; hero: { x: number; y: number; health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }; exit: { x: number; y: number }; objective: RunState['floor']['objective']; guardianDefeated: boolean; exitPath: 'clear' | 'actor-blocked' | 'terrain-blocked'; hostiles: Array<{ id: string; x: number; y: number; health: number; ai?: string }>; modal?: string }
-export interface AutoplayReport { seed: number; biome: Biome; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; stall?: AutoplayStall; error?: string }
+export interface AutoplayReport { seed: number; biome: Biome; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; stall?: AutoplayStall; error?: string }
 
 const fingerprint = (state: RunState): string => JSON.stringify({
   status: state.status,
@@ -55,6 +55,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const policy = options.policy ?? 'clear'
   const turnLimit = options.turnLimit ?? 3200
   const stalledLimit = options.stalledLimit ?? 12
+  const captureTrace = options.captureTrace ?? true
   const commands: string[] = []
   const trace: AutoplayTraceEntry[] = []
   let context = createAutoplayContext()
@@ -82,13 +83,13 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const command = decision.command
       const before = telemetrySnapshot(state)
       const beforeState = structuredClone(state)
-      const beforeFingerprint = autoplayTraceFingerprint(state)
+      const beforeFingerprint = captureTrace ? autoplayTraceFingerprint(state) : undefined
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
       recordAutoplayTransition(context, beforeState, command, state)
-      trace.push({
+      if (captureTrace) trace.push({
         turn: before.turn,
-        fingerprint: beforeFingerprint,
+        fingerprint: beforeFingerprint!,
         command,
         reason: decision.reason,
         candidates: decision.candidates,
@@ -143,5 +144,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
     ...(state.modal ? { modal: state.modal.kind } : {})
   }
   const finalBiome = state.area ?? state.floor.biome
-  return { seed: state.seed, biome: startBiome, finalBiome, floor: state.floor.index + 1, mode, policy, outcome, turns: state.turn, commands, trace, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), final, completedAreas, campaignComplete: outcome === 'complete' && completedAreas.at(-1) === 'ruins', ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: startBiome, finalBiome, floor: state.floor.index + 1, mode, policy, outcome, turns: state.turn, commands, trace, metrics: structuredClone(state.telemetry!), fingerprint: fingerprint(state), final, completedAreas, campaignComplete: outcome === 'complete' && completedAreas.at(-1) === 'ruins', ...(options.includeState ? { state: structuredClone(state) } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }

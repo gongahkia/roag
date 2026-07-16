@@ -1,10 +1,12 @@
 import { ITEM } from './content'
 import { actionCells, perform, skillChoices } from './engine'
-import { agilityMoveDistance } from './engine/agility'
+import { agilityMoveDistance, agilityReachBonus } from './engine/agility'
+import { evaluateEquipmentEffects } from './engine/equipment'
 import { resolveAreaGate, gateForArea } from './engine/gates'
 import { canAffect, resolveLineEffect } from './engine/line-effect'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
+import { resolveSynergies } from './engine/synergies'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type RunState, type TileKind } from './types'
 import { actorAt, getTile } from './world'
 
@@ -24,7 +26,7 @@ const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
@@ -50,6 +52,20 @@ export const autoplayTraceFingerprint = (state: RunState): string => {
   let hash = 0x811c9dc5
   for (let index = 0; index < value.length; index++) hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193)
   return (hash >>> 0).toString(36)
+}
+
+const strategicDistance = (state: RunState): number => {
+  const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
+  if (objectiveComplete) return chebyshev(state.hero, state.floor.exit)
+  const kind = state.floor.objective.kind
+  const targets = kind === 'defeatGuardian'
+    ? state.floor.actors.filter(actor => actor.role === 'guardian' && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y }))
+    : state.floor.tiles.flatMap((tile, index) => {
+      const matches = kind === 'recoverSupplies' ? tile.kind === 'crate' || tile.kind === 'chest' : kind === 'rescueScout' ? tile.kind === 'rescue' : tile.kind === 'altar'
+      return matches ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : []
+    })
+  const adjacent = kind !== 'defeatGuardian'
+  return targets.reduce((nearest, target) => Math.min(nearest, Math.max(0, chebyshev(state.hero, target) - Number(adjacent))), Number.POSITIVE_INFINITY)
 }
 
 const autoplayProgressFingerprint = (state: RunState, includePosition: boolean): string => {
@@ -79,7 +95,12 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
   context.noTurnCommands = 0
   const beforeProgress = autoplayProgressFingerprint(before, false)
   const afterProgress = autoplayProgressFingerprint(after, false)
-  const progressed = beforeProgress !== afterProgress
+  const objectiveChanged = before.area !== after.area || before.areaFloor !== after.areaFloor || before.floor.objective.id !== after.floor.objective.id || before.floor.objective.status !== after.floor.objective.status || before.floor.guardianDefeated !== after.floor.guardianDefeated
+  const distance = strategicDistance(after)
+  if (objectiveChanged) context.bestStrategicDistance = undefined
+  const routeAdvanced = Number.isFinite(distance) && (context.bestStrategicDistance === undefined || distance < context.bestStrategicDistance)
+  context.bestStrategicDistance = Math.min(context.bestStrategicDistance ?? Number.POSITIVE_INFINITY, distance)
+  const progressed = beforeProgress !== afterProgress || routeAdvanced
   if (progressed) {
     context.strategicVisits.clear()
     context.recoveryVisits.clear()
@@ -110,6 +131,24 @@ const isKnownItem = (state: RunState, mode: AutoplayMode, point: Point, visibleI
 const adjacentCells = (point: Point): Point[] => directions.map(([, delta]) => ({ x: point.x + delta.x, y: point.y + delta.y }))
 const hostileKnown = (state: RunState, mode: AutoplayMode) => state.floor.actors.filter(actor => actor.hostile && actor.health > 0 && (mode === 'omniscient' || visible(state, actor)))
 const resourceReserve = (policy: AutoplayPolicy): number => policy === 'clear' ? 1 : policy === 'survival' ? 1 : 2
+
+const heroAttackProfile = (state: RunState) => {
+  const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
+  const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
+  const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
+  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
+  return { shape: profile.shape, reach: Math.max(1, Math.floor(synergy.values.range ?? profile.reach)), damage: Math.max(1, Math.floor(modified.damage ?? profile.damage)) }
+}
+
+const attackStances = (state: RunState, target: Point): Point[] => {
+  const profile = heroAttackProfile(state)
+  const stances: Point[] = []
+  for (let y = target.y - profile.reach; y <= target.y + profile.reach; y++) for (let x = target.x - profile.reach; x <= target.x + profile.reach; x++) {
+    const point = { x, y }
+    if (pointKey(point) !== pointKey(target) && directions.some(([direction]) => actionCells(profile.shape, point, direction, profile.reach).some(cell => pointKey(cell) === pointKey(target)))) stances.push(point)
+  }
+  return stances
+}
 
 const hostilePressure = (state: RunState, mode: AutoplayMode, point: Point): number => hostileKnown(state, mode).reduce((pressure, actor) => {
   const range = chebyshev(actor, point)
@@ -366,10 +405,14 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   const turn = simulated.turn
   const events = perform(simulated, candidate.command)
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
-  if (simulated.modal) return 0
+  const healthAdjustment = (simulated.hero.health - health) * 18
+  if (simulated.modal) {
+    if (state.floor.biome !== 'ruins') return 0
+    if (health * 3 <= state.hero.maxHealth && simulated.hero.health < health) return Number.NEGATIVE_INFINITY
+    return healthAdjustment
+  }
   if (simulated.turn === turn && simulated.floor.index === state.floor.index && simulated.areaFloor === state.areaFloor && simulated.floor.objective.status === state.floor.objective.status && !events.some(event => event.type === 'areaComplete' || event.type === 'floor' || event.type === 'gateResolved')) return Number.NEGATIVE_INFINITY
-  if (health * 3 <= state.hero.maxHealth && simulated.hero.health < health) return Number.NEGATIVE_INFINITY
-  let adjustment = (simulated.hero.health - health) * 18
+  let adjustment = healthAdjustment
   if (telegraphDanger(simulated, simulated.hero)) adjustment -= 105
   if (pointKey(simulated.hero) !== pointKey(state.hero) && context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
   if (events.some(event => event.type === 'danger')) adjustment -= 14
@@ -387,26 +430,24 @@ const usableInventoryIntent = (state: RunState, mode: 'use' | 'equip', id: strin
 const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
   const foes = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= 4).sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b))
-  const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand]?.weapon : undefined
+  const profile = heroAttackProfile(state)
   const weaponId = state.hero.equipment.mainHand
   if (weaponId && (state.hero.cooldowns?.[weaponId] ?? 0) > 0) return undefined
-  const shape = weapon?.shape ?? 'adjacent'
-  const reach = weapon?.reach ?? 1
-  const estimatedDamage = (weapon?.damage ?? 2) + state.hero.stats.strength + 3
+  const estimatedDamage = profile.damage + state.hero.stats.strength + 3
   for (const foe of foes) for (const [direction] of directions) {
-    if (!actionCells(shape, state.hero, direction, reach).some(point => point.x === foe.x && point.y === foe.y)) continue
+    if (!actionCells(profile.shape, state.hero, direction, profile.reach).some(point => point.x === foe.x && point.y === foe.y)) continue
     const lethal = foe.health <= estimatedDamage
     const safeExchange = state.hero.health > foe.attack * 2 + 4 && hostilePressure(state, mode, state.hero) < 180
     const rangedFinish = objectiveComplete && foe.ai === 'ranged' && state.hero.health > foe.attack + 4
     if (lethal || safeExchange || rangedFinish || foe.role === 'guardian') return { command: directionCommands[direction], reason: `melee:${foe.id}`, score: lethal ? 176 : safeExchange || rangedFinish ? 164 : foe.role === 'guardian' ? 82 : 64 }
   }
-  const exitThreat = objectiveComplete ? foes.find(foe => foe.ai === 'ranged') : undefined
+  const exitThreat = objectiveComplete && state.floor.biome !== 'ruins' ? foes.find(foe => foe.ai === 'ranged') : undefined
   const threatRoute = exitThreat ? stepTo(state, mode, adjacentCells(exitThreat), false, false) : undefined
   if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 270 }
   const guardian = foes.find(foe => foe.role === 'guardian')
-  const route = guardian ? stepTo(state, mode, adjacentCells(guardian), false, false) : undefined
+  const route = guardian ? stepTo(state, mode, attackStances(state, guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
-  if (objectiveComplete) {
+  if (objectiveComplete && state.floor.biome !== 'ruins') {
     const blocker = hostileKnown(state, mode).sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.id.localeCompare(b.id))[0]
     const blockerRoute = blocker ? stepTo(state, mode, adjacentCells(blocker), false, false) : undefined
     if (blockerRoute) return { command: blockerRoute.command, reason: `clear exit blocker:${blocker!.id}`, score: 78 }
@@ -415,10 +456,47 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
 }
 
 const loopThreatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
-  const threat = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= 10)
+  const maxRange = state.floor.biome === 'ruins' ? 4 : 10
+  const threat = hostileKnown(state, mode).filter(actor => chebyshev(state.hero, actor) <= maxRange)
     .sort((a, b) => Number(b.ai === 'ranged') - Number(a.ai === 'ranged') || chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.id.localeCompare(b.id))[0]
   const route = threat ? stepTo(state, mode, adjacentCells(threat), false, false) : undefined
   return route && threat ? { command: route.command, reason: `clear loop threat:${threat.id}`, score: 220 } : undefined
+}
+
+const guardianApproachMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+  if (state.floor.objective.kind !== 'defeatGuardian' || state.floor.objective.status === 'complete') return undefined
+  const guardian = hostileKnown(state, mode).find(actor => actor.role === 'guardian')
+  if (!guardian) return undefined
+  const stances = attackStances(state, guardian)
+  const route = stepTo(state, mode, stances, false, false)
+  if (route) return { command: route.command, reason: `route guardian:${guardian.id}`, score: 175 }
+  const distanceToStance = (point: Point) => stances.reduce((nearest, stance) => Math.min(nearest, chebyshev(point, stance)), Number.POSITIVE_INFINITY)
+  const currentDistance = distanceToStance(state.hero)
+  const option = directions.map(([direction]) => {
+    const point = projectedMove(state, mode, state.hero, direction, true, false)
+    return point ? { direction, point, distance: distanceToStance(point), repeats: context.recentPositions.filter(position => position === pointKey(point)).length, pressure: hostilePressure(state, mode, point) } : undefined
+  }).filter((candidate): candidate is { direction: Exclude<Direction, 'wait'>; point: Point; distance: number; repeats: number; pressure: number } => Boolean(candidate))
+    .filter(candidate => candidate.distance < currentDistance)
+    .sort((a, b) => a.distance - b.distance || a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
+  return option ? { command: directionCommands[option.direction], reason: `close guardian:${guardian.id}`, score: 175 } : undefined
+}
+
+const guardianFinishMove = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+  if (state.floor.objective.kind !== 'defeatGuardian' || state.floor.objective.status === 'complete') return undefined
+  const guardian = hostileKnown(state, mode).find(actor => actor.role === 'guardian')
+  const profile = heroAttackProfile(state)
+  const estimatedDamage = profile.damage + state.hero.stats.strength + 3
+  if (!guardian || guardian.health > estimatedDamage || state.hero.health <= guardian.attack * 2 + 8) return undefined
+  const stances = attackStances(state, guardian)
+  const distanceToStance = (point: Point) => stances.reduce((nearest, stance) => Math.min(nearest, chebyshev(point, stance)), Number.POSITIVE_INFINITY)
+  const currentDistance = distanceToStance(state.hero)
+  const option = directions.map(([direction]) => {
+    const point = projectedMove(state, mode, state.hero, direction, false, false)
+    return point ? { direction, point, distance: distanceToStance(point), repeats: context.recentPositions.filter(position => position === pointKey(point)).length } : undefined
+  }).filter((candidate): candidate is { direction: Exclude<Direction, 'wait'>; point: Point; distance: number; repeats: number } => Boolean(candidate))
+    .filter(candidate => candidate.distance < currentDistance)
+    .sort((a, b) => a.distance - b.distance || a.repeats - b.repeats || a.direction.localeCompare(b.direction))[0]
+  return option ? { command: directionCommands[option.direction], reason: `finish guardian:${guardian.id}`, score: 330 } : undefined
 }
 
 const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNullable<RunState['modal']>, { kind: 'target' }>): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
@@ -441,8 +519,9 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const base = targetDirection(state, mode, modal.action, modal.item)?.direction === direction ? 30 : 0
     const score = base + damage * 14 + kills * 90 + mobilityGain * 70 - harm * 42 - events.filter(event => event.type === 'danger').length * 10
     if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1) return []
+    if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []
     if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0) return []
-    if (harm >= Math.max(8, Math.floor(health / 2)) && kills < 1) return []
+    if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
     return [{ direction, score }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
   return scored[0]
@@ -513,6 +592,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (evade) candidates.push(evade)
   const combat = combatMove(state, mode)
   if (combat) candidates.push(combat)
+  const guardianFinish = guardianFinishMove(state, mode, context)
+  if (guardianFinish) candidates.push(guardianFinish)
   const objective = state.floor.objective
   if (context.objectiveId !== objective.id) {
     context.objectiveId = objective.id
@@ -535,8 +616,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const orderedTargets = pinTarget && context.objectiveTarget
       ? [...selectableTargets.filter(target => pointKey(target) === context.objectiveTarget), ...selectableTargets.filter(target => pointKey(target) !== context.objectiveTarget)]
       : [...selectableTargets].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)
-    const routes = orderedTargets.flatMap(target => {
-      const routeTargets = needsAdjacent ? adjacentCells(target) : [target]
+    const routes: Array<{ target: Point; route: { command: string; target: Point }; blocked?: boolean }> = orderedTargets.flatMap(target => {
+      const routeTargets = objective.kind === 'defeatGuardian' ? attackStances(state, target) : needsAdjacent ? adjacentCells(target) : [target]
       if (routeTargets.some(point => point.x === state.hero.x && point.y === state.hero.y)) return []
       const direct = stepTo(state, mode, routeTargets)
       if (direct) return [{ target, route: direct }]
@@ -606,7 +687,11 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       context.recentPositions = []
       context.noProgressTurns = 0
     } else {
-      const recovery = [combatMove(state, mode), loopThreatMove(state, mode), cycleBreakMove(state, mode, context, true)]
+      const combat = combatMove(state, mode)
+      const cycleBreak = cycleBreakMove(state, mode, context, true)
+      const guardianAdvance = guardianApproachMove(state, mode, context)
+      const guardianFinish = guardianFinishMove(state, mode, context)
+      const recovery = [state.floor.biome === 'ruins' ? evadeThreat(state, mode, context) : undefined, combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, cycleBreak, combat, loopThreatMove(state, mode)]
         .filter((candidate): candidate is Candidate => Boolean(candidate))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, candidate, context)))
       if (!recovery) {

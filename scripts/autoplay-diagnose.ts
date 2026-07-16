@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
@@ -73,7 +74,9 @@ const currentDiagnostics = (state: RunState) => {
   }
 }
 
-const state = newRun(seed, biomeValue as Biome, areaFloor)
+const stateFile = process.env.STATE_FILE
+const snapshot = stateFile ? JSON.parse(readFileSync(stateFile, 'utf8')) as RunState | { state: RunState } : undefined
+const state = snapshot ? ('state' in snapshot ? snapshot.state : snapshot) : newRun(seed, biomeValue as Biome, areaFloor)
 const initialValidation = validateGeneration(state.floor)
 const context = createAutoplayContext()
 const trace: Array<{ turn: number; command: string; reason: string; candidates: unknown; events: string[]; before: { x: number; y: number; health: number }; after: { x: number; y: number; health: number } }> = []
@@ -94,6 +97,7 @@ while (state.status === 'playing' && state.turn < turnLimit) {
   if (events.some(event => event.type === 'areaComplete')) { outcome = 'complete'; halt = 'area-complete'; break }
 }
 if (state.status === 'dead') { outcome = 'dead'; halt = 'hero-dead' }
+const nextDecision = state.status === 'playing' ? autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, structuredClone(context)) : undefined
 
 console.log(JSON.stringify({
   seed,
@@ -114,6 +118,7 @@ console.log(JSON.stringify({
   elapsedTurns: context.startedTurn === undefined ? 0 : state.turn - context.startedTurn,
   loopRecoveries: context.loopRecoveries,
   lastReason: context.lastReason,
+  nextDecision,
   failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })),
   recentPositions: context.recentPositions,
   state: { hero: { x: state.hero.x, y: state.hero.y, health: state.hero.health, maxHealth: state.hero.maxHealth, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, inventory: state.hero.inventory }, objective: state.floor.objective, guardianDefeated: state.floor.guardianDefeated },
