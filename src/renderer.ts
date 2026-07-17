@@ -65,6 +65,7 @@ export class TerminalRenderer {
   private lastAutoplayMode: AutoplayMode = 'off'
   private autoplayDiagnostic?: AutoplayDiagnostic
   private settings: GameSettings = defaultSettings()
+  private fontState: 'loading' | 'ready' | 'fallback' = 'loading'
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -73,10 +74,21 @@ export class TerminalRenderer {
     canvas.width = TERMINAL_WIDTH * CW
     canvas.height = TERMINAL_HEIGHT * CH
     ctx.imageSmoothingEnabled = false
-    ctx.font = '12px BigBlueTerm'
+    ctx.font = '12px "BigBlueTerm", monospace'
     ctx.textBaseline = 'top'
-    void document.fonts.ready.then(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
+    this.loadFont()
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
+  }
+
+  private loadFont(): void {
+    if (!('fonts' in document)) { this.fontState = 'fallback'; return }
+    void document.fonts.load('12px "BigBlueTerm"', 'JOMON').then(() => {
+      this.fontState = document.fonts.check('12px "BigBlueTerm"', 'JOMON') ? 'ready' : 'fallback'
+      if (this.fontState === 'fallback') this.ctx.font = '12px monospace'
+    }).catch(() => {
+      this.fontState = 'fallback'
+      this.ctx.font = '12px monospace'
+    }).finally(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
   }
 
   setVisualMode(value: VisualMode): void {
@@ -111,6 +123,11 @@ export class TerminalRenderer {
     this.lastCourierMenu = courierMenu
     this.lastCourierDraft = courierDraft
     this.lastAutoplayMode = autoplayMode
+    if (this.fontState === 'loading') {
+      this.ctx.fillStyle = colors.back
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      return
+    }
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
