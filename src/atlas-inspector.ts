@@ -1,3 +1,4 @@
+import { propDefinition } from './props'
 import { spriteSheetSpecs, type SpriteSheetSpec } from './sprites'
 
 const params = new URLSearchParams(location.search)
@@ -67,7 +68,10 @@ function labelFor(index: number): string | undefined { return sheet.labels[index
 function mappingText(index: number): string {
   const label = labelFor(index)
   if (!label) return 'No renderer mapping.'
-  if (label.startsWith('prop.')) return `${label} — present in this sheet but not represented by a game TileKind.`
+  if (label.startsWith('prop.')) {
+    const definition = propDefinition(label.slice('prop.'.length) as Parameters<typeof propDefinition>[0])
+    return `${label} — ${definition.name}; ${definition.description} Hooks: ${definition.hooks.join(', ')}.`
+  }
   return label
 }
 

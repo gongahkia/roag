@@ -11,7 +11,8 @@ import { presentTelegraph } from './renderer/telegraphs'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
-import { drawActorSprite, drawEffectSprite, drawItemSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
+import { drawActorSprite, drawEffectSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
+import { propAt, propDefinition } from './props'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { actorAt, getTile } from './world'
@@ -308,6 +309,7 @@ export class TerminalRenderer {
   private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
     const tile = getTile(state.floor, x, y)!
     const item = state.floor.items.find(current => current.x === x && current.y === y)
+    const prop = propAt(state.floor.props, x, y)
     if (!tile.explored) {
       if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
       if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
@@ -330,6 +332,13 @@ export class TerminalRenderer {
     if (this.spriteMode && (previewPath || previewCell)) {
       this.ctx.fillStyle = previewCell ? '#bea6ff90' : '#8fb8ed70'
       this.ctx.fillRect(x * CW, y * CH, CW, CH)
+    }
+    if (prop) {
+      if (this.spriteMode) drawPropSprite(this.ctx, prop, x, y, false)
+      else {
+        const definition = propDefinition(prop.kind)
+        this.cell(x, y, prop.state === 'activated' ? '+' : definition.glyph, definition.color)
+      }
     }
     if (item) this.drawItem(item, x, y)
     const actor = actorAt(state.floor, x, y)

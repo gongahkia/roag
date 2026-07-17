@@ -19,6 +19,7 @@ import { castAstral, isAstralSpell } from './astral'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
+import { applyPropEffects, operateProp } from './props'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -84,6 +85,7 @@ export function operate(state: RunState): ActionResult {
     return [event('menu')]
   }
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
+  if (operateProp(state)) return advance(state, [event('pickup')])
   log(state, 'Nothing answers.')
   return []
 }
@@ -170,7 +172,10 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   const target = actorAt(state.floor, point.x, point.y)
   if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength); log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
-  else state.floor.items.push({ id, x: point.x, y: point.y, count: 1, visibleInFog: true })
+  else {
+    state.floor.items.push({ id, x: point.x, y: point.y, count: 1, visibleInFog: true })
+    applyPropEffects(state, [point], ['throw'])
+  }
   resolveDefeatedActors(state)
   return advance(state, [event(id === 'fireJar' ? 'boom' : 'hit')])
 }

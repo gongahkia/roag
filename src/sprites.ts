@@ -1,7 +1,8 @@
 import { ITEM } from './content'
 import manifestData from './assets/generated-sprites/sprite-manifest.json'
 import { CELL_HEIGHT, CELL_WIDTH } from './renderer/metrics'
-import type { Actor, Biome, Tile } from './types'
+import { PROP_IDS, propDefinition } from './props'
+import type { Actor, Biome, Prop, Tile } from './types'
 
 const spriteSize = 14
 const sourceSize = 16
@@ -48,6 +49,10 @@ const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
 const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins' }
 export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
+
+const manifestPropIds = manifest.sheets.filter(sheet => sheet.id.startsWith('terrain-')).flatMap(sheet => sheet.props ?? [])
+for (const id of manifestPropIds) propDefinition(id as Prop['kind'])
+for (const id of PROP_IDS) if (!manifestPropIds.includes(id)) throw new Error(`prop sprite missing from manifest: ${id}`)
 
 const ref = (sheet: SpriteSheetId, column: number, row: number, frames = 1, frameDurationMs = 160, sourceOffset?: SpriteOffset, frameOffsets?: SpriteOffset[]): SpriteRef => ({ sheet, column, row, frames, frameDurationMs, sourceOffset, frameOffsets })
 const rowRefs = (sheetId: SpriteSheetId): Record<string, SpriteRef> => {
@@ -162,6 +167,22 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome:
   if (clip) ctx.restore()
 }
 
+export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: number, y: number, dim: boolean): void {
+  if (prop.state === 'destroyed') return
+  const sheet = manifestSheets.get(terrainSheet[prop.biome])!
+  const propIndex = sheet.props?.indexOf(prop.kind) ?? -1
+  if (propIndex < 0) throw new Error(`prop sprite missing: ${prop.kind}`)
+  const index = manifest.terrainLayout.length + propIndex
+  if (!textureAtlas.draw(ctx, ref(sheet.id, index % sheet.columns, Math.floor(index / sheet.columns), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) fallbackProp(ctx, prop, x, y, dim)
+  if (prop.state !== 'activated') return
+  ctx.save()
+  ctx.globalAlpha = dim ? .32 : .78
+  ctx.strokeStyle = '#ffe181'
+  ctx.lineWidth = 1
+  ctx.strokeRect(x * CELL_WIDTH + .5, y * CELL_HEIGHT + .5, CELL_WIDTH - 1, CELL_HEIGHT - 1)
+  ctx.restore()
+}
+
 export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false, flip = false, animation: HeroAnimation = 'idle'): void {
   const sprite = hero ? heroSprite[animation] : actor ? actorSprite[actor.kind] : undefined
   if (textureAtlas.draw(ctx, sprite, x, y, dim, flip)) return
@@ -202,5 +223,14 @@ function fallbackActor(ctx: CanvasRenderingContext2D, actor: Actor | undefined, 
   ctx.globalAlpha = dim ? .38 : 1
   ctx.fillStyle = hero ? '#f4d26a' : actor?.color ?? '#d6dce8'
   ctx.fillRect(x * CELL_WIDTH + 2, y * CELL_HEIGHT + 2, 6, 9)
+  ctx.restore()
+}
+
+function fallbackProp(ctx: CanvasRenderingContext2D, prop: Prop, x: number, y: number, dim: boolean): void {
+  const definition = propDefinition(prop.kind)
+  ctx.save()
+  ctx.globalAlpha = dim ? .38 : 1
+  ctx.fillStyle = definition.color
+  ctx.fillRect(x * CELL_WIDTH + 2, y * CELL_HEIGHT + 3, 7, 7)
   ctx.restore()
 }

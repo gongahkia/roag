@@ -20,6 +20,7 @@ import { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegrap
 import { vitalityHazardReduction, vitalityShield } from './vitality'
 import { intellectFocusRecovery } from './intellect'
 import { announceSynergies, resolveSynergies } from './synergies'
+import { applyPropEffects } from './props'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -72,6 +73,8 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   const resolvedTelegraphs = resolveTelegraphs(state)
   for (const telegraph of resolvedTelegraphs) {
+    const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const
+    applyPropEffects(state, telegraph.cells, propEffects)
     if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web' && telegraph.actionId !== 'enemy-fire' && telegraph.actionId !== 'enemy-pull' && telegraph.actionId !== 'enemy-dart' && telegraph.actionId !== 'enemy-ritual' && telegraph.actionId !== 'foreman-cavein' && telegraph.actionId !== 'heartwood-charge' && telegraph.actionId !== 'geode-fissure' && telegraph.actionId !== 'regent-decree' && telegraph.actionId !== 'regent-judgment') continue
     const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
     const hit = telegraph.cells.some(cell => cell.x === state.hero.x && cell.y === state.hero.y)
@@ -195,6 +198,7 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), source)
   }
   for (const effect of resolveTerrainReactions(state.floor, points, tags)) log(state, `Terrain reaction: ${effect.reaction}.`)
+  applyPropEffects(state, points, tags.includes('bomb') ? tags.includes('fire') ? ['bomb', 'fire'] : ['bomb'] : tags.includes('fire') ? ['fire'] : [])
   resolveDefeatedActors(state)
   log(state, 'The blast tears through the stone.')
 }

@@ -4,6 +4,7 @@ import { explode } from './combat'
 import { addCondition, modifyIncomingDamage } from './conditions'
 import { resolveTerrainReactions } from './terrain'
 import { log } from './shared'
+import { applyPropEffects } from './props'
 
 export const castEmber = (state: RunState, point: Point, bonusDamage = 0): void => {
   const tile = getTile(state.floor, point.x, point.y)
@@ -14,6 +15,7 @@ export const castEmber = (state: RunState, point: Point, bonusDamage = 0): void 
     addCondition(target, { kind: 'burning', duration: 2, potency: 2 })
   }
   const reactions = resolveTerrainReactions(state.floor, [point], ['fire'])
+  applyPropEffects(state, [point], ['fire'])
   for (const reaction of reactions) log(state, `Terrain reaction: ${reaction.reaction}.`)
   if (reactions.some(reaction => reaction.reaction === 'ignited-gas' || reaction.reaction === 'detonated-volatile')) {
     explode(state, point.x, point.y, 6 + bonusDamage, ['fire'], 'the ignition')

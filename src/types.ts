@@ -20,6 +20,15 @@ export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'm
 export type GuardianPhase = 'opening' | 'pressure' | 'cataclysm'
 export type ObjectiveKind = 'recoverSupplies' | 'rescueScout' | 'invokeAltar' | 'defeatGuardian'
 export type ObjectiveStatus = 'active' | 'complete'
+export type PropId =
+  | 'mine.oreVein' | 'mine.lanternPost' | 'mine.brokenCart' | 'mine.warningMarker' | 'mine.skullMarker' | 'mine.discardedParcel'
+  | 'wilds.mushrooms' | 'wilds.danglingCharm' | 'wilds.birdNest' | 'wilds.rootShrine' | 'wilds.lostParcel' | 'wilds.rootArch'
+  | 'caverns.crystalCluster' | 'caverns.glowingFungus' | 'caverns.barnacledShrine' | 'caverns.brokenBoat' | 'caverns.eelTunnel' | 'caverns.sealedParcel'
+  | 'ruins.brokenStatue' | 'ruins.ritualBrazier' | 'ruins.glyphTablet' | 'ruins.collapsedArch' | 'ruins.sealedCache' | 'ruins.monolith'
+export type PropState = 'dormant' | 'activated' | 'destroyed'
+export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard'
+export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard'
+export type PropHook = 'operate' | PropEffectKind
 
 export interface Point { x: number; y: number }
 export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
@@ -47,6 +56,16 @@ export interface Actor {
 }
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean }
+export interface Prop {
+  id: string
+  kind: PropId
+  x: number
+  y: number
+  biome: Biome
+  state: PropState
+  tags: PropTag[]
+  hooks?: PropHook[]
+}
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
@@ -57,6 +76,7 @@ export interface Floor {
   tiles: Tile[]
   actors: Actor[]
   items: GroundItem[]
+  props: Prop[]
   start: Point
   exit: Point
   guardianDefeated: boolean
@@ -178,7 +198,7 @@ export interface VictoryCampaign extends CampaignBase { phase: 'victory'; hero: 
 export type Campaign = TitleCampaign | HubCampaign | AreaCampaign | DeadCampaign | VictoryCampaign
 
 export interface RunState {
-  version: 2
+  version: 3
   seed: number
   floor: Floor
   hero: Hero

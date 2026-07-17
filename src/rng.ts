@@ -24,7 +24,7 @@ export class Rng {
   }
 }
 
-export const RNG_STREAMS = ['generation', 'combat', 'loot', 'gates', 'legacy', 'progression'] as const
+export const RNG_STREAMS = ['generation', 'combat', 'loot', 'gates', 'legacy', 'progression', 'props'] as const
 export type RngStream = typeof RNG_STREAMS[number]
 export type RngScope = number | string
 

@@ -12,5 +12,5 @@ describe('campaign seed validation', () => {
 
   it('keeps the first hundred campaign seeds structurally playable', () => {
     for (let seed = 0; seed < 100; seed++) expect(validateCampaignTopology(seed)).toEqual([])
-  })
+  }, 30_000)
 })

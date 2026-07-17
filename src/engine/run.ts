@@ -35,7 +35,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 2, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
+  const state: RunState = { version: 3, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)

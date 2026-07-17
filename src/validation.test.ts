@@ -3,13 +3,13 @@ import { CONTENT, validateContent } from './content'
 import { descend } from './engine/inventory'
 import { newRun } from './engine/run'
 import { migrateRunRecord } from './storage'
-import type { Biome, Hero, RunStateV1 } from './types'
+import type { Biome, Hero } from './types'
 import { generateFloor, validateGeneration } from './world'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins']
 const floorFingerprint = (seed: number, index: number) => {
   const floor = generateFloor(seed, index)
-  return { tiles: floor.tiles.map(tile => tile.kind), actors: floor.actors.map(actor => `${actor.id}:${actor.kind}:${actor.x},${actor.y}`), puzzleIds: floor.puzzleIds }
+  return { tiles: floor.tiles.map(tile => tile.kind), actors: floor.actors.map(actor => `${actor.id}:${actor.kind}:${actor.x},${actor.y}`), props: floor.props, puzzleIds: floor.puzzleIds }
 }
 
 describe('release validation suite', () => {
@@ -37,8 +37,7 @@ describe('release validation suite', () => {
     expect(performance.now() - started).toBeLessThan(10_000)
   }, 15_000)
 
-  it('migrates a complete v1 save before replay consumers inspect it', () => {
-    const legacy: RunStateV1 = { ...newRun(77124), version: 1 }
-    expect(migrateRunRecord(legacy)).toMatchObject({ version: 2, seed: 77124, floor: { objective: { status: 'active' } } })
+  it('rejects pre-prop saves before replay consumers inspect them', () => {
+    expect(migrateRunRecord({ ...newRun(77124), version: 2 })).toBeUndefined()
   })
 })

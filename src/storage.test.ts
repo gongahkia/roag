@@ -1,27 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { newHero, newRun } from './engine'
 import { migrateCampaignRoute, migrateRunRecord } from './storage'
-import type { RunStateV1 } from './types'
 
 describe('run persistence migration', () => {
-  it('loads valid v2 records without changing them', () => {
+  it('loads valid v3 records without changing them', () => {
     const run = newRun(123)
     expect(migrateRunRecord(run)).toEqual(run)
   })
 
-  it('migrates valid v1 records to v2', () => {
-    const legacy: RunStateV1 = { ...newRun(456), version: 1 }
-    const migrated = migrateRunRecord(legacy)
-    expect(migrated).toMatchObject({ version: 2, seed: 456 })
+  it('rejects v1 and v2 runs after the prop schema change', () => {
+    expect(migrateRunRecord({ ...newRun(456), version: 1 })).toBeUndefined()
+    expect(migrateRunRecord({ ...newRun(456), version: 2 })).toBeUndefined()
   })
 
-  it('adds courier identity to pre-creator saves', () => {
+  it('rejects incomplete current-schema heroes', () => {
     const legacy = newRun(457)
     delete (legacy.hero as Partial<typeof legacy.hero>).name
     delete (legacy.hero as Partial<typeof legacy.hero>).origin
     delete (legacy.hero as Partial<typeof legacy.hero>).calling
     delete (legacy.hero as Partial<typeof legacy.hero>).deathMode
-    expect(migrateRunRecord(legacy)?.hero).toMatchObject({ name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' })
+    expect(migrateRunRecord(legacy)).toBeUndefined()
   })
 
   it('builds mechanical origins and starter callings', () => {
@@ -29,10 +27,10 @@ describe('run persistence migration', () => {
     expect(hero).toMatchObject({ name: 'Ari', stats: { intellect: 3 }, deathMode: 'ironTrail', inventory: expect.arrayContaining(['focusTonic', 'sight']) })
   })
 
-  it('adds an objective to older valid floors', () => {
+  it('rejects runs missing required floor state', () => {
     const run = newRun(789)
     delete (run.floor as Partial<typeof run.floor>).objective
-    expect(migrateRunRecord(run)).toMatchObject({ floor: { objective: { kind: 'recoverSupplies', status: 'active' } } })
+    expect(migrateRunRecord(run)).toBeUndefined()
   })
 
   it('adds telemetry when loading a pre-telemetry run', () => {
@@ -42,7 +40,7 @@ describe('run persistence migration', () => {
   })
 
   it('rejects malformed records so the caller stays at title', () => {
-    expect(migrateRunRecord({ version: 2, seed: 1 })).toBeUndefined()
+    expect(migrateRunRecord({ version: 3, seed: 1 })).toBeUndefined()
   })
 
   it('keeps only route progression when loading campaign state', () => {

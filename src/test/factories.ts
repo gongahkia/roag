@@ -26,7 +26,7 @@ export const createFloor = (overrides: Partial<Floor> = {}): Floor => {
   const exit = { x: MAP_WIDTH - 2, y: MAP_HEIGHT - 2 }
   const floorTiles = tiles()
   floorTiles[indexOf(exit.x, exit.y)] = { kind: 'exit', explored: true, visible: true }
-  return { index: 0, biome: 'mine', seed: 1, tiles: floorTiles, actors: [], items: [], start, exit, guardianDefeated: true, objective: objectiveForFloor(0), telegraphs: [], ...overrides }
+  return { index: 0, biome: 'mine', seed: 1, tiles: floorTiles, actors: [], items: [], props: [], start, exit, guardianDefeated: true, objective: objectiveForFloor(0), telegraphs: [], ...overrides }
 }
 
-export const createRun = (overrides: Partial<RunState> = {}): RunState => ({ version: 2, seed: 1, floor: createFloor(), hero: createHero(), messages: [], status: 'playing', turn: 0, ...overrides })
+export const createRun = (overrides: Partial<RunState> = {}): RunState => ({ version: 3, seed: 1, floor: createFloor(), hero: createHero(), messages: [], status: 'playing', turn: 0, ...overrides })

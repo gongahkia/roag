@@ -1,13 +1,15 @@
 import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Tile, indexOf, inBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Prop, type Tile, indexOf, inBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './engine/gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
+import { PROP_IDS, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
 const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'].includes(kind)
+const propDefinitionErrors = validatePropDefinitions()
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
@@ -19,8 +21,8 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
 export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => {
   const queue = [{ ...start }]
   const seen = new Set<string>()
-  while (queue.length) {
-    const point = queue.shift()!
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const point = queue[cursor]
     const key = pointKey(point)
     if (seen.has(key)) continue
     const current = getTile(floor, point.x, point.y)
@@ -69,6 +71,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
     tiles: Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => tile('wall')),
     actors: [],
     items: [],
+    props: [],
     start: { x: 2, y: 2 },
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
     guardianDefeated: index % 4 !== 3,
@@ -87,7 +90,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms)
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
-  ensureReachable(floor)
+  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), ensureReachable(floor))
   const validation = validateGeneration(floor)
   if (!validation.valid) throw new Error(`invalid generated floor ${index}: ${validation.errors.join('; ')}`)
   return floor
@@ -121,6 +124,40 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
     const to = center(rooms[i])
     if (i % 2) { carveH(floor, from.x, to.x, from.y); carveV(floor, from.y, to.y, to.x) }
     else { carveV(floor, from.y, to.y, from.x); carveH(floor, from.x, to.x, to.y) }
+  }
+}
+
+function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): void {
+  const definitions = rng.shuffle([...propDefinitionsFor(floor.biome)])
+  const occupied = new Set<number>([
+    indexOf(floor.start.x, floor.start.y),
+    indexOf(floor.exit.x, floor.exit.y),
+    ...objectiveTargets(floor).map(point => indexOf(point.x, point.y)),
+    ...floor.actors.map(actor => indexOf(actor.x, actor.y)),
+    ...floor.items.map(item => indexOf(item.x, item.y))
+  ])
+  for (const definition of definitions) {
+    const candidates: number[] = []
+    for (let index = 0; index < floor.tiles.length; index++) {
+      const tile = floor.tiles[index]
+      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index)) candidates.push(index)
+    }
+    if (!candidates.length) continue
+    const placement = rng.pick(candidates)
+    const point = { x: placement % MAP_WIDTH, y: Math.floor(placement / MAP_WIDTH) }
+    const prop: Prop = {
+      id: `prop:${floor.index}:${definition.id}:${point.x}:${point.y}`,
+      kind: definition.id,
+      x: point.x,
+      y: point.y,
+      biome: floor.biome,
+      state: 'dormant',
+      tags: [...definition.tags],
+      hooks: [...definition.hooks]
+    }
+    floor.props.push(prop)
+    occupied.add(placement)
+    break
   }
 }
 
@@ -306,30 +343,18 @@ function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: 
   return { id: `${role}-${pointKey(point)}`, role, kind: role, name, x: point.x, y: point.y, health: 99, maxHealth: 99, attack: 0, defense: 99, speed: 0, energy: 0, glyph, color, hostile: false, conditions: [] }
 }
 
-function ensureReachable(floor: Floor): void {
+function ensureReachable(floor: Floor): Set<number> {
   const objectives = objectiveTargets(floor).map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
-  const seen = new Set<string>([pointKey(floor.start)])
-  const queue = [{ ...floor.start }]
-  while (queue.length) {
-    const current = queue.shift()!
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
-      const next = { x: current.x + dx, y: current.y + dy }
-      if (!inBounds(next.x, next.y) || seen.has(pointKey(next))) continue
-      const currentTile = getTile(floor, next.x, next.y)!
-      if (!passable(currentTile.kind) || currentTile.kind === 'lockedDoor') continue
-      seen.add(pointKey(next))
-      queue.push(next)
-    }
-  }
-  if (!seen.has(pointKey(floor.exit))) {
+  let reachable = reachableIndexes(floor)
+  if (!reachable.has(indexOf(floor.exit.x, floor.exit.y))) {
     carveH(floor, floor.start.x, floor.exit.x, floor.start.y)
     carveV(floor, floor.start.y, floor.exit.y, floor.exit.x)
     setKind(floor, floor.exit.x, floor.exit.y, 'exit')
+    reachable = reachableIndexes(floor)
   }
   for (const objective of objectives) setKind(floor, objective.point.x, objective.point.y, objective.kind)
-  const reachable = reachableCells(floor)
   const target = objectiveTargets(floor).find(point => !canReachObjective(reachable, point))
-  if (!target) return
+  if (!target) return reachable
   const targetTile = getTile(floor, target.x, target.y)!
   const originalKind = targetTile.kind
   const access = passable(originalKind) ? target : { x: target.x + 1, y: target.y }
@@ -338,23 +363,25 @@ function ensureReachable(floor: Floor): void {
   for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(target.x + x, target.y + y)) setKind(floor, target.x + x, target.y + y, 'floor')
   targetTile.kind = originalKind
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
+  return reachableIndexes(floor)
 }
 
 const distance = (a: Point, b: Point): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
 export interface GenerationValidation { valid: boolean; errors: string[] }
 
-const reachableCells = (floor: Floor): Set<string> => {
-  const seen = new Set<string>()
-  const queue = [{ ...floor.start }]
-  while (queue.length) {
-    const current = queue.shift()!
-    const key = pointKey(current)
-    if (seen.has(key)) continue
-    const tile = getTile(floor, current.x, current.y)
+const reachableIndexes = (floor: Floor): Set<number> => {
+  const seen = new Set<number>()
+  const queue = [indexOf(floor.start.x, floor.start.y)]
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const index = queue[cursor]
+    if (seen.has(index)) continue
+    const x = index % MAP_WIDTH
+    const y = Math.floor(index / MAP_WIDTH)
+    const tile = floor.tiles[index]
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') continue
-    seen.add(key)
-    for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) queue.push({ x: current.x + x, y: current.y + y })
+    seen.add(index)
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(x + dx, y + dy)) queue.push(indexOf(x + dx, y + dy))
   }
   return seen
 }
@@ -366,17 +393,17 @@ const objectiveTargets = (floor: Floor): Point[] => {
   return floor.actors.filter(actor => actor.role === 'guardian').map(actor => ({ x: actor.x, y: actor.y }))
 }
 
-const canReachObjective = (reachable: ReadonlySet<string>, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => reachable.has(pointKey({ x: target.x + x, y: target.y + y })))
+const canReachObjective = (reachable: ReadonlySet<number>, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => inBounds(target.x + x, target.y + y) && reachable.has(indexOf(target.x + x, target.y + y)))
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
-  errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor))
+  errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor), ...propDefinitionErrors)
   if (puzzleTemplatesFor(floor.biome).length && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
   if (floor.tiles.length !== MAP_WIDTH * MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
   if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
   if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')
-  const reachable = reachableCells(floor)
-  if (!reachable.has(pointKey(floor.exit))) errors.push('exit unreachable')
+  const reachable = reachableIndexes(floor)
+  if (!reachable.has(indexOf(floor.exit.x, floor.exit.y))) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
   if (!targets.length || !targets.some(target => canReachObjective(reachable, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
@@ -387,6 +414,24 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     const key = pointKey(placement)
     if (occupied.has(key)) errors.push(`overlapping ${placement.type} placement`)
     occupied.add(key)
+  }
+  if (!floor.props.length) errors.push('missing props')
+  const propIds = new Set<string>()
+  const propLocations = new Set<string>()
+  for (const prop of floor.props) {
+    if (propIds.has(prop.id)) errors.push(`duplicate prop id: ${prop.id}`)
+    propIds.add(prop.id)
+    if (!PROP_IDS.includes(prop.kind)) { errors.push(`unknown prop: ${prop.kind}`); continue }
+    const definition = propDefinition(prop.kind)
+    const tile = getTile(floor, prop.x, prop.y)
+    const location = pointKey(prop)
+    if (propLocations.has(location)) errors.push(`overlapping prop placement: ${location}`)
+    propLocations.add(location)
+    if (prop.biome !== floor.biome || definition.biome !== floor.biome) errors.push(`invalid prop biome: ${prop.id}`)
+    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') errors.push(`illegal prop placement: ${prop.id}`)
+    else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
+    if (!['dormant', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
+    if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }
   for (const error of validateAreaGate(gateForArea(floor.biome))) errors.push(`impossible gate: ${error}`)
   return { valid: errors.length === 0, errors }
