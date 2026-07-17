@@ -23,6 +23,10 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:')))
+const planningClone = (state: RunState): RunState => {
+  const { telemetry: _telemetry, ...snapshot } = state
+  return structuredClone(snapshot) as RunState
+}
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
@@ -260,7 +264,7 @@ const hasStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
   const below = getTile(state.floor, state.hero.x, state.hero.y + 1)
   const anchor = current?.kind === 'pit' ? { x: state.hero.x, y: state.hero.y } : below?.kind === 'pit' ? { x: state.hero.x, y: state.hero.y + 1 } : undefined
   if (!anchor) return false
-  const bridged = structuredClone(state)
+  const bridged = planningClone(state)
   const tile = getTile(bridged.floor, anchor.x, anchor.y)
   if (!tile) return false
   tile.kind = 'rope'
@@ -340,7 +344,7 @@ const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefin
 const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined => {
   const gate = gateForArea(state.area ?? state.floor.biome)
   const choices = gate.tagAlternatives.map((option, index) => {
-    const clone = structuredClone(state)
+    const clone = planningClone(state)
     const resolution = resolveAreaGate(clone, gate, index)
     if (!resolution.resolved) return { index, score: Number.NEGATIVE_INFINITY }
     const cost = option.cost ?? gate.cost
@@ -402,7 +406,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
 }
 
 const safeInventoryChoice = (state: RunState, command: string): boolean => {
-  const simulated = structuredClone(state)
+  const simulated = planningClone(state)
   const turn = simulated.turn
   perform(simulated, command)
   if (simulated.status === 'dead') return false
@@ -463,7 +467,7 @@ const resolveTargetSequence = (state: RunState, mode: AutoplayMode): void => {
 }
 
 const resolveCandidateSequence = (state: RunState, mode: AutoplayMode, candidate: Candidate): RunState => {
-  const simulated = structuredClone(state)
+  const simulated = planningClone(state)
   perform(simulated, candidate.command)
   if (simulated.modal?.kind === 'inventory' && candidate.intent) {
     const index = simulated.hero.inventory.indexOf(candidate.intent.item)
@@ -486,7 +490,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   const hadStrategicRoute = hasStrategicRoute(state, mode)
   const simulated = candidate.intent || candidate.command === 'b'
     ? resolveCandidateSequence(state, mode, candidate)
-    : structuredClone(state)
+    : planningClone(state)
   if (!candidate.intent && candidate.command !== 'b') perform(simulated, candidate.command)
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
   const healthAdjustment = (simulated.hero.health - health) * 18
@@ -513,7 +517,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
 }
 
 const usableInventoryIntent = (state: RunState, mode: 'use' | 'equip', id: string): boolean => {
-  const simulated = structuredClone(state)
+  const simulated = planningClone(state)
   simulated.modal = { kind: 'inventory', mode }
   const index = simulated.hero.inventory.indexOf(id)
   return index >= 0 && safeInventoryChoice(simulated, String(index + 1))
@@ -561,7 +565,7 @@ const guardianApproachMove = (state: RunState, mode: AutoplayMode, context: Auto
   if (!guardian) return undefined
   const options = [...directions.map(([direction]) => directionCommands[direction]), 'l']
     .flatMap(command => {
-      const simulated = structuredClone(state)
+      const simulated = planningClone(state)
       const before = pointKey(simulated.hero)
       perform(simulated, command)
       if (simulated.status !== 'playing' || simulated.turn === state.turn) return []
@@ -606,7 +610,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
   const beforeEnemies = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
   const beforeMobility = adjacentCells(state.hero).filter(point => passable(state, mode, point, false, true)).length
   const scored = directions.flatMap(([direction]) => {
-    const simulated = structuredClone(state)
+    const simulated = planningClone(state)
     const health = simulated.hero.health
     perform(simulated, directionCommands[direction])
     const events = perform(simulated, 'Enter')
@@ -630,7 +634,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
 }
 
 const usableTarget = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
-  const simulated = structuredClone(state)
+  const simulated = planningClone(state)
   if (action === 'bomb') simulated.modal = { kind: 'target', action }
   else if (item) simulated.modal = { kind: 'target', action, item }
   else return undefined
