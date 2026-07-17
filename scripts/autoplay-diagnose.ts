@@ -115,6 +115,12 @@ const candidateTransitions = candidateDiagnostics.map(candidate => {
   const events = perform(simulated, candidate.command)
   return { command: candidate.command, reason: candidate.reason, before, after: { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y, status: simulated.status }, events: events.map(event => event.type), routes: currentDiagnostics(simulated) }
 })
+const movementTransitions = ['i', 'o', 'p', 'k', ';', ',', '.', '/'].map(command => {
+  const simulated = structuredClone(state)
+  const before = { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y }
+  const events = perform(simulated, command)
+  return { command, before, after: { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y, status: simulated.status }, events: events.map(event => event.type), telegraphed: (simulated.floor.telegraphs ?? []).some(telegraph => telegraph.resolveTurn <= simulated.turn + 1 && telegraph.cells.some(cell => cell.x === simulated.hero.x && cell.y === simulated.hero.y)), routes: currentDiagnostics(simulated) }
+})
 
 console.log(JSON.stringify({
   seed,
@@ -138,6 +144,7 @@ console.log(JSON.stringify({
   nextDecision,
   candidateDiagnostics,
   candidateTransitions,
+  movementTransitions,
   failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })),
   recentPositions: context.recentPositions,
   state: { hero: { x: state.hero.x, y: state.hero.y, health: state.hero.health, maxHealth: state.hero.maxHealth, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, inventory: state.hero.inventory }, objective: state.floor.objective, guardianDefeated: state.floor.guardianDefeated },

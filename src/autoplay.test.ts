@@ -203,6 +203,21 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('b')
   })
 
+  it('uses a bomb to break a telegraphed ranged trap', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.health = 20
+    state.hero.maxHealth = 25
+    state.hero.bombs = 2
+    state.floor.actors = [{ ...hostile, id: 'telegraph-source', ai: 'ranged', x: 4, y: 7, health: 10, attack: 7 }]
+    state.floor.telegraphs = [{ id: 'telegraph-source:shot', sourceId: 'telegraph-source', actionId: 'enemy-shot', cells: [{ x: 5, y: 5 }], danger: 'major', resolveTurn: state.turn + 1 }]
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision).toMatchObject({ command: 'b', reason: 'bomb telegraph source' })
+  })
+
   it('uses a tactical action instead of futile movement while rooted', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
@@ -234,6 +249,24 @@ describe('autoplay', () => {
     context.objectiveTarget = '10,10'
     autoplayDecision(state, 'omniscient', 'clear', context)
     expect(context.objectiveTarget).toBe('5,2')
+  })
+
+  it('keeps pursuing the selected supply cache instead of retargeting each turn', () => {
+    const state = newRun(71)
+    state.floor.actors = []
+    state.floor.items = []
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 2
+    state.hero.y = 2
+    state.floor.tiles[2 * 48 + 5].kind = 'crate'
+    state.floor.tiles[20 * 48 + 2].kind = 'crate'
+    state.floor.objective = { id: 'supply-objective', kind: 'recoverSupplies', label: 'Secure a trail cache', status: 'active' }
+    const context = createAutoplayContext()
+    context.objectiveId = state.floor.objective.id
+    context.objectiveTarget = '2,20'
+    const decision = autoplayDecision(state, 'omniscient', 'clear', context)
+    expect([',', '.', '/']).toContain(decision?.command)
+    expect(context.objectiveTarget).toBe('2,20')
   })
 
   it('completes the Mine reference run using tactical actions', () => {

@@ -175,6 +175,14 @@ export const recordAutoplayTransition = (context: AutoplayContext, before: RunSt
 const known = (state: RunState, mode: AutoplayMode, point: Point): boolean => mode === 'omniscient' || Boolean(getTile(state.floor, point.x, point.y)?.explored)
 const visible = (state: RunState, point: Point): boolean => Boolean(getTile(state.floor, point.x, point.y)?.visible)
 const telegraphDanger = (state: RunState, point: Point): boolean => (state.floor.telegraphs ?? []).some(telegraph => telegraph.resolveTurn <= state.turn + 1 && telegraph.cells.some(cell => cell.x === point.x && cell.y === point.y))
+
+const commandForecastsTelegraph = (state: RunState, command: string): boolean => {
+  if (telegraphDanger(state, state.hero)) return false
+  const simulated = planningClone(state)
+  const turn = simulated.turn
+  perform(simulated, command)
+  return simulated.status === 'dead' || (simulated.turn > turn && telegraphDanger(simulated, simulated.hero))
+}
 const passable = (state: RunState, mode: AutoplayMode, point: Point, avoidHazards: boolean, ignoreActors = false): boolean => {
   const tile = getTile(state.floor, point.x, point.y)
   if (!tile || !known(state, mode, point) || blockedTiles.has(tile.kind) || (tile.kind === 'lockedDoor' && state.hero.keys < 1)) return false
@@ -238,15 +246,20 @@ const projectedMove = (state: RunState, mode: AutoplayMode, from: Point, directi
 const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], allowTargetOccupied = false, avoidThreats = true, ignoreActors = false): { command: string; target: Point } | undefined => {
   if (!targets.length) return undefined
   const targetKeys = new Set(targets.map(pointKey))
+  const firstMoveUnsafe = (direction: Direction): boolean => commandForecastsTelegraph(state, directionCommands[direction])
   const route = (avoidHazards: boolean, avoidHostiles: boolean): { command: string; target: Point } | undefined => {
     const initial = { x: state.hero.x, y: state.hero.y }
     const queue: Array<{ point: Point; first?: Direction }> = [{ point: initial }]
     let cursor = 0
     const seen = new Set([pointKey(initial)])
+    let unsafeFallback: { command: string; target: Point } | undefined
     while (cursor < queue.length) {
       const current = queue[cursor++]
       if (current.first && targetKeys.has(pointKey(current.point))) {
-        return { command: directionCommands[current.first], target: current.point }
+        const candidate = { command: directionCommands[current.first], target: current.point }
+        if (!firstMoveUnsafe(current.first)) return candidate
+        unsafeFallback ??= candidate
+        continue
       }
       for (const [direction] of directions) {
         const point = projectedMove(state, mode, current.point, direction, avoidHazards, ignoreActors)
@@ -261,10 +274,21 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
         queue.push({ point, first: current.first ?? direction })
       }
     }
-    return undefined
+    return unsafeFallback
   }
   return route(true, avoidThreats) ?? route(true, false) ?? route(false, false)
 }
+
+const telegraphSafeStepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean, ignoreActors = false): { command: string } | undefined => directions.flatMap(([direction]) => {
+  const command = directionCommands[direction]
+  const simulated = planningClone(state)
+  const before = pointKey(simulated.hero)
+  perform(simulated, command)
+  if (simulated.status !== 'playing' || simulated.turn <= state.turn || pointKey(simulated.hero) === before || telegraphDanger(simulated, simulated.hero)) return []
+  if (!stepTo(simulated, mode, targets, false, avoidThreats, ignoreActors)) return []
+  const distance = targets.reduce((nearest, target) => Math.min(nearest, chebyshev(simulated.hero, target)), Number.POSITIVE_INFINITY)
+  return [{ command, distance, pressure: hostilePressure(simulated, mode, simulated.hero) }]
+}).sort((a, b) => a.distance - b.distance || a.pressure - b.pressure || a.command.localeCompare(b.command))[0]
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
   const objective = state.floor.objective.kind
@@ -703,12 +727,14 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const equip = bestEquip(state)
   if (equip && usableInventoryIntent(state, 'equip', equip)) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
   const pressure = hostilePressure(state, mode, state.hero)
+  const standingInTelegraph = telegraphDanger(state, state.hero)
   const bombEmergency = state.hero.health * 2 <= state.hero.maxHealth && pressure >= 25
   const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
-  const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0) || guardianBomb
+  const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
+  const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0) || guardianBomb || telegraphCounterBomb
   const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && bombTarget.score > 0 && (guardianBomb || (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted)))) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && bombTarget.score > 0 && (telegraphCounterBomb || guardianBomb || (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted)))) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
@@ -754,7 +780,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const availableTargets = needsOffering ? [] : objectiveTargets(state, mode)
     context.objectiveTargetCount = availableTargets.length
     if (context.objectiveTarget && !availableTargets.some(target => pointKey(target) === context.objectiveTarget)) context.objectiveTarget = undefined
-    const pinTarget = objective.kind !== 'recoverSupplies'
+    // Pin every objective target until it is resolved or proven unreachable; otherwise agility can alternate between nearby caches forever.
+    const pinTarget = true
     let selectableTargets = availableTargets.filter(target => !context.rejectedObjectiveTargets.has(pointKey(target)))
     if (!selectableTargets.length) {
       context.rejectedObjectiveTargets.clear()
@@ -776,7 +803,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     if (route) {
       if (pinTarget) context.objectiveTarget = pointKey(route.target)
       hasObjectiveRoute = true
-      candidates.push({ command: route.route.command, reason: route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, score: policy === 'clear' ? route.blocked ? 158 : 150 : route.blocked ? 76 : 70 })
+      const routeTargets = objective.kind === 'defeatGuardian' ? attackStances(state, route.target) : needsAdjacent ? adjacentCells(route.target) : [route.target]
+      const detour = commandForecastsTelegraph(state, route.route.command) ? telegraphSafeStepTo(state, mode, routeTargets, policy !== 'clear', Boolean(route.blocked)) : undefined
+      candidates.push({ command: detour?.command ?? route.route.command, reason: detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, score: policy === 'clear' ? detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
     } else if (pinTarget && context.objectiveTarget) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
