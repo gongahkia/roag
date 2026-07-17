@@ -121,6 +121,24 @@ export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFl
 interface Room { x: number; y: number; w: number; h: number }
 const center = (room: Room): Point => ({ x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) })
 const overlaps = (a: Room, b: Room) => a.x - 2 < b.x + b.w && a.x + a.w + 2 > b.x && a.y - 2 < b.y + b.h && a.y + a.h + 2 > b.y
+const cardinalOffsets = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const
+const mineHazards = new Set<Tile['kind']>(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
+
+const hasNearbyTile = (floor: Floor, point: Point, radius: number, kinds: ReadonlySet<Tile['kind']>): boolean => {
+  for (let y = point.y - radius; y <= point.y + radius; y++) for (let x = point.x - radius; x <= point.x + radius; x++) if (kinds.has(getTile(floor, x, y)?.kind ?? 'wall')) return true
+  return false
+}
+
+const hasMinePropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => {
+  if (!kind.startsWith('mine.')) return true
+  const workedPassage = new Set<Tile['kind']>(['rail', 'support'])
+  if (kind === 'mine.oreVein') return hasNearbyTile(floor, point, 1, new Set<Tile['kind']>(['support', 'rubble', 'boulder']))
+  if (kind === 'mine.lanternPost' || kind === 'mine.discardedParcel') return hasNearbyTile(floor, point, 1, workedPassage)
+  if (kind === 'mine.brokenCart') return cardinalOffsets.some(([x, y]) => getTile(floor, point.x + x, point.y + y)?.kind === 'rail')
+  if (kind === 'mine.warningMarker') return hasNearbyTile(floor, point, 5, mineHazards)
+  if (kind === 'mine.skullMarker') return hasNearbyTile(floor, point, 5, mineHazards) || floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - point.x), Math.abs(actor.y - point.y)) <= 5)
+  return true
+}
 
 function carveRooms(floor: Floor, rng: Rng): Room[] {
   const rooms: Room[] = []
@@ -156,7 +174,8 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
     const candidates: number[] = []
     for (let index = 0; index < floor.tiles.length; index++) {
       const tile = floor.tiles[index]
-      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index)) candidates.push(index)
+      const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index) && hasMinePropContext(floor, definition.id, point)) candidates.push(index)
     }
     if (!candidates.length) continue
     const placement = rng.pick(candidates)
@@ -453,6 +472,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     propLocations.add(location)
     if (prop.biome !== floor.biome || definition.biome !== floor.biome) errors.push(`invalid prop biome: ${prop.id}`)
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor' || !definition.terrain.includes(tile.kind)) errors.push(`illegal prop placement: ${prop.id}`)
+    if (!hasMinePropContext(floor, prop.kind, prop)) errors.push(`invalid prop context: ${prop.id}`)
     else if (isBlockingProp(prop)) {
       const reachableCartSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
       if (!reachableCartSide) errors.push(`unreachable prop: ${prop.id}`)

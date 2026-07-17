@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { castAstral } from './astral'
 import { explode } from './combat'
 import { castEmber } from './ember'
-import { operate } from './inventory'
+import { operate, useRope } from './inventory'
 import { resolveLineEffect } from './line-effect'
 import { applyPropEffects } from './props'
 import { refreshFov } from './visibility'
@@ -74,6 +74,25 @@ describe('Mine props', () => {
     operate(collision)
     expect(operate(collision).map(entry => entry.type)).toContain('hit')
     expect(collision.floor.actors).toEqual([])
+
+    const friendly = createRun()
+    friendly.floor.props = [mineProp('mine.brokenCart')]
+    for (const x of [2, 3]) friendly.floor.tiles[1 * 48 + x].kind = 'rail'
+    friendly.floor.actors = [createEnemy({ role: 'ally', hostile: false, name: 'stranded traveler', x: 3, y: 1 })]
+    operate(friendly)
+    expect(operate(friendly)).toEqual([])
+    expect(friendly.floor.props[0]).toMatchObject({ x: 2, y: 1 })
+    expect(friendly.floor.actors[0]).toMatchObject({ x: 3, y: 1, hostile: false })
+  })
+
+  it('uses a rope to release an inspected cart without changing pit behavior', () => {
+    const state = createRun({ hero: createHero({ ropes: 1 }) })
+    state.floor.props = [mineProp('mine.brokenCart')]
+    for (const x of [2, 3]) state.floor.tiles[1 * 48 + x].kind = 'rail'
+    operate(state)
+    expect(useRope(state).map(entry => entry.type)).toEqual(expect.arrayContaining(['rope', 'move']))
+    expect(state.hero.ropes).toBe(0)
+    expect(state.floor.props[0]).toMatchObject({ state: 'activated', x: 3, y: 1 })
   })
 
   it('uses Gust and Pull to move carts along their rail direction', () => {
@@ -116,14 +135,25 @@ describe('Mine props', () => {
     expect(detonated.messages).toContain('The abandoned parcel bursts into a noisy blast.')
   })
 
-  it('generates rail carts only when the objective and exit remain reachable', () => {
-    const carts = Array.from({ length: 48 }, (_, seed) => generateAreaFloor(seed + 1, 'mine', 0))
-      .flatMap(floor => floor.props.filter(prop => prop.kind === 'mine.brokenCart').map(prop => ({ floor, prop })))
+  it('generates Mine props in rail, light, excavation, and warning contexts', () => {
+    const floors = Array.from({ length: 48 }, (_, seed) => generateAreaFloor(seed + 1, 'mine', 0))
+    const carts = floors.flatMap(floor => floor.props.filter(prop => prop.kind === 'mine.brokenCart').map(prop => ({ floor, prop })))
     expect(carts.length).toBeGreaterThan(0)
     for (const { floor, prop } of carts) {
       expect(floor.tiles[prop.y * 48 + prop.x].kind).toBe('rail')
+      expect([[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => floor.tiles[(prop.y + y) * 48 + prop.x + x]?.kind === 'rail')).toBe(true)
       expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+    for (const floor of floors) for (const prop of floor.props) {
+      const nearby = (radius: number, kinds: string[]) => {
+        for (let y = prop.y - radius; y <= prop.y + radius; y++) for (let x = prop.x - radius; x <= prop.x + radius; x++) if (floor.tiles[y * 48 + x]?.kind && kinds.includes(floor.tiles[y * 48 + x].kind)) return true
+        return false
+      }
+      if (prop.kind === 'mine.oreVein') expect(nearby(1, ['support', 'rubble', 'boulder'])).toBe(true)
+      if (prop.kind === 'mine.lanternPost' || prop.kind === 'mine.discardedParcel') expect(nearby(1, ['rail', 'support'])).toBe(true)
+      if (prop.kind === 'mine.warningMarker') expect(nearby(5, ['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])).toBe(true)
+      if (prop.kind === 'mine.skullMarker') expect(nearby(5, ['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit']) || floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - prop.x), Math.abs(actor.y - prop.y)) <= 5)).toBe(true)
     }
   })
 })

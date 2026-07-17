@@ -19,7 +19,7 @@ import { castAstral, isAstralSpell } from './astral'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
-import { applyPropEffects, operateProp } from './props'
+import { applyPropEffects, operateProp, releaseCartWithRope } from './props'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -133,7 +133,17 @@ export function useRope(state: RunState): ActionResult {
   else {
     const below = getTile(state.floor, state.hero.x, state.hero.y + 1)
     if (below?.kind === 'pit') below.kind = 'rope'
-    else { log(state, 'There is nowhere to anchor a rope.'); return [] }
+    else {
+      const cartEvents = releaseCartWithRope(state)
+      if (cartEvents !== undefined) {
+        if (!cartEvents.length) return []
+        state.hero.ropes--
+        log(state, 'You rig the cart with a rope.')
+        return advance(state, [event('rope'), ...cartEvents])
+      }
+      log(state, 'There is nowhere to anchor a rope.')
+      return []
+    }
   }
   state.hero.ropes--
   log(state, 'You secure a rope.')

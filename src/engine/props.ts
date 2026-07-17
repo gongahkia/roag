@@ -49,7 +49,7 @@ const triggerCartHazards = (state: RunState, cart: Prop): ActionResult => {
 }
 
 const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
-  const events: ActionResult = [event('move')]
+  const events: ActionResult = []
   if (!cardinal(first) || getTile(state.floor, cart.x + first.x, cart.y + first.y)?.kind !== 'rail') { log(state, 'The cart has no rail in that direction.'); return [] }
   let direction = { ...first }
   let previous = { x: cart.x, y: cart.y }
@@ -57,7 +57,11 @@ const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
     const next = { x: cart.x + direction.x, y: cart.y + direction.y }
     if (getTile(state.floor, next.x, next.y)?.kind !== 'rail' || isBlockingProp(propAt(state.floor.props, next.x, next.y))) break
     const actor = actorAt(state.floor, next.x, next.y)
-    if (actor?.hostile) {
+    if (actor) {
+      if (!actor.hostile) {
+        log(state, `The cart is blocked by ${actor.name}.`)
+        break
+      }
       actor.health -= modifyIncomingDamage(actor, 8)
       log(state, `The cart crushes ${actor.name}.`)
       events.push(event('hit'))
@@ -69,6 +73,7 @@ const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
     }
     cart.x = next.x
     cart.y = next.y
+    if (!events.some(entry => entry.type === 'move')) events.push(event('move'))
     events.push(...triggerCartHazards(state, cart))
     const options = cartCandidates(state, cart, previous)
     const straight = options.find(point => point.x - cart.x === direction.x && point.y - cart.y === direction.y)
@@ -166,8 +171,22 @@ export const moveCartByForce = (state: RunState, point: Point, pull: boolean): A
   const away = { x: Math.sign(cart.x - state.hero.x), y: Math.sign(cart.y - state.hero.y) }
   const direction = pull ? { x: -away.x, y: -away.y } : away
   if (!cardinal(direction)) { log(state, 'The cart cannot find a rail-aligned force path.'); return [] }
-  cart.state = 'activated'
-  return moveCart(state, cart, direction)
+  const events = moveCart(state, cart, direction)
+  if (events.length) cart.state = 'activated'
+  return events
+}
+
+export const releaseCartWithRope = (state: RunState): ActionResult | undefined => {
+  const cart = Object.values(DIRECTIONS)
+    .filter(cardinal)
+    .map(delta => propAt(state.floor.props, state.hero.x + delta.x, state.hero.y + delta.y))
+    .find((prop): prop is Prop => prop?.kind === 'mine.brokenCart' && prop.state !== 'destroyed')
+  if (!cart) return undefined
+  if (cart.state === 'dormant') { log(state, 'Examine the cart before rigging it with a rope.'); return [] }
+  const direction = { x: Math.sign(cart.x - state.hero.x), y: Math.sign(cart.y - state.hero.y) }
+  const events = moveCart(state, cart, direction)
+  if (events.length) cart.state = 'activated'
+  return events
 }
 
 const destroyProp = (state: RunState, prop: Prop, effect: PropEffectKind): void => {
