@@ -32,7 +32,7 @@ export const advanceGuardianPhase = (state: RunState, guardian: Actor): Guardian
     const pool = [...candidates]
     for (let attempt = 0; pool.length && attempt < 16; attempt++) {
       const point = pool.splice(rng.int(0, pool.length - 1), 1)[0]
-      if (tile === 'bramble' && !preservesExitPath(state.floor, state.hero, point, tile)) continue
+      if (!preservesExitPath(state.floor, state.hero, point, tile)) continue
       getTile(state.floor, point.x, point.y)!.kind = tile
       break
     }

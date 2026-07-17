@@ -703,10 +703,11 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (equip && usableInventoryIntent(state, 'equip', equip)) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
   const pressure = hostilePressure(state, mode, state.hero)
   const bombEmergency = state.hero.health * 2 <= state.hero.maxHealth && pressure >= 25
-  const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0)
-  const bomb = canBomb ? targetDirection(state, mode, 'bomb') : undefined
+  const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
+  const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
+  const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0) || guardianBomb
   const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && bombTarget.score > 0 && ((bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)))) candidates.push({ command: 'b', reason: bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && bombTarget.score > 0 && (guardianBomb || (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency)))) candidates.push({ command: 'b', reason: guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
@@ -737,6 +738,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (combat) candidates.push(combat)
   const guardianFinish = guardianFinishMove(state, mode, context)
   if (guardianFinish) candidates.push(guardianFinish)
+  const guardianApproach = guardianApproachMove(state, mode, context)
+  if (guardianApproach) candidates.push(guardianApproach)
   const objective = state.floor.objective
   if (context.objectiveId !== objective.id) {
     context.objectiveId = objective.id
