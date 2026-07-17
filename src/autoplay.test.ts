@@ -203,6 +203,20 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('b')
   })
 
+  it('uses a tactical action instead of futile movement while rooted', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.floor.actors = [{ ...hostile, id: 'rooted-target', x: 7, y: 5, health: 10 }]
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.bombs = 1
+    state.hero.conditions = [{ kind: 'rooted', duration: 2, potency: 1 }]
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.reason).toMatch(/^break root:/)
+    expect(['b', 't', 'u']).toContain(decision?.command)
+  })
+
   it('falls back to a reachable objective target when the pinned target is sealed off', () => {
     const state = newRun(71)
     state.floor.actors = []
