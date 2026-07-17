@@ -430,7 +430,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (prop.biome !== floor.biome || definition.biome !== floor.biome) errors.push(`invalid prop biome: ${prop.id}`)
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') errors.push(`illegal prop placement: ${prop.id}`)
     else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
-    if (!['dormant', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
+    if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }
   for (const error of validateAreaGate(gateForArea(floor.biome))) errors.push(`impossible gate: ${error}`)

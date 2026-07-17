@@ -174,10 +174,10 @@ export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: num
   if (propIndex < 0) throw new Error(`prop sprite missing: ${prop.kind}`)
   const index = manifest.terrainLayout.length + propIndex
   if (!textureAtlas.draw(ctx, ref(sheet.id, index % sheet.columns, Math.floor(index / sheet.columns), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) fallbackProp(ctx, prop, x, y, dim)
-  if (prop.state !== 'activated') return
+  if (prop.state !== 'inspected' && prop.state !== 'activated') return
   ctx.save()
   ctx.globalAlpha = dim ? .32 : .78
-  ctx.strokeStyle = '#ffe181'
+  ctx.strokeStyle = prop.state === 'inspected' ? '#8fd6c2' : '#ffe181'
   ctx.lineWidth = 1
   ctx.strokeRect(x * CELL_WIDTH + .5, y * CELL_HEIGHT + .5, CELL_WIDTH - 1, CELL_HEIGHT - 1)
   ctx.restore()

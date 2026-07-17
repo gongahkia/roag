@@ -25,7 +25,7 @@ export type PropId =
   | 'wilds.mushrooms' | 'wilds.danglingCharm' | 'wilds.birdNest' | 'wilds.rootShrine' | 'wilds.lostParcel' | 'wilds.rootArch'
   | 'caverns.crystalCluster' | 'caverns.glowingFungus' | 'caverns.barnacledShrine' | 'caverns.brokenBoat' | 'caverns.eelTunnel' | 'caverns.sealedParcel'
   | 'ruins.brokenStatue' | 'ruins.ritualBrazier' | 'ruins.glyphTablet' | 'ruins.collapsedArch' | 'ruins.sealedCache' | 'ruins.monolith'
-export type PropState = 'dormant' | 'activated' | 'destroyed'
+export type PropState = 'dormant' | 'inspected' | 'activated' | 'destroyed'
 export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard'
 export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard'
 export type PropHook = 'operate' | PropEffectKind

@@ -13,14 +13,26 @@ const nearbyProp = (state: RunState): Prop | undefined => {
   return points.map(point => propAt(state.floor.props, point.x, point.y)).find((prop): prop is Prop => Boolean(prop))
 }
 
-export const operateProp = (state: RunState): boolean => {
+export type PropOperation = 'examined' | 'activated'
+
+export const operateProp = (state: RunState): PropOperation | undefined => {
   const prop = nearbyProp(state)
-  if (!prop || prop.state !== 'dormant' || !prop.hooks?.includes('operate')) return false
+  if (!prop || !prop.hooks?.includes('operate')) return undefined
   const definition = propDefinition(prop.kind)
+  if (prop.state === 'dormant') {
+    prop.state = 'inspected'
+    log(state, `You examine the ${definition.name}: ${definition.description} Press C again to activate it.`)
+    return 'examined'
+  }
+  if (prop.state === 'activated') {
+    log(state, `The ${definition.name} has already been activated.`)
+    return 'examined'
+  }
+  if (prop.state !== 'inspected') return undefined
   prop.state = 'activated'
   reward(state, prop, definition.activationReward)
   log(state, `You study the ${definition.name} and recover ${definition.activationReward}.`)
-  return true
+  return 'activated'
 }
 
 export const applyPropEffects = (state: RunState, points: readonly Point[], effects: readonly PropEffectKind[]): string[] => {

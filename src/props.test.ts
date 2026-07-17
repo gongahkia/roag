@@ -47,6 +47,8 @@ describe('world props', () => {
     expect(operate(state).map(event => event.type)).toEqual(['pickup'])
     expect(state.floor.props[0].state).toBe('dormant')
     state.floor.tiles[1 * 48 + 2].kind = 'floor'
+    expect(operate(state)).toEqual([])
+    expect(state.floor.props[0].state).toBe('inspected')
     expect(operate(state).map(event => event.type)).toEqual(['pickup'])
     expect(state.floor.props[0].state).toBe('activated')
     expect(state.floor.items).toContainEqual(expect.objectContaining({ id: 'rock', x: 2, y: 1 }))

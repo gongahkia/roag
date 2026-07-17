@@ -8,6 +8,12 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)).toEqual(run)
   })
 
+  it('preserves persisted prop state in valid v3 runs', () => {
+    const run = newRun(124)
+    run.floor.props[0].state = 'inspected'
+    expect(migrateRunRecord(run)?.floor.props).toEqual(run.floor.props)
+  })
+
   it('rejects v1 and v2 runs after the prop schema change', () => {
     expect(migrateRunRecord({ ...newRun(456), version: 1 })).toBeUndefined()
     expect(migrateRunRecord({ ...newRun(456), version: 2 })).toBeUndefined()

@@ -85,7 +85,9 @@ export function operate(state: RunState): ActionResult {
     return [event('menu')]
   }
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
-  if (operateProp(state)) return advance(state, [event('pickup')])
+  const propOperation = operateProp(state)
+  if (propOperation === 'activated') return advance(state, [event('pickup')])
+  if (propOperation) return []
   log(state, 'Nothing answers.')
   return []
 }
