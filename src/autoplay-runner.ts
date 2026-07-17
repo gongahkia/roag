@@ -82,7 +82,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const decision = autoplayDecision(state, mode, policy, context)
       if (!decision) {
         stall = stallSnapshot()
-        outcome = 'stalled'
+        outcome = context.lastReason?.startsWith('turn guard:') ? 'turn-limit' : 'stalled'
         break
       }
       const command = decision.command
