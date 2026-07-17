@@ -234,6 +234,11 @@ describe('autoplay', () => {
     expect(report.campaignComplete).toBe(true)
   }, 60_000)
 
+  it('clears the ranged-corridor regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(3), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
+  }, 60_000)
+
   it('chains completed areas into the next biome by default', () => {
     const state = newRun(7, 'mine', 3)
     state.floor.actors = []

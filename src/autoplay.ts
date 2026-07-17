@@ -59,7 +59,7 @@ type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type Candidate = AutoplayCandidate & { intent?: Intent }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
 export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
-export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
+export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
@@ -119,6 +119,7 @@ export const snapshotAutoplayTransition = (state: RunState): AutoplayTransitionS
   stateKey: autoplayStateFingerprint(state),
   progressKey: autoplayProgressFingerprint(state, false),
   position: pointKey(state.hero),
+  strategicDistance: strategicDistance(state),
   area: state.area,
   areaFloor: state.areaFloor,
   objectiveId: state.floor.objective.id,
@@ -147,7 +148,7 @@ export const recordAutoplayTransitionSnapshot = (context: AutoplayContext, befor
   const routeAdvanced = Number.isFinite(distance) && (context.bestStrategicDistance === undefined || distance < context.bestStrategicDistance)
   context.bestStrategicDistance = Math.min(context.bestStrategicDistance ?? Number.POSITIVE_INFINITY, distance)
   const measuredProgress = beforeProgress !== afterProgress || routeAdvanced
-  const objectiveRouteStep = isStrategicRouteReason(context.lastReason) && before.position !== pointKey(after.hero)
+  const objectiveRouteStep = isStrategicRouteReason(context.lastReason) && before.position !== pointKey(after.hero) && distance < before.strategicDistance
   const progressed = measuredProgress || objectiveRouteStep
   const movedToFreshPosition = before.position !== pointKey(after.hero) && !context.recentPositions.includes(pointKey(after.hero))
   if (measuredProgress) {
@@ -441,13 +442,21 @@ const safeInventoryChoice = (state: RunState, command: string): boolean => {
   return simulated.turn > turn
 }
 
-const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayContext, policy: AutoplayPolicy): Candidate | undefined => {
   const currentPressure = hostilePressure(state, mode, state.hero)
   const standingInTelegraph = telegraphDanger(state, state.hero)
-  if (!standingInTelegraph && currentPressure < 100) return undefined
+  const canPressObjective = policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth
+  if (!standingInTelegraph && (currentPressure < 100 || canPressObjective)) return undefined
   const options = directions.map(([direction, delta]) => ({ direction, point: { x: state.hero.x + delta.x, y: state.hero.y + delta.y } }))
     .filter(option => passable(state, mode, option.point, true) && !telegraphDanger(state, option.point))
     .map(option => ({ ...option, pressure: hostilePressure(state, mode, option.point), repeats: context.recentPositions.filter(key => key === pointKey(option.point)).length }))
+  if (standingInTelegraph) {
+    const urgent = directions.flatMap(([direction]) => {
+      const point = projectedMove(state, mode, state.hero, direction, false, false)
+      return point && !telegraphDanger(state, point) ? [{ direction, point, pressure: hostilePressure(state, mode, point), repeats: context.recentPositions.filter(key => key === pointKey(point)).length }] : []
+    }).sort((a, b) => a.repeats - b.repeats || a.pressure - b.pressure || a.direction.localeCompare(b.direction))[0]
+    if (urgent) return { command: directionCommands[urgent.direction], reason: 'evade telegraph', score: 152 }
+  }
   const refuges = state.floor.tiles.flatMap((_, index) => {
     const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
     return known(state, mode, point) && passable(state, mode, point, true) && !telegraphDanger(state, point) && hostilePressure(state, mode, point) < 25 && chebyshev(state.hero, point) >= 2 ? [point] : []
@@ -505,7 +514,7 @@ const resolveCandidateSequence = (state: RunState, mode: AutoplayMode, candidate
   return simulated
 }
 
-const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Candidate, context: AutoplayContext): number => {
+const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, candidate: Candidate, context: AutoplayContext): number => {
   if (candidate.command === 'q' && getTile(state.floor, state.hero.x, state.hero.y)?.kind === 'exit' && state.floor.objective.status === 'complete' && state.floor.guardianDefeated) return 260
   const health = state.hero.health
   const enemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((total, actor) => total + actor.health, 0)
@@ -540,6 +549,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, candidate: Cand
   if (pointKey(simulated.hero) !== pointKey(state.hero) && context.recentPositions.includes(pointKey(simulated.hero))) adjustment -= 75
   if (simulated.hero.health < health && hostilePressure(simulated, mode, simulated.hero) >= 100) adjustment -= 28
   if (hostilePressure(simulated, mode, simulated.hero) >= 100) adjustment -= 32
+  if (policy === 'clear' && candidate.reason === 'cast:blink' && strategicDistance(simulated) >= strategicDistance(state)) adjustment -= 220
   return adjustment
 }
 
@@ -721,7 +731,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
   const cycleBreak = cycleBreakMove(state, mode, context)
   if (cycleBreak) candidates.push(cycleBreak)
-  const evade = evadeThreat(state, mode, context)
+  const evade = evadeThreat(state, mode, context, policy)
   if (evade) candidates.push(evade)
   const combat = combatMove(state, mode)
   if (combat) candidates.push(combat)
@@ -790,7 +800,7 @@ const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, '
     .map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
   return candidates
-    .map(candidate => ({ ...candidate, score: candidate.score + candidateLookahead(state, mode, candidate, context) }))
+    .map(candidate => ({ ...candidate, score: candidate.score + candidateLookahead(state, mode, policy, candidate, context) }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
 }
 
@@ -835,10 +845,10 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       const strategicRoute = immediateCandidates(state, mode, policy, context)
         .filter(candidate => isStrategicRouteReason(candidate.reason))
         .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
-        .find(candidate => Number.isFinite(candidateLookahead(state, mode, candidate, context)))
-      const recovery = [state.floor.biome === 'ruins' ? evadeThreat(state, mode, context) : undefined, combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
+        .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
+      const recovery = [policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth ? strategicRoute : undefined, state.floor.biome === 'ruins' ? evadeThreat(state, mode, context, policy) : undefined, combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
         .filter((candidate): candidate is Candidate => Boolean(candidate))
-        .find(candidate => Number.isFinite(candidateLookahead(state, mode, candidate, context)))
+        .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
       if (!recovery) {
         context.lastReason = 'no recovery action'
         return undefined
