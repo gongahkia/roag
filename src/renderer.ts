@@ -160,8 +160,11 @@ export class TerminalRenderer {
       const status = selected.floor ? `trail ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'at the village outpost'
       this.text(18, 43, `${selected.name} waits in ${selected.area ? biomeName[selected.area] : 'the village'} · ${status}.`, colors.dim)
     }
-    const controls = entries.length ? '[L]/ENTER resume · [↑↓] change selection · [N] create courier · [D] delete courier' : '[N] create a new courier'
-    this.text(Math.floor((TERMINAL_WIDTH - controls.length) / 2), 51, controls, colors.text)
+    const controls = entries.length
+      ? ['[L]/ENTER  resume · [↑↓]  change selection', '[N]  create courier · [D]  delete courier']
+      : ['[N]  create courier']
+    const controlsY = controls.length === 2 ? 48 : 51
+    controls.forEach((line, index) => this.text(8 + Math.floor((80 - line.length) / 2), controlsY + index * 3, line, colors.text))
     if (menu?.confirmingDelete) this.box(27, 27, 42, 9, 'RETIRE COURIER'), this.text(31, 31, 'D confirms · ESC cancels', colors.red)
   }
 
@@ -194,19 +197,22 @@ export class TerminalRenderer {
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
     const season = mineSeason(route.heirSeed ?? 0)
-    this.box(13, 10, 54, 24, story?.scene.title ?? 'VILLAGE TRAILHEAD')
+    const width = 54
+    const height = 24
+    const x = Math.floor((TERMINAL_WIDTH - width) / 2)
+    const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
+    this.box(x, y, width, height, story?.scene.title ?? 'VILLAGE TRAILHEAD')
     if (story) {
-      this.text(19, 14, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
-      this.wrap(storyText(story, now), 27).slice(0, 6).forEach((line, index) => this.text(19, 17 + index * 2, line, colors.text))
-      this.ascii(49, 16, animationFrame(story.scene.animation, now), season.color)
-      this.text(19, 31, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
+      this.text(x + 6, y + 4, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
+      this.wrap(storyText(story, now), 42).slice(0, 6).forEach((line, index) => this.text(x + 6, y + 7 + index * 2, line, colors.text))
+      this.text(x + 6, y + 21, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
       return
     }
-    this.text(19, 15, season.name.toUpperCase(), season.color)
-    this.text(19, 18, 'Your village entrusts you with a sealed parcel.', colors.text)
-    this.text(19, 20, season.scene, colors.text)
-    this.text(19, 22, 'ENTER  continue to village outpost', colors.green)
-    this.text(19, 24, 'ESC    return to title', colors.dim)
+    this.text(x + 6, y + 5, season.name.toUpperCase(), season.color)
+    this.text(x + 6, y + 8, 'Your village entrusts you with a sealed parcel.', colors.text)
+    this.text(x + 6, y + 10, season.scene, colors.text)
+    this.text(x + 6, y + 12, 'ENTER  continue to village outpost', colors.green)
+    this.text(x + 6, y + 14, 'ESC    return to title', colors.dim)
   }
 
   private loading(state: RunState | undefined, loading: LoadingState | undefined, now: number): void {
@@ -540,24 +546,28 @@ export class TerminalRenderer {
     const metrics = analysis.metrics
     const outcome = analysis.outcome === 'complete' ? 'DELIVERY COMPLETE' : analysis.outcome === 'lost' ? 'DELIVERY LOST' : 'DELIVERY SUSPENDED'
     const color = analysis.outcome === 'complete' ? colors.gold : analysis.outcome === 'lost' ? colors.red : colors.blue
-    this.box(6, 2, 68, 42, outcome)
-    this.text(10, 6, `trail ${String(analysis.floor).padStart(2, '0')} · ${biomeName[analysis.biome]} · ${metrics.turns} turns`, color)
-    this.text(10, 8, 'RUN HISTOGRAMS  ·  FREQUENCY BY VALUE', colors.gold)
+    const width = 68
+    const height = 42
+    const x = Math.floor((TERMINAL_WIDTH - width) / 2)
+    const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
+    this.box(x, y, width, height, outcome)
+    this.text(x + 4, y + 4, `trail ${String(analysis.floor).padStart(2, '0')} · ${biomeName[analysis.biome]} · ${metrics.turns} turns`, color)
+    this.text(x + 4, y + 6, 'RUN HISTOGRAMS  ·  FREQUENCY BY VALUE', colors.gold)
     const samples = metrics.samples.length ? metrics.samples : [{ turn: 0, floor: analysis.floor, health: 0, focus: 0, gold: 0, bombs: 0, ropes: 0, kills: 0, damageDealt: 0, damageTaken: 0 }]
-    this.histogramPanel(8, 10, 'HEALTH', samples.map(sample => sample.health), colors.red)
-    this.histogramPanel(30, 10, 'FOCUS', samples.map(sample => sample.focus), colors.blue)
-    this.histogramPanel(52, 10, 'DAMAGE / TURN', this.timeline(samples, sample => sample.damageDealt + sample.damageTaken, true), colors.gold)
-    this.text(10, 30, 'RUN TOTALS', colors.gold)
-    this.text(10, 32, `cash +${metrics.goldGained} · xp +${metrics.xpGained} · pickups ${metrics.pickups}`, colors.text)
-    this.text(10, 33, `kills ${metrics.kills} · dealt ${metrics.damageDealt} · taken ${metrics.damageTaken}`, colors.text)
-    this.text(10, 34, `bombs ${metrics.bombsUsed} · ropes ${metrics.ropesUsed} · rests ${metrics.actions.rests} · moves ${metrics.actions.moves}`, colors.dim)
-    this.text(10, 36, 'FLOOR SPLITS', colors.gold)
+    this.histogramPanel(x + 2, y + 8, 'HEALTH', samples.map(sample => sample.health), colors.red)
+    this.histogramPanel(x + 24, y + 8, 'FOCUS', samples.map(sample => sample.focus), colors.blue)
+    this.histogramPanel(x + 46, y + 8, 'DAMAGE / TURN', this.timeline(samples, sample => sample.damageDealt + sample.damageTaken, true), colors.gold)
+    this.text(x + 4, y + 28, 'RUN TOTALS', colors.gold)
+    this.text(x + 4, y + 30, `cash +${metrics.goldGained} · xp +${metrics.xpGained} · pickups ${metrics.pickups}`, colors.text)
+    this.text(x + 4, y + 31, `kills ${metrics.kills} · dealt ${metrics.damageDealt} · taken ${metrics.damageTaken}`, colors.text)
+    this.text(x + 4, y + 32, `bombs ${metrics.bombsUsed} · ropes ${metrics.ropesUsed} · rests ${metrics.actions.rests} · moves ${metrics.actions.moves}`, colors.dim)
+    this.text(x + 4, y + 34, 'FLOOR SPLITS', colors.gold)
     metrics.floors.slice(-4).forEach((floor, index) => {
-      const x = index % 2 === 0 ? 10 : 42
-      const y = 38 + Math.floor(index / 2) * 2
-      this.text(x, y, `F${String(floor.floor).padStart(2, '0')}  ${floor.turns}T ${floor.kills}K ${floor.damageDealt}/${floor.damageTaken}D ${floor.pickups}L`, colors.text)
+      const splitX = x + (index % 2 === 0 ? 4 : 36)
+      const splitY = y + 36 + Math.floor(index / 2) * 2
+      this.text(splitX, splitY, `F${String(floor.floor).padStart(2, '0')}  ${floor.turns}T ${floor.kills}K ${floor.damageDealt}/${floor.damageTaken}D ${floor.pickups}L`, colors.text)
     })
-    this.text(10, 41, 'ANY KEY  continue', colors.green)
+    this.text(x + 4, y + 39, 'ANY KEY  continue', colors.green)
   }
 
   private timeline(samples: readonly RunMetricSample[], value: (sample: RunMetricSample) => number, cumulative: boolean, descending = false): number[] {
