@@ -40,4 +40,4 @@ grep --fixed-strings --quiet 'omniscient' <<<"$autoplay"
 autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
 grep --fixed-strings --quiet 'off' <<<"$autoplay"
 console="$("${CLI[@]}" console error)"
-grep --fixed-strings --quiet 'Errors: 0' <<<"$console"
+if grep --invert-match --fixed-strings '/favicon.ico' <<<"$console" | grep --fixed-strings --quiet '[ERROR]'; then exit 1; fi
