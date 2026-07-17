@@ -56,9 +56,9 @@ const planningClone = (state: RunState): RunState => {
 }
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
-type Candidate = AutoplayCandidate & { intent?: Intent }
+type Candidate = AutoplayCandidate & { intent?: Intent; predictiveTarget?: string }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; bestStrategicDistance?: number; startedTurn?: number; lastPredictiveTarget?: string; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
@@ -279,16 +279,78 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
   return route(true, avoidThreats) ?? route(true, false) ?? route(false, false)
 }
 
-const telegraphSafeStepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean, ignoreActors = false): { command: string } | undefined => directions.flatMap(([direction]) => {
+const telegraphSafeStepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean, ignoreActors = false): { command: string; distance: number } | undefined => directions.flatMap(([direction]) => {
   const command = directionCommands[direction]
   const simulated = planningClone(state)
   const before = pointKey(simulated.hero)
   perform(simulated, command)
   if (simulated.status !== 'playing' || simulated.turn <= state.turn || pointKey(simulated.hero) === before || telegraphDanger(simulated, simulated.hero)) return []
-  if (!stepTo(simulated, mode, targets, false, avoidThreats, ignoreActors)) return []
+  const continuation = stepTo(simulated, mode, targets, false, avoidThreats, ignoreActors)
+  if (!continuation) return []
+  const continued = planningClone(simulated)
+  perform(continued, continuation.command)
+  if (pointKey(continued.hero) === before) return []
   const distance = targets.reduce((nearest, target) => Math.min(nearest, chebyshev(simulated.hero, target)), Number.POSITIVE_INFINITY)
   return [{ command, distance, pressure: hostilePressure(simulated, mode, simulated.hero) }]
 }).sort((a, b) => a.distance - b.distance || a.pressure - b.pressure || a.command.localeCompare(b.command))[0]
+
+const routeDistanceField = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean): Map<string, number> => {
+  const distances = new Map(targets.map(target => [pointKey(target), 0]))
+  const queue = [...targets]
+  let cursor = 0
+  while (cursor < queue.length) {
+    const current = queue[cursor++]!
+    const distance = distances.get(pointKey(current))!
+    for (const [direction, delta] of directions) {
+      for (let step = 1; step <= agilityMoveDistance(state.hero); step++) {
+        const source = { x: current.x - delta.x * step, y: current.y - delta.y * step }
+        const sourceKey = pointKey(source)
+        if (distances.has(sourceKey)) continue
+        const destination = projectedMove(state, mode, source, direction, avoidThreats, true)
+        if (!destination || pointKey(destination) !== pointKey(current)) continue
+        distances.set(sourceKey, distance + 1)
+        queue.push(source)
+      }
+    }
+  }
+  return distances
+}
+
+// simulate a short no-repeat movement sequence when normal routing has entered a cycle.
+// this keeps actor movement in the plan instead of re-routing against a stale actor layout.
+const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean): { command: string } | undefined => {
+  const distances = routeDistanceField(state, mode, targets, avoidThreats)
+  const initialDistance = distances.get(pointKey(state.hero))
+  if (initialDistance === undefined) return undefined
+  type Node = { state: RunState; first?: string; depth: number; path: Set<string>; healthLoss: number; targetDistance: number }
+  const queue: Node[] = [{ state: planningClone(state), depth: 0, path: new Set([pointKey(state.hero)]), healthLoss: 0, targetDistance: initialDistance }]
+  const seen = new Set([`${pointKey(state.hero)}:0`])
+  let cursor = 0
+  let best: { command: string; distance: number; healthLoss: number; pressure: number; depth: number } | undefined
+  while (cursor < queue.length && cursor < 128) {
+    const current = queue[cursor++]!
+    if (current.depth > 0 && current.first) {
+      const candidate = { command: current.first, distance: current.targetDistance, healthLoss: current.healthLoss, pressure: hostilePressure(current.state, mode, current.state.hero), depth: current.depth }
+      if (!best || candidate.distance < best.distance || (candidate.distance === best.distance && (candidate.healthLoss < best.healthLoss || (candidate.healthLoss === best.healthLoss && (candidate.pressure < best.pressure || (candidate.pressure === best.pressure && candidate.depth < best.depth)))))) best = candidate
+    }
+    if (current.depth >= 6) continue
+    for (const [direction] of directions) {
+      const simulated = planningClone(current.state)
+      const before = pointKey(simulated.hero)
+      const health = simulated.hero.health
+      perform(simulated, directionCommands[direction])
+      const after = pointKey(simulated.hero)
+      if (simulated.status !== 'playing' || simulated.turn <= current.state.turn || after === before || current.path.has(after) || telegraphDanger(simulated, simulated.hero)) continue
+      const key = `${after}:${current.depth + 1}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const targetDistance = distances.get(after)
+      if (targetDistance === undefined) continue
+      queue.push({ state: simulated, first: current.first ?? directionCommands[direction], depth: current.depth + 1, path: new Set([...current.path, after]), healthLoss: current.healthLoss + Math.max(0, health - simulated.hero.health), targetDistance })
+    }
+  }
+  return best && best.distance < initialDistance ? { command: best.command } : undefined
+}
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
   const objective = state.floor.objective.kind
@@ -298,15 +360,20 @@ const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
   return hostileKnown(state, mode).filter(actor => actor.role === 'guardian').map(actor => ({ x: actor.x, y: actor.y }))
 }
 
+const objectiveRouteTargets = (state: RunState, target: Point): Point[] => {
+  const objective = state.floor.objective.kind
+  if (objective === 'defeatGuardian') return attackStances(state, target)
+  if (objective === 'recoverSupplies' || objective === 'rescueScout' || (objective === 'invokeAltar' && Boolean(actorAt(state.floor, target.x, target.y)))) return adjacentCells(target)
+  return [target]
+}
+
 const hasStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
   const routeExists = (candidate: RunState): boolean => {
     const objectiveComplete = candidate.floor.objective.status === 'complete' && candidate.floor.guardianDefeated
     if (objectiveComplete) return hasPassableTerrainPath(candidate.floor, candidate.hero, candidate.floor.exit)
-    const objective = candidate.floor.objective.kind
     const targets = objectiveTargets(candidate, mode)
-    const needsAdjacent = objective === 'recoverSupplies' || objective === 'rescueScout' || objective === 'defeatGuardian' || (objective === 'invokeAltar' && targets.some(target => Boolean(actorAt(candidate.floor, target.x, target.y))))
     return targets.some(target => {
-      const routeTargets = objective === 'defeatGuardian' ? attackStances(candidate, target) : needsAdjacent ? adjacentCells(target) : [target]
+      const routeTargets = objectiveRouteTargets(candidate, target)
       return routeTargets.some(point => hasPassableTerrainPath(candidate.floor, candidate.hero, point))
     })
   }
@@ -324,6 +391,16 @@ const hasStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
   return routeExists(bridged)
 }
 export const autoplayHasStrategicRoute = hasStrategicRoute
+
+export const autoplayObjectiveRouteDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'clear'): Array<{ target: Point; direct?: string; blocked?: string }> => {
+  const objective = state.floor.objective
+  if (objective.status === 'complete') return []
+  const availableTargets = objective.kind === 'invokeAltar' && state.hero.gold < 75 ? [] : objectiveTargets(state, mode)
+  return availableTargets.map(target => {
+    const targets = objectiveRouteTargets(state, target)
+    return { target, direct: stepTo(state, mode, targets, false, policy !== 'clear')?.command, blocked: stepTo(state, mode, targets, false, false, true)?.command }
+  })
+}
 
 const hostileInCells = (state: RunState, cells: readonly Point[]): number => cells.reduce((count, point) => count + Number(Boolean(actorAt(state.floor, point.x, point.y)?.hostile)), 0)
 const targetDirection = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
@@ -753,7 +830,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const preserveOffering = state.floor.objective.kind === 'invokeAltar' && state.floor.objective.status !== 'complete' && state.hero.gold < 150
   const viableGate = nearLockedDoor && !unlockedByKey && !preserveOffering && gateChoice(state, policy) !== undefined
   const nearbyObjective = nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly
-  if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
+  const standingObjective = tile?.kind === 'rescue' || (tile?.kind === 'altar' && state.hero.gold >= 75)
+  if (standingObjective) candidates.push({ command: 'c', reason: 'operate objective', score: 300 })
+  else if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
@@ -772,6 +851,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (context.objectiveId !== objective.id) {
     context.objectiveId = objective.id
     context.objectiveTarget = undefined
+    context.lastPredictiveTarget = undefined
     context.rejectedObjectiveTargets.clear()
   }
   const needsOffering = objective.kind === 'invokeAltar' && state.hero.gold < 75
@@ -787,12 +867,11 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       context.rejectedObjectiveTargets.clear()
       selectableTargets = availableTargets
     }
-    const needsAdjacent = objective.kind === 'recoverSupplies' || objective.kind === 'rescueScout' || objective.kind === 'defeatGuardian' || (objective.kind === 'invokeAltar' && availableTargets.some(target => Boolean(actorAt(state.floor, target.x, target.y))))
     const orderedTargets = pinTarget && context.objectiveTarget
       ? [...selectableTargets.filter(target => pointKey(target) === context.objectiveTarget), ...selectableTargets.filter(target => pointKey(target) !== context.objectiveTarget)]
       : [...selectableTargets].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)
     const routes: Array<{ target: Point; route: { command: string; target: Point }; blocked?: boolean }> = orderedTargets.flatMap(target => {
-      const routeTargets = objective.kind === 'defeatGuardian' ? attackStances(state, target) : needsAdjacent ? adjacentCells(target) : [target]
+      const routeTargets = objectiveRouteTargets(state, target)
       if (routeTargets.some(point => point.x === state.hero.x && point.y === state.hero.y)) return []
       const direct = stepTo(state, mode, routeTargets, false, policy !== 'clear')
       if (direct) return [{ target, route: direct }]
@@ -803,9 +882,15 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     if (route) {
       if (pinTarget) context.objectiveTarget = pointKey(route.target)
       hasObjectiveRoute = true
-      const routeTargets = objective.kind === 'defeatGuardian' ? attackStances(state, route.target) : needsAdjacent ? adjacentCells(route.target) : [route.target]
-      const detour = commandForecastsTelegraph(state, route.route.command) ? telegraphSafeStepTo(state, mode, routeTargets, policy !== 'clear', Boolean(route.blocked)) : undefined
-      candidates.push({ command: detour?.command ?? route.route.command, reason: detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, score: policy === 'clear' ? detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
+      const routeTargets = objectiveRouteTargets(state, route.target)
+      const routeTelegraphed = commandForecastsTelegraph(state, route.route.command)
+      const detour = routeTelegraphed ? telegraphSafeStepTo(state, mode, routeTargets, policy !== 'clear', Boolean(route.blocked)) : undefined
+      const routeDistance = routeTargets.reduce((nearest, target) => Math.min(nearest, chebyshev(state.hero, target)), Number.POSITIVE_INFINITY)
+      const stalledTelegraphRoute = routeTelegraphed && (!detour || detour.distance >= routeDistance)
+      const cycle = breaksPositionCycle(context)
+      const targetKey = pointKey(route.target)
+      const predictive = policy === 'clear' && (stalledTelegraphRoute || cycle) && context.lastPredictiveTarget !== targetKey ? predictiveRouteStep(state, mode, routeTargets, false) : undefined
+      candidates.push({ command: predictive?.command ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, predictiveTarget: predictive ? targetKey : undefined, score: policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
     } else if (pinTarget && context.objectiveTarget) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
@@ -865,6 +950,10 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     }
     context.loopRecoveries++
     context.recoveryVisits.set(recoveryKey, recoveryVisits + 1)
+    if (recoveryVisits + 1 >= AUTOPLAY_MAX_RECOVERY_REPEATS) {
+      context.lastReason = 'recovery cycle guard'
+      return undefined
+    }
     if (context.objectiveTarget && context.objectiveTargetCount > 1) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
@@ -898,6 +987,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     return undefined
   }
   context.intent = selected.intent
+  if (selected.predictiveTarget) context.lastPredictiveTarget = selected.predictiveTarget
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }

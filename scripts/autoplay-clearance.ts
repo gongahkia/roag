@@ -86,6 +86,7 @@ const failures: ReturnType<typeof compactFailure>[] = []
 const outcomes: Record<string, number> = { clear: 0, 'generation-invalid': 0, dead: 0, stalled: 0, 'turn-limit': 0, error: 0 }
 for (let offset = 0; offset < count; offset++) {
   const requestedSeed = startSeed + offset
+  writeFileSync(resolve(outDir, 'progress.json'), JSON.stringify({ requestedSeed, completed: offset, count, status: 'running' }, null, 2))
   let result = retryLimit > 1 ? findPlayableCampaignSeed(requestedSeed, retryLimit, turnLimit) : validateCampaignSeed(requestedSeed, turnLimit)
   if (!result.accepted) result = { ...validateCampaignSeed(result.seed, turnLimit, { diagnostic: true }), requestedSeed }
   outcomes[result.kind] = (outcomes[result.kind] ?? 0) + 1
@@ -94,6 +95,7 @@ for (let offset = 0; offset < count; offset++) {
     failures.push(failure)
     writeFileSync(resolve(outDir, `seed-${requestedSeed}.json`), JSON.stringify(failure, null, 2))
   }
+  writeFileSync(resolve(outDir, 'progress.json'), JSON.stringify({ requestedSeed, completed: offset + 1, count, status: result.kind }, null, 2))
   console.error(`clearance ${offset + 1}/${count}: ${result.kind}`)
 }
 const clears = outcomes.clear

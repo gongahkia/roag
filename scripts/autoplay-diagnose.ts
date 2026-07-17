@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
+import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayObjectiveRouteDiagnostics, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
@@ -143,6 +143,7 @@ console.log(JSON.stringify({
   lastReason: context.lastReason,
   nextDecision,
   candidateDiagnostics,
+  objectiveRoutes: autoplayObjectiveRouteDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy),
   candidateTransitions,
   movementTransitions,
   failed: [...context.failed.entries()].map(([command, count]) => ({ command, count })),

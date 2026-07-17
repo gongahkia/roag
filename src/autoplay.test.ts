@@ -88,6 +88,24 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('c')
   })
 
+  it('enters a free altar even when another altar has a shrine keeper', () => {
+    const state = newRun(71)
+    const ally = state.floor.actors[0]!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.gold = 75
+    state.floor.actors = [{ ...ally, id: 'distant-shrine-keeper', role: 'ally', hostile: false, x: 20, y: 20, health: 99 }]
+    state.floor.objective = { id: 'mixed-altar-objective', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    state.floor.tiles[6 * 48 + 6].kind = 'altar'
+    state.floor.tiles[20 * 48 + 20].kind = 'altar'
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.command).toBe('/')
+    perform(state, decision!.command)
+    expect(state.hero).toMatchObject({ x: 6, y: 6 })
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('c')
+  })
+
   it('does not route through a direction consumed by a cooling weapon attack', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
@@ -283,6 +301,16 @@ describe('autoplay', () => {
 
   it('clears the ranged-corridor regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(3), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
+  }, 60_000)
+
+  it('clears the moving-route and mixed-altar regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(16), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
+  }, 60_000)
+
+  it('clears the telegraphed guardian-route regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(12), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
     expect(report.campaignComplete).toBe(true)
   }, 60_000)
 
