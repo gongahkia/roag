@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:ci": "vitest run --pool=threads --poolOptions.threads.singleThread",
+    "test:ci": "./scripts/test-ci.sh",
     "test:e2e": "./scripts/browser-e2e.sh",
     "smoke:autoplay": "vite-node --script scripts/autoplay-smoke.ts",
     "autoplay:headless": "vite-node --script scripts/autoplay-headless.ts",
