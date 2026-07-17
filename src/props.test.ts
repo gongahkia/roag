@@ -10,7 +10,7 @@ import { createRun } from './test/factories'
 import type { Prop } from './types'
 import { generateFloor, hasPassableTerrainPath, validateGeneration } from './world'
 
-const prop = (overrides: Partial<Prop> = {}): Prop => ({ id: 'prop:test:mine.oreVein:2:1', kind: 'mine.oreVein', x: 2, y: 1, biome: 'mine', state: 'dormant', tags: ['salvage', 'force'], hooks: ['operate', 'bomb', 'force', 'throw'], ...overrides })
+const prop = (overrides: Partial<Prop> = {}): Prop => ({ id: 'prop:test:wilds.mushrooms:2:1', kind: 'wilds.mushrooms', x: 2, y: 1, biome: 'wilds', state: 'dormant', tags: ['growth', 'root', 'fire'], hooks: ['operate', 'fire', 'water', 'root', 'throw'], ...overrides })
 
 describe('world props', () => {
   it('maps every manifest prop cell to one complete definition', () => {
@@ -51,12 +51,12 @@ describe('world props', () => {
     expect(state.floor.props[0].state).toBe('inspected')
     expect(operate(state).map(event => event.type)).toEqual(['pickup'])
     expect(state.floor.props[0].state).toBe('activated')
-    expect(state.floor.items).toContainEqual(expect.objectContaining({ id: 'rock', x: 2, y: 1 }))
+    expect(state.floor.items).toContainEqual(expect.objectContaining({ id: 'tonic', x: 2, y: 1 }))
   })
 
   it('routes explosions through reusable prop effect hooks', () => {
     const state = createRun()
-    state.floor.props = [prop()]
+    state.floor.props = [prop({ kind: 'caverns.crystalCluster', biome: 'caverns', hooks: ['operate', 'bomb', 'force', 'throw', 'hazard'], tags: ['salvage', 'force', 'light'] })]
     explode(state, 2, 1, 4)
     expect(state.floor.props[0].state).toBe('destroyed')
     expect(state.floor.items).toContainEqual(expect.objectContaining({ id: 'rock', x: 2, y: 1 }))
@@ -74,7 +74,7 @@ describe('world props', () => {
     expect(force.floor.props[0].state).toBe('destroyed')
 
     const fire = createRun()
-    fire.floor.props = [prop({ kind: 'mine.lanternPost', hooks: ['operate', 'fire'], tags: ['light', 'fire', 'hazard'] })]
+    fire.floor.props = [prop({ kind: 'ruins.ritualBrazier', biome: 'ruins', hooks: ['operate', 'fire'], tags: ['ritual', 'fire', 'hazard'] })]
     castEmber(fire, { x: 2, y: 1 })
     expect(fire.floor.props[0].state).toBe('destroyed')
 

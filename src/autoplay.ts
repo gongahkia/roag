@@ -9,6 +9,7 @@ import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassableTerrainPath } from './world'
+import { isBlockingProp, propAt } from './props'
 
 export const AUTOPLAY_TURN_MS = Math.round(1000 / 6)
 export const AUTOPLAY_MAX_TURNS = 800
@@ -187,7 +188,7 @@ const commandForecastsTelegraph = (state: RunState, command: string): boolean =>
 }
 const passable = (state: RunState, mode: AutoplayMode, point: Point, avoidHazards: boolean, ignoreActors = false): boolean => {
   const tile = getTile(state.floor, point.x, point.y)
-  if (!tile || !known(state, mode, point) || blockedTiles.has(tile.kind) || (tile.kind === 'lockedDoor' && state.hero.keys < 1)) return false
+  if (!tile || !known(state, mode, point) || blockedTiles.has(tile.kind) || (tile.kind === 'lockedDoor' && state.hero.keys < 1) || isBlockingProp(propAt(state.floor.props, point.x, point.y))) return false
   if (avoidHazards && (hazardTiles.has(tile.kind) || telegraphDanger(state, point))) return false
   const occupant = actorAt(state.floor, point.x, point.y)
   return !occupant || (ignoreActors && occupant.hostile)

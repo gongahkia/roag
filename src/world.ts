@@ -4,7 +4,7 @@ import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point,
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './engine/gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
-import { PROP_IDS, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
+import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -15,7 +15,7 @@ export const getTile = (floor: Floor, x: number, y: number): Tile | undefined =>
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
 export const isPassable = (floor: Floor, x: number, y: number): boolean => {
   const target = getTile(floor, x, y)
-  return Boolean(target && passable(target.kind) && target.kind !== 'lockedDoor' && !actorAt(floor, x, y))
+  return Boolean(target && passable(target.kind) && target.kind !== 'lockedDoor' && !actorAt(floor, x, y) && !isBlockingProp(propAt(floor.props, x, y)))
 }
 
 export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => {
@@ -27,6 +27,22 @@ export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: 
     if (seen.has(key)) continue
     const current = getTile(floor, point.x, point.y)
     if (!current || !passable(current.kind) || current.kind === 'lockedDoor') continue
+    if (point.x === destination.x && point.y === destination.y) return true
+    seen.add(key)
+    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) queue.push({ x: point.x + x, y: point.y + y })
+  }
+  return false
+}
+
+export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => {
+  const queue = [{ ...start }]
+  const seen = new Set<string>()
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const point = queue[cursor]
+    const key = pointKey(point)
+    if (seen.has(key)) continue
+    const current = getTile(floor, point.x, point.y)
+    if (!current || !passable(current.kind) || current.kind === 'lockedDoor' || isBlockingProp(propAt(floor.props, point.x, point.y))) continue
     if (point.x === destination.x && point.y === destination.y) return true
     seen.add(key)
     for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) queue.push({ x: point.x + x, y: point.y + y })
@@ -154,6 +170,13 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
       state: 'dormant',
       tags: [...definition.tags],
       hooks: [...definition.hooks]
+    }
+    if (definition.id === 'mine.brokenCart') {
+      floor.props.push(prop)
+      const keepsExitReachable = hasPassablePath(floor, floor.start, floor.exit)
+      const keepsObjectiveReachable = objectiveTargets(floor).some(target => canReachObjectiveWithProps(floor, target))
+      floor.props.pop()
+      if (!keepsExitReachable || !keepsObjectiveReachable) continue
     }
     floor.props.push(prop)
     occupied.add(placement)
@@ -394,6 +417,7 @@ const objectiveTargets = (floor: Floor): Point[] => {
 }
 
 const canReachObjective = (reachable: ReadonlySet<number>, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => inBounds(target.x + x, target.y + y) && reachable.has(indexOf(target.x + x, target.y + y)))
+const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: target.x + x, y: target.y + y }))
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
@@ -403,9 +427,9 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
   if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')
   const reachable = reachableIndexes(floor)
-  if (!reachable.has(indexOf(floor.exit.x, floor.exit.y))) errors.push('exit unreachable')
+  if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
-  if (!targets.length || !targets.some(target => canReachObjective(reachable, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
+  if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()
   for (const placement of placements) {
@@ -428,8 +452,11 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (propLocations.has(location)) errors.push(`overlapping prop placement: ${location}`)
     propLocations.add(location)
     if (prop.biome !== floor.biome || definition.biome !== floor.biome) errors.push(`invalid prop biome: ${prop.id}`)
-    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') errors.push(`illegal prop placement: ${prop.id}`)
-    else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
+    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor' || !definition.terrain.includes(tile.kind)) errors.push(`illegal prop placement: ${prop.id}`)
+    else if (isBlockingProp(prop)) {
+      const reachableCartSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
+      if (!reachableCartSide) errors.push(`unreachable prop: ${prop.id}`)
+    } else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }

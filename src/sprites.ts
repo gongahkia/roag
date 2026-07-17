@@ -177,7 +177,7 @@ export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: num
   if (prop.state !== 'inspected' && prop.state !== 'activated') return
   ctx.save()
   ctx.globalAlpha = dim ? .32 : .78
-  ctx.strokeStyle = prop.state === 'inspected' ? '#8fd6c2' : '#ffe181'
+  ctx.strokeStyle = prop.state === 'inspected' ? '#8fd6c2' : prop.kind === 'mine.lanternPost' ? '#fff1a8' : '#ffe181'
   ctx.lineWidth = 1
   ctx.strokeRect(x * CELL_WIDTH + .5, y * CELL_HEIGHT + .5, CELL_WIDTH - 1, CELL_HEIGHT - 1)
   ctx.restore()

@@ -337,7 +337,8 @@ export class TerminalRenderer {
       if (this.spriteMode) drawPropSprite(this.ctx, prop, x, y, false)
       else {
         const definition = propDefinition(prop.kind)
-        this.cell(x, y, prop.state === 'activated' ? '+' : prop.state === 'inspected' ? '?' : definition.glyph, definition.color)
+        const glyph = prop.kind === 'mine.brokenCart' ? definition.glyph : prop.kind === 'mine.lanternPost' && prop.state === 'activated' ? '*' : prop.state === 'activated' ? '+' : prop.state === 'inspected' ? '?' : definition.glyph
+        this.cell(x, y, glyph, definition.color)
       }
     }
     if (item) this.drawItem(item, x, y)
