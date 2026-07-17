@@ -234,17 +234,21 @@ export class TerminalRenderer {
   }
 
   private hub(route: ScreenRoute, hub?: HubView): void {
-    this.box(13, 10, 54, 24, 'VILLAGE OUTPOST')
-    this.text(19, 14, `COURIER: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
-    this.text(19, 16, 'PARCEL: sealed — do not open', colors.text)
-    this.text(19, 18, `COMPANIONS: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
+    const width = 54
+    const height = 24
+    const x = Math.floor((TERMINAL_WIDTH - width) / 2)
+    const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
+    this.box(x, y, width, height, 'VILLAGE OUTPOST')
+    this.text(x + 6, y + 4, `COURIER: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
+    this.text(x + 6, y + 6, 'PARCEL: sealed — do not open', colors.text)
+    this.text(x + 6, y + 8, `COMPANIONS: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
     const action = route.hubAction ?? 'routes'
-    this.text(19, 20, `H trails  R companions  S supplies  [${action.toUpperCase()}]`, colors.green)
-    if (action === 'routes') this.text(19, 22, `OPEN: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
-    if (action === 'roster') this.text(19, 22, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', colors.text)
-    if (action === 'supplies') this.text(19, 22, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
-    this.text(19, 25, 'A / ENTER  choose a delivery trail', colors.green)
-    this.text(19, 27, 'ESC        return to title', colors.dim)
+    this.text(x + 6, y + 10, `H trails  R companions  S supplies  [${action.toUpperCase()}]`, colors.green)
+    if (action === 'routes') this.text(x + 6, y + 12, `OPEN: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
+    if (action === 'roster') this.text(x + 6, y + 12, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', colors.text)
+    if (action === 'supplies') this.text(x + 6, y + 12, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
+    this.text(x + 6, y + 15, 'A / ENTER  choose a delivery trail', colors.green)
+    this.text(x + 6, y + 17, 'ESC        return to title', colors.dim)
   }
 
   private area(route: ScreenRoute): void {
