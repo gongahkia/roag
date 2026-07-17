@@ -24,8 +24,35 @@ const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:')))
 const planningClone = (state: RunState): RunState => {
-  const { telemetry: _telemetry, ...snapshot } = state
-  return structuredClone(snapshot) as RunState
+  const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
+  const floor = state.floor
+  return {
+    ...state,
+    messages: [...state.messages],
+    modal: state.modal ? { ...state.modal } : undefined,
+    hero: {
+      ...cloneConditions(state.hero),
+      stats: { ...state.hero.stats },
+      skills: [...state.hero.skills],
+      inventory: [...state.hero.inventory],
+      equipment: { ...state.hero.equipment },
+      cooldowns: state.hero.cooldowns ? { ...state.hero.cooldowns } : undefined
+    },
+    floor: {
+      ...floor,
+      tiles: floor.tiles.map(tile => ({ ...tile })),
+      actors: floor.actors.map(actor => ({ ...cloneConditions(actor), status: actor.status ? [...actor.status] : undefined })),
+      items: floor.items.map(item => ({ ...item })),
+      start: { ...floor.start },
+      exit: { ...floor.exit },
+      objective: { ...floor.objective },
+      telegraphs: floor.telegraphs?.map(telegraph => ({ ...telegraph, cells: telegraph.cells.map(cell => ({ ...cell })), collision: telegraph.collision ? { ...telegraph.collision, point: { ...telegraph.collision.point } } : undefined })),
+      puzzleIds: floor.puzzleIds ? [...floor.puzzleIds] : undefined
+    },
+    rescuedNpcs: state.rescuedNpcs?.map(npc => ({ ...npc })),
+    lineageEvents: state.lineageEvents?.map(event => ({ ...event })),
+    encyclopedia: state.encyclopedia ? { ...state.encyclopedia, enemies: [...state.encyclopedia.enemies], telegraphs: [...state.encyclopedia.telegraphs], tags: [...state.encyclopedia.tags], gates: [...state.encyclopedia.gates], legacyRecords: state.encyclopedia.legacyRecords.map(record => ({ ...record, lineage: [...record.lineage], location: { ...record.location }, cache: { ...record.cache, items: [...record.cache.items] }, encounter: { ...record.encounter } })) } : undefined
+  }
 }
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
