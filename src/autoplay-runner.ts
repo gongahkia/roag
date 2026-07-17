@@ -1,4 +1,4 @@
-import { autoplayDecision, autoplayRecoveryFingerprint, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
+import { autoplayDecision, autoplayRecoveryFingerprint, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransitionSnapshot, snapshotAutoplayTransition } from './autoplay'
 import { newRun, perform } from './engine'
 import { nextArea } from './engine/campaign'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
@@ -87,20 +87,20 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       }
       const command = decision.command
       const before = telemetrySnapshot(state)
-      const beforeState = structuredClone(state)
-      const beforeFingerprint = captureTrace ? autoplayTraceFingerprint(state) : undefined
+      const transition = snapshotAutoplayTransition(state)
+      const beforeTrace = captureTrace ? { turn: state.turn, fingerprint: autoplayTraceFingerprint(state), x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status } : undefined
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
-      recordAutoplayTransition(context, beforeState, command, state)
+      recordAutoplayTransitionSnapshot(context, transition, command, state)
       if (captureTrace) trace.push({
-        turn: before.turn,
-        fingerprint: beforeFingerprint!,
+        turn: beforeTrace!.turn,
+        fingerprint: beforeTrace!.fingerprint,
         command,
         reason: decision.reason,
         candidates: decision.candidates,
         events: events.map(event => event.type),
         nextFingerprint: autoplayTraceFingerprint(state),
-        before: { x: beforeState.hero.x, y: beforeState.hero.y, health: beforeState.hero.health, focus: beforeState.hero.focus, bombs: beforeState.hero.bombs, ropes: beforeState.hero.ropes, objective: beforeState.floor.objective.status },
+        before: { x: beforeTrace!.x, y: beforeTrace!.y, health: beforeTrace!.health, focus: beforeTrace!.focus, bombs: beforeTrace!.bombs, ropes: beforeTrace!.ropes, objective: beforeTrace!.objective },
         after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
       })
       commands.push(command)

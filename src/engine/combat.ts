@@ -1,7 +1,7 @@
 import { ITEM } from '../content'
 import type { Actor, Direction, RunState } from '../types'
 import { DIRECTIONS } from '../types'
-import { actorAt, getTile, isPassable } from '../world'
+import { actorAt, getTile, isPassable, preservesAdjacentExitAccess, preservesExitPath } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
 import { announceTelegraph, resolveTelegraphs } from './telegraphs'
@@ -60,7 +60,10 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap', true))
   if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava', true))
   if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas', true))
-  if (tile.kind === 'crumble') { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
+  if (tile.kind === 'crumble') {
+    if (preservesAdjacentExitAccess(state.floor, destination, 'pit')) { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
+    else { tile.kind = 'floor'; log(state, 'The floor holds before it can seal the trail.') }
+  }
   if (tile.kind === 'boulder') { tile.kind = 'floor'; events.push(...damageHero(state, 6, 'a rolling boulder', true)) }
   return advance(state, events)
 }
@@ -106,10 +109,10 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
     }
     if (telegraph.actionId === 'heartwood-charge') {
       const tile = telegraph.cells[0] ? getTile(state.floor, telegraph.cells[0].x, telegraph.cells[0].y) : undefined
-      if (tile?.kind === 'floor') tile.kind = 'bramble'
       if (source?.hostile && hit && !dodged) { resolveDisplacement(state, source, state.hero, 'knockback'); log(state, 'The Heartwood Stag drives you through the thorns.') }
       else if (source?.hostile && hit) log(state, 'You evade the telegraphed attack.')
       else log(state, 'The charge tears through empty brush.')
+      if (tile?.kind === 'floor' && telegraph.cells[0] && preservesExitPath(state.floor, state.hero, telegraph.cells[0], 'bramble')) tile.kind = 'bramble'
       continue
     }
     if (telegraph.actionId === 'geode-fissure') {

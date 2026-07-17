@@ -43,6 +43,16 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('g')
   })
 
+  it('descends from a completed exit instead of rejecting the next floor enemy roster', () => {
+    const state = newRun(71)
+    state.floor.actors = []
+    state.floor.objective.status = 'complete'
+    state.floor.guardianDefeated = true
+    state.hero.x = state.floor.exit.x
+    state.hero.y = state.floor.exit.y
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('q')
+  })
+
   it('steps onto an altar before operating it', () => {
     const state = newRun(71)
     state.floor.actors = []
@@ -50,6 +60,7 @@ describe('autoplay', () => {
     state.floor.guardianDefeated = true
     state.floor.objective = { id: 'altar-objective', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
     state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.floor.tiles[state.floor.exit.y * 48 + state.floor.exit.x].kind = 'exit'
     state.hero.x = 5
     state.hero.y = 5
     state.hero.gold = 75
@@ -57,6 +68,23 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe(';')
     perform(state, ';')
     expect(state.hero).toMatchObject({ x: 6, y: 5 })
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('c')
+  })
+
+  it('approaches an occupied altar from an adjacent tile', () => {
+    const state = newRun(71)
+    const keeper = state.floor.actors[0]!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.gold = 75
+    state.floor.actors = [{ ...keeper, id: 'shrine-keeper', role: 'ally', hostile: false, name: 'shrine keeper', x: 7, y: 5, health: 99 }]
+    state.floor.objective = { id: 'altar-objective', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    state.floor.tiles[5 * 48 + 7].kind = 'altar'
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.command).toBeDefined()
+    perform(state, decision!.command)
+    expect(Math.max(Math.abs(state.hero.x - 7), Math.abs(state.hero.y - 5))).toBeLessThanOrEqual(1)
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('c')
   })
 
@@ -76,6 +104,25 @@ describe('autoplay', () => {
     state.floor.objective = { id: 'guardian-objective', kind: 'defeatGuardian', label: 'Pass the trail guardian', status: 'active' }
     const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
     expect(decision?.command).not.toBe('p')
+    const beforeTurn = state.turn
+    perform(state, decision!.command)
+    expect(state.turn).toBe(beforeTurn + 1)
+  })
+
+  it('routes around non-hostile actors instead of issuing a blocked move', () => {
+    const state = newRun(71)
+    const merchant = state.floor.actors[0]!
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall'; tile.explored = true })
+    state.hero.x = 1
+    state.hero.y = 1
+    state.floor.exit = { x: 3, y: 3 }
+    for (const [x, y] of [[1, 1], [1, 2], [2, 3], [3, 3]]) state.floor.tiles[y * 48 + x].kind = x === 3 && y === 3 ? 'exit' : 'floor'
+    state.floor.tiles[2 * 48 + 2].kind = 'shop'
+    state.floor.actors = [{ ...merchant, id: 'route-merchant', role: 'merchant', hostile: false, x: 2, y: 2, health: 99 }]
+    state.floor.objective.status = 'complete'
+    state.floor.guardianDefeated = true
+    const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(decision?.command).toBe('.')
     const beforeTurn = state.turn
     perform(state, decision!.command)
     expect(state.turn).toBe(beforeTurn + 1)
@@ -123,6 +170,28 @@ describe('autoplay', () => {
     expect(context.lastReason).toBe('recovery cycle guard')
   })
 
+  it('keeps a viable objective route ahead of a cycle-break recovery', () => {
+    const state = newRun(71)
+    state.floor.actors = []
+    state.floor.items = []
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 2
+    state.hero.y = 2
+    state.hero.gold = 75
+    state.floor.tiles[2 * 48 + 14].kind = 'altar'
+    state.floor.objective = { id: 'recovery-altar', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    const context = createAutoplayContext()
+    context.noProgressTurns = 32
+    context.bestStrategicDistance = 0
+    const decision = autoplayDecision(state, 'omniscient', 'clear', context)
+    expect(decision?.reason).toBe('objective:invokeAltar')
+    const before = structuredClone(state)
+    perform(state, decision!.command)
+    recordAutoplayTransition(context, before, decision!.command, state)
+    expect(context.noProgressTurns).toBe(0)
+    expect(context.recoveryVisits.size).toBe(1)
+  })
+
   it('uses the final bomb when critically threatened', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
@@ -158,6 +227,11 @@ describe('autoplay', () => {
     expect(report.outcome).toBe('complete')
     expect(report.trace.some(entry => entry.reason.includes('bomb tactical cluster'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
+  }, 60_000)
+
+  it('clears the pressure-detour regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(4), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
   }, 60_000)
 
   it('chains completed areas into the next biome by default', () => {

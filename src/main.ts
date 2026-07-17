@@ -2,6 +2,7 @@ import './style.css'
 import { AudioBus } from './audio'
 import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayTraceFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
+import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
@@ -197,7 +198,7 @@ function createCourierFromDraft(): void {
   courierDraft = undefined
   inheritedCampaign = undefined
   successorParentId = undefined
-  const seed = Math.floor(Math.random() * 0x7fffffff)
+  const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
   beginTrailhead(seed, openingLore(seed), heir)
   void saveCourier(courier, id)
   audio.play([event('menu')])
@@ -302,6 +303,12 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   story = createStory(scene, performance.now())
 }
 
+function acceptedCampaignSeed(requestedSeed: number): number {
+  const validation = findStructurallyPlayableCampaignSeed(requestedSeed)
+  if (!validation.accepted) throw new Error(`no playable campaign seed after ${validation.errors.at(-1) ?? 'validation failure'}`)
+  return validation.seed
+}
+
 function handleStoryInput(keyboardEvent: KeyboardEvent): void {
   if (!story || keyboardEvent.repeat) return
   if (keyboardEvent.key === 'Escape') {
@@ -353,7 +360,8 @@ function beginSuccession(): void {
       loading = undefined
       pendingSuccessor = undefined
       createAfterStory = true
-      beginTrailhead(successor.seed, successionLore(successor.record, successor.seed))
+      const seed = acceptedCampaignSeed(successor.seed)
+      beginTrailhead(seed, successionLore(successor.record, seed))
       redraw()
     }, 650)
   }, 350)

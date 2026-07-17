@@ -16,6 +16,48 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
   return Boolean(target && passable(target.kind) && target.kind !== 'lockedDoor' && !actorAt(floor, x, y))
 }
 
+export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => {
+  const queue = [{ ...start }]
+  const seen = new Set<string>()
+  while (queue.length) {
+    const point = queue.shift()!
+    const key = pointKey(point)
+    if (seen.has(key)) continue
+    const current = getTile(floor, point.x, point.y)
+    if (!current || !passable(current.kind) || current.kind === 'lockedDoor') continue
+    if (point.x === destination.x && point.y === destination.y) return true
+    seen.add(key)
+    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) queue.push({ x: point.x + x, y: point.y + y })
+  }
+  return false
+}
+
+export const preservesExitPath = (floor: Floor, start: Point, point: Point, kind: Tile['kind']): boolean => {
+  const target = getTile(floor, point.x, point.y)
+  if (!target) return false
+  const previous = target.kind
+  target.kind = kind
+  const preserves = hasPassableTerrainPath(floor, start, floor.exit)
+  target.kind = previous
+  return preserves
+}
+
+export const preservesAdjacentExitAccess = (floor: Floor, point: Point, kind: Tile['kind']): boolean => {
+  const target = getTile(floor, point.x, point.y)
+  if (!target) return false
+  const previous = target.kind
+  target.kind = kind
+  const adjacent = [[0, -1], [1, 0], [0, 1], [-1, 0]]
+    .map(([x, y]) => ({ x: point.x + x, y: point.y + y }))
+    .filter(candidate => {
+      const tile = getTile(floor, candidate.x, candidate.y)
+      return Boolean(tile && passable(tile.kind) && tile.kind !== 'lockedDoor')
+    })
+  const preserves = adjacent.length > 0 && adjacent.every(candidate => hasPassableTerrainPath(floor, candidate, floor.exit))
+  target.kind = previous
+  return preserves
+}
+
 export function generateFloor(runSeed: number, index: number): Floor {
   const seed = streamSeed(runSeed, 'generation', index)
   const layoutRng = rngFor(runSeed, 'generation', index, 'layout')

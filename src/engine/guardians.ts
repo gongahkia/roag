@@ -1,6 +1,6 @@
 import type { Actor, GuardianPhase, RunState, TileKind } from '../types'
 import { rngFor } from '../rng'
-import { actorAt, getTile } from '../world'
+import { actorAt, getTile, preservesExitPath } from '../world'
 import { log } from './shared'
 
 export type ArenaPhase = 'stable' | 'hazard' | 'collapse'
@@ -28,8 +28,14 @@ export const advanceGuardianPhase = (state: RunState, guardian: Actor): Guardian
     ? [{ x: guardian.x, y: guardian.y }]
     : state.floor.tiles.flatMap((current, index) => current.kind === 'floor' ? [{ x: index % 48, y: Math.floor(index / 48) }] : []).filter(point => !(point.x === state.hero.x && point.y === state.hero.y) && !actorAt(state.floor, point.x, point.y))
   if (candidates.length) {
-    const point = rngFor(state.seed, 'combat', state.floor.index, state.turn, `arena:${guardian.id}:${next}`).pick(candidates)
-    getTile(state.floor, point.x, point.y)!.kind = tile
+    const rng = rngFor(state.seed, 'combat', state.floor.index, state.turn, `arena:${guardian.id}:${next}`)
+    const pool = [...candidates]
+    for (let attempt = 0; pool.length && attempt < 16; attempt++) {
+      const point = pool.splice(rng.int(0, pool.length - 1), 1)[0]
+      if (tile === 'bramble' && !preservesExitPath(state.floor, state.hero, point, tile)) continue
+      getTile(state.floor, point.x, point.y)!.kind = tile
+      break
+    }
   }
   const arena = arenaPhaseFor(next)
   log(state, `${guardian.name} enters ${next}; arena ${arena}.`)

@@ -3,7 +3,7 @@ import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
 import { hasLine } from './engine/visibility'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH } from './types'
-import { generateAreaFloor, generateFloor, getTile, validateFloor, validateGeneration } from './world'
+import { generateAreaFloor, generateFloor, getTile, hasPassableTerrainPath, validateFloor, validateGeneration } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
   const seen = new Set<string>([`${floor.start.x},${floor.start.y}`])
@@ -118,6 +118,14 @@ describe('expedition generation', () => {
     floor.actors[0].x = 0
     floor.actors[0].y = 0
     expect(validateGeneration(floor)).toMatchObject({ valid: false, errors: expect.arrayContaining(['objective unreachable: recoverSupplies', 'illegal actor placement']) })
+  })
+
+  it('validates diagonal terrain routes the movement system can traverse', () => {
+    const floor = generateFloor(123, 0)
+    floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    floor.tiles[1 * MAP_WIDTH + 1].kind = 'floor'
+    floor.tiles[2 * MAP_WIDTH + 2].kind = 'floor'
+    expect(hasPassableTerrainPath(floor, { x: 1, y: 1 }, { x: 2, y: 2 })).toBe(true)
   })
 
   it('starts an explorer on a visible, passable map cell', () => {

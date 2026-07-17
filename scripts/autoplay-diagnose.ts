@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { autoplayCandidateDiagnostics, autoplayDecision, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
+import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
@@ -66,6 +66,7 @@ const currentDiagnostics = (state: RunState) => {
   const reachableContainerGold = containers.filter(container => canReach(state, [container.point], true, false)).reduce((sum, container) => sum + container.gold, 0)
   const targets = objectivePoints(state)
   return {
+    autoplayStrategicRoute: autoplayHasStrategicRoute(state, modeValue as Exclude<AutoplayMode, 'off'>),
     exit: routeReport(state, [state.floor.exit], false),
     objective: routeReport(state, targets, true),
     offering: state.floor.objective.kind === 'invokeAltar' ? { gold: state.hero.gold, reachableContainerGold, possibleGold: state.hero.gold + reachableContainerGold, sufficient: state.hero.gold + reachableContainerGold >= 75 } : undefined,
@@ -74,9 +75,18 @@ const currentDiagnostics = (state: RunState) => {
   }
 }
 
+const localTerrain = (state: RunState, radius = 4) => Array.from({ length: radius * 2 + 1 }, (_, y) => Array.from({ length: radius * 2 + 1 }, (_, x) => {
+  const point = { x: state.hero.x + x - radius, y: state.hero.y + y - radius }
+  const tile = getTile(state.floor, point.x, point.y)
+  return { x: point.x, y: point.y, kind: tile?.kind ?? 'bounds', actor: state.floor.actors.find(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y)?.id }
+}))
+
 const stateFile = process.env.STATE_FILE
-const snapshot = stateFile ? JSON.parse(readFileSync(stateFile, 'utf8')) as RunState | { state: RunState } : undefined
-const state = snapshot ? ('state' in snapshot ? snapshot.state : snapshot) : newRun(seed, biomeValue as Biome, areaFloor)
+const snapshot = stateFile ? JSON.parse(readFileSync(stateFile, 'utf8')) as RunState | { state: RunState } | { report: { state?: RunState } } : undefined
+const state = snapshot
+  ? ('state' in snapshot ? snapshot.state : ('report' in snapshot ? snapshot.report.state : snapshot))
+  : newRun(seed, biomeValue as Biome, areaFloor)
+if (!state) throw new Error(`state file does not contain a run state: ${stateFile}`)
 const initialValidation = validateGeneration(state.floor)
 const context = createAutoplayContext()
 const trace: Array<{ turn: number; command: string; reason: string; candidates: unknown; events: string[]; before: { x: number; y: number; health: number }; after: { x: number; y: number; health: number } }> = []
@@ -103,7 +113,7 @@ const candidateTransitions = candidateDiagnostics.map(candidate => {
   const simulated = structuredClone(state)
   const before = { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y }
   const events = perform(simulated, candidate.command)
-  return { command: candidate.command, reason: candidate.reason, before, after: { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y, status: simulated.status }, events: events.map(event => event.type) }
+  return { command: candidate.command, reason: candidate.reason, before, after: { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y, status: simulated.status }, events: events.map(event => event.type), routes: currentDiagnostics(simulated) }
 })
 
 console.log(JSON.stringify({
@@ -132,5 +142,6 @@ console.log(JSON.stringify({
   recentPositions: context.recentPositions,
   state: { hero: { x: state.hero.x, y: state.hero.y, health: state.hero.health, maxHealth: state.hero.maxHealth, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, inventory: state.hero.inventory }, objective: state.floor.objective, guardianDefeated: state.floor.guardianDefeated },
   routes: currentDiagnostics(state),
+  localTerrain: localTerrain(state),
   trace: trace.slice(-12)
 }, null, 2))
