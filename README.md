@@ -72,10 +72,10 @@ npm run smoke:autoplay
 npm run autoplay:headless
 npm run autoplay:benchmark
 npm run autoplay:diagnose
-REPORT_ISSUE=0 SEED_COUNT=1000 TURNS=3200 RETRY_LIMIT=1 MIN_RATE=.99 npm run clearance:local
+REPORT_ISSUE=0 OUT_DIR=clearance/seed-sweep-0-999 SEED_COUNT=1000 TURNS=3200 RETRY_LIMIT=1 MIN_RATE=.99 npm run clearance:local
 ```
 
-This invocation is local-only and does not create GitHub issues.
+This invocation is local-only and does not create GitHub issues. It checkpoints every completed seed; rerun the exact command to resume. `kill -INT <supervisor-pid>` or `kill -TERM <supervisor-pid>` stops the active seed worker and writes an interrupted report. Resume requires the same commit, worktree patch, and run parameters; otherwise use a new `OUT_DIR`.
 
 ## Nerd stuff
 

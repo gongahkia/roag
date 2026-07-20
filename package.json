@@ -14,7 +14,7 @@
     "autoplay:headless": "vite-node --script scripts/autoplay-headless.ts",
     "autoplay:benchmark": "vite-node --script scripts/autoplay-benchmark.ts",
     "autoplay:diagnose": "vite-node --script scripts/autoplay-diagnose.ts",
-    "clearance:local": "vite-node --script scripts/autoplay-clearance.ts"
+    "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
