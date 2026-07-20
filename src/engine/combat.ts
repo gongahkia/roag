@@ -20,7 +20,7 @@ import { agilityEvasion, agilityMoveDistance, agilityReachBonus, agilityTelegrap
 import { vitalityHazardReduction, vitalityShield } from './vitality'
 import { intellectFocusRecovery } from './intellect'
 import { announceSynergies, resolveSynergies } from './synergies'
-import { applyPropEffects, expirePropEffects } from './props'
+import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -72,7 +72,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   expirePropEffects(state)
-  const resolvedTelegraphs = resolveTelegraphs(state)
+  const resolvedTelegraphs = resolveMonolithTelegraphs(state, resolveTelegraphs(state))
   for (const telegraph of resolvedTelegraphs) {
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const
     applyPropEffects(state, telegraph.cells, propEffects)

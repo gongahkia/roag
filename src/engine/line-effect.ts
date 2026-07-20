@@ -1,9 +1,9 @@
 import type { Floor, Point, TileKind } from '../types'
 import { actorAt, getTile } from '../world'
-import { isBlockingProp, isLineBlockingProp, propAt } from '../props'
+import { linePropBlocker, propAt } from '../props'
 
-export type EffectBlocker = 'wall' | 'door' | 'lockedDoor' | 'boulder' | 'rubble' | 'bramble' | 'crate' | 'chest' | 'cart' | 'crystal' | 'actor' | 'bounds'
-type TileEffectBlocker = Exclude<EffectBlocker, 'actor' | 'bounds' | 'cart' | 'crystal'>
+export type EffectBlocker = 'wall' | 'door' | 'lockedDoor' | 'boulder' | 'rubble' | 'bramble' | 'crate' | 'chest' | 'cart' | 'crystal' | 'cover' | 'actor' | 'bounds'
+type TileEffectBlocker = Exclude<EffectBlocker, 'actor' | 'bounds' | 'cart' | 'crystal' | 'cover'>
 export type TerrainModifier = 'dampened' | 'obscured' | 'amplified'
 export interface EffectModifier { point: Point; modifier: TerrainModifier }
 export interface LineEffect { cells: Point[]; modifiers: EffectModifier[]; blocked?: { point: Point; by: EffectBlocker } }
@@ -37,7 +37,8 @@ export const resolveLineEffect = (floor: Floor, from: Point, to: Point): LineEff
     if (!tile) return { ...effect, blocked: { point, by: 'bounds' } }
     if (isEffectBlocker(tile.kind)) return { ...effect, blocked: { point, by: tile.kind } }
     const prop = propAt(floor.props, point.x, point.y)
-    if (isLineBlockingProp(prop)) return { ...effect, blocked: { point, by: isBlockingProp(prop) ? 'cart' : 'crystal' } }
+    const propBlocker = linePropBlocker(prop)
+    if (propBlocker) return { ...effect, blocked: { point, by: propBlocker } }
     effect.cells.push(point)
     const modifier = terrainModifier(tile.kind)
     if (modifier) effect.modifiers.push({ point, modifier })

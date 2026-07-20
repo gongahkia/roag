@@ -76,7 +76,7 @@ describe('world props', () => {
     const fire = createRun()
     fire.floor.props = [prop({ kind: 'ruins.ritualBrazier', biome: 'ruins', hooks: ['operate', 'fire'], tags: ['ritual', 'fire', 'hazard'] })]
     castEmber(fire, { x: 2, y: 1 })
-    expect(fire.floor.props[0].state).toBe('destroyed')
+    expect(fire.floor.props[0].state).toBe('activated')
 
     const thrown = createRun()
     thrown.hero.inventory = ['rock']
