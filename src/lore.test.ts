@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { animationFrame, advanceStory, createStory, isStoryPageComplete, loadingAnimation, openingLore, storyText, successionLore, TYPEWRITER_INTERVAL } from './lore'
+import { animationFrame, advanceStory, createStory, endingLore, isStoryPageComplete, loadingAnimation, openingLore, storyText, successionLore, TYPEWRITER_INTERVAL } from './lore'
+import { newRun } from './engine/run'
 import { createLegacy } from './test/factories'
 
 describe('trail lore', () => {
@@ -24,5 +25,17 @@ describe('trail lore', () => {
     expect(animationFrame(loadingAnimation, 0)).toBe(loadingAnimation.frames[0])
     expect(animationFrame(loadingAnimation, loadingAnimation.frameMs)).toBe(loadingAnimation.frames[1])
     expect(animationFrame(loadingAnimation, loadingAnimation.frameMs * loadingAnimation.frames.length)).toBe(loadingAnimation.frames[0])
+  })
+
+  it('builds varied deterministic delivery scenes before the run analysis', () => {
+    const state = newRun(91)
+    state.hero.name = 'Ari Vale'
+    state.rescuedNpcs = [{ id: 'scout-1', name: 'Nami', biome: 'wilds', floor: 1 }]
+    state.telemetry!.kills = 12
+    const scene = endingLore(state, ['mine', 'wilds', 'caverns', 'ruins'])
+    expect(scene).toEqual(endingLore(state, ['mine', 'wilds', 'caverns', 'ruins']))
+    expect(scene.pages.join(' ')).toContain('Ari Vale')
+    expect(scene.pages.join(' ')).toContain('Nami')
+    expect(new Set(Array.from({ length: 32 }, (_, seed) => endingLore(newRun(seed), ['mine', 'wilds', 'caverns', 'ruins']).pages[0])).size).toBeGreaterThan(1)
   })
 })

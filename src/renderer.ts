@@ -222,7 +222,8 @@ export class TerminalRenderer {
     this.box(x, y, width, height, story?.scene.title ?? 'VILLAGE TRAILHEAD')
     if (story) {
       this.text(x + 6, y + 4, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
-      this.wrap(storyText(story, now), 42).slice(0, 6).forEach((line, index) => this.text(x + 6, y + 7 + index * 2, line, colors.text))
+      this.wrap(storyText(story, now), 42).slice(0, 4).forEach((line, index) => this.text(x + 6, y + 7 + index * 2, line, colors.text))
+      this.ascii(x + 20, y + 15, animationFrame(story.scene.animation, now), colors.gold)
       this.text(x + 6, y + 21, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
       return
     }

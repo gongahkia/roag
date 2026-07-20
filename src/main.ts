@@ -6,7 +6,7 @@ import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { TerminalRenderer } from './renderer'
-import { advanceStory, createStory, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
+import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
@@ -35,6 +35,7 @@ let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
 let gameZoom = loadGameZoom()
 let story: StoryState | undefined
+let storyExit: 'hub' | 'analysis' = 'hub'
 let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
@@ -301,6 +302,7 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   heir = nextHero
   hub = { ...createHubState(seed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   story = createStory(scene, performance.now())
+  storyExit = 'hub'
 }
 
 function acceptedCampaignSeed(requestedSeed: number): number {
@@ -312,10 +314,13 @@ function acceptedCampaignSeed(requestedSeed: number): number {
 function handleStoryInput(keyboardEvent: KeyboardEvent): void {
   if (!story || keyboardEvent.repeat) return
   if (keyboardEvent.key === 'Escape') {
-    story = undefined
-    route = { ...route, screen: 'title', heirSeed: undefined }
-    audio.play([event('menu')])
-    redraw()
+    if (storyExit === 'analysis') finishStory()
+    else {
+      story = undefined
+      route = { ...route, screen: 'title', heirSeed: undefined }
+      audio.play([event('menu')])
+      redraw()
+    }
     return
   }
   if (!isStoryKey(keyboardEvent)) return
@@ -334,7 +339,15 @@ function isStoryKey(keyboardEvent: KeyboardEvent): boolean {
 }
 
 function finishStory(): void {
+  const exit = storyExit
   story = undefined
+  storyExit = 'hub'
+  if (exit === 'analysis') {
+    route = { ...route, screen: 'analysis' }
+    audio.play([event('menu')])
+    redraw()
+    return
+  }
   if (createAfterStory) {
     createAfterStory = false
     courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
@@ -525,7 +538,11 @@ function finish(won: boolean): void {
   if (checkpointDeath && activeCourier?.checkpoint) saved = structuredClone(activeCourier.checkpoint)
   else saved = undefined
   if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
-  route = { ...route, screen: 'analysis' }
+  if (won) {
+    story = createStory(endingLore(state, campaign.completedAreas), performance.now())
+    storyExit = 'analysis'
+    route = { ...route, screen: 'approach' }
+  } else route = { ...route, screen: 'analysis' }
   persistActiveCourier(checkpointDeath)
 }
 

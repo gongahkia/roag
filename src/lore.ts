@@ -2,7 +2,7 @@ import { biomeName } from './content'
 import { heirNameFor } from './engine/hub'
 import { streamSeed } from './rng'
 import { mineSeason } from './season'
-import type { LegacyRecord } from './types'
+import type { Biome, LegacyRecord, RunState } from './types'
 
 export const TYPEWRITER_INTERVAL = 28
 
@@ -21,6 +21,12 @@ export const threadsAnimation: AsciiAnimation = { frameMs: 170, frames: [
   '  .-.-.      \n /  |  \\     \n|  / \\  |    \n| /   \\ |    \n|/  *  \\|    \n \\  |  /     \n  `-^-`',
   '  .-.-.      \n /  |  \\     \n|  / \\  |    \n|/     \\|    \n|\\  *  /|    \n \\  |  /     \n  `-^-`',
   '  .-.-.      \n /  |  \\     \n| /   \\ |    \n|/  *  \\|    \n|\\     /|    \n \\  |  /     \n  `-^-`'
+] }
+
+export const deliveryAnimation: AsciiAnimation = { frameMs: 190, frames: [
+  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ - ]",
+  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ = ]",
+  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ + ]"
 ] }
 
 export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
@@ -70,6 +76,31 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
       `${record.heirName} fell in ${biomeName[record.biome]}, trail ${record.floor + 1}.\nThe sealed parcel slipped into the dark.`,
       `${passage}\n${record.heirName}\'s path reaches ${successor}.`,
       `${successor} answers at the village trail.\n${inheritance}`
+    ]
+  }
+}
+
+export const endingLore = (state: RunState, completedAreas: readonly Biome[]): LoreScene => {
+  const arrival = pick(state.seed, 'lore:ending:arrival', [
+    'Lanterns rise along the keeper\'s threshold.',
+    'The outpost bells carry over the quiet trail.',
+    'Rain settles on the road as the gate opens.'
+  ])
+  const remembrance = pick(state.seed, 'lore:ending:remembrance', [
+    'The keeper records every hard-won mile.',
+    'The village sets the parcel among its oldest promises.',
+    'The road is marked safe for the couriers who follow.'
+  ])
+  const companions = state.rescuedNpcs?.map(npc => npc.name) ?? []
+  const rescue = companions.length ? `${companions.join(', ')} return${companions.length === 1 ? 's' : ''} with the trail.` : 'The trail returns its silence to the village.'
+  const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the old road'
+  const kills = state.telemetry?.kills ?? 0
+  return {
+    title: 'THE LAST MILE', animation: deliveryAnimation,
+    pages: [
+      `${state.hero.name} brings the sealed parcel to its keeper.\n${arrival}`,
+      `The trail marks return from ${route}.\n${rescue} ${kills} threats were turned aside.`,
+      `${remembrance}\nThe delivery is complete.`
     ]
   }
 }
