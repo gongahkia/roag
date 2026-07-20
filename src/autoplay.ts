@@ -25,7 +25,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('clear telegraph source:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -377,13 +377,13 @@ const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: reado
   const seen = new Set([`${pointKey(state.hero)}:0`])
   let cursor = 0
   let best: { commands: string[]; distance: number; healthLoss: number; pressure: number; depth: number } | undefined
-  while (cursor < queue.length && cursor < 128) {
+  while (cursor < queue.length && cursor < 512) {
     const current = queue[cursor++]!
     if (current.depth > 0 && current.commands.length) {
       const candidate = { commands: current.commands, distance: current.targetDistance, healthLoss: current.healthLoss, pressure: hostilePressure(current.state, mode, current.state.hero), depth: current.depth }
       if (!best || candidate.distance < best.distance || (candidate.distance === best.distance && (candidate.healthLoss < best.healthLoss || (candidate.healthLoss === best.healthLoss && (candidate.pressure < best.pressure || (candidate.pressure === best.pressure && candidate.depth < best.depth)))))) best = candidate
     }
-    if (current.depth >= 6) continue
+    if (current.depth >= 12) continue
     for (const [direction] of directions) {
       const simulated = planningClone(current.state)
       const before = pointKey(simulated.hero)
@@ -729,6 +729,18 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   return option ? { command: directionCommands[option.direction], reason: standingInTelegraph ? 'evade telegraph' : 'retreat threat', score: 152 } : undefined
 }
 
+const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+  if (!breaksPositionCycle(context) && !context.recentPositions.includes(pointKey(state.hero))) return undefined
+  const telegraph = (state.floor.telegraphs ?? []).find(current => current.actionId === 'enemy-shot' && current.resolveTurn <= state.turn + 1 && current.cells.some(cell => pointKey(cell) === pointKey(state.hero)))
+  const source = telegraph ? state.floor.actors.find(actor => actor.id === telegraph.sourceId && actor.hostile && actor.health > 0) : undefined
+  if (!source || state.hero.health <= source.attack + 4) return undefined
+  const profile = heroAttackProfile(state)
+  const attack = directions.find(([direction]) => actionCells(profile.shape, state.hero, direction, profile.reach).some(point => point.x === source.x && point.y === source.y))
+  if (attack) return { command: directionCommands[attack[0]], reason: `clear telegraph source:${source.id}`, score: 650 }
+  const route = stepTo(state, mode, adjacentCells(source), false, false)
+  return route ? { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650 } : undefined
+}
+
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
   const recent = context.recentPositions
   for (let period = 1; period <= Math.floor(recent.length / 3); period++) {
@@ -836,7 +848,7 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   }
   const exitThreat = objectiveComplete && state.floor.biome !== 'ruins' ? foes.find(foe => foe.ai === 'ranged') : undefined
   const threatRoute = exitThreat ? stepTo(state, mode, adjacentCells(exitThreat), false, false) : undefined
-  if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 270 }
+  if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 600 }
   const guardian = foes.find(foe => foe.role === 'guardian')
   const route = guardian ? stepTo(state, mode, attackStances(state, guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
@@ -1040,6 +1052,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (cycleBreak) candidates.push(cycleBreak)
   const evade = evadeThreat(state, mode, context, policy)
   if (evade) candidates.push(evade)
+  const telegraphSource = clearTelegraphSource(state, mode, context)
+  if (telegraphSource) candidates.push(telegraphSource)
   if (rooted) candidates.push({ command: 'l', reason: 'wait root', score: 175 })
   const combat = rooted ? undefined : combatMove(state, mode)
   if (combat) candidates.push(combat)
@@ -1186,13 +1200,14 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     } else {
       const combat = combatMove(state, mode)
       const cycleBreak = cycleBreakMove(state, mode, context, true)
+      const telegraphSource = clearTelegraphSource(state, mode, context)
       const guardianAdvance = guardianApproachMove(state, mode, context)
       const guardianFinish = guardianFinishMove(state, mode, context)
       const strategicRoute = immediateCandidates(state, mode, policy, context)
         .filter(candidate => isStrategicRouteReason(candidate.reason))
         .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
-      const recovery = [policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth ? strategicRoute : undefined, evadeThreat(state, mode, context, policy), combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
+      const recovery = [policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth ? strategicRoute : undefined, telegraphSource, evadeThreat(state, mode, context, policy), combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
         .filter((candidate): candidate is Candidate => Boolean(candidate))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
       if (!recovery) {
