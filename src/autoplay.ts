@@ -1098,7 +1098,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     }
   }
   if (objectiveComplete) {
-    const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear', true)
+    const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
     if (exitRoute || predictiveExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute!.command, reason: predictiveExit ? 'predictive exit route' : 'reach exit', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : 240 : 140 })
     else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
