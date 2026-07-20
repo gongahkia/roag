@@ -72,8 +72,10 @@ npm run smoke:autoplay
 npm run autoplay:headless
 npm run autoplay:benchmark
 npm run autoplay:diagnose
-npm run clearance:local
+REPORT_ISSUE=0 SEED_COUNT=1000 TURNS=3200 RETRY_LIMIT=1 MIN_RATE=.99 npm run clearance:local
 ```
+
+This invocation is local-only and does not create GitHub issues.
 
 ## Nerd stuff
 

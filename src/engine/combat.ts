@@ -1,5 +1,5 @@
 import { ITEM } from '../content'
-import type { Actor, Direction, RunState } from '../types'
+import type { Actor, Direction, RunState, Telegraph } from '../types'
 import { DIRECTIONS } from '../types'
 import { actorAt, getTile, isPassable, preservesAdjacentExitAccess, preservesExitPath } from '../world'
 import { gainXp, monsterXp } from './progression'
@@ -72,7 +72,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   expirePropEffects(state)
-  const resolvedTelegraphs = resolveMonolithTelegraphs(state, resolveTelegraphs(state))
+  const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
   for (const telegraph of resolvedTelegraphs) {
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const
     applyPropEffects(state, telegraph.cells, propEffects)
@@ -173,6 +173,21 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   refreshFov(state)
   return events
 }
+
+const revalidateProjectileTelegraphs = (state: RunState, telegraphs: Telegraph[]): Telegraph[] => telegraphs.flatMap(telegraph => {
+  if (telegraph.actionId !== 'enemy-shot' || telegraph.collision?.by !== 'target') return [telegraph]
+  const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
+  if (!source?.hostile || source.health <= 0) {
+    log(state, 'The abandoned shot fizzles.')
+    return []
+  }
+  const bolt = projectBolt(state.floor, source, telegraph.collision.point)
+  if (bolt.collision?.by !== 'target') {
+    log(state, `The shot is stopped by ${bolt.collision?.by ?? 'cover'}.`)
+    return []
+  }
+  return [{ ...telegraph, cells: bolt.cells, collision: bolt.collision, cover: false }]
+})
 
 export function damageHero(state: RunState, amount: number, source: string, hazard = false): ActionResult {
   amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - (hazard ? vitalityHazardReduction(state.hero) : 0))

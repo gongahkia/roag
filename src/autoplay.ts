@@ -4,6 +4,7 @@ import { agilityMoveDistance, agilityReachBonus } from './engine/agility'
 import { evaluateEquipmentEffects } from './engine/equipment'
 import { resolveAreaGate, gateForArea } from './engine/gates'
 import { canAffect, resolveLineEffect } from './engine/line-effect'
+import { projectBolt } from './engine/projectiles'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
@@ -230,6 +231,42 @@ const hostilePressure = (state: RunState, mode: AutoplayMode, point: Point): num
   return pressure
 }, 0)
 
+const liveProjectileExposure = (state: RunState, mode: AutoplayMode): number => hostileKnown(state, mode)
+  .filter(actor => actor.ai === 'ranged' && projectBolt(state.floor, actor, state.hero).collision?.by === 'target').length
+
+const pendingProjectileExposure = (state: RunState): number => (state.floor.telegraphs ?? []).filter(telegraph => {
+  if (telegraph.actionId !== 'enemy-shot' || telegraph.collision?.by !== 'target' || pointKey(telegraph.collision.point) !== pointKey(state.hero)) return false
+  const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)
+  return Boolean(source?.hostile && source.health > 0 && projectBolt(state.floor, source, telegraph.collision.point).collision?.by === 'target')
+}).length
+
+const projectileDefense = (state: RunState, mode: AutoplayMode): number => pendingProjectileExposure(state) * 3 + liveProjectileExposure(state, mode)
+
+const playerRangedLineTargets = (state: RunState, mode: AutoplayMode): number => {
+  const targets = new Set<string>()
+  const knownHostile = (point: Point) => {
+    const actor = actorAt(state.floor, point.x, point.y)
+    return actor?.hostile && actor.health > 0 && (mode === 'omniscient' || visible(state, actor)) ? actor : undefined
+  }
+  if (state.hero.inventory.some(id => ITEM[id]?.throwable)) for (const [, delta] of directions) {
+    for (const point of resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells) {
+      const actor = knownHostile(point)
+      if (actor) targets.add(actor.id)
+    }
+  }
+  for (const id of state.hero.inventory) {
+    const spell = ITEM[id]?.spell
+    if (!spell || !['ember', 'root', 'lull', 'gust', 'pull'].includes(spell) || state.hero.focus < scriptCastProfile(state.hero, id).focusCost) continue
+    const range = spellTargetRange(state, id)
+    for (const [, delta] of directions) {
+      const point = { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }
+      const actor = knownHostile(point)
+      if (actor && canAffect(state.floor, state.hero, point)) targets.add(actor.id)
+    }
+  }
+  return targets.size
+}
+
 const directionTargetsHostile = (state: RunState, direction: Exclude<Direction, 'wait'>): boolean => {
   const profile = heroAttackProfile(state)
   return actionCells(profile.shape, state.hero, direction, profile.reach).some(point => Boolean(actorAt(state.floor, point.x, point.y)?.hostile))
@@ -406,9 +443,9 @@ const nearbyProps = (state: RunState): Prop[] => state.floor.props
   .sort((first, second) => first.id.localeCompare(second.id))
 
 const urgentNear = (state: RunState, prop: Prop): boolean => hostilePressure(state, 'omniscient', state.hero) >= 100 || (state.floor.telegraphs ?? []).some(telegraph => telegraph.resolveTurn <= state.turn + 2 && telegraph.cells.some(cell => chebyshev(cell, prop) <= 3))
-const shouldInspectProp = (state: RunState, prop: Prop): boolean => isBlockingProp(prop) || prop.tags.includes('cache') || prop.tags.includes('route') || (prop.tags.includes('warning') && urgentNear(state, prop)) || (prop.tags.includes('ritual') && urgentNear(state, prop)) || (prop.kind === 'wilds.mushrooms' && state.hero.health <= state.hero.maxHealth - 8) || (prop.kind === 'caverns.glowingFungus' && state.hero.focus <= 2)
+const shouldInspectProp = (state: RunState, prop: Prop): boolean => isBlockingProp(prop) || prop.tags.includes('cache') || prop.tags.includes('route') || (prop.tags.includes('warning') && urgentNear(state, prop)) || (prop.tags.includes('ritual') && urgentNear(state, prop)) || (prop.kind === 'wilds.rootShrine' && projectileDefense(state, 'omniscient') > 0) || (prop.kind === 'wilds.mushrooms' && state.hero.health <= state.hero.maxHealth - 8) || (prop.kind === 'caverns.glowingFungus' && state.hero.focus <= 2)
 const canOpenPropWithOperate = (state: RunState, prop: Prop): boolean => (prop.kind === 'wilds.rootArch' && state.hero.equipment.mainHand === 'machete') || (prop.kind === 'ruins.collapsedArch' && state.hero.equipment.mainHand === 'pickaxe')
-const canOpenPropWithRope = (state: RunState, prop: Prop): boolean => state.hero.ropes > 0 && (prop.kind === 'caverns.brokenBoat' || prop.kind === 'ruins.collapsedArch')
+const canOpenPropWithRope = (state: RunState, prop: Prop): boolean => state.hero.ropes > 0 && (prop.kind === 'mine.brokenCart' || prop.kind === 'caverns.brokenBoat' || prop.kind === 'ruins.collapsedArch')
 
 const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
   const props = nearbyProps(state)
@@ -424,6 +461,9 @@ const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: A
   const beforeBombs = state.hero.bombs
   const beforeKeys = state.hero.keys
   const beforeFocus = state.hero.focus
+  const tacticalProp = prop.kind === 'wilds.rootShrine' || prop.kind === 'ruins.brokenStatue'
+  const beforeDefense = tacticalProp ? projectileDefense(state, mode) : 0
+  const beforeRoute = tacticalProp ? hasStrategicRoute(state, mode) : false
   perform(simulated, 'c')
   const next = simulated.floor.props.find(candidate => candidate.id === prop.id)
   if (!next || autoplayStateFingerprint(simulated) === beforeKey) { if (planned) context.propPlanId = undefined; return undefined }
@@ -439,11 +479,14 @@ const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: A
   const healthGain = simulated.hero.health - beforeHealth
   const shieldGain = !beforeShield && Boolean(simulated.hero.conditions?.some(condition => condition.kind === 'shielded'))
   const resourceSpend = beforeBombs - simulated.hero.bombs + beforeKeys - simulated.hero.keys + beforeFocus - simulated.hero.focus
+  const charmSpent = state.hero.inventory.length - simulated.hero.inventory.length
   const createsHazard = getTile(state.floor, prop.x, prop.y)?.kind !== 'fireVent' && getTile(simulated.floor, prop.x, prop.y)?.kind === 'fireVent'
-  const useful = routeUnlocked || routeGained || itemGain > 0 || healthGain > 0 || shieldGain
+  const defensiveCover = tacticalProp && projectileDefense(simulated, mode) < beforeDefense && (!beforeRoute || hasStrategicRoute(simulated, mode))
+  const useful = routeUnlocked || routeGained || itemGain > 0 || healthGain > 0 || shieldGain || defensiveCover
   if (!useful || (createsHazard && !routeUnlocked)) { if (planned) context.propPlanId = undefined; return undefined }
+  if (charmSpent > 0 && !defensiveCover && healthGain < 1 && !shieldGain) { if (planned) context.propPlanId = undefined; return undefined }
   if (resourceSpend > 0 && !routeUnlocked && !routeGained && (policy === 'survival' || (beforeBombs > simulated.hero.bombs && simulated.hero.bombs < resourceReserve(policy)) || (beforeKeys > simulated.hero.keys && simulated.hero.keys < 1))) { if (planned) context.propPlanId = undefined; return undefined }
-  const score = routeUnlocked || routeGained ? 180 : shieldGain && urgentNear(state, prop) ? 130 : healthGain > 0 ? 112 : 96
+  const score = routeUnlocked || routeGained ? 180 : defensiveCover ? 210 : shieldGain && urgentNear(state, prop) ? 130 : healthGain > 0 ? 112 : 96
   return { command: 'c', reason: `operate prop:${prop.kind}`, score, propPlanId: prop.id }
 }
 
@@ -464,7 +507,7 @@ const propRopeCandidate = (state: RunState, mode: AutoplayMode): Candidate | und
   perform(simulated, 'r')
   const next = simulated.floor.props.find(candidate => candidate.id === prop.id)
   const routeGained = !hasStrategicRoute(state, mode) && hasStrategicRoute(simulated, mode)
-  if (!next || !routeGained || isBlockingProp(next) || simulated.hero.ropes !== state.hero.ropes - 1) return undefined
+  if (!next || !routeGained || (isBlockingProp(next) && prop.kind !== 'mine.brokenCart') || simulated.hero.ropes !== state.hero.ropes - 1) return undefined
   return { command: 'r', reason: `secure prop route:${prop.kind}`, score: 190, propPlanId: prop.id }
 }
 
@@ -864,6 +907,11 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
   const beforeExplored = state.floor.tiles.filter(tile => tile.explored).length
   const beforeHazards = state.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length
   const beforeRoute = hasStrategicRoute(state, mode)
+  const effects = targetEffects(modal.action, modal.item)
+  const canChangeLines = effects.includes('root') || effects.includes('force')
+  const beforeDefense = canChangeLines ? projectileDefense(state, mode) : 0
+  const beforeLiveExposure = canChangeLines ? liveProjectileExposure(state, mode) : 0
+  const beforePlayerLines = canChangeLines ? playerRangedLineTargets(state, mode) : 0
   const pressure = hostilePressure(state, mode, state.hero)
   const imminentTelegraphs = state.floor.telegraphs?.filter(telegraph => telegraph.resolveTurn <= state.turn + 3) ?? []
   const scored = directions.flatMap(([direction]) => {
@@ -890,11 +938,17 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const shieldGain = !shielded && Boolean(simulated.hero.conditions?.some(condition => condition.kind === 'shielded'))
     const reachedExit = state.floor.objective.status === 'complete' && state.floor.guardianDefeated && pointKey(simulated.hero) === pointKey(simulated.floor.exit)
     const protectedTelegraph = changedProps.some(prop => (prop.effectCells ?? []).some(cell => imminentTelegraphs.some(telegraph => telegraph.cells.some(target => pointKey(target) === pointKey(cell)))))
+    const changedDefensiveProp = changedProps.some(prop => prop.kind === 'wilds.rootShrine' || prop.kind === 'ruins.brokenStatue')
+    const changedCrystal = changedProps.some(prop => prop.kind === 'caverns.crystalCluster' && prop.state === 'activated')
+    const routePreserved = !(changedDefensiveProp || changedCrystal) || !beforeRoute || hasStrategicRoute(simulated, mode)
+    const defensiveCover = changedDefensiveProp && projectileDefense(simulated, mode) < beforeDefense && routePreserved
+    const refractedLine = changedCrystal && playerRangedLineTargets(simulated, mode) > beforePlayerLines && liveProjectileExposure(simulated, mode) <= beforeLiveExposure && routePreserved
     const tacticalShield = shieldGain && (pressure >= 100 || telegraphDanger(state, state.hero) || protectedTelegraph)
-    const propValue = (routeGained ? 220 : 0) + (reachedExit ? 180 : 0) + itemGain * 72 + (mode === 'visible' ? exploredGain * 2 : 0) + hazardsRemoved * 64 + (tacticalShield ? 110 : 0) + (protectedTelegraph ? 130 : 0)
+    const propValue = (routeGained ? 220 : 0) + (reachedExit ? 180 : 0) + itemGain * 72 + (mode === 'visible' ? exploredGain * 2 : 0) + hazardsRemoved * 64 + (tacticalShield ? 110 : 0) + (protectedTelegraph ? 130 : 0) + (defensiveCover ? 160 : 0) + (refractedLine ? 115 : 0)
     const usefulPropEffect = changedProps.length > 0 && propValue > 0
     const score = base + damage * 14 + kills * 90 + mobilityGain * 70 + propValue - harm * 42 - events.filter(event => event.type === 'danger').length * 10
     if (changedProps.length && !usefulPropEffect && damage < 1 && kills < 1) return []
+    if ((defensiveCover || refractedLine) && !routePreserved) return []
     if (hazardsAdded > 0 && !routeGained && kills < 1) return []
     if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1 && propValue < 1) return []
     if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []

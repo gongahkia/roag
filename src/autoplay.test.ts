@@ -91,6 +91,21 @@ describe('autoplay', () => {
     expect(state.hero.ropes).toBe(0)
   })
 
+  it('uses a rope to release a required inspected mine cart onto a side rail', () => {
+    const state = createRun()
+    const definition = propDefinition('mine.brokenCart')
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (const [x, y, kind] of [[1, 1, 'rail'], [2, 1, 'rail'], [3, 1, 'rail'], [3, 2, 'floor'], [4, 2, 'floor'], [5, 2, 'floor']] as const) state.floor.tiles[y * 48 + x].kind = kind
+    state.hero.ropes = 1
+    state.floor.actors = [{ ...createEnemy(), id: 'cart-guardian', role: 'guardian', x: 5, y: 2, health: 30 }]
+    state.floor.objective = { id: 'cart-guardian-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'cart', kind: definition.id, biome: definition.biome, x: 2, y: 1, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'c', reason: 'inspect prop:mine.brokenCart' })
+    perform(state, 'c')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'r', reason: 'secure prop route:mine.brokenCart' })
+  })
+
   it('uses a rope for a required collapsed arch but not an optional one', () => {
     const state = createRun()
     const definition = propDefinition('ruins.collapsedArch')
@@ -111,6 +126,73 @@ describe('autoplay', () => {
     state.hero.ropes = 0
     state.floor.props = [{ id: 'boat', kind: definition.id, biome: definition.biome, x: state.hero.x + 1, y: state.hero.y, state: 'inspected', tags: [...definition.tags], hooks: [...definition.hooks] }]
     expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason.includes('secure prop route:caverns.brokenBoat'))).toBe(false)
+  })
+
+  it('uses root-shrine screens and statue force only when they stop hostile projectile lines', () => {
+    const root = createRun()
+    const shrine = propDefinition('wilds.rootShrine')
+    root.hero.inventory = ['root']
+    root.hero.conditions = [{ kind: 'rooted', duration: 2, potency: 1 }]
+    root.floor.actors = [{ ...createEnemy(), id: 'root-source', ai: 'ranged', x: 5, y: 1 }]
+    root.floor.actors[0].role = 'guardian'
+    root.floor.objective = { id: 'root-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    root.floor.tiles[0 * 48 + 1].kind = 'wall'
+    root.floor.tiles[0 * 48 + 2].kind = 'wall'
+    root.floor.tiles[0 * 48 + 3].kind = 'wall'
+    root.floor.props = [{ id: 'root-shrine', kind: shrine.id, biome: shrine.biome, x: 2, y: 1, state: 'inspected', tags: [...shrine.tags], hooks: [...shrine.hooks] }]
+    const rootContext = createAutoplayContext()
+    rootContext.propPlanId = 'root-shrine'
+    expect(autoplayDecision(root, 'omniscient', 'survival', rootContext)).toMatchObject({ command: 'c', reason: 'operate prop:wilds.rootShrine' })
+
+    const rootCharm = createRun()
+    rootCharm.hero.inventory = ['root']
+    rootCharm.floor.actors = [{ ...createEnemy(), id: 'root-charm-source', ai: 'ranged', x: 5, y: 1 }]
+    rootCharm.floor.actors[0].role = 'guardian'
+    rootCharm.floor.objective = { id: 'root-charm-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    rootCharm.floor.tiles[0 * 48 + 2].kind = 'wall'
+    rootCharm.floor.tiles[0 * 48 + 3].kind = 'wall'
+    rootCharm.floor.tiles[0 * 48 + 4].kind = 'wall'
+    rootCharm.floor.props = [{ id: 'root-shrine', kind: shrine.id, biome: shrine.biome, x: 3, y: 1, state: 'dormant', tags: [...shrine.tags], hooks: [...shrine.hooks] }]
+    expect(autoplayCandidateDiagnostics(rootCharm, 'omniscient', 'clear', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'u', reason: 'cast prop:root' }))
+
+    const statue = createRun()
+    const statueDefinition = propDefinition('ruins.brokenStatue')
+    statue.hero.inventory = ['gust']
+    statue.floor.actors = [{ ...createEnemy(), id: 'statue-source', ai: 'ranged', x: 5, y: 1 }]
+    statue.floor.actors[0].role = 'guardian'
+    statue.floor.objective = { id: 'statue-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    statue.floor.props = [{ id: 'statue', kind: statueDefinition.id, biome: statueDefinition.biome, x: 2, y: 1, state: 'dormant', tags: [...statueDefinition.tags], hooks: [...statueDefinition.hooks] }]
+    expect(autoplayCandidateDiagnostics(statue, 'omniscient', 'clear', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'u', reason: 'cast prop:gust' }))
+
+    const operatedStatue = createRun()
+    operatedStatue.floor.actors = [{ ...createEnemy(), id: 'operated-statue-source', ai: 'ranged', x: 5, y: 1 }]
+    operatedStatue.floor.actors[0].role = 'guardian'
+    operatedStatue.floor.objective = { id: 'operated-statue-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    operatedStatue.floor.props = [{ id: 'statue', kind: statueDefinition.id, biome: statueDefinition.biome, x: 2, y: 1, state: 'inspected', tags: [...statueDefinition.tags], hooks: [...statueDefinition.hooks] }]
+    const statueContext = createAutoplayContext()
+    statueContext.propPlanId = 'statue'
+    expect(autoplayDecision(operatedStatue, 'omniscient', 'clear', statueContext)).toMatchObject({ command: 'c', reason: 'operate prop:ruins.brokenStatue' })
+
+    const safeStatue = createRun()
+    safeStatue.hero.inventory = ['gust']
+    safeStatue.floor.props = [{ id: 'statue', kind: statueDefinition.id, biome: statueDefinition.biome, x: 2, y: 1, state: 'dormant', tags: [...statueDefinition.tags], hooks: [...statueDefinition.hooks] }]
+    expect(autoplayCandidateDiagnostics(safeStatue, 'omniscient', 'clear', createAutoplayContext()).some(candidate => candidate.reason === 'cast prop:gust')).toBe(false)
+  })
+
+  it('refracts a crystal only when it opens a safe usable ranged line', () => {
+    const crystal = createRun()
+    const definition = propDefinition('caverns.crystalCluster')
+    crystal.hero.inventory = ['gust', 'rock']
+    crystal.floor.actors = [{ ...createEnemy(), id: 'crystal-target', x: 5, y: 1, ai: 'chase' }]
+    crystal.floor.actors[0].role = 'guardian'
+    crystal.floor.objective = { id: 'crystal-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    crystal.floor.tiles[0 * 48 + 4].kind = 'wall'
+    crystal.floor.tiles[2 * 48 + 4].kind = 'wall'
+    crystal.floor.props = [{ id: 'crystal', kind: definition.id, biome: definition.biome, x: 2, y: 1, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    expect(autoplayCandidateDiagnostics(crystal, 'omniscient', 'clear', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'u', reason: 'cast prop:gust' }))
+
+    crystal.hero.inventory = ['gust']
+    expect(autoplayCandidateDiagnostics(crystal, 'omniscient', 'clear', createAutoplayContext()).some(candidate => candidate.reason === 'cast prop:gust')).toBe(false)
   })
 
   it('casts water, force, and fire at prop hooks only when they restore an objective route', () => {
