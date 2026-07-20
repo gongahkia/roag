@@ -484,6 +484,23 @@ describe('autoplay', () => {
     expect(context.recoveryVisits.size).toBe(1)
   })
 
+  it('evades a Mine telegraph during recovery when every route is blocked', () => {
+    const state = createRun()
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    state.floor.tiles[1 * 48 + 1].kind = 'floor'
+    state.floor.tiles[1 * 48 + 2].kind = 'floor'
+    state.floor.tiles[1 * 48 + 5].kind = 'exit'
+    state.floor.exit = { x: 5, y: 1 }
+    state.floor.objective.status = 'complete'
+    state.floor.guardianDefeated = true
+    state.hero.health = 1
+    state.floor.telegraphs = [{ id: 'mine-shot', sourceId: 'mine-ranged', actionId: 'enemy-shot', cells: [{ x: 1, y: 1 }], danger: 'major', resolveTurn: state.turn + 1 }]
+    const context = createAutoplayContext()
+    context.noProgressTurns = 32
+    context.recentPositions = Array.from({ length: 12 }, () => '2,1')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: ';', reason: 'evade telegraph' })
+  })
+
   it('uses the final bomb when critically threatened', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!

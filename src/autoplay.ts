@@ -1192,7 +1192,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         .filter(candidate => isStrategicRouteReason(candidate.reason))
         .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
-      const recovery = [policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth ? strategicRoute : undefined, state.floor.biome === 'ruins' ? evadeThreat(state, mode, context, policy) : undefined, combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
+      const recovery = [policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth ? strategicRoute : undefined, evadeThreat(state, mode, context, policy), combat?.reason.startsWith('melee:') ? combat : undefined, guardianFinish, guardianAdvance, strategicRoute, cycleBreak, combat, loopThreatMove(state, mode)]
         .filter((candidate): candidate is Candidate => Boolean(candidate))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
       if (!recovery) {
