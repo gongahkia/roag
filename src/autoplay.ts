@@ -25,7 +25,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -60,9 +60,10 @@ const planningClone = (state: RunState): RunState => {
 }
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
-type Candidate = AutoplayCandidate & { intent?: Intent; predictiveTarget?: string; propPlanId?: string }
+type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
+type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; bestStrategicDistance?: number; startedTurn?: number; lastPredictiveTarget?: string; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
@@ -364,19 +365,22 @@ const routeDistanceField = (state: RunState, mode: AutoplayMode, targets: readon
 
 // simulate a short no-repeat movement sequence when normal routing has entered a cycle.
 // this keeps actor movement in the plan instead of re-routing against a stale actor layout.
-const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean): { command: string } | undefined => {
+const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean, excludedPositions: ReadonlySet<string> = new Set()): { commands: string[] } | undefined => {
   const distances = routeDistanceField(state, mode, targets, avoidThreats)
   const initialDistance = distances.get(pointKey(state.hero))
   if (initialDistance === undefined) return undefined
-  type Node = { state: RunState; first?: string; depth: number; path: Set<string>; healthLoss: number; targetDistance: number }
-  const queue: Node[] = [{ state: planningClone(state), depth: 0, path: new Set([pointKey(state.hero)]), healthLoss: 0, targetDistance: initialDistance }]
+  type Node = { state: RunState; commands: string[]; depth: number; path: Set<string>; healthLoss: number; targetDistance: number }
+  const initialPath = new Set(excludedPositions)
+  initialPath.delete(pointKey(state.hero))
+  initialPath.add(pointKey(state.hero))
+  const queue: Node[] = [{ state: planningClone(state), commands: [], depth: 0, path: initialPath, healthLoss: 0, targetDistance: initialDistance }]
   const seen = new Set([`${pointKey(state.hero)}:0`])
   let cursor = 0
-  let best: { command: string; distance: number; healthLoss: number; pressure: number; depth: number } | undefined
+  let best: { commands: string[]; distance: number; healthLoss: number; pressure: number; depth: number } | undefined
   while (cursor < queue.length && cursor < 128) {
     const current = queue[cursor++]!
-    if (current.depth > 0 && current.first) {
-      const candidate = { command: current.first, distance: current.targetDistance, healthLoss: current.healthLoss, pressure: hostilePressure(current.state, mode, current.state.hero), depth: current.depth }
+    if (current.depth > 0 && current.commands.length) {
+      const candidate = { commands: current.commands, distance: current.targetDistance, healthLoss: current.healthLoss, pressure: hostilePressure(current.state, mode, current.state.hero), depth: current.depth }
       if (!best || candidate.distance < best.distance || (candidate.distance === best.distance && (candidate.healthLoss < best.healthLoss || (candidate.healthLoss === best.healthLoss && (candidate.pressure < best.pressure || (candidate.pressure === best.pressure && candidate.depth < best.depth)))))) best = candidate
     }
     if (current.depth >= 6) continue
@@ -392,10 +396,10 @@ const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: reado
       seen.add(key)
       const targetDistance = distances.get(after)
       if (targetDistance === undefined) continue
-      queue.push({ state: simulated, first: current.first ?? directionCommands[direction], depth: current.depth + 1, path: new Set([...current.path, after]), healthLoss: current.healthLoss + Math.max(0, health - simulated.hero.health), targetDistance })
+      queue.push({ state: simulated, commands: [...current.commands, directionCommands[direction]], depth: current.depth + 1, path: new Set([...current.path, after]), healthLoss: current.healthLoss + Math.max(0, health - simulated.hero.health), targetDistance })
     }
   }
-  return best && best.distance < initialDistance ? { command: best.command } : undefined
+  return best && best.distance < initialDistance ? { commands: best.commands } : undefined
 }
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
@@ -1047,7 +1051,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (context.objectiveId !== objective.id) {
     context.objectiveId = objective.id
     context.objectiveTarget = undefined
-    context.lastPredictiveTarget = undefined
+    context.routePlan = undefined
     context.rejectedObjectiveTargets.clear()
   }
   const needsOffering = objective.kind === 'invokeAltar' && state.hero.gold < 75
@@ -1085,16 +1089,18 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       const stalledTelegraphRoute = routeTelegraphed && (!detour || detour.distance >= routeDistance)
       const cycle = breaksPositionCycle(context)
       const targetKey = pointKey(route.target)
-      const predictive = policy === 'clear' && (stalledTelegraphRoute || cycle) && context.lastPredictiveTarget !== targetKey ? predictiveRouteStep(state, mode, routeTargets, false) : undefined
-      candidates.push({ command: predictive?.command ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, predictiveTarget: predictive ? targetKey : undefined, score: policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
+      const predictive = policy === 'clear' && (stalledTelegraphRoute || cycle) ? predictiveRouteStep(state, mode, routeTargets, false, cycle ? new Set(context.recentPositions.slice(-12)) : undefined) : undefined
+      candidates.push({ command: predictive?.commands[0] ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, routePlan: predictive && predictive.commands.length > 1 ? { kind: 'objective', targetKey, commands: predictive.commands.slice(1) } : undefined, score: policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
     } else if (pinTarget && context.objectiveTarget) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
+      context.routePlan = undefined
     }
   }
   if (objectiveComplete) {
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear', true)
-    if (exitRoute) candidates.push({ command: exitRoute.command, reason: 'reach exit', score: policy === 'clear' ? 240 : 140 })
+    const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
+    if (exitRoute || predictiveExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute!.command, reason: predictiveExit ? 'predictive exit route' : 'reach exit', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : 240 : 140 })
     else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
   } else {
     const collectForObjective = policy !== 'clear' || needsOffering
@@ -1135,6 +1141,27 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   }
   const modal = modalDecision(state, mode, policy, context)
   if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
+  const routePlan = context.routePlan
+  if (routePlan) {
+    const validTarget = routePlan.kind === 'objective'
+      ? state.floor.objective.status !== 'complete' && context.objectiveTarget === routePlan.targetKey
+      : state.floor.objective.status === 'complete' && pointKey(state.floor.exit) === routePlan.targetKey
+    if (!validTarget || !routePlan.commands.length) context.routePlan = undefined
+    else {
+      const command = routePlan.commands[0]!
+      const simulated = planningClone(state)
+      const before = pointKey(simulated.hero)
+      perform(simulated, command)
+      if (simulated.status === 'playing' && simulated.turn > state.turn && pointKey(simulated.hero) !== before && !telegraphDanger(simulated, simulated.hero)) {
+        routePlan.commands.shift()
+        if (!routePlan.commands.length) context.routePlan = undefined
+        const candidate = { command, reason: routePlan.kind === 'exit' ? 'continue predictive exit route' : `continue predictive objective route:${state.floor.objective.kind}`, score: 205 }
+        context.lastReason = candidate.reason
+        return { command, reason: candidate.reason, candidates: [candidate] }
+      }
+      context.routePlan = undefined
+    }
+  }
   const fingerprint = autoplayStateFingerprint(state)
   const strategicVisits = context.strategicVisits.get(autoplayProgressFingerprint(state, true)) ?? 0
   if ((context.visits.get(fingerprint) ?? 0) >= 6 || strategicVisits >= 3 || context.noProgressTurns >= 32 || breaksPositionCycle(context)) {
@@ -1172,6 +1199,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         context.lastReason = 'no recovery action'
         return undefined
       }
+      if (recovery.routePlan) context.routePlan = recovery.routePlan
       context.lastReason = recovery.reason
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
@@ -1184,7 +1212,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   }
   context.intent = selected.intent
   if (selected.propPlanId) context.propPlanId = selected.propPlanId
-  if (selected.predictiveTarget) context.lastPredictiveTarget = selected.predictiveTarget
+  if (selected.routePlan) context.routePlan = selected.routePlan
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }
