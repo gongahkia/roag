@@ -113,6 +113,99 @@ describe('autoplay', () => {
     expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason.includes('secure prop route:caverns.brokenBoat'))).toBe(false)
   })
 
+  it('casts water, force, and fire at prop hooks only when they restore an objective route', () => {
+    const routeState = (item: 'waterScript' | 'gust' | 'ember', kind: 'caverns.brokenBoat' | 'ruins.collapsedArch' | 'wilds.rootArch', x: number) => {
+      const state = createRun()
+      const definition = propDefinition(kind)
+      state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+      for (let column = 1; column <= 6; column++) state.floor.tiles[1 * 48 + column].kind = 'floor'
+      state.hero.inventory = [item]
+      state.floor.actors = [{ ...createEnemy(), id: `${kind}-guardian`, role: 'guardian', x: 6, y: 1, health: 30 }]
+      state.floor.objective = { id: `${kind}-objective`, kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+      state.floor.props = [{ id: kind, kind: definition.id, biome: definition.biome, x, y: 1, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+      return state
+    }
+    for (const [item, kind, x] of [['waterScript', 'caverns.brokenBoat', 3], ['gust', 'ruins.collapsedArch', 2], ['ember', 'wilds.rootArch', 2]] as const) {
+      const state = routeState(item, kind, x)
+      expect(autoplayCandidateDiagnostics(state, 'omniscient', 'clear', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'u', reason: `cast prop:${item}` }))
+      state.modal = { kind: 'target', action: 'spell', item }
+      expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())).toMatchObject({ command: ';', reason: 'spell target' })
+      perform(state, ';')
+      perform(state, 'Enter')
+      expect(state.floor.props[0].state).toMatch(/activated|destroyed/)
+    }
+  })
+
+  it('targets cache and blocked-route hooks with throws and bombs', () => {
+    const thrown = createRun()
+    const cache = propDefinition('ruins.sealedCache')
+    thrown.hero.inventory = ['rock']
+    thrown.floor.props = [{ id: 'cache', kind: cache.id, biome: cache.biome, x: 6, y: 1, state: 'dormant', tags: [...cache.tags], hooks: [...cache.hooks] }]
+    expect(autoplayCandidateDiagnostics(thrown, 'omniscient', 'clear', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 't', reason: 'throw prop:rock' }))
+    thrown.modal = { kind: 'target', action: 'throw', item: 'rock' }
+    expect(autoplayDecision(thrown, 'omniscient', 'clear', createAutoplayContext())).toMatchObject({ command: ';', reason: 'throw target' })
+    perform(thrown, ';')
+    perform(thrown, 'Enter')
+    expect(thrown.floor.props[0].state).toBe('activated')
+
+    const bombed = createRun()
+    const arch = propDefinition('ruins.collapsedArch')
+    bombed.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (let column = 1; column <= 5; column++) bombed.floor.tiles[1 * 48 + column].kind = 'floor'
+    bombed.hero.bombs = 1
+    bombed.floor.actors = [{ ...createEnemy(), id: 'bomb-guardian', role: 'guardian', x: 5, y: 1, health: 30 }]
+    bombed.floor.objective = { id: 'bomb-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    bombed.floor.props = [{ id: 'arch', kind: arch.id, biome: arch.biome, x: 3, y: 1, state: 'dormant', tags: [...arch.tags], hooks: [...arch.hooks] }]
+    expect(autoplayCandidateDiagnostics(bombed, 'omniscient', 'survival', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'b', reason: 'bomb prop route' }))
+    bombed.modal = { kind: 'target', action: 'bomb' }
+    expect(autoplayDecision(bombed, 'omniscient', 'survival', createAutoplayContext())).toMatchObject({ command: ';', reason: 'bomb target' })
+    perform(bombed, ';')
+    perform(bombed, 'Enter')
+    expect(bombed.floor.props[0].state).toBe('destroyed')
+  })
+
+  it('uses ward and gate prop hooks only for an imminent defense or completed exit', () => {
+    const warded = createRun()
+    const monolith = propDefinition('ruins.monolith')
+    warded.floor.props = [{ id: 'ward-monolith', kind: monolith.id, biome: monolith.biome, x: 2, y: 1, state: 'dormant', tags: [...monolith.tags], hooks: [...monolith.hooks] }]
+    warded.hero.inventory = ['wardScript']
+    warded.floor.telegraphs = [{ id: 'ward-threat', sourceId: 'oracle', actionId: 'ritual', cells: [{ x: 3, y: 1 }], danger: 'major', resolveTurn: warded.turn + 3 }]
+    expect(autoplayCandidateDiagnostics(warded, 'omniscient', 'survival', createAutoplayContext())).toContainEqual(expect.objectContaining({ command: 'u', reason: 'cast prop:wardScript' }))
+    warded.modal = { kind: 'target', action: 'spell', item: 'wardScript' }
+    expect(autoplayDecision(warded, 'omniscient', 'survival', createAutoplayContext())).toMatchObject({ command: ';', reason: 'spell target' })
+    perform(warded, ';')
+    perform(warded, 'Enter')
+    expect(warded.floor.props[0]).toMatchObject({ state: 'activated', effectCells: expect.any(Array) })
+
+    const unthreatened = createRun()
+    unthreatened.floor.props = [{ id: 'idle-monolith', kind: monolith.id, biome: monolith.biome, x: 2, y: 1, state: 'dormant', tags: [...monolith.tags], hooks: [...monolith.hooks] }]
+    unthreatened.hero.inventory = ['wardScript']
+    unthreatened.modal = { kind: 'target', action: 'spell', item: 'wardScript' }
+    expect(autoplayDecision(unthreatened, 'omniscient', 'survival', createAutoplayContext())).toMatchObject({ command: 'Escape', reason: 'cancel spell' })
+
+    const gated = createRun()
+    gated.floor.props = [{ id: 'gate-monolith', kind: monolith.id, biome: monolith.biome, x: 2, y: 1, state: 'dormant', tags: [...monolith.tags], hooks: [...monolith.hooks] }]
+    gated.hero.inventory = ['gate']
+    gated.floor.objective.status = 'complete'
+    gated.floor.guardianDefeated = true
+    gated.modal = { kind: 'target', action: 'spell', item: 'gate' }
+    expect(autoplayDecision(gated, 'omniscient', 'clear', createAutoplayContext())).toMatchObject({ command: ';', reason: 'spell target' })
+    perform(gated, ';')
+    perform(gated, 'Enter')
+    expect(gated.floor.props[0].state).toBe('activated')
+    expect(gated.hero).toMatchObject(gated.floor.exit)
+  })
+
+  it('does not target an optional prop hook that creates a hazard', () => {
+    const state = createRun()
+    const mushrooms = propDefinition('wilds.mushrooms')
+    state.hero.inventory = ['ember']
+    state.floor.props = [{ id: 'mushrooms', kind: mushrooms.id, biome: mushrooms.biome, x: 2, y: 1, state: 'dormant', tags: [...mushrooms.tags], hooks: [...mushrooms.hooks] }]
+    expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason === 'cast prop:ember')).toBe(false)
+    state.modal = { kind: 'target', action: 'spell', item: 'ember' }
+    expect(autoplayDecision(state, 'omniscient', 'survival', createAutoplayContext())).toMatchObject({ command: 'Escape', reason: 'cancel spell' })
+  })
+
   it('keeps visible-only planning within explored terrain', () => {
     const state = newRun(71)
     state.floor.actors = []

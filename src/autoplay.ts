@@ -7,7 +7,7 @@ import { canAffect, resolveLineEffect } from './engine/line-effect'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
-import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type Prop, type RunState, type TileKind } from './types'
+import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
@@ -479,30 +479,66 @@ export const autoplayObjectiveRouteDiagnostics = (state: RunState, mode: Exclude
 }
 
 const hostileInCells = (state: RunState, cells: readonly Point[]): number => cells.reduce((count, point) => count + Number(Boolean(actorAt(state.floor, point.x, point.y)?.hostile)), 0)
+const targetEffects = (action: 'bomb' | 'throw' | 'spell', item?: string): readonly PropEffectKind[] => {
+  if (action === 'bomb') return ['bomb']
+  if (action === 'throw') return item === 'fireJar' ? ['bomb', 'fire'] : ['throw']
+  const spell = ITEM[item ?? '']?.spell
+  if (spell === 'ember') return ['fire']
+  if (spell === 'root') return ['root']
+  if (spell === 'water') return ['water']
+  if (spell === 'gust' || spell === 'pull') return ['force']
+  if (spell === 'ward') return ['ward']
+  if (spell === 'gate') return ['gate']
+  return []
+}
+const spellTargetRange = (state: RunState, item: string): number => {
+  const profile = scriptCastProfile(state.hero, item)
+  const geometry = resolveSynergies({ scripts: [item], skills: state.hero.skills }, { range: profile.range })
+  return Math.max(1, Math.floor(geometry.values.range ?? profile.range))
+}
+const targetImpactCells = (state: RunState, action: 'bomb' | 'throw' | 'spell', direction: Exclude<Direction, 'wait'>, item?: string): Point[] => {
+  if (action === 'bomb') return actionCells('burst', state.hero, direction, 2)
+  const delta = DIRECTIONS[direction]
+  if (action === 'throw') {
+    const point = resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells.at(-1)
+    if (!point) return []
+    return item === 'fireJar' ? actionCells('burst', { x: point.x - delta.x * 2, y: point.y - delta.y * 2 }, direction, 2) : [point]
+  }
+  if (!item) return []
+  const range = spellTargetRange(state, item)
+  return [{ x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }]
+}
+const propTargetCount = (state: RunState, action: 'bomb' | 'throw' | 'spell', direction: Exclude<Direction, 'wait'>, item?: string): number => {
+  const effects = targetEffects(action, item)
+  if (!effects.length) return 0
+  const targets = new Set(targetImpactCells(state, action, direction, item).map(pointKey))
+  return state.floor.props.filter(prop => prop.state !== 'destroyed' && targets.has(pointKey(prop)) && effects.some(effect => prop.hooks?.includes(effect))).length
+}
 const targetDirection = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
   const scored = directions.map(([direction]) => {
+    const propScore = propTargetCount(state, action, direction, item) * 12
     if (action === 'bomb') {
       const cells = actionCells('burst', state.hero, direction, 2).filter(point => known(state, mode, point))
-      return { direction, score: hostileInCells(state, cells) * 70 }
+      return { direction, score: hostileInCells(state, cells) * 70 + propScore }
     }
     if (action === 'throw') {
       const delta = DIRECTIONS[direction]
       const cells = resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells
-      return { direction, score: hostileInCells(state, cells) * (item === 'fireJar' ? 85 : item === 'spear' ? 54 : 34) }
+      return { direction, score: hostileInCells(state, cells) * (item === 'fireJar' ? 85 : item === 'spear' ? 54 : 34) + propScore }
     }
     const spell = ITEM[item ?? '']?.spell
     if (!spell || !item) return { direction, score: 0 }
     if (spell === 'mend') return { direction, score: state.hero.health <= state.hero.maxHealth - 6 ? 125 : 0 }
-    if (spell === 'ward') return { direction, score: hostilePressure(state, mode, state.hero) > 0 && state.hero.health <= state.hero.maxHealth - 4 ? 92 : 0 }
+    if (spell === 'ward') return { direction, score: (hostilePressure(state, mode, state.hero) > 0 && state.hero.health <= state.hero.maxHealth - 4 ? 92 : 0) + propScore }
     if (spell === 'sight') return { direction, score: mode === 'visible' && state.floor.tiles.some(tile => !tile.explored) ? 44 : 0 }
-    if (spell === 'gate') return { direction, score: state.floor.objective.status === 'complete' && state.floor.guardianDefeated ? 175 : 0 }
-    const profile = scriptCastProfile(state.hero, item)
+    if (spell === 'gate') return { direction, score: (state.floor.objective.status === 'complete' && state.floor.guardianDefeated ? 175 : 0) + propScore }
+    const range = spellTargetRange(state, item)
     const delta = DIRECTIONS[direction]
-    const point = { x: state.hero.x + delta.x * profile.range, y: state.hero.y + delta.y * profile.range }
+    const point = { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }
     if (spell === 'blink') return { direction, score: getTile(state.floor, point.x, point.y) && passable(state, mode, point, true) && hostilePressure(state, mode, point) + 35 < hostilePressure(state, mode, state.hero) ? 82 : 0 }
     const canHit = resolveLineEffect(state.floor, state.hero, point).cells.some(cell => cell.x === point.x && cell.y === point.y)
     const foe = canHit ? actorAt(state.floor, point.x, point.y) : undefined
-    return { direction, score: foe?.hostile ? (spell === 'ember' ? 94 : ['root', 'lull', 'gust', 'pull'].includes(spell) ? 58 : 0) : 0 }
+    return { direction, score: (foe?.hostile ? (spell === 'ember' ? 94 : ['root', 'lull', 'gust', 'pull'].includes(spell) ? 58 : 0) : 0) + propScore }
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
   return scored[0]?.score ? scored[0] : undefined
 }
@@ -823,9 +859,17 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
   const beforeEnemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((sum, actor) => sum + actor.health, 0)
   const beforeEnemies = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
   const beforeMobility = adjacentCells(state.hero).filter(point => passable(state, mode, point, false, true)).length
+  const beforeProps = new Map(state.floor.props.map(prop => [prop.id, propFingerprint(prop)]))
+  const beforeItems = state.floor.items.length + state.hero.inventory.length
+  const beforeExplored = state.floor.tiles.filter(tile => tile.explored).length
+  const beforeHazards = state.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length
+  const beforeRoute = hasStrategicRoute(state, mode)
+  const pressure = hostilePressure(state, mode, state.hero)
+  const imminentTelegraphs = state.floor.telegraphs?.filter(telegraph => telegraph.resolveTurn <= state.turn + 3) ?? []
   const scored = directions.flatMap(([direction]) => {
     const simulated = planningClone(state)
     const health = simulated.hero.health
+    const shielded = Boolean(simulated.hero.conditions?.some(condition => condition.kind === 'shielded'))
     perform(simulated, directionCommands[direction])
     const events = perform(simulated, 'Enter')
     if (simulated.status === 'dead' || simulated.turn === state.turn) return []
@@ -837,10 +881,24 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const mobility = adjacentCells(simulated.hero).filter(point => passable(simulated, mode, point, false, true)).length
     const mobilityGain = Math.max(0, mobility - beforeMobility)
     const base = targetDirection(state, mode, modal.action, modal.item)?.direction === direction ? 30 : 0
-    const score = base + damage * 14 + kills * 90 + mobilityGain * 70 - harm * 42 - events.filter(event => event.type === 'danger').length * 10
-    if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1) return []
+    const changedProps = simulated.floor.props.filter(prop => beforeProps.get(prop.id) !== propFingerprint(prop))
+    const routeGained = !beforeRoute && hasStrategicRoute(simulated, mode)
+    const itemGain = Math.max(0, simulated.floor.items.length + simulated.hero.inventory.length - beforeItems)
+    const exploredGain = Math.max(0, simulated.floor.tiles.filter(tile => tile.explored).length - beforeExplored)
+    const hazardsAdded = Math.max(0, simulated.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length - beforeHazards)
+    const hazardsRemoved = Math.max(0, beforeHazards - simulated.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length)
+    const shieldGain = !shielded && Boolean(simulated.hero.conditions?.some(condition => condition.kind === 'shielded'))
+    const reachedExit = state.floor.objective.status === 'complete' && state.floor.guardianDefeated && pointKey(simulated.hero) === pointKey(simulated.floor.exit)
+    const protectedTelegraph = changedProps.some(prop => (prop.effectCells ?? []).some(cell => imminentTelegraphs.some(telegraph => telegraph.cells.some(target => pointKey(target) === pointKey(cell)))))
+    const tacticalShield = shieldGain && (pressure >= 100 || telegraphDanger(state, state.hero) || protectedTelegraph)
+    const propValue = (routeGained ? 220 : 0) + (reachedExit ? 180 : 0) + itemGain * 72 + (mode === 'visible' ? exploredGain * 2 : 0) + hazardsRemoved * 64 + (tacticalShield ? 110 : 0) + (protectedTelegraph ? 130 : 0)
+    const usefulPropEffect = changedProps.length > 0 && propValue > 0
+    const score = base + damage * 14 + kills * 90 + mobilityGain * 70 + propValue - harm * 42 - events.filter(event => event.type === 'danger').length * 10
+    if (changedProps.length && !usefulPropEffect && damage < 1 && kills < 1) return []
+    if (hazardsAdded > 0 && !routeGained && kills < 1) return []
+    if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1 && propValue < 1) return []
     if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []
-    if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0) return []
+    if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0 && propValue < 1) return []
     if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
     return [{ direction, score }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
@@ -883,20 +941,22 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const standingInTelegraph = telegraphDanger(state, state.hero)
   const bombEmergency = state.hero.health * 2 <= state.hero.maxHealth && pressure >= 25
   const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
+  const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
   const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
-  const canBomb = state.hero.bombs > resourceReserve(policy) || (bombEmergency && state.hero.bombs > 0) || guardianBomb || telegraphCounterBomb
-  const bombTarget = canBomb ? usableTarget(state, mode, 'bomb') : undefined
-  if (bombTarget && bombTarget.score > 0 && (telegraphCounterBomb || guardianBomb || (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted)))) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  const propBomb = Boolean(bombTarget && bombTarget.score >= 180)
+  const tacticalBomb = (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted))
+  const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || ((state.hero.bombs > resourceReserve(policy) || bombEmergency) && tacticalBomb)
+  if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
   const throwThreshold = throwable === 'fireJar' ? 85 : throwable === 'spear' ? 54 : 34
-  if (throwable && throwTarget && safeThrowTarget && throwTarget.score >= throwThreshold) candidates.push({ command: 't', reason: rooted ? `break root: throw:${throwable}` : `throw:${throwable}`, score: (rooted ? 330 : 96) + throwTarget.score / 10 + (pressure >= 100 ? 60 : 0), intent: { kind: 'throw', item: throwable } })
+  if (throwable && throwTarget && safeThrowTarget && (throwTarget.score >= throwThreshold || safeThrowTarget.score >= 72)) candidates.push({ command: 't', reason: rooted ? `break root: throw:${throwable}` : safeThrowTarget.score >= 72 ? `throw prop:${throwable}` : `throw:${throwable}`, score: (rooted ? 330 : 96) + Math.max(throwTarget.score, safeThrowTarget.score) / 10 + (pressure >= 100 ? 60 : 0), intent: { kind: 'throw', item: throwable } })
   const spell = state.hero.inventory.filter(id => ITEM[id]?.use === 'spell').map(id => ({ id, target: targetDirection(state, mode, 'spell', id), resolved: usableTarget(state, mode, 'spell', id), profile: scriptCastProfile(state.hero, id) }))
     .filter((choice): choice is { id: string; target: { direction: Exclude<Direction, 'wait'>; score: number }; resolved: { direction: Exclude<Direction, 'wait'>; score: number }; profile: ReturnType<typeof scriptCastProfile> } => Boolean(choice.target && choice.resolved) && state.hero.focus >= choice.profile.focusCost)
-    .sort((a, b) => b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
-  if (spell) candidates.push({ command: 'u', reason: rooted ? `break root: cast:${spell.id}` : `cast:${spell.id}`, score: (rooted ? 310 : 90) + spell.target.score / 5 + (pressure >= 100 ? 60 : 0), intent: { kind: 'use', item: spell.id } })
+    .sort((a, b) => b.resolved.score - a.resolved.score || b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
+  if (spell) candidates.push({ command: 'u', reason: rooted ? `break root: cast:${spell.id}` : spell.resolved.score >= 72 ? `cast prop:${spell.id}` : `cast:${spell.id}`, score: (rooted ? 310 : 90) + Math.max(spell.target.score, spell.resolved.score) / 5 + (pressure >= 100 ? 60 : 0), intent: { kind: 'use', item: spell.id } })
   const nearbyContainer = adjacentCells(heroPoint).some(point => ['crate', 'chest'].includes(getTile(state.floor, point.x, point.y)?.kind ?? ''))
   const nearLockedDoor = adjacentCells(heroPoint).some(point => getTile(state.floor, point.x, point.y)?.kind === 'lockedDoor')
   const merchant = state.floor.actors.find(actor => actor.role === 'merchant' && chebyshev(actor, state.hero) <= 1)
