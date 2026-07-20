@@ -1,6 +1,6 @@
 import { DIRECTIONS, type Point, type Prop, type PropEffectKind, type RunState } from '../types'
 import { isBlockingProp, propAt, propDefinition } from '../props'
-import { actorAt, getTile, isPassable, preservesExitPath } from '../world'
+import { actorAt, getTile, hasPassablePath, isPassable, preservesExitPath } from '../world'
 import { damageHero, explode, resolveDefeatedActors } from './combat'
 import { addCondition, modifyIncomingDamage } from './conditions'
 import { event, log, type ActionResult } from './shared'
@@ -8,6 +8,7 @@ import { event, log, type ActionResult } from './shared'
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const mineProp = (prop: Prop): boolean => prop.biome === 'mine' && prop.kind.startsWith('mine.')
 const wildsProp = (prop: Prop): boolean => prop.biome === 'wilds' && prop.kind.startsWith('wilds.')
+const cavernProp = (prop: Prop): boolean => prop.biome === 'caverns' && prop.kind.startsWith('caverns.')
 const cardinal = (point: Point): boolean => Math.abs(point.x) + Math.abs(point.y) === 1
 const hazardKinds = new Set(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
 
@@ -56,8 +57,53 @@ const clearEffectCells = (state: RunState, prop: Prop): void => {
   for (const point of prop.effectCells ?? []) {
     const tile = getTile(state.floor, point.x, point.y)
     if (tile?.kind === 'bramble') tile.kind = 'floor'
+    if (prop.kind === 'caverns.barnacledShrine' && tile?.kind === 'water') tile.kind = 'floor'
   }
   prop.effectCells = undefined
+}
+
+const floodBrine = (state: RunState, point: Point): Point[] => {
+  const flooded: Point[] = []
+  for (const candidate of nearbyPoints(point)) {
+    const tile = getTile(state.floor, candidate.x, candidate.y)
+    if (!tile || tile.kind !== 'floor' || actorAt(state.floor, candidate.x, candidate.y) || (state.hero.x === candidate.x && state.hero.y === candidate.y)) continue
+    tile.kind = 'water'
+    flooded.push(candidate)
+    if (flooded.length === 2) break
+  }
+  return flooded
+}
+
+const disturbEelTunnel = (state: RunState, prop: Prop): boolean => {
+  const candidate = nearbyPoints(prop, 3).find(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) > 1 && isPassable(state.floor, point.x, point.y) && !actorAt(state.floor, point.x, point.y))
+  if (!candidate) return false
+  state.floor.actors.push({ id: `${prop.id}:eel`, role: 'monster', kind: 'fumeEel', name: 'fume eel', x: candidate.x, y: candidate.y, health: 8, maxHealth: 8, attack: 5, defense: 10, speed: 105, energy: 0, glyph: 'u', color: '#8fc59a', hostile: true, ai: 'chase', conditions: [] })
+  return true
+}
+
+const destroyCrystal = (state: RunState, prop: Prop, source: 'pickaxe' | 'blast'): void => {
+  prop.state = 'destroyed'
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (tile?.kind === 'floor' && preservesExitPath(state.floor, state.floor.start, prop, 'rubble')) tile.kind = 'rubble'
+  reward(state, prop, 'rock', 2)
+  log(state, source === 'pickaxe' ? 'You mine crystal shards and leave safe rubble.' : 'The blast shatters the crystal into safe rubble.')
+}
+
+const consumeCavernCacheKey = (state: RunState): 'key' | 'bomb' | 'sunseal' | 'wardScript' | undefined => {
+  if (state.hero.keys > 0) { state.hero.keys--; return 'key' }
+  if (state.hero.bombs > 0) { state.hero.bombs--; return 'bomb' }
+  if (state.hero.equipment.charm === 'sunseal') { state.hero.equipment.charm = undefined; return 'sunseal' }
+  const ward = state.hero.inventory.indexOf('wardScript')
+  if (ward >= 0) { state.hero.inventory.splice(ward, 1); return 'wardScript' }
+  return undefined
+}
+
+const canSealEelTunnel = (state: RunState, tunnel: Prop): boolean => {
+  const previous = tunnel.state
+  tunnel.state = 'activated'
+  const safe = hasPassablePath(state.floor, state.hero, state.floor.exit) && hasPassablePath(state.floor, state.floor.start, state.floor.exit)
+  tunnel.state = previous
+  return safe
 }
 
 const disturbNest = (state: RunState, prop: Prop): boolean => {
@@ -271,6 +317,65 @@ const operateWildsProp = (state: RunState, prop: Prop): PropOperation | undefine
   return undefined
 }
 
+const operateCavernProp = (state: RunState, prop: Prop): PropOperation | undefined => {
+  if (prop.kind === 'caverns.crystalCluster') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Mine it with an Obsidian Axe, blast it for shards, or use force to refract line effects.')
+    if (prop.state === 'activated') { log(state, 'The crystal refracts sight and line effects through its opened facets.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand !== 'pickaxe') { log(state, 'An Obsidian Axe is required to mine the crystal safely.'); return { kind: 'examined', events: [] } }
+    destroyCrystal(state, prop, 'pickaxe')
+    return { kind: 'activated', events: [event('pickup'), event('boom')] }
+  }
+  if (prop.kind === 'caverns.glowingFungus') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Harvest it with C to lose its light, wet it to brighten the cave, or burn it to release spores.')
+    if (prop.state === 'activated') { log(state, 'The soaked fungus spills a broad, cold local glow.'); return { kind: 'examined', events: [] } }
+    prop.state = 'destroyed'
+    reward(state, prop, 'focusTonic')
+    log(state, 'You harvest the fungus for focus and extinguish its local glow.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'caverns.barnacledShrine') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Offer a Vital or Focus Tonic with C for a temporary brine ward, or wet the shrine directly.')
+    if (prop.state === 'activated') { log(state, 'The brine ward still shimmers around the shrine.'); return { kind: 'examined', events: [] } }
+    const offering = state.hero.inventory.find(item => item === 'tonic' || item === 'focusTonic')
+    if (!offering) { log(state, 'The shrine asks for a Vital or Focus Tonic.'); return { kind: 'examined', events: [] } }
+    state.hero.inventory.splice(state.hero.inventory.indexOf(offering), 1)
+    prop.state = 'activated'
+    const flooded = floodBrine(state, prop)
+    prop.effectCells = flooded.map(point => ({ ...point }))
+    prop.expiresAt = state.turn + 4
+    addCondition(state.hero, { kind: 'shielded', duration: 4, potency: 1 })
+    log(state, `The brine offering raises a ward and floods ${flooded.length || 'a'} nearby channel.`)
+    return { kind: 'activated', events: [event('spell')] }
+  }
+  if (prop.kind === 'caverns.brokenBoat') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press R beside the boat to spend a rope and anchor this water crossing.')
+    if (prop.state === 'activated') { log(state, 'The anchored boat holds a safe crossing.'); return { kind: 'examined', events: [] } }
+    log(state, 'The boat is ready for a rope anchor.')
+    return { kind: 'examined', events: [] }
+  }
+  if (prop.kind === 'caverns.eelTunnel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'The open tunnel is a shortcut and a fume-eel origin. Press C again with a bomb to seal it; force reopens it.')
+    if (prop.state === 'activated') { log(state, 'The eel tunnel is sealed; force can reopen the shortcut.'); return { kind: 'examined', events: [] } }
+    if (state.hero.bombs < 1) { log(state, 'A bomb is required to seal the eel tunnel.'); return { kind: 'examined', events: [] } }
+    if (!canSealEelTunnel(state, prop)) { log(state, 'Sealing this tunnel would close the required trail.'); return { kind: 'examined', events: [] } }
+    state.hero.bombs--
+    prop.state = 'activated'
+    log(state, 'You seal the eel tunnel and close its shortcut.')
+    return { kind: 'activated', events: [event('boom')] }
+  }
+  if (prop.kind === 'caverns.sealedParcel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to spend a key, bomb, Sunstone Seal, or Ward Charm and open the cache.')
+    if (prop.state === 'activated') { log(state, 'The sealed parcel has already been opened.'); return { kind: 'examined', events: [] } }
+    const key = consumeCavernCacheKey(state)
+    if (!key) { log(state, 'The wax seal resists: bring a key, bomb, Sunstone Seal, or Ward Charm.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'focusTonic')
+    log(state, `You spend ${key === 'wardScript' ? 'a Ward Charm' : key === 'sunseal' ? 'the Sunstone Seal' : `a ${key}`} to open the parcel.`)
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  return undefined
+}
+
 export interface PropOperation { kind: 'examined' | 'activated' | 'moved'; events: ActionResult }
 
 export const operateProp = (state: RunState): PropOperation | undefined => {
@@ -278,6 +383,7 @@ export const operateProp = (state: RunState): PropOperation | undefined => {
   if (!prop || !prop.hooks?.includes('operate')) return undefined
   if (mineProp(prop)) return operateMineProp(state, prop)
   if (wildsProp(prop)) return operateWildsProp(state, prop)
+  if (cavernProp(prop)) return operateCavernProp(state, prop)
   const definition = propDefinition(prop.kind)
   if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to activate it.')
   if (prop.state === 'activated') {
@@ -315,6 +421,19 @@ export const releaseCartWithRope = (state: RunState): ActionResult | undefined =
   return events
 }
 
+export const anchorBoatWithRope = (state: RunState): ActionResult | undefined => {
+  const boat = Object.values(DIRECTIONS)
+    .filter(cardinal)
+    .map(delta => propAt(state.floor.props, state.hero.x + delta.x, state.hero.y + delta.y))
+    .find((prop): prop is Prop => prop?.kind === 'caverns.brokenBoat' && prop.state !== 'destroyed')
+  if (!boat) return undefined
+  if (boat.state === 'dormant') { log(state, 'Examine the boat before anchoring it.'); return [] }
+  if (boat.state === 'activated') { log(state, 'The boat is already anchored.'); return [] }
+  boat.state = 'activated'
+  log(state, 'The rope draws the boat into a stable crossing.')
+  return [event('move')]
+}
+
 const destroyProp = (state: RunState, prop: Prop, effect: PropEffectKind): void => {
   const definition = propDefinition(prop.kind)
   prop.state = 'destroyed'
@@ -328,6 +447,7 @@ export const expirePropEffects = (state: RunState): void => {
     clearEffectCells(state, prop)
     prop.expiresAt = undefined
     if (prop.kind === 'wilds.rootShrine') log(state, 'The shrine\'s thorn screen withers away.')
+    if (prop.kind === 'caverns.barnacledShrine') log(state, 'The brine channels drain and the ward recedes.')
     if (prop.kind === 'wilds.birdNest') {
       state.floor.actors = state.floor.actors.filter(actor => actor.id !== `${prop.id}:flock`)
       log(state, 'The startled birds scatter back into the canopy.')
@@ -387,6 +507,78 @@ const applyWildsEffect = (state: RunState, prop: Prop, effect: PropEffectKind): 
   return false
 }
 
+const applyCavernEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  if (prop.kind === 'caverns.crystalCluster') {
+    if (effect === 'force') {
+      prop.state = 'activated'
+      log(state, 'Force angles the crystal facets and refracts line effects through them.')
+    } else destroyCrystal(state, prop, 'blast')
+    return true
+  }
+  if (prop.kind === 'caverns.glowingFungus') {
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (effect === 'water') {
+      prop.state = 'activated'
+      const revealed = revealLocal(state, prop, 4)
+      log(state, `The soaked fungus brightens and reveals ${revealed} nearby tiles.`)
+    } else if (effect === 'fire') {
+      prop.state = 'destroyed'
+      if (tile?.kind === 'floor' || tile?.kind === 'darkness') tile.kind = 'fireVent'
+      log(state, 'The fungus burns into a visible fire patch.')
+    } else {
+      prop.state = 'destroyed'
+      if (tile?.kind === 'floor' || tile?.kind === 'darkness') tile.kind = 'gas'
+      log(state, 'The fungus bursts into a visible spore cloud.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.barnacledShrine') {
+    if (effect === 'water') {
+      prop.state = 'activated'
+      const flooded = floodBrine(state, prop)
+      prop.effectCells = flooded.map(point => ({ ...point }))
+      prop.expiresAt = state.turn + 4
+      addCondition(state.hero, { kind: 'shielded', duration: 4, potency: 1 })
+      log(state, 'The shrine answers the tide with a brief brine ward.')
+    } else {
+      clearEffectCells(state, prop)
+      prop.state = 'destroyed'
+      log(state, 'The barnacled shrine cracks and its brine ward fails.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.brokenBoat') {
+    if (effect === 'water' || effect === 'force') {
+      prop.state = 'activated'
+      log(state, 'The current settles the boat into a stable water crossing.')
+    } else {
+      prop.state = 'destroyed'
+      log(state, 'The boat breaks apart, leaving the water route open but unanchored.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.eelTunnel') {
+    if (effect === 'force') {
+      if (prop.state !== 'activated' && !canSealEelTunnel(state, prop)) { log(state, 'The tunnel resists a seal that would close the required trail.'); return true }
+      prop.state = prop.state === 'activated' ? 'dormant' : 'activated'
+      log(state, prop.state === 'activated' ? 'Force seals the eel tunnel.' : 'Force pulls the eel tunnel open as a shortcut.')
+    } else if (effect === 'fire' && prop.state !== 'activated') {
+      log(state, disturbEelTunnel(state, prop) ? 'Flame draws a fume eel from the open tunnel.' : 'The open tunnel hisses, but no eel reaches the path.')
+    } else {
+      if (canSealEelTunnel(state, prop)) { prop.state = 'activated'; log(state, 'The eel tunnel seals shut.') }
+      else log(state, 'The tunnel cannot seal without closing the required trail.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.sealedParcel') {
+    prop.state = 'activated'
+    reward(state, prop, 'focusTonic')
+    log(state, 'The impact cracks the wax seal and opens the parcel cache.')
+    return true
+  }
+  return false
+}
+
 export const applyPropEffects = (state: RunState, points: readonly Point[], effects: readonly PropEffectKind[]): string[] => {
   const targets = new Set(points.map(pointKey))
   const changed: string[] = []
@@ -395,6 +587,7 @@ export const applyPropEffects = (state: RunState, points: readonly Point[], effe
     const effect = effects.find(candidate => prop.hooks?.includes(candidate))
     if (!effect) continue
     if (wildsProp(prop) && applyWildsEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (cavernProp(prop) && applyCavernEffect(state, prop, effect)) { changed.push(prop.id); continue }
     if (prop.kind === 'mine.lanternPost') {
       if (effect === 'fire') { prop.state = 'activated'; log(state, 'The lantern post catches and spills local light.'); changed.push(prop.id); continue }
       if (effect === 'water' || effect === 'hazard') { prop.state = 'dormant'; log(state, 'The lantern post gutters out.'); changed.push(prop.id); continue }

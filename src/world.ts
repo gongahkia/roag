@@ -140,6 +140,18 @@ const hasMinePropContext = (floor: Floor, kind: Prop['kind'], point: Point): boo
   return true
 }
 
+const hasCavernPropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => {
+  if (!kind.startsWith('caverns.')) return true
+  const nearWater = hasNearbyTile(floor, point, 1, new Set<Tile['kind']>(['water']))
+  const nearDarkness = hasNearbyTile(floor, point, 1, new Set<Tile['kind']>(['darkness']))
+  if (kind === 'caverns.crystalCluster' || kind === 'caverns.glowingFungus') return nearDarkness
+  if (kind === 'caverns.barnacledShrine' || kind === 'caverns.brokenBoat' || kind === 'caverns.eelTunnel') return nearWater
+  if (kind === 'caverns.sealedParcel') return nearWater || nearDarkness
+  return true
+}
+
+const hasPropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => hasMinePropContext(floor, kind, point) && hasCavernPropContext(floor, kind, point)
+
 function carveRooms(floor: Floor, rng: Rng): Room[] {
   const rooms: Room[] = []
   for (let attempt = 0; attempt < 160 && rooms.length < 12; attempt++) {
@@ -175,7 +187,7 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
     for (let index = 0; index < floor.tiles.length; index++) {
       const tile = floor.tiles[index]
       const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
-      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index) && hasMinePropContext(floor, definition.id, point)) candidates.push(index)
+      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index) && hasPropContext(floor, definition.id, point)) candidates.push(index)
     }
     if (!candidates.length) continue
     const placement = rng.pick(candidates)
@@ -472,7 +484,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     propLocations.add(location)
     if (prop.biome !== floor.biome || definition.biome !== floor.biome) errors.push(`invalid prop biome: ${prop.id}`)
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor' || !definition.terrain.includes(tile.kind)) errors.push(`illegal prop placement: ${prop.id}`)
-    if (!hasMinePropContext(floor, prop.kind, prop)) errors.push(`invalid prop context: ${prop.id}`)
+    if (!hasPropContext(floor, prop.kind, prop)) errors.push(`invalid prop context: ${prop.id}`)
     else if (isBlockingProp(prop)) {
       const reachableSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
       if (!reachableSide) errors.push(`unreachable prop: ${prop.id}`)

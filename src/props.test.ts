@@ -71,7 +71,7 @@ describe('world props', () => {
     const force = createRun()
     force.floor.props = [prop({ kind: 'caverns.crystalCluster', biome: 'caverns', hooks: ['operate', 'force'], tags: ['salvage', 'force', 'light'] })]
     castAstral(force, 'gust', { x: 2, y: 1 })
-    expect(force.floor.props[0].state).toBe('destroyed')
+    expect(force.floor.props[0].state).toBe('activated')
 
     const fire = createRun()
     fire.floor.props = [prop({ kind: 'ruins.ritualBrazier', biome: 'ruins', hooks: ['operate', 'fire'], tags: ['ritual', 'fire', 'hazard'] })]

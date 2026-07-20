@@ -14,6 +14,13 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)?.floor.props).toEqual(run.floor.props)
   })
 
+  it('preserves temporary prop terrain state in valid v3 runs', () => {
+    const run = newRun(125)
+    run.floor.props[0].effectCells = [{ x: 3, y: 4 }]
+    run.floor.props[0].expiresAt = 9
+    expect(migrateRunRecord(run)?.floor.props[0]).toMatchObject({ effectCells: [{ x: 3, y: 4 }], expiresAt: 9 })
+  })
+
   it('rejects v1 and v2 runs after the prop schema change', () => {
     expect(migrateRunRecord({ ...newRun(456), version: 1 })).toBeUndefined()
     expect(migrateRunRecord({ ...newRun(456), version: 2 })).toBeUndefined()
