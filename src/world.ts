@@ -190,7 +190,7 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
       tags: [...definition.tags],
       hooks: [...definition.hooks]
     }
-    if (definition.id === 'mine.brokenCart') {
+    if (isBlockingProp(prop)) {
       floor.props.push(prop)
       const keepsExitReachable = hasPassablePath(floor, floor.start, floor.exit)
       const keepsObjectiveReachable = objectiveTargets(floor).some(target => canReachObjectiveWithProps(floor, target))
@@ -474,8 +474,8 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor' || !definition.terrain.includes(tile.kind)) errors.push(`illegal prop placement: ${prop.id}`)
     if (!hasMinePropContext(floor, prop.kind, prop)) errors.push(`invalid prop context: ${prop.id}`)
     else if (isBlockingProp(prop)) {
-      const reachableCartSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
-      if (!reachableCartSide) errors.push(`unreachable prop: ${prop.id}`)
+      const reachableSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
+      if (!reachableSide) errors.push(`unreachable prop: ${prop.id}`)
     } else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)

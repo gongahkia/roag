@@ -66,7 +66,7 @@ describe('world props', () => {
     const root = createRun()
     root.floor.props = [prop({ kind: 'wilds.rootShrine', biome: 'wilds', hooks: ['operate', 'root'], tags: ['ritual', 'root', 'growth'] })]
     castVerdant(root, 'root', { x: 2, y: 1 })
-    expect(root.floor.props[0].state).toBe('destroyed')
+    expect(root.floor.props[0]).toMatchObject({ state: 'activated', effectCells: expect.any(Array), expiresAt: 4 })
 
     const force = createRun()
     force.floor.props = [prop({ kind: 'caverns.crystalCluster', biome: 'caverns', hooks: ['operate', 'force'], tags: ['salvage', 'force', 'light'] })]

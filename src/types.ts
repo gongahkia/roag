@@ -65,6 +65,8 @@ export interface Prop {
   state: PropState
   tags: PropTag[]
   hooks?: PropHook[]
+  effectCells?: Point[]
+  expiresAt?: number
 }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type TelegraphDanger = 'minor' | 'major'

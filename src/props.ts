@@ -55,7 +55,7 @@ export const propDefinition = (id: PropId): PropDefinition => {
 
 export const propDefinitionsFor = (biome: Biome): readonly PropDefinition[] => PROP_DEFINITIONS.filter(definition => definition.biome === biome)
 export const propAt = (props: readonly Prop[], x: number, y: number): Prop | undefined => props.find(prop => prop.x === x && prop.y === y && prop.state !== 'destroyed')
-export const isBlockingProp = (prop: Prop | undefined): boolean => prop?.kind === 'mine.brokenCart' && prop.state !== 'destroyed'
+export const isBlockingProp = (prop: Prop | undefined): boolean => (prop?.kind === 'mine.brokenCart' && prop.state !== 'destroyed') || (prop?.kind === 'wilds.rootArch' && prop.state !== 'activated' && prop.state !== 'destroyed')
 export const propEffects = (hooks: readonly PropHook[]): PropEffectKind[] => hooks.filter((hook): hook is PropEffectKind => hook !== 'operate')
 
 export const validatePropDefinitions = (): string[] => {
