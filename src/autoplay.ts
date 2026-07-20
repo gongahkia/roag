@@ -7,7 +7,7 @@ import { canAffect, resolveLineEffect } from './engine/line-effect'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
-import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type RunState, type TileKind } from './types'
+import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type Prop, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassableTerrainPath } from './world'
 import { isBlockingProp, propAt } from './props'
 
@@ -23,6 +23,7 @@ const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'cru
 const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).filter(([direction]) => direction !== 'wait') as Array<[Exclude<Direction, 'wait'>, Point]>
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
+const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
 const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
@@ -44,7 +45,7 @@ const planningClone = (state: RunState): RunState => {
       tiles: floor.tiles.map(tile => ({ ...tile })),
       actors: floor.actors.map(actor => ({ ...cloneConditions(actor), status: actor.status ? [...actor.status] : undefined })),
       items: floor.items.map(item => ({ ...item })),
-      props: floor.props.map(prop => ({ ...prop, tags: [...prop.tags], hooks: prop.hooks ? [...prop.hooks] : undefined })),
+      props: floor.props.map(prop => ({ ...prop, tags: [...prop.tags], hooks: prop.hooks ? [...prop.hooks] : undefined, effectCells: prop.effectCells?.map(point => ({ ...point })) })),
       start: { ...floor.start },
       exit: { ...floor.exit },
       objective: { ...floor.objective },
@@ -76,7 +77,7 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const equipment = Object.entries(hero.equipment).sort(([a], [b]) => a.localeCompare(b)).map(([slot, id]) => `${slot}:${id}`).join(',')
   const cooldowns = Object.entries(hero.cooldowns ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([id, turns]) => `${id}:${turns}`).join(',')
   const items = state.floor.items.map(item => `${item.id}:${item.x},${item.y},${item.count}`).sort().join('|')
-  const props = state.floor.props.map(prop => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}`).sort().join('|')
+  const props = state.floor.props.map(propFingerprint).sort().join('|')
   const tiles = state.floor.tiles.map(tile => `${tile.kind}:${tile.explored ? 1 : 0}`).join('|')
   const telegraphs = (state.floor.telegraphs ?? []).map(telegraph => `${telegraph.id}:${telegraph.resolveTurn}:${telegraph.cells.map(pointKey).join(',')}`).sort().join('|')
   return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
@@ -112,8 +113,9 @@ const autoplayProgressFingerprint = (state: RunState, includePosition: boolean):
     if (tile.kind === 'crate' || tile.kind === 'chest') summary.containers++
     return summary
   }, { explored: 0, containers: 0 })
+  const props = state.floor.props.map(propFingerprint).sort().join('|')
   const position = includePosition ? `${hero.x},${hero.y}:` : ''
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}:${props}`
 }
 
 export const autoplayRecoveryFingerprint = (state: RunState): string => autoplayProgressFingerprint(state, true)

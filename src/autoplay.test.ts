@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { AUTOPLAY_MAX_TURNS, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, createAutoplayContext, recordAutoplayTransition } from './autoplay'
+import { AUTOPLAY_MAX_TURNS, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, autoplayStateFingerprint, createAutoplayContext, recordAutoplayTransition, snapshotAutoplayTransition } from './autoplay'
 import { runAutoplay } from './autoplay-runner'
 import { newRun, perform, skillChoices } from './engine'
+import { propDefinition } from './props'
 
 describe('autoplay', () => {
   it('does not mutate planning state and resolves level-up choices', () => {
@@ -12,6 +13,24 @@ describe('autoplay', () => {
     state.modal = { kind: 'skills', source: 'level' }
     const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
     expect(skillChoices(state).map((_, index) => String(index + 1))).toContain(decision?.command)
+  })
+
+  it('tracks temporary prop fields without mutating them during planning', () => {
+    const state = newRun(71, 'ruins')
+    const definition = propDefinition('ruins.monolith')
+    state.floor.props = [{ id: 'temporary-monolith', kind: definition.id, biome: definition.biome, x: state.hero.x + 1, y: state.hero.y, state: 'activated', tags: [...definition.tags], hooks: [...definition.hooks], effectCells: [{ x: state.hero.x + 1, y: state.hero.y }, { x: state.hero.x + 2, y: state.hero.y }], expiresAt: state.turn + 4 }]
+    const before = structuredClone(state)
+    const initial = snapshotAutoplayTransition(state)
+    state.floor.props[0].effectCells = [{ x: state.hero.x + 1, y: state.hero.y }]
+    const changedCells = snapshotAutoplayTransition(state)
+    state.floor.props[0].expiresAt = state.turn + 5
+    const changedExpiry = autoplayStateFingerprint(state)
+    expect(changedCells.stateKey).not.toBe(initial.stateKey)
+    expect(changedCells.progressKey).not.toBe(initial.progressKey)
+    expect(changedExpiry).not.toBe(changedCells.stateKey)
+    state.floor.props = before.floor.props
+    autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
+    expect(state).toEqual(before)
   })
 
   it('keeps visible-only planning within explored terrain', () => {
