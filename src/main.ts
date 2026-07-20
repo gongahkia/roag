@@ -167,7 +167,7 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
   if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
     const forward = key === 'ArrowRight'
     if (courierDraft.focus === 1) {
-      const options: CourierDraft['origin'][] = ['mineborn', 'mosswalker', 'cavernSeeker']
+      const options: CourierDraft['origin'][] = ['mineborn', 'mosswalker', 'cavernSeeker', 'tidebound']
       const index = options.indexOf(courierDraft.origin)
       courierDraft = { ...courierDraft, origin: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
     } else if (courierDraft.focus === 2) {

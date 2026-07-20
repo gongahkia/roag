@@ -6,9 +6,9 @@ const root = dirname(fileURLToPath(import.meta.url))
 const assetDir = join(root, '..', 'src', 'assets', 'generated-sprites')
 const manifest = JSON.parse(await readFile(join(assetDir, 'sprite-manifest.json'), 'utf8'))
 const expectedActors = ['rat', 'mole', 'sapper', 'beetle', 'driller', 'railguard', 'fusewarden', 'foreman', 'thornling', 'boar', 'spitter', 'wisp', 'frog', 'vinebinder', 'marshskater', 'webweaver', 'heartwood', 'crawler', 'magma', 'echo', 'seer', 'slug', 'cinderimp', 'fumeeel', 'gloomseer', 'crystalpuller', 'geode', 'scarab', 'sentinel', 'oracle', 'shade', 'cultist', 'wardacolyte', 'dartadept', 'lockkeeper', 'ritualist', 'regent']
-const expectedItems = ['whip', 'machete', 'pickaxe', 'spear', 'sunblade', 'buckler', 'lantern', 'cap', 'mask', 'coat', 'mail', 'boots', 'featherboots', 'ward', 'sunseal', 'tonic', 'focusTonic', 'mapScroll', 'blinkRune', 'bombPack', 'ropeBundle', 'key', 'rock', 'fireJar', 'ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'pull', 'gust', 'wardScript', 'gate']
+const expectedItems = ['whip', 'machete', 'pickaxe', 'spear', 'tideSpear', 'sunblade', 'buckler', 'lantern', 'cap', 'mask', 'coat', 'mail', 'boots', 'featherboots', 'ward', 'sunseal', 'tonic', 'focusTonic', 'mapScroll', 'blinkRune', 'bombPack', 'ropeBundle', 'key', 'rock', 'fireJar', 'ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'pull', 'gust', 'wardScript', 'gate']
 const actorIds = manifest.sheets.flatMap(sheet => sheet.actorRows ?? [])
-const itemIds = manifest.sheets.flatMap(sheet => sheet.itemLayout ?? []).filter(Boolean)
+const itemIds = manifest.sheets.flatMap(sheet => [...(sheet.itemLayout ?? []), ...(sheet.animations ?? []).filter(animation => animation.id.startsWith('item.')).map(animation => animation.id.slice('item.'.length))]).filter(Boolean)
 const missing = (expected, actual) => expected.filter(id => !actual.includes(id))
 const duplicate = ids => ids.filter((id, index) => ids.indexOf(id) !== index)
 

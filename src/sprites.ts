@@ -2,7 +2,7 @@ import { ITEM } from './content'
 import manifestData from './assets/generated-sprites/sprite-manifest.json'
 import { CELL_HEIGHT, CELL_WIDTH } from './renderer/metrics'
 import { PROP_IDS, propDefinition } from './props'
-import type { Actor, Biome, Prop, Tile } from './types'
+import type { Actor, Biome, CourierOrigin, Prop, Tile } from './types'
 
 const spriteSize = 14
 const sourceSize = 16
@@ -14,6 +14,8 @@ const sheetUrls = {
   'terrain-caverns': new URL('./assets/generated-sprites/terrain-caverns.png', import.meta.url).href,
   'terrain-ruins': new URL('./assets/generated-sprites/terrain-ruins.png', import.meta.url).href,
   hero: new URL('./assets/generated-sprites/hero.png', import.meta.url).href,
+  'hero-tidebound': new URL('./assets/generated-sprites/hero-tidebound.png', import.meta.url).href,
+  'items-tidebound': new URL('./assets/generated-sprites/items-tidebound.png', import.meta.url).href,
   'npcs-gold': new URL('./assets/generated-sprites/npcs-gold.png', import.meta.url).href,
   'actors-mine': new URL('./assets/generated-sprites/actors-mine.png', import.meta.url).href,
   'actors-wilds': new URL('./assets/generated-sprites/actors-wilds.png', import.meta.url).href,
@@ -71,9 +73,19 @@ export const actorSprite: Record<string, SpriteRef> = {
 const itemSheet = manifestSheets.get('items')!
 export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns), 1, 160, itemSheet.cellOffsets?.[index])]] : [])) as Record<string, SpriteRef>
 itemSprite.gold = ref('npcs-gold', 0, 2, 4, 160)
+itemSprite.tideSpear = ref('items-tidebound', 0, 0, 4, 160)
 
-const heroSheet = manifestSheets.get('hero')!
-const heroSprite = Object.fromEntries((heroSheet.animations ?? []).map(animation => [animation.id.replace('hero.', ''), ref('hero', animation.column, animation.row, animation.frames, animation.frameDurationMs)])) as Record<HeroAnimation, SpriteRef>
+const heroAnimations = (sheetId: 'hero' | 'hero-tidebound'): Record<HeroAnimation, SpriteRef> => {
+  const sheet = manifestSheets.get(sheetId)!
+  return Object.fromEntries((sheet.animations ?? []).map(animation => [animation.id.slice(animation.id.lastIndexOf('.') + 1), ref(sheetId, animation.column, animation.row, animation.frames, animation.frameDurationMs)])) as Record<HeroAnimation, SpriteRef>
+}
+const classicHeroSprite = heroAnimations('hero')
+const heroSprites: Record<CourierOrigin, Record<HeroAnimation, SpriteRef>> = {
+  mineborn: classicHeroSprite,
+  mosswalker: classicHeroSprite,
+  cavernSeeker: classicHeroSprite,
+  tidebound: heroAnimations('hero-tidebound')
+}
 const effectSheet = manifestSheets.get('effects')!
 export const effectSprite = Object.fromEntries((effectSheet.effectRows ?? []).map((id, row) => [id, ref('effects', 0, row, effectSheet.frames, effectSheet.frameDurationMs, undefined, effectSheet.cellOffsets?.slice(row * effectSheet.columns, row * effectSheet.columns + (effectSheet.frames ?? 1)))])) as Record<string, SpriteRef>
 
@@ -183,8 +195,8 @@ export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: num
   ctx.restore()
 }
 
-export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false, flip = false, animation: HeroAnimation = 'idle'): void {
-  const sprite = hero ? heroSprite[animation] : actor ? actorSprite[actor.kind] : undefined
+export function drawActorSprite(ctx: CanvasRenderingContext2D, actor: Actor | undefined, hero: boolean, x: number, y: number, dim = false, flip = false, animation: HeroAnimation = 'idle', heroOrigin: CourierOrigin = 'mineborn'): void {
+  const sprite = hero ? heroSprites[heroOrigin][animation] : actor ? actorSprite[actor.kind] : undefined
   if (textureAtlas.draw(ctx, sprite, x, y, dim, flip)) return
   fallbackActor(ctx, actor, hero, x, y, dim)
 }

@@ -78,6 +78,28 @@
       ]
     },
     {
+      "id": "hero-tidebound",
+      "file": "hero-tidebound.png",
+      "columns": 4,
+      "rows": 4,
+      "animations": [
+        { "id": "hero-tidebound.idle", "row": 0, "column": 0, "frames": 4, "frameDurationMs": 220, "flipSafe": true },
+        { "id": "hero-tidebound.walk", "row": 1, "column": 0, "frames": 4, "frameDurationMs": 120, "flipSafe": true },
+        { "id": "hero-tidebound.attack", "row": 2, "column": 0, "frames": 4, "frameDurationMs": 90, "flipSafe": true },
+        { "id": "hero-tidebound.hit", "row": 3, "column": 0, "frames": 2, "frameDurationMs": 120, "flipSafe": true },
+        { "id": "hero-tidebound.death", "row": 3, "column": 2, "frames": 2, "frameDurationMs": 220, "flipSafe": true }
+      ]
+    },
+    {
+      "id": "items-tidebound",
+      "file": "items-tidebound.png",
+      "columns": 4,
+      "rows": 4,
+      "animations": [
+        { "id": "item.tideSpear", "row": 0, "column": 0, "frames": 4, "frameDurationMs": 160, "flipSafe": true }
+      ]
+    },
+    {
       "id": "npcs-gold",
       "file": "npcs-gold.png",
       "columns": 4,

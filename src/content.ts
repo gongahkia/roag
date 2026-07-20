@@ -35,6 +35,7 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'machete', name: 'Brush Blade', glyph: '/', color: '#b8d6a0', slot: 'mainHand', weapon: { damage: 6, reach: 1, shape: 'adjacent', cooldown: 1, tags: ['cleave', 'wilds'] }, value: 75 },
   { id: 'pickaxe', name: 'Obsidian Axe', glyph: 'T', color: '#c7c4ba', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'cross', cooldown: 2, tags: ['rubble', 'piercing'] }, value: 110 },
   { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['piercing', 'reach'] }, value: 140, throwable: true },
+  { id: 'tideSpear', name: 'Tide Spear', glyph: '/', color: '#76d8df', slot: 'mainHand', weapon: { damage: 7, reach: 2, shape: 'line', cooldown: 1, tags: ['water'] }, value: 145 },
   { id: 'sunblade', name: 'Sunstone Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
   { id: 'buckler', name: 'Woven Guard', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80, effects: [{ id: 'guarded', kind: 'passive', add: { defense: 1 } }] },
   { id: 'lantern', name: 'Resin Lamp', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
@@ -136,7 +137,7 @@ export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll'],
-  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
+  caverns: ['focusTonic', 'lantern', 'spear', 'tideSpear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
 }
 

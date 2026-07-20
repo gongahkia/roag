@@ -17,7 +17,7 @@ type CampaignRouteRecord = Omit<CampaignRouteState, 'rescuedNpcs' | 'lineageEven
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isString = (value: unknown): value is string => typeof value === 'string'
-const isCourierOrigin = (value: unknown): value is CourierOrigin => value === 'mineborn' || value === 'mosswalker' || value === 'cavernSeeker'
+const isCourierOrigin = (value: unknown): value is CourierOrigin => value === 'mineborn' || value === 'mosswalker' || value === 'cavernSeeker' || value === 'tidebound'
 const isCourierCalling = (value: unknown): value is CourierCalling => value === 'trailguard' || value === 'pathmaker' || value === 'spiritbearer'
 const isDeathMode = (value: unknown): value is DeathMode => value === 'checkpoint' || value === 'ironTrail'
 const oneOf = <T extends string>(value: unknown, values: readonly T[]): value is T => typeof value === 'string' && values.some(current => current === value)

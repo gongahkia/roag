@@ -40,6 +40,12 @@ describe('run persistence migration', () => {
     expect(hero).toMatchObject({ name: 'Ari', stats: { intellect: 3 }, deathMode: 'ironTrail', inventory: expect.arrayContaining(['focusTonic', 'sight']) })
   })
 
+  it('persists the Tidebound origin', () => {
+    const run = newRun(458)
+    run.hero = newHero({ name: 'Neri', origin: 'tidebound', calling: 'trailguard', deathMode: 'checkpoint' })
+    expect(migrateRunRecord(run)).toMatchObject({ hero: { origin: 'tidebound', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 }, equipment: { mainHand: 'tideSpear' }, inventory: expect.arrayContaining(['tideSpear']) } })
+  })
+
   it('rejects runs missing required floor state', () => {
     const run = newRun(789)
     delete (run.floor as Partial<typeof run.floor>).objective

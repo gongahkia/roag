@@ -37,7 +37,8 @@ const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => lin
 const courierOrigins = {
   mineborn: { label: 'MINEBORN', description: 'Raised among rails, stone dust, and the measured weight of a sealed parcel.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
   mosswalker: { label: 'MOSSWALKER', description: 'A trail reader who finds sure footing beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
-  cavernSeeker: { label: 'CAVERN SEEKER', description: 'A lantern scholar who follows echoes through the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } }
+  cavernSeeker: { label: 'CAVERN SEEKER', description: 'A lantern scholar who follows echoes through the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } },
+  tidebound: { label: 'TIDEBOUND', description: 'A storm-route courier who turns current, rain, and spearpoint into momentum.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
 } as const
 const courierCallings = {
   trailguard: { label: 'TRAILGUARD', description: 'Carry a woven guard and hold the route when the trail closes in.', kit: 'Courier Cord · Woven Guard · tonic' },
@@ -298,7 +299,7 @@ export class TerminalRenderer {
     if (this.spriteMode) this.drawTelegraphs(state)
     if (this.spriteMode) {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
-      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation)
+      drawActorSprite(this.ctx, undefined, true, state.hero.x, state.hero.y, false, this.heroFacingLeft, animation, state.hero.origin)
     }
     else this.cell(state.hero.x, state.hero.y, '@', state.hero.health * 4 < state.hero.maxHealth ? colors.red : colors.text)
     this.effects.drawMap(this.ctx)
