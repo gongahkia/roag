@@ -24,7 +24,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -59,9 +59,9 @@ const planningClone = (state: RunState): RunState => {
 }
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
-type Candidate = AutoplayCandidate & { intent?: Intent; predictiveTarget?: string }
+type Candidate = AutoplayCandidate & { intent?: Intent; predictiveTarget?: string; propPlanId?: string }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; bestStrategicDistance?: number; startedTurn?: number; lastPredictiveTarget?: string; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; bestStrategicDistance?: number; startedTurn?: number; lastPredictiveTarget?: string; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
@@ -139,9 +139,13 @@ export const recordAutoplayTransitionSnapshot = (context: AutoplayContext, befor
   const afterKey = autoplayStateFingerprint(after)
   context.visits.set(afterKey, (context.visits.get(afterKey) ?? 0) + 1)
   if (after.turn <= before.turn) {
-    context.noTurnCommands++
-    if (beforeKey === afterKey) context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
-    else context.failed.clear()
+    if (beforeKey === afterKey) {
+      context.noTurnCommands++
+      context.failed.set(command, (context.failed.get(command) ?? 0) + 1)
+    } else {
+      context.noTurnCommands = 0
+      context.failed.clear()
+    }
     return
   }
   context.noTurnCommands = 0
@@ -397,6 +401,60 @@ const hasStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
 }
 export const autoplayHasStrategicRoute = hasStrategicRoute
 
+const nearbyProps = (state: RunState): Prop[] => state.floor.props
+  .filter(prop => prop.state !== 'destroyed' && chebyshev(state.hero, prop) <= 1)
+  .sort((first, second) => first.id.localeCompare(second.id))
+
+const urgentNear = (state: RunState, prop: Prop): boolean => hostilePressure(state, 'omniscient', state.hero) >= 100 || (state.floor.telegraphs ?? []).some(telegraph => telegraph.resolveTurn <= state.turn + 2 && telegraph.cells.some(cell => chebyshev(cell, prop) <= 3))
+const shouldInspectProp = (state: RunState, prop: Prop): boolean => isBlockingProp(prop) || prop.tags.includes('cache') || prop.tags.includes('route') || (prop.tags.includes('warning') && urgentNear(state, prop)) || (prop.tags.includes('ritual') && urgentNear(state, prop)) || (prop.kind === 'wilds.mushrooms' && state.hero.health <= state.hero.maxHealth - 8) || (prop.kind === 'caverns.glowingFungus' && state.hero.focus <= 2)
+const canOpenPropWithOperate = (state: RunState, prop: Prop): boolean => (prop.kind === 'wilds.rootArch' && state.hero.equipment.mainHand === 'machete') || (prop.kind === 'ruins.collapsedArch' && state.hero.equipment.mainHand === 'pickaxe')
+
+const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
+  const props = nearbyProps(state)
+  const planned = context.propPlanId ? props.find(prop => prop.id === context.propPlanId) : undefined
+  const prop = planned ?? props.find(candidate => candidate.state === 'dormant' && shouldInspectProp(state, candidate))
+  if (!prop) { if (context.propPlanId) context.propPlanId = undefined; return undefined }
+  const simulated = planningClone(state)
+  const beforeKey = autoplayStateFingerprint(state)
+  const beforeItems = state.floor.items.length + state.hero.inventory.length
+  const beforeHealth = state.hero.health
+  const beforeShield = Boolean(state.hero.conditions?.some(condition => condition.kind === 'shielded'))
+  const beforeBlock = isBlockingProp(prop)
+  const beforeBombs = state.hero.bombs
+  const beforeKeys = state.hero.keys
+  const beforeFocus = state.hero.focus
+  perform(simulated, 'c')
+  const next = simulated.floor.props.find(candidate => candidate.id === prop.id)
+  if (!next || autoplayStateFingerprint(simulated) === beforeKey) { if (planned) context.propPlanId = undefined; return undefined }
+  const inspection = prop.state === 'dormant' && next.state === 'inspected'
+  if (inspection) {
+    if (!shouldInspectProp(state, prop)) return undefined
+    const score = isBlockingProp(prop) ? 156 : prop.tags.includes('cache') ? 88 : urgentNear(state, prop) ? 108 : 58
+    return { command: 'c', reason: `inspect prop:${prop.kind}`, score, propPlanId: prop.id }
+  }
+  const routeUnlocked = beforeBlock && !isBlockingProp(next)
+  const routeGained = !hasStrategicRoute(state, mode) && hasStrategicRoute(simulated, mode)
+  const itemGain = simulated.floor.items.length + simulated.hero.inventory.length - beforeItems
+  const healthGain = simulated.hero.health - beforeHealth
+  const shieldGain = !beforeShield && Boolean(simulated.hero.conditions?.some(condition => condition.kind === 'shielded'))
+  const resourceSpend = beforeBombs - simulated.hero.bombs + beforeKeys - simulated.hero.keys + beforeFocus - simulated.hero.focus
+  const createsHazard = getTile(state.floor, prop.x, prop.y)?.kind !== 'fireVent' && getTile(simulated.floor, prop.x, prop.y)?.kind === 'fireVent'
+  const useful = routeUnlocked || routeGained || itemGain > 0 || healthGain > 0 || shieldGain
+  if (!useful || (createsHazard && !routeUnlocked)) { if (planned) context.propPlanId = undefined; return undefined }
+  if (resourceSpend > 0 && !routeUnlocked && !routeGained && (policy === 'survival' || (beforeBombs > simulated.hero.bombs && simulated.hero.bombs < resourceReserve(policy)) || (beforeKeys > simulated.hero.keys && simulated.hero.keys < 1))) { if (planned) context.propPlanId = undefined; return undefined }
+  const score = routeUnlocked || routeGained ? 180 : shieldGain && urgentNear(state, prop) ? 130 : healthGain > 0 ? 112 : 96
+  return { command: 'c', reason: `operate prop:${prop.kind}`, score, propPlanId: prop.id }
+}
+
+const propRouteCandidate = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
+  if (hasStrategicRoute(state, mode)) return undefined
+  const prop = state.floor.props.filter(candidate => candidate.state !== 'destroyed' && isBlockingProp(candidate) && canOpenPropWithOperate(state, candidate))
+    .sort((first, second) => chebyshev(state.hero, first) - chebyshev(state.hero, second) || first.id.localeCompare(second.id))[0]
+  if (!prop) return undefined
+  const route = stepTo(state, mode, adjacentCells(prop), false, false)
+  return route ? { command: route.command, reason: `prop route:${prop.kind}`, score: 158, propPlanId: prop.id } : undefined
+}
+
 export const autoplayObjectiveRouteDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'clear'): Array<{ target: Point; direct?: string; blocked?: string }> => {
   const objective = state.floor.objective
   if (objective.status === 'complete') return []
@@ -642,7 +700,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
     return healthAdjustment
   }
   const transitioned = simulated.floor.index !== state.floor.index || simulated.areaFloor !== state.areaFloor
-  if (simulated.turn === turn && !transitioned && simulated.floor.objective.status === state.floor.objective.status) return Number.NEGATIVE_INFINITY
+  if (simulated.turn === turn && !transitioned && simulated.floor.objective.status === state.floor.objective.status && autoplayStateFingerprint(simulated) === autoplayStateFingerprint(state)) return Number.NEGATIVE_INFINITY
   if (transitioned) return 260 + healthAdjustment
   if (hadStrategicRoute && !hasStrategicRoute(simulated, mode)) return Number.NEGATIVE_INFINITY
   const remainingHealth = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((total, actor) => total + actor.health, 0)
@@ -841,6 +899,10 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
+  const propInteraction = propInteractionCandidate(state, mode, policy, context)
+  if (propInteraction) candidates.push(propInteraction)
+  const propRoute = propRouteCandidate(state, mode)
+  if (propRoute) candidates.push(propRoute)
   const cycleBreak = cycleBreakMove(state, mode, context)
   if (cycleBreak) candidates.push(cycleBreak)
   const evade = evadeThreat(state, mode, context, policy)
@@ -992,6 +1054,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     return undefined
   }
   context.intent = selected.intent
+  if (selected.propPlanId) context.propPlanId = selected.propPlanId
   if (selected.predictiveTarget) context.lastPredictiveTarget = selected.predictiveTarget
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }

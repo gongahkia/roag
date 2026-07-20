@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { AUTOPLAY_MAX_TURNS, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, autoplayStateFingerprint, createAutoplayContext, recordAutoplayTransition, snapshotAutoplayTransition } from './autoplay'
+import { AUTOPLAY_MAX_TURNS, autoplayCandidateDiagnostics, autoplayCommand, autoplayDecision, autoplayRecoveryFingerprint, autoplayStateFingerprint, createAutoplayContext, recordAutoplayTransition, snapshotAutoplayTransition } from './autoplay'
 import { runAutoplay } from './autoplay-runner'
 import { newRun, perform, skillChoices } from './engine'
 import { propDefinition } from './props'
+import { createEnemy, createRun } from './test/factories'
 
 describe('autoplay', () => {
   it('does not mutate planning state and resolves level-up choices', () => {
@@ -31,6 +32,45 @@ describe('autoplay', () => {
     state.floor.props = before.floor.props
     autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
     expect(state).toEqual(before)
+  })
+
+  it('persists a safe two-step prop plan for a Wilds parcel', () => {
+    const state = createRun()
+    const definition = propDefinition('wilds.lostParcel')
+    state.floor.objective = { id: 'missing-guardian', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'lost-parcel', kind: definition.id, biome: definition.biome, x: state.hero.x + 1, y: state.hero.y, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'survival', context)).toMatchObject({ command: 'c', reason: 'inspect prop:wilds.lostParcel' })
+    perform(state, 'c')
+    expect(state.turn).toBe(0)
+    expect(autoplayDecision(state, 'omniscient', 'survival', context)).toMatchObject({ command: 'c', reason: 'operate prop:wilds.lostParcel' })
+    perform(state, 'c')
+    expect(state.floor.items).toContainEqual(expect.objectContaining({ id: 'ropeBundle' }))
+  })
+
+  it('routes to and opens an otherwise sealed root arch with its equipped tool', () => {
+    const state = createRun()
+    const definition = propDefinition('wilds.rootArch')
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (let x = 1; x <= 5; x++) state.floor.tiles[1 * 48 + x].kind = 'floor'
+    state.hero.equipment.mainHand = 'machete'
+    state.floor.actors = [{ ...createEnemy(), id: 'arch-guardian', role: 'guardian', x: 5, y: 1, health: 30 }]
+    state.floor.objective = { id: 'arch-guardian-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'root-arch', kind: definition.id, biome: definition.biome, x: 2, y: 1, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'c', reason: 'inspect prop:wilds.rootArch' })
+    perform(state, 'c')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'c', reason: 'operate prop:wilds.rootArch' })
+    perform(state, 'c')
+    expect(state.floor.props[0].state).toBe('activated')
+  })
+
+  it('does not inspect an optional hazardous brazier without tactical pressure', () => {
+    const state = createRun()
+    const definition = propDefinition('ruins.ritualBrazier')
+    state.floor.objective = { id: 'missing-guardian', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'brazier', kind: definition.id, biome: definition.biome, x: state.hero.x + 1, y: state.hero.y, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason.includes('ritualBrazier'))).toBe(false)
   })
 
   it('keeps visible-only planning within explored terrain', () => {
