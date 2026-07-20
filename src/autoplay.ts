@@ -599,6 +599,19 @@ const bestEquip = (state: RunState): string | undefined => state.hero.inventory.
   return value > currentValue
 }).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]
 
+const tacticalEquip = (state: RunState, mode: AutoplayMode): string | undefined => {
+  const current = heroAttackProfile(state)
+  const blockedFoes = hostileKnown(state, mode).filter(foe => chebyshev(state.hero, foe) <= 1 && !directions.some(([direction]) => actionCells(current.shape, state.hero, direction, current.reach).some(point => point.x === foe.x && point.y === foe.y)))
+  if (!blockedFoes.length) return undefined
+  return state.hero.inventory.filter(id => ITEM[id]?.weapon && id !== state.hero.equipment.mainHand).map(id => {
+    const simulated = planningClone(state)
+    simulated.hero.equipment.mainHand = id
+    const profile = heroAttackProfile(simulated)
+    const targets = blockedFoes.filter(foe => directions.some(([direction]) => actionCells(profile.shape, state.hero, direction, profile.reach).some(point => point.x === foe.x && point.y === foe.y)))
+    return { id, targets: targets.length, damage: profile.damage }
+  }).filter(choice => choice.targets > 0).sort((a, b) => b.targets - a.targets || b.damage - a.damage || a.id.localeCompare(b.id))[0]?.id
+}
+
 const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): string | undefined => {
   const items = state.hero.inventory
   const underImmediateDanger = telegraphDanger(state, state.hero) || hostilePressure(state, mode, state.hero) >= 100
@@ -1007,6 +1020,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (use && usableInventoryIntent(state, 'use', use)) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? state.hero.health * 2 <= state.hero.maxHealth ? 220 : hostilePressure(state, mode, state.hero) > 0 ? 180 : 150 : 118, intent: { kind: 'use', item: use } })
   const equip = bestEquip(state)
   if (equip && usableInventoryIntent(state, 'equip', equip)) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
+  const tacticalWeapon = tacticalEquip(state, mode)
+  if (tacticalWeapon && usableInventoryIntent(state, 'equip', tacticalWeapon)) candidates.push({ command: 'e', reason: `tactical equip:${tacticalWeapon}`, score: 196, intent: { kind: 'equip', item: tacticalWeapon } })
   const pressure = hostilePressure(state, mode, state.hero)
   const standingInTelegraph = telegraphDanger(state, state.hero)
   const bombEmergency = state.hero.health * 2 <= state.hero.maxHealth && pressure >= 25
@@ -1105,6 +1120,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       const targetKey = pointKey(route.target)
       const predictive = policy === 'clear' && (stalledTelegraphRoute || cycle) ? predictiveRouteStep(state, mode, routeTargets, false, cycle ? new Set(context.recentPositions.slice(-12)) : undefined) : undefined
       candidates.push({ command: predictive?.commands[0] ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, routePlan: predictive && predictive.commands.length > 1 ? { kind: 'objective', targetKey, commands: predictive.commands.slice(1) } : undefined, score: policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
+      const weapon = state.hero.equipment.mainHand
+      if (route.blocked && weapon && (state.hero.cooldowns?.[weapon] ?? 0) > 0 && !telegraphDanger(state, state.hero)) candidates.push({ command: 'l', reason: 'wait weapon cooldown', score: 185 })
     } else if (pinTarget && context.objectiveTarget) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined

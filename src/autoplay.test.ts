@@ -401,6 +401,29 @@ describe('autoplay', () => {
     expect(state.turn).toBe(beforeTurn + 1)
   })
 
+  it('equips a weapon whose shape can clear an adjacent diagonal blocker', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.hero.x = 5
+    state.hero.y = 5
+    state.hero.bombs = 0
+    state.hero.skills = ['agi2']
+    state.hero.inventory = ['whip']
+    state.hero.equipment.mainHand = 'pickaxe'
+    state.floor.actors = [
+      { ...hostile, id: 'diagonal-blocker', x: 6, y: 6, health: 5 },
+      { ...hostile, id: 'guardian', role: 'guardian', x: 15, y: 5, health: 30 }
+    ]
+    state.floor.objective = { id: 'guardian-objective', kind: 'defeatGuardian', label: 'Pass the trail guardian', status: 'active' }
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'e', reason: 'tactical equip:whip' })
+    perform(state, 'e')
+    perform(state, autoplayDecision(state, 'omniscient', 'clear', context)!.command)
+    expect(state.hero.equipment.mainHand).toBe('whip')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)?.reason).toBe('melee:diagonal-blocker')
+  })
+
   it('routes around non-hostile actors instead of issuing a blocked move', () => {
     const state = newRun(71)
     const merchant = state.floor.actors[0]!
