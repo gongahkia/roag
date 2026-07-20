@@ -128,6 +128,10 @@ const hasNearbyTile = (floor: Floor, point: Point, radius: number, kinds: Readon
   for (let y = point.y - radius; y <= point.y + radius; y++) for (let x = point.x - radius; x <= point.x + radius; x++) if (kinds.has(getTile(floor, x, y)?.kind ?? 'wall')) return true
   return false
 }
+const hasAdjacentTile = (floor: Floor, point: Point, kinds: ReadonlySet<Tile['kind']>): boolean => {
+  for (let y = point.y - 1; y <= point.y + 1; y++) for (let x = point.x - 1; x <= point.x + 1; x++) if ((x !== point.x || y !== point.y) && kinds.has(getTile(floor, x, y)?.kind ?? 'wall')) return true
+  return false
+}
 
 const hasMinePropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => {
   if (!kind.startsWith('mine.')) return true
@@ -142,8 +146,8 @@ const hasMinePropContext = (floor: Floor, kind: Prop['kind'], point: Point): boo
 
 const hasCavernPropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => {
   if (!kind.startsWith('caverns.')) return true
-  const nearWater = hasNearbyTile(floor, point, 1, new Set<Tile['kind']>(['water']))
-  const nearDarkness = hasNearbyTile(floor, point, 1, new Set<Tile['kind']>(['darkness']))
+  const nearWater = hasAdjacentTile(floor, point, new Set<Tile['kind']>(['water']))
+  const nearDarkness = hasAdjacentTile(floor, point, new Set<Tile['kind']>(['darkness']))
   if (kind === 'caverns.crystalCluster' || kind === 'caverns.glowingFungus') return nearDarkness
   if (kind === 'caverns.barnacledShrine' || kind === 'caverns.brokenBoat' || kind === 'caverns.eelTunnel') return nearWater
   if (kind === 'caverns.sealedParcel') return nearWater || nearDarkness
