@@ -8,7 +8,7 @@ import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type Prop, type RunState, type TileKind } from './types'
-import { actorAt, getTile, hasPassableTerrainPath } from './world'
+import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
 export const AUTOPLAY_TURN_MS = Math.round(1000 / 6)
@@ -24,7 +24,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('clear objective route:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -379,11 +379,11 @@ const objectiveRouteTargets = (state: RunState, target: Point): Point[] => {
 const hasStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
   const routeExists = (candidate: RunState): boolean => {
     const objectiveComplete = candidate.floor.objective.status === 'complete' && candidate.floor.guardianDefeated
-    if (objectiveComplete) return hasPassableTerrainPath(candidate.floor, candidate.hero, candidate.floor.exit)
+    if (objectiveComplete) return hasPassablePath(candidate.floor, candidate.hero, candidate.floor.exit)
     const targets = objectiveTargets(candidate, mode)
     return targets.some(target => {
       const routeTargets = objectiveRouteTargets(candidate, target)
-      return routeTargets.some(point => hasPassableTerrainPath(candidate.floor, candidate.hero, point))
+      return routeTargets.some(point => hasPassablePath(candidate.floor, candidate.hero, point))
     })
   }
   if (routeExists(state)) return true
@@ -408,6 +408,7 @@ const nearbyProps = (state: RunState): Prop[] => state.floor.props
 const urgentNear = (state: RunState, prop: Prop): boolean => hostilePressure(state, 'omniscient', state.hero) >= 100 || (state.floor.telegraphs ?? []).some(telegraph => telegraph.resolveTurn <= state.turn + 2 && telegraph.cells.some(cell => chebyshev(cell, prop) <= 3))
 const shouldInspectProp = (state: RunState, prop: Prop): boolean => isBlockingProp(prop) || prop.tags.includes('cache') || prop.tags.includes('route') || (prop.tags.includes('warning') && urgentNear(state, prop)) || (prop.tags.includes('ritual') && urgentNear(state, prop)) || (prop.kind === 'wilds.mushrooms' && state.hero.health <= state.hero.maxHealth - 8) || (prop.kind === 'caverns.glowingFungus' && state.hero.focus <= 2)
 const canOpenPropWithOperate = (state: RunState, prop: Prop): boolean => (prop.kind === 'wilds.rootArch' && state.hero.equipment.mainHand === 'machete') || (prop.kind === 'ruins.collapsedArch' && state.hero.equipment.mainHand === 'pickaxe')
+const canOpenPropWithRope = (state: RunState, prop: Prop): boolean => state.hero.ropes > 0 && (prop.kind === 'caverns.brokenBoat' || prop.kind === 'ruins.collapsedArch')
 
 const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
   const props = nearbyProps(state)
@@ -448,11 +449,23 @@ const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: A
 
 const propRouteCandidate = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   if (hasStrategicRoute(state, mode)) return undefined
-  const prop = state.floor.props.filter(candidate => candidate.state !== 'destroyed' && isBlockingProp(candidate) && canOpenPropWithOperate(state, candidate))
+  const prop = state.floor.props.filter(candidate => candidate.state !== 'destroyed' && isBlockingProp(candidate) && (canOpenPropWithOperate(state, candidate) || canOpenPropWithRope(state, candidate)))
     .sort((first, second) => chebyshev(state.hero, first) - chebyshev(state.hero, second) || first.id.localeCompare(second.id))[0]
   if (!prop) return undefined
   const route = stepTo(state, mode, adjacentCells(prop), false, false)
   return route ? { command: route.command, reason: `prop route:${prop.kind}`, score: 158, propPlanId: prop.id } : undefined
+}
+
+const propRopeCandidate = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
+  if (state.hero.ropes < 1) return undefined
+  const prop = nearbyProps(state).find(candidate => candidate.state === 'inspected' && canOpenPropWithRope(state, candidate))
+  if (!prop) return undefined
+  const simulated = planningClone(state)
+  perform(simulated, 'r')
+  const next = simulated.floor.props.find(candidate => candidate.id === prop.id)
+  const routeGained = !hasStrategicRoute(state, mode) && hasStrategicRoute(simulated, mode)
+  if (!next || !routeGained || isBlockingProp(next) || simulated.hero.ropes !== state.hero.ropes - 1) return undefined
+  return { command: 'r', reason: `secure prop route:${prop.kind}`, score: 190, propPlanId: prop.id }
 }
 
 export const autoplayObjectiveRouteDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'clear'): Array<{ target: Point; direct?: string; blocked?: string }> => {
@@ -899,6 +912,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
   if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
+  const propRope = propRopeCandidate(state, mode)
+  if (propRope) candidates.push(propRope)
   const propInteraction = propInteractionCandidate(state, mode, policy, context)
   if (propInteraction) candidates.push(propInteraction)
   const propRoute = propRouteCandidate(state, mode)

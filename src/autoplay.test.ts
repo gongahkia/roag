@@ -73,6 +73,46 @@ describe('autoplay', () => {
     expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason.includes('ritualBrazier'))).toBe(false)
   })
 
+  it('uses its final rope to open a boat route required by the guardian objective', () => {
+    const state = createRun()
+    const definition = propDefinition('caverns.brokenBoat')
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (let x = 1; x <= 5; x++) state.floor.tiles[1 * 48 + x].kind = 'floor'
+    state.hero.ropes = 1
+    state.floor.actors = [{ ...createEnemy(), id: 'boat-guardian', role: 'guardian', x: 5, y: 1, health: 30 }]
+    state.floor.objective = { id: 'boat-guardian-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'boat', kind: definition.id, biome: definition.biome, x: 2, y: 1, state: 'dormant', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'survival', context)).toMatchObject({ command: 'c', reason: 'inspect prop:caverns.brokenBoat' })
+    perform(state, 'c')
+    expect(autoplayDecision(state, 'omniscient', 'survival', context)).toMatchObject({ command: 'r', reason: 'secure prop route:caverns.brokenBoat' })
+    perform(state, 'r')
+    expect(state.floor.props[0].state).toBe('activated')
+    expect(state.hero.ropes).toBe(0)
+  })
+
+  it('uses a rope for a required collapsed arch but not an optional one', () => {
+    const state = createRun()
+    const definition = propDefinition('ruins.collapsedArch')
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (let x = 1; x <= 5; x++) state.floor.tiles[1 * 48 + x].kind = 'floor'
+    state.hero.ropes = 1
+    state.floor.actors = [{ ...createEnemy(), id: 'arch-rope-guardian', role: 'guardian', x: 5, y: 1, health: 30 }]
+    state.floor.objective = { id: 'arch-rope-guardian-objective', kind: 'defeatGuardian', label: 'Defeat the guardian', status: 'active' }
+    state.floor.props = [{ id: 'arch', kind: definition.id, biome: definition.biome, x: 2, y: 1, state: 'inspected', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())).toMatchObject({ command: 'r', reason: 'secure prop route:ruins.collapsedArch' })
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor' })
+    expect(autoplayCandidateDiagnostics(state, 'omniscient', 'clear', createAutoplayContext()).some(candidate => candidate.reason === 'secure prop route:ruins.collapsedArch')).toBe(false)
+  })
+
+  it('does not offer an unresourced boat rope plan', () => {
+    const state = createRun()
+    const definition = propDefinition('caverns.brokenBoat')
+    state.hero.ropes = 0
+    state.floor.props = [{ id: 'boat', kind: definition.id, biome: definition.biome, x: state.hero.x + 1, y: state.hero.y, state: 'inspected', tags: [...definition.tags], hooks: [...definition.hooks] }]
+    expect(autoplayCandidateDiagnostics(state, 'omniscient', 'survival', createAutoplayContext()).some(candidate => candidate.reason.includes('secure prop route:caverns.brokenBoat'))).toBe(false)
+  })
+
   it('keeps visible-only planning within explored terrain', () => {
     const state = newRun(71)
     state.floor.actors = []
