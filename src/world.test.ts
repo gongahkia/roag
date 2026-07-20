@@ -26,7 +26,7 @@ const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
 
 describe('expedition generation', () => {
   it('provides the locked full content roster', () => {
-    expect(ITEMS).toHaveLength(35)
+    expect(ITEMS).toHaveLength(36)
     expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(4)
     expect(MONSTERS.filter(monster => monster.ai !== 'guardian')).toHaveLength(33)
   })

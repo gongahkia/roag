@@ -137,7 +137,7 @@ export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll'],
-  caverns: ['focusTonic', 'lantern', 'spear', 'tideSpear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
+  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
 }
 
