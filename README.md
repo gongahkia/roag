@@ -67,6 +67,7 @@ Menu controls: `N` creates a courier, `L`/`Enter` resumes one, arrows select, an
 
 ```sh
 npm test
+npm run test:ci
 npm run test:e2e
 npm run smoke:autoplay
 npm run autoplay:headless
@@ -74,6 +75,8 @@ npm run autoplay:benchmark
 npm run autoplay:diagnose
 REPORT_ISSUE=0 OUT_DIR=clearance/seed-sweep-0-999 SEED_COUNT=1000 TURNS=3200 RETRY_LIMIT=1 MIN_RATE=.99 npm run clearance:local
 ```
+
+`npm run test:ci` requires one-minute system load below available CPUs, uses one worker, and runs each full-campaign autoplay regression in its own Vitest invocation. The individual 60-second test budgets remain strict; saturation fails fast and campaign runs cannot trigger aggregate reporter RPC timeouts.
 
 This invocation is local-only and does not create GitHub issues. It checkpoints every completed seed; rerun the exact command to resume. `kill -INT <supervisor-pid>` or `kill -TERM <supervisor-pid>` stops the active seed worker and writes an interrupted report. Resume requires the same commit, worktree patch, and run parameters; otherwise use a new `OUT_DIR`.
 
