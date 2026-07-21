@@ -61,9 +61,10 @@ const planningClone = (state: RunState): RunState => {
 
 type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
 type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
-type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string }
+type TelegraphRoute = { sourceId: string; from: string; to: string }
+type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
@@ -752,12 +753,14 @@ const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: Auto
   if (attack) return { command: directionCommands[attack[0]], reason: `clear telegraph source:${source.id}`, score: 650 }
   const route = stepTo(state, mode, adjacentCells(source), false, false)
   if (!route) return undefined
-  const simulated = planningClone(state)
-  const before = pointKey(simulated.hero)
-  const distance = chebyshev(simulated.hero, source)
-  perform(simulated, route.command)
-  if (simulated.status !== 'playing' || simulated.turn <= state.turn || pointKey(simulated.hero) === before || chebyshev(simulated.hero, source) >= distance || context.recentPositions.includes(pointKey(simulated.hero)) || telegraphDanger(simulated, simulated.hero)) return undefined
-  return { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650 }
+  const direction = directions.find(([current]) => directionCommands[current] === route.command)?.[0]
+  const destination = direction ? projectedMove(state, mode, state.hero, direction, false, false) : undefined
+  if (!destination || telegraphDanger(state, destination)) return undefined
+  const from = pointKey(state.hero)
+  const to = pointKey(destination)
+  const previous = context.lastTelegraphRoute
+  if (previous?.sourceId === source.id && previous.from === to && previous.to === from) return undefined
+  return { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650, telegraphRoute: { sourceId: source.id, from, to } }
 }
 
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
@@ -1193,6 +1196,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         routePlan.commands.shift()
         if (!routePlan.commands.length) context.routePlan = undefined
         const candidate = { command, reason: routePlan.kind === 'exit' ? 'continue predictive exit route' : `continue predictive objective route:${state.floor.objective.kind}`, score: 205 }
+        context.lastTelegraphRoute = undefined
         context.lastReason = candidate.reason
         return { command, reason: candidate.reason, candidates: [candidate] }
       }
@@ -1238,6 +1242,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         return undefined
       }
       if (recovery.routePlan) context.routePlan = recovery.routePlan
+      context.lastTelegraphRoute = recovery.telegraphRoute
       context.lastReason = recovery.reason
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
@@ -1251,6 +1256,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   context.intent = selected.intent
   if (selected.propPlanId) context.propPlanId = selected.propPlanId
   if (selected.routePlan) context.routePlan = selected.routePlan
+  context.lastTelegraphRoute = selected.telegraphRoute
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }

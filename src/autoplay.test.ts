@@ -554,6 +554,25 @@ describe('autoplay', () => {
     expect(decision).toMatchObject({ command: 'b', reason: 'bomb telegraph source' })
   })
 
+  it('does not reverse a repeated telegraph-source route', () => {
+    const state = newRun(71)
+    const hostile = state.floor.actors.find(actor => actor.hostile)!
+    state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.floor.items = []
+    state.floor.props = []
+    state.hero.x = 5
+    state.hero.y = 6
+    state.hero.bombs = 0
+    state.hero.skills = []
+    state.floor.actors = [{ ...hostile, id: 'telegraph-source', ai: 'ranged', x: 5, y: 1, health: 100, attack: 2 }]
+    state.floor.telegraphs = [{ id: 'telegraph-source:shot', sourceId: 'telegraph-source', actionId: 'enemy-shot', cells: [{ x: 5, y: 6 }], danger: 'major', resolveTurn: state.turn + 1 }]
+    const context = createAutoplayContext()
+    context.recentPositions = ['5,6']
+    context.lastTelegraphRoute = { sourceId: 'telegraph-source', from: '4,5', to: '5,6' }
+    expect(autoplayCandidateDiagnostics(state, 'omniscient', 'clear', context).find(candidate => candidate.reason === 'clear telegraph source:telegraph-source')).toBeUndefined()
+    expect(context.lastTelegraphRoute).toEqual({ sourceId: 'telegraph-source', from: '4,5', to: '5,6' })
+  })
+
   it('uses a tactical action instead of futile movement while rooted', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
