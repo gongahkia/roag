@@ -59,7 +59,7 @@ const planningClone = (state: RunState): RunState => {
   }
 }
 
-type Intent = { kind: 'use' | 'throw' | 'equip'; item: string }
+type Intent = { kind: 'use' | 'throw' | 'equip' | 'drop'; item: string }
 type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
 type TelegraphRoute = { sourceId: string; from: string; to: string }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
@@ -633,6 +633,10 @@ const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): s
   return undefined
 }
 
+const offeringDiscard = (state: RunState): string | undefined => state.hero.inventory
+  .filter((id, index, items) => items.indexOf(id) !== index)
+  .sort((a, b) => ITEM[a].value - ITEM[b].value || a.localeCompare(b))[0]
+
 const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefined => {
   const reserve = policy === 'clear' ? 0 : policy === 'survival' ? 20 : 45
   return merchantStock(state).filter(id => state.hero.gold - ITEM[id].value >= reserve && state.hero.inventory.length < 12).filter(id => {
@@ -679,6 +683,12 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
       context.intent = undefined
       const index = id ? state.hero.inventory.indexOf(id) : -1
       return { command: index >= 0 ? String(index + 1) : 'Escape', reason: id ? `throw:${id}` : 'close throw', score: 200 }
+    }
+    if (modal.mode === 'drop') {
+      const id = context.intent?.kind === 'drop' ? context.intent.item : undefined
+      context.intent = undefined
+      const index = id ? state.hero.inventory.indexOf(id) : -1
+      return { command: index >= 0 && safeInventoryChoice(state, String(index + 1)) ? String(index + 1) : 'Escape', reason: index >= 0 && id ? `drop:${id}` : 'close inventory', score: 200 }
     }
     const id = context.intent?.kind === 'equip' ? context.intent.item : bestEquip(state)
     context.intent = undefined
@@ -1021,12 +1031,17 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const candidates: Candidate[] = []
   const heroPoint = { x: state.hero.x, y: state.hero.y }
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
+  const needsOffering = state.floor.objective.kind === 'invokeAltar' && state.hero.gold < 75
   const tile = getTile(state.floor, heroPoint.x, heroPoint.y)
   const rooted = Boolean(state.hero.conditions?.some(condition => condition.kind === 'rooted'))
   if (tile?.kind === 'exit' && objectiveComplete) return [{ command: 'q', reason: 'descend', score: 180 }]
   const canPick = (item: { id: string }): boolean => item.id === 'gold' || item.id === 'key' || state.hero.inventory.length < 12
-  const item = !objectiveComplete && state.floor.items.find(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current))
-  if (item && hostilePressure(state, mode, state.hero) < 100) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: 160 })
+  const groundItems = objectiveComplete ? [] : state.floor.items.filter(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)))
+  const item = groundItems[0]
+  const urgentOfferingPickup = needsOffering && item?.id === 'gold' && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero)
+  if (item && canPick(item) && (hostilePressure(state, mode, state.hero) < 100 || urgentOfferingPickup)) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: urgentOfferingPickup ? 190 : 160 })
+  const discard = needsOffering && item && !canPick(item) && groundItems.some(current => current.id === 'gold') && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero) ? offeringDiscard(state) : undefined
+  if (discard) candidates.push({ command: 'd', reason: `discard for offering:${discard}`, score: 210, intent: { kind: 'drop', item: discard } })
   const use = bestUse(state, mode, policy)
   if (use && usableInventoryIntent(state, 'use', use)) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? state.hero.health * 2 <= state.hero.maxHealth ? 220 : hostilePressure(state, mode, state.hero) > 0 ? 180 : 150 : 118, intent: { kind: 'use', item: use } })
   const equip = bestEquip(state)
@@ -1094,7 +1109,6 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     context.routePlan = undefined
     context.rejectedObjectiveTargets.clear()
   }
-  const needsOffering = objective.kind === 'invokeAltar' && state.hero.gold < 75
   let hasObjectiveRoute = false
   if (objective.status !== 'complete') {
     const availableTargets = needsOffering ? [] : objectiveTargets(state, mode)

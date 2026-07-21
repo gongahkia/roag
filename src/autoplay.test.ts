@@ -318,6 +318,21 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())?.command).toBe('g')
   })
 
+  it('discards only a duplicate to reach required stacked altar cash', () => {
+    const state = createRun()
+    state.floor.objective = { id: 'altar-objective', kind: 'invokeAltar', label: 'Make a shrine offering', status: 'active' }
+    state.hero.inventory = Array.from({ length: 12 }, () => 'focusTonic')
+    state.floor.items = [{ id: 'wardScript', x: state.hero.x, y: state.hero.y, count: 1 }, { id: 'gold', x: state.hero.x, y: state.hero.y, count: 25 }]
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'd', reason: 'discard for offering:focusTonic' })
+    perform(state, 'd')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ reason: 'drop:focusTonic' })
+    perform(state, '1')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'g', reason: 'pickup:wardScript' })
+    perform(state, 'g')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'g', reason: 'pickup:gold' })
+  })
+
   it('descends from a completed exit instead of rejecting the next floor enemy roster', () => {
     const state = newRun(71)
     state.floor.actors = []
@@ -648,6 +663,11 @@ describe('autoplay', () => {
 
   it('clears the telegraph-route reversal regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(20), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
+  }, 60_000)
+
+  it('clears the offering-cash regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(26), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
     expect(report.campaignComplete).toBe(true)
   }, 60_000)
 
