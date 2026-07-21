@@ -62,6 +62,7 @@ const planningClone = (state: RunState): RunState => {
 type Intent = { kind: 'use' | 'throw' | 'equip' | 'drop'; item: string }
 type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
 type TelegraphRoute = { sourceId: string; from: string; to: string }
+type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
 export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
@@ -948,7 +949,7 @@ const guardianFinishMove = (state: RunState, mode: AutoplayMode, context: Autopl
   return option ? { command: directionCommands[option.direction], reason: `finish guardian:${guardian.id}`, score: 330 } : undefined
 }
 
-const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNullable<RunState['modal']>, { kind: 'target' }>): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
+const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNullable<RunState['modal']>, { kind: 'target' }>): TargetOutcome | undefined => {
   const beforeEnemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((sum, actor) => sum + actor.health, 0)
   const beforeEnemies = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
   const beforeMobility = adjacentCells(state.hero).filter(point => passable(state, mode, point, false, true)).length
@@ -956,6 +957,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
   const beforeItems = state.floor.items.length + state.hero.inventory.length
   const beforeExplored = state.floor.tiles.filter(tile => tile.explored).length
   const beforeHazards = state.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length
+  const beforeBlocked = state.floor.tiles.filter(tile => blockedTiles.has(tile.kind)).length
   const beforeRoute = hasStrategicRoute(state, mode)
   const effects = targetEffects(modal.action, modal.item)
   const canChangeLines = effects.includes('root') || effects.includes('force')
@@ -978,6 +980,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const harm = health - simulated.hero.health
     const mobility = adjacentCells(simulated.hero).filter(point => passable(simulated, mode, point, false, true)).length
     const mobilityGain = Math.max(0, mobility - beforeMobility)
+    const terrainCleared = Math.max(0, beforeBlocked - simulated.floor.tiles.filter(tile => blockedTiles.has(tile.kind)).length)
     const base = targetDirection(state, mode, modal.action, modal.item)?.direction === direction ? 30 : 0
     const changedProps = simulated.floor.props.filter(prop => beforeProps.get(prop.id) !== propFingerprint(prop))
     const routeGained = !beforeRoute && hasStrategicRoute(simulated, mode)
@@ -1004,12 +1007,12 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []
     if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0 && propValue < 1) return []
     if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
-    return [{ direction, score }]
+    return [{ direction, score, mobilityGain, terrainCleared }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
   return scored[0]
 }
 
-const usableTarget = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
+const usableTarget = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): TargetOutcome | undefined => {
   const simulated = planningClone(state)
   if (action === 'bomb') simulated.modal = { kind: 'target', action }
   else if (item) simulated.modal = { kind: 'target', action, item }
@@ -1055,11 +1058,12 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
+  const guardianRouteBomb = Boolean(bombTarget && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && state.hero.bombs > resourceReserve(policy) && bombTarget.terrainCleared > 0 && bombTarget.mobilityGain > 0)
   const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
   const propBomb = Boolean(bombTarget && bombTarget.score >= 180 && propTargetCount(state, 'bomb', bombTarget.direction) > 0)
   const tacticalBomb = (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted))
-  const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || ((state.hero.bombs > resourceReserve(policy) || bombEmergency) && tacticalBomb)
-  if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || guardianRouteBomb || ((state.hero.bombs > resourceReserve(policy) || bombEmergency) && tacticalBomb)
+  if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : guardianRouteBomb ? 'clear guardian route' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : guardianRouteBomb ? 275 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
