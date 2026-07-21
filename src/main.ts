@@ -5,6 +5,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -74,6 +75,7 @@ redraw()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (keyboardEvent.key === 'Tab' && shouldPreventKeyboardDefault(keyboardEvent.key)) keyboardEvent.preventDefault()
   if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
@@ -87,7 +89,7 @@ window.addEventListener('keydown', keyboardEvent => {
   if (route.screen === 'splash' || route.screen === 'title') { handleCourierTitle(keyboardEvent); return }
   if (route.screen === 'createCourier') { handleCourierCreation(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
-  if (shouldPrevent(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
+  if (shouldPreventKeyboardDefault(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
     let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
@@ -663,5 +665,3 @@ function spellEffectForInput(game: RunState, keyboardEvent: KeyboardEvent, direc
   const quickCastItem = keyboardEvent.altKey && direction && direction !== 'wait' ? game.hero.inventory.find(id => ITEM[id]?.use === 'spell') : undefined
   return ITEM[modalItem ?? quickCastItem ?? '']?.spell
 }
-
-function shouldPrevent(command: string): boolean { return command === 'settings' || Boolean(directionFor(command)) || [' ', 'Escape', '`', '[', ']', 'h', 'H', 'j', 'J', 'u', 'U', 'd', 'D', 't', 'T', 'e', 'E', 'a', 'A', 'b', 'B', 'r', 'R', 'g', 'G', 'c', 'C', 'q', 'Q', 'x', 'X', 's', 'S'].includes(command) }

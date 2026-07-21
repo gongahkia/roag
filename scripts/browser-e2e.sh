@@ -15,6 +15,12 @@ for _ in {1..40}; do curl --fail --silent "$URL" >/dev/null && break; sleep .25;
 curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" open "$URL"
 "${CLI[@]}" snapshot
+"${CLI[@]}" click '#game'
+focus="$("${CLI[@]}" eval "el => document.activeElement?.id" e3)"
+grep --fixed-strings --quiet 'game' <<<"$focus"
+"${CLI[@]}" press Tab
+focus="$("${CLI[@]}" eval "el => document.activeElement?.id" e3)"
+grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press n
 "${CLI[@]}" snapshot
 "${CLI[@]}" screenshot
