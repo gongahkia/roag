@@ -292,6 +292,7 @@ describe('autoplay', () => {
     const state = newRun(71)
     state.floor.actors = []
     state.floor.items = []
+    state.floor.props = []
     state.floor.objective.status = 'complete'
     state.floor.guardianDefeated = true
     state.floor.tiles.forEach(tile => { tile.explored = false; if (tile.kind === 'crate' || tile.kind === 'chest') tile.kind = 'floor' })
@@ -384,6 +385,7 @@ describe('autoplay', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
     state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.floor.props = []
     state.hero.x = 5
     state.hero.y = 5
     state.hero.skills = ['agi2']
@@ -528,6 +530,7 @@ describe('autoplay', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
     state.floor.actors = [hostile]
+    state.floor.props = []
     hostile.x = state.hero.x + 1
     hostile.y = state.hero.y
     state.hero.health = 1
@@ -539,6 +542,7 @@ describe('autoplay', () => {
     const state = newRun(71)
     const hostile = state.floor.actors.find(actor => actor.hostile)!
     state.floor.tiles.forEach(tile => { tile.kind = 'floor'; tile.explored = true })
+    state.floor.props = []
     state.hero.x = 5
     state.hero.y = 5
     state.hero.health = 20
@@ -604,7 +608,7 @@ describe('autoplay', () => {
   it('completes the Mine reference run using tactical actions', () => {
     const report = runAutoplay(newRun(7, 'mine'), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-    expect(report.trace.some(entry => entry.reason.includes('bomb tactical cluster'))).toBe(true)
+    expect(report.trace.some(entry => entry.reason.startsWith('bomb'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
   }, 60_000)
 

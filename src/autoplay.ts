@@ -751,7 +751,13 @@ const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: Auto
   const attack = directions.find(([direction]) => actionCells(profile.shape, state.hero, direction, profile.reach).some(point => point.x === source.x && point.y === source.y))
   if (attack) return { command: directionCommands[attack[0]], reason: `clear telegraph source:${source.id}`, score: 650 }
   const route = stepTo(state, mode, adjacentCells(source), false, false)
-  return route ? { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650 } : undefined
+  if (!route) return undefined
+  const simulated = planningClone(state)
+  const before = pointKey(simulated.hero)
+  const distance = chebyshev(simulated.hero, source)
+  perform(simulated, route.command)
+  if (simulated.status !== 'playing' || simulated.turn <= state.turn || pointKey(simulated.hero) === before || chebyshev(simulated.hero, source) >= distance || context.recentPositions.includes(pointKey(simulated.hero)) || telegraphDanger(simulated, simulated.hero)) return undefined
+  return { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650 }
 }
 
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
@@ -1029,7 +1035,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
   const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
-  const propBomb = Boolean(bombTarget && bombTarget.score >= 180)
+  const propBomb = Boolean(bombTarget && bombTarget.score >= 180 && propTargetCount(state, 'bomb', bombTarget.direction) > 0)
   const tacticalBomb = (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted))
   const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || ((state.hero.bombs > resourceReserve(policy) || bombEmergency) && tacticalBomb)
   if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
