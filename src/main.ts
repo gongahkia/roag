@@ -4,6 +4,7 @@ import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLa
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
+import { nextCourierSelection } from './courier-menu'
 import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
@@ -133,7 +134,6 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
   if (route.screen === 'splash' && !['n', 'N', 'l', 'L', 'Enter', 'ArrowUp', 'ArrowDown', 'd', 'D'].includes(key)) { route = { ...route, screen: 'title' }; redraw(); return }
   route = { ...route, screen: 'title' }
   const entries = courierMenuEntries(couriers)
-  const selectedIndex = Math.max(0, entries.findIndex(entry => entry.id === selectedCourierId))
   if (confirmingCourierDelete) {
     if (command === 'd') {
       const id = selectedCourierId
@@ -145,10 +145,8 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
     return
   }
   if (key === 'ArrowUp' || key === 'ArrowDown') {
-    if (entries.length) {
-      const offset = key === 'ArrowUp' ? entries.length - 1 : 1
-      activateCourier(entries[(selectedIndex + offset) % entries.length].id)
-    }
+    const nextId = nextCourierSelection(entries, selectedCourierId, key)
+    if (nextId) activateCourier(nextId)
   } else if (command === 'n') {
     courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
     inheritedCampaign = undefined
