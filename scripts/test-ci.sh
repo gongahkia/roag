@@ -6,7 +6,7 @@ case "$(uname -s)" in
   Darwin) load_1m="$(sysctl -n vm.loadavg | awk '{gsub(/[{}]/, ""); print $1}')" ;;
   *) load_1m="$(awk '{print $1}' /proc/loadavg)" ;;
 esac
-if ! awk -v load="$load_1m" -v cores="$cpu_count" 'BEGIN { exit !(load < cores) }'; then
+if ! awk -v one_minute_load="$load_1m" -v cores="$cpu_count" 'BEGIN { exit !(one_minute_load < cores) }'; then
   printf 'test host is saturated: 1m load %s >= %s CPUs; retry on an idle host\n' "$load_1m" "$cpu_count" >&2
   exit 2
 fi
