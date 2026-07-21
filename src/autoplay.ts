@@ -1039,7 +1039,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const groundItems = objectiveComplete ? [] : state.floor.items.filter(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)))
   const item = groundItems[0]
   const urgentOfferingPickup = needsOffering && item?.id === 'gold' && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero)
-  if (item && canPick(item) && (hostilePressure(state, mode, state.hero) < 100 || urgentOfferingPickup)) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: urgentOfferingPickup ? 190 : 160 })
+  const uncoverOfferingCash = needsOffering && Boolean(item) && groundItems.slice(1).some(current => current.id === 'gold') && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero)
+  if (item && canPick(item) && (hostilePressure(state, mode, state.hero) < 100 || urgentOfferingPickup || uncoverOfferingCash)) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: urgentOfferingPickup || uncoverOfferingCash ? 200 : 160 })
   const discard = needsOffering && item && !canPick(item) && groundItems.some(current => current.id === 'gold') && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero) ? offeringDiscard(state) : undefined
   if (discard) candidates.push({ command: 'd', reason: `discard for offering:${discard}`, score: 210, intent: { kind: 'drop', item: discard } })
   const use = bestUse(state, mode, policy)
