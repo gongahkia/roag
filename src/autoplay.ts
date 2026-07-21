@@ -152,6 +152,8 @@ export const recordAutoplayTransitionSnapshot = (context: AutoplayContext, befor
     return
   }
   context.noTurnCommands = 0
+  const lastTelegraphRoute = context.lastTelegraphRoute
+  if (lastTelegraphRoute && (before.area !== after.area || before.areaFloor !== after.areaFloor || before.objectiveId !== after.floor.objective.id || !after.floor.actors.some(actor => actor.id === lastTelegraphRoute.sourceId && actor.hostile && actor.health > 0))) context.lastTelegraphRoute = undefined
   const beforeProgress = before.progressKey
   const afterProgress = autoplayProgressFingerprint(after, false)
   const objectiveChanged = before.area !== after.area || before.areaFloor !== after.areaFloor || before.objectiveId !== after.floor.objective.id || before.objectiveStatus !== after.floor.objective.status || before.guardianDefeated !== after.floor.guardianDefeated
@@ -759,7 +761,7 @@ const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: Auto
   const from = pointKey(state.hero)
   const to = pointKey(destination)
   const previous = context.lastTelegraphRoute
-  if (previous?.sourceId === source.id && previous.from === to && previous.to === from) return undefined
+  if (previous?.sourceId === source.id && (previous.to === to || previous.from === to && previous.to === from)) return undefined
   return { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650, telegraphRoute: { sourceId: source.id, from, to } }
 }
 
@@ -1196,7 +1198,6 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         routePlan.commands.shift()
         if (!routePlan.commands.length) context.routePlan = undefined
         const candidate = { command, reason: routePlan.kind === 'exit' ? 'continue predictive exit route' : `continue predictive objective route:${state.floor.objective.kind}`, score: 205 }
-        context.lastTelegraphRoute = undefined
         context.lastReason = candidate.reason
         return { command, reason: candidate.reason, candidates: [candidate] }
       }
@@ -1242,7 +1243,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         return undefined
       }
       if (recovery.routePlan) context.routePlan = recovery.routePlan
-      context.lastTelegraphRoute = recovery.telegraphRoute
+      if (recovery.telegraphRoute) context.lastTelegraphRoute = recovery.telegraphRoute
       context.lastReason = recovery.reason
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
@@ -1256,7 +1257,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   context.intent = selected.intent
   if (selected.propPlanId) context.propPlanId = selected.propPlanId
   if (selected.routePlan) context.routePlan = selected.routePlan
-  context.lastTelegraphRoute = selected.telegraphRoute
+  if (selected.telegraphRoute) context.lastTelegraphRoute = selected.telegraphRoute
   context.lastReason = selected.reason
   return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }

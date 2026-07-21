@@ -646,6 +646,11 @@ describe('autoplay', () => {
     expect(report.campaignComplete).toBe(true)
   }, 60_000)
 
+  it('clears the telegraph-route reversal regression seed across the full campaign', () => {
+    const report = runAutoplay(newRun(20), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
+    expect(report.campaignComplete).toBe(true)
+  }, 60_000)
+
   it('clears the telegraphed Mine exit regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(50), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
     expect(report.campaignComplete).toBe(true)

@@ -17,6 +17,7 @@ campaign_tests=(
   'clears the pressure-detour regression seed'
   'clears the ranged-corridor regression seed'
   'clears the moving-route and mixed-altar regression seed'
+  'clears the telegraph-route reversal regression seed'
   'clears the telegraphed Mine exit regression seed'
   'clears the long telegraph-detour regression seed'
   'clears the rail-tunnel telegraph regression seed'
@@ -24,5 +25,5 @@ campaign_tests=(
 )
 
 "${vitest[@]}" --exclude src/autoplay.test.ts
-"${vitest[@]}" src/autoplay.test.ts --testNamePattern='^(?!.*(completes the Mine reference run|clears the pressure-detour regression seed|clears the ranged-corridor regression seed|clears the moving-route and mixed-altar regression seed|clears the telegraphed Mine exit regression seed|clears the long telegraph-detour regression seed|clears the rail-tunnel telegraph regression seed|clears the telegraphed guardian-route regression seed)).*$'
+"${vitest[@]}" src/autoplay.test.ts --testNamePattern='^(?!.*(completes the Mine reference run|clears the pressure-detour regression seed|clears the ranged-corridor regression seed|clears the moving-route and mixed-altar regression seed|clears the telegraph-route reversal regression seed|clears the telegraphed Mine exit regression seed|clears the long telegraph-detour regression seed|clears the rail-tunnel telegraph regression seed|clears the telegraphed guardian-route regression seed)).*$'
 for test_name in "${campaign_tests[@]}"; do "${vitest[@]}" src/autoplay.test.ts --testNamePattern="$test_name"; done
