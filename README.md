@@ -29,7 +29,7 @@ Browser-based, turn-based courier roguelike. Carry a sealed parcel through a det
 
 ## Usage
 
-The below commands run Jomon locally.
+The below commands run `Jomon` locally.
 
 ```sh
 git clone https://github.com/gongahkia/jomon && cd jomon
@@ -62,37 +62,6 @@ npm run preview
 | `Esc` or backtick | Pause or cancel |
 
 Menu controls: `N` creates a courier, `L`/`Enter` resumes one, arrows select, and `D` retires one. Key bindings can be changed in settings.
-
-## Validation
-
-```sh
-npm test
-npm run test:ci
-npm run test:e2e
-npm run smoke:autoplay
-npm run autoplay:headless
-npm run autoplay:benchmark
-npm run autoplay:diagnose
-REPORT_ISSUE=0 OUT_DIR=clearance/seed-sweep-0-9 SEED_COUNT=10 START_SEED=0 TURNS=3200 RETRY_LIMIT=1 MIN_RATE=1 npm run clearance:local
-```
-
-`npm run test:ci` requires one-minute system load below available CPUs, uses one worker, and runs each full-campaign autoplay regression in its own Vitest invocation. The individual 60-second test budgets remain strict; saturation fails fast and campaign runs cannot trigger aggregate reporter RPC timeouts.
-
-This bounded closure gate validates every seed from 0 through 9 inclusive; it does not establish 100- or 1,000-seed clearance. It is local-only and does not create GitHub issues. It checkpoints every completed seed; rerun the exact command to resume. `kill -INT <supervisor-pid>` or `kill -TERM <supervisor-pid>` stops the active seed worker and writes an interrupted report. Resume requires the same commit, worktree patch, and run parameters; otherwise use a new `OUT_DIR`.
-
-## Nerd stuff
-
-### Campaign
-
-Each seed deterministically generates four floors in each region: Obsidian Mine, Cedar Wilds, Sea Caves, and Stone Circle. Courier records, checkpoints, campaign state, and local run analyses persist in IndexedDB.
-
-### Rendering
-
-The game renders a fixed terminal grid through Canvas 2D. The same simulation supports text glyphs, a generated sprite atlas, and rune tiles; fog of war, telegraphs, effects, and message history are shared across modes.
-
-### Autoplay
-
-Autoplay has visible-map and full-map modes, with survival, clear-rate, and legacy policies. Its headless runner records turn traces, detects stalled states, and is available for local clearance checks.
 
 ## Reference
 
