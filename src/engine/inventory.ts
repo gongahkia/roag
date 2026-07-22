@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from '../content'
-import { type Direction, type Modal, type RunState, DIRECTIONS } from '../types'
+import { DIRECTIONS, MAP_WIDTH, type Direction, type Modal, type RunState } from '../types'
 import { actorAt, generateAreaFloor, getTile } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
@@ -249,7 +249,7 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
   if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, [event('spell')]) }
   if (item.use === 'teleport') {
-    const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [{ x: i % 48, y: Math.floor(i / 48) }] : [])
+    const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
     if (choices.length) { const target = turnRng(state, 'combat', 'blink').pick(choices); state.hero.x = target.x; state.hero.y = target.y }
     consume(state, inventoryIndex); refreshFov(state); log(state, 'Space folds.'); return advance(state, [event('spell')])
   }

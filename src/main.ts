@@ -5,14 +5,14 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { completeCampaignArea, createHubState, event, hasEvent, heirNameFor, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { completeCampaignArea, createHubState, event, hasEvent, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import type { AutoplayDiagnostic, AutoplayTerminal, AutoplayTraceEntry, CampaignRouteState, CourierDraft, CourierSave, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
+import { MAP_WIDTH, type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
@@ -265,7 +265,7 @@ function createCourierFromDraft(): void {
   inheritedCampaign = undefined
   successorParentId = undefined
   const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
-  beginTrailhead(seed, openingLore(seed), heir)
+  beginTrailhead(seed, openingLore(seed, courier.identity.name), heir)
   persistCourier(courier, id)
   audio.play([event('menu')])
   redraw()
@@ -575,7 +575,7 @@ function redraw(): void {
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
-  renderer.render(route, state, records, hubView(route.heirSeed ?? 0, hub), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
@@ -585,7 +585,7 @@ function finish(won: boolean): void {
   recordedEnd = true
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
   if (!won && !checkpointDeath) {
-    campaign = recordDeath(campaign, state, heirNameFor(route.heirSeed ?? state.seed))
+    campaign = recordDeath(campaign, state, state.hero.name)
     const record = campaign.legacyRecords.at(-1)
     if (!record) throw new Error('missing death legacy record')
     pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
@@ -619,7 +619,7 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
     const y = game.hero.y
     const next = performTracked(game, command)
     events.push(...next)
-    const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && game.floor.tiles[actor.y * 48 + actor.x].visible)
+    const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && game.floor.tiles[actor.y * MAP_WIDTH + actor.x].visible)
     if (game.status !== 'playing' || game.modal || (x === game.hero.x && y === game.hero.y) || threats) break
   }
   return events

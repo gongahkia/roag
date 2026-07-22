@@ -1,11 +1,9 @@
-import { MAP_HEIGHT, MAP_WIDTH, indexOf, type Actor, type AreaState, type Biome, type Floor, type Hero, type LegacyRecord, type RunState, type Tile } from '../types'
+import { MAP_HEIGHT, MAP_WIDTH, indexOf, type Actor, type Biome, type Floor, type Hero, type LegacyRecord, type RunState, type Tile } from '../types'
 import { objectiveForFloor } from '../objectives'
 
 export interface GateFixture { id: string; biome: Biome; state: 'locked' | 'open'; requirements: string[] }
 
 const tiles = (): Tile[] => Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => ({ kind: 'floor', explored: true, visible: true }))
-
-export const createArea = (overrides: Partial<AreaState> = {}): AreaState => ({ biome: 'mine', status: 'active', floor: 0, completed: false, ...overrides })
 
 export const createHero = (overrides: Partial<Hero> = {}): Hero => ({
   name: 'Test Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint',
@@ -19,7 +17,7 @@ export const createEnemy = (overrides: Partial<Actor> = {}): Actor => ({
 
 export const createGate = (overrides: Partial<GateFixture> = {}): GateFixture => ({ id: 'gate-1', biome: 'mine', state: 'locked', requirements: ['key'], ...overrides })
 
-export const createLegacy = (overrides: Partial<LegacyRecord> = {}): LegacyRecord => ({ id: 'legacy-1', heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: 0, seed: 1, lineage: [], location: { x: 1, y: 1 }, cache: { gold: 0, items: [] }, encounter: { kind: 'cache', resolved: false }, ...overrides })
+export const createLegacy = (overrides: Partial<LegacyRecord> = {}): LegacyRecord => ({ id: 'legacy-1', heirName: 'Ari', biome: 'mine', floor: 0, seed: 1, ...overrides })
 
 export const createFloor = (overrides: Partial<Floor> = {}): Floor => {
   const start = { x: 1, y: 1 }

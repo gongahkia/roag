@@ -1,22 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIONS, ENEMY_ACTIONS, PLAYER_ACTIONS, actionById } from './actions'
+import { ACTIONS, actionById } from './actions'
 
 describe('action definitions', () => {
-  it('declares player and enemy actions with tactical metadata', () => {
-    expect(PLAYER_ACTIONS.length).toBeGreaterThan(0)
-    expect(ENEMY_ACTIONS.length).toBeGreaterThan(0)
+  it('declares names and tags for combat logs and the encyclopedia', () => {
     for (const action of ACTIONS) {
-      expect(action.range).toBeGreaterThan(0)
+      expect(action.id).toBeTruthy()
+      expect(action.name).toBeTruthy()
       expect(action.tags.length).toBeGreaterThan(0)
-      expect(action.shape).toBeTruthy()
-      expect(action.resolver).toBeTruthy()
-      expect(action.cost.resource).toBeTruthy()
     }
   })
 
   it('resolves definitions by stable id', () => {
-    expect(actionById('player-bomb')).toMatchObject({ owner: 'player', shape: 'burst', resolver: 'bomb' })
-    expect(actionById('enemy-shot')).toMatchObject({ owner: 'enemy', range: 7, resolver: 'projectile' })
+    expect(actionById('player-bomb')).toEqual({ id: 'player-bomb', name: 'Bomb', tags: ['area', 'terrain'] })
+    expect(actionById('enemy-shot')).toEqual({ id: 'enemy-shot', name: 'Shot', tags: ['ranged', 'telegraphed'] })
     expect(actionById('unknown')).toBeUndefined()
   })
 })

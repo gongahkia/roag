@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], legacyEncounterAreas: [] })
+    expect(route).toEqual({ version: 2, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
     expect(route).not.toHaveProperty('hero')
   })
 
@@ -52,9 +52,9 @@ describe('four-area campaign flow', () => {
     expect(recordCampaignSacrifice(recordCampaignSacrifice(route, event), event)).toMatchObject({ rescuedNpcs: [], lineageEvents: [event] })
   })
 
-  it('keeps the latest twelve full legacy records', () => {
+  it('keeps the latest twelve death records', () => {
     let route = initialCampaignRoute()
-    for (let i = 0; i < 13; i++) route = appendLegacyRecord(route, { id: `legacy-${i}`, heirName: 'Ari', cause: 'defeated', biome: 'mine', floor: i % 4, seed: i, lineage: ['Ari'], location: { x: i, y: 1 }, cache: { gold: i, items: ['tonic'] }, encounter: { kind: 'cache', resolved: false } })
+    for (let i = 0; i < 13; i++) route = appendLegacyRecord(route, { id: `legacy-${i}`, heirName: 'Ari', biome: 'mine', floor: i % 4, seed: i })
     expect(route.legacyRecords.map(record => record.id)).toEqual(Array.from({ length: 12 }, (_, i) => `legacy-${i + 1}`))
   })
 })

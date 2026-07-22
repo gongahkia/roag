@@ -9,7 +9,7 @@ describe('trail lore', () => {
     expect(successionLore(record, 91)).toEqual(successionLore(record, 91))
     expect(successionLore(record, 91).pages.join(' ')).toContain('Ari Vale')
     expect(successionLore(record, 91).pages.join(' ')).toContain('Cedar Wilds')
-    expect(openingLore(91).pages.join(' ')).toContain('courier')
+    expect(openingLore(91, 'Mika').pages.join(' ')).toContain('Mika')
   })
 
   it('reveals, completes, advances, and finishes pages deterministically', () => {

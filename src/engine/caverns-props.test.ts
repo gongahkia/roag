@@ -6,6 +6,7 @@ import { advance } from './combat'
 import { operate, useRope } from './inventory'
 import { resolveLineEffect } from './line-effect'
 import { applyPropEffects } from './props'
+import { monsterXp } from './progression'
 import { refreshFov } from './visibility'
 import { createRun } from '../test/factories'
 
@@ -105,7 +106,8 @@ describe('Caverns props', () => {
     expect(tunnel.floor.props[0].state).toBe('dormant')
     expect(isPassable(tunnel.floor, 2, 1)).toBe(true)
     applyPropEffects(tunnel, [{ x: 2, y: 1 }], ['fire'])
-    expect(tunnel.floor.actors).toContainEqual(expect.objectContaining({ kind: 'fumeEel', hostile: true }))
+    expect(tunnel.floor.actors).toContainEqual(expect.objectContaining({ kind: 'fumeeel', name: 'Fume Eel', health: 13, hostile: true }))
+    expect(monsterXp(tunnel.floor.actors.at(-1)!.kind)).toBe(29)
 
     const parcel = cavernRun()
     parcel.hero.keys = 1

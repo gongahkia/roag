@@ -1,4 +1,4 @@
-import type { Actor, GuardianPhase, RunState, TileKind } from '../types'
+import { MAP_WIDTH, type Actor, type GuardianPhase, type RunState, type TileKind } from '../types'
 import { rngFor } from '../rng'
 import { actorAt, getTile, preservesExitPath } from '../world'
 import { log } from './shared'
@@ -26,7 +26,7 @@ export const advanceGuardianPhase = (state: RunState, guardian: Actor): Guardian
   const guardianTile = getTile(state.floor, guardian.x, guardian.y)
   const candidates = guardian.kind === 'foreman' && next === 'pressure' && (guardianTile?.kind === 'floor' || guardianTile?.kind === 'rail')
     ? [{ x: guardian.x, y: guardian.y }]
-    : state.floor.tiles.flatMap((current, index) => current.kind === 'floor' ? [{ x: index % 48, y: Math.floor(index / 48) }] : []).filter(point => !(point.x === state.hero.x && point.y === state.hero.y) && !actorAt(state.floor, point.x, point.y))
+    : state.floor.tiles.flatMap((current, index) => current.kind === 'floor' ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : []).filter(point => !(point.x === state.hero.x && point.y === state.hero.y) && !actorAt(state.floor, point.x, point.y))
   if (candidates.length) {
     const rng = rngFor(state.seed, 'combat', state.floor.index, state.turn, `arena:${guardian.id}:${next}`)
     const pool = [...candidates]

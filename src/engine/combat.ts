@@ -1,6 +1,5 @@
 import { ITEM } from '../content'
-import type { Actor, Direction, RunState, Telegraph } from '../types'
-import { DIRECTIONS } from '../types'
+import { DIRECTIONS, MAP_HEIGHT, MAP_WIDTH, type Actor, type Direction, type RunState, type Telegraph } from '../types'
 import { actorAt, getTile, isPassable, preservesAdjacentExitAccess, preservesExitPath } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
@@ -208,7 +207,7 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
     const ty = y + dy
     points.push({ x: tx, y: ty })
     const tile = getTile(state.floor, tx, ty)
-    if (tile && tile.kind === 'wall' && tx > 0 && tx < 47 && ty > 0 && ty < 34) tile.kind = 'floor'
+    if (tile && tile.kind === 'wall' && tx > 0 && tx < MAP_WIDTH - 1 && ty > 0 && ty < MAP_HEIGHT - 1) tile.kind = 'floor'
     const actor = actorAt(state.floor, tx, ty)
     if (actor?.hostile) actor.health -= modifyIncomingDamage(actor, damage)
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), source)

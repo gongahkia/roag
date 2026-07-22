@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { createHubState, heirNameFor, hubView } from './hub'
+import { createHubState, hubView } from './hub'
 import { initialRoute, navigate } from './routing'
 
 describe('hub state', () => {
-  it('provides a deterministic heir, routes, roster, and supplies', () => {
+  it('provides a courier name, routes, roster, and supplies', () => {
     const state = createHubState(42)
     expect(state).toEqual(createHubState(42))
     expect(state.unlockedAreas).toEqual(['mine'])
-    expect(hubView(42, state).heirName).toBe(heirNameFor(42))
-    expect(hubView(42, state).state.rescued).toEqual([])
+    expect(hubView('Mika', state)).toEqual({ courierName: 'Mika', state })
   })
 
   it('selects hub actions without DOM state', () => {

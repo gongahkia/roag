@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createArea, createEnemy, createGate, createHero, createLegacy, createRun } from './factories'
+import { createEnemy, createGate, createHero, createLegacy, createRun } from './factories'
 
 describe('deterministic game-state factories', () => {
-  it('creates stable area, hero, enemy, gate, and legacy fixtures', () => {
-    expect(createArea()).toEqual(createArea())
+  it('creates stable hero, enemy, gate, and legacy fixtures', () => {
     expect(createHero({ gold: 9 }).gold).toBe(9)
     expect(createEnemy({ kind: 'foreman' }).kind).toBe('foreman')
     expect(createGate({ state: 'open' }).state).toBe('open')

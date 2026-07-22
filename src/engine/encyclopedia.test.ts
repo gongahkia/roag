@@ -16,7 +16,7 @@ describe('encyclopedia', () => {
     expect(encyclopediaEntries(state, 'telegraphs')).toContain('Shot — ranged, telegraphed')
     expect(encyclopediaEntries(state, 'tags')).toContain('#explosive')
     expect(encyclopediaEntries(state, 'gates')[0]).toContain('Obsidian Mine → Cedar Wilds')
-    expect(encyclopediaEntries(state, 'legacy')).toContain('Ari: defeated, Obsidian Mine 1, active')
+    expect(encyclopediaEntries(state, 'legacy')).toContain('Ari fell in Obsidian Mine 1')
   })
 
   it('opens and navigates the encyclopedia modal without advancing time', () => {

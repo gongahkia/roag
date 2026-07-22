@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { CONTENT, ITEMS, SCRIPTS, SKILLS, SHOP_STOCK, validateContent } from './content'
+import { CONTENT, ITEMS, SCRIPTS, SKILLS, SHOP_STOCK, isItemId, isMonsterId, isSkillId, validateContent } from './content'
 
 describe('content registry validation', () => {
   it('accepts the startup registry', () => {
     expect(() => validateContent(CONTENT)).not.toThrow()
     expect(SCRIPTS).toHaveLength(ITEMS.filter(item => item.use === 'spell').length)
+  })
+
+  it('recognizes canonical item, monster, and skill IDs', () => {
+    expect(isItemId('whip')).toBe(true)
+    expect(isMonsterId('fumeeel')).toBe(true)
+    expect(isSkillId('str1')).toBe(true)
+    expect(isItemId('missing')).toBe(false)
+    expect(isMonsterId('fumeEel')).toBe(false)
+    expect(isSkillId('missing')).toBe(false)
   })
 
   it('rejects invalid ids and tags', () => {

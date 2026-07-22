@@ -1,5 +1,4 @@
 import { biomeName } from './content'
-import { heirNameFor } from './engine/hub'
 import { streamSeed } from './rng'
 import { mineSeason } from './season'
 import type { Biome, LegacyRecord, RunState } from './types'
@@ -40,9 +39,8 @@ export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]
 const characters = (value: string): string[] => Array.from(value)
 
-export const openingLore = (heirSeed: number): LoreScene => {
+export const openingLore = (heirSeed: number, courierName: string): LoreScene => {
   const season = mineSeason(heirSeed)
-  const courier = heirNameFor(heirSeed)
   const opening = pick(heirSeed, 'lore:opening', [
     `The ${season.name.toLowerCase()} opens over the village trail.`,
     `The village trail stirs beneath the ${season.name.toLowerCase()}.`,
@@ -53,13 +51,12 @@ export const openingLore = (heirSeed: number): LoreScene => {
     'A sealed parcel waits for a steady hand.',
     'The outpost keeps a parcel for the next courier.'
   ])
-  return { title: 'VILLAGE TRAILHEAD', animation: trailAnimation, pages: [`${opening}\n${season.scene}`, `${courier} takes the courier\'s mark.\n${charge}`] }
+  return { title: 'VILLAGE TRAILHEAD', animation: trailAnimation, pages: [`${opening}\n${season.scene}`, `${courierName} takes the courier\'s mark.\n${charge}`] }
 }
 
 export const successionLore = (record: LegacyRecord, successorSeed: number): LoreScene => {
   const formerSeason = mineSeason(record.seed)
   const nextSeason = mineSeason(successorSeed)
-  const successor = heirNameFor(successorSeed)
   const passage = pick(successorSeed, `lore:passage:${record.id}`, [
     `The ${formerSeason.name.toLowerCase()} gives way to ${nextSeason.name.toLowerCase()}.`,
     `The trail turns from ${formerSeason.name.toLowerCase()} into ${nextSeason.name.toLowerCase()}.`,
@@ -74,8 +71,8 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
     title: 'THREADS OF THE TRAIL', animation: threadsAnimation,
     pages: [
       `${record.heirName} fell in ${biomeName[record.biome]}, trail ${record.floor + 1}.\nThe sealed parcel slipped into the dark.`,
-      `${passage}\n${record.heirName}\'s path reaches ${successor}.`,
-      `${successor} answers at the village trail.\n${inheritance}`
+      `${passage}\n${record.heirName}\'s path reaches a new courier.`,
+      `A new courier answers at the village trail.\n${inheritance}`
     ]
   }
 }

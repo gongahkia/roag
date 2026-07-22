@@ -1,6 +1,6 @@
-import { DIRECTIONS, type Point, type Prop, type PropEffectKind, type RunState, type Telegraph } from '../types'
+import { DIRECTIONS, MAP_WIDTH, type Point, type Prop, type PropEffectKind, type RunState, type Telegraph } from '../types'
 import { isBlockingProp, propAt, propDefinition } from '../props'
-import { actorAt, getTile, hasPassablePath, isPassable, preservesExitPath } from '../world'
+import { actorAt, getTile, hasPassablePath, isPassable, preservesExitPath, spawnMonster } from '../world'
 import { damageHero, explode, resolveDefeatedActors } from './combat'
 import { addCondition, modifyIncomingDamage } from './conditions'
 import { event, log, type ActionResult } from './shared'
@@ -78,7 +78,7 @@ const floodBrine = (state: RunState, point: Point): Point[] => {
 const disturbEelTunnel = (state: RunState, prop: Prop): boolean => {
   const candidate = nearbyPoints(prop, 3).find(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) > 1 && isPassable(state.floor, point.x, point.y) && !actorAt(state.floor, point.x, point.y))
   if (!candidate) return false
-  state.floor.actors.push({ id: `${prop.id}:eel`, role: 'monster', kind: 'fumeEel', name: 'fume eel', x: candidate.x, y: candidate.y, health: 8, maxHealth: 8, attack: 5, defense: 10, speed: 105, energy: 0, glyph: 'u', color: '#8fc59a', hostile: true, ai: 'chase', conditions: [] })
+  state.floor.actors.push(spawnMonster('fumeeel', candidate, `${prop.id}:eel`))
   return true
 }
 
@@ -120,7 +120,7 @@ const consumeRuinsCacheKey = (state: RunState): 'key' | 'bomb' | 'sunseal' | 'wa
 const disturbNest = (state: RunState, prop: Prop): boolean => {
   const candidate = nearbyPoints(prop, 3).find(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) > 1 && isPassable(state.floor, point.x, point.y) && !actorAt(state.floor, point.x, point.y))
   if (!candidate) return false
-  state.floor.actors.push({ id: `${prop.id}:flock`, role: 'monster', kind: 'startledBirds', name: 'startled birds', x: candidate.x, y: candidate.y, health: 4, maxHealth: 4, attack: 3, defense: 8, speed: 125, energy: 0, glyph: 'b', color: '#d8bc82', hostile: true, ai: 'chase', conditions: [] })
+  state.floor.actors.push(spawnMonster('startledBirds', candidate, `${prop.id}:flock`))
   return true
 }
 
@@ -208,7 +208,7 @@ const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
 }
 
 const revealWarnings = (state: RunState, prop: Prop, skull: boolean): number => {
-  const points = state.floor.tiles.flatMap((tile, index) => hazardKinds.has(tile.kind) ? [{ x: index % 48, y: Math.floor(index / 48), priority: 0 }] : [])
+  const points = state.floor.tiles.flatMap((tile, index) => hazardKinds.has(tile.kind) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH), priority: 0 }] : [])
   if (skull) points.push(...state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y, priority: 1 })))
   const warnings = points
     .filter(point => Math.max(Math.abs(point.x - prop.x), Math.abs(point.y - prop.y)) <= 5)

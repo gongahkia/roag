@@ -1,8 +1,8 @@
-import { ITEMS, MONSTERS, biomeForFloor, type MonsterDefinition } from './content'
+import { ITEMS, MONSTERS, biomeForFloor, monsterById } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type Point, type Prop, type Tile, indexOf, inBounds } from './types'
 import { objectiveForFloor } from './objectives'
-import { gateForArea, validateAreaGate } from './engine/gates'
+import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
 
@@ -361,15 +361,16 @@ function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
 
 function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
   const definitions = MONSTERS.filter(monster => monster.biome === floor.biome)
-  const regular = definitions.filter(monster => monster.ai !== 'guardian')
+  const regular = definitions.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')
   const count = 8 + floor.index % 4 * 2
   for (let i = 0; i < count; i++) {
     const point = freeRoomPoint(floor, rng, rooms.slice(1))
-    floor.actors.push(monster(rng.pick(regular), point, i))
+    const definition = rng.pick(regular)
+    floor.actors.push(spawnMonster(definition.id, point, `${definition.id}-${i}`))
   }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
-    floor.actors.push(monster(guardian, floor.exit, 99))
+    floor.actors.push(spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`))
   }
 }
 
@@ -393,8 +394,10 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
   return { ...floor.start }
 }
 
-function monster(definition: MonsterDefinition, point: Point, i: number): Actor {
-  return { id: `${definition.id}-${i}`, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const } : {}) }
+export const spawnMonster = (kind: string, point: Point, id: string): Actor => {
+  const definition = monsterById(kind)
+  if (!definition) throw new Error(`unknown monster: ${kind}`)
+  return { id, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const } : {}) }
 }
 
 function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: string, color: string): Actor {

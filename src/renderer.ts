@@ -276,7 +276,7 @@ export class TerminalRenderer {
     const x = Math.floor((TERMINAL_WIDTH - width) / 2)
     const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
     this.box(x, y, width, height, 'VILLAGE OUTPOST')
-    this.text(x + 6, y + 4, `COURIER: ${hub?.heirName ?? 'Unassigned'}`, colors.gold)
+    this.text(x + 6, y + 4, `COURIER: ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
     this.text(x + 6, y + 6, 'PARCEL: sealed — do not open', colors.text)
     this.text(x + 6, y + 8, `COMPANIONS: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
     const action = route.hubAction ?? 'routes'

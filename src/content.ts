@@ -24,7 +24,7 @@ export interface ItemDefinition {
   effects?: readonly EquipmentEffect[]
 }
 
-export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[] }
+export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[]; spawn?: 'ambient' | 'triggered' }
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
@@ -70,6 +70,8 @@ export const ITEMS: ItemDefinition[] = [
 ]
 
 export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Record<string, ItemDefinition>
+export const itemById = (id: string): ItemDefinition | undefined => ITEM[id]
+export const isItemId = (id: unknown): id is ItemId => typeof id === 'string' && itemById(id) !== undefined
 export const SCRIPTS: ScriptDefinition[] = [
   { itemId: 'ember', id: 'ember', school: 'ember', tags: ['fire', 'damage'], focusCost: 3, shape: 'line', range: 1, upgrades: ['potency', 'range'] },
   { itemId: 'mend', id: 'mend', school: 'verdant', tags: ['healing'], focusCost: 3, shape: 'adjacent', range: 1, upgrades: ['potency', 'focusCost'] },
@@ -102,6 +104,7 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'vinebinder', name: 'Vine Binder', glyph: 'V', color: '#5d9f67', health: 12, attack: 5, defense: 11, speed: 95, ai: 'ranged', xp: 24, biome: 'wilds', tags: ['wilds', 'root', 'telegraph'] },
   { id: 'marshskater', name: 'Marsh Skater', glyph: 'k', color: '#72b9b1', health: 10, attack: 6, defense: 12, speed: 100, ai: 'chase', xp: 25, biome: 'wilds', tags: ['wilds', 'water', 'mobility'] },
   { id: 'webweaver', name: 'Web Weaver', glyph: 'W', color: '#d5dce4', health: 11, attack: 5, defense: 12, speed: 90, ai: 'ranged', xp: 26, biome: 'wilds', tags: ['wilds', 'web', 'snare', 'telegraph'] },
+  { id: 'startledBirds', name: 'Startled Birds', glyph: 'b', color: '#d8bc82', health: 4, attack: 3, defense: 8, speed: 125, ai: 'chase', xp: 8, biome: 'wilds', tags: ['wilds', 'mobility'], spawn: 'triggered' },
   { id: 'heartwood', name: 'Heartwood Stag', glyph: 'H', color: '#d1e281', health: 52, attack: 10, defense: 14, speed: 110, ai: 'guardian', xp: 90, biome: 'wilds' },
   { id: 'crawler', name: 'Crystal Crawler', glyph: 'c', color: '#7bcfe0', health: 14, attack: 7, defense: 13, speed: 95, ai: 'chase', xp: 23, biome: 'caverns' },
   { id: 'magma', name: 'Magma Newt', glyph: 'n', color: '#ef795a', health: 12, attack: 8, defense: 11, speed: 105, ai: 'chase', xp: 25, biome: 'caverns' },
@@ -124,6 +127,9 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'ritualist', name: 'Ash Ritualist', glyph: 'r', color: '#d88ea4', health: 14, attack: 10, defense: 13, speed: 95, ai: 'ranged', xp: 44, biome: 'ruins', tags: ['ruins', 'ritual', 'telegraph'] },
   { id: 'regent', name: 'The Stone Keeper', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
 ]
+export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
+export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
+export const isMonsterId = (id: unknown): id is string => typeof id === 'string' && monsterById(id) !== undefined
 
 export const SKILLS: SkillDefinition[] = [
   ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: ['Strength +1, melee damage +1', 'Strength +1, melee damage +1', 'Strength +1, break rubble', 'Strength +1, guard 2 damage', 'Strength +1, melee knockback', 'Strength +1, melee damage +2'][i], tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
@@ -131,6 +137,8 @@ export const SKILLS: SkillDefinition[] = [
   ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i +1}`, name, stat: 'vitality' as StatName, level: i + 1, text: ['Vitality +1, maximum health +2', 'Vitality +1, recovery +1', 'Vitality +1, shield 1 damage', 'Vitality +1, recovery +3', 'Vitality +1, hazards -2 damage', 'Vitality +1, rescue recovery +6'][i], tags: ['vitality'], prerequisites: i ? [`vit${i}`] : [] })),
   ...(['Spark', 'Insight', 'Ritualist', 'Sky Reader', 'Spirit Walker', 'Wayfinder'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: ['Intellect +1, charms cost 1 less', 'Intellect +1, focus recovery +1', 'Intellect +1, charm range +1', 'Intellect +1, wards shield 2', 'Intellect +1, charm range +1', 'Intellect +1, focus recovery +1, sky paths'][i], tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
 ]
+const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<string, SkillDefinition>
+export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
 export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle' }

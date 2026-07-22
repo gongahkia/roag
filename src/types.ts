@@ -119,17 +119,6 @@ export interface CourierMenuEntry { id: string; name: string; origin: CourierOri
 export interface CourierMenuView { entries: CourierMenuEntry[]; selectedId?: string; confirmingDelete?: boolean }
 export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; focus: 0 | 1 | 2 | 3 }
 
-export type CampaignPhase = 'title' | 'hub' | 'area' | 'dead' | 'victory'
-export type AreaStatus = 'locked' | 'available' | 'active' | 'completed'
-export type LegacyCause = 'defeated' | 'sacrificed' | 'retired'
-
-export interface AreaState {
-  biome: Biome
-  status: AreaStatus
-  floor: number
-  completed: boolean
-}
-
 export interface HubState {
   season: number
   supplies: ItemId[]
@@ -140,21 +129,14 @@ export interface HubState {
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
-export interface CampaignRouteState { version: 1; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; legacyEncounterAreas: Biome[] }
+export interface CampaignRouteState { version: 2; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
 
-export interface LegacyCache { gold: number; items: ItemId[] }
-export interface LegacyEncounterState { kind: 'cache' | 'revenant' | 'anchor'; resolved: boolean }
 export interface LegacyRecord {
   id: string
   heirName: string
-  cause: LegacyCause
   biome: Biome
   floor: number
   seed: number
-  lineage: string[]
-  location: Point
-  cache: LegacyCache
-  encounter: LegacyEncounterState
 }
 
 export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 'legacy'
@@ -183,22 +165,6 @@ export interface AutoplayDiagnostic { id: string; date: string; seed: number; bi
 export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
-interface CampaignBase {
-  version: 2
-  seed: number
-  phase: CampaignPhase
-  areas: AreaState[]
-  hub: HubState
-  legacy: LegacyRecord[]
-}
-
-export interface TitleCampaign extends CampaignBase { phase: 'title' }
-export interface HubCampaign extends CampaignBase { phase: 'hub'; hero: Hero }
-export interface AreaCampaign extends CampaignBase { phase: 'area'; hero: Hero; activeBiome: Biome }
-export interface DeadCampaign extends CampaignBase { phase: 'dead'; legacyRecord: LegacyRecord }
-export interface VictoryCampaign extends CampaignBase { phase: 'victory'; hero: Hero }
-export type Campaign = TitleCampaign | HubCampaign | AreaCampaign | DeadCampaign | VictoryCampaign
-
 export interface RunState {
   version: 3
   seed: number
@@ -216,8 +182,6 @@ export interface RunState {
   encyclopedia?: EncyclopediaState
   telemetry?: RunTelemetry
 }
-
-export type RunStateV1 = Omit<RunState, 'version'> & { version: 1 }
 
 export type Modal =
   | { kind: 'help' }

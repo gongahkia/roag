@@ -55,7 +55,7 @@ const planningClone = (state: RunState): RunState => {
     },
     rescuedNpcs: state.rescuedNpcs?.map(npc => ({ ...npc })),
     lineageEvents: state.lineageEvents?.map(event => ({ ...event })),
-    encyclopedia: state.encyclopedia ? { ...state.encyclopedia, enemies: [...state.encyclopedia.enemies], telegraphs: [...state.encyclopedia.telegraphs], tags: [...state.encyclopedia.tags], gates: [...state.encyclopedia.gates], legacyRecords: state.encyclopedia.legacyRecords.map(record => ({ ...record, lineage: [...record.lineage], location: { ...record.location }, cache: { ...record.cache, items: [...record.cache.items] }, encounter: { ...record.encounter } })) } : undefined
+    encyclopedia: state.encyclopedia ? { ...state.encyclopedia, enemies: [...state.encyclopedia.enemies], telegraphs: [...state.encyclopedia.telegraphs], tags: [...state.encyclopedia.tags], gates: [...state.encyclopedia.gates], legacyRecords: state.encyclopedia.legacyRecords.map(record => ({ ...record })) } : undefined
   }
 }
 

@@ -16,6 +16,6 @@ describe('enemy intent planner', () => {
   it('produces an action for every hostile enemy on a generated floor', () => {
     const state = createRun()
     state.floor.actors = [createEnemy({ x: 2, y: 1 }), createEnemy({ id: 'ranged', ai: 'ranged', x: 6, y: 1 }), createEnemy({ id: 'wanderer', ai: 'wander', x: 12, y: 1 })]
-    for (const actor of state.floor.actors) expect(planEnemyIntent(state, actor).action.owner).toBe('enemy')
+    for (const actor of state.floor.actors) expect(planEnemyIntent(state, actor).action.id).toBeTruthy()
   })
 })

@@ -1,4 +1,4 @@
-import type { RunState } from '../types'
+import { MAP_HEIGHT, MAP_WIDTH, type RunState } from '../types'
 import { getTile } from '../world'
 import { observeEncyclopedia } from './encyclopedia'
 import { isBlockingProp, isSightBlockingProp, propAt } from '../props'
@@ -6,17 +6,17 @@ import { isBlockingProp, isSightBlockingProp, propAt } from '../props'
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
   const range = state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10
-  for (let y = Math.max(0, state.hero.y - range); y <= Math.min(34, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(47, state.hero.x + range); x++) {
+  for (let y = Math.max(0, state.hero.y - range); y <= Math.min(MAP_HEIGHT - 1, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(MAP_WIDTH - 1, state.hero.x + range); x++) {
     if (hasLine(state, state.hero, { x, y })) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
   }
   for (const lantern of state.floor.props.filter(prop => prop.kind === 'mine.lanternPost' && prop.state === 'activated')) {
-    for (let y = Math.max(0, lantern.y - 4); y <= Math.min(34, lantern.y + 4); y++) for (let x = Math.max(0, lantern.x - 4); x <= Math.min(47, lantern.x + 4); x++) {
+    for (let y = Math.max(0, lantern.y - 4); y <= Math.min(MAP_HEIGHT - 1, lantern.y + 4); y++) for (let x = Math.max(0, lantern.x - 4); x <= Math.min(MAP_WIDTH - 1, lantern.x + 4); x++) {
       if (hasLine(state, lantern, { x, y }, true)) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
     }
   }
   for (const fungus of state.floor.props.filter(prop => prop.kind === 'caverns.glowingFungus' && prop.state !== 'destroyed')) {
     const radius = fungus.state === 'activated' ? 4 : 2
-    for (let y = Math.max(0, fungus.y - radius); y <= Math.min(34, fungus.y + radius); y++) for (let x = Math.max(0, fungus.x - radius); x <= Math.min(47, fungus.x + radius); x++) {
+    for (let y = Math.max(0, fungus.y - radius); y <= Math.min(MAP_HEIGHT - 1, fungus.y + radius); y++) for (let x = Math.max(0, fungus.x - radius); x <= Math.min(MAP_WIDTH - 1, fungus.x + radius); x++) {
       if (hasLine(state, fungus, { x, y }, true)) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
     }
   }

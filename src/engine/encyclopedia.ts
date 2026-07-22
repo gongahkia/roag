@@ -7,7 +7,7 @@ import { terrainTags } from './terrain'
 import { getTile } from '../world'
 
 export const ENCYCLOPEDIA_SECTIONS: readonly EncyclopediaSection[] = ['enemies', 'telegraphs', 'tags', 'gates', 'legacy']
-const copyLegacy = (records: readonly LegacyRecord[]): LegacyRecord[] => records.slice(-12).map(record => ({ ...record, lineage: [...record.lineage], location: { ...record.location }, cache: { gold: record.cache.gold, items: [...record.cache.items] }, encounter: { ...record.encounter } }))
+const copyLegacy = (records: readonly LegacyRecord[]): LegacyRecord[] => records.slice(-12).map(record => ({ ...record }))
 const add = (entries: string[], value: string): string[] => entries.includes(value) ? entries : [...entries, value].sort()
 const addMany = (entries: string[], values: readonly string[]): string[] => values.reduce((current, value) => add(current, value), entries)
 const displayTag = (tag: string): string => tag === 'script' ? 'charm' : tag
@@ -50,5 +50,5 @@ export const encyclopediaEntries = (state: RunState, section: EncyclopediaSectio
   if (section === 'telegraphs') return book.telegraphs.map(id => { const action = actionById(id); return action ? `${action.name} — ${action.tags.join(', ')}` : id })
   if (section === 'tags') return book.tags.map(tag => `#${displayTag(tag)}`)
   if (section === 'gates') return book.gates.map(id => { const gate = Object.values(AREA_GATES).find(current => current.id === id); return gate ? `${biomeName[gate.biome]} → ${biomeName[gate.unlockedDestination.biome]}: ${gate.tagAlternatives.map(option => option.label).join(' / ')}` : id })
-  return book.legacyRecords.map(record => `${record.heirName}: ${record.cause}, ${biomeName[record.biome]} ${record.floor + 1}, ${record.encounter.resolved ? 'resolved' : 'active'}`)
+  return book.legacyRecords.map(record => `${record.heirName} fell in ${biomeName[record.biome]} ${record.floor + 1}`)
 }

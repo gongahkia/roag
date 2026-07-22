@@ -130,9 +130,25 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)?.floor.props[0]).toMatchObject({ effectCells: [{ x: 3, y: 4 }], expiresAt: 9 })
   })
 
-  it('rejects v1 and v2 runs after the prop schema change', () => {
-    expect(migrateRunRecord({ ...newRun(456), version: 1 })).toBeUndefined()
-    expect(migrateRunRecord({ ...newRun(456), version: 2 })).toBeUndefined()
+  it('upgrades v1 and v2 runs after the prop schema change', () => {
+    for (const version of [1, 2] as const) {
+      const legacy = structuredClone(newRun(456)) as unknown as { version: number; hero: Record<string, unknown>; floor: Record<string, unknown> }
+      legacy.version = version
+      delete legacy.hero.name
+      delete legacy.hero.origin
+      delete legacy.hero.calling
+      delete legacy.hero.deathMode
+      delete legacy.floor.props
+      delete legacy.floor.objective
+      const migrated = migrateRunRecord(legacy)
+      expect(migrated).toMatchObject({ version: 3, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], objective: { status: 'active' } } })
+    }
+  })
+
+  it('preserves a v2 objective state', () => {
+    const legacy = structuredClone(newRun(458)) as unknown as { version: number }
+    legacy.version = 2
+    expect(migrateRunRecord(legacy)?.floor.objective).toEqual(newRun(458).floor.objective)
   })
 
   it('rejects incomplete current-schema heroes', () => {
@@ -142,6 +158,21 @@ describe('run persistence migration', () => {
     delete (legacy.hero as Partial<typeof legacy.hero>).calling
     delete (legacy.hero as Partial<typeof legacy.hero>).deathMode
     expect(migrateRunRecord(legacy)).toBeUndefined()
+  })
+
+  it('rejects malformed current saves before content consumers access them', () => {
+    const unknownItem = newRun(459)
+    unknownItem.hero.inventory.push('missing-item')
+    expect(migrateRunRecord(unknownItem)).toBeUndefined()
+    const unknownSkill = newRun(460)
+    unknownSkill.hero.skills.push('missing-skill')
+    expect(migrateRunRecord(unknownSkill)).toBeUndefined()
+    const outOfBounds = newRun(461)
+    outOfBounds.hero.x = 48
+    expect(migrateRunRecord(outOfBounds)).toBeUndefined()
+    const wrongDimensions = newRun(462)
+    wrongDimensions.floor.tiles.pop()
+    expect(migrateRunRecord(wrongDimensions)).toBeUndefined()
   })
 
   it('builds mechanical origins and starter callings', () => {
@@ -173,13 +204,13 @@ describe('run persistence migration', () => {
 
   it('keeps only route progression when loading campaign state', () => {
     const route = migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', hero: { gold: 999 } })
-    expect(route).toEqual({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], legacyEncounterAreas: [] })
-    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], legacyEncounterAreas: [] })
+    expect(route).toEqual({ version: 2, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 2, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
   })
 
-  it('retains canonical legacy records in campaign storage', () => {
+  it('migrates v1 death records to the journal schema', () => {
     const legacy = { id: 'legacy-1', heirName: 'Ari', cause: 'defeated' as const, biome: 'mine' as const, floor: 2, seed: 9, lineage: ['Ari'], location: { x: 4, y: 6 }, cache: { gold: 30, items: ['tonic'] }, encounter: { kind: 'cache' as const, resolved: false } }
-    expect(migrateCampaignRoute({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', legacyRecords: [legacy] }).legacyRecords).toEqual([legacy])
+    expect(migrateCampaignRoute({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', legacyRecords: [legacy], legacyEncounterAreas: ['mine'] })).toEqual({ version: 2, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [{ id: 'legacy-1', heirName: 'Ari', biome: 'mine', floor: 2, seed: 9 }] })
   })
 })
 

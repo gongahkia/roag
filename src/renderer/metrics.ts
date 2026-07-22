@@ -1,7 +1,8 @@
+import { MAP_HEIGHT, MAP_WIDTH } from '../types'
+
 export const CELL_WIDTH = 10
 export const CELL_HEIGHT = 12
-export const MAP_WIDTH = 48
-export const MAP_HEIGHT = 35
+export { MAP_HEIGHT, MAP_WIDTH }
 
 export interface CellRect { x: number; y: number; width: number; height: number }
 
