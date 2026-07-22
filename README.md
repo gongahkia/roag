@@ -97,3 +97,7 @@ Autoplay has visible-map and full-map modes, with survival, clear-rate, and lega
 ## Reference
 
 `Jomon` is thoroughly inspired by [Bob Nystrom](https://x.com/munificentbob?lang=en) *(a.k.a [@munifcent](https://github.com/munificent))*'s [Hauberk](https://github.com/munificent/hauberk).
+
+<div align="center">
+    <img src="./asset/logo/hauberk.png" width="75%">
+</div>
