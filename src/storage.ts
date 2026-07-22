@@ -14,6 +14,18 @@ type RunRecord = Omit<RunState, 'version'> & { version: number }
 type UnknownRecord = Record<string, unknown>
 type CampaignRouteRecord = Omit<CampaignRouteState, 'rescuedNpcs' | 'lineageEvents' | 'legacyRecords' | 'legacyEncounterAreas'> & { rescuedNpcs?: RescuedNpc[]; lineageEvents?: LineageEvent[]; legacyRecords?: LegacyRecord[]; legacyEncounterAreas?: Biome[] }
 
+export class SerialWriteQueue {
+  private tail: Promise<void> = Promise.resolve()
+
+  enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.tail.then(operation)
+    this.tail = result.then(() => undefined, () => undefined)
+    return result
+  }
+
+  flush(): Promise<void> { return this.tail }
+}
+
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isString = (value: unknown): value is string => typeof value === 'string'
@@ -76,26 +88,32 @@ const database = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   request.onerror = () => reject(request.error)
 })
 
+const requestError = (error: DOMException | null, fallback: string): Error => error ?? new Error(fallback)
 const get = async <T>(key: string): Promise<T | undefined> => {
-  try {
-    const db = await database()
-    return await new Promise((resolve, reject) => {
-      const request = db.transaction(STORE).objectStore(STORE).get(key)
-      request.onsuccess = () => resolve(request.result as T | undefined)
-      request.onerror = () => reject(request.error)
-    })
-  } catch { return undefined }
+  const db = await database()
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(STORE).objectStore(STORE).get(key)
+    request.onsuccess = () => resolve(request.result as T | undefined)
+    request.onerror = () => reject(requestError(request.error, `failed to read ${key}`))
+  })
 }
 
 const put = async <T>(key: string, value: T): Promise<void> => {
-  try {
-    const db = await database()
-    await new Promise<void>((resolve, reject) => {
-      const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(value, key)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
-  } catch { }
+  const db = await database()
+  await new Promise<void>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(value, key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(requestError(request.error, `failed to write ${key}`))
+  })
+}
+
+const remove = async (key: string): Promise<void> => {
+  const db = await database()
+  await new Promise<void>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(requestError(request.error, `failed to delete ${key}`))
+  })
 }
 
 export async function loadRun(): Promise<RunState | undefined> {
@@ -103,16 +121,7 @@ export async function loadRun(): Promise<RunState | undefined> {
   return migrateRunRecord(record)
 }
 export const saveRun = (state: RunState) => put(RUN, state)
-export async function deleteRun(): Promise<void> {
-  try {
-    const db = await database()
-    await new Promise<void>((resolve, reject) => {
-      const request = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(RUN)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
-  } catch { }
-}
+export const deleteRun = () => remove(RUN)
 
 const emptyRecords = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] })
 const migrateRecords = (value: unknown): Records => {
@@ -130,6 +139,37 @@ interface CourierIndex { version: 1; ids: string[]; selectedId?: string }
 const emptyCourierIndex = (): CourierIndex => ({ version: 1, ids: [] })
 const isCourierIndex = (value: unknown): value is CourierIndex => isRecord(value) && value.version === 1 && Array.isArray(value.ids) && value.ids.every(isString) && (value.selectedId === undefined || isString(value.selectedId))
 const courierKey = (id: string): string => `${COURIER_PREFIX}${id}`
+const courierWrites = new SerialWriteQueue()
+
+const writeTransaction = async (operation: (store: IDBObjectStore, fail: (error: Error) => void) => void): Promise<void> => {
+  const db = await database()
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(STORE, 'readwrite')
+    let failure: Error | undefined
+    const fail = (error: Error): void => {
+      failure ??= error
+      try { transaction.abort() } catch { }
+    }
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(failure ?? requestError(transaction.error, 'courier persistence transaction failed'))
+    transaction.onabort = () => reject(failure ?? requestError(transaction.error, 'courier persistence transaction aborted'))
+    try { operation(transaction.objectStore(STORE), fail) } catch (caught) { fail(caught instanceof Error ? caught : new Error(String(caught))) }
+  })
+}
+
+const putInTransaction = (store: IDBObjectStore, key: string, value: unknown, fail: (error: Error) => void): void => {
+  const request = store.put(value, key)
+  request.onerror = () => fail(requestError(request.error, `failed to write ${key}`))
+}
+
+const mutateCourierIndex = (operation: (store: IDBObjectStore, index: CourierIndex, fail: (error: Error) => void) => void): Promise<void> => writeTransaction((store, fail) => {
+  const request = store.get(COURIER_INDEX)
+  request.onerror = () => fail(requestError(request.error, 'failed to read courier index'))
+  request.onsuccess = () => {
+    try { operation(store, isCourierIndex(request.result) ? request.result : emptyCourierIndex(), fail) }
+    catch (caught) { fail(caught instanceof Error ? caught : new Error(String(caught))) }
+  }
+})
 const courierIdentity = (value: unknown): CourierSave['identity'] | undefined => {
   if (!isRecord(value) || !isString(value.id) || !isString(value.name) || !isCourierOrigin(value.origin) || !isCourierCalling(value.calling) || !isDeathMode(value.deathMode) || !isString(value.createdAt)) return undefined
   return { id: value.id, name: value.name, origin: value.origin, calling: value.calling, deathMode: value.deathMode, createdAt: value.createdAt, ...(isString(value.parentId) ? { parentId: value.parentId } : {}) }
@@ -151,6 +191,7 @@ const entryFor = (courier: CourierSave): CourierMenuEntry => ({
 })
 
 export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selectedId?: string }> {
+  await courierWrites.flush()
   const indexed = await get<unknown>(COURIER_INDEX)
   const index = isCourierIndex(indexed) ? indexed : undefined
   if (index) {
@@ -166,33 +207,30 @@ export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selecte
 }
 
 export async function saveCourier(courier: CourierSave, selectedId?: string): Promise<void> {
-  const existing = await get<unknown>(COURIER_INDEX)
-  const index = isCourierIndex(existing) ? existing : emptyCourierIndex()
-  const ids = index.ids.includes(courier.identity.id) ? index.ids : [...index.ids, courier.identity.id]
-  await Promise.all([put(courierKey(courier.identity.id), courier), put(COURIER_INDEX, { version: 1, ids, selectedId: selectedId ?? index.selectedId ?? courier.identity.id } satisfies CourierIndex)])
+  const snapshot = structuredClone(courier)
+  await courierWrites.enqueue(() => mutateCourierIndex((store, index, fail) => {
+    const ids = index.ids.includes(snapshot.identity.id) ? index.ids : [...index.ids, snapshot.identity.id]
+    putInTransaction(store, courierKey(snapshot.identity.id), snapshot, fail)
+    putInTransaction(store, COURIER_INDEX, { version: 1, ids, selectedId: selectedId ?? index.selectedId ?? snapshot.identity.id } satisfies CourierIndex, fail)
+  }))
 }
 
 export async function selectCourier(id: string): Promise<void> {
-  const current = await get<unknown>(COURIER_INDEX)
-  const index = isCourierIndex(current) ? current : emptyCourierIndex()
-  if (index.ids.includes(id)) await put(COURIER_INDEX, { ...index, selectedId: id })
+  await courierWrites.enqueue(() => mutateCourierIndex((store, index, fail) => {
+    if (index.ids.includes(id)) putInTransaction(store, COURIER_INDEX, { ...index, selectedId: id }, fail)
+  }))
 }
 
 export async function deleteCourier(id: string): Promise<void> {
-  const current = await get<unknown>(COURIER_INDEX)
-  const index = isCourierIndex(current) ? current : emptyCourierIndex()
-  const ids = index.ids.filter(currentId => currentId !== id)
-  const selectedId = index.selectedId === id ? ids[0] : index.selectedId
-  try {
-    const db = await database()
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(STORE, 'readwrite')
-      transaction.objectStore(STORE).delete(courierKey(id))
-      transaction.objectStore(STORE).put({ version: 1, ids, ...(selectedId ? { selectedId } : {}) } satisfies CourierIndex, COURIER_INDEX)
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-    })
-  } catch { }
+  await courierWrites.enqueue(() => mutateCourierIndex((store, index, fail) => {
+    const ids = index.ids.filter(currentId => currentId !== id)
+    const selectedId = index.selectedId === id ? ids[0] : index.selectedId
+    const deletion = store.delete(courierKey(id))
+    deletion.onerror = () => fail(requestError(deletion.error, `failed to delete courier ${id}`))
+    putInTransaction(store, COURIER_INDEX, { version: 1, ids, ...(selectedId ? { selectedId } : {}) } satisfies CourierIndex, fail)
+  }))
 }
+
+export const flushCourierWrites = (): Promise<void> => courierWrites.flush()
 
 export const courierMenuEntries = (couriers: readonly CourierSave[]): CourierMenuEntry[] => couriers.filter(courier => !courier.archived).map(entryFor)

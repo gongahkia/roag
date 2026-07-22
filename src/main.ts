@@ -10,7 +10,7 @@ import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
-import { courierMenuEntries, deleteCourier, loadCouriers, saveCourier, selectCourier } from './storage'
+import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import type { AutoplayDiagnostic, AutoplayTerminal, AutoplayTraceEntry, CampaignRouteState, CourierDraft, CourierSave, Direction, Hero, HubState, LegacyRecord, Records, RunAnalysis, RunState } from './types'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
@@ -47,6 +47,10 @@ let autoplayContext: AutoplayContext = createAutoplayContext()
 let autoplayTrace: AutoplayTraceEntry[] = []
 let autoplayLogged = false
 let autoplayDiagnostic: AutoplayDiagnostic | undefined = latestAutoplayDiagnostic()
+let bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
+let persistenceState: 'saved' | 'saving' | 'error' = 'saved'
+let pendingPersistence = 0
+const failedPersistence = new Map<string, { operation: () => Promise<void>; clearKeys: string[] }>()
 
 const showSessionSplash = (): boolean => {
   try {
@@ -60,22 +64,24 @@ if (showSessionSplash()) route = { ...route, screen: 'splash' }
 renderer.setVisualMode(loadVisualMode())
 renderer.setSettings(settings)
 renderer.setAutoplayDiagnostic(autoplayDiagnostic)
+renderer.setBootstrapState('loading')
+renderer.setPersistenceState(persistenceState)
 applyGameZoom()
 canvas.addEventListener('wheel', mouseEvent => {
   mouseEvent.preventDefault()
   setGameZoom(gameZoom + (mouseEvent.deltaY < 0 ? .25 : -.25))
 }, { passive: false })
 
-void loadCouriers().then(loaded => {
-  couriers = loaded.couriers
-  selectedCourierId = loaded.selectedId
-  activateCourier(selectedCourierId)
-  redraw()
-})
-redraw()
+void bootstrapCouriers()
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (bootstrapState !== 'ready') {
+    keyboardEvent.preventDefault()
+    if (bootstrapState === 'error' && keyboardEvent.key === 'F2') void bootstrapCouriers()
+    return
+  }
+  if (keyboardEvent.key === 'F2' && persistenceState === 'error') { keyboardEvent.preventDefault(); retryFailedPersistence(); return }
   if (keyboardEvent.key === 'Tab' && shouldPreventKeyboardDefault(keyboardEvent.key)) keyboardEvent.preventDefault()
   if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
@@ -111,7 +117,63 @@ window.addEventListener('keydown', keyboardEvent => {
   executeGameplayCommand(command, { quickCast: Boolean(keyboardEvent.altKey && direction && direction !== 'wait'), run: Boolean(keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal), spellEffect: spellEffectForInput(state, keyboardEvent, direction) })
 })
 
-function activateCourier(id: string | undefined): void {
+async function bootstrapCouriers(): Promise<void> {
+  bootstrapState = 'loading'
+  renderer.setBootstrapState('loading', 'Loading courier records…')
+  redraw()
+  try {
+    const loaded = await loadCouriers()
+    couriers = loaded.couriers
+    selectedCourierId = loaded.selectedId
+    activateCourier(selectedCourierId, false)
+    bootstrapState = 'ready'
+    renderer.setBootstrapState('ready')
+  } catch {
+    bootstrapState = 'error'
+    renderer.setBootstrapState('error', 'Courier records unavailable')
+  }
+  redraw()
+}
+
+function updatePersistenceState(): void {
+  persistenceState = failedPersistence.size ? 'error' : pendingPersistence ? 'saving' : 'saved'
+  renderer.setPersistenceState(persistenceState)
+}
+
+function recordPersistence(key: string, operation: () => Promise<void>, clearKeys: string[] = []): void {
+  pendingPersistence++
+  updatePersistenceState()
+  void operation().then(() => {
+    pendingPersistence--
+    failedPersistence.delete(key)
+    for (const clearKey of clearKeys) failedPersistence.delete(clearKey)
+    updatePersistenceState()
+    redraw()
+  }).catch(() => {
+    pendingPersistence--
+    failedPersistence.set(key, { operation, clearKeys })
+    updatePersistenceState()
+    redraw()
+  })
+}
+
+function persistCourier(courier: CourierSave, selectedId?: string): void {
+  const snapshot = structuredClone(courier)
+  recordPersistence(`courier:${snapshot.identity.id}`, () => saveCourier(snapshot, selectedId), selectedId ? ['selection'] : [])
+}
+
+function retryFailedPersistence(): void {
+  if (pendingPersistence) return
+  const retries = [...failedPersistence]
+  failedPersistence.clear()
+  for (const [key, retry] of retries) recordPersistence(key, retry.operation, retry.clearKeys)
+}
+
+const flushCourierPersistence = (): void => { void flushCourierWrites() }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCourierPersistence() })
+window.addEventListener('pagehide', flushCourierPersistence)
+
+function activateCourier(id: string | undefined, persistSelection = true): void {
   selectedCourierId = id
   activeCourier = couriers.find(courier => courier.identity.id === id && !courier.archived)
   if (!activeCourier) { saved = undefined; state = undefined; records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }; campaign = initialCampaignRoute(); hub = createHubState(0); return }
@@ -121,7 +183,10 @@ function activateCourier(id: string | undefined): void {
   if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
   hub = { ...createHubState(saved?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   route = { screen: route.screen === 'splash' ? 'splash' : 'title', biome: campaign.selectedBiome }
-  void selectCourier(activeCourier.identity.id)
+  if (persistSelection) {
+    const selectedId = activeCourier.identity.id
+    recordPersistence('selection', () => selectCourier(selectedId))
+  }
 }
 
 function courierMenu() {
@@ -137,7 +202,7 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
   if (confirmingCourierDelete) {
     if (command === 'd') {
       const id = selectedCourierId
-      if (id) { couriers = couriers.filter(courier => courier.identity.id !== id); void deleteCourier(id) }
+      if (id) { couriers = couriers.filter(courier => courier.identity.id !== id); recordPersistence(`courier-delete:${id}`, () => deleteCourier(id), ['selection']) }
       confirmingCourierDelete = false
       activateCourier(courierMenuEntries(couriers)[0]?.id)
     } else if (key === 'Escape' || key === '`') confirmingCourierDelete = false
@@ -201,7 +266,7 @@ function createCourierFromDraft(): void {
   successorParentId = undefined
   const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
   beginTrailhead(seed, openingLore(seed), heir)
-  void saveCourier(courier, id)
+  persistCourier(courier, id)
   audio.play([event('menu')])
   redraw()
 }
@@ -213,7 +278,8 @@ function resumeCourier(): void {
   hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
   else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); route = { screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' } }
-  void selectCourier(activeCourier.identity.id)
+  const selectedId = activeCourier.identity.id
+  recordPersistence('selection', () => selectCourier(selectedId))
 }
 
 function persistActiveCourier(restoreCheckpoint = false): void {
@@ -224,7 +290,7 @@ function persistActiveCourier(restoreCheckpoint = false): void {
   activeCourier.records = records
   saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
   couriers = couriers.map(courier => courier.identity.id === activeCourier!.identity.id ? activeCourier! : courier)
-  void saveCourier(activeCourier, selectedCourierId)
+  persistCourier(activeCourier, selectedCourierId)
 }
 
 function checkpointActiveCourier(): void {

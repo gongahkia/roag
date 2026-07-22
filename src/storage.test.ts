@@ -1,6 +1,115 @@
-import { describe, expect, it } from 'vitest'
-import { newHero, newRun } from './engine'
-import { migrateCampaignRoute, migrateRunRecord } from './storage'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { initialCampaignRoute, newHero, newRun } from './engine'
+import { deleteCourier, flushCourierWrites, loadCouriers, migrateCampaignRoute, migrateRunRecord, saveCourier, selectCourier } from './storage'
+import type { CourierSave, Records } from './types'
+
+type Handler = (() => void) | null
+class FakeRequest<T> {
+  result!: T
+  error: Error | null = null
+  onsuccess: Handler = null
+  onerror: Handler = null
+}
+
+class FakeTransaction {
+  oncomplete: Handler = null
+  onerror: Handler = null
+  onabort: Handler = null
+  error: Error | null = null
+  private pending = 0
+  private done = false
+  private readonly records: Map<string, unknown>
+
+  constructor(readonly database: FakeDatabase) { this.records = new Map(database.records) }
+  objectStore(): FakeStore { return new FakeStore(this) }
+  request<T>(action: () => T, fail = false): FakeRequest<T> {
+    const request = new FakeRequest<T>()
+    this.pending++
+    queueMicrotask(() => {
+      if (this.done) return
+      if (fail) {
+        request.error = new Error('write failed')
+        request.onerror?.()
+      } else {
+        request.result = action()
+        request.onsuccess?.()
+      }
+      this.pending--
+      this.finish()
+    })
+    return request
+  }
+  get(key: string): unknown { return this.records.get(key) }
+  put(key: string, value: unknown): void { this.records.set(key, structuredClone(value)) }
+  delete(key: string): void { this.records.delete(key) }
+  abort(): void {
+    if (this.done) return
+    this.done = true
+    this.error = new Error('transaction aborted')
+    queueMicrotask(() => this.onabort?.())
+  }
+  private finish(): void {
+    if (this.done || this.pending) return
+    queueMicrotask(() => {
+      if (this.done || this.pending) return
+      this.done = true
+      this.database.records = new Map(this.records)
+      this.oncomplete?.()
+    })
+  }
+}
+
+class FakeStore {
+  constructor(private readonly transaction: FakeTransaction) { }
+  get(key: string): IDBRequest<unknown> { return this.transaction.request(() => this.transaction.get(key)) as unknown as IDBRequest<unknown> }
+  put(value: unknown, key: string): IDBRequest<unknown> {
+    const fail = this.transaction.database.failNextPut
+    this.transaction.database.failNextPut = false
+    return this.transaction.request(() => { this.transaction.put(key, value); return key }, fail) as unknown as IDBRequest<unknown>
+  }
+  delete(key: string): IDBRequest<undefined> { return this.transaction.request(() => { this.transaction.delete(key); return undefined }) as unknown as IDBRequest<undefined> }
+}
+
+class FakeDatabase {
+  records = new Map<string, unknown>()
+  failNextPut = false
+  transaction(): IDBTransaction { return new FakeTransaction(this) as unknown as IDBTransaction }
+  createObjectStore(): FakeStore { return new FakeTransaction(this).objectStore() }
+}
+
+class FakeIndexedDB {
+  private created = false
+  readonly database = new FakeDatabase()
+  open(): IDBOpenDBRequest {
+    const request = new FakeRequest<FakeDatabase>() as FakeRequest<FakeDatabase> & { onupgradeneeded: Handler }
+    request.onupgradeneeded = null
+    request.result = this.database
+    queueMicrotask(() => {
+      if (!this.created) { this.created = true; request.onupgradeneeded?.() }
+      request.onsuccess?.()
+    })
+    return request as unknown as IDBOpenDBRequest
+  }
+}
+
+const records = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] })
+const courier = (id: string, turn: number): CourierSave => {
+  const run = newRun(901)
+  run.turn = turn
+  return { version: 1, identity: { id, name: id, origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', createdAt: '2026-01-01T00:00:00.000Z' }, run, checkpoint: structuredClone(run), heir: structuredClone(run.hero), campaign: initialCampaignRoute(), records: records() }
+}
+
+const originalIndexedDB = globalThis.indexedDB
+let fakeIndexedDB: FakeIndexedDB
+beforeEach(async () => {
+  await flushCourierWrites()
+  fakeIndexedDB = new FakeIndexedDB()
+  Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: fakeIndexedDB })
+})
+afterEach(async () => {
+  await flushCourierWrites()
+  Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: originalIndexedDB })
+})
 
 describe('run persistence migration', () => {
   it('loads valid v3 records without changing them', () => {
@@ -71,5 +180,35 @@ describe('run persistence migration', () => {
   it('retains canonical legacy records in campaign storage', () => {
     const legacy = { id: 'legacy-1', heirName: 'Ari', cause: 'defeated' as const, biome: 'mine' as const, floor: 2, seed: 9, lineage: ['Ari'], location: { x: 4, y: 6 }, cache: { gold: 30, items: ['tonic'] }, encounter: { kind: 'cache' as const, resolved: false } }
     expect(migrateCampaignRoute({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', legacyRecords: [legacy] }).legacyRecords).toEqual([legacy])
+  })
+})
+
+describe('courier persistence', () => {
+  it('snapshots and serializes overlapping saves so the newest request wins', async () => {
+    const first = courier('ari', 3)
+    const firstSave = saveCourier(first, 'ari')
+    first.run!.turn = 999
+    const secondSave = saveCourier(courier('ari', 4), 'ari')
+    await Promise.all([firstSave, secondSave])
+    const loaded = await loadCouriers()
+    expect(loaded.selectedId).toBe('ari')
+    expect(loaded.couriers).toHaveLength(1)
+    expect(loaded.couriers[0].run?.turn).toBe(4)
+  })
+
+  it('rolls back a failed atomic save and keeps later writes usable', async () => {
+    fakeIndexedDB.database.failNextPut = true
+    await expect(saveCourier(courier('ari', 3), 'ari')).rejects.toThrow('write failed')
+    await flushCourierWrites()
+    expect((await loadCouriers()).couriers).toHaveLength(0)
+    await saveCourier(courier('ari', 4), 'ari')
+    expect((await loadCouriers()).couriers[0].run?.turn).toBe(4)
+  })
+
+  it('serializes save, delete, and selection mutations through one index', async () => {
+    await Promise.all([saveCourier(courier('ari', 3), 'ari'), saveCourier(courier('bo', 4), 'bo'), deleteCourier('ari'), selectCourier('bo')])
+    const loaded = await loadCouriers()
+    expect(loaded.selectedId).toBe('bo')
+    expect(loaded.couriers.map(current => current.identity.id)).toEqual(['bo'])
   })
 })

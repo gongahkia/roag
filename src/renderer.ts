@@ -68,6 +68,9 @@ export class TerminalRenderer {
   private autoplayDiagnostic?: AutoplayDiagnostic
   private settings: GameSettings = defaultSettings()
   private fontState: 'loading' | 'ready' | 'fallback' = 'loading'
+  private bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
+  private bootstrapMessage = 'Loading courier records…'
+  private persistenceState: 'saved' | 'saving' | 'error' = 'saved'
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -104,6 +107,8 @@ export class TerminalRenderer {
   }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   setAutoplayDiagnostic(value: AutoplayDiagnostic | undefined): void { this.autoplayDiagnostic = value }
+  setBootstrapState(state: 'loading' | 'ready' | 'error', message?: string): void { this.bootstrapState = state; if (message) this.bootstrapMessage = message }
+  setPersistenceState(state: 'saved' | 'saving' | 'error'): void { this.persistenceState = state }
   get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
@@ -155,6 +160,7 @@ export class TerminalRenderer {
       if (state.status === 'dead') this.end(state, false)
       if (state.status === 'victory') this.end(state, true)
     }
+    this.persistenceNotice()
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
     if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
@@ -165,6 +171,11 @@ export class TerminalRenderer {
   private splash(menu?: CourierMenuView): void {
     this.box(8, 5, 80, 50, '')
     this.ascii(Math.floor((TERMINAL_WIDTH - jomonMastheadWidth) / 2), 9, jomonMasthead, colors.text)
+    if (this.bootstrapState !== 'ready') {
+      const message = this.bootstrapState === 'loading' ? this.bootstrapMessage : `${this.bootstrapMessage} · F2 retry`
+      this.text(Math.floor((TERMINAL_WIDTH - message.length) / 2), 31, message, this.bootstrapState === 'loading' ? colors.dim : colors.red)
+      return
+    }
     const entries = menu?.entries ?? []
     this.text(18, 23, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
     if (!entries.length) this.text(18, 26, '(No active couriers. Please create a new one.)', colors.dim)
@@ -185,6 +196,12 @@ export class TerminalRenderer {
     const controlsY = controls.length === 2 ? 48 : 51
     controls.forEach((line, index) => this.text(8 + Math.floor((80 - line.length) / 2), controlsY + index * 3, line, colors.text))
     if (menu?.confirmingDelete) this.box(27, 27, 42, 9, 'RETIRE COURIER'), this.text(31, 31, 'D confirms · ESC cancels', colors.red)
+  }
+
+  private persistenceNotice(): void {
+    if (this.persistenceState === 'saved') return
+    const notice = this.persistenceState === 'saving' ? 'SAVE PENDING' : 'SAVE FAILED · F2 RETRY'
+    this.text(TERMINAL_WIDTH - notice.length - 2, TERMINAL_HEIGHT - 2, notice, this.persistenceState === 'saving' ? colors.dim : colors.red)
   }
 
   private createCourier(draft: CourierDraft): void {
