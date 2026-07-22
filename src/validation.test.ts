@@ -37,7 +37,10 @@ describe('release validation suite', () => {
     expect(performance.now() - started).toBeLessThan(10_000)
   }, 15_000)
 
-  it('rejects pre-prop saves before replay consumers inspect them', () => {
-    expect(migrateRunRecord({ ...newRun(77124), version: 2 })).toBeUndefined()
+  it('migrates pre-prop saves before replay consumers inspect them', () => {
+    const legacy = structuredClone(newRun(77124)) as unknown as { version: number; floor: Record<string, unknown> }
+    legacy.version = 2
+    delete legacy.floor.props
+    expect(migrateRunRecord(legacy)).toMatchObject({ version: 3, floor: { props: [] } })
   })
 })

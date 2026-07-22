@@ -145,6 +145,12 @@ describe('run persistence migration', () => {
     }
   })
 
+  it('preserves valid props in a compatible v2 save', () => {
+    const legacy = structuredClone(newRun(457)) as unknown as { version: number; floor: { props: unknown } }
+    legacy.version = 2
+    expect(migrateRunRecord(legacy)?.floor.props).toEqual(legacy.floor.props)
+  })
+
   it('preserves a v2 objective state', () => {
     const legacy = structuredClone(newRun(458)) as unknown as { version: number }
     legacy.version = 2

@@ -1,4 +1,4 @@
-import { ITEM } from './content'
+import { ITEM, MONSTERS } from './content'
 import manifestData from './assets/generated-sprites/sprite-manifest.json'
 import { CELL_HEIGHT, CELL_WIDTH } from './renderer/metrics'
 import { PROP_IDS, propDefinition } from './props'
@@ -39,6 +39,7 @@ interface ManifestSheet {
   cellOffsets?: SpriteOffset[]
   animations?: ManifestAnimation[]
   actorRows?: string[]
+  actorAliases?: Record<string, string>
   itemLayout?: Array<string | null>
   effectRows?: string[]
   frames?: number
@@ -59,7 +60,13 @@ for (const id of PROP_IDS) if (!manifestPropIds.includes(id)) throw new Error(`p
 const ref = (sheet: SpriteSheetId, column: number, row: number, frames = 1, frameDurationMs = 160, sourceOffset?: SpriteOffset, frameOffsets?: SpriteOffset[]): SpriteRef => ({ sheet, column, row, frames, frameDurationMs, sourceOffset, frameOffsets })
 const rowRefs = (sheetId: SpriteSheetId): Record<string, SpriteRef> => {
   const sheet = manifestSheets.get(sheetId)!
-  return Object.fromEntries((sheet.actorRows ?? []).map((id, row) => [id, ref(sheetId, 0, row, sheet.frames, sheet.frameDurationMs, undefined, sheet.cellOffsets?.slice(row * sheet.columns, row * sheet.columns + (sheet.frames ?? 1)))]))
+  const sprites = Object.fromEntries((sheet.actorRows ?? []).map((id, row) => [id, ref(sheetId, 0, row, sheet.frames, sheet.frameDurationMs, undefined, sheet.cellOffsets?.slice(row * sheet.columns, row * sheet.columns + (sheet.frames ?? 1)))])) as Record<string, SpriteRef>
+  for (const [id, sourceId] of Object.entries(sheet.actorAliases ?? {})) {
+    const source = sprites[sourceId]
+    if (!source) throw new Error(`unknown actor sprite alias: ${id} -> ${sourceId}`)
+    sprites[id] = source
+  }
+  return sprites
 }
 export const actorSprite: Record<string, SpriteRef> = {
   ...rowRefs('actors-mine'),
@@ -69,6 +76,7 @@ export const actorSprite: Record<string, SpriteRef> = {
   merchant: ref('npcs-gold', 0, 0, 4, 240),
   ally: ref('npcs-gold', 0, 1, 4, 240)
 }
+for (const monster of MONSTERS) if (!actorSprite[monster.id]) throw new Error(`actor sprite missing from manifest: ${monster.id}`)
 
 const itemSheet = manifestSheets.get('items')!
 export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns), 1, 160, itemSheet.cellOffsets?.[index])]] : [])) as Record<string, SpriteRef>

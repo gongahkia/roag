@@ -19,7 +19,7 @@ const hasGateTag = (state: RunState, tag: string): boolean => {
   if (tag === 'rope') return state.hero.ropes > 0 || items.includes('ropeBundle')
   if (tag === 'mobility') return items.some(item => ['blinkRune', 'boots', 'featherboots'].includes(item)) || state.hero.skills.some(skill => skill.startsWith('agi'))
   if (tag === 'ward') return items.some(item => ['ward', 'wardScript'].includes(item))
-  if (tag === 'astral') return state.hero.skills.some(skill => skill.startsWith('astral')) || hasAstralGateAccess(state.hero)
+  if (tag === 'astral') return hasAstralGateAccess(state.hero)
   if (tag === 'relic') return items.includes('sunseal')
   if (tag === 'script' || tag === 'arcane') return items.some(item => ['ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'gust', 'pull', 'wardScript', 'gate'].includes(item))
   if (tag === 'rubble') return items.includes('pickaxe') || state.hero.bombs > 0
