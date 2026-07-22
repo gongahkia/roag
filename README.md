@@ -12,12 +12,7 @@ Browser-based, turn-based courier roguelike. Carry a sealed parcel through a det
 * Runtime: browser [Canvas 2D API](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D) and Web Audio
 * Tooling: [Vite](https://vite.dev/)
 * Tests: [Vitest](https://vitest.dev/)
-
-## Assets
-
-* Font: `BigBlueTerm437NerdFontMono-Regular.ttf`
-* Renderers: ASCII, sprite atlas, and rune glyph modes
-* Reference captures: [`asset/reference`](asset/reference)
+* Assets/Fonts: [BigBlue Terminal](https://int10h.org/blog/2015/12/bigblue-terminal-oldschool-fixed-width-font/)
 
 ## Screenshots
 
