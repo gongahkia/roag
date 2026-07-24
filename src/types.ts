@@ -143,7 +143,7 @@ export interface LegacyRecord {
 
 export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 'legacy'
 export interface EncyclopediaState { enemies: string[]; telegraphs: string[]; tags: string[]; gates: string[]; legacyRecords: LegacyRecord[] }
-export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script'
+export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'readout' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script'
 
 export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
@@ -187,6 +187,7 @@ export interface RunState {
 
 export type Modal =
   | { kind: 'help' }
+  | { kind: 'readout' }
   | { kind: 'encyclopedia'; section: EncyclopediaSection; page?: number }
   | { kind: 'settings'; page?: number; awaiting?: KeyBindingId }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }

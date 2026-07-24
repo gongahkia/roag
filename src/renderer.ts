@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -541,9 +541,11 @@ export class TerminalRenderer {
       const presentation = presentTelegraph(telegraph, state.turn, source)
       this.text(50, 41 + i, presentation.label.slice(0, 45), presentation.color)
     })
+    const readout = fieldReadout(state)
     const objective = state.floor.objective
-    this.wrap(`OBJECTIVE: ${objective.status === 'complete' ? 'DONE — ' : ''}${objective.label}`, 45).slice(0, 2).forEach((line, index) => this.text(50, 44 + index, line, objective.status === 'complete' ? colors.green : colors.gold))
-    this.text(50, 47, 'G get · U use · C act · T throw', colors.dim)
+    this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
+    this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
+    this.text(50, 47, 'Z readout · G get · U use · C act', colors.dim)
     this.text(50, 48, `B bomb · R rope · V ${visualModeLabel(this.visualMode)} · F ${autoplayModeLabel(this.lastAutoplayMode)}`, colors.dim)
   }
 
@@ -552,7 +554,8 @@ export class TerminalRenderer {
     const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
     this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, `IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · F: autoplay · Shift+F: ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · ESC: pause`, colors.dim)
+    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · Z: readout', colors.dim)
+    this.text(1, 53, `F: autoplay · Shift+F: ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · ESC: pause`, colors.dim)
     this.text(1, 54, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
   }
 
@@ -560,6 +563,7 @@ export class TerminalRenderer {
     this.ctx.fillStyle = '#05070bbb'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     if (modal.kind === 'help') return this.help()
+    if (modal.kind === 'readout') return this.readout(state)
     if (modal.kind === 'encyclopedia') return this.encyclopedia(state, modal)
     if (modal.kind === 'settings') return this.settingsModal(modal)
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
@@ -573,8 +577,8 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'U then Auger breaches a blocker; Reed Glider crosses one hazard.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
-    lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 9 ? colors.gold : colors.text))
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'U then Auger breaches a blocker; Reed Glider crosses one hazard.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'Z opens a no-cost field readout of current options.', 'A opens disciplines. S uses charms. J opens journal.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
+    lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
   }
 
   private encyclopedia(state: RunState, modal: Extract<Modal, { kind: 'encyclopedia' }>): void {
@@ -588,6 +592,13 @@ export class TerminalRenderer {
     if (!visible.length) this.text(12, 14, 'No discoveries yet.', colors.dim)
     visible.forEach((entry, index) => this.text(12, 14 + index * 2, entry.slice(0, 56), colors.text))
     this.text(12, 34, '1-5 section · [ ] page · Esc/backtick closes', colors.dim)
+  }
+
+  private readout(state: RunState): void {
+    const report = fieldReadout(state)
+    this.box(10, 5, 64, 38, 'FIELD READOUT — NO TURN PASSES')
+    report.lines.flatMap(line => this.wrap(line, 54)).slice(0, 13).forEach((line, index) => this.text(14, 9 + index * 2, line, index === 0 ? colors.gold : line.startsWith('THREAT') ? colors.red : line.startsWith('OPTION') ? colors.green : colors.text))
+    this.text(14, 39, 'Esc/backtick closes · choose an action on your terms', colors.dim)
   }
 
   private settingsModal(modal: Extract<Modal, { kind: 'settings' }>): void {
