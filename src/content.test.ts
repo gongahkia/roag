@@ -9,6 +9,7 @@ describe('content registry validation', () => {
 
   it('recognizes canonical item, monster, and skill IDs', () => {
     expect(isItemId('whip')).toBe(true)
+    expect(SHOP_STOCK.wilds).toEqual(expect.arrayContaining(['cordmarkTalisman', 'reedstepBoots']))
     expect(isMonsterId('fumeeel')).toBe(true)
     expect(isSkillId('str1')).toBe(true)
     expect(isItemId('missing')).toBe(false)

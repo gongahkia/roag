@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -48,6 +48,8 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'featherboots', name: 'Feather Boots', glyph: ';', color: '#e7e9f0', slot: 'boots', defense: 2, value: 180 },
   { id: 'ward', name: 'Spirit Charm', glyph: 'o', color: '#ca9fe4', slot: 'charm', defense: 2, value: 160, effects: [{ id: 'arcane-return', kind: 'triggered', trigger: 'spell', requires: ['arcane'], add: { focus: 1 } }] },
   { id: 'sunseal', name: 'Sunstone Seal', glyph: 'o', color: '#ffe181', slot: 'charm', defense: 3, value: 280 },
+  { id: 'cordmarkTalisman', name: 'Cordmark Talisman', glyph: 'o', color: '#e4885d', slot: 'charm', defense: 1, value: 175, findable: false, tags: ['ritual', 'cordmark'] },
+  { id: 'reedstepBoots', name: 'Reedstep Boots', glyph: ';', color: '#c7ad70', slot: 'boots', defense: 2, value: 155, findable: false, tags: ['mobility', 'reedstep'] },
   { id: 'tonic', name: 'Vital Tonic', glyph: '!', color: '#eb6571', value: 35, use: 'heal', throwable: true },
   { id: 'focusTonic', name: 'Focus Tonic', glyph: '!', color: '#7fa8e8', value: 50, use: 'focus', throwable: true },
   { id: 'mapScroll', name: 'Trail Map', glyph: '?', color: '#e6d2a6', value: 65, use: 'map' },
@@ -147,7 +149,7 @@ export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caver
 export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'pickaxe', 'cap', 'key'],
-  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider'],
+  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'cordmarkTalisman', 'reedstepBoots'],
   caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune', 'reedGlider'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
 }

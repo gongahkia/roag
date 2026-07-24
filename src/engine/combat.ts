@@ -32,7 +32,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
   const tags = trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot')
-  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
+  const items = Object.values(state.hero.equipment).filter((id): id is string => Boolean(id))
+  const synergy = resolveSynergies({ items, skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
   if (targets.length) { announceSynergies(state, synergy); return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown))) }
   let tile = getTile(state.floor, x, y)

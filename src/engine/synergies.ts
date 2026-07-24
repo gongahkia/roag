@@ -8,14 +8,16 @@ const modifiers: readonly TagModifier[] = [
   { id: 'ember-gas', requires: ['ember', 'gas'], add: { damage: 2 } },
   { id: 'strength-reach', requires: ['strength', 'reach'], add: { range: 1 } },
   { id: 'tempered-gale', requires: ['flintTemper', 'windKnot'], add: { range: 1 } },
-  { id: 'hearth-thread', requires: ['barkBinding', 'spiritThread'], add: { focus: 1 } }
+  { id: 'hearth-thread', requires: ['barkBinding', 'spiritThread'], add: { focus: 1 } },
+  { id: 'cordmark-reedstep', requires: ['cordmark', 'reedstep'], add: { range: 1 } }
 ]
 
 const labels: Record<string, string> = {
   'ember-gas': 'Ember ignites the gas with extra force.',
   'strength-reach': 'Iron Grip extends your reach.',
   'tempered-gale': 'Flint Temper and Wind Knot extend your strike.',
-  'hearth-thread': 'Bark Binding and Spirit Thread restore focus.'
+  'hearth-thread': 'Bark Binding and Spirit Thread restore focus.',
+  'cordmark-reedstep': 'Cordmark Talisman and Reedstep Boots lengthen your strike.'
 }
 
 export const resolveSynergies = (query: TagQuery | readonly string[], base: Readonly<Record<string, number>> = {}): SynergyResolution => {

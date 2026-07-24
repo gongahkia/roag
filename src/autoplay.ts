@@ -219,7 +219,8 @@ const heroAttackProfile = (state: RunState) => {
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
   const tags = trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot')
-  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
+  const items = Object.values(state.hero.equipment).filter((id): id is string => Boolean(id))
+  const synergy = resolveSynergies({ items, skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   return { shape: profile.shape, reach: Math.max(1, Math.floor(synergy.values.range ?? profile.reach)), damage: Math.max(1, Math.floor(modified.damage ?? profile.damage)) }
 }
 

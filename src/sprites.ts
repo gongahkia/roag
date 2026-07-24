@@ -16,6 +16,7 @@ const sheetUrls = {
   hero: new URL('./assets/generated-sprites/hero.png', import.meta.url).href,
   'hero-tidebound': new URL('./assets/generated-sprites/hero-tidebound.png', import.meta.url).href,
   'items-tidebound': new URL('./assets/generated-sprites/items-tidebound.png', import.meta.url).href,
+  'items-wayfinder': new URL('./assets/generated-sprites/items-wayfinder.png', import.meta.url).href,
   'npcs-gold': new URL('./assets/generated-sprites/npcs-gold.png', import.meta.url).href,
   'actors-mine': new URL('./assets/generated-sprites/actors-mine.png', import.meta.url).href,
   'actors-wilds': new URL('./assets/generated-sprites/actors-wilds.png', import.meta.url).href,
@@ -82,6 +83,8 @@ const itemSheet = manifestSheets.get('items')!
 export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns), 1, 160, itemSheet.cellOffsets?.[index])]] : [])) as Record<string, SpriteRef>
 itemSprite.gold = ref('npcs-gold', 0, 2, 4, 160)
 itemSprite.tideSpear = ref('items-tidebound', 0, 0, 4, 160)
+itemSprite.cordmarkTalisman = ref('items-wayfinder', 0, 0, 4, 160)
+itemSprite.reedstepBoots = ref('items-wayfinder', 0, 1, 4, 160)
 
 const heroAnimations = (sheetId: 'hero' | 'hero-tidebound'): Record<HeroAnimation, SpriteRef> => {
   const sheet = manifestSheets.get(sheetId)!
