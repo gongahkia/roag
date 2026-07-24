@@ -18,7 +18,8 @@ export const navigate = (route: ScreenRoute, key: string, hasSavedRun: boolean):
   if (route.screen === 'hub') {
     if (command === 'a' || key === 'Enter') return { ...route, screen: 'area' }
     if (command === 'r') return { ...route, hubAction: 'roster' }
-    if (command === 's') return { ...route, hubAction: 'supplies' }
+    if (command === 's') return { ...route, hubAction: 'shop' }
+    if (command === 'o') return { ...route, hubAction: 'outfitter' }
     if (command === 'h') return { ...route, hubAction: 'routes' }
     return key === 'Escape' ? { ...route, screen: 'title' } : route
   }

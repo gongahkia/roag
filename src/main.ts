@@ -5,7 +5,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { completeCampaignArea, createHubState, event, hasEvent, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { buyHubItem, completeCampaignArea, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
@@ -33,6 +33,7 @@ let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
+let hubNotice: string | undefined
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
 let gameZoom = loadGameZoom()
@@ -99,7 +100,9 @@ window.addEventListener('keydown', keyboardEvent => {
   if (shouldPreventKeyboardDefault(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
-    let nextRoute = navigate(route, command ?? keyboardEvent.key, Boolean(saved))
+    const input = command ?? keyboardEvent.key
+    if (route.screen === 'hub' && handleHubInput(input)) { audio.play([event('menu')]); redraw(); return }
+    let nextRoute = navigate(route, input, Boolean(saved))
     if (nextRoute === route) return
     if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
     if (nextRoute.screen === 'level') {
@@ -350,6 +353,7 @@ function handleSettingsInput(key: string): void {
 function start(): void {
   if (!activeCourier) return
   campaign = { ...campaign, selectedBiome: route.biome }
+  hubNotice = undefined
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
   renderer.setHeroFacingLeft(false)
   heir = state.hero
@@ -575,8 +579,23 @@ function redraw(): void {
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
+}
+
+function handleHubInput(key: string): boolean {
+  const choice = Number(key) - 1
+  if (!Number.isInteger(choice) || choice < 0 || !heir || !activeCourier) return false
+  const action = route.hubAction ?? 'routes'
+  const result = action === 'shop'
+    ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
+    : action === 'outfitter'
+      ? equipHubItem(heir, hubEquipment(heir)[choice] ?? '')
+      : undefined
+  if (!result) return false
+  hubNotice = result.message
+  if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
+  return true
 }
 
 function finish(won: boolean): void {

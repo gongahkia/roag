@@ -73,6 +73,7 @@ export class TerminalRenderer {
   private bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
   private bootstrapMessage = 'Loading courier records…'
   private persistenceState: 'saved' | 'saving' | 'error' = 'saved'
+  private hubOutpost?: HTMLImageElement
   private pendingAnimationFrame?: number
   private pendingAnimationTimer?: number
 
@@ -85,6 +86,12 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '12px "BigBlueTerm", monospace'
     ctx.textBaseline = 'top'
+    if (typeof Image !== 'undefined') {
+      const image = new Image()
+      image.onload = () => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode)
+      image.src = new URL('./assets/generated-sprites/hub-outpost.png', import.meta.url).href
+      this.hubOutpost = image
+    }
     this.loadFont()
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
   }
@@ -295,21 +302,48 @@ export class TerminalRenderer {
   }
 
   private hub(route: ScreenRoute, hub?: HubView): void {
-    const width = 54
-    const height = 24
+    const width = 84
+    const height = 50
     const x = Math.floor((TERMINAL_WIDTH - width) / 2)
     const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
     this.box(x, y, width, height, 'VILLAGE OUTPOST')
-    this.text(x + 6, y + 4, `COURIER: ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
-    this.text(x + 6, y + 6, 'PARCEL: sealed — do not open', colors.text)
-    this.text(x + 6, y + 8, `COMPANIONS: ${hub?.state.rescued.length ? hub.state.rescued.map(npc => npc.name).join(', ') : 'none'}`, colors.text)
+    if (this.spriteMode && this.hubOutpost?.complete && this.hubOutpost.naturalWidth) {
+      const height = 192
+      const width = Math.round(height * this.hubOutpost.naturalWidth / this.hubOutpost.naturalHeight)
+      this.ctx.drawImage(this.hubOutpost, Math.round((this.canvas.width - width) / 2), (y + 4) * CH, width, height)
+    }
     const action = route.hubAction ?? 'routes'
-    this.text(x + 6, y + 10, `H trails  R companions  S supplies  [${action.toUpperCase()}]`, colors.green)
-    if (action === 'routes') this.text(x + 6, y + 12, `OPEN: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
-    if (action === 'roster') this.text(x + 6, y + 12, hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', colors.text)
-    if (action === 'supplies') this.text(x + 6, y + 12, `SUPPLIES: ${(hub?.state.supplies ?? []).join(', ') || 'none'}`, colors.text)
-    this.text(x + 6, y + 15, 'A / ENTER  choose a delivery trail', colors.green)
-    this.text(x + 6, y + 17, 'ESC        return to title', colors.dim)
+    const detailY = this.spriteMode ? y + 23 : y + 9
+    this.text(x + 5, y + 3, `COURIER: ${hub?.courierName ?? 'Unassigned'} · CASH ${hub?.hero?.gold ?? 0}`, colors.gold)
+    this.text(x + 5, detailY - 3, `H trails  R companions  S supply shop  O outfitter  [${action.toUpperCase()}]`, colors.green)
+    if (action === 'routes') {
+      this.text(x + 5, detailY, `OPEN TRAILS: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
+      this.text(x + 5, detailY + 3, 'The route board marks every secured delivery trail.', colors.dim)
+    }
+    if (action === 'roster') {
+      this.text(x + 5, detailY, 'OUTPOST ROSTER', colors.gold)
+      this.wrap(hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', 66).slice(0, 3).forEach((line, index) => this.text(x + 5, detailY + 2 + index, line, colors.text))
+    }
+    if (action === 'shop') {
+      this.text(x + 5, detailY, 'SUPPLY STALL · press 1-6 to buy', colors.gold)
+      ;(hub?.stock ?? []).slice(0, 6).forEach((id, index) => {
+        const item = ITEM[id]
+        this.text(x + 5, detailY + 2 + index * 2, `${index + 1}. ${item.name.padEnd(22)} ${String(item.value).padStart(3)} cash`, colors.text)
+      })
+    }
+    if (action === 'outfitter') {
+      this.text(x + 5, detailY, 'OUTFITTER · press 1-6 to equip from your pack', colors.gold)
+      const equipment = hub?.equipment ?? []
+      if (!equipment.length) this.text(x + 5, detailY + 2, 'No equipment is ready in your pack.', colors.dim)
+      equipment.slice(0, 6).forEach((id, index) => {
+        const item = ITEM[id]
+        const equipped = hub?.hero?.equipment[item.slot ?? 'mainHand'] === id
+        this.text(x + 5, detailY + 2 + index * 2, `${index + 1}. ${item.name.padEnd(22)} ${equipped ? 'EQUIPPED' : item.slot?.toUpperCase() ?? ''}`, equipped ? colors.green : colors.text)
+      })
+    }
+    if (hub?.notice) this.text(x + 5, y + height - 8, hub.notice, colors.green)
+    this.text(x + 5, y + height - 5, 'A / ENTER  choose a delivery trail', colors.green)
+    this.text(x + 5, y + height - 3, 'ESC        return to title', colors.dim)
   }
 
   private area(route: ScreenRoute): void {
