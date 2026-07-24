@@ -35,6 +35,12 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: ';', reason: 'drill target' })
   })
 
+  it('skips trailcraft instead of blocking after a cleared floor', () => {
+    const state = createRun()
+    state.modal = { kind: 'trailcraft' }
+    expect(autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())).toMatchObject({ command: 'Escape', reason: 'skip trailcraft' })
+  })
+
   it('tracks temporary prop fields without mutating them during planning', () => {
     const state = newRun(71, 'ruins')
     const definition = propDefinition('ruins.monolith')

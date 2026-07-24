@@ -9,6 +9,7 @@ export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 's
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type AutoplayPolicy = 'survival' | 'clear' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
+export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread'
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
@@ -111,6 +112,7 @@ export interface Hero {
   lastUnequipped?: ItemId
   conditions?: ConditionState[]
   cooldowns?: Record<string, number>
+  trailcrafts?: Partial<Record<TrailcraftId, number>>
 }
 
 export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
@@ -189,6 +191,7 @@ export type Modal =
   | { kind: 'settings'; page?: number; awaiting?: KeyBindingId }
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills'; source?: 'level' }
+  | { kind: 'trailcraft' }
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }

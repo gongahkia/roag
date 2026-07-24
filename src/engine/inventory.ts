@@ -105,7 +105,9 @@ export function descend(state: RunState): ActionResult {
   state.hero.y = state.floor.start.y
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4 + vitalityRecovery(state.hero))
   state.hero.focus = state.hero.maxFocus
+  state.modal = { kind: 'trailcraft' }
   log(state, `You continue through ${biomeName[state.floor.biome]}.`)
+  log(state, 'Trail cleared: choose a trailcraft.')
   refreshFov(state)
   return [event('floor')]
 }

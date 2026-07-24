@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -564,6 +564,7 @@ export class TerminalRenderer {
     if (modal.kind === 'settings') return this.settingsModal(modal)
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
+    if (modal.kind === 'trailcraft') return this.trailcraft(state)
     if (modal.kind === 'pause') return this.pause()
     if (modal.kind === 'shop') return this.shop(state)
     if (modal.kind === 'gate') return this.gate(state, modal)
@@ -620,6 +621,17 @@ export class TerminalRenderer {
     })
     if (!choices.length) this.text(14, 20, 'All disciplines are mastered.', colors.gold)
     this.text(14, 31, 'number chooses · Esc/backtick cancels', colors.dim)
+  }
+
+  private trailcraft(state: RunState): void {
+    this.box(10, 6, 60, 28, 'TRAILCRAFT — CHOOSE ONE')
+    this.text(14, 10, '✦ FLOOR CLEARED · SHAPE THE NEXT TRAIL ✦', colors.gold)
+    trailcraftChoices(state).forEach((choice, index) => {
+      const rank = state.hero.trailcrafts?.[choice.id] ?? 0
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.name.toUpperCase()} ${rank ? `RANK ${rank + 1}` : ''}`, colors.green)
+      this.text(18, 16 + index * 5, choice.text, colors.text)
+    })
+    this.text(14, 30, 'number chooses · Esc/backtick skips', colors.dim)
   }
 
   private pause(): void {

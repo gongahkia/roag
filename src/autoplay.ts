@@ -682,6 +682,7 @@ const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined
 const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
   const modal = state.modal
   if (!modal) return undefined
+  if (modal.kind === 'trailcraft') return { command: 'Escape', reason: 'skip trailcraft', score: 200 }
   if (modal.kind === 'skills') {
     const choices = skillChoices(state)
     const discipline = choices.map((choice, index) => ({ index, choice, score: policy === 'clear' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 25 : choice.stat === 'intellect' ? 18 : 8 : policy === 'survival' ? choice.stat === 'vitality' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'intellect' ? 18 : 8 : choice.stat === 'intellect' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'vitality' ? 18 : 8 }))

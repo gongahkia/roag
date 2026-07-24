@@ -2,6 +2,7 @@ import type { Direction, Modal, RunState } from '../types'
 import { advance, moveHero } from './combat'
 import { bomb, castFirstSpell, castSpell, descend, drill, glide, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
 import { chooseSkill } from './progression'
+import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
 import { gateForArea, resolveAreaGate } from './gates'
@@ -57,6 +58,7 @@ function performModal(state: RunState, command: string): ActionResult {
   if (modal.kind === 'encyclopedia') return performEncyclopediaModal(state, modal, command)
   if (modal.kind === 'inventory') return inventoryChoice(state, modal, command)
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []
+  if (modal.kind === 'trailcraft') return chooseTrailcraft(state, command) ? [event('level')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)
   if (modal.kind === 'gate') return performGateModal(state, modal, command)
   if (command === 'Enter' && modal.direction) return commitTarget(state, modal)
