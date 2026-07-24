@@ -1,10 +1,11 @@
 import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
-import jomonMastheadSource from '../JOMON.md?raw'
+import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute, type TargetPreview } from './engine'
+import { encyclopediaEntries, gateForArea, gateModalLines, skillChoices, targetPreview, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
+import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
 import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cellRect } from './renderer/metrics'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
@@ -12,10 +13,10 @@ import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type 
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
-import { propAt, propDefinition } from './props'
+import { propDefinition } from './props'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
-import { actorAt, getTile } from './world'
+import { getTile } from './world'
 
 const colors = { back: '#10131d', panel: '#182131', border: '#6f8298', text: '#d6dce8', dim: '#536174', gold: '#f4d26a', red: '#ee6f78', green: '#96d38b', blue: '#8fb8ed', purple: '#d2a4e8', ink: '#05070b' }
 const shade = (color: string, amount = .58): string => {
@@ -34,6 +35,7 @@ const runeTileGlyph: Record<string, [string, string, string]> = {
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 const jomonMasthead = jomonMastheadSource.trimEnd()
 const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
+const spriteFrameInterval = 80
 const courierOrigins = {
   mineborn: { label: 'MINEBORN', description: 'Raised among rails, stone dust, and the measured weight of a sealed parcel.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
   mosswalker: { label: 'MOSSWALKER', description: 'A trail reader who finds sure footing beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
@@ -71,9 +73,11 @@ export class TerminalRenderer {
   private bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
   private bootstrapMessage = 'Loading courier records…'
   private persistenceState: 'saved' | 'saving' | 'error' = 'saved'
+  private pendingAnimationFrame?: number
+  private pendingAnimationTimer?: number
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('Canvas 2D unavailable')
     this.ctx = ctx
     canvas.width = TERMINAL_WIDTH * CW
@@ -138,11 +142,10 @@ export class TerminalRenderer {
     const now = performance.now()
     this.effects.update(now)
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    this.ctx.save()
-    this.effects.applyShake(this.ctx, now)
     this.ctx.fillStyle = colors.back
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    this.ctx.save()
+    this.effects.applyShake(this.ctx, now)
     if (route.screen === 'splash') this.splash(courierMenu)
     else if (route.screen === 'title') this.title(courierMenu)
     else if (route.screen === 'createCourier' && courierDraft) this.createCourier(courierDraft)
@@ -163,7 +166,28 @@ export class TerminalRenderer {
     this.persistenceNotice()
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || (this.spriteMode && route.screen === 'level' && state) || route.screen === 'loading' || Boolean(story)) requestAnimationFrame(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
+    if (this.effects.needsFrame(now) || route.screen === 'loading' || Boolean(story)) this.scheduleRender()
+    else if (this.spriteMode && route.screen === 'level' && state) this.scheduleRender(spriteFrameInterval)
+  }
+
+  private scheduleRender(delay = 0): void {
+    if (delay <= 0) {
+      if (this.pendingAnimationTimer !== undefined) {
+        window.clearTimeout(this.pendingAnimationTimer)
+        this.pendingAnimationTimer = undefined
+      }
+      if (this.pendingAnimationFrame !== undefined) return
+      this.pendingAnimationFrame = requestAnimationFrame(() => {
+        this.pendingAnimationFrame = undefined
+        this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode)
+      })
+      return
+    }
+    if (this.pendingAnimationFrame !== undefined || this.pendingAnimationTimer !== undefined) return
+    this.pendingAnimationTimer = window.setTimeout(() => {
+      this.pendingAnimationTimer = undefined
+      this.scheduleRender()
+    }, delay)
   }
 
   private title(menu?: CourierMenuView): void { this.splash(menu) }
@@ -297,6 +321,7 @@ export class TerminalRenderer {
 
   private stage(state: RunState): void {
     const preview = state.modal?.kind === 'target' ? targetPreview(state, state.modal) : undefined
+    const overlays = mapOverlays(state.floor, preview)
     const boardWidth = MAP_WIDTH * CW
     const boardHeight = MAP_HEIGHT * CH
     const focusX = (state.hero.x + .5) * CW
@@ -312,7 +337,7 @@ export class TerminalRenderer {
     this.ctx.translate(centerX, centerY)
     this.ctx.scale(this.boardZoom, this.boardZoom)
     this.ctx.translate(-focusX, -focusY)
-    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) this.drawMapCell(state, x, y, preview)
+    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) this.drawMapCell(state, overlays, x, y)
     if (this.spriteMode) this.drawTelegraphs(state)
     if (this.spriteMode) {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
@@ -325,18 +350,19 @@ export class TerminalRenderer {
     this.ruleVertical(MAP_WIDTH, 0, 50)
   }
 
-  private drawMapCell(state: RunState, x: number, y: number, preview?: TargetPreview): void {
+  private drawMapCell(state: RunState, overlays: MapOverlays, x: number, y: number): void {
     const tile = getTile(state.floor, x, y)!
-    const item = state.floor.items.find(current => current.x === x && current.y === y)
-    const prop = propAt(state.floor.props, x, y)
+    const index = mapCellIndex(x, y)
+    const item = overlays.items[index]
+    const prop = overlays.props[index]
     if (!tile.explored) {
       if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
       if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
       return
     }
-    const telegraph = state.floor.telegraphs?.find(current => current.cells.some(cell => cell.x === x && cell.y === y))
-    const previewPath = preview?.path.some(cell => cell.x === x && cell.y === y)
-    const previewCell = preview?.cells.some(cell => cell.x === x && cell.y === y)
+    const telegraph = overlays.telegraphs[index]
+    const previewPath = Boolean(overlays.previewPath[index])
+    const previewCell = Boolean(overlays.previewCells[index])
     if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false, !tile.visible)
     else if (this.runeMode) this.drawRuneTile(tile.kind, tile.visible, x, y)
     else {
@@ -361,7 +387,7 @@ export class TerminalRenderer {
       }
     }
     if (item) this.drawItem(item, x, y)
-    const actor = actorAt(state.floor, x, y)
+    const actor = overlays.actors[index]
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')

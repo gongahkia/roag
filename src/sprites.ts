@@ -145,9 +145,12 @@ export class TextureAtlas {
     const sourceOffset = sprite.frameOffsets?.[frame] ?? sprite.sourceOffset
     const destinationX = x * CELL_WIDTH - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize)
     const destinationY = y * CELL_HEIGHT + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize)
+    if (!dim && !flip) {
+      ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, destinationX, destinationY, spriteSize, spriteSize)
+      return true
+    }
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
-    ctx.imageSmoothingEnabled = false
     if (flip) { ctx.translate(destinationX + spriteSize, 0); ctx.scale(-1, 1) }
     ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, flip ? 0 : destinationX, destinationY, spriteSize, spriteSize)
     ctx.restore()
@@ -172,11 +175,10 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome:
     ctx.rect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT)
     ctx.clip()
   }
-  ctx.save()
-  ctx.globalAlpha = dim ? .38 : 1
+  if (dim) { ctx.save(); ctx.globalAlpha = .38 }
   ctx.fillStyle = terrainBase[biome]
   ctx.fillRect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT)
-  ctx.restore()
+  if (dim) ctx.restore()
   const index = tileSprite[tile.kind]
   const sheet = manifestSheets.get(terrainSheet[biome])!
   if (textureAtlas.draw(ctx, ref(sheet.id, index % 8, Math.floor(index / 8), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) {
