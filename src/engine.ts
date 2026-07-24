@@ -1,6 +1,6 @@
 export { perform, quickCast } from './engine/input'
 export { skillChoices } from './engine/progression'
-export { chooseTrailcraft, trailcraftChoices, TRAILCRAFTS } from './engine/trailcraft'
+export { chooseTrailcraft, trailcraftChoices, trailcraftTags, TRAILCRAFTS } from './engine/trailcraft'
 export type { Trailcraft } from './engine/trailcraft'
 export { newHero, newRun } from './engine/run'
 export type { ActionResult, GameEvent, GameEventType } from './engine/shared'

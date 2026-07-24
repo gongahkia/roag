@@ -20,6 +20,7 @@ import { vitalityHazardReduction, vitalityShield } from './vitality'
 import { intellectFocusRecovery } from './intellect'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
+import { trailcraftTags } from './trailcraft'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -30,7 +31,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
-  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
+  const tags = trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot')
+  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
   if (targets.length) { announceSynergies(state, synergy); return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown))) }
   let tile = getTile(state.floor, x, y)

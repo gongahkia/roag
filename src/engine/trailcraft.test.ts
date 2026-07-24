@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createRun } from '../test/factories'
 import { descend } from './inventory'
 import { perform } from './input'
-import { chooseTrailcraft, trailcraftChoices } from './trailcraft'
+import { chooseTrailcraft, trailcraftChoices, trailcraftTags } from './trailcraft'
 
 describe('trailcraft', () => {
   it('offers three deterministic upgrades after a cleared non-final floor', () => {
@@ -21,6 +21,7 @@ describe('trailcraft', () => {
     expect(chooseTrailcraft(state, '1')).toBe(true)
     expect(state.hero.stats[choice.stat]).toBe(stat + 1)
     expect(state.hero.trailcrafts?.[choice.id]).toBe(1)
+    expect(trailcraftTags(state.hero)).toEqual([choice.id])
     expect(state.modal).toBeUndefined()
   })
 

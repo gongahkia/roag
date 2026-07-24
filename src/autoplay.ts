@@ -8,6 +8,7 @@ import { projectBolt } from './engine/projectiles'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
+import { trailcraftTags } from './engine/trailcraft'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -217,7 +218,8 @@ const heroAttackProfile = (state: RunState) => {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
-  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
+  const tags = trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot')
+  const synergy = resolveSynergies({ items: weapon ? [weapon.id] : [], skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   return { shape: profile.shape, reach: Math.max(1, Math.floor(synergy.values.range ?? profile.reach)), damage: Math.max(1, Math.floor(modified.damage ?? profile.damage)) }
 }
 

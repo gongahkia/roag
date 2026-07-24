@@ -8,6 +8,8 @@ describe('cross-system synergies', () => {
   it('resolves tagged geometry and effect modifiers deterministically', () => {
     expect(resolveSynergies({ items: ['whip'], skills: ['str1'] }, { range: 2 })).toMatchObject({ values: { range: 3 }, synergies: ['strength-reach'] })
     expect(resolveSynergies({ scripts: ['ember'], terrain: ['gas'] })).toMatchObject({ values: { damage: 2 }, synergies: ['ember-gas'] })
+    expect(resolveSynergies({ tags: ['flintTemper', 'windKnot'] }, { range: 2 })).toMatchObject({ values: { range: 3 }, synergies: ['tempered-gale'] })
+    expect(resolveSynergies({ tags: ['barkBinding', 'spiritThread'] })).toMatchObject({ values: { focus: 1 }, synergies: ['hearth-thread'] })
   })
 
   it('changes combat geometry and Ember damage while reporting synergies', () => {
@@ -26,5 +28,19 @@ describe('cross-system synergies', () => {
     castSpell(ember, 'ember', 'e')
     expect(emberTarget.health).toBe(22)
     expect(ember.messages).toContain('Synergy: Ember ignites the gas with extra force.')
+  })
+
+  it('applies trailcraft pairs to strikes and casts', () => {
+    const target = createEnemy({ x: 4, y: 1, health: 99, maxHealth: 99, defense: 0, speed: 0 })
+    const melee = createRun({ hero: createHero({ equipment: { mainHand: 'whip' }, trailcrafts: { flintTemper: 1, windKnot: 1 } }) })
+    melee.floor.actors = [target]
+    moveHero(melee, 'e')
+    expect(target.health).toBeLessThan(99)
+    expect(melee.messages).toContain('Synergy: Flint Temper and Wind Knot extend your strike.')
+
+    const ember = createRun({ hero: createHero({ focus: 4, inventory: ['ember'], trailcrafts: { barkBinding: 1, spiritThread: 1 } }) })
+    castSpell(ember, 'ember', 'e')
+    expect(ember.hero.focus).toBe(2)
+    expect(ember.messages).toContain('Synergy: Bark Binding and Spirit Thread restore focus.')
   })
 })

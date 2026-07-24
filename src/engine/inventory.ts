@@ -20,6 +20,7 @@ import { announceSynergies, resolveSynergies } from './synergies'
 import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
+import { trailcraftTags } from './trailcraft'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -252,7 +253,10 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   announceSynergies(state, geometry)
   announceSynergies(state, impact)
   const effect = evaluateEquipmentEffects(state.hero, 'triggered', { trigger: 'spell', scripts: [id] })
-  state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0))
+  const tags = trailcraftTags(state.hero).filter(id => id === 'barkBinding' || id === 'spiritThread')
+  const trailcraft = resolveSynergies({ tags })
+  announceSynergies(state, trailcraft)
+  state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0) + (trailcraft.values.focus ?? 0))
   resolveDefeatedActors(state)
   refreshFov(state)
   log(state, `${item.name} takes effect.`)

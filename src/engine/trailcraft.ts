@@ -1,17 +1,18 @@
 import { rngFor } from '../rng'
-import type { RunState, StatName, TrailcraftId } from '../types'
+import type { Hero, RunState, StatName, TrailcraftId } from '../types'
 import { log } from './shared'
 
 export interface Trailcraft { id: TrailcraftId; name: string; stat: StatName; text: string }
 
 export const TRAILCRAFTS: readonly Trailcraft[] = [
-  { id: 'flintTemper', name: 'Flint Temper', stat: 'strength', text: 'STR +1 · strike with more force' },
-  { id: 'windKnot', name: 'Wind Knot', stat: 'agility', text: 'AGI +1 · move and evade with more room' },
-  { id: 'barkBinding', name: 'Bark Binding', stat: 'vitality', text: 'VIT +1 · max HP +2 · recover 4 HP' },
-  { id: 'spiritThread', name: 'Spirit Thread', stat: 'intellect', text: 'INT +1 · max focus +2 · recover 2 focus' }
+  { id: 'flintTemper', name: 'Flint Temper', stat: 'strength', text: 'STR +1 · pair Wind Knot for +1 strike range' },
+  { id: 'windKnot', name: 'Wind Knot', stat: 'agility', text: 'AGI +1 · pair Flint Temper for +1 strike range' },
+  { id: 'barkBinding', name: 'Bark Binding', stat: 'vitality', text: 'VIT +1 · pair Spirit Thread for +1 focus on cast' },
+  { id: 'spiritThread', name: 'Spirit Thread', stat: 'intellect', text: 'INT +1 · pair Bark Binding for +1 focus on cast' }
 ]
 
 export const trailcraftChoices = (state: RunState): Trailcraft[] => rngFor(state.seed, 'progression', 'trailcraft', state.floor.index).shuffle([...TRAILCRAFTS]).slice(0, 3)
+export const trailcraftTags = (hero: Hero): TrailcraftId[] => (Object.entries(hero.trailcrafts ?? {}) as Array<[TrailcraftId, number]>).filter(([, rank]) => rank > 0).map(([id]) => id).sort()
 
 export function chooseTrailcraft(state: RunState, command: string): boolean {
   const choice = trailcraftChoices(state)[Number(command) - 1]
