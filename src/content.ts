@@ -20,6 +20,7 @@ export interface ItemDefinition {
   use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'drill' | 'glide' | 'spell'
   spell?: string
   throwable?: boolean
+  findable?: boolean
   tags?: string[]
   effects?: readonly EquipmentEffect[]
 }
@@ -53,8 +54,8 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'blinkRune', name: 'Swift-foot Charm', glyph: '?', color: '#bda8eb', value: 90, use: 'teleport' },
   { id: 'bombPack', name: 'Fire-ash Bundle', glyph: '*', color: '#ea8e64', value: 80, use: 'bomb' },
   { id: 'ropeBundle', name: 'Rope Bundle', glyph: '~', color: '#dab272', value: 55, use: 'rope' },
-  { id: 'auger', name: 'Obsidian Auger', glyph: '%', color: '#c7c4ba', value: 100, use: 'drill', tags: ['mine', 'mobility'] },
-  { id: 'reedGlider', name: 'Reed Glider', glyph: '^', color: '#d8bc82', value: 95, use: 'glide', tags: ['wilds', 'mobility'] },
+  { id: 'auger', name: 'Obsidian Auger', glyph: '%', color: '#c7c4ba', value: 100, use: 'drill', findable: false, tags: ['mine', 'mobility'] },
+  { id: 'reedGlider', name: 'Reed Glider', glyph: '^', color: '#d8bc82', value: 95, use: 'glide', findable: false, tags: ['wilds', 'mobility'] },
   { id: 'key', name: 'Carved Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },

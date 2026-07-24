@@ -661,7 +661,6 @@ const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefin
     if (item.use === 'heal') return !state.hero.inventory.some(held => ITEM[held]?.use === 'heal')
     if (item.use === 'bomb') return state.hero.bombs <= resourceReserve(policy)
     if (item.use === 'rope') return state.hero.ropes <= resourceReserve(policy)
-    if (item.use === 'drill' || item.use === 'glide') return policy === 'clear' && !state.hero.inventory.some(held => ITEM[held]?.use === item.use)
     if (!item.slot) return false
     return bestEquip({ ...state, hero: { ...state.hero, inventory: [...state.hero.inventory, id] } }) === id
   }).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]

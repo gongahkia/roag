@@ -4,6 +4,7 @@ import { runAutoplay } from './autoplay-runner'
 import { newRun, perform, skillChoices } from './engine'
 import { propDefinition } from './props'
 import { createEnemy, createRun } from './test/factories'
+import { indexOf } from './types'
 
 describe('autoplay', () => {
   it('does not mutate planning state and resolves level-up choices', () => {
@@ -14,6 +15,24 @@ describe('autoplay', () => {
     state.modal = { kind: 'skills', source: 'level' }
     const decision = autoplayDecision(state, 'omniscient', 'clear', createAutoplayContext())
     expect(skillChoices(state).map((_, index) => String(index + 1))).toContain(decision?.command)
+  })
+
+  it('uses an auger only when it opens a required route', () => {
+    const state = createRun()
+    state.hero.inventory = ['auger']
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    state.floor.tiles[indexOf(1, 1)].kind = 'floor'
+    state.floor.tiles[indexOf(2, 1)].kind = 'wall'
+    state.floor.tiles[indexOf(3, 1)].kind = 'exit'
+    state.floor.exit = { x: 3, y: 1 }
+    state.floor.objective = { id: 'complete', kind: 'defeatGuardian', label: 'Clear the route', status: 'complete' }
+    state.floor.guardianDefeated = true
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'u', reason: 'drill route:auger' })
+    perform(state, 'u')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: '1', reason: 'use:auger' })
+    perform(state, '1')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: ';', reason: 'drill target' })
   })
 
   it('tracks temporary prop fields without mutating them during planning', () => {

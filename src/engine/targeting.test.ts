@@ -15,6 +15,12 @@ describe('player targeting preview', () => {
     expect(bomb.cells).not.toContainEqual({ x: 1, y: 1 })
   })
 
+  it('previews auger breaches and glider landings', () => {
+    const state = createRun()
+    expect(targetPreview(state, { kind: 'target', action: 'drill', item: 'auger', direction: 'e' })).toEqual({ path: [{ x: 2, y: 1 }], cells: [{ x: 2, y: 1 }] })
+    expect(targetPreview(state, { kind: 'target', action: 'glide', item: 'reedGlider', direction: 'e' })).toEqual({ path: [{ x: 2, y: 1 }, { x: 3, y: 1 }], cells: [{ x: 3, y: 1 }] })
+  })
+
   it('requires confirmation after choosing a target direction', () => {
     const state = createRun()
     state.modal = { kind: 'target', action: 'bomb' }

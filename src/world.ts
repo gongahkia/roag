@@ -375,7 +375,7 @@ function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
 }
 
 function placeItems(floor: Floor, rng: Rng, rooms: Room[]): void {
-  const loot = ITEMS.filter(item => !item.slot || rng.chance(30))
+  const loot = ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
   const count = 10 + floor.index % 4 * 2
   for (let i = 0; i < count; i++) {
     const point = freeRoomPoint(floor, rng, rooms)
