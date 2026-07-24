@@ -192,7 +192,7 @@ export type Modal =
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
-  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }

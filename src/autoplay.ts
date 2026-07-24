@@ -8,7 +8,7 @@ import { projectBolt } from './engine/projectiles'
 import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
-import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
+import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
@@ -21,6 +21,8 @@ export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear',
 const directionCommands: Record<Direction, string> = { nw: 'i', n: 'o', ne: 'p', w: 'k', wait: 'l', e: ';', sw: ',', s: '.', se: '/' }
 const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
 const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder'])
+const drillableTiles = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder'])
+const glidableTiles = new Set<TileKind>(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble'])
 const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).filter(([direction]) => direction !== 'wait') as Array<[Exclude<Direction, 'wait'>, Point]>
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
@@ -62,7 +64,8 @@ const planningClone = (state: RunState): RunState => {
 type Intent = { kind: 'use' | 'throw' | 'equip' | 'drop'; item: string }
 type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
 type TelegraphRoute = { sourceId: string; from: string; to: string }
-type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number }
+type TargetAction = Extract<Modal, { kind: 'target' }>['action']
+type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number; routeGained: boolean }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
 export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
@@ -530,7 +533,7 @@ export const autoplayObjectiveRouteDiagnostics = (state: RunState, mode: Exclude
 }
 
 const hostileInCells = (state: RunState, cells: readonly Point[]): number => cells.reduce((count, point) => count + Number(Boolean(actorAt(state.floor, point.x, point.y)?.hostile)), 0)
-const targetEffects = (action: 'bomb' | 'throw' | 'spell', item?: string): readonly PropEffectKind[] => {
+const targetEffects = (action: TargetAction, item?: string): readonly PropEffectKind[] => {
   if (action === 'bomb') return ['bomb']
   if (action === 'throw') return item === 'fireJar' ? ['bomb', 'fire'] : ['throw']
   const spell = ITEM[item ?? '']?.spell
@@ -547,9 +550,11 @@ const spellTargetRange = (state: RunState, item: string): number => {
   const geometry = resolveSynergies({ scripts: [item], skills: state.hero.skills }, { range: profile.range })
   return Math.max(1, Math.floor(geometry.values.range ?? profile.range))
 }
-const targetImpactCells = (state: RunState, action: 'bomb' | 'throw' | 'spell', direction: Exclude<Direction, 'wait'>, item?: string): Point[] => {
+const targetImpactCells = (state: RunState, action: TargetAction, direction: Exclude<Direction, 'wait'>, item?: string): Point[] => {
   if (action === 'bomb') return actionCells('burst', state.hero, direction, 2)
   const delta = DIRECTIONS[direction]
+  if (action === 'drill') return [{ x: state.hero.x + delta.x, y: state.hero.y + delta.y }]
+  if (action === 'glide') return [{ x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }]
   if (action === 'throw') {
     const point = resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells.at(-1)
     if (!point) return []
@@ -559,13 +564,13 @@ const targetImpactCells = (state: RunState, action: 'bomb' | 'throw' | 'spell', 
   const range = spellTargetRange(state, item)
   return [{ x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }]
 }
-const propTargetCount = (state: RunState, action: 'bomb' | 'throw' | 'spell', direction: Exclude<Direction, 'wait'>, item?: string): number => {
+const propTargetCount = (state: RunState, action: TargetAction, direction: Exclude<Direction, 'wait'>, item?: string): number => {
   const effects = targetEffects(action, item)
   if (!effects.length) return 0
   const targets = new Set(targetImpactCells(state, action, direction, item).map(pointKey))
   return state.floor.props.filter(prop => prop.state !== 'destroyed' && targets.has(pointKey(prop)) && effects.some(effect => prop.hooks?.includes(effect))).length
 }
-const targetDirection = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
+const targetDirection = (state: RunState, mode: AutoplayMode, action: TargetAction, item?: string): { direction: Exclude<Direction, 'wait'>; score: number } | undefined => {
   const scored = directions.map(([direction]) => {
     const propScore = propTargetCount(state, action, direction, item) * 12
     if (action === 'bomb') {
@@ -576,6 +581,17 @@ const targetDirection = (state: RunState, mode: AutoplayMode, action: 'bomb' | '
       const delta = DIRECTIONS[direction]
       const cells = resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells
       return { direction, score: hostileInCells(state, cells) * (item === 'fireJar' ? 85 : item === 'spear' ? 54 : 34) + propScore }
+    }
+    if (action === 'drill') {
+      const delta = DIRECTIONS[direction]
+      const point = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
+      return { direction, score: drillableTiles.has(getTile(state.floor, point.x, point.y)?.kind ?? 'wall') ? 64 : 0 }
+    }
+    if (action === 'glide') {
+      const delta = DIRECTIONS[direction]
+      const middle = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+      const landing = { x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }
+      return { direction, score: Boolean(middle && glidableTiles.has(middle.kind) && passable(state, mode, landing, false)) ? 64 : 0 }
     }
     const spell = ITEM[item ?? '']?.spell
     if (!spell || !item) return { direction, score: 0 }
@@ -645,6 +661,7 @@ const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefin
     if (item.use === 'heal') return !state.hero.inventory.some(held => ITEM[held]?.use === 'heal')
     if (item.use === 'bomb') return state.hero.bombs <= resourceReserve(policy)
     if (item.use === 'rope') return state.hero.ropes <= resourceReserve(policy)
+    if (item.use === 'drill' || item.use === 'glide') return policy === 'clear' && !state.hero.inventory.some(held => ITEM[held]?.use === item.use)
     if (!item.slot) return false
     return bestEquip({ ...state, hero: { ...state.hero, inventory: [...state.hero.inventory, id] } }) === id
   }).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]
@@ -1006,13 +1023,14 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1 && propValue < 1) return []
     if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []
     if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0 && propValue < 1) return []
+    if ((modal.action === 'drill' || modal.action === 'glide') && !routeGained) return []
     if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
-    return [{ direction, score, mobilityGain, terrainCleared }]
+    return [{ direction, score, mobilityGain, terrainCleared, routeGained }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
   return scored[0]
 }
 
-const usableTarget = (state: RunState, mode: AutoplayMode, action: 'bomb' | 'throw' | 'spell', item?: string): TargetOutcome | undefined => {
+const usableTarget = (state: RunState, mode: AutoplayMode, action: TargetAction, item?: string): TargetOutcome | undefined => {
   const simulated = planningClone(state)
   if (action === 'bomb') simulated.modal = { kind: 'target', action }
   else if (item) simulated.modal = { kind: 'target', action, item }
@@ -1069,6 +1087,15 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
   const throwThreshold = throwable === 'fireJar' ? 85 : throwable === 'spear' ? 54 : 34
   if (throwable && throwTarget && safeThrowTarget && (throwTarget.score >= throwThreshold || safeThrowTarget.score >= 72)) candidates.push({ command: 't', reason: rooted ? `break root: throw:${throwable}` : safeThrowTarget.score >= 72 ? `throw prop:${throwable}` : `throw:${throwable}`, score: (rooted ? 330 : 96) + Math.max(throwTarget.score, safeThrowTarget.score) / 10 + (pressure >= 100 ? 60 : 0), intent: { kind: 'throw', item: throwable } })
+  const traversal = state.hero.inventory.flatMap(id => {
+    const use = ITEM[id]?.use
+    const action: TargetAction | undefined = use === 'drill' ? 'drill' : use === 'glide' ? 'glide' : undefined
+    if (!action) return []
+    const target = targetDirection(state, mode, action, id)
+    const resolved = usableTarget(state, mode, action, id)
+    return target && resolved?.routeGained ? [{ id, action, target, resolved }] : []
+  }).sort((a, b) => b.resolved.score - a.resolved.score || b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
+  if (traversal) candidates.push({ command: 'u', reason: `${traversal.action} route:${traversal.id}`, score: 258 + traversal.resolved.score / 8, intent: { kind: 'use', item: traversal.id } })
   const spell = state.hero.inventory.filter(id => ITEM[id]?.use === 'spell').map(id => ({ id, target: targetDirection(state, mode, 'spell', id), resolved: usableTarget(state, mode, 'spell', id), profile: scriptCastProfile(state.hero, id) }))
     .filter((choice): choice is { id: string; target: { direction: Exclude<Direction, 'wait'>; score: number }; resolved: TargetOutcome; profile: ReturnType<typeof scriptCastProfile> } => Boolean(choice.target && choice.resolved) && state.hero.focus >= choice.profile.focusCost)
     .sort((a, b) => b.resolved.score - a.resolved.score || b.target.score - a.target.score || a.id.localeCompare(b.id))[0]

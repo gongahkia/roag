@@ -1,6 +1,6 @@
 import type { Direction, Modal, RunState } from '../types'
 import { advance, moveHero } from './combat'
-import { bomb, castFirstSpell, castSpell, descend, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
+import { bomb, castFirstSpell, castSpell, descend, drill, glide, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
 import { chooseSkill } from './progression'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
@@ -95,6 +95,8 @@ function commitTarget(state: RunState, modal: Extract<Modal, { kind: 'target' }>
   if (modal.action === 'bomb') return bomb(state, direction)
   if (modal.action === 'throw' && modal.item) return throwItem(state, modal.item, direction)
   if (modal.action === 'spell' && modal.item) return castSpell(state, modal.item, direction)
+  if (modal.action === 'drill' && modal.item) return drill(state, modal.item, direction)
+  if (modal.action === 'glide' && modal.item) return glide(state, modal.item, direction)
   return []
 }
 

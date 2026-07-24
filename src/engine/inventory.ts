@@ -1,6 +1,6 @@
 import { ITEM, biomeName } from '../content'
 import { DIRECTIONS, MAP_WIDTH, type Direction, type Modal, type RunState } from '../types'
-import { actorAt, generateAreaFloor, getTile } from '../world'
+import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
@@ -186,6 +186,35 @@ export function bomb(state: RunState, direction: Direction): ActionResult {
   return advance(state, [event('boom')])
 }
 
+const drillableTerrain = new Set(['wall', 'rubble', 'bramble', 'boulder'])
+const glidableTerrain = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble'])
+
+export function drill(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const tile = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+  if (index < 0 || !tile || !drillableTerrain.has(tile.kind)) { log(state, 'The auger needs blocked ground.'); return [] }
+  tile.kind = 'floor'
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'The auger opens a narrow passage.')
+  return advance(state, [event('pickup')])
+}
+
+export function glide(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const middle = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+  const landing = { x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }
+  if (index < 0 || !middle || !glidableTerrain.has(middle.kind) || !isPassable(state.floor, landing.x, landing.y)) { log(state, 'The glider needs a clear landing beyond hazardous ground.'); return [] }
+  state.hero.x = landing.x
+  state.hero.y = landing.y
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'You ride the reed glider across the hazard.')
+  return advance(state, [event('move')])
+}
+
 export function throwItem(state: RunState, id: string, direction: Direction): ActionResult {
   const index = state.hero.inventory.indexOf(id)
   if (index === -1) return []
@@ -253,6 +282,8 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
     if (choices.length) { const target = turnRng(state, 'combat', 'blink').pick(choices); state.hero.x = target.x; state.hero.y = target.y }
     consume(state, inventoryIndex); refreshFov(state); log(state, 'Space folds.'); return advance(state, [event('spell')])
   }
+  if (item.use === 'drill') { state.modal = { kind: 'target', action: 'drill', item: id }; return [event('menu')] }
+  if (item.use === 'glide') { state.modal = { kind: 'target', action: 'glide', item: id }; return [event('menu')] }
   if (item.use === 'bomb') { const restored = restoreBombs(state.hero, 3); if (!restored) { log(state, 'Your bomb reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} bombs.`); return advance(state, [event('pickup')]) }
   if (item.use === 'rope') { const restored = restoreRopes(state.hero, 3); if (!restored) { log(state, 'Your rope reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} ropes.`); return advance(state, [event('pickup')]) }
   if (item.use === 'key') { state.hero.keys++; consume(state, inventoryIndex); return advance(state, [event('pickup')]) }

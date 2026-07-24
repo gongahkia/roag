@@ -9,6 +9,15 @@ export const targetPreview = (state: RunState, modal: Extract<Modal, { kind: 'ta
   const delta = DIRECTIONS[modal.direction]
   const origin = state.hero
   const bounds = { width: MAP_WIDTH, height: MAP_HEIGHT }
+  if (modal.action === 'drill') {
+    const point = { x: origin.x + delta.x, y: origin.y + delta.y }
+    return { path: [point], cells: [point] }
+  }
+  if (modal.action === 'glide') {
+    const middle = { x: origin.x + delta.x, y: origin.y + delta.y }
+    const landing = { x: origin.x + delta.x * 2, y: origin.y + delta.y * 2 }
+    return { path: [middle, landing], cells: [landing] }
+  }
   if (modal.action === 'throw') {
     const path = resolveLineEffect(state.floor, origin, { x: origin.x + delta.x * 5, y: origin.y + delta.y * 5 }).cells
     return { path, cells: path.length ? [path[path.length - 1]] : [] }

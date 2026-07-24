@@ -17,7 +17,7 @@ export interface ItemDefinition {
   weapon?: WeaponProfile
   defense?: number
   value: number
-  use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'spell'
+  use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'drill' | 'glide' | 'spell'
   spell?: string
   throwable?: boolean
   tags?: string[]
@@ -53,6 +53,8 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'blinkRune', name: 'Swift-foot Charm', glyph: '?', color: '#bda8eb', value: 90, use: 'teleport' },
   { id: 'bombPack', name: 'Fire-ash Bundle', glyph: '*', color: '#ea8e64', value: 80, use: 'bomb' },
   { id: 'ropeBundle', name: 'Rope Bundle', glyph: '~', color: '#dab272', value: 55, use: 'rope' },
+  { id: 'auger', name: 'Obsidian Auger', glyph: '%', color: '#c7c4ba', value: 100, use: 'drill', tags: ['mine', 'mobility'] },
+  { id: 'reedGlider', name: 'Reed Glider', glyph: '^', color: '#d8bc82', value: 95, use: 'glide', tags: ['wilds', 'mobility'] },
   { id: 'key', name: 'Carved Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },
@@ -143,9 +145,9 @@ export const isSkillId = (id: unknown): id is string => typeof id === 'string' &
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
 export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
-  mine: ['tonic', 'bombPack', 'ropeBundle', 'pickaxe', 'cap', 'key'],
-  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll'],
-  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune'],
+  mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'pickaxe', 'cap', 'key'],
+  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider'],
+  caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune', 'reedGlider'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
 }
 

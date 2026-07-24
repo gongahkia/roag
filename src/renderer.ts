@@ -572,7 +572,7 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'U then Auger breaches a blocker; Reed Glider crosses one hazard.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'A opens disciplines. S uses charms. J opens journal.', 'Combat uses attack rolls, defense, gear, stats, and XP.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 9 ? colors.gold : colors.text))
   }
 
@@ -646,7 +646,7 @@ export class TerminalRenderer {
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
     this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
-    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : 'throw item'
+    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : 'throw item'
     const preview = targetPreview(state, modal)
     this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
     this.text(21, 23, modal.direction ? 'Enter confirms · direction changes preview' : 'Esc/backtick cancels.', colors.dim)
