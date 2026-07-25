@@ -312,6 +312,8 @@ export class TerminalRenderer {
   private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {
     const position = hub?.position ?? outpostSpawn()
     const nearby = outpostInteraction(position)
+    const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
+    const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - 1)
     this.box(0, 2, 50, 38, 'VILLAGE OUTPOST')
     this.drawOutpostViewport(1, 4, position, () => this.drawOutpostScene(1, 4, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
     this.box(52, 2, 42, 38, 'OUTPOST LEDGER')
@@ -319,8 +321,8 @@ export class TerminalRenderer {
     this.text(55, 8, `CASH     ${hub?.hero?.gold ?? 0}`, colors.gold)
     this.text(55, 11, 'OPEN TRAILS', colors.gold)
     this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 34).forEach((line, index) => this.text(55, 13 + index, line, colors.text))
-    this.text(55, 18, 'NEARBY', colors.gold)
-    this.text(55, 20, nearby ? nearby.name.toUpperCase() : 'OPEN OUTPOST', nearby ? colors.green : colors.dim)
+    this.text(55, 18, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
+    this.text(55, 20, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
     this.text(55, 24, 'ROUTE BOARD  north', colors.dim)
     this.text(55, 26, 'SUPPLIES    west', colors.dim)
     this.text(55, 28, 'OUTFITTER   east', colors.dim)
@@ -339,15 +341,17 @@ export class TerminalRenderer {
     if (this.boardZoom === 1) { draw(); return }
     const width = outpostMap.width * CW
     const height = outpostMap.height * CH
-    const centerX = (x + focus.x + .5) * CW
-    const centerY = (y + focus.y + .5) * CH
+    const viewportCenterX = x * CW + width / 2
+    const viewportCenterY = y * CH + height / 2
+    const focusX = (x + focus.x + .5) * CW
+    const focusY = (y + focus.y + .5) * CH
     this.ctx.save()
     this.ctx.beginPath()
     this.ctx.rect(x * CW, y * CH, width, height)
     this.ctx.clip()
-    this.ctx.translate(centerX, centerY)
+    this.ctx.translate(viewportCenterX, viewportCenterY)
     this.ctx.scale(this.boardZoom, this.boardZoom)
-    this.ctx.translate(-centerX, -centerY)
+    this.ctx.translate(-focusX, -focusY)
     draw()
     this.ctx.restore()
   }
