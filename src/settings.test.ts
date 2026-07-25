@@ -13,10 +13,10 @@ describe('settings', () => {
     const store = memoryStore()
     const initial = defaultSettings()
     expect(loadSettings(store)).toEqual(initial)
-    const remapped = { ...setKeyBinding(initial, 'north', 'w'), reducedFlash: true }
+    const remapped = { ...setKeyBinding(initial, 'north', 'm'), reducedFlash: true }
     saveSettings(remapped, store)
     expect(loadSettings(store)).toEqual(remapped)
-    expect(commandForKey('w', remapped)).toBe('o')
+    expect(commandForKey('m', remapped)).toBe('o')
     expect(commandForKey('o', remapped)).toBeUndefined()
   })
 

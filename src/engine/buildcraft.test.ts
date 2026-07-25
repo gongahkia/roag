@@ -47,6 +47,6 @@ describe('buildcraft', () => {
     state.floor.milestones = [boonSite]
     perform(state, 'c'); perform(state, '1')
     expect(state.floor.milestones[0].claimed).toBe(true)
-    expect(Object.values(state.hero.boons ?? {}).reduce((sum, rank) => sum + (rank ?? 0), 0)).toBe(1)
+    expect(Object.values(state.hero.boons ?? {}).reduce<number>((sum, rank) => sum + (rank ?? 0), 0)).toBe(1)
   })
 })
