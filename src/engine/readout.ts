@@ -34,8 +34,13 @@ export const fieldReadout = (state: RunState): FieldReadout => {
     const intent = planEnemyIntent(state, foe)
     lines.push(`INTENT: ${foe.name} — ${intent.action.name} (${intent.reason})`)
   }
-  const milestone = state.floor.milestones.filter(current => current.discovered && !current.claimed).sort((a, b) => distance(a, state.hero) - distance(b, state.hero))[0]
-  if (milestone) lines.push(`MARK: ${milestone.kind === 'waycache' ? 'Waycache' : 'Boon site'} ${distance(milestone, state.hero)} tiles away.`)
+  const marked = state.floor.milestones.filter(current => !current.claimed && (current.discovered || (state.hero.boons?.parcelMark ?? 0) > 0))
+  const milestone = marked.sort((a, b) => distance(a, state.hero) - distance(b, state.hero))[0]
+  if (milestone) {
+    const vertical = milestone.y < state.hero.y ? 'north' : milestone.y > state.hero.y ? 'south' : ''
+    const horizontal = milestone.x < state.hero.x ? 'west' : milestone.x > state.hero.x ? 'east' : ''
+    lines.push(`MARK: ${milestone.kind === 'waycache' ? 'Waycache' : 'Boon site'} ${distance(milestone, state.hero)} tiles ${[vertical, horizontal].filter(Boolean).join('-') || 'here'}.`)
+  }
   const ground = state.floor.items.filter(item => item.x === state.hero.x && item.y === state.hero.y)
   for (const item of ground.slice(0, 2)) lines.push(`OPTION G: take ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`)
   for (const prop of nearbyProps(state).slice(0, 2)) {

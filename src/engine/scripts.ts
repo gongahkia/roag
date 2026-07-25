@@ -9,5 +9,5 @@ export const scriptForItem = (id: ItemId) => {
 }
 export const scriptCastProfile = (hero: Hero, id: ItemId) => {
   const script = scriptForItem(id)
-  return { script, focusCost: Math.max(1, script.focusCost - intellectFocusDiscount(hero)), range: script.range + intellectScriptRange(hero) - 1 }
+  return { script, focusCost: Math.max(1, script.focusCost - intellectFocusDiscount(hero) - (hero.boons?.quietTide ?? 0)), range: script.range + intellectScriptRange(hero) - 1 }
 }

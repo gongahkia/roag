@@ -21,7 +21,7 @@ import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
-import { openMilestone } from './buildcraft'
+import { boonRank, openMilestone } from './buildcraft'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -45,7 +45,7 @@ export function operate(state: RunState): ActionResult {
   if (container) {
     container.tile.kind = 'floor'
     const loot = contextualReward(state, 'container')
-    grantGold(state, container.kind === 'chest' ? 60 : 18)
+    grantGold(state, (container.kind === 'chest' ? 60 : 18) + boonRank(state, 'barterThread') * 10)
     if (state.hero.inventory.length < 12) state.hero.inventory.push(loot)
     else state.floor.items.push({ id: loot, x: container.x, y: container.y, count: 1 })
     log(state, `You open the ${container.kind} and find ${ITEM[loot].name}.`)
@@ -230,7 +230,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   const cells = resolveLineEffect(state.floor, state.hero, destination).cells
   const point = cells.at(-1) ?? { x: state.hero.x, y: state.hero.y }
   const target = actorAt(state.floor, point.x, point.y)
-  if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength); log(state, `${ITEM[id].name} hits ${target.name}.`) }
+  if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength + boonRank(state, 'emberFletching')); log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
   else {
     state.floor.items.push({ id, x: point.x, y: point.y, count: 1, visibleInFog: true })

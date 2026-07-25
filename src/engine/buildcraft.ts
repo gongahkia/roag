@@ -23,16 +23,16 @@ export const BOONS: readonly Boon[] = [
   { id: 'rootedResolve', name: 'Rooted Resolve', glyph: '✦', family: 'recovery', text: 'Tool use restores 1 HP per stack.' },
   { id: 'trailRations', name: 'Trail Rations', glyph: '+', family: 'recovery', text: 'Each milestone restores 2 HP per stack.' },
   { id: 'emberFletching', name: 'Ember Fletching', glyph: '*', family: 'combat', text: 'Thrown attacks deal +1 damage per stack.' },
-  { id: 'cordTempo', name: 'Cord Tempo', glyph: '/', family: 'combat', text: 'After a tool use, your next strike gains +1 damage per stack.' },
+  { id: 'cordTempo', name: 'Cord Tempo', glyph: '/', family: 'combat', text: 'Tool use restores 1 focus per stack.' },
   { id: 'watchfulStep', name: 'Watchful Step', glyph: '!', family: 'scouting', text: 'Newly discovered milestones reveal nearby threats.' },
   { id: 'mapMoss', name: 'Map Moss', glyph: '·', family: 'scouting', text: 'Exploration reveals 1 extra tile radius per stack.' },
-  { id: 'quietTide', name: 'Quiet Tide', glyph: '~', family: 'spellcraft', text: 'First charm each floor costs 1 less focus per stack.' },
+  { id: 'quietTide', name: 'Quiet Tide', glyph: '~', family: 'spellcraft', text: 'Charms cost 1 less focus per stack.' },
   { id: 'spiritKindling', name: 'Spirit Kindling', glyph: '?', family: 'spellcraft', text: 'Milestones restore 1 focus per stack.' },
   { id: 'cacheSense', name: 'Cache Sense', glyph: '$', family: 'economy', text: 'Each milestone yields 8 cash per stack.' },
   { id: 'barterThread', name: 'Barter Thread', glyph: '¤', family: 'economy', text: 'Containers yield +10 cash per stack.' },
   { id: 'stoneMemory', name: 'Stone Memory', glyph: '#', family: 'traversal', text: 'Stone Wedge also clears nearby rubble per stack.' },
   { id: 'reedMemory', name: 'Reed Memory', glyph: '≋', family: 'traversal', text: 'Reedwing crosses one extra hazard per stack.' },
-  { id: 'lastLight', name: 'Last Light', glyph: 'i', family: 'recovery', text: 'At 25% HP, gain 1 focus per stack once per floor.' },
+  { id: 'lastLight', name: 'Last Light', glyph: 'i', family: 'recovery', text: 'At 25% HP, tool use restores 2 HP per stack.' },
   { id: 'parcelMark', name: 'Parcel Mark', glyph: '□', family: 'economy', text: 'Unclaimed milestones show distance after one stack.' }
 ]
 
@@ -135,8 +135,11 @@ export function useTool(state: RunState, tool: TraversalToolId, direction: Exclu
   if (toolCooldown(state, tool)) { log(state, `${toolFor(tool).name} is still recovering.`); return [] }
   const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : useAshway(state, direction, overdrive)
   if (!result) return []
-  const healing = boonRank(state, 'rootedResolve')
+  const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
+  const focus = boonRank(state, 'cordTempo')
+  if (focus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)
+  if (boonRank(state, 'wayfinderCord')) revealNearbyMilestones(state, 2 + boonRank(state, 'wayfinderCord'))
   if (overdrive) {
     state.hero.traversalTools = (state.hero.traversalTools ?? []).filter(current => current !== tool)
     log(state, `${toolFor(tool).name} burns out after its overdrive.`)
@@ -147,7 +150,8 @@ export function useTool(state: RunState, tool: TraversalToolId, direction: Exclu
 
 const useStoneWedge = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive: boolean): boolean => {
   const target = point(state, direction, 1)
-  const offsets = overdrive ? [[0, 0], [DIRECTIONS[direction].y, -DIRECTIONS[direction].x], [-DIRECTIONS[direction].y, DIRECTIONS[direction].x]] : [[0, 0]]
+  const width = overdrive ? 1 : boonRank(state, 'stoneMemory')
+  const offsets = Array.from({ length: width * 2 + 1 }, (_, index) => index - width).map(offset => [DIRECTIONS[direction].y * offset, -DIRECTIONS[direction].x * offset])
   const cleared = offsets.map(([x, y]) => getTile(state.floor, target.x + x, target.y + y)).filter((tile): tile is NonNullable<ReturnType<typeof getTile>> => Boolean(tile && drillable.has(tile.kind)))
   if (!cleared.length) { log(state, 'Stone Wedge needs blocked ground.'); return false }
   cleared.forEach(tile => { tile.kind = 'floor' })
@@ -156,7 +160,7 @@ const useStoneWedge = (state: RunState, direction: Exclude<keyof typeof DIRECTIO
 }
 
 const useReedwing = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive: boolean): boolean => {
-  const length = overdrive ? 3 : 2
+  const length = (overdrive ? 3 : 2) + boonRank(state, 'reedMemory')
   const landing = point(state, direction, length)
   const crossed = Array.from({ length: length - 1 }, (_, index) => getTile(state.floor, point(state, direction, index + 1).x, point(state, direction, index + 1).y))
   if (!crossed.some(tile => tile && hazardous.has(tile.kind)) || !passableLanding(state, landing)) { log(state, 'Reedwing needs hazardous ground and a clear landing.'); return false }
@@ -203,6 +207,10 @@ export function expireAshways(state: RunState): void {
 
 export function revealMilestones(state: RunState): void {
   for (const current of state.floor.milestones) if (!current.claimed) current.discovered = true
+}
+
+export function revealNearbyMilestones(state: RunState, radius: number): void {
+  for (const current of state.floor.milestones) if (!current.claimed && Math.max(Math.abs(current.x - state.hero.x), Math.abs(current.y - state.hero.y)) <= radius) current.discovered = true
 }
 
 export function useTimeKnot(state: RunState): ActionResult {

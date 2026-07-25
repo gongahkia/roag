@@ -50,6 +50,7 @@ npm run preview
 | `G` `U` `D` `E` `T` | Get, use, drop, equip, throw |
 | `A` `S` `B` `R` | Skills, charm, bomb, rope |
 | `C` `Q` `X` | Operate, descend, swap |
+| `Y` / `W` | Choose ritual tool / spend Time Knot rewind |
 | `H` `J` `F1` | Help, journal, settings |
 | `V` | Cycle ASCII and runes |
 | `F` / `Shift` + `F` | Toggle autoplay / change autoplay policy |
@@ -57,6 +58,10 @@ npm run preview
 | `Esc` or backtick | Pause or cancel |
 
 Menu controls: `N` creates a courier, `L`/`Enter` resumes one, arrows select, and `D` retires one. Key bindings can be changed in settings.
+
+## Buildcraft
+
+Every floor places one Waycache and three Boon sites. Waycaches bind one of two equipped ritual tools: Stone Wedge, Reedwing, Cord Anchor, or Ashway Rites. Tools recharge by turn cooldown and can be explicitly overdriven for a stronger final effect before retiring. Boon sites offer deterministic three-way, run-only drafts; Boons stack without a cap. Local discovery is default; Scout Eye reveals all remaining milestones. `Shift` + `F` includes an `EXPLORE` autoplay policy that pursues discovered milestones before exit.
 
 ## Generated sprite atlas
 

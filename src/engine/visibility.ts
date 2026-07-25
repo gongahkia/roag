@@ -5,7 +5,7 @@ import { isBlockingProp, isSightBlockingProp, propAt } from '../props'
 
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
-  const range = state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10
+  const range = (state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10) + Math.min(3, state.hero.boons?.mapMoss ?? 0)
   for (let y = Math.max(0, state.hero.y - range); y <= Math.min(MAP_HEIGHT - 1, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(MAP_WIDTH - 1, state.hero.x + range); x++) {
     if (hasLine(state, state.hero, { x, y })) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
   }
@@ -20,7 +20,7 @@ export function refreshFov(state: RunState): void {
       if (hasLine(state, fungus, { x, y }, true)) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
     }
   }
-  for (const milestone of state.floor.milestones) if (getTile(state.floor, milestone.x, milestone.y)?.visible) milestone.discovered = true
+  for (const milestone of state.floor.milestones) if (getTile(state.floor, milestone.x, milestone.y)?.visible || (state.hero.boons?.watchfulStep ?? 0) > 0 && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 4 + (state.hero.boons?.watchfulStep ?? 0)) milestone.discovered = true
   observeEncyclopedia(state)
 }
 

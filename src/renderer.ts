@@ -462,6 +462,8 @@ export class TerminalRenderer {
     if (!tile.explored) {
       if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
       if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
+      const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
+      if (milestone && !this.spriteMode) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : colors.purple)
       return
     }
     const telegraph = overlays.telegraphs[index]
