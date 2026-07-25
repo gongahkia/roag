@@ -222,6 +222,7 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
 }
 
 function placeMilestones(floor: Floor, rng: Rng): void {
+  const reachable = reachableIndexes(floor)
   const occupied = new Set<number>([
     indexOf(floor.start.x, floor.start.y), indexOf(floor.exit.x, floor.exit.y),
     ...objectiveTargets(floor).map(point => indexOf(point.x, point.y)),
@@ -231,9 +232,14 @@ function placeMilestones(floor: Floor, rng: Rng): void {
   ])
   const candidates = floor.tiles.flatMap((current, index) => {
     const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
-    return passable(current.kind) && current.kind !== 'exit' && !occupied.has(index) && hasPassablePath(floor, floor.start, point) && distance(point, floor.start) >= 4 ? [point] : []
+    return passable(current.kind) && current.kind !== 'exit' && !occupied.has(index) && reachable.has(index) && distance(point, floor.start) >= 4 ? [point] : []
   })
-  const selected = rng.shuffle(candidates).slice(0, 4)
+  const selected: Point[] = []
+  for (const candidate of rng.shuffle(candidates)) {
+    if (!hasPassablePath(floor, floor.start, candidate)) continue
+    selected.push(candidate)
+    if (selected.length === 4) break
+  }
   if (selected.length < 4) throw new Error(`failed to place milestones on floor ${floor.index}`)
   floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : 'boon', ...point, discovered: false, claimed: false }))
 }

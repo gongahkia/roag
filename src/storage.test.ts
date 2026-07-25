@@ -141,7 +141,7 @@ describe('run persistence migration', () => {
       delete legacy.floor.props
       delete legacy.floor.objective
       const migrated = migrateRunRecord(legacy)
-      expect(migrated).toMatchObject({ version: 3, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], objective: { status: 'active' } } })
+    expect(migrated).toMatchObject({ version: 4, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], milestones: expect.any(Array), objective: { status: 'active' } } })
     }
   })
 
