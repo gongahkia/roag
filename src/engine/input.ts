@@ -6,7 +6,7 @@ import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
 import { gateForArea, resolveAreaGate } from './gates'
-import { chooseBoon, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
+import { chooseAugment, chooseBoon, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -65,6 +65,7 @@ function performModal(state: RunState, command: string): ActionResult {
   if (modal.kind === 'skills') return chooseSkill(state, command) ? [event('spell')] : []
   if (modal.kind === 'trailcraft') return chooseTrailcraft(state, command) ? [event('level')] : []
   if (modal.kind === 'boon') return chooseBoon(state, modal.milestoneId, command) ? [event('level')] : []
+  if (modal.kind === 'augment') return chooseAugment(state, modal.milestoneId, command) ? [event('level')] : []
   if (modal.kind === 'tool') return chooseTool(state, modal.milestoneId, command) ? [event('level')] : []
   if (modal.kind === 'tools') return chooseToolUse(state, command) ? [event('menu')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)

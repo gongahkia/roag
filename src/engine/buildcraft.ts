@@ -85,7 +85,12 @@ export const hasBoon = (state: RunState, id: BoonId): boolean => boonRank(state,
 export const toolCooldown = (state: RunState, id: TraversalToolId): number => state.hero.cooldowns?.[`tool:${id}`] ?? 0
 
 export const toolChoices = (state: RunState, milestone: FloorMilestone): TraversalTool[] => rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'tools').shuffle([...TOOLS]).slice(0, 3)
-export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] => rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle([...BOONS]).slice(0, 3)
+export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] => {
+  const owned = new Set(Object.keys(state.hero.boons ?? {}))
+  const families = new Set([...owned].map(id => boonById[id]?.family).filter(Boolean))
+  const weighted = [...BOONS].sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || Number(families.has(b.family)) - Number(families.has(a.family)) || a.id.localeCompare(b.id))
+  return rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle(weighted).slice(0, 3)
+}
 
 const milestoneAtReach = (state: RunState): FloorMilestone | undefined => state.floor.milestones.find(milestone => !milestone.claimed && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 1)
 
@@ -93,8 +98,8 @@ export function openMilestone(state: RunState): ActionResult | undefined {
   const milestone = milestoneAtReach(state)
   if (!milestone) return undefined
   milestone.discovered = true
-  state.modal = milestone.kind === 'waycache' ? { kind: 'tool', milestoneId: milestone.id } : { kind: 'boon', milestoneId: milestone.id }
-  log(state, milestone.kind === 'waycache' ? 'Waycache found: choose a ritual tool.' : 'Boon site found: choose one mark.')
+  state.modal = milestone.kind === 'waycache' ? { kind: 'tool', milestoneId: milestone.id } : milestone.kind === 'augment' ? { kind: 'augment', milestoneId: milestone.id } : { kind: 'boon', milestoneId: milestone.id }
+  log(state, milestone.kind === 'waycache' ? 'Waycache found: choose a ritual tool.' : milestone.kind === 'augment' ? 'Build-up moment: evolve, reforge, or transmute a Boon.' : 'Boon site found: choose one mark.')
   return [event('menu')]
 }
 
@@ -115,11 +120,73 @@ export function chooseBoon(state: RunState, milestoneId: string, command: string
   const choice = boonChoices(state, current)[Number(command) - 1]
   if (!choice) return false
   state.hero.boons ??= {}
-  state.hero.boons[choice.id] = boonRank(state, choice.id) + 1
+  state.hero.boons[choice.id] = (state.hero.boons[choice.id] ?? 0) + 1
   claim(state, current)
   state.modal = undefined
   log(state, `Boon: ${choice.name} · rank ${boonRank(state, choice.id)}.`)
   if (hasBoon(state, 'scoutEye')) revealMilestones(state)
+  return true
+}
+
+const ownedBoonIds = (state: RunState): BoonId[] => Object.keys(state.hero.boons ?? {}).filter(id => (state.hero.boons?.[id] ?? 0) > 0 && boonById[id]).sort()
+const rareChoices = (state: RunState, current: FloorMilestone, selected: BoonId): Boon[] => rngFor(state.seed, 'progression', state.floor.index, current.id, 'transmute', selected).shuffle(BOONS.filter(boon => boon.rare)).slice(0, 3)
+const reforgeChoices = (state: RunState, current: FloorMilestone, selected: BoonId): Boon[] => {
+  const source = boonFor(selected)
+  const candidates = BOONS.filter(boon => boon.id !== selected && (boon.family === source.family || boon.rare))
+  return rngFor(state.seed, 'progression', state.floor.index, current.id, 'reforge', selected).shuffle(candidates).slice(0, 3)
+}
+
+export function augmentChoices(state: RunState, milestoneId: string, mode: 'evolve' | 'reforge' | 'transmute'): Boon[] {
+  const current = milestone(state, milestoneId)
+  if (!current) return []
+  const selected = state.modal?.kind === 'augment' ? state.modal.selected?.[0] : undefined
+  if (!selected) return ownedBoonIds(state).map(boonFor)
+  if (mode === 'reforge') return reforgeChoices(state, current, selected)
+  if (mode === 'transmute') return rareChoices(state, current, selected)
+  return []
+}
+
+export function chooseAugment(state: RunState, milestoneId: string, command: string): boolean {
+  const current = milestone(state, milestoneId)
+  const modal = state.modal?.kind === 'augment' ? state.modal : undefined
+  if (!current || !modal) return false
+  const numeric = Number(command) - 1
+  if (!modal.mode) {
+    const mode = (['evolve', 'reforge', 'transmute'] as const)[numeric]
+    if (!mode) return false
+    state.modal = { ...modal, mode }
+    log(state, `${mode[0].toUpperCase()}${mode.slice(1)}: choose an owned Boon.`)
+    return true
+  }
+  const selected = modal.selected?.[0]
+  if (!selected) {
+    const owned = ownedBoonIds(state)
+    const choice = owned[numeric]
+    if (!choice) return false
+    if (modal.mode === 'evolve') {
+      state.hero.boonEvolutions ??= {}
+      state.hero.boonEvolutions[choice] = (state.hero.boonEvolutions[choice] ?? 0) + 1
+      claim(state, current)
+      state.modal = undefined
+      log(state, `${boonFor(choice).name} evolves to tier ${state.hero.boonEvolutions[choice]}. Drawback deepens: ${boonFor(choice).drawback ?? 'the burden of its power.'}`)
+      return true
+    }
+    state.modal = { ...modal, selected: [choice] }
+    log(state, `Choose a ${modal.mode} result for ${boonFor(choice).name}.`)
+    return true
+  }
+  const choices = modal.mode === 'reforge' ? reforgeChoices(state, current, selected) : rareChoices(state, current, selected)
+  const choice = choices[numeric]
+  if (!choice) return false
+  const prior = state.hero.boons?.[selected] ?? 0
+  if (!prior) return false
+  state.hero.boons![selected] = Math.max(0, prior - 1)
+  if (state.hero.boons![selected] === 0) delete state.hero.boons![selected]
+  delete state.hero.boonEvolutions?.[selected]
+  state.hero.boons![choice.id] = (state.hero.boons![choice.id] ?? 0) + (modal.mode === 'reforge' ? 1 : Math.max(1, prior))
+  claim(state, current)
+  state.modal = undefined
+  log(state, modal.mode === 'reforge' ? `${boonFor(selected).name} reforges into ${choice.name}.` : `${boonFor(selected).name} transmutes into ${choice.name}: ${choice.drawback ?? 'power carries a cost.'}`)
   return true
 }
 
