@@ -7,9 +7,11 @@ export const FLOOR_COUNT = 16
 export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
-export type AutoplayPolicy = 'survival' | 'clear' | 'legacy'
+export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
 export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread'
+export type TraversalToolId = 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'
+export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
@@ -70,6 +72,7 @@ export interface Prop {
   expiresAt?: number
 }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
+export interface FloorMilestone { id: string; kind: 'waycache' | 'boon'; x: number; y: number; discovered: boolean; claimed: boolean }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
@@ -84,6 +87,7 @@ export interface Floor {
   exit: Point
   guardianDefeated: boolean
   objective: FloorObjective
+  milestones: FloorMilestone[]
   telegraphs?: Telegraph[]
   puzzleIds?: string[]
 }
@@ -113,6 +117,9 @@ export interface Hero {
   conditions?: ConditionState[]
   cooldowns?: Record<string, number>
   trailcrafts?: Partial<Record<TrailcraftId, number>>
+  traversalTools?: TraversalToolId[]
+  boons?: Partial<Record<BoonId, number>>
+  safePositions?: Point[]
 }
 
 export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
@@ -143,7 +150,7 @@ export interface LegacyRecord {
 
 export type EncyclopediaSection = 'enemies' | 'telegraphs' | 'tags' | 'gates' | 'legacy'
 export interface EncyclopediaState { enemies: string[]; telegraphs: string[]; tags: string[]; gates: string[]; legacyRecords: LegacyRecord[] }
-export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'readout' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script'
+export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east' | 'southwest' | 'south' | 'southeast' | 'wait' | 'help' | 'encyclopedia' | 'readout' | 'settings' | 'use' | 'drop' | 'throw' | 'equip' | 'skills' | 'bomb' | 'rope' | 'get' | 'operate' | 'descend' | 'swap' | 'script' | 'tool' | 'rewind'
 
 export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
@@ -168,7 +175,7 @@ export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
 export interface RunState {
-  version: 3
+  version: 4
   seed: number
   floor: Floor
   hero: Hero
@@ -193,10 +200,12 @@ export type Modal =
   | { kind: 'inventory'; mode: 'use' | 'drop' | 'throw' | 'equip' }
   | { kind: 'skills'; source?: 'level' }
   | { kind: 'trailcraft' }
+  | { kind: 'boon'; milestoneId: string }
+  | { kind: 'tool'; milestoneId: string; replace?: number }
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
-  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide'; item?: ItemId; direction?: Exclude<Direction, 'wait'> }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }

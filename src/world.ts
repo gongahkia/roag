@@ -92,6 +92,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
     guardianDefeated: index % 4 !== 3,
     objective: objectiveForFloor(index),
+    milestones: [],
     telegraphs: []
   }
   const rooms = carveRooms(floor, layoutRng)
@@ -107,6 +108,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
   placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), ensureReachable(floor))
+  placeMilestones(floor, rngFor(runSeed, 'progression', index, 'milestones'))
   const validation = validateGeneration(floor)
   if (!validation.valid) throw new Error(`invalid generated floor ${index}: ${validation.errors.join('; ')}`)
   return floor
@@ -217,6 +219,23 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
     occupied.add(placement)
     break
   }
+}
+
+function placeMilestones(floor: Floor, rng: Rng): void {
+  const occupied = new Set<number>([
+    indexOf(floor.start.x, floor.start.y), indexOf(floor.exit.x, floor.exit.y),
+    ...objectiveTargets(floor).map(point => indexOf(point.x, point.y)),
+    ...floor.actors.map(actor => indexOf(actor.x, actor.y)),
+    ...floor.items.map(item => indexOf(item.x, item.y)),
+    ...floor.props.map(prop => indexOf(prop.x, prop.y))
+  ])
+  const candidates = floor.tiles.flatMap((current, index) => {
+    const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+    return passable(current.kind) && current.kind !== 'exit' && !occupied.has(index) && hasPassablePath(floor, floor.start, point) && distance(point, floor.start) >= 4 ? [point] : []
+  })
+  const selected = rng.shuffle(candidates).slice(0, 4)
+  if (selected.length < 4) throw new Error(`failed to place milestones on floor ${floor.index}`)
+  floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : 'boon', ...point, discovered: false, claimed: false }))
 }
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
