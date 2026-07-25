@@ -28,20 +28,40 @@ grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press r
 "${CLI[@]}" press i
 "${CLI[@]}" press Enter
-"${CLI[@]}" press Space
-"${CLI[@]}" snapshot
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
 grep --fixed-strings --quiet 'sprites' <<<"$visual"
+route="$("${CLI[@]}" eval "el => el.dataset.route" e3)"
+grep --fixed-strings --quiet 'approach' <<<"$route"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
 grep --fixed-strings --quiet 'runes' <<<"$visual"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
 grep --fixed-strings --quiet 'ascii' <<<"$visual"
+"${CLI[@]}" press Space
+"${CLI[@]}" snapshot
+route="$("${CLI[@]}" eval "el => el.dataset.route" e3)"
+grep --fixed-strings --quiet 'hub' <<<"$route"
+ascii_frame="$("${CLI[@]}" eval "el => { const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 97) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 }" e3)"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'sprites' <<<"$visual"
+sprite_frame="$("${CLI[@]}" eval "el => { const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 97) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 }" e3)"
+test "$ascii_frame" != "$sprite_frame"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'runes' <<<"$visual"
+rune_frame="$("${CLI[@]}" eval "el => { const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 97) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 }" e3)"
+test "$sprite_frame" != "$rune_frame"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'ascii' <<<"$visual"
 "${CLI[@]}" press =
 zoom="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-board-zoom')" e3)"
 grep --fixed-strings --quiet '1.25' <<<"$zoom"
+zoom_frame="$("${CLI[@]}" eval "el => { const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 97) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 }" e3)"
+test "$ascii_frame" != "$zoom_frame"
 "${CLI[@]}" press -
 zoom="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-board-zoom')" e3)"
 grep --fixed-strings --quiet '1' <<<"$zoom"

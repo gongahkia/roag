@@ -90,6 +90,7 @@ window.addEventListener('keydown', keyboardEvent => {
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
+  if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'analysis') {
     if (!keyboardEvent.repeat) { keyboardEvent.preventDefault(); continueAnalysis() }
     return
@@ -100,7 +101,6 @@ window.addEventListener('keydown', keyboardEvent => {
   if (route.screen === 'createCourier') { handleCourierCreation(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
   if (shouldPreventKeyboardDefault(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
-  if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { toggleVisualMode(); return }
   if (route.screen !== 'level') {
     const input = command ?? keyboardEvent.key
     if (route.screen === 'hub' && handleHubInput(input)) { audio.play([event('menu')]); redraw(); return }
