@@ -3,7 +3,7 @@ import { MAP_HEIGHT, MAP_WIDTH, type Direction, type Point } from '../types'
 export type OutpostTile = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'fence'
 export type OutpostDestination = 'routes' | 'roster' | 'shop' | 'outfitter'
 export interface OutpostDecoration { tile: number; x: number; y: number; scale?: number }
-export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point }
+export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point; radius?: number; label?: string; labelPoint?: Point }
 export interface OutpostMap { width: number; height: number; tiles: OutpostTile[]; blocked: Set<number>; decorations: OutpostDecoration[]; interactables: OutpostInteractable[]; spawn: Point }
 export interface OutpostMove { position: Point; moved: boolean }
 
@@ -52,7 +52,7 @@ const buildOutpost = (): OutpostMap => {
     decorations,
     spawn: { x: 24, y: 29 },
     interactables: [
-      { destination: 'routes', name: 'route board', point: { x: 23, y: 9 } },
+      { destination: 'routes', name: 'route board', point: { x: 23, y: 9 }, radius: 3, label: 'ROUTE BOARD', labelPoint: { x: 18, y: 10 } },
       { destination: 'shop', name: 'supply stall', point: { x: 8, y: 16 } },
       { destination: 'outfitter', name: 'outfitter', point: { x: 38, y: 16 } },
       { destination: 'roster', name: 'companion lodge', point: { x: 24, y: 21 } }
@@ -70,4 +70,4 @@ export const moveOutpost = (position: Point, direction: Direction): OutpostMove 
   if (!inBounds(target.x, target.y) || outpostMap.blocked.has(at(target.x, target.y))) return { position: { ...position }, moved: false }
   return { position: target, moved: true }
 }
-export const outpostInteraction = (position: Point): OutpostInteractable | undefined => outpostMap.interactables.find(interactable => Math.max(Math.abs(position.x - interactable.point.x), Math.abs(position.y - interactable.point.y)) <= 1)
+export const outpostInteraction = (position: Point): OutpostInteractable | undefined => outpostMap.interactables.find(interactable => Math.max(Math.abs(position.x - interactable.point.x), Math.abs(position.y - interactable.point.y)) <= (interactable.radius ?? 1))

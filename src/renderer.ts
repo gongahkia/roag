@@ -313,7 +313,7 @@ export class TerminalRenderer {
     const position = hub?.position ?? outpostSpawn()
     const nearby = outpostInteraction(position)
     const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
-    const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - 1)
+    const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - (routeBoard.radius ?? 1))
     this.ctx.fillStyle = colors.ink
     this.ctx.fillRect(0, 0, MAP_WIDTH * CW, MAP_HEIGHT * CH)
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
@@ -388,6 +388,9 @@ export class TerminalRenderer {
       const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
       this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
     })
+    const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
+    if (routeBoard.label && routeBoard.labelPoint) this.text(x + routeBoard.labelPoint.x, y + routeBoard.labelPoint.y, routeBoard.label, colors.gold)
+    this.text(x + routeBoard.point.x, y + routeBoard.point.y, '▼', colors.gold)
     const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
     const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
     if (this.spriteMode) {

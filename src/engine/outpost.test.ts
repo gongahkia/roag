@@ -15,6 +15,7 @@ describe('village outpost', () => {
   it('exposes every physical destination by adjacency', () => {
     expect(outpostMap.interactables.map(interactable => interactable.destination)).toEqual(['routes', 'shop', 'outfitter', 'roster'])
     expect(outpostInteraction({ x: 23, y: 10 })?.destination).toBe('routes')
+    expect(outpostInteraction({ x: 22, y: 6 })?.destination).toBe('routes')
     expect(outpostInteraction({ x: 8, y: 17 })?.destination).toBe('shop')
     expect(outpostInteraction({ x: 38, y: 17 })?.destination).toBe('outfitter')
     expect(outpostInteraction({ x: 24, y: 20 })?.destination).toBe('roster')
