@@ -32,6 +32,15 @@ const tileGlyph: Record<string, [string, string]> = {
 const runeTileGlyph: Record<string, [string, string, string]> = {
   wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714']
 }
+const outpostAsciiGlyph = {
+  grass: ['·', '#4e7947', '#18301c'], path: ['.', '#c49d69', '#473924'], cobble: [':', '#9aa6b2', '#26313b'], water: ['~', '#5c9fca', '#12374a'], bridge: ['=', '#d8ae73', '#47321c'], fence: ['#', '#a58562', '#18301c']
+} as const
+const outpostRuneGlyph = {
+  grass: ['♧', '#79a96b', '#112113'], path: ['·', '#d2ae78', '#2a2015'], cobble: ['░', '#aab5c1', '#1b2530'], water: ['≈', '#72b7d2', '#0a1621'], bridge: ['═', '#e0bd79', '#2b1e10'], fence: ['▓', '#b0936b', '#162317']
+} as const
+const outpostDecorationGlyph: Record<number, [string, string, string]> = {
+  8: ['A', '⌂', colors.gold], 9: ['!', '✦', colors.gold], 10: ['*', '✶', colors.red], 11: ['T', '♣', colors.green], 12: ['|', '╫', '#b99b72'], 13: ['"', '♧', colors.green], 15: ['?', '▣', colors.gold], 16: ['$', '⚑', colors.gold], 17: ['&', '⚒', colors.gold], 18: ['H', '⌂', colors.green], 19: ['o', '◉', colors.dim], 20: ['|', '║', colors.dim], 21: ['*', '✧', colors.green]
+}
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 const jomonMasthead = jomonMastheadSource.trimEnd()
 const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
@@ -263,11 +272,11 @@ export class TerminalRenderer {
     const y = 2
     this.box(x, y, 90, 56, story?.scene.title ?? 'VILLAGE TRAILHEAD')
     if (!story) {
-      this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false)
+      this.drawOutpostViewport(24, 5, { x: 24, y: 29 }, () => this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false))
       this.text(x + 5, 44, season.name.toUpperCase(), season.color)
       this.text(x + 5, 47, 'Your village entrusts you with a sealed parcel.', colors.text)
       this.text(x + 5, 50, season.scene, colors.text)
-      this.text(x + 5, 54, 'ENTER continue to village outpost · ESC return to title', colors.green)
+      this.text(x + 5, 54, `ENTER continue · ESC title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
       return
     }
     const hero = story.scene.vignette === 'opening'
@@ -275,10 +284,11 @@ export class TerminalRenderer {
       : story.scene.vignette === 'succession'
         ? story.page === 2 ? { x: 24, y: 27 } : { x: 21, y: 17 }
         : { x: 24, y: 16 }
-    this.drawOutpostScene(24, 5, hero, story.scene.vignette, story.page, now < this.hubAnimationUntil)
+    this.drawOutpostViewport(24, 5, hero, () => this.drawOutpostScene(24, 5, hero, story.scene.vignette, story.page, now < this.hubAnimationUntil))
     this.text(x + 5, 42, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}  ${season.name.toUpperCase()}`, season.color)
     this.wrap(storyText(story, now), 76).slice(0, 4).forEach((line, index) => this.text(x + 5, 44 + index * 2, line, colors.text))
-    this.text(x + 5, 54, isStoryPageComplete(story, now) ? 'ANY KEY continue · SPACE skip · ESC return' : 'ANY KEY reveal · SPACE skip · ESC return', colors.green)
+    const storyControls = isStoryPageComplete(story, now) ? 'ANY KEY continue · SPACE skip · ESC return' : 'ANY KEY reveal · SPACE skip · ESC return'
+    this.text(x + 5, 54, `${storyControls} · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
   }
 
   private loading(state: RunState | undefined, loading: LoadingState | undefined, now: number): void {
@@ -303,7 +313,7 @@ export class TerminalRenderer {
     const position = hub?.position ?? outpostSpawn()
     const nearby = outpostInteraction(position)
     this.box(0, 2, 50, 38, 'VILLAGE OUTPOST')
-    this.drawOutpostScene(1, 3, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin)
+    this.drawOutpostViewport(1, 3, position, () => this.drawOutpostScene(1, 3, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
     this.box(52, 2, 42, 38, 'OUTPOST LEDGER')
     this.text(55, 6, `COURIER  ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
     this.text(55, 8, `CASH     ${hub?.hero?.gold ?? 0}`, colors.gold)
@@ -319,7 +329,24 @@ export class TerminalRenderer {
     if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
     this.ruleHorizontal(0, 49, 96)
     this.text(1, 52, 'ARROWS / IOP K ; , . / NUMPAD move · C / ENTER interact · 1-6 select opened service', colors.dim)
-    this.text(1, 54, 'ESC close service / return title · V visual mode · +/- zoom · F1 settings', colors.dim)
+    this.text(1, 54, `ESC close service / return title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
+  }
+
+  private drawOutpostViewport(x: number, y: number, focus: { x: number; y: number }, draw: () => void): void {
+    if (this.boardZoom === 1) { draw(); return }
+    const width = outpostMap.width * CW
+    const height = outpostMap.height * CH
+    const centerX = (x + focus.x + .5) * CW
+    const centerY = (y + focus.y + .5) * CH
+    this.ctx.save()
+    this.ctx.beginPath()
+    this.ctx.rect(x * CW, y * CH, width, height)
+    this.ctx.clip()
+    this.ctx.translate(centerX, centerY)
+    this.ctx.scale(this.boardZoom, this.boardZoom)
+    this.ctx.translate(-centerX, -centerY)
+    draw()
+    this.ctx.restore()
   }
 
   private drawOutpostScene(x: number, y: number, hero: { x: number; y: number }, vignette: 'opening' | 'succession' | 'ending' | undefined, page: number, walking: boolean, heroOrigin: CourierDraft['origin'] = 'mineborn'): void {
@@ -328,16 +355,31 @@ export class TerminalRenderer {
     outpostMap.tiles.forEach((tile, index) => {
       const column = index % outpostMap.width
       const row = Math.floor(index / outpostMap.width)
-      this.ctx.fillStyle = base[tile]
-      this.ctx.fillRect((x + column) * CW, (y + row) * CH, CW, CH)
-      if (tile !== 'grass' || (column * 7 + row * 11) % 17 === 0) drawHubTileSprite(this.ctx, tileSprite[tile], x + column, y + row)
+      if (this.spriteMode) {
+        this.ctx.fillStyle = base[tile]
+        this.ctx.fillRect((x + column) * CW, (y + row) * CH, CW, CH)
+        if (tile !== 'grass' || (column * 7 + row * 11) % 17 === 0) drawHubTileSprite(this.ctx, tileSprite[tile], x + column, y + row)
+        return
+      }
+      const [glyph, color, background] = (this.runeMode ? outpostRuneGlyph : outpostAsciiGlyph)[tile]
+      this.cell(x + column, y + row, glyph, color, background)
     })
-    outpostMap.decorations.forEach(decoration => drawHubTileSprite(this.ctx, decoration.tile, x + decoration.x, y + decoration.y, decoration.scale))
+    outpostMap.decorations.forEach(decoration => {
+      if (this.spriteMode) { drawHubTileSprite(this.ctx, decoration.tile, x + decoration.x, y + decoration.y, decoration.scale); return }
+      const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
+      this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
+    })
     const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
     const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
-    drawHubNpcSprite(this.ctx, 'keeper', x + keeper.x, y + keeper.y, walking && vignette === 'ending')
-    drawHubNpcSprite(this.ctx, 'porter', x + porter.x, y + porter.y, walking && vignette === 'succession')
-    drawActorSprite(this.ctx, undefined, true, x + hero.x, y + hero.y, false, this.heroFacingLeft, walking ? 'walk' : 'idle', heroOrigin)
+    if (this.spriteMode) {
+      drawHubNpcSprite(this.ctx, 'keeper', x + keeper.x, y + keeper.y, walking && vignette === 'ending')
+      drawHubNpcSprite(this.ctx, 'porter', x + porter.x, y + porter.y, walking && vignette === 'succession')
+      drawActorSprite(this.ctx, undefined, true, x + hero.x, y + hero.y, false, this.heroFacingLeft, walking ? 'walk' : 'idle', heroOrigin)
+      return
+    }
+    this.cell(x + keeper.x, y + keeper.y, this.runeMode ? '♜' : 'K', colors.gold)
+    this.cell(x + porter.x, y + porter.y, this.runeMode ? '♟' : 'P', '#c7976f')
+    this.cell(x + hero.x, y + hero.y, this.runeMode ? '☉' : '@', colors.text)
   }
 
   private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView): void {

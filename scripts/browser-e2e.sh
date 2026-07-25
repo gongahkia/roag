@@ -30,6 +30,21 @@ grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press Enter
 "${CLI[@]}" press Space
 "${CLI[@]}" snapshot
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'sprites' <<<"$visual"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'runes' <<<"$visual"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'ascii' <<<"$visual"
+"${CLI[@]}" press =
+zoom="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-board-zoom')" e3)"
+grep --fixed-strings --quiet '1.25' <<<"$zoom"
+"${CLI[@]}" press -
+zoom="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-board-zoom')" e3)"
+grep --fixed-strings --quiet '1' <<<"$zoom"
 for _ in {1..19}; do "${CLI[@]}" press ArrowUp >/dev/null; done
 "${CLI[@]}" press c
 "${CLI[@]}" press e
