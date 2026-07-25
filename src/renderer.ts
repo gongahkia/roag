@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from './content'
-import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
+import { autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
@@ -554,8 +554,6 @@ export class TerminalRenderer {
     const objective = state.floor.objective
     this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
     this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
-    this.text(50, 47, 'Z readout · G get · U use · C act', colors.dim)
-    this.text(50, 48, `B bomb · R rope · V ${visualModeLabel(this.visualMode)} · F ${autoplayModeLabel(this.lastAutoplayMode)}`, colors.dim)
   }
 
   private log(state: RunState): void {
@@ -563,9 +561,9 @@ export class TerminalRenderer {
     const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
     this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, 'IOP/K;/,./ + numpad: 8-way · Shift: run · Alt: cast · L: rest · Z: readout', colors.dim)
-    this.text(1, 53, `F: autoplay · Shift+F: ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · ESC: pause`, colors.dim)
-    this.text(1, 54, `seed ${state.seed} · floor seed ${state.floor.seed} · turn ${state.turn}`, colors.dim)
+    this.text(1, 52, 'ARROWS/IOP K ; , . / NUMPAD move · SHIFT run · ALT cast · L rest · Z readout', colors.dim)
+    this.text(1, 53, 'G get U use D drop T throw E equip A skills S charm B bomb R rope C act Q exit X swap', colors.dim)
+    this.text(1, 54, `F autoplay · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)} · ESC pause · turn ${state.turn}`, colors.dim)
   }
 
   private modal(state: RunState, modal: Modal): void {
