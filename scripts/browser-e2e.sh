@@ -35,12 +35,9 @@ grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press Enter
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
-grep --fixed-strings --quiet 'sprites' <<<"$visual"
+grep --fixed-strings --quiet 'runes' <<<"$visual"
 route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
 grep --fixed-strings --quiet 'approach' <<<"$route"
-"${CLI[@]}" press v
-visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
-grep --fixed-strings --quiet 'runes' <<<"$visual"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
 grep --fixed-strings --quiet 'ascii' <<<"$visual"
@@ -51,14 +48,9 @@ grep --fixed-strings --quiet 'hub' <<<"$route"
 ascii_frame="$(canvas_hash)"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
-grep --fixed-strings --quiet 'sprites' <<<"$visual"
-sprite_frame="$(canvas_hash)"
-test "$ascii_frame" != "$sprite_frame"
-"${CLI[@]}" press v
-visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
 grep --fixed-strings --quiet 'runes' <<<"$visual"
 rune_frame="$(canvas_hash)"
-test "$sprite_frame" != "$rune_frame"
+test "$ascii_frame" != "$rune_frame"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
 grep --fixed-strings --quiet 'ascii' <<<"$visual"
@@ -94,7 +86,7 @@ autoplay="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.autoplay"
 grep --fixed-strings --quiet 'visible' <<<"$autoplay"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
-grep --fixed-strings --quiet 'sprites' <<<"$visual"
+grep --fixed-strings --quiet 'runes' <<<"$visual"
 autoplay="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.autoplay")"
 grep --fixed-strings --quiet 'visible' <<<"$autoplay"
 "${CLI[@]}" press f

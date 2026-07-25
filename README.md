@@ -51,12 +51,25 @@ npm run preview
 | `A` `S` `B` `R` | Skills, charm, bomb, rope |
 | `C` `Q` `X` | Operate, descend, swap |
 | `H` `J` `F1` | Help, journal, settings |
-| `V` | Cycle ASCII, sprites, and runes |
+| `V` | Cycle ASCII and runes |
 | `F` / `Shift` + `F` | Toggle autoplay / change autoplay policy |
 | `+` `-` `0` or mouse wheel | Change / reset board zoom |
 | `Esc` or backtick | Pause or cancel |
 
 Menu controls: `N` creates a courier, `L`/`Enter` resumes one, arrows select, and `D` retires one. Key bindings can be changed in settings.
+
+## Generated sprite atlas
+
+Generated PNG sheets are intentionally absent. The manifest, atlas renderer, inspector, normalizer, and validator remain so sprite rendering can be restored without rebuilding gameplay mappings. Until then, `V` offers ASCII and runes only; the atlas inspector shows metadata instead of pixels.
+
+To restore sprites, generate every runtime sheet named by `src/assets/generated-sprites/sprite-manifest.json` as a 16-pixel cell grid with the manifest's columns and rows. Use `scripts/normalize-sprite-sheet.py INPUT OUTPUT --columns N --rows N` to normalize source art. Restore the matching static Vite URLs in `src/sprites.ts`, restore `sprites` in `src/visual-mode.ts`, then run:
+
+```sh
+node scripts/validate-generated-sprites.mjs
+npm test
+npm run build
+npm run test:e2e
+```
 
 ## Reference
 

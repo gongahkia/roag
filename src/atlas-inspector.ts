@@ -1,5 +1,5 @@
 import { propDefinition } from './props'
-import { spriteSheetSpecs, type SpriteSheetSpec } from './sprites'
+import { generatedSpriteAssetsAvailable, spriteSheetSpecs, type SpriteSheetSpec } from './sprites'
 
 const params = new URLSearchParams(location.search)
 const requestedSheet = params.get('sheet')
@@ -30,7 +30,7 @@ main.innerHTML = `
         <p id="atlas-mappings"></p>
       </aside>
     </section>
-    <p class="atlas-help">Choose a sheet, then click a cell or enter its zero-based index. Rows and columns are one-based.</p>
+    <p class="atlas-help">${generatedSpriteAssetsAvailable ? 'Choose a sheet, then click a cell or enter its zero-based index. Rows and columns are one-based.' : 'Generated sprite sheets are disabled. This inspector shows manifest mappings only.'}</p>
   </section>`
 
 const sheetInput = document.querySelector<HTMLSelectElement>('#atlas-sheet')!
@@ -130,7 +130,7 @@ function loadSheet(nextSheet: SpriteSheetSpec): void {
   loaded = false
   sheetInput.value = sheet.id
   populateGrid()
-  image.src = sheet.url
+  if (sheet.url) image.src = sheet.url
   select(selected)
 }
 

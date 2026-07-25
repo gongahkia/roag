@@ -111,9 +111,9 @@ export class TerminalRenderer {
   }
 
   setVisualMode(value: VisualMode): void {
-    this.spriteMode = value === 'sprites'
+    this.spriteMode = false
     this.runeMode = value === 'runes'
-    if (!this.spriteMode) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 }
+    this.heroAnimation = 'idle'; this.heroAnimationUntil = 0
   }
   setHeroFacingLeft(value: boolean): void { this.heroFacingLeft = value }
   setHubMoved(): void { this.hubAnimationUntil = performance.now() + 220 }
@@ -124,7 +124,7 @@ export class TerminalRenderer {
   setAutoplayDiagnostic(value: AutoplayDiagnostic | undefined): void { this.autoplayDiagnostic = value }
   setBootstrapState(state: 'loading' | 'ready' | 'error', message?: string): void { this.bootstrapState = state; if (message) this.bootstrapMessage = message }
   setPersistenceState(state: 'saved' | 'saving' | 'error'): void { this.persistenceState = state }
-  get visualMode(): VisualMode { return this.spriteMode ? 'sprites' : this.runeMode ? 'runes' : 'ascii' }
+  get visualMode(): VisualMode { return this.runeMode ? 'runes' : 'ascii' }
   trigger(events: ActionResult, state?: RunState, effectId?: string): void {
     const now = performance.now()
     if (events.some(event => event.type === 'death')) { this.heroAnimation = 'death'; this.heroAnimationUntil = Number.POSITIVE_INFINITY }

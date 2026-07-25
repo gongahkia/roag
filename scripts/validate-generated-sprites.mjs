@@ -1,10 +1,18 @@
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const assetDir = join(root, '..', 'src', 'assets', 'generated-sprites')
 const manifest = JSON.parse(await readFile(join(assetDir, 'sprite-manifest.json'), 'utf8'))
+const sheetPresent = async file => access(join(assetDir, file)).then(() => true).catch(() => false)
+const presentSheets = await Promise.all(manifest.sheets.map(async sheet => ({ file: sheet.file, present: await sheetPresent(sheet.file) })))
+if (presentSheets.every(sheet => !sheet.present)) {
+  console.log('generated sprite sheets are intentionally absent')
+  process.exit(0)
+}
+const missingSheets = presentSheets.filter(sheet => !sheet.present).map(sheet => sheet.file)
+if (missingSheets.length) throw new Error(`partial generated sprite set: missing=${missingSheets.join(',')}`)
 const expectedItems = ['whip', 'machete', 'pickaxe', 'spear', 'tideSpear', 'sunblade', 'buckler', 'lantern', 'cap', 'mask', 'coat', 'mail', 'boots', 'featherboots', 'ward', 'sunseal', 'tonic', 'focusTonic', 'mapScroll', 'blinkRune', 'bombPack', 'ropeBundle', 'key', 'rock', 'fireJar', 'ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'pull', 'gust', 'wardScript', 'gate']
 const actorIds = manifest.sheets.flatMap(sheet => [...(sheet.actorRows ?? []), ...Object.keys(sheet.actorAliases ?? {})])
 const itemIds = manifest.sheets.flatMap(sheet => [...(sheet.itemLayout ?? []), ...(sheet.animations ?? []).filter(animation => animation.id.startsWith('item.')).map(animation => animation.id.slice('item.'.length))]).filter(Boolean)

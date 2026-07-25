@@ -9,23 +9,23 @@ const sourceSize = 16
 const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c' }
 
 const sheetUrls = {
-  'terrain-mine': new URL('./assets/generated-sprites/terrain-mine.png', import.meta.url).href,
-  'terrain-wilds': new URL('./assets/generated-sprites/terrain-wilds.png', import.meta.url).href,
-  'terrain-caverns': new URL('./assets/generated-sprites/terrain-caverns.png', import.meta.url).href,
-  'terrain-ruins': new URL('./assets/generated-sprites/terrain-ruins.png', import.meta.url).href,
-  'hub-tiles': new URL('./assets/generated-sprites/hub-tiles.png', import.meta.url).href,
-  'hub-npcs': new URL('./assets/generated-sprites/hub-npcs.png', import.meta.url).href,
-  hero: new URL('./assets/generated-sprites/hero.png', import.meta.url).href,
-  'hero-tidebound': new URL('./assets/generated-sprites/hero-tidebound.png', import.meta.url).href,
-  'items-tidebound': new URL('./assets/generated-sprites/items-tidebound.png', import.meta.url).href,
-  'items-wayfinder': new URL('./assets/generated-sprites/items-wayfinder.png', import.meta.url).href,
-  'npcs-gold': new URL('./assets/generated-sprites/npcs-gold.png', import.meta.url).href,
-  'actors-mine': new URL('./assets/generated-sprites/actors-mine.png', import.meta.url).href,
-  'actors-wilds': new URL('./assets/generated-sprites/actors-wilds.png', import.meta.url).href,
-  'actors-caverns': new URL('./assets/generated-sprites/actors-caverns.png', import.meta.url).href,
-  'actors-ruins': new URL('./assets/generated-sprites/actors-ruins.png', import.meta.url).href,
-  items: new URL('./assets/generated-sprites/items.png', import.meta.url).href,
-  effects: new URL('./assets/generated-sprites/effects.png', import.meta.url).href
+  'terrain-mine': undefined,
+  'terrain-wilds': undefined,
+  'terrain-caverns': undefined,
+  'terrain-ruins': undefined,
+  'hub-tiles': undefined,
+  'hub-npcs': undefined,
+  hero: undefined,
+  'hero-tidebound': undefined,
+  'items-tidebound': undefined,
+  'items-wayfinder': undefined,
+  'npcs-gold': undefined,
+  'actors-mine': undefined,
+  'actors-wilds': undefined,
+  'actors-caverns': undefined,
+  'actors-ruins': undefined,
+  items: undefined,
+  effects: undefined
 } as const
 
 export type SpriteSheetId = keyof typeof sheetUrls
@@ -49,12 +49,13 @@ interface ManifestSheet {
   frameDurationMs?: number
 }
 interface SpriteManifest { cellSize: number; terrainLayout: Array<Tile['kind']>; sheets: ManifestSheet[] }
-export interface SpriteSheetSpec { id: SpriteSheetId; file: string; url: string; columns: number; rows: number; labels: string[]; cellOffsets: SpriteOffset[] }
+export interface SpriteSheetSpec { id: SpriteSheetId; file: string; url?: string; columns: number; rows: number; labels: string[]; cellOffsets: SpriteOffset[] }
 
 const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
 const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins' }
 export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
+export const generatedSpriteAssetsAvailable = Object.values(sheetUrls).some(Boolean)
 
 const manifestPropIds = manifest.sheets.filter(sheet => sheet.id.startsWith('terrain-')).flatMap(sheet => sheet.props ?? [])
 for (const id of manifestPropIds) propDefinition(id as Prop['kind'])
@@ -127,11 +128,14 @@ export class TextureAtlas {
   private readonly images = new Map<SpriteSheetId, HTMLImageElement>()
   private readonly listeners = new Set<() => void>()
   private settled = 0
+  private expected = 0
   private ready = false
 
   constructor() {
-    if (typeof Image === 'undefined') { this.ready = true; return }
-    for (const sheet of spriteSheetSpecs) {
+    const availableSheets = spriteSheetSpecs.filter((sheet): sheet is SpriteSheetSpec & { url: string } => Boolean(sheet.url))
+    if (typeof Image === 'undefined' || !availableSheets.length) { this.ready = true; return }
+    this.expected = availableSheets.length
+    for (const sheet of availableSheets) {
       const image = new Image()
       image.onload = () => this.settle()
       image.onerror = () => this.settle()
@@ -165,7 +169,7 @@ export class TextureAtlas {
 
   private settle(): void {
     this.settled++
-    if (this.settled !== spriteSheetSpecs.length) return
+    if (this.settled !== this.expected) return
     this.ready = true
     this.listeners.forEach(listener => listener())
     this.listeners.clear()
