@@ -1,9 +1,9 @@
 import { MAP_HEIGHT, MAP_WIDTH, type Direction, type Point } from '../types'
 
-export type OutpostTile = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'fence'
+export type OutpostTile = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'fence' | 'routeBoard'
 export type OutpostDestination = 'routes' | 'roster' | 'shop' | 'outfitter'
 export interface OutpostDecoration { tile: number; x: number; y: number; scale?: number }
-export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point; radius?: number; label?: string; labelPoint?: Point }
+export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point }
 export interface OutpostMap { width: number; height: number; tiles: OutpostTile[]; blocked: Set<number>; decorations: OutpostDecoration[]; interactables: OutpostInteractable[]; spawn: Point }
 export interface OutpostMove { position: Point; moved: boolean }
 
@@ -26,6 +26,7 @@ const buildOutpost = (): OutpostMap => {
   rect(20, 1, 8, 4, 'water', true)
   rect(22, 3, 4, 2, 'bridge')
   rect(23, 4, 3, 29, 'path')
+  set(23, 9, 'routeBoard')
   rect(4, 16, 40, 3, 'path')
   rect(21, 21, 7, 9, 'cobble')
   rect(5, 10, 9, 6, 'cobble', true)
@@ -38,7 +39,7 @@ const buildOutpost = (): OutpostMap => {
   rect(23, 29, 3, 5, 'path')
   for (let x = 3; x < MAP_WIDTH - 3; x += 6) decorations.push({ tile: 11, x, y: 1, scale: 3 }, { tile: 11, x, y: 26, scale: 3 })
   decorations.push(
-    { tile: 8, x: 21, y: 30, scale: 4 }, { tile: 15, x: 22, y: 6, scale: 3 },
+    { tile: 8, x: 21, y: 30, scale: 4 },
     { tile: 16, x: 5, y: 10, scale: 6 }, { tile: 17, x: 34, y: 10, scale: 6 }, { tile: 18, x: 20, y: 22, scale: 6 },
     { tile: 9, x: 18, y: 14 }, { tile: 9, x: 29, y: 14 }, { tile: 9, x: 18, y: 25 }, { tile: 9, x: 29, y: 25 },
     { tile: 10, x: 14, y: 21 }, { tile: 12, x: 31, y: 21 }, { tile: 19, x: 15, y: 8 }, { tile: 20, x: 31, y: 8 },
@@ -52,7 +53,7 @@ const buildOutpost = (): OutpostMap => {
     decorations,
     spawn: { x: 24, y: 29 },
     interactables: [
-      { destination: 'routes', name: 'route board', point: { x: 23, y: 9 }, radius: 3, label: 'ROUTE BOARD', labelPoint: { x: 18, y: 10 } },
+      { destination: 'routes', name: 'route board', point: { x: 23, y: 9 } },
       { destination: 'shop', name: 'supply stall', point: { x: 8, y: 16 } },
       { destination: 'outfitter', name: 'outfitter', point: { x: 38, y: 16 } },
       { destination: 'roster', name: 'companion lodge', point: { x: 24, y: 21 } }
@@ -70,4 +71,4 @@ export const moveOutpost = (position: Point, direction: Direction): OutpostMove 
   if (!inBounds(target.x, target.y) || outpostMap.blocked.has(at(target.x, target.y))) return { position: { ...position }, moved: false }
   return { position: target, moved: true }
 }
-export const outpostInteraction = (position: Point): OutpostInteractable | undefined => outpostMap.interactables.find(interactable => Math.max(Math.abs(position.x - interactable.point.x), Math.abs(position.y - interactable.point.y)) <= (interactable.radius ?? 1))
+export const outpostInteraction = (position: Point): OutpostInteractable | undefined => outpostMap.interactables.find(interactable => Math.max(Math.abs(position.x - interactable.point.x), Math.abs(position.y - interactable.point.y)) <= 1)

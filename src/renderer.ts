@@ -33,10 +33,10 @@ const runeTileGlyph: Record<string, [string, string, string]> = {
   wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714']
 }
 const outpostAsciiGlyph = {
-  grass: ['·', '#4e7947', '#18301c'], path: ['.', '#c49d69', '#473924'], cobble: [':', '#9aa6b2', '#26313b'], water: ['~', '#5c9fca', '#12374a'], bridge: ['=', '#d8ae73', '#47321c'], fence: ['#', '#a58562', '#18301c']
+  grass: ['·', '#4e7947', '#18301c'], path: ['.', '#c49d69', '#473924'], cobble: [':', '#9aa6b2', '#26313b'], water: ['~', '#5c9fca', '#12374a'], bridge: ['=', '#d8ae73', '#47321c'], fence: ['#', '#a58562', '#18301c'], routeBoard: ['R', '#f4d26a', '#34304b']
 } as const
 const outpostRuneGlyph = {
-  grass: ['♧', '#79a96b', '#112113'], path: ['·', '#d2ae78', '#2a2015'], cobble: ['░', '#aab5c1', '#1b2530'], water: ['≈', '#72b7d2', '#0a1621'], bridge: ['═', '#e0bd79', '#2b1e10'], fence: ['▓', '#b0936b', '#162317']
+  grass: ['♧', '#79a96b', '#112113'], path: ['·', '#d2ae78', '#2a2015'], cobble: ['░', '#aab5c1', '#1b2530'], water: ['≈', '#72b7d2', '#0a1621'], bridge: ['═', '#e0bd79', '#2b1e10'], fence: ['▓', '#b0936b', '#162317'], routeBoard: ['R', '#f4d26a', '#30263f']
 } as const
 const outpostDecorationGlyph: Record<number, [string, string, string]> = {
   8: ['A', '⌂', colors.gold], 9: ['!', '✦', colors.gold], 10: ['*', '✶', colors.red], 11: ['T', '♣', colors.green], 12: ['|', '╫', '#b99b72'], 13: ['"', '♧', colors.green], 15: ['?', '▣', colors.gold], 16: ['$', '⚑', colors.gold], 17: ['&', '⚒', colors.gold], 18: ['H', '⌂', colors.green], 19: ['o', '◉', colors.dim], 20: ['|', '║', colors.dim], 21: ['*', '✧', colors.green]
@@ -313,7 +313,7 @@ export class TerminalRenderer {
     const position = hub?.position ?? outpostSpawn()
     const nearby = outpostInteraction(position)
     const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
-    const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - (routeBoard.radius ?? 1))
+    const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - 1)
     this.ctx.fillStyle = colors.ink
     this.ctx.fillRect(0, 0, MAP_WIDTH * CW, MAP_HEIGHT * CH)
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
@@ -369,8 +369,8 @@ export class TerminalRenderer {
   }
 
   private drawOutpostScene(x: number, y: number, hero: { x: number; y: number }, vignette: 'opening' | 'succession' | 'ending' | undefined, page: number, walking: boolean, heroOrigin: CourierDraft['origin'] = 'mineborn'): void {
-    const tileSprite = { grass: 0, path: 1, cobble: 2, water: 4, bridge: 5, fence: 7 } as const
-    const base = { grass: '#18301c', path: '#473924', cobble: '#26313b', water: '#12374a', bridge: '#47321c', fence: '#18301c' } as const
+    const tileSprite = { grass: 0, path: 1, cobble: 2, water: 4, bridge: 5, fence: 7, routeBoard: 1 } as const
+    const base = { grass: '#18301c', path: '#473924', cobble: '#26313b', water: '#12374a', bridge: '#47321c', fence: '#18301c', routeBoard: '#34304b' } as const
     outpostMap.tiles.forEach((tile, index) => {
       const column = index % outpostMap.width
       const row = Math.floor(index / outpostMap.width)
@@ -388,9 +388,6 @@ export class TerminalRenderer {
       const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
       this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
     })
-    const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
-    if (routeBoard.label && routeBoard.labelPoint) this.text(x + routeBoard.labelPoint.x, y + routeBoard.labelPoint.y, routeBoard.label, colors.gold)
-    this.text(x + routeBoard.point.x, y + routeBoard.point.y, '▼', colors.gold)
     const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
     const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
     if (this.spriteMode) {
@@ -420,10 +417,10 @@ export class TerminalRenderer {
   }
 
   private area(route: ScreenRoute): void {
-    this.box(13, 10, 54, 24, 'DELIVERY TRAIL')
-    this.text(19, 15, `${biomeName[route.biome]} — stage 01/04`, colors.gold)
-    this.text(19, 19, 'E / ENTER  travel', colors.green)
-    this.text(19, 22, 'ESC        return to hub', colors.dim)
+    this.box(21, 18, 54, 24, 'DELIVERY TRAIL')
+    this.text(27, 23, `${biomeName[route.biome]} — stage 01/04`, colors.gold)
+    this.text(27, 27, 'E / ENTER  travel', colors.green)
+    this.text(27, 30, 'ESC        return to hub', colors.dim)
   }
 
   private stage(state: RunState): void {
