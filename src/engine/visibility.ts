@@ -20,6 +20,7 @@ export function refreshFov(state: RunState): void {
       if (hasLine(state, fungus, { x, y }, true)) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
     }
   }
+  for (const milestone of state.floor.milestones) if (getTile(state.floor, milestone.x, milestone.y)?.visible) milestone.discovered = true
   observeEncyclopedia(state)
 }
 

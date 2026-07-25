@@ -487,6 +487,15 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
   if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
+  if (floor.milestones.length !== 4) errors.push('invalid milestone count')
+  const milestoneLocations = new Set<string>()
+  for (const milestone of floor.milestones) {
+    const key = pointKey(milestone)
+    const tile = getTile(floor, milestone.x, milestone.y)
+    if (!milestone.id || !['waycache', 'boon'].includes(milestone.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
+    if (milestoneLocations.has(key)) errors.push(`overlapping milestone: ${key}`)
+    milestoneLocations.add(key)
+  }
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()
   for (const placement of placements) {

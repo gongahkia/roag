@@ -73,6 +73,7 @@ export interface Prop {
 }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon'; x: number; y: number; discovered: boolean; claimed: boolean }
+export interface TransientTerrain { x: number; y: number; original: TileKind; expiresAt: number }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
@@ -88,6 +89,7 @@ export interface Floor {
   guardianDefeated: boolean
   objective: FloorObjective
   milestones: FloorMilestone[]
+  transientTerrain?: TransientTerrain[]
   telegraphs?: Telegraph[]
   puzzleIds?: string[]
 }
@@ -202,6 +204,7 @@ export type Modal =
   | { kind: 'trailcraft' }
   | { kind: 'boon'; milestoneId: string }
   | { kind: 'tool'; milestoneId: string; replace?: number }
+  | { kind: 'tools' }
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }

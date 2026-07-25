@@ -21,6 +21,7 @@ import { intellectFocusRecovery } from './intellect'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
 import { trailcraftTags } from './trailcraft'
+import { expireAshways, recordSafePosition } from './buildcraft'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -74,6 +75,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
   expirePropEffects(state)
+  expireAshways(state)
   const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
   for (const telegraph of resolvedTelegraphs) {
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const
@@ -173,6 +175,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
     else state.hero.cooldowns![id] = cooldown - 1
   }
   refreshFov(state)
+  recordSafePosition(state)
   return events
 }
 

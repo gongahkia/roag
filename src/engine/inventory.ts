@@ -21,6 +21,7 @@ import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
+import { openMilestone } from './buildcraft'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -35,6 +36,8 @@ export function pickUp(state: RunState): ActionResult {
 }
 
 export function operate(state: RunState): ActionResult {
+  const milestone = openMilestone(state)
+  if (milestone) return milestone
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined

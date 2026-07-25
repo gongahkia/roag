@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { boonChoices, boonFor, boonRank, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -490,6 +490,8 @@ export class TerminalRenderer {
         this.cell(x, y, glyph, definition.color)
       }
     }
+    const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
+    if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : colors.purple)
     if (item) this.drawItem(item, x, y)
     const actor = overlays.actors[index]
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
@@ -597,6 +599,9 @@ export class TerminalRenderer {
     const objective = state.floor.objective
     this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
     this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
+    const milestones = state.floor.milestones.filter(current => current.discovered && !current.claimed)
+    const boons = Object.entries(hero.boons ?? {}).filter((entry): entry is [string, number] => (entry[1] ?? 0) > 0).slice(0, 3).map(([id, rank]) => `${boonFor(id).glyph}${rank}`).join(' ')
+    this.text(50, 47, `MARKS ${milestones.length} seen · BOONS ${boons || 'none'}`.slice(0, 45), colors.dim)
   }
 
   private courierSheet(hero: Hero): void {
@@ -619,6 +624,13 @@ export class TerminalRenderer {
     if (!inventory.length) this.text(50, 22, 'pack empty', colors.dim)
     inventory.forEach((id, index) => this.text(50, 22 + index, `${index + 1}. ${ITEM[id].glyph} ${ITEM[id].name}`, ITEM[id].color))
     if (hero.inventory.length > inventory.length) this.text(50, 30, `+${hero.inventory.length - inventory.length} more · U/D/T/E`, colors.dim)
+    const tools = hero.traversalTools ?? []
+    this.text(72, 21, 'RITUAL TOOLS', colors.gold)
+    if (!tools.length) this.text(72, 22, 'none · find Waycache', colors.dim)
+    tools.forEach((id, index) => {
+      const cooldown = toolCooldown(this.lastState!, id)
+      this.text(72, 22 + index, `${index + 1}.${toolFor(id).glyph} ${toolFor(id).name.slice(0, 16)} ${cooldown ? `${cooldown}t` : 'READY'}`, cooldown ? colors.dim : colors.green)
+    })
   }
 
   private log(state: RunState): void {
@@ -627,7 +639,7 @@ export class TerminalRenderer {
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
     this.ruleHorizontal(0, 50, 96)
     this.text(1, 52, 'ARROWS/IOP K ; , . / NUMPAD move · SHIFT run · ALT cast · L rest · Z readout', colors.dim)
-    this.text(1, 53, 'G get U use D drop T throw E equip A skills S charm B bomb R rope C act Q exit X swap', colors.dim)
+    this.text(1, 53, 'G get U use D drop T throw E equip A skills S charm B bomb R rope C act Y tools W rewind Q exit', colors.dim)
     this.text(1, 54, `F autoplay · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)} · ESC pause · turn ${state.turn}`, colors.dim)
   }
 
@@ -641,6 +653,9 @@ export class TerminalRenderer {
     if (modal.kind === 'inventory') return this.inventory(state, modal.mode)
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'trailcraft') return this.trailcraft(state)
+    if (modal.kind === 'boon') return this.boon(state, modal)
+    if (modal.kind === 'tool') return this.tool(state, modal)
+    if (modal.kind === 'tools') return this.tools(state)
     if (modal.kind === 'pause') return this.pause()
     if (modal.kind === 'shop') return this.shop(state)
     if (modal.kind === 'gate') return this.gate(state, modal)
@@ -649,7 +664,7 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'U then Auger breaches a blocker; Reed Glider crosses one hazard.', 'C operates doors, traders, travelers, and shrines.', 'R secures rope over a pit. Q exits at a cleared stair.', 'Z opens a no-cost field readout of current options.', 'A opens disciplines. S uses charms. J opens journal.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'Y opens ritual tools. O toggles overdrive while targeting.', 'W spends a Time Knot to return to an earlier safe position.', 'C opens nearby Waycaches and Boon sites.', 'R secures rope over a pit. Q exits at a cleared stair.', 'Z opens a no-cost field readout of current options.', 'A opens disciplines. S uses charms. J opens journal.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
   }
 
@@ -717,6 +732,52 @@ export class TerminalRenderer {
     this.text(14, 30, 'number chooses · Esc/backtick skips', colors.dim)
   }
 
+  private boon(state: RunState, modal: Extract<Modal, { kind: 'boon' }>): void {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return
+    this.box(10, 6, 60, 28, 'BOON SITE — CHOOSE ONE')
+    this.text(14, 10, '✦ DISCOVERED WHILE TRAVERSING · STACKS ENDLESSLY ✦', colors.gold)
+    boonChoices(state, milestone).forEach((choice, index) => {
+      const rank = boonRank(state, choice.id)
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${rank ? ` · RANK ${rank + 1}` : ''}`, colors.purple)
+      this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
+    })
+    this.text(14, 30, 'number chooses · Esc/backtick leaves it for later', colors.dim)
+  }
+
+  private tool(state: RunState, modal: Extract<Modal, { kind: 'tool' }>): void {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return
+    const tools = state.hero.traversalTools ?? []
+    this.box(10, 6, 60, 28, 'WAYCACHE — BIND A RITUAL TOOL')
+    if (tools.length >= 2 && modal.replace === undefined) {
+      this.text(14, 11, 'LOADOUT FULL · CHOOSE A TOOL TO REPLACE', colors.gold)
+      tools.forEach((id, index) => this.text(16, 15 + index * 4, `${index + 1}. ${toolFor(id).glyph} ${toolFor(id).name} · ${toolFor(id).text}`, colors.text))
+      this.text(14, 29, 'number chooses slot · Esc/backtick leaves Waycache', colors.dim)
+      return
+    }
+    this.text(14, 10, modal.replace === undefined ? 'CHOOSE A TOOL FOR AN EMPTY SLOT' : `REPLACING SLOT ${(modal.replace ?? 0) + 1}`, colors.gold)
+    toolChoices(state, milestone).forEach((choice, index) => {
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}`, colors.green)
+      this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
+      this.text(18, 17 + index * 5, `OVERDRIVE: ${choice.overdrive}`.slice(0, 47), colors.dim)
+    })
+    this.text(14, 30, 'number binds · Esc/backtick leaves it for later', colors.dim)
+  }
+
+  private tools(state: RunState): void {
+    this.box(13, 8, 54, 24, 'RITUAL TOOL LOADOUT')
+    const tools = state.hero.traversalTools ?? []
+    tools.forEach((id, index) => {
+      const definition = toolFor(id)
+      const cooldown = toolCooldown(state, id)
+      this.text(18, 13 + index * 7, `${index + 1}. ${definition.glyph} ${definition.name.toUpperCase()} · ${cooldown ? `RECOVERS ${cooldown}T` : 'READY'}`, cooldown ? colors.dim : colors.green)
+      this.text(21, 15 + index * 7, definition.text, colors.text)
+      this.text(21, 16 + index * 7, `OVERDRIVE: ${definition.overdrive}`, colors.dim)
+    })
+    this.text(18, 28, 'number targets · Esc/backtick cancels', colors.dim)
+  }
+
   private pause(): void {
     this.box(20, 12, 40, 20, 'PAUSE DELIVERY')
     this.text(28, 19, '1 / ENTER  continue', colors.green)
@@ -741,10 +802,10 @@ export class TerminalRenderer {
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
     this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
-    const action = modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : 'throw item'
+    const action = modal.tool ? `${toolFor(modal.tool).name}${modal.overdrive ? ' OVERDRIVE' : ''}` : modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : 'throw item'
     const preview = targetPreview(state, modal)
     this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
-    this.text(21, 23, modal.direction ? 'Enter confirms · direction changes preview' : 'Esc/backtick cancels.', colors.dim)
+    this.text(21, 23, modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
   }
 
   private analysis(analysis: RunAnalysis): void {

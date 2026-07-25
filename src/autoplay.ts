@@ -9,6 +9,7 @@ import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
 import { trailcraftTags } from './engine/trailcraft'
+import { boonChoices, toolChoices } from './engine/buildcraft'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -18,7 +19,7 @@ export const AUTOPLAY_MAX_TURNS = 800
 const AUTOPLAY_MAX_NON_TURN_COMMANDS = 8
 const AUTOPLAY_MAX_RECOVERY_REPEATS = 8
 export const autoplayModes: readonly AutoplayMode[] = ['off', 'visible', 'omniscient']
-export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear', 'legacy']
+export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear', 'explore', 'legacy']
 const directionCommands: Record<Direction, string> = { nw: 'i', n: 'o', ne: 'p', w: 'k', wait: 'l', e: ';', sw: ',', s: '.', se: '/' }
 const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
 const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder'])
@@ -42,7 +43,10 @@ const planningClone = (state: RunState): RunState => {
       skills: [...state.hero.skills],
       inventory: [...state.hero.inventory],
       equipment: { ...state.hero.equipment },
-      cooldowns: state.hero.cooldowns ? { ...state.hero.cooldowns } : undefined
+      cooldowns: state.hero.cooldowns ? { ...state.hero.cooldowns } : undefined,
+      traversalTools: state.hero.traversalTools ? [...state.hero.traversalTools] : undefined,
+      boons: state.hero.boons ? { ...state.hero.boons } : undefined,
+      safePositions: state.hero.safePositions?.map(point => ({ ...point }))
     },
     floor: {
       ...floor,
@@ -53,6 +57,8 @@ const planningClone = (state: RunState): RunState => {
       start: { ...floor.start },
       exit: { ...floor.exit },
       objective: { ...floor.objective },
+      milestones: floor.milestones.map(milestone => ({ ...milestone })),
+      transientTerrain: floor.transientTerrain?.map(terrain => ({ ...terrain })),
       telegraphs: floor.telegraphs?.map(telegraph => ({ ...telegraph, cells: telegraph.cells.map(cell => ({ ...cell })), collision: telegraph.collision ? { ...telegraph.collision, point: { ...telegraph.collision.point } } : undefined })),
       puzzleIds: floor.puzzleIds ? [...floor.puzzleIds] : undefined
     },
@@ -76,7 +82,7 @@ export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map()
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
-export const autoplayPolicyLabel = (policy: AutoplayPolicy): string => policy === 'clear' ? 'CLEAR RATE' : policy === 'legacy' ? 'LEGACY' : 'SURVIVAL'
+export const autoplayPolicyLabel = (policy: AutoplayPolicy): string => policy === 'clear' ? 'CLEAR RATE' : policy === 'explore' ? 'EXPLORE' : policy === 'legacy' ? 'LEGACY' : 'SURVIVAL'
 
 export const autoplayStateFingerprint = (state: RunState): string => {
   const hero = state.hero
@@ -88,7 +94,10 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const props = state.floor.props.map(propFingerprint).sort().join('|')
   const tiles = state.floor.tiles.map(tile => `${tile.kind}:${tile.explored ? 1 : 0}`).join('|')
   const telegraphs = (state.floor.telegraphs ?? []).map(telegraph => `${telegraph.id}:${telegraph.resolveTurn}:${telegraph.cells.map(pointKey).join(',')}`).sort().join('|')
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
+  const tools = (hero.traversalTools ?? []).join(',')
+  const boons = Object.entries(hero.boons ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
+  const milestones = state.floor.milestones.map(milestone => `${milestone.id}:${milestone.discovered ? 1 : 0}:${milestone.claimed ? 1 : 0}`).join('|')
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${boons}:${milestones}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
 }
 
 // compact diagnostic identity; loop detection retains the full state signature above.
@@ -686,6 +695,20 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   const modal = state.modal
   if (!modal) return undefined
   if (modal.kind === 'trailcraft') return { command: 'Escape', reason: 'skip trailcraft', score: 200 }
+  if (modal.kind === 'boon') {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return { command: 'Escape', reason: 'stale boon', score: 200 }
+    const choice = boonChoices(state, milestone).map((boon, index) => ({ index, boon, score: (state.hero.boons?.[boon.id] ?? 0) * 3 + (policy === 'explore' ? boon.family === 'scouting' ? 34 : boon.family === 'traversal' ? 28 : boon.family === 'recovery' ? 24 : 18 : boon.family === 'recovery' ? 26 : boon.family === 'combat' ? 22 : 18) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
+    return { command: String((choice?.index ?? 0) + 1), reason: `boon:${choice?.boon.id ?? 'none'}`, score: 200 }
+  }
+  if (modal.kind === 'tool') {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return { command: 'Escape', reason: 'stale Waycache', score: 200 }
+    if ((state.hero.traversalTools?.length ?? 0) >= 2 && modal.replace === undefined) return { command: '1', reason: 'replace traversal tool', score: 200 }
+    const choice = toolChoices(state, milestone)[0]
+    return { command: choice ? '1' : 'Escape', reason: choice ? `bind:${choice.id}` : 'empty Waycache', score: 200 }
+  }
+  if (modal.kind === 'tools') return { command: 'Escape', reason: 'close tools', score: 200 }
   if (modal.kind === 'skills') {
     const choices = skillChoices(state)
     const discipline = choices.map((choice, index) => ({ index, choice, score: policy === 'clear' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 25 : choice.stat === 'intellect' ? 18 : 8 : policy === 'survival' ? choice.stat === 'vitality' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'intellect' ? 18 : 8 : choice.stat === 'intellect' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'vitality' ? 18 : 8 }))
@@ -1104,6 +1127,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     .sort((a, b) => b.resolved.score - a.resolved.score || b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
   if (spell) candidates.push({ command: 'u', reason: rooted ? `break root: cast:${spell.id}` : spell.resolved.score >= 72 ? `cast prop:${spell.id}` : `cast:${spell.id}`, score: (rooted ? 310 : 90) + Math.max(spell.target.score, spell.resolved.score) / 5 + (pressure >= 100 ? 60 : 0), intent: { kind: 'use', item: spell.id } })
   const nearbyContainer = adjacentCells(heroPoint).some(point => ['crate', 'chest'].includes(getTile(state.floor, point.x, point.y)?.kind ?? ''))
+  const nearbyMilestone = state.floor.milestones.some(current => !current.claimed && (mode === 'omniscient' || current.discovered) && chebyshev(state.hero, current) <= 1)
   const nearLockedDoor = adjacentCells(heroPoint).some(point => getTile(state.floor, point.x, point.y)?.kind === 'lockedDoor')
   const merchant = state.floor.actors.find(actor => actor.role === 'merchant' && chebyshev(actor, state.hero) <= 1)
   const nearMerchant = Boolean(merchant) && !context.closedMerchants.has(merchant!.id)
@@ -1114,6 +1138,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const nearbyObjective = nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly
   const standingObjective = tile?.kind === 'rescue' || (tile?.kind === 'altar' && state.hero.gold >= 75)
   if (standingObjective) candidates.push({ command: 'c', reason: 'operate objective', score: 300 })
+  else if (policy === 'explore' && nearbyMilestone) candidates.push({ command: 'c', reason: 'claim milestone', score: 280 })
   else if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
@@ -1189,11 +1214,17 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     }
   }
   if (objectiveComplete) {
+    const milestones = policy === 'explore' ? state.floor.milestones.filter(current => !current.claimed && (mode === 'omniscient' || current.discovered)) : []
+    const milestoneRoute = stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
+    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 230 })
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
     if (exitRoute || predictiveExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute!.command, reason: predictiveExit ? 'predictive exit route' : 'reach exit', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : 240 : 140 })
     else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
   } else {
+    const milestones = policy === 'explore' ? state.floor.milestones.filter(current => !current.claimed && (mode === 'omniscient' || current.discovered)) : []
+    const milestoneRoute = stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
+    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 180 })
     const collectForObjective = policy !== 'clear' || needsOffering
     const items = collectForObjective ? state.floor.items.filter(current => isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current) && (!needsOffering || current.id === 'gold')).map(current => ({ x: current.x, y: current.y })) : []
     const itemRoute = stepTo(state, mode, items)
