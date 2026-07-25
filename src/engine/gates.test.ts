@@ -3,7 +3,7 @@ import { AREA_GATES, gateForArea, validateAreaGate } from './gates'
 
 describe('area gate data model', () => {
   it('defines NPC offering, tag alternatives, cost, and destination for every area', () => {
-    const destinations = { mine: 'wilds', wilds: 'caverns', caverns: 'ruins', ruins: 'ruins' }
+    const destinations = { mine: 'wilds', wilds: 'caverns', caverns: 'ruins', ruins: 'furnace', furnace: 'floodedRuins', floodedRuins: 'floodedRuins' }
     for (const [biome, gate] of Object.entries(AREA_GATES)) {
       const destination = destinations[biome as keyof typeof destinations]
       expect(gate).toMatchObject({ biome, npcOffering: expect.any(String), cost: { gold: expect.any(Number), items: expect.any(Array) }, unlockedDestination: { biome: destination, floor: destination === biome ? 3 : 0, point: destination === biome ? { x: 45, y: 32 } : { x: 2, y: 2 } } })
@@ -14,7 +14,8 @@ describe('area gate data model', () => {
 
   it('looks up gates by their owning area', () => {
     expect(gateForArea('mine').id).toBe('mine-wilds-pass')
-    expect(gateForArea('ruins').unlockedDestination.biome).toBe('ruins')
+    expect(gateForArea('ruins').unlockedDestination.biome).toBe('furnace')
+    expect(gateForArea('furnace').unlockedDestination.biome).toBe('floodedRuins')
   })
 
   it('rejects impossible gate definitions', () => {

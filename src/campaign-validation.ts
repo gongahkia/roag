@@ -3,7 +3,7 @@ import { newRun } from './engine'
 import { generateAreaFloor, validateGeneration } from './world'
 import type { Biome } from './types'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins']
+const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins']
 export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 3200
 export const CAMPAIGN_SEED_RETRY_LIMIT = 32
 

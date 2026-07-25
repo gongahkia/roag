@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { boonChoices, boonFor, boonRank, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { augmentChoices, boonChoices, boonFor, boonRank, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -27,10 +27,10 @@ const shade = (color: string, amount = .58): string => {
   return `#${channel(16)}${channel(8)}${channel(0)}`
 }
 const tileGlyph: Record<string, [string, string]> = {
-  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3']
+  wall: ['#', '#7d8792'], floor: ['.', '#586470'], exit: ['>', '#f4d26a'], door: ['+', '#c99f67'], lockedDoor: ['+', '#e9c965'], water: ['~', '#5c9fca'], lava: ['~', '#ec7056'], pit: [' ', '#05070b'], rope: ['|', '#d8ae73'], spikes: ['^', '#d9dce1'], dart: ['>', '#d9dce1'], fireVent: ['^', '#ff855d'], crumble: [',', '#9e856f'], boulder: ['O', '#a7a0a0'], web: ['%', '#d8dce1'], gas: ['*', '#9bc585'], support: ['╫', '#b99b72'], rail: ['=', '#c5b2a0'], rubble: [':', '#8e9298'], bramble: ['"', '#6c9f64'], darkness: ['·', '#30384d'], crate: ['□', '#c69a6b'], chest: ['▣', '#f4d26a'], altar: ['_', '#d2a4e8'], shop: ['$', '#f4d26a'], rescue: ['&', '#8ae0b3'], smoke: ['≈', '#9ca1ad'], lift: ['↕', '#e9c47e'], breakwall: ['#', '#bc8266'], current: ['≋', '#83d1d7'], deepWater: ['≈', '#215b72'], anchor: ['⚓', '#76b7c2']
 }
 const runeTileGlyph: Record<string, [string, string, string]> = {
-  wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714']
+  wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714'], smoke: ['≈', '#a3a8b3', '#13161b'], lift: ['↕', '#e9c47e', '#1b170d'], breakwall: ['▓', '#bc8266', '#1c1210'], current: ['≋', '#8edce1', '#0a1920'], deepWater: ['≈', '#4b8ca0', '#061019'], anchor: ['⚓', '#82cbd1', '#0a1820']
 }
 const outpostAsciiGlyph = {
   grass: ['·', '#4e7947', '#18301c'], path: ['.', '#c49d69', '#473924'], cobble: [':', '#9aa6b2', '#26313b'], water: ['~', '#5c9fca', '#12374a'], bridge: ['=', '#d8ae73', '#47321c'], fence: ['#', '#a58562', '#18301c'], routeBoard: ['R', '#f4d26a', '#34304b']
@@ -463,7 +463,7 @@ export class TerminalRenderer {
       if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
       if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
       const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
-      if (milestone && !this.spriteMode) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : colors.purple)
+      if (milestone && !this.spriteMode) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
       return
     }
     const telegraph = overlays.telegraphs[index]
@@ -493,7 +493,7 @@ export class TerminalRenderer {
       }
     }
     const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
-    if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : colors.purple)
+    if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
     if (item) this.drawItem(item, x, y)
     const actor = overlays.actors[index]
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
@@ -656,6 +656,7 @@ export class TerminalRenderer {
     if (modal.kind === 'skills') return this.skills(state)
     if (modal.kind === 'trailcraft') return this.trailcraft(state)
     if (modal.kind === 'boon') return this.boon(state, modal)
+    if (modal.kind === 'augment') return this.augment(state, modal)
     if (modal.kind === 'tool') return this.tool(state, modal)
     if (modal.kind === 'tools') return this.tools(state)
     if (modal.kind === 'pause') return this.pause()
@@ -666,7 +667,7 @@ export class TerminalRenderer {
 
   private help(): void {
     this.box(8, 3, 64, 37, 'FIELD MANUAL')
-    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'Y opens ritual tools. O toggles overdrive while targeting.', 'W spends a Time Knot to return to an earlier safe position.', 'C opens nearby Waycaches and Boon sites.', 'R secures rope over a pit. Q exits at a cleared stair.', 'Z opens a no-cost field readout of current options.', 'A opens disciplines. S uses charms. J opens journal.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
+    const lines = ['Movement: IOP / K ; / , . / or numpad 1-9.', 'Arrows move cardinally. L or numpad-5 rests.', 'Shift-direction runs until interrupted. Alt-direction', 'uses the first ready charm. B chooses bomb direction.', 'G get · U use · D drop · T throw · E equip · X swap.', 'Y opens ritual tools. O toggles overdrive while targeting.', 'W spends a Time Knot to return to an earlier safe position.', 'C opens Waycaches, Boon sites, and build-up moments.', 'R secures rope over a pit. Q exits at a cleared stair.', 'Z opens a no-cost field readout of current options.', 'A opens disciplines. S uses charms. J opens journal.', 'Esc pauses. Save & quit preserves the current turn.', '', 'Press any key to return.']
     lines.forEach((line, i) => this.text(11, 6 + i * 2, line, i === 10 ? colors.gold : colors.text))
   }
 
@@ -743,6 +744,30 @@ export class TerminalRenderer {
       const rank = boonRank(state, choice.id)
       this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${rank ? ` · RANK ${rank + 1}` : ''}`, colors.purple)
       this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
+    })
+    this.text(14, 30, 'number chooses · Esc/backtick leaves it for later', colors.dim)
+  }
+
+  private augment(state: RunState, modal: Extract<Modal, { kind: 'augment' }>): void {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return
+    this.box(10, 6, 60, 28, 'BUILD-UP MOMENT')
+    if (!modal.mode) {
+      this.text(14, 10, 'CHANGE THE BUILD YOU HAVE MADE', colors.gold)
+      this.text(14, 15, '1. EVOLVE · deepen an owned Boon and its drawback', colors.green)
+      this.text(14, 20, '2. REFORGE · trade one Boon for a related form', colors.purple)
+      this.text(14, 25, '3. TRANSMUTE · trade one Boon for rare power', colors.red)
+      this.text(14, 30, 'number chooses · Esc/backtick leaves it for later', colors.dim)
+      return
+    }
+    const choices = augmentChoices(state, modal.milestoneId, modal.mode)
+    const title = modal.selected?.length ? `${modal.mode.toUpperCase()} RESULT` : `${modal.mode.toUpperCase()} — CHOOSE A BOON`
+    this.text(14, 10, title, colors.gold)
+    if (!choices.length) this.text(14, 17, 'Claim a Boon site first; this path needs a build to alter.', colors.dim)
+    choices.slice(0, 3).forEach((choice, index) => {
+      const rank = boonRank(state, choice.id)
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${rank ? ` · RANK ${rank}` : ''}`, modal.mode === 'transmute' ? colors.red : colors.purple)
+      this.text(18, 16 + index * 5, (choice.drawback && modal.selected?.length ? `${choice.text} · COST: ${choice.drawback}` : choice.text).slice(0, 47), colors.text)
     })
     this.text(14, 30, 'number chooses · Esc/backtick leaves it for later', colors.dim)
   }

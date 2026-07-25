@@ -188,12 +188,13 @@ export function bomb(state: RunState, direction: Direction): ActionResult {
   state.hero.bombs--
   const delta = DIRECTIONS[direction]
   log(state, 'You place a bomb.')
-  explode(state, state.hero.x + delta.x * 2, state.hero.y + delta.y * 2, 12)
+  const lastMatch = state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastMatch') * 2 : 0
+  explode(state, state.hero.x + delta.x * 2, state.hero.y + delta.y * 2, 12 + lastMatch, ['bomb'], 'your bomb', 1 + Math.min(1, boonRank(state, 'spareFuse')))
   return advance(state, [event('boom')])
 }
 
-const drillableTerrain = new Set(['wall', 'rubble', 'bramble', 'boulder'])
-const glidableTerrain = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble'])
+const drillableTerrain = new Set(['wall', 'rubble', 'bramble', 'boulder', 'breakwall'])
+const glidableTerrain = new Set(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder', 'bramble', 'rubble', 'current'])
 
 export function drill(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
   const index = state.hero.inventory.indexOf(id)
@@ -280,11 +281,18 @@ export function shopChoice(state: RunState, command: string): ActionResult {
   return advance(state, [event('pickup')])
 }
 
+const recoverUsedItem = (state: RunState, id: string): void => {
+  const chance = Math.min(90, boonRank(state, 'salvager') * 25 + boonRank(state, 'deepPockets') * 35)
+  if (!chance || state.hero.inventory.length >= 12 || !turnRng(state, 'loot', `recover:${id}`).chance(chance)) return
+  state.hero.inventory.push(id)
+  log(state, `${ITEM[id].name} is recovered by your build.`)
+}
+
 function useItem(state: RunState, id: string, inventoryIndex: number): ActionResult {
   const item = ITEM[id]
   if (item.slot) return equip(state, id, inventoryIndex)
-  if (item.use === 'heal') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 10 + vitalityRecovery(state.hero)); consume(state, inventoryIndex); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
-  if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
+  if (item.use === 'heal') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + Math.max(1, 10 + vitalityRecovery(state.hero) - boonRank(state, 'quietPocket') - boonRank(state, 'hardLesson'))); if (boonRank(state, 'quietPocket')) state.hero.conditions = []; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
+  if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, [event('spell')]) }
   if (item.use === 'teleport') {
     const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
@@ -293,8 +301,8 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
   }
   if (item.use === 'drill') { state.modal = { kind: 'target', action: 'drill', item: id }; return [event('menu')] }
   if (item.use === 'glide') { state.modal = { kind: 'target', action: 'glide', item: id }; return [event('menu')] }
-  if (item.use === 'bomb') { const restored = restoreBombs(state.hero, 3); if (!restored) { log(state, 'Your bomb reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} bombs.`); return advance(state, [event('pickup')]) }
-  if (item.use === 'rope') { const restored = restoreRopes(state.hero, 3); if (!restored) { log(state, 'Your rope reserve is full.'); return [] }; consume(state, inventoryIndex); log(state, `You gain ${restored} ropes.`); return advance(state, [event('pickup')]) }
+  if (item.use === 'bomb') { const restored = restoreBombs(state.hero, 3 + boonRank(state, 'spareFuse')); if (!restored) { log(state, 'Your bomb reserve is full.'); return [] }; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, `You gain ${restored} bombs.`); return advance(state, [event('pickup')]) }
+  if (item.use === 'rope') { const restored = restoreRopes(state.hero, 3); if (!restored) { log(state, 'Your rope reserve is full.'); return [] }; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, `You gain ${restored} ropes.`); return advance(state, [event('pickup')]) }
   if (item.use === 'key') { state.hero.keys++; consume(state, inventoryIndex); return advance(state, [event('pickup')]) }
   if (item.use === 'spell') { state.modal = { kind: 'target', action: 'spell', item: id }; return [event('menu')] }
   log(state, 'That cannot be used here.')

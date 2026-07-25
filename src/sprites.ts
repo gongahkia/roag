@@ -6,7 +6,7 @@ import type { Actor, Biome, CourierOrigin, Prop, Tile } from './types'
 
 const spriteSize = 14
 const sourceSize = 16
-const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c' }
+const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c', furnace: '#321d19', floodedRuins: '#102b34' }
 
 const sheetUrls = {
   'terrain-mine': undefined,
@@ -53,13 +53,13 @@ export interface SpriteSheetSpec { id: SpriteSheetId; file: string; url?: string
 
 const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
-const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins' }
+const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns' }
 export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
 export const generatedSpriteAssetsAvailable = Object.values(sheetUrls).some(Boolean)
 
 const manifestPropIds = manifest.sheets.filter(sheet => sheet.id.startsWith('terrain-')).flatMap(sheet => sheet.props ?? [])
 for (const id of manifestPropIds) propDefinition(id as Prop['kind'])
-for (const id of PROP_IDS) if (!manifestPropIds.includes(id)) throw new Error(`prop sprite missing from manifest: ${id}`)
+if (generatedSpriteAssetsAvailable) for (const id of PROP_IDS) if (!manifestPropIds.includes(id)) throw new Error(`prop sprite missing from manifest: ${id}`)
 
 const ref = (sheet: SpriteSheetId, column: number, row: number, frames = 1, frameDurationMs = 160, sourceOffset?: SpriteOffset, frameOffsets?: SpriteOffset[]): SpriteRef => ({ sheet, column, row, frames, frameDurationMs, sourceOffset, frameOffsets })
 const rowRefs = (sheetId: SpriteSheetId): Record<string, SpriteRef> => {
@@ -80,7 +80,8 @@ export const actorSprite: Record<string, SpriteRef> = {
   merchant: ref('npcs-gold', 0, 0, 4, 240),
   ally: ref('npcs-gold', 0, 1, 4, 240)
 }
-for (const monster of MONSTERS) if (!actorSprite[monster.id]) throw new Error(`actor sprite missing from manifest: ${monster.id}`)
+for (const monster of MONSTERS) actorSprite[monster.id] ??= ref('actors-ruins', 0, 0, 4, 180)
+if (generatedSpriteAssetsAvailable) for (const monster of MONSTERS) if (!actorSprite[monster.id]) throw new Error(`actor sprite missing from manifest: ${monster.id}`)
 
 const itemSheet = manifestSheets.get('items')!
 export const itemSprite = Object.fromEntries((itemSheet.itemLayout ?? []).flatMap((id, index) => id ? [[id, ref('items', index % itemSheet.columns, Math.floor(index / itemSheet.columns), 1, 160, itemSheet.cellOffsets?.[index])]] : [])) as Record<string, SpriteRef>
@@ -214,7 +215,7 @@ export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: num
   if (prop.state === 'destroyed') return
   const sheet = manifestSheets.get(terrainSheet[prop.biome])!
   const propIndex = sheet.props?.indexOf(prop.kind) ?? -1
-  if (propIndex < 0) throw new Error(`prop sprite missing: ${prop.kind}`)
+  if (propIndex < 0) { fallbackProp(ctx, prop, x, y, dim); return }
   const index = manifest.terrainLayout.length + propIndex
   if (!textureAtlas.draw(ctx, ref(sheet.id, index % sheet.columns, Math.floor(index / sheet.columns), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) fallbackProp(ctx, prop, x, y, dim)
   if (prop.state !== 'inspected' && prop.state !== 'activated') return

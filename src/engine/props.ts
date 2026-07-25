@@ -10,6 +10,8 @@ const mineProp = (prop: Prop): boolean => prop.biome === 'mine' && prop.kind.sta
 const wildsProp = (prop: Prop): boolean => prop.biome === 'wilds' && prop.kind.startsWith('wilds.')
 const cavernProp = (prop: Prop): boolean => prop.biome === 'caverns' && prop.kind.startsWith('caverns.')
 const ruinsProp = (prop: Prop): boolean => prop.biome === 'ruins' && prop.kind.startsWith('ruins.')
+const furnaceProp = (prop: Prop): boolean => prop.biome === 'furnace' && prop.kind.startsWith('furnace.')
+const floodedProp = (prop: Prop): boolean => prop.biome === 'floodedRuins' && prop.kind.startsWith('floodedRuins.')
 const cardinal = (point: Point): boolean => Math.abs(point.x) + Math.abs(point.y) === 1
 const hazardKinds = new Set(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
 
@@ -734,6 +736,60 @@ const applyRuinsEffect = (state: RunState, prop: Prop, effect: PropEffectKind): 
   return false
 }
 
+const applyFurnaceEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (prop.kind === 'furnace.bellows' || prop.kind === 'furnace.smokeStack') {
+    prop.state = effect === 'water' ? 'dormant' : 'activated'
+    if (tile && effect !== 'water') tile.kind = effect === 'fire' ? 'fireVent' : 'smoke'
+    if (tile && effect === 'water') tile.kind = 'floor'
+    log(state, effect === 'water' ? 'Water settles the furnace smoke.' : 'The furnace stack changes the local air.')
+    return true
+  }
+  if (prop.kind === 'furnace.liftConsole') {
+    prop.state = 'activated'
+    for (const point of nearbyPoints(prop)) if (getTile(state.floor, point.x, point.y)?.kind === 'floor') { getTile(state.floor, point.x, point.y)!.kind = 'lift'; break }
+    log(state, 'The console raises a nearby lift route.')
+    return true
+  }
+  if (prop.kind === 'furnace.breakwall') {
+    prop.state = effect === 'bomb' ? 'destroyed' : 'activated'
+    if (tile) tile.kind = 'floor'
+    log(state, 'The scored wall opens into a hot alternate route.')
+    return true
+  }
+  if (prop.kind === 'furnace.forgeIdol') {
+    prop.state = 'activated'
+    if (effect === 'fire') addCondition(state.hero, { kind: 'burning', duration: 2, potency: 1 })
+    else addCondition(state.hero, { kind: 'shielded', duration: 2, potency: 1 })
+    log(state, 'The forge idol answers with power and a cost.')
+    return true
+  }
+  return false
+}
+
+const applyFloodedEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (prop.kind === 'floodedRuins.anchorPost' || prop.kind === 'floodedRuins.currentBell') {
+    prop.state = 'activated'
+    for (const point of nearbyPoints(prop, 2)) if (getTile(state.floor, point.x, point.y)?.kind === 'current') { getTile(state.floor, point.x, point.y)!.kind = effect === 'water' ? 'water' : 'anchor'; break }
+    log(state, 'The anchor changes the current around the route.')
+    return true
+  }
+  if (prop.kind === 'floodedRuins.floodgate') {
+    prop.state = 'activated'
+    if (tile) tile.kind = effect === 'bomb' ? 'floor' : 'current'
+    log(state, effect === 'bomb' ? 'The floodgate breaks into a dry route.' : 'The floodgate sends a current through the chamber.')
+    return true
+  }
+  if (prop.kind === 'floodedRuins.tideShrine') {
+    prop.state = 'activated'
+    addCondition(state.hero, { kind: 'shielded', duration: 3, potency: 1 })
+    log(state, 'The tide shrine gives a brief brine ward.')
+    return true
+  }
+  return false
+}
+
 export const resolveMonolithTelegraphs = (state: RunState, telegraphs: readonly Telegraph[]): Telegraph[] => {
   const monolith = state.floor.props.find(prop => prop.kind === 'ruins.monolith' && prop.state === 'activated' && prop.expiresAt !== undefined && prop.expiresAt > state.turn)
   if (!monolith) return [...telegraphs]
@@ -757,6 +813,8 @@ export const applyPropEffects = (state: RunState, points: readonly Point[], effe
     if (wildsProp(prop) && applyWildsEffect(state, prop, effect)) { changed.push(prop.id); continue }
     if (cavernProp(prop) && applyCavernEffect(state, prop, effect)) { changed.push(prop.id); continue }
     if (ruinsProp(prop) && applyRuinsEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (furnaceProp(prop) && applyFurnaceEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (floodedProp(prop) && applyFloodedEffect(state, prop, effect)) { changed.push(prop.id); continue }
     if (prop.kind === 'mine.lanternPost') {
       if (effect === 'fire') { prop.state = 'activated'; log(state, 'The lantern post catches and spills local light.'); changed.push(prop.id); continue }
       if (effect === 'water' || effect === 'hazard') { prop.state = 'dormant'; log(state, 'The lantern post gutters out.'); changed.push(prop.id); continue }

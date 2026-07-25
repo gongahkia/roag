@@ -6,14 +6,14 @@ import { migrateRunRecord } from './storage'
 import type { Biome, Hero } from './types'
 import { generateFloor, validateGeneration } from './world'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins']
+const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins']
 const floorFingerprint = (seed: number, index: number) => {
   const floor = generateFloor(seed, index)
   return { tiles: floor.tiles.map(tile => tile.kind), actors: floor.actors.map(actor => `${actor.id}:${actor.kind}:${actor.x},${actor.y}`), props: floor.props, puzzleIds: floor.puzzleIds }
 }
 
 describe('release validation suite', () => {
-  it('replays a complete four-area campaign smoke path', () => {
+  it('replays a complete six-area campaign smoke path', () => {
     let hero: Hero | undefined
     for (const biome of biomes) for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
       const state = newRun(77123, biome, areaFloor, hero)
@@ -30,12 +30,12 @@ describe('release validation suite', () => {
   it('keeps seeds deterministic, generated floors valid, and content valid within the smoke budget', () => {
     const started = performance.now()
     expect(() => validateContent(CONTENT)).not.toThrow()
-    for (const seed of [7, 42, 999]) for (let floor = 0; floor < 16; floor++) {
+    for (const seed of [7, 42, 999]) for (let floor = 0; floor < 24; floor++) {
       expect(floorFingerprint(seed, floor)).toEqual(floorFingerprint(seed, floor))
       expect(validateGeneration(generateFloor(seed, floor))).toEqual({ valid: true, errors: [] })
     }
-    expect(performance.now() - started).toBeLessThan(10_000)
-  }, 15_000)
+    expect(performance.now() - started).toBeLessThan(20_000)
+  }, 25_000)
 
   it('migrates pre-prop saves before replay consumers inspect them', () => {
     const legacy = structuredClone(newRun(77124)) as unknown as { version: number; floor: Record<string, unknown> }

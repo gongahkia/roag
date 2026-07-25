@@ -21,7 +21,7 @@ import { intellectFocusRecovery } from './intellect'
 import { announceSynergies, resolveSynergies } from './synergies'
 import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
 import { trailcraftTags } from './trailcraft'
-import { expireAshways, recordSafePosition } from './buildcraft'
+import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -32,11 +32,11 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
-  const tags = trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot')
+  const tags = [...trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot'), ...Object.keys(state.hero.boons ?? {}).filter(id => boonRank(state, id) > 0).map(id => `boon:${id}`)]
   const items = Object.values(state.hero.equipment).filter((id): id is string => Boolean(id))
   const synergy = resolveSynergies({ items, skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
-  if (targets.length) { announceSynergies(state, synergy); return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown))) }
+  if (targets.length) { announceSynergies(state, synergy); return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(synergy.values.damage ?? modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown))) }
   let tile = getTile(state.floor, x, y)
   if (!tile) return []
   if (tile.kind === 'door') { tile.kind = 'floor'; log(state, 'You open the door.'); return advance(state, [event('move')]) }
@@ -49,6 +49,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   }
   if (tile.kind === 'bramble' && weapon?.weapon?.tags.includes('cleave')) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You cut through the bramble.'); return advance(state, [event('move')]) }
   if (tile.kind === 'rubble' && canBreakRubble(state.hero)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You break through the rubble.'); return advance(state, [event('boom'), event('move')]) }
+  if (tile.kind === 'breakwall' && (weapon?.weapon?.tags.includes('breakwall') || weapon?.weapon?.tags.includes('hammer') || state.hero.bombs > 0)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You open the scored breakwall.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   let destination = { x, y }
   for (let step = 1; tile.kind === 'floor' && step < agilityMoveDistance(state.hero); step++) {
@@ -64,6 +65,18 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap', true))
   if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava', true))
   if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas', true))
+  if (tile.kind === 'smoke') {
+    const damage = Math.max(0, 1 - boonRank(state, 'smokeWalker') - boonRank(state, 'slagSkin'))
+    if (damage) events.push(...damageHero(state, damage, 'choking smoke', true))
+    if (boonRank(state, 'smokeWalker')) for (const nearby of state.floor.tiles) if (!nearby.explored) { nearby.explored = true; break }
+  }
+  if (tile.kind === 'current') {
+    state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'currentSense'))
+    const drift = { x: destination.x + delta.x, y: destination.y + delta.y }
+    if (isPassable(state.floor, drift.x, drift.y)) { state.hero.x = drift.x; state.hero.y = drift.y; log(state, 'The current carries you onward.') }
+  }
+  if (tile.kind === 'lift') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + boonRank(state, 'updraftStep')); log(state, 'The lift raises your momentum.') }
+  if (tile.kind === 'anchor') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + boonRank(state, 'anchorHabit')); log(state, 'The anchor steadies your route.') }
   if (tile.kind === 'crumble') {
     if (preservesAdjacentExitAccess(state.floor, destination, 'pit')) { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
     else { tile.kind = 'floor'; log(state, 'The floor holds before it can seal the trail.') }
@@ -170,6 +183,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   }
   tickEnvironment(state, events)
   tickConditionEffects(state, events)
+  applyEvolutionBurden(state, events)
   for (const [id, cooldown] of Object.entries(state.hero.cooldowns ?? {})) {
     if (cooldown <= 1) delete state.hero.cooldowns![id]
     else state.hero.cooldowns![id] = cooldown - 1
@@ -206,9 +220,9 @@ export function damageHero(state: RunState, amount: number, source: string, haza
   return [event('death')]
 }
 
-export function explode(state: RunState, x: number, y: number, damage: number, tags: TerrainTag[] = ['bomb'], source = 'your bomb'): void {
+export function explode(state: RunState, x: number, y: number, damage: number, tags: TerrainTag[] = ['bomb'], source = 'your bomb', radius = 1): void {
   const points = [] as Array<{ x: number; y: number }>
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+  for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
     const tx = x + dx
     const ty = y + dy
     points.push({ x: tx, y: ty })
@@ -424,11 +438,19 @@ function tickConditionEffects(state: RunState, events: ActionResult): void {
   resolveDefeatedActors(state)
 }
 
+function applyEvolutionBurden(state: RunState, events: ActionResult): void {
+  const burden = Object.values(state.hero.boonEvolutions ?? {}).reduce<number>((sum, tier) => sum + (tier ?? 0), 0)
+  if (!burden || state.turn % 5) return
+  const cost = Math.max(1, Math.ceil(burden / 4))
+  if (state.hero.focus >= cost) { state.hero.focus -= cost; log(state, `Evolved Boons demand ${cost} focus.`); return }
+  events.push(...damageHero(state, cost, 'your evolved Boons'))
+}
+
 function dropLoot(state: RunState, actor: Actor): void {
   const rng = turnRng(state, 'loot', `drop:${actor.id}`)
   state.floor.items.push({ id: 'gold', x: actor.x, y: actor.y, count: actor.role === 'guardian' ? rng.int(130, 210) : rng.int(5, 18) })
   const tables: Record<string, string[]> = {
-    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune']
+    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune'], furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'cinderHammer', 'smokeKnife'], floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'anchorBlade', 'tideCutter']
   }
   if (actor.role === 'guardian' || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
 }

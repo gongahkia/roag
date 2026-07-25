@@ -19,7 +19,8 @@ const GATE_TAGS = new Set(['fire', 'light', 'rope', 'mobility', 'ward', 'astral'
 export const validateAreaGate = (gate: AreaGate): string[] => {
   const errors: string[] = []
   if (!gate.id || !gate.npcOffering) errors.push('missing gate identity')
-  if (!gate.tagAlternatives.length) errors.push('no gate alternatives')
+  if (gate.tagAlternatives.length < 2) errors.push('insufficient gate alternatives')
+  if (gate.tagAlternatives.length > 3) errors.push('too many gate alternatives')
   if (!gate.tagAlternatives.some(alternative => alternative.kind === 'npc' || alternative.kind === 'bomb' || alternative.tags.every(tag => GATE_TAGS.has(tag)))) errors.push('no possible gate alternative')
   if (!gate.unlockedDestination || gate.unlockedDestination.floor < 0 || !Number.isInteger(gate.unlockedDestination.floor)) errors.push('invalid gate destination')
   for (const alternative of gate.tagAlternatives) if (alternative.kind === 'tag' && !alternative.tags.every(tag => GATE_TAGS.has(tag))) errors.push(`unknown gate tag: ${alternative.tags.join(' + ')}`)

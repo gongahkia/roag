@@ -26,9 +26,9 @@ const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
 
 describe('expedition generation', () => {
   it('provides the locked full content roster', () => {
-    expect(ITEMS).toHaveLength(40)
-    expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(4)
-    expect(MONSTERS.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')).toHaveLength(33)
+    expect(ITEMS).toHaveLength(61)
+    expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(6)
+    expect(MONSTERS.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')).toHaveLength(45)
     expect(MONSTERS.find(monster => monster.id === 'startledBirds')?.spawn).toBe('triggered')
   })
 
@@ -105,6 +105,22 @@ describe('expedition generation', () => {
       expect(kinds).toContain('crumble')
       expect(kinds).toContain('altar')
       expect(exitReachable(floor)).toBe(true)
+    }
+  })
+
+  it('generates Furnace and Flooded Ruins traversal terrain with baseline routes', () => {
+    for (const seed of [14, 55, 1004]) {
+      const furnace = generateAreaFloor(seed, 'furnace', 0)
+      const furnaceKinds = furnace.tiles.map(tile => tile.kind)
+      expect(furnaceKinds).toEqual(expect.arrayContaining(['smoke', 'lift', 'breakwall']))
+      expect(exitReachable(furnace)).toBe(true)
+      expect(furnace.milestones.filter(milestone => milestone.kind === 'augment')).toHaveLength(1)
+
+      const flooded = generateAreaFloor(seed, 'floodedRuins', 0)
+      const floodedKinds = flooded.tiles.map(tile => tile.kind)
+      expect(floodedKinds).toEqual(expect.arrayContaining(['current', 'deepWater', 'anchor']))
+      expect(exitReachable(flooded)).toBe(true)
+      expect(flooded.milestones.filter(milestone => milestone.kind === 'augment')).toHaveLength(1)
     }
   })
 

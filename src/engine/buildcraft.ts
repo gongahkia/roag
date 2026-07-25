@@ -88,8 +88,8 @@ export const toolChoices = (state: RunState, milestone: FloorMilestone): Travers
 export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] => {
   const owned = new Set(Object.keys(state.hero.boons ?? {}))
   const families = new Set([...owned].map(id => boonById[id]?.family).filter(Boolean))
-  const weighted = [...BOONS].sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || Number(families.has(b.family)) - Number(families.has(a.family)) || a.id.localeCompare(b.id))
-  return rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle(weighted).slice(0, 3)
+  const shuffled = rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle([...BOONS])
+  return shuffled.sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || Number(families.has(b.family)) - Number(families.has(a.family))).slice(0, 3)
 }
 
 const milestoneAtReach = (state: RunState): FloorMilestone | undefined => state.floor.milestones.find(milestone => !milestone.claimed && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 1)
@@ -109,6 +109,8 @@ const claim = (state: RunState, current: FloorMilestone): void => {
   const health = boonRank(state, 'trailRations') * 2
   const focus = boonRank(state, 'spiritKindling')
   const cash = boonRank(state, 'cacheSense') * 8
+    + boonRank(state, 'blackLedger') * 12
+    + boonRank(state, 'echoCache') * new Set(Object.keys(state.hero.boons ?? {}).map(id => boonById[id]?.family).filter(Boolean)).size * 5
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + health)
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)
   state.hero.gold += cash
@@ -243,18 +245,24 @@ export function useTool(state: RunState, tool: TraversalToolId, direction: Exclu
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
   const focus = boonRank(state, 'cordTempo')
   if (focus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)
+  if (boonRank(state, 'pressureSeal')) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: boonRank(state, 'pressureSeal') }]
   if (boonRank(state, 'wayfinderCord')) revealNearbyMilestones(state, 2 + boonRank(state, 'wayfinderCord'))
   if (overdrive) {
     state.hero.traversalTools = (state.hero.traversalTools ?? []).filter(current => current !== tool)
     log(state, `${toolFor(tool).name} burns out after its overdrive.`)
-  } else setCooldown(state, tool)
+  } else {
+    setCooldown(state, tool)
+    const cooldown = toolCooldown(state, tool)
+    const relay = boonRank(state, 'relayStep')
+    if (relay && cooldown) state.hero.cooldowns![`tool:${tool}`] = Math.max(1, cooldown - relay)
+  }
   refreshFov(state)
   return advance(state, [event('spell')])
 }
 
 const useStoneWedge = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive: boolean): boolean => {
   const target = point(state, direction, 1)
-  const width = overdrive ? 1 : boonRank(state, 'stoneMemory')
+  const width = overdrive ? 1 : boonRank(state, 'stoneMemory') + boonRank(state, 'wallSong')
   const offsets = Array.from({ length: width * 2 + 1 }, (_, index) => index - width).map(offset => [DIRECTIONS[direction].y * offset, -DIRECTIONS[direction].x * offset])
   const cleared = offsets.map(([x, y]) => getTile(state.floor, target.x + x, target.y + y)).filter((tile): tile is NonNullable<ReturnType<typeof getTile>> => Boolean(tile && drillable.has(tile.kind)))
   if (!cleared.length) { log(state, 'Stone Wedge needs blocked ground.'); return false }
@@ -264,7 +272,7 @@ const useStoneWedge = (state: RunState, direction: Exclude<keyof typeof DIRECTIO
 }
 
 const useReedwing = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive: boolean): boolean => {
-  const length = (overdrive ? 3 : 2) + boonRank(state, 'reedMemory')
+  const length = (overdrive ? 3 : 2) + boonRank(state, 'reedMemory') + boonRank(state, 'updraftStep')
   const landing = point(state, direction, length)
   const crossed = Array.from({ length: length - 1 }, (_, index) => getTile(state.floor, point(state, direction, index + 1).x, point(state, direction, index + 1).y))
   if (!crossed.some(tile => tile && hazardous.has(tile.kind)) || !passableLanding(state, landing)) { log(state, 'Reedwing needs hazardous ground and a clear landing.'); return false }
@@ -326,8 +334,11 @@ export function useTimeKnot(state: RunState): ActionResult {
   if (!target) { log(state, 'Time Knot has no earlier safe position.'); return [] }
   state.hero.x = target.x
   state.hero.y = target.y
-  state.hero.boons![`timeKnot`] = rank - 1
-  if (state.hero.boons!.timeKnot === 0) delete state.hero.boons!.timeKnot
+  const base = state.hero.boons?.timeKnot ?? 0
+  if (base > 0) {
+    state.hero.boons!.timeKnot = base - 1
+    if (state.hero.boons!.timeKnot === 0) delete state.hero.boons!.timeKnot
+  } else if (state.hero.boonEvolutions?.timeKnot) state.hero.boonEvolutions.timeKnot--
   refreshFov(state)
   log(state, 'Time Knot returns you to an earlier safe position. The world does not rewind.')
   return [event('spell')]
@@ -338,5 +349,5 @@ export function recordSafePosition(state: RunState): void {
   const positions = state.hero.safePositions ??= []
   const last = positions.at(-1)
   if (!last || last.x !== state.hero.x || last.y !== state.hero.y) positions.push({ x: state.hero.x, y: state.hero.y })
-  if (positions.length > 12) positions.shift()
+  if (positions.length > 12 + boonRank(state, 'borrowedTime')) positions.shift()
 }
