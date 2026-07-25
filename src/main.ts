@@ -586,6 +586,7 @@ function redraw(): void {
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
+  canvas.dataset.notice = hubNotice ?? ''
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
@@ -595,13 +596,15 @@ function handleHubInput(key: string): boolean {
   if (action) {
     if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
     const choice = Number(key) - 1
-    if (!Number.isInteger(choice) || choice < 0 || !heir || !activeCourier) return true
+    if (!heir || !activeCourier) { hubNotice = 'Courier record is unavailable.'; return true }
+    if (!Number.isInteger(choice) || choice < 0 || choice > 5) { hubNotice = 'Choose a listed option (1-6).'; return true }
+    if (action === 'roster') { hubNotice = 'No companion action is available here.'; return true }
     const result = action === 'shop'
       ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
       : action === 'outfitter'
         ? equipHubItem(heir, hubEquipment(heir)[choice] ?? '')
         : undefined
-    if (!result) return true
+    if (!result) { hubNotice = 'That service cannot complete this action.'; return true }
     hubNotice = result.message
     if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
     return true

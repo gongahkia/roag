@@ -70,7 +70,18 @@ test "$ascii_frame" != "$zoom_frame"
 "${CLI[@]}" press -
 zoom="$("${CLI[@]}" eval "localStorage.getItem('jomon-board-zoom')")"
 grep --fixed-strings --quiet '1' <<<"$zoom"
-for _ in {1..19}; do "${CLI[@]}" press ArrowUp >/dev/null; done
+for _ in {1..12}; do "${CLI[@]}" press ArrowUp >/dev/null; done
+for _ in {1..15}; do "${CLI[@]}" press ArrowLeft >/dev/null; done
+"${CLI[@]}" press c
+"${CLI[@]}" press 1
+notice="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.notice")"
+grep --fixed-strings --quiet 'Need' <<<"$notice"
+"${CLI[@]}" press 9
+notice="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.notice")"
+grep --fixed-strings --quiet 'Choose a listed option' <<<"$notice"
+"${CLI[@]}" press c
+for _ in {1..15}; do "${CLI[@]}" press ArrowRight >/dev/null; done
+for _ in {1..7}; do "${CLI[@]}" press ArrowUp >/dev/null; done
 "${CLI[@]}" press c
 "${CLI[@]}" press e
 "${CLI[@]}" snapshot

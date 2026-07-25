@@ -325,8 +325,11 @@ export class TerminalRenderer {
     this.text(55, 26, 'SUPPLIES    west', colors.dim)
     this.text(55, 28, 'OUTFITTER   east', colors.dim)
     this.text(55, 30, 'COMPANIONS  south', colors.dim)
-    if (hub?.notice) this.wrap(hub.notice, 34).slice(0, 2).forEach((line, index) => this.text(55, 34 + index, line, colors.green))
     if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
+    if (hub?.notice) {
+      this.text(52, 42, 'OUTPOST NOTICE', colors.gold)
+      this.wrap(hub.notice, 40).slice(0, 2).forEach((line, index) => this.text(52, 44 + index * 2, line, colors.green))
+    }
     this.ruleHorizontal(0, 49, 96)
     this.text(1, 52, 'ARROWS / IOP K ; , . / NUMPAD move · C / ENTER interact · 1-6 select opened service', colors.dim)
     this.text(1, 54, `ESC close service / return title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)

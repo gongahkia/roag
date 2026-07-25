@@ -31,4 +31,10 @@ describe('hub state', () => {
     expect(hero.equipment.mainHand).toBe('machete')
     expect(hero.inventory).toContain('whip')
   })
+
+  it('explains declined purchases and equipment changes', () => {
+    const hero = newHero({ name: 'Mika', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' })
+    expect(buyHubItem(hero, 'cap')).toEqual({ changed: false, message: 'Need 55 more cash.' })
+    expect(equipHubItem(hero, 'cap')).toEqual({ changed: false, message: 'Bark Cap is not in your pack.' })
+  })
 })
