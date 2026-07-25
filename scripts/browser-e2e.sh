@@ -30,7 +30,8 @@ grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press Enter
 "${CLI[@]}" press Space
 "${CLI[@]}" snapshot
-"${CLI[@]}" press a
+for _ in {1..19}; do "${CLI[@]}" press ArrowUp >/dev/null; done
+"${CLI[@]}" press c
 "${CLI[@]}" press e
 "${CLI[@]}" snapshot
 "${CLI[@]}" screenshot
