@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -38,7 +38,17 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'spear', name: 'Cave Spear', glyph: '/', color: '#d0ae78', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['piercing', 'reach'] }, value: 140, throwable: true },
   { id: 'tideSpear', name: 'Tide Spear', glyph: '/', color: '#76d8df', slot: 'mainHand', weapon: { damage: 7, reach: 2, shape: 'line', cooldown: 1, tags: ['water'] }, value: 145 },
   { id: 'sunblade', name: 'Sunstone Blade', glyph: '/', color: '#ffe181', slot: 'mainHand', weapon: { damage: 11, reach: 2, shape: 'cone', cooldown: 2, tags: ['radiant', 'cleave'] }, value: 260 },
+  { id: 'cinderHammer', name: 'Cinder Hammer', glyph: 'T', color: '#f08d5b', slot: 'mainHand', weapon: { damage: 10, reach: 1, shape: 'cross', cooldown: 2, tags: ['hammer', 'fire', 'breakwall'] }, value: 250, tags: ['furnace'] },
+  { id: 'smokeKnife', name: 'Soot Knife', glyph: '/', color: '#9ca1ad', slot: 'mainHand', weapon: { damage: 7, reach: 1, shape: 'adjacent', cooldown: 0, tags: ['blade', 'smoke', 'quick'] }, value: 180, tags: ['furnace'] },
+  { id: 'liftHook', name: 'Lift Hook', glyph: 'J', color: '#e9c47e', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['hook', 'lift', 'reach'] }, value: 210, tags: ['furnace'] },
+  { id: 'anchorBlade', name: 'Anchor Blade', glyph: '/', color: '#78c4ce', slot: 'mainHand', weapon: { damage: 9, reach: 1, shape: 'cone', cooldown: 1, tags: ['blade', 'anchor', 'water'] }, value: 240, tags: ['floodedRuins'] },
+  { id: 'tideCutter', name: 'Tide Cutter', glyph: '/', color: '#89d8df', slot: 'mainHand', weapon: { damage: 8, reach: 2, shape: 'line', cooldown: 1, tags: ['blade', 'current', 'tide'] }, value: 230, tags: ['floodedRuins'] },
   { id: 'buckler', name: 'Woven Guard', glyph: ')', color: '#bbc6cc', slot: 'offHand', defense: 2, value: 80, effects: [{ id: 'guarded', kind: 'passive', add: { defense: 1 } }] },
+  { id: 'bellowsShield', name: 'Bellows Shield', glyph: ')', color: '#d9875d', slot: 'offHand', defense: 3, value: 190, tags: ['furnace', 'fire', 'guard'] },
+  { id: 'chainGuard', name: 'Chain Guard', glyph: ')', color: '#bdc4ca', slot: 'offHand', defense: 2, value: 175, tags: ['furnace', 'hook', 'lift'] },
+  { id: 'smokeMask', name: 'Soot Mask', glyph: '[', color: '#a3a8b3', slot: 'offHand', defense: 1, value: 165, tags: ['furnace', 'smoke'] },
+  { id: 'anchorBuckler', name: 'Anchor Buckler', glyph: ')', color: '#75bbc7', slot: 'offHand', defense: 3, value: 210, tags: ['floodedRuins', 'anchor', 'guard'] },
+  { id: 'currentOrb', name: 'Current Orb', glyph: 'o', color: '#9be5e9', slot: 'offHand', defense: 1, value: 185, tags: ['floodedRuins', 'current', 'flow'] },
   { id: 'lantern', name: 'Resin Lamp', glyph: 'i', color: '#ffe18a', slot: 'offHand', defense: 1, value: 95, use: 'torch' },
   { id: 'cap', name: 'Bark Cap', glyph: '[', color: '#d3b05c', slot: 'head', defense: 1, value: 55 },
   { id: 'mask', name: 'Moss Mask', glyph: '[', color: '#71a66d', slot: 'head', defense: 2, value: 120 },
@@ -61,6 +71,17 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'key', name: 'Carved Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },
+  { id: 'cinderTonic', name: 'Cinder Tonic', glyph: '!', color: '#ef795a', value: 65, use: 'heal', tags: ['furnace', 'heat'] },
+  { id: 'sootFilter', name: 'Soot Filter', glyph: '!', color: '#a3a8b3', value: 55, use: 'focus', tags: ['furnace', 'smoke'] },
+  { id: 'breachCharge', name: 'Breach Charge', glyph: '*', color: '#f09c63', value: 100, use: 'bomb', tags: ['furnace', 'breakwall'] },
+  { id: 'liftKey', name: 'Lift Key', glyph: '?', color: '#e9c47e', value: 75, use: 'teleport', tags: ['furnace', 'lift'] },
+  { id: 'anchorSpool', name: 'Anchor Spool', glyph: '~', color: '#74c1cc', value: 80, use: 'rope', tags: ['floodedRuins', 'anchor'] },
+  { id: 'boreGel', name: 'Bore Gel', glyph: '%', color: '#d6ae78', value: 110, use: 'drill', tags: ['furnace', 'breakwall'] },
+  { id: 'wingfoil', name: 'Wingfoil', glyph: '^', color: '#b2dde0', value: 105, use: 'glide', tags: ['floodedRuins', 'flow'] },
+  { id: 'floodSalt', name: 'Flood Salt', glyph: '!', color: '#8ed8df', value: 60, use: 'heal', tags: ['floodedRuins', 'water'] },
+  { id: 'currentRune', name: 'Current Rune', glyph: '?', color: '#a1e5eb', value: 95, use: 'teleport', tags: ['floodedRuins', 'current'] },
+  { id: 'firecracker', name: 'Firecracker', glyph: '*', color: '#f1b568', value: 70, use: 'bomb', tags: ['furnace', 'fire'] },
+  { id: 'salvageKit', name: 'Salvage Kit', glyph: '!', color: '#c6d6d8', value: 60, use: 'focus', tags: ['floodedRuins', 'salvage'] },
   { id: 'ember', name: 'Ember Charm', glyph: '?', color: '#ff9c63', value: 120, use: 'spell', spell: 'ember' },
   { id: 'mend', name: 'Mending Charm', glyph: '?', color: '#91e0b1', value: 110, use: 'spell', spell: 'mend' },
   { id: 'sight', name: 'Sight Charm', glyph: '?', color: '#9dd7e4', value: 105, use: 'spell', spell: 'sight' },

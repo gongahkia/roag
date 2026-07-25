@@ -2,9 +2,9 @@ export const MAP_WIDTH = 48
 export const MAP_HEIGHT = 35
 export const TERMINAL_WIDTH = 96
 export const TERMINAL_HEIGHT = 60
-export const FLOOR_COUNT = 16
+export const FLOOR_COUNT = 24
 
-export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins'
+export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins' | 'furnace' | 'floodedRuins'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
@@ -15,7 +15,7 @@ export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
-export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue'
+export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
@@ -28,8 +28,10 @@ export type PropId =
   | 'wilds.mushrooms' | 'wilds.danglingCharm' | 'wilds.birdNest' | 'wilds.rootShrine' | 'wilds.lostParcel' | 'wilds.rootArch'
   | 'caverns.crystalCluster' | 'caverns.glowingFungus' | 'caverns.barnacledShrine' | 'caverns.brokenBoat' | 'caverns.eelTunnel' | 'caverns.sealedParcel'
   | 'ruins.brokenStatue' | 'ruins.ritualBrazier' | 'ruins.glyphTablet' | 'ruins.collapsedArch' | 'ruins.sealedCache' | 'ruins.monolith'
+  | 'furnace.bellows' | 'furnace.liftConsole' | 'furnace.breakwall' | 'furnace.cinderCache' | 'furnace.smokeStack' | 'furnace.forgeIdol'
+  | 'floodedRuins.anchorPost' | 'floodedRuins.floodgate' | 'floodedRuins.sunkenCache' | 'floodedRuins.tideShrine' | 'floodedRuins.currentBell' | 'floodedRuins.mossBridge'
 export type PropState = 'dormant' | 'inspected' | 'activated' | 'destroyed'
-export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard'
+export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current'
 export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard' | 'ward' | 'gate'
 export type PropHook = 'operate' | PropEffectKind
 
@@ -72,7 +74,7 @@ export interface Prop {
   expiresAt?: number
 }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
-export interface FloorMilestone { id: string; kind: 'waycache' | 'boon'; x: number; y: number; discovered: boolean; claimed: boolean }
+export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment'; x: number; y: number; discovered: boolean; claimed: boolean }
 export interface TransientTerrain { x: number; y: number; original: TileKind; expiresAt: number }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
@@ -121,6 +123,7 @@ export interface Hero {
   trailcrafts?: Partial<Record<TrailcraftId, number>>
   traversalTools?: TraversalToolId[]
   boons?: Partial<Record<BoonId, number>>
+  boonEvolutions?: Partial<Record<BoonId, number>>
   safePositions?: Point[]
 }
 
@@ -140,7 +143,7 @@ export interface HubState {
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
-export interface CampaignRouteState { version: 2; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
+export interface CampaignRouteState { version: 3; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
 
 export interface LegacyRecord {
   id: string
@@ -177,7 +180,7 @@ export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
 export interface RunState {
-  version: 4
+  version: 5
   seed: number
   floor: Floor
   hero: Hero
@@ -203,6 +206,7 @@ export type Modal =
   | { kind: 'skills'; source?: 'level' }
   | { kind: 'trailcraft' }
   | { kind: 'boon'; milestoneId: string }
+  | { kind: 'augment'; milestoneId: string; mode?: 'evolve' | 'reforge' | 'transmute'; selected?: BoonId[] }
   | { kind: 'tool'; milestoneId: string; replace?: number }
   | { kind: 'tools' }
   | { kind: 'pause' }
