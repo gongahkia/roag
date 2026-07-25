@@ -313,7 +313,7 @@ export class TerminalRenderer {
     const position = hub?.position ?? outpostSpawn()
     const nearby = outpostInteraction(position)
     this.box(0, 2, 50, 38, 'VILLAGE OUTPOST')
-    this.drawOutpostViewport(1, 3, position, () => this.drawOutpostScene(1, 3, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
+    this.drawOutpostViewport(1, 4, position, () => this.drawOutpostScene(1, 4, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
     this.box(52, 2, 42, 38, 'OUTPOST LEDGER')
     this.text(55, 6, `COURIER  ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
     this.text(55, 8, `CASH     ${hub?.hero?.gold ?? 0}`, colors.gold)
