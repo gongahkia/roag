@@ -8,7 +8,7 @@ import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, v
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
-const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'].includes(kind)
+const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'].includes(kind)
 const propDefinitionErrors = validatePropDefinitions()
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
@@ -114,7 +114,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
   return floor
 }
 
-export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins'] as const).indexOf(biome) * 4 + areaFloor
+export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const).indexOf(biome) * 4 + areaFloor
 export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number): Floor => {
   if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid area floor: ${areaFloor}`)
   return generateFloor(runSeed, areaFloorIndex(biome, areaFloor))
@@ -238,10 +238,10 @@ function placeMilestones(floor: Floor, rng: Rng): void {
   for (const candidate of rng.shuffle(candidates)) {
     if (!hasPassablePath(floor, floor.start, candidate)) continue
     selected.push(candidate)
-    if (selected.length === 4) break
+    if (selected.length === 5) break
   }
-  if (selected.length < 4) throw new Error(`failed to place milestones on floor ${floor.index}`)
-  floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : 'boon', ...point, discovered: false, claimed: false }))
+  if (selected.length < 5) throw new Error(`failed to place milestones on floor ${floor.index}`)
+  floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : index === 4 ? 'augment' : 'boon', ...point, discovered: false, claimed: false }))
 }
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
@@ -255,6 +255,8 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   if (floor.biome === 'wilds') decorateWilds(floor, rng)
   if (floor.biome === 'caverns') decorateCaverns(floor, rng)
   if (floor.biome === 'ruins') decorateRuins(floor, rng, rooms)
+  if (floor.biome === 'furnace') decorateFurnace(floor, rng)
+  if (floor.biome === 'floodedRuins') decorateFloodedRuins(floor, rng)
   if (floor.index % 4 === 3) {
     const chamber = rooms[rooms.length - 1]
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
@@ -352,6 +354,40 @@ function decorateRuins(floor: Floor, rng: Rng, rooms: Room[]): void {
   const altar = center(ritualRoom)
   for (let y = altar.y - 1; y <= altar.y + 1; y++) for (let x = altar.x - 1; x <= altar.x + 1; x++) if (getTile(floor, x, y)?.kind !== 'wall') setKind(floor, x, y, 'floor')
   setKind(floor, altar.x, altar.y, 'altar')
+}
+
+function decorateFurnace(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of cardinalOffsets) if (rng.chance(35) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('smoke', 14, true)
+  paint('lift', 7)
+  paint('breakwall', 8)
+  paint('fireVent', 9)
+}
+
+function decorateFloodedRuins(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of cardinalOffsets) if (rng.chance(35) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('current', 13, true)
+  paint('anchor', 7)
+  paint('deepWater', 9, true)
+  paint('water', 8, true)
 }
 
 function placeEvents(floor: Floor, rooms: Room[]): void {
@@ -493,12 +529,12 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
   if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
-  if (floor.milestones.length !== 4) errors.push('invalid milestone count')
+  if (floor.milestones.length !== 5) errors.push('invalid milestone count')
   const milestoneLocations = new Set<string>()
   for (const milestone of floor.milestones) {
     const key = pointKey(milestone)
     const tile = getTile(floor, milestone.x, milestone.y)
-    if (!milestone.id || !['waycache', 'boon'].includes(milestone.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
+    if (!milestone.id || !['waycache', 'boon', 'augment'].includes(milestone.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
     if (milestoneLocations.has(key)) errors.push(`overlapping milestone: ${key}`)
     milestoneLocations.add(key)
   }

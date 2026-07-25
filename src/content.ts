@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -151,7 +151,21 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'dartadept', name: 'Dart Adept', glyph: 'd', color: '#d8b576', health: 13, attack: 9, defense: 12, speed: 100, ai: 'ranged', xp: 38, biome: 'ruins', tags: ['ruins', 'dart', 'telegraph'] },
   { id: 'lockkeeper', name: 'Lock Keeper', glyph: 'k', color: '#c4b488', health: 18, attack: 9, defense: 15, speed: 80, ai: 'chase', xp: 42, biome: 'ruins', tags: ['ruins', 'lock', 'counterplay'] },
   { id: 'ritualist', name: 'Ash Ritualist', glyph: 'r', color: '#d88ea4', health: 14, attack: 10, defense: 13, speed: 95, ai: 'ranged', xp: 44, biome: 'ruins', tags: ['ruins', 'ritual', 'telegraph'] },
-  { id: 'regent', name: 'The Stone Keeper', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' }
+  { id: 'regent', name: 'The Stone Keeper', glyph: 'R', color: '#ffdb75', health: 84, attack: 15, defense: 19, speed: 110, ai: 'guardian', xp: 180, biome: 'ruins' },
+  { id: 'cinderling', name: 'Cinderling', glyph: 'c', color: '#f08d5b', health: 18, attack: 12, defense: 16, speed: 110, ai: 'chase', xp: 48, biome: 'furnace', tags: ['furnace', 'fire', 'heat'] },
+  { id: 'smokeskulk', name: 'Smoke Skulk', glyph: 's', color: '#9ca1ad', health: 15, attack: 11, defense: 17, speed: 130, ai: 'wander', xp: 50, biome: 'furnace', tags: ['furnace', 'smoke', 'mobility'] },
+  { id: 'liftwarden', name: 'Lift Warden', glyph: 'l', color: '#e9c47e', health: 24, attack: 12, defense: 19, speed: 85, ai: 'chase', xp: 58, biome: 'furnace', tags: ['furnace', 'lift', 'counterplay'] },
+  { id: 'slagcaster', name: 'Slag Caster', glyph: 's', color: '#e26e4c', health: 17, attack: 13, defense: 16, speed: 95, ai: 'ranged', xp: 60, biome: 'furnace', tags: ['furnace', 'fire', 'telegraph'] },
+  { id: 'breakmaw', name: 'Break Maw', glyph: 'b', color: '#bd8567', health: 29, attack: 13, defense: 20, speed: 80, ai: 'chase', xp: 65, biome: 'furnace', tags: ['furnace', 'breakwall', 'force'] },
+  { id: 'ashoracle', name: 'Ash Oracle', glyph: 'a', color: '#e6b4a2', health: 18, attack: 14, defense: 17, speed: 95, ai: 'ranged', xp: 66, biome: 'furnace', tags: ['furnace', 'smoke', 'telegraph'] },
+  { id: 'kilnheart', name: 'The Kiln Heart', glyph: 'K', color: '#ffd070', health: 108, attack: 17, defense: 22, speed: 105, ai: 'guardian', xp: 240, biome: 'furnace', tags: ['furnace', 'fire', 'breakwall'] },
+  { id: 'tidewraith', name: 'Tide Wraith', glyph: 't', color: '#85d9df', health: 20, attack: 14, defense: 18, speed: 120, ai: 'wander', xp: 65, biome: 'floodedRuins', tags: ['floodedRuins', 'water', 'current'] },
+  { id: 'anchorcrab', name: 'Anchor Crab', glyph: 'a', color: '#83bdc6', health: 31, attack: 13, defense: 23, speed: 75, ai: 'chase', xp: 72, biome: 'floodedRuins', tags: ['floodedRuins', 'anchor', 'guard'] },
+  { id: 'siltseer', name: 'Silt Seer', glyph: 's', color: '#c5d8d4', health: 19, attack: 15, defense: 18, speed: 95, ai: 'ranged', xp: 74, biome: 'floodedRuins', tags: ['floodedRuins', 'current', 'telegraph'] },
+  { id: 'drownblade', name: 'Drownblade', glyph: 'd', color: '#71b7c3', health: 24, attack: 15, defense: 20, speed: 110, ai: 'chase', xp: 78, biome: 'floodedRuins', tags: ['floodedRuins', 'blade', 'water'] },
+  { id: 'coralguard', name: 'Coral Guard', glyph: 'c', color: '#d69b92', health: 33, attack: 14, defense: 24, speed: 70, ai: 'chase', xp: 82, biome: 'floodedRuins', tags: ['floodedRuins', 'anchor', 'counterplay'] },
+  { id: 'currentcaller', name: 'Current Caller', glyph: 'c', color: '#9ae5ea', health: 20, attack: 16, defense: 18, speed: 100, ai: 'ranged', xp: 84, biome: 'floodedRuins', tags: ['floodedRuins', 'current', 'displacement'] },
+  { id: 'drownedRegent', name: 'The Drowned Regent', glyph: 'D', color: '#b3edf0', health: 132, attack: 20, defense: 25, speed: 100, ai: 'guardian', xp: 320, biome: 'floodedRuins', tags: ['floodedRuins', 'water', 'anchor'] }
 ]
 export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
 export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
@@ -166,13 +180,15 @@ export const SKILLS: SkillDefinition[] = [
 const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<string, SkillDefinition>
 export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
-export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle' }
+export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const)[Math.floor(index / 4)]
+export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'cordmarkTalisman', 'reedstepBoots'],
   caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune', 'reedGlider'],
-  ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key']
+  ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key'],
+  furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'liftKey', 'cinderHammer', 'smokeKnife', 'liftHook', 'bellowsShield', 'chainGuard', 'smokeMask'],
+  floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb']
 }
 
 const idPattern = /^[a-z][a-zA-Z0-9]*$/

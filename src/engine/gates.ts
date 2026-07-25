@@ -24,6 +24,8 @@ const hasGateTag = (state: RunState, tag: string): boolean => {
   if (tag === 'script' || tag === 'arcane') return items.some(item => ['ember', 'mend', 'sight', 'root', 'waterScript', 'lull', 'blink', 'gust', 'pull', 'wardScript', 'gate'].includes(item))
   if (tag === 'rubble') return items.includes('pickaxe') || state.hero.bombs > 0
   if (tag === 'piercing') return items.some(item => ['spear', 'pickaxe'].includes(item))
+  if (tag === 'lift') return items.some(item => ['liftKey', 'liftHook', 'chainGuard'].includes(item)) || state.hero.traversalTools?.includes('cordAnchor') === true
+  if (tag === 'anchor') return items.some(item => ['anchorSpool', 'anchorBlade', 'anchorBuckler'].includes(item)) || state.hero.ropes > 0
   return false
 }
 const openNearbyGate = (state: RunState): void => {

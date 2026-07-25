@@ -41,7 +41,19 @@ export const PROP_DEFINITIONS = [
   define({ id: 'ruins.glyphTablet', biome: 'ruins', name: 'glyph tablet', description: 'A carved tablet records a warning in stone.', glyph: 'T', color: '#c6bad6', terrain: ['floor', 'dart'], tags: ['warning', 'ritual'], hooks: ['operate', 'bomb', 'fire', 'throw', 'hazard'], activationReward: 'mapScroll', effectReward: 'sight' }),
   define({ id: 'ruins.collapsedArch', biome: 'ruins', name: 'collapsed arch', description: 'A cracked arch leans over the passage.', glyph: 'A', color: '#a89fae', terrain: ['floor', 'dart'], tags: ['route', 'salvage', 'force'], hooks: ['operate', 'bomb', 'force', 'throw', 'hazard'], activationReward: 'pickaxe', effectReward: 'rock' }),
   define({ id: 'ruins.sealedCache', biome: 'ruins', name: 'sealed cache', description: 'Bronze clasps hold a cache shut.', glyph: '?', color: '#d8b363', terrain: ['floor', 'altar'], tags: ['cache', 'ritual'], hooks: ['operate', 'bomb', 'fire', 'throw', 'hazard'], activationReward: 'key', effectReward: 'sunseal' }),
-  define({ id: 'ruins.monolith', biome: 'ruins', name: 'monolith', description: 'A black monolith hums with a warded pulse.', glyph: 'M', color: '#d2a4e8', terrain: ['floor', 'altar', 'dart'], tags: ['ritual', 'force', 'hazard'], hooks: ['operate', 'bomb', 'fire', 'force', 'hazard', 'ward', 'gate'], activationReward: 'ward', effectReward: 'gate' })
+  define({ id: 'ruins.monolith', biome: 'ruins', name: 'monolith', description: 'A black monolith hums with a warded pulse.', glyph: 'M', color: '#d2a4e8', terrain: ['floor', 'altar', 'dart'], tags: ['ritual', 'force', 'hazard'], hooks: ['operate', 'bomb', 'fire', 'force', 'hazard', 'ward', 'gate'], activationReward: 'ward', effectReward: 'gate' }),
+  define({ id: 'furnace.bellows', biome: 'furnace', name: 'bellows', description: 'A soot-black bellows coughs heat into the passage.', glyph: 'B', color: '#e27b55', terrain: ['floor', 'smoke'], tags: ['fire', 'smoke', 'hazard'], hooks: ['operate', 'fire', 'water', 'force', 'hazard'], activationReward: 'sootFilter', effectReward: 'firecracker' }),
+  define({ id: 'furnace.liftConsole', biome: 'furnace', name: 'lift console', description: 'A chain console controls a nearby freight lift.', glyph: 'L', color: '#e9c47e', terrain: ['floor', 'lift'], tags: ['lift', 'route', 'force'], hooks: ['operate', 'force', 'throw', 'hazard'], activationReward: 'liftKey', effectReward: 'chainGuard' }),
+  define({ id: 'furnace.breakwall', biome: 'furnace', name: 'breakwall rig', description: 'A scored wall waits for a controlled breach.', glyph: '#', color: '#bc8266', terrain: ['floor', 'smoke'], tags: ['route', 'force', 'hazard'], hooks: ['operate', 'bomb', 'fire', 'force', 'throw'], activationReward: 'boreGel', effectReward: 'breachCharge' }),
+  define({ id: 'furnace.cinderCache', biome: 'furnace', name: 'cinder cache', description: 'A heat-sealed cache crackles beneath the ash.', glyph: '?', color: '#ef9a62', terrain: ['floor', 'smoke'], tags: ['cache', 'fire', 'salvage'], hooks: ['operate', 'bomb', 'fire', 'throw', 'hazard'], activationReward: 'cinderTonic', effectReward: 'cinderHammer' }),
+  define({ id: 'furnace.smokeStack', biome: 'furnace', name: 'smoke stack', description: 'A cracked stack spills smoke into an old route.', glyph: 'S', color: '#9ca1ad', terrain: ['floor', 'smoke'], tags: ['smoke', 'route', 'hazard'], hooks: ['operate', 'fire', 'water', 'force', 'hazard'], activationReward: 'smokeMask', effectReward: 'sootFilter' }),
+  define({ id: 'furnace.forgeIdol', biome: 'furnace', name: 'forge idol', description: 'A brass idol gathers heat around a broken anvil.', glyph: '+', color: '#ffd070', terrain: ['floor', 'lift'], tags: ['ritual', 'fire', 'force'], hooks: ['operate', 'bomb', 'fire', 'water', 'force', 'hazard'], activationReward: 'smokeKnife', effectReward: 'bellowsShield' }),
+  define({ id: 'floodedRuins.anchorPost', biome: 'floodedRuins', name: 'anchor post', description: 'A bronze post can hold a route against the tide.', glyph: 'A', color: '#79c3cc', terrain: ['floor', 'anchor', 'current'], tags: ['anchor', 'route', 'water'], hooks: ['operate', 'water', 'force', 'throw', 'hazard'], activationReward: 'anchorSpool', effectReward: 'anchorBuckler' }),
+  define({ id: 'floodedRuins.floodgate', biome: 'floodedRuins', name: 'floodgate', description: 'A crusted gate divides two old water channels.', glyph: 'G', color: '#73b8c4', terrain: ['floor', 'current', 'anchor'], tags: ['water', 'current', 'route'], hooks: ['operate', 'water', 'force', 'bomb', 'hazard'], activationReward: 'currentRune', effectReward: 'currentOrb' }),
+  define({ id: 'floodedRuins.sunkenCache', biome: 'floodedRuins', name: 'sunken cache', description: 'A lacquered cache rests under clear black water.', glyph: '?', color: '#a1dfe2', terrain: ['floor', 'water', 'current'], tags: ['cache', 'water', 'salvage'], hooks: ['operate', 'water', 'bomb', 'throw', 'hazard'], activationReward: 'floodSalt', effectReward: 'anchorBlade' }),
+  define({ id: 'floodedRuins.tideShrine', biome: 'floodedRuins', name: 'tide shrine', description: 'A shrine’s bowl fills and drains with the current.', glyph: '+', color: '#a4e7e9', terrain: ['floor', 'water', 'anchor'], tags: ['ritual', 'water', 'anchor'], hooks: ['operate', 'water', 'force', 'ward', 'hazard'], activationReward: 'tideCutter', effectReward: 'wingfoil' }),
+  define({ id: 'floodedRuins.currentBell', biome: 'floodedRuins', name: 'current bell', description: 'A submerged bell hums whenever the water shifts.', glyph: 'b', color: '#b2e5e5', terrain: ['floor', 'current', 'anchor'], tags: ['current', 'warning', 'water'], hooks: ['operate', 'water', 'force', 'throw', 'hazard'], activationReward: 'salvageKit', effectReward: 'currentRune' }),
+  define({ id: 'floodedRuins.mossBridge', biome: 'floodedRuins', name: 'moss bridge', description: 'A rope bridge sags between tide-worn columns.', glyph: '=', color: '#82b6a1', terrain: ['floor', 'anchor', 'water'], tags: ['route', 'growth', 'water'], hooks: ['operate', 'fire', 'water', 'force', 'throw', 'hazard'], activationReward: 'wingfoil', effectReward: 'anchorSpool' })
 ] as const satisfies readonly PropDefinition[]
 
 export const PROP_IDS = PROP_DEFINITIONS.map(definition => definition.id) as readonly PropId[]
@@ -63,7 +75,7 @@ export const propEffects = (hooks: readonly PropHook[]): PropEffectKind[] => hoo
 
 export const validatePropDefinitions = (): string[] => {
   const errors: string[] = []
-  if (PROP_DEFINITIONS.length !== 24) errors.push(`expected 24 prop definitions, found ${PROP_DEFINITIONS.length}`)
+  if (PROP_DEFINITIONS.length !== 36) errors.push(`expected 36 prop definitions, found ${PROP_DEFINITIONS.length}`)
   const ids = new Set<string>()
   for (const definition of PROP_DEFINITIONS) {
     if (ids.has(definition.id)) errors.push(`duplicate prop definition: ${definition.id}`)
@@ -72,6 +84,6 @@ export const validatePropDefinitions = (): string[] => {
     if (!definition.hooks.includes('operate') || !propEffects(definition.hooks).length) errors.push(`incomplete hooks: ${definition.id}`)
     if (!ITEM[definition.activationReward] || !ITEM[definition.effectReward]) errors.push(`unknown reward: ${definition.id}`)
   }
-  for (const biome of ['mine', 'wilds', 'caverns', 'ruins'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
+  for (const biome of ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
   return errors
 }

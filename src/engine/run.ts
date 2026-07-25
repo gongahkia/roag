@@ -31,7 +31,7 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
   return {
     name: build.name?.trim() || 'Existing Courier', origin, calling, deathMode: build.deathMode ?? 'checkpoint',
     x: 0, y: 0, health: 22, maxHealth: 22, focus: 8, maxFocus: 8, gold: 0, bombs: kit.bombs, ropes: kit.ropes, keys: 0, xp: 0, level: 1,
-    stats: { ...originStats[origin] }, skills: [], inventory: kit.inventory, equipment: kit.equipment, conditions: [], cooldowns: {}, trailcrafts: {}, traversalTools: [], boons: {}, safePositions: []
+    stats: { ...originStats[origin] }, skills: [], inventory: kit.inventory, equipment: kit.equipment, conditions: [], cooldowns: {}, trailcrafts: {}, traversalTools: [], boons: {}, boonEvolutions: {}, safePositions: []
   }
 }
 
@@ -40,7 +40,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 4, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)
