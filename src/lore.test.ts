@@ -13,7 +13,7 @@ describe('trail lore', () => {
   })
 
   it('reveals, completes, advances, and finishes pages deterministically', () => {
-    const story = createStory({ title: 'TEST', pages: ['abc', 'de'] }, 0)
+    const story = createStory({ title: 'TEST', vignette: 'opening', pages: ['abc', 'de'] }, 0)
     expect(storyText(story, TYPEWRITER_INTERVAL)).toBe('a')
     expect(isStoryPageComplete(story, TYPEWRITER_INTERVAL * 3)).toBe(true)
     const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)

@@ -11,12 +11,11 @@ describe('hub state', () => {
     expect(hubView('Mika', state)).toEqual({ courierName: 'Mika', state })
   })
 
-  it('selects hub actions without DOM state', () => {
+  it('keeps hub destinations physical instead of binding them to menu keys', () => {
     const hub = { ...initialRoute(), screen: 'hub' as const }
-    expect(navigate(hub, 'r', false).hubAction).toBe('roster')
-    expect(navigate(hub, 's', false).hubAction).toBe('shop')
-    expect(navigate(hub, 'o', false).hubAction).toBe('outfitter')
-    expect(navigate(hub, 'h', false).hubAction).toBe('routes')
+    expect(navigate(hub, 'r', false)).toBe(hub)
+    expect(navigate(hub, 'Enter', false)).toBe(hub)
+    expect(navigate(hub, 'Escape', false).screen).toBe('title')
   })
 
   it('uses hub cash purchases and equipment swaps without a run state', () => {

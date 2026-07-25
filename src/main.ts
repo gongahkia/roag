@@ -5,7 +5,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { buyHubItem, completeCampaignArea, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, navigate, newHero, newRun, nextArea, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { buyHubItem, completeCampaignArea, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
@@ -33,6 +33,7 @@ let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
 let hub: HubState = createHubState(0)
+let hubPosition = outpostSpawn()
 let hubNotice: string | undefined
 let heir: Hero | undefined
 let campaign: CampaignRouteState = initialCampaignRoute()
@@ -105,6 +106,7 @@ window.addEventListener('keydown', keyboardEvent => {
     let nextRoute = navigate(route, input, Boolean(saved))
     if (nextRoute === route) return
     if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
+    if (nextRoute.screen === 'hub' && route.screen !== 'hub') hubPosition = outpostSpawn()
     if (nextRoute.screen === 'level') {
       if (route.screen === 'area') start()
       else if (saved) { state = structuredClone(saved); recordedEnd = false }
@@ -179,12 +181,13 @@ window.addEventListener('pagehide', flushCourierPersistence)
 function activateCourier(id: string | undefined, persistSelection = true): void {
   selectedCourierId = id
   activeCourier = couriers.find(courier => courier.identity.id === id && !courier.archived)
-  if (!activeCourier) { saved = undefined; state = undefined; records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }; campaign = initialCampaignRoute(); hub = createHubState(0); return }
+  if (!activeCourier) { saved = undefined; state = undefined; records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }; campaign = initialCampaignRoute(); hub = createHubState(0); hubPosition = outpostSpawn(); return }
   saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
   records = activeCourier.records
   campaign = activeCourier.campaign
   if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
   hub = { ...createHubState(saved?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  hubPosition = outpostSpawn()
   route = { screen: route.screen === 'splash' ? 'splash' : 'title', biome: campaign.selectedBiome }
   if (persistSelection) {
     const selectedId = activeCourier.identity.id
@@ -231,6 +234,7 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
   const key = keyboardEvent.key
   if (key === 'Escape' || key === '`') { courierDraft = undefined; route = { ...route, screen: 'title' }; redraw(); return }
   if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 3 : 1)) % 4) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 3 : 1)) % 4) as CourierDraft['focus'] }; redraw(); return }
   if (key === 'Enter') { createCourierFromDraft(); return }
   if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
     const forward = key === 'ArrowRight'
@@ -280,7 +284,7 @@ function resumeCourier(): void {
   campaign = activeCourier.campaign
   hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
-  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); route = { screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' } }
+  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); hubPosition = outpostSpawn(); route = { screen: 'hub', biome: campaign.selectedBiome } }
   const selectedId = activeCourier.identity.id
   recordPersistence('selection', () => selectCourier(selectedId))
 }
@@ -371,6 +375,7 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   route = { screen: 'approach', biome: campaign.selectedBiome, heirSeed: seed }
   heir = nextHero
   hub = { ...createHubState(seed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  hubPosition = outpostSpawn()
   story = createStory(scene, performance.now())
   storyExit = 'hub'
 }
@@ -422,7 +427,7 @@ function finishStory(): void {
     createAfterStory = false
     courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
     route = { ...route, screen: 'createCourier' }
-  } else route = { ...route, screen: 'hub', hubAction: 'routes' }
+  } else { hubPosition = outpostSpawn(); route = { ...route, screen: 'hub', hubAction: undefined } }
   audio.play([event('menu')])
   redraw()
 }
@@ -484,7 +489,8 @@ function completeArea(): 'continued' | 'finished' | 'returned' {
   activeCourier.heir = structuredClone(heir)
   state = undefined
   persistActiveCourier()
-  route = { ...route, screen: 'hub', biome: campaign.selectedBiome, hubAction: 'routes' }
+  hubPosition = outpostSpawn()
+  route = { ...route, screen: 'hub', biome: campaign.selectedBiome }
   return 'returned'
 }
 
@@ -579,22 +585,44 @@ function redraw(): void {
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
 function handleHubInput(key: string): boolean {
-  const choice = Number(key) - 1
-  if (!Number.isInteger(choice) || choice < 0 || !heir || !activeCourier) return false
-  const action = route.hubAction ?? 'routes'
-  const result = action === 'shop'
-    ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
-    : action === 'outfitter'
-      ? equipHubItem(heir, hubEquipment(heir)[choice] ?? '')
-      : undefined
-  if (!result) return false
-  hubNotice = result.message
-  if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
+  const action = route.hubAction
+  if (action) {
+    if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+    const choice = Number(key) - 1
+    if (!Number.isInteger(choice) || choice < 0 || !heir || !activeCourier) return true
+    const result = action === 'shop'
+      ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
+      : action === 'outfitter'
+        ? equipHubItem(heir, hubEquipment(heir)[choice] ?? '')
+        : undefined
+    if (!result) return true
+    hubNotice = result.message
+    if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
+    return true
+  }
+  if (key.toLowerCase() === 'c' || key === 'Enter') {
+    const interaction = outpostInteraction(hubPosition)
+    if (!interaction) { hubNotice = 'No service is within reach.'; return true }
+    hubNotice = undefined
+    if (interaction.destination === 'routes') route = { ...route, screen: 'area' }
+    else route = { ...route, hubAction: interaction.destination }
+    return true
+  }
+  const direction = directionFor(key)
+  if (!direction) return false
+  const previous = hubPosition
+  const move = moveOutpost(hubPosition, direction)
+  hubPosition = move.position
+  if (move.moved) {
+    renderer.setHeroFacingLeft(hubPosition.x < previous.x)
+    renderer.setHubMoved()
+    hubNotice = undefined
+  } else if (direction !== 'wait') hubNotice = 'The way is blocked.'
   return true
 }
 

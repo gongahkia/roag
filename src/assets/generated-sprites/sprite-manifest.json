@@ -65,6 +65,18 @@
       "props": ["ruins.brokenStatue", "ruins.ritualBrazier", "ruins.glyphTablet", "ruins.collapsedArch", "ruins.sealedCache", "ruins.monolith"]
     },
     {
+      "id": "hub-tiles",
+      "file": "hub-tiles.png",
+      "columns": 8,
+      "rows": 8
+    },
+    {
+      "id": "hub-npcs",
+      "file": "hub-npcs.png",
+      "columns": 4,
+      "rows": 4
+    },
+    {
       "id": "hero",
       "file": "hero.png",
       "columns": 4,

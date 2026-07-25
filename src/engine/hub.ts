@@ -1,11 +1,11 @@
 import { streamSeed } from '../rng'
 import { ITEM, shopStock } from '../content'
-import type { Biome, Hero, HubState, ItemId } from '../types'
+import type { Biome, Hero, HubState, ItemId, Point } from '../types'
 import { purchaseBlocker } from './economy'
 
 export type HubAction = 'routes' | 'roster' | 'shop' | 'outfitter'
-export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string }
-export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string }
+export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string; position?: Point }
+export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string; position?: Point }
 export interface HubMutation { changed: boolean; message: string }
 
 const packLimit = 12
@@ -17,7 +17,8 @@ export const hubView = (courierName: string, state: HubState, options: HubOption
   courierName,
   state,
   ...(options.hero ? { hero: options.hero, stock: hubStock(options.biome ?? 'mine'), equipment: hubEquipment(options.hero) } : {}),
-  ...(options.notice ? { notice: options.notice } : {})
+  ...(options.notice ? { notice: options.notice } : {}),
+  ...(options.position ? { position: options.position } : {})
 })
 
 export const buyHubItem = (hero: Hero, id: ItemId): HubMutation => {

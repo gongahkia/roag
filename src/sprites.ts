@@ -13,6 +13,8 @@ const sheetUrls = {
   'terrain-wilds': new URL('./assets/generated-sprites/terrain-wilds.png', import.meta.url).href,
   'terrain-caverns': new URL('./assets/generated-sprites/terrain-caverns.png', import.meta.url).href,
   'terrain-ruins': new URL('./assets/generated-sprites/terrain-ruins.png', import.meta.url).href,
+  'hub-tiles': new URL('./assets/generated-sprites/hub-tiles.png', import.meta.url).href,
+  'hub-npcs': new URL('./assets/generated-sprites/hub-npcs.png', import.meta.url).href,
   hero: new URL('./assets/generated-sprites/hero.png', import.meta.url).href,
   'hero-tidebound': new URL('./assets/generated-sprites/hero-tidebound.png', import.meta.url).href,
   'items-tidebound': new URL('./assets/generated-sprites/items-tidebound.png', import.meta.url).href,
@@ -140,22 +142,23 @@ export class TextureAtlas {
 
   onReady(listener: () => void): void { if (this.ready) listener(); else this.listeners.add(listener) }
 
-  draw(ctx: CanvasRenderingContext2D, sprite: SpriteRef | undefined, x: number, y: number, dim = false, flip = false, frameOverride?: number): boolean {
+  draw(ctx: CanvasRenderingContext2D, sprite: SpriteRef | undefined, x: number, y: number, dim = false, flip = false, frameOverride?: number, scale = 1): boolean {
     if (!sprite || !this.ready) return false
     const image = this.images.get(sprite.sheet)
     if (!image?.complete || !image.naturalWidth) return false
     const frame = frameOverride === undefined ? Math.floor(performance.now() / sprite.frameDurationMs) % sprite.frames : Math.max(0, Math.min(sprite.frames - 1, frameOverride))
     const sourceOffset = sprite.frameOffsets?.[frame] ?? sprite.sourceOffset
-    const destinationX = x * CELL_WIDTH - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize)
-    const destinationY = y * CELL_HEIGHT + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize)
+    const destinationSize = spriteSize * scale
+    const destinationX = x * CELL_WIDTH - 2 + Math.round((sourceOffset?.x ?? 0) * spriteSize / sourceSize) * scale
+    const destinationY = y * CELL_HEIGHT + Math.round((sourceOffset?.y ?? 0) * spriteSize / sourceSize) * scale
     if (!dim && !flip) {
-      ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, destinationX, destinationY, spriteSize, spriteSize)
+      ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, destinationX, destinationY, destinationSize, destinationSize)
       return true
     }
     ctx.save()
     ctx.globalAlpha = dim ? .38 : 1
-    if (flip) { ctx.translate(destinationX + spriteSize, 0); ctx.scale(-1, 1) }
-    ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, flip ? 0 : destinationX, destinationY, spriteSize, spriteSize)
+    if (flip) { ctx.translate(destinationX + destinationSize, 0); ctx.scale(-1, 1) }
+    ctx.drawImage(image, (sprite.column + frame) * sourceSize, sprite.row * sourceSize, sourceSize, sourceSize, flip ? 0 : destinationX, destinationY, destinationSize, destinationSize)
     ctx.restore()
     return true
   }
@@ -170,6 +173,17 @@ export class TextureAtlas {
 }
 
 export const textureAtlas = new TextureAtlas()
+
+export function drawHubTileSprite(ctx: CanvasRenderingContext2D, index: number, x: number, y: number, scale = 1): void {
+  const column = index % 8
+  const row = Math.floor(index / 8)
+  textureAtlas.draw(ctx, ref('hub-tiles', column, row), x, y, false, false, undefined, scale * CELL_WIDTH / spriteSize)
+}
+
+export function drawHubNpcSprite(ctx: CanvasRenderingContext2D, npc: 'keeper' | 'porter', x: number, y: number, walking = false): void {
+  const row = npc === 'keeper' ? walking ? 1 : 0 : walking ? 3 : 2
+  textureAtlas.draw(ctx, ref('hub-npcs', 0, row, 4, 180), x, y)
+}
 
 export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome: Biome, x: number, y: number, dim: boolean, clip = false): void {
   if (clip) {

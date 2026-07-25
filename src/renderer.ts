@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -12,7 +12,7 @@ import { presentTelegraph } from './renderer/telegraphs'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
-import { drawActorSprite, drawEffectSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
+import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
@@ -73,7 +73,7 @@ export class TerminalRenderer {
   private bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
   private bootstrapMessage = 'Loading courier records…'
   private persistenceState: 'saved' | 'saving' | 'error' = 'saved'
-  private hubOutpost?: HTMLImageElement
+  private hubAnimationUntil = 0
   private pendingAnimationFrame?: number
   private pendingAnimationTimer?: number
 
@@ -86,12 +86,6 @@ export class TerminalRenderer {
     ctx.imageSmoothingEnabled = false
     ctx.font = '12px "BigBlueTerm", monospace'
     ctx.textBaseline = 'top'
-    if (typeof Image !== 'undefined') {
-      const image = new Image()
-      image.onload = () => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode)
-      image.src = new URL('./assets/generated-sprites/hub-outpost.png', import.meta.url).href
-      this.hubOutpost = image
-    }
     this.loadFont()
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
   }
@@ -113,6 +107,7 @@ export class TerminalRenderer {
     if (!this.spriteMode) { this.heroAnimation = 'idle'; this.heroAnimationUntil = 0 }
   }
   setHeroFacingLeft(value: boolean): void { this.heroFacingLeft = value }
+  setHubMoved(): void { this.hubAnimationUntil = performance.now() + 220 }
   setBoardZoom(value: number): void {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
@@ -157,7 +152,7 @@ export class TerminalRenderer {
     else if (route.screen === 'title') this.title(courierMenu)
     else if (route.screen === 'createCourier' && courierDraft) this.createCourier(courierDraft)
     else if (route.screen === 'approach') this.approach(route, story, now)
-    else if (route.screen === 'hub') this.hub(route, hub)
+    else if (route.screen === 'hub') this.hub(route, hub, now)
     else if (route.screen === 'area') this.area(route)
     else if (route.screen === 'loading') this.loading(state, loading, now)
     else if (route.screen === 'analysis' && analysis) this.analysis(analysis)
@@ -174,7 +169,7 @@ export class TerminalRenderer {
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
     if (this.effects.needsFrame(now) || route.screen === 'loading' || Boolean(story)) this.scheduleRender()
-    else if (this.spriteMode && route.screen === 'level' && state) this.scheduleRender(spriteFrameInterval)
+    else if ((this.spriteMode && route.screen === 'level' && state) || (route.screen === 'hub' && now < this.hubAnimationUntil)) this.scheduleRender(spriteFrameInterval)
   }
 
   private scheduleRender(delay = 0): void {
@@ -254,7 +249,7 @@ export class TerminalRenderer {
     this.wrap(calling.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 30 + index, line, colors.text))
     this.text(40, 35, `KIT  ${calling.kit}`, colors.gold)
     this.text(40, 41, death[1], colors.text)
-    this.text(10, 51, 'TAB next field · ←→ choose · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
+    this.text(10, 51, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
 
   private creatorField(x: number, y: number, label: string, value: string, focus: boolean): void {
@@ -264,23 +259,26 @@ export class TerminalRenderer {
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
     const season = mineSeason(route.heirSeed ?? 0)
-    const width = 54
-    const height = 24
-    const x = Math.floor((TERMINAL_WIDTH - width) / 2)
-    const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
-    this.box(x, y, width, height, story?.scene.title ?? 'VILLAGE TRAILHEAD')
-    if (story) {
-      this.text(x + 6, y + 4, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}`, season.color)
-      this.wrap(storyText(story, now), 42).slice(0, 4).forEach((line, index) => this.text(x + 6, y + 7 + index * 2, line, colors.text))
-      this.ascii(x + 20, y + 15, animationFrame(story.scene.animation, now), colors.gold)
-      this.text(x + 6, y + 21, isStoryPageComplete(story, now) ? 'ANY KEY  continue · SPACE  skip' : 'ANY KEY  reveal · SPACE  skip', colors.green)
+    const x = 3
+    const y = 2
+    this.box(x, y, 90, 56, story?.scene.title ?? 'VILLAGE TRAILHEAD')
+    if (!story) {
+      this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false)
+      this.text(x + 5, 44, season.name.toUpperCase(), season.color)
+      this.text(x + 5, 47, 'Your village entrusts you with a sealed parcel.', colors.text)
+      this.text(x + 5, 50, season.scene, colors.text)
+      this.text(x + 5, 54, 'ENTER continue to village outpost · ESC return to title', colors.green)
       return
     }
-    this.text(x + 6, y + 5, season.name.toUpperCase(), season.color)
-    this.text(x + 6, y + 8, 'Your village entrusts you with a sealed parcel.', colors.text)
-    this.text(x + 6, y + 10, season.scene, colors.text)
-    this.text(x + 6, y + 12, 'ENTER  continue to village outpost', colors.green)
-    this.text(x + 6, y + 14, 'ESC    return to title', colors.dim)
+    const hero = story.scene.vignette === 'opening'
+      ? story.page ? { x: 23, y: 15 } : { x: 24, y: 29 }
+      : story.scene.vignette === 'succession'
+        ? story.page === 2 ? { x: 24, y: 27 } : { x: 21, y: 17 }
+        : { x: 24, y: 16 }
+    this.drawOutpostScene(24, 5, hero, story.scene.vignette, story.page, now < this.hubAnimationUntil)
+    this.text(x + 5, 42, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}  ${season.name.toUpperCase()}`, season.color)
+    this.wrap(storyText(story, now), 76).slice(0, 4).forEach((line, index) => this.text(x + 5, 44 + index * 2, line, colors.text))
+    this.text(x + 5, 54, isStoryPageComplete(story, now) ? 'ANY KEY continue · SPACE skip · ESC return' : 'ANY KEY reveal · SPACE skip · ESC return', colors.green)
   }
 
   private loading(state: RunState | undefined, loading: LoadingState | undefined, now: number): void {
@@ -301,49 +299,60 @@ export class TerminalRenderer {
     this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
   }
 
-  private hub(route: ScreenRoute, hub?: HubView): void {
-    const width = 84
-    const height = 50
-    const x = Math.floor((TERMINAL_WIDTH - width) / 2)
-    const y = Math.floor((TERMINAL_HEIGHT - height) / 2)
-    this.box(x, y, width, height, 'VILLAGE OUTPOST')
-    if (this.spriteMode && this.hubOutpost?.complete && this.hubOutpost.naturalWidth) {
-      const height = 192
-      const width = Math.round(height * this.hubOutpost.naturalWidth / this.hubOutpost.naturalHeight)
-      this.ctx.drawImage(this.hubOutpost, Math.round((this.canvas.width - width) / 2), (y + 4) * CH, width, height)
-    }
-    const action = route.hubAction ?? 'routes'
-    const detailY = this.spriteMode ? y + 23 : y + 9
-    this.text(x + 5, y + 3, `COURIER: ${hub?.courierName ?? 'Unassigned'} · CASH ${hub?.hero?.gold ?? 0}`, colors.gold)
-    this.text(x + 5, detailY - 3, `H trails  R companions  S supply shop  O outfitter  [${action.toUpperCase()}]`, colors.green)
-    if (action === 'routes') {
-      this.text(x + 5, detailY, `OPEN TRAILS: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}`, colors.text)
-      this.text(x + 5, detailY + 3, 'The route board marks every secured delivery trail.', colors.dim)
-    }
+  private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {
+    const position = hub?.position ?? outpostSpawn()
+    const nearby = outpostInteraction(position)
+    this.box(0, 2, 50, 38, 'VILLAGE OUTPOST')
+    this.drawOutpostScene(1, 3, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin)
+    this.box(52, 2, 42, 38, 'OUTPOST LEDGER')
+    this.text(55, 6, `COURIER  ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
+    this.text(55, 8, `CASH     ${hub?.hero?.gold ?? 0}`, colors.gold)
+    this.text(55, 11, 'OPEN TRAILS', colors.gold)
+    this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 34).forEach((line, index) => this.text(55, 13 + index, line, colors.text))
+    this.text(55, 18, 'NEARBY', colors.gold)
+    this.text(55, 20, nearby ? nearby.name.toUpperCase() : 'OPEN OUTPOST', nearby ? colors.green : colors.dim)
+    this.text(55, 24, 'ROUTE BOARD  north', colors.dim)
+    this.text(55, 26, 'SUPPLIES    west', colors.dim)
+    this.text(55, 28, 'OUTFITTER   east', colors.dim)
+    this.text(55, 30, 'COMPANIONS  south', colors.dim)
+    if (hub?.notice) this.wrap(hub.notice, 34).slice(0, 2).forEach((line, index) => this.text(55, 34 + index, line, colors.green))
+    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
+    this.ruleHorizontal(0, 49, 96)
+    this.text(1, 52, 'ARROWS / IOP K ; , . / NUMPAD move · C / ENTER interact · 1-6 select opened service', colors.dim)
+    this.text(1, 54, 'ESC close service / return title · V visual mode · +/- zoom · F1 settings', colors.dim)
+  }
+
+  private drawOutpostScene(x: number, y: number, hero: { x: number; y: number }, vignette: 'opening' | 'succession' | 'ending' | undefined, page: number, walking: boolean, heroOrigin: CourierDraft['origin'] = 'mineborn'): void {
+    const tileSprite = { grass: 0, path: 1, cobble: 2, water: 4, bridge: 5, fence: 7 } as const
+    const base = { grass: '#18301c', path: '#473924', cobble: '#26313b', water: '#12374a', bridge: '#47321c', fence: '#18301c' } as const
+    outpostMap.tiles.forEach((tile, index) => {
+      const column = index % outpostMap.width
+      const row = Math.floor(index / outpostMap.width)
+      this.ctx.fillStyle = base[tile]
+      this.ctx.fillRect((x + column) * CW, (y + row) * CH, CW, CH)
+      if (tile !== 'grass' || (column * 7 + row * 11) % 17 === 0) drawHubTileSprite(this.ctx, tileSprite[tile], x + column, y + row)
+    })
+    outpostMap.decorations.forEach(decoration => drawHubTileSprite(this.ctx, decoration.tile, x + decoration.x, y + decoration.y, decoration.scale))
+    const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
+    const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
+    drawHubNpcSprite(this.ctx, 'keeper', x + keeper.x, y + keeper.y, walking && vignette === 'ending')
+    drawHubNpcSprite(this.ctx, 'porter', x + porter.x, y + porter.y, walking && vignette === 'succession')
+    drawActorSprite(this.ctx, undefined, true, x + hero.x, y + hero.y, false, this.heroFacingLeft, walking ? 'walk' : 'idle', heroOrigin)
+  }
+
+  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView): void {
+    this.box(53, 22, 40, 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : 'COMPANION LODGE')
     if (action === 'roster') {
-      this.text(x + 5, detailY, 'OUTPOST ROSTER', colors.gold)
-      this.wrap(hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} (${biomeName[npc.biome]})`).join(', ') : 'No companions have joined you.', 66).slice(0, 3).forEach((line, index) => this.text(x + 5, detailY + 2 + index, line, colors.text))
+      this.wrap(hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} · ${biomeName[npc.biome]}`).join(', ') : 'No companions have joined you.', 34).slice(0, 5).forEach((line, index) => this.text(56, 26 + index * 2, line, colors.text))
+      return
     }
-    if (action === 'shop') {
-      this.text(x + 5, detailY, 'SUPPLY STALL · press 1-6 to buy', colors.gold)
-      ;(hub?.stock ?? []).slice(0, 6).forEach((id, index) => {
-        const item = ITEM[id]
-        this.text(x + 5, detailY + 2 + index * 2, `${index + 1}. ${item.name.padEnd(22)} ${String(item.value).padStart(3)} cash`, colors.text)
-      })
-    }
-    if (action === 'outfitter') {
-      this.text(x + 5, detailY, 'OUTFITTER · press 1-6 to equip from your pack', colors.gold)
-      const equipment = hub?.equipment ?? []
-      if (!equipment.length) this.text(x + 5, detailY + 2, 'No equipment is ready in your pack.', colors.dim)
-      equipment.slice(0, 6).forEach((id, index) => {
-        const item = ITEM[id]
-        const equipped = hub?.hero?.equipment[item.slot ?? 'mainHand'] === id
-        this.text(x + 5, detailY + 2 + index * 2, `${index + 1}. ${item.name.padEnd(22)} ${equipped ? 'EQUIPPED' : item.slot?.toUpperCase() ?? ''}`, equipped ? colors.green : colors.text)
-      })
-    }
-    if (hub?.notice) this.text(x + 5, y + height - 8, hub.notice, colors.green)
-    this.text(x + 5, y + height - 5, 'A / ENTER  choose a delivery trail', colors.green)
-    this.text(x + 5, y + height - 3, 'ESC        return to title', colors.dim)
+    const ids = action === 'shop' ? hub?.stock ?? [] : hub?.equipment ?? []
+    if (!ids.length) this.text(56, 27, action === 'shop' ? 'No stock is available.' : 'No equipment is ready.', colors.dim)
+    ids.slice(0, 6).forEach((id, index) => {
+      const item = ITEM[id]
+      const value = action === 'shop' ? `${String(item.value).padStart(3)} cash` : hub?.hero?.equipment[item.slot ?? 'mainHand'] === id ? 'EQUIPPED' : item.slot?.toUpperCase() ?? ''
+      this.text(56, 26 + index * 2, `${index + 1}. ${item.name.slice(0, 19).padEnd(19)} ${value}`, action === 'outfitter' && value === 'EQUIPPED' ? colors.green : colors.text)
+    })
   }
 
   private area(route: ScreenRoute): void {

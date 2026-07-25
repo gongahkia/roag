@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { initialRoute, navigate } from './routing'
 
 describe('screen routing', () => {
-  it('moves through title, Mine approach, hub, area, and level using keyboard input', () => {
+  it('routes title and approach, leaving hub destinations to physical interaction', () => {
     const title = initialRoute()
     const approach = navigate(title, 'n', false)
     const hub = navigate(approach, 'Enter', false)
-    const area = navigate(hub, 'a', false)
+    const area = { ...hub, screen: 'area' as const }
     const level = navigate(area, 'Enter', false)
     expect([title.screen, approach.screen, hub.screen, area.screen, level.screen]).toEqual(['title', 'approach', 'hub', 'area', 'level'])
+    expect(navigate(hub, 'a', false)).toBe(hub)
     expect(navigate(level, 'Escape', false).screen).toBe('area')
   })
 

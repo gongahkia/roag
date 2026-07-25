@@ -6,27 +6,10 @@ import type { Biome, LegacyRecord, RunState } from './types'
 export const TYPEWRITER_INTERVAL = 28
 
 export interface AsciiAnimation { frames: string[]; frameMs: number }
-export interface LoreScene { title: string; pages: string[]; animation?: AsciiAnimation }
+export type LoreVignette = 'opening' | 'succession' | 'ending'
+export interface LoreScene { title: string; pages: string[]; vignette: LoreVignette }
 export interface StoryState { scene: LoreScene; page: number; pageStartedAt: number; complete?: boolean }
 export interface LoadingState { phase: 'fade' | 'loading'; startedAt: number }
-
-export const trailAnimation: AsciiAnimation = { frameMs: 190, frames: [
-  '      .      \n   .  /|\\  .  \n  /\\ / | \\ /\\ \n /  V  @  V  \\\n/___|_/ \\_|___\\\n    /___\\',
-  '   .     .   \n    /|\\      \n  /\\ | \\ /\\ \n /  V @  V  \\\n/___|_/ \\_|___\\\n    /___\\',
-  ' .      .     \n   /|\\  .    \n  /\\ | \\ /\\ \n /  V  @ V  \\\n/___|_/ \\_|___\\\n    /___\\'
-] }
-
-export const threadsAnimation: AsciiAnimation = { frameMs: 170, frames: [
-  '  .-.-.      \n /  |  \\     \n|  / \\  |    \n| /   \\ |    \n|/  *  \\|    \n \\  |  /     \n  `-^-`',
-  '  .-.-.      \n /  |  \\     \n|  / \\  |    \n|/     \\|    \n|\\  *  /|    \n \\  |  /     \n  `-^-`',
-  '  .-.-.      \n /  |  \\     \n| /   \\ |    \n|/  *  \\|    \n|\\     /|    \n \\  |  /     \n  `-^-`'
-] }
-
-export const deliveryAnimation: AsciiAnimation = { frameMs: 190, frames: [
-  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ - ]",
-  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ = ]",
-  "    .----.    \n  .'  __  '.  \n |  |__|  |  \n  '.______.'  \n     [ + ]"
-] }
 
 export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
   '  [=     ]  \n  /|  .  |\\ \n /_|_____|_\\\n    / \\',
@@ -51,7 +34,7 @@ export const openingLore = (heirSeed: number, courierName: string): LoreScene =>
     'A sealed parcel waits for a steady hand.',
     'The outpost keeps a parcel for the next courier.'
   ])
-  return { title: 'VILLAGE TRAILHEAD', animation: trailAnimation, pages: [`${opening}\n${season.scene}`, `${courierName} takes the courier\'s mark.\n${charge}`] }
+  return { title: 'VILLAGE TRAILHEAD', vignette: 'opening', pages: [`${opening}\n${season.scene}`, `${courierName} takes the courier\'s mark.\n${charge}`] }
 }
 
 export const successionLore = (record: LegacyRecord, successorSeed: number): LoreScene => {
@@ -68,7 +51,7 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
     'No delivery ends while another hand answers.'
   ])
   return {
-    title: 'THREADS OF THE TRAIL', animation: threadsAnimation,
+    title: 'THREADS OF THE TRAIL', vignette: 'succession',
     pages: [
       `${record.heirName} fell in ${biomeName[record.biome]}, trail ${record.floor + 1}.\nThe sealed parcel slipped into the dark.`,
       `${passage}\n${record.heirName}\'s path reaches a new courier.`,
@@ -93,7 +76,7 @@ export const endingLore = (state: RunState, completedAreas: readonly Biome[]): L
   const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the old road'
   const kills = state.telemetry?.kills ?? 0
   return {
-    title: 'THE LAST MILE', animation: deliveryAnimation,
+    title: 'THE LAST MILE', vignette: 'ending',
     pages: [
       `${state.hero.name} brings the sealed parcel to its keeper.\n${arrival}`,
       `The trail marks return from ${route}.\n${rescue} ${kills} threats were turned aside.`,
