@@ -103,7 +103,7 @@ window.addEventListener('keydown', keyboardEvent => {
   if (shouldPreventKeyboardDefault(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
   if (route.screen !== 'level') {
     const input = command ?? keyboardEvent.key
-    if (route.screen === 'hub' && handleHubInput(input)) { audio.play([event('menu')]); redraw(); return }
+    if (route.screen === 'hub' && handleHubInput(input, keyboardEvent.shiftKey)) { audio.play([event('menu')]); redraw(); return }
     let nextRoute = navigate(route, input, Boolean(saved))
     if (nextRoute === route) return
     if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
@@ -591,7 +591,7 @@ function redraw(): void {
   syncAutoplay()
 }
 
-function handleHubInput(key: string): boolean {
+function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
     if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
@@ -620,9 +620,14 @@ function handleHubInput(key: string): boolean {
   const direction = directionFor(key)
   if (!direction) return false
   const previous = hubPosition
-  const move = moveOutpost(hubPosition, direction)
-  hubPosition = move.position
-  if (move.moved) {
+  let moved = false
+  for (let step = 0; step < (run ? 5 : 1); step++) {
+    const move = moveOutpost(hubPosition, direction)
+    if (!move.moved) break
+    hubPosition = move.position
+    moved = true
+  }
+  if (moved) {
     renderer.setHeroFacingLeft(hubPosition.x < previous.x)
     renderer.setHubMoved()
     hubNotice = undefined

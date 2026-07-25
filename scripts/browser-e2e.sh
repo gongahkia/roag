@@ -70,7 +70,8 @@ test "$ascii_frame" != "$zoom_frame"
 "${CLI[@]}" press -
 zoom="$("${CLI[@]}" eval "localStorage.getItem('jomon-board-zoom')")"
 grep --fixed-strings --quiet '1' <<<"$zoom"
-for _ in {1..12}; do "${CLI[@]}" press ArrowUp >/dev/null; done
+"${CLI[@]}" press Shift+ArrowUp >/dev/null
+for _ in {1..7}; do "${CLI[@]}" press ArrowUp >/dev/null; done
 for _ in {1..15}; do "${CLI[@]}" press ArrowLeft >/dev/null; done
 "${CLI[@]}" press c
 "${CLI[@]}" press 1

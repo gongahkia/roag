@@ -14,7 +14,7 @@ import { defaultSettings, settingChoices, settingsPageCount, type GameSettings }
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Hero, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { getTile } from './world'
 
@@ -314,27 +314,39 @@ export class TerminalRenderer {
     const nearby = outpostInteraction(position)
     const routeBoard = outpostMap.interactables.find(interactable => interactable.destination === 'routes')!
     const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - 1)
-    this.box(0, 2, 50, 38, 'VILLAGE OUTPOST')
-    this.drawOutpostViewport(1, 4, position, () => this.drawOutpostScene(1, 4, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
-    this.box(52, 2, 42, 38, 'OUTPOST LEDGER')
-    this.text(55, 6, `COURIER  ${hub?.courierName ?? 'Unassigned'}`, colors.gold)
-    this.text(55, 8, `CASH     ${hub?.hero?.gold ?? 0}`, colors.gold)
-    this.text(55, 11, 'OPEN TRAILS', colors.gold)
-    this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 34).forEach((line, index) => this.text(55, 13 + index, line, colors.text))
-    this.text(55, 18, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
-    this.text(55, 20, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
-    this.text(55, 24, 'ROUTE BOARD  north', colors.dim)
-    this.text(55, 26, 'SUPPLIES    west', colors.dim)
-    this.text(55, 28, 'OUTFITTER   east', colors.dim)
-    this.text(55, 30, 'COMPANIONS  south', colors.dim)
+    this.ctx.fillStyle = colors.ink
+    this.ctx.fillRect(0, 0, MAP_WIDTH * CW, MAP_HEIGHT * CH)
+    this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
+    this.ruleVertical(MAP_WIDTH, 0, 50)
+    this.hubSidebar(hub, nearby, routeSteps)
     if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
-    if (hub?.notice) {
-      this.text(52, 42, 'OUTPOST NOTICE', colors.gold)
-      this.wrap(hub.notice, 40).slice(0, 2).forEach((line, index) => this.text(52, 44 + index * 2, line, colors.green))
-    }
-    this.ruleHorizontal(0, 49, 96)
-    this.text(1, 52, 'ARROWS / IOP K ; , . / NUMPAD move · C / ENTER interact · 1-6 select opened service', colors.dim)
-    this.text(1, 54, `ESC close service / return title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
+    this.hubLog(hub, nearby, routeSteps)
+  }
+
+  private hubSidebar(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
+    const hero = hub?.hero
+    this.text(50, 1, 'OUTPOST', colors.gold)
+    this.text(50, 2, 'VILLAGE TRAILHEAD', colors.text)
+    this.ruleHorizontal(50, 3, 45)
+    if (hero) this.courierSheet(hero)
+    else this.text(50, 6, 'Courier record unavailable.', colors.red)
+    this.text(50, 32, 'OPEN TRAILS', colors.gold)
+    this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
+    this.text(50, 37, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
+    this.text(50, 38, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
+    this.text(50, 44, nearby?.destination === 'routes' ? 'OBJECTIVE: READY — Choose a trail.' : 'OBJECTIVE: Reach the route board.', colors.green)
+    this.text(50, 45, nearby?.destination === 'routes' ? 'NOW: C / ENTER opens delivery trails.' : `NOW: ↑ ${routeSteps} tile${routeSteps === 1 ? '' : 's'} · C interacts.`, colors.text)
+  }
+
+  private hubLog(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
+    const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Route Board: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} north.`
+    const lines = [hub?.notice ?? context, hub?.notice ? context : `Open trails: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
+    this.ruleHorizontal(0, 35, 48)
+    lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
+    this.ruleHorizontal(0, 50, 96)
+    this.text(1, 52, 'ARROWS/IOP K ; , . / NUMPAD move · SHIFT run · C interact · 1-6 select opened service', colors.dim)
+    this.text(1, 53, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
+    this.text(1, 54, 'ESC close service / return title', colors.dim)
   }
 
   private drawOutpostViewport(x: number, y: number, focus: { x: number; y: number }, draw: () => void): void {
@@ -568,6 +580,26 @@ export class TerminalRenderer {
     this.text(50, 1, 'DELIVERY', colors.gold)
     this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 45)
+    this.courierSheet(hero)
+    const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
+    this.text(50, 32, 'ON GROUND', colors.gold)
+    if (!ground.length) this.text(50, 33, 'none', colors.dim)
+    ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${ITEM[item.id]?.glyph ?? '*'} ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, ITEM[item.id]?.color ?? colors.text))
+    this.text(50, 37, 'VISIBLE THREATS', colors.gold)
+    const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
+    foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
+    state.floor.telegraphs?.slice(0, 2).forEach((telegraph, i) => {
+      const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
+      const presentation = presentTelegraph(telegraph, state.turn, source)
+      this.text(50, 41 + i, presentation.label.slice(0, 45), presentation.color)
+    })
+    const readout = fieldReadout(state)
+    const objective = state.floor.objective
+    this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
+    this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
+  }
+
+  private courierSheet(hero: Hero): void {
     this.text(50, 5, `HP    ${String(hero.health).padStart(2)}/${String(hero.maxHealth).padStart(2)}`, colors.red)
     this.meter(65, 5, 28, hero.health, hero.maxHealth, colors.red)
     this.text(50, 6, `FOCUS ${String(hero.focus).padStart(2)}/${String(hero.maxFocus).padStart(2)}`, colors.blue)
@@ -587,22 +619,6 @@ export class TerminalRenderer {
     if (!inventory.length) this.text(50, 22, 'pack empty', colors.dim)
     inventory.forEach((id, index) => this.text(50, 22 + index, `${index + 1}. ${ITEM[id].glyph} ${ITEM[id].name}`, ITEM[id].color))
     if (hero.inventory.length > inventory.length) this.text(50, 30, `+${hero.inventory.length - inventory.length} more · U/D/T/E`, colors.dim)
-    const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
-    this.text(50, 32, 'ON GROUND', colors.gold)
-    if (!ground.length) this.text(50, 33, 'none', colors.dim)
-    ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${ITEM[item.id]?.glyph ?? '*'} ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, ITEM[item.id]?.color ?? colors.text))
-    this.text(50, 37, 'VISIBLE THREATS', colors.gold)
-    const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
-    foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
-    state.floor.telegraphs?.slice(0, 2).forEach((telegraph, i) => {
-      const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
-      const presentation = presentTelegraph(telegraph, state.turn, source)
-      this.text(50, 41 + i, presentation.label.slice(0, 45), presentation.color)
-    })
-    const readout = fieldReadout(state)
-    const objective = state.floor.objective
-    this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
-    this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
   }
 
   private log(state: RunState): void {
