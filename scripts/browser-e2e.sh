@@ -40,6 +40,11 @@ grep --fixed-strings --quiet 'level' <<<"$route"
 "${CLI[@]}" press f
 autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
 grep --fixed-strings --quiet 'visible' <<<"$autoplay"
+"${CLI[@]}" press v
+visual="$("${CLI[@]}" eval "el => localStorage.getItem('jomon-visual-mode')" e3)"
+grep --fixed-strings --quiet 'sprites' <<<"$visual"
+autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
+grep --fixed-strings --quiet 'visible' <<<"$autoplay"
 "${CLI[@]}" press f
 autoplay="$("${CLI[@]}" eval "el => el.dataset.autoplay" e3)"
 grep --fixed-strings --quiet 'omniscient' <<<"$autoplay"

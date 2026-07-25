@@ -86,9 +86,10 @@ window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.key === 'F2' && persistenceState === 'error') { keyboardEvent.preventDefault(); retryFailedPersistence(); return }
   if (keyboardEvent.key === 'Tab' && shouldPreventKeyboardDefault(keyboardEvent.key)) keyboardEvent.preventDefault()
   if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
+  const command = commandForKey(keyboardEvent.key, settings)
+  if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
-  const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'analysis') {
     if (!keyboardEvent.repeat) { keyboardEvent.preventDefault(); continueAnalysis() }
     return
