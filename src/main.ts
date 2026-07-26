@@ -7,6 +7,7 @@ import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
 import { buyHubItem, completeCampaignArea, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
+import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -85,10 +86,10 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (keyboardEvent.key === 'F2' && persistenceState === 'error') { keyboardEvent.preventDefault(); retryFailedPersistence(); return }
   if (keyboardEvent.key === 'Tab' && shouldPreventKeyboardDefault(keyboardEvent.key)) keyboardEvent.preventDefault()
-  if (route.screen === 'level' && state?.status === 'playing' && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
+  if ((route.screen === 'hub' || route.screen === 'area' || route.screen === 'level' && state?.status === 'playing') && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
-  if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off') { keyboardEvent.preventDefault(); return }
+  if (canAutoplay()) { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'analysis') {
@@ -574,7 +575,10 @@ function finalizeAutoplay(outcome: AutoplayTerminal, reason: string): void {
   renderer.setAutoplayDiagnostic(autoplayDiagnostic)
 }
 
-function canAutoplay(): boolean { return route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' }
+function canAutoplay(): boolean {
+  if (settings.autoplayMode === 'off') return false
+  return route.screen === 'level' && state?.status === 'playing' || route.screen === 'hub' && !route.hubAction || route.screen === 'area'
+}
 
 function syncAutoplay(): void {
   if (!canAutoplay()) {
@@ -585,7 +589,31 @@ function syncAutoplay(): void {
   if (autoplayTimer !== undefined) return
   autoplayTimer = window.setTimeout(() => {
     autoplayTimer = undefined
-    if (!state || !canAutoplay()) return
+    if (!canAutoplay()) return
+    if (route.screen === 'hub') {
+      const command = outpostAutoplayCommand(hubPosition)
+      if (!command) {
+        settings = { ...settings, autoplayMode: 'off' }
+        saveSettings(settings)
+        hubNotice = 'Autoplay halted: route board is unreachable.'
+        redraw()
+        return
+      }
+      handleHubInput(command)
+      audio.play([event('menu')])
+      redraw()
+      return
+    }
+    if (route.screen === 'area') {
+      const nextRoute = navigate(route, 'Enter', Boolean(saved))
+      if (nextRoute.screen !== 'level') return
+      start()
+      route = nextRoute
+      audio.play([event('menu')])
+      redraw()
+      return
+    }
+    if (!state) return
     const decision = autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, autoplayContext)
     if (!decision) {
       const reason = autoplayContext.lastReason ?? 'no legal progress action'

@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from './content'
-import { autoplayPolicyLabel } from './autoplay'
+import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
@@ -328,7 +328,7 @@ export class TerminalRenderer {
     this.ctx.fillStyle = colors.ink
     this.ctx.fillRect(0, 0, MAP_WIDTH * CW, MAP_HEIGHT * CH)
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
-    this.ruleVertical(MAP_WIDTH, 0, 50)
+    this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
     if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
     this.hubLog(hub, nearby, routeSteps)
@@ -347,6 +347,8 @@ export class TerminalRenderer {
     this.text(50, 38, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
     this.text(50, 44, nearby?.destination === 'routes' ? 'OBJECTIVE: READY — Choose a trail.' : 'OBJECTIVE: Reach the route board.', colors.green)
     this.text(50, 45, nearby?.destination === 'routes' ? 'NOW: C / ENTER opens delivery trails.' : `NOW: ↑ ${routeSteps} tile${routeSteps === 1 ? '' : 's'} · C interacts.`, colors.text)
+    this.text(50, 47, `AUTOPILOT: ${autoplayModeLabel(this.lastAutoplayMode)}`, this.lastAutoplayMode === 'off' ? colors.dim : colors.green)
+    if (hero) this.boonRelicLists(hero, 49)
   }
 
   private hubLog(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
@@ -354,10 +356,11 @@ export class TerminalRenderer {
     const lines = [hub?.notice ?? context, hub?.notice ? context : `Open trails: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
     this.ruleHorizontal(0, 35, 48)
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
-    this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, 'ARROWS/IOP K ; , . / NUMPAD move · SHIFT run · C interact · 1-6 select opened service', colors.dim)
-    this.text(1, 53, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
-    this.text(1, 54, 'ESC close service / return title', colors.dim)
+    this.ruleHorizontal(0, 50, MAP_WIDTH)
+    this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
+    this.text(1, 53, 'ACT C interact · 1-6 service · ESC close', colors.dim)
+    this.text(1, 54, `F auto ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F policy`, colors.dim)
+    this.text(1, 55, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
   }
 
   private drawOutpostViewport(x: number, y: number, focus: { x: number; y: number }, draw: () => void): void {
@@ -462,7 +465,7 @@ export class TerminalRenderer {
     this.effects.drawMap(this.ctx)
     if (this.spriteMode) this.spriteFog(state)
     this.ctx.restore()
-    this.ruleVertical(MAP_WIDTH, 0, 50)
+    this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
   }
 
   private drawMapCell(state: RunState, overlays: MapOverlays, x: number, y: number): void {
@@ -605,19 +608,19 @@ export class TerminalRenderer {
     this.text(50, 37, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
     foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
-    state.floor.telegraphs?.slice(0, 2).forEach((telegraph, i) => {
+    const telegraphs = state.floor.telegraphs?.slice(0, Math.max(0, 3 - foes.length)) ?? []
+    telegraphs.forEach((telegraph, i) => {
       const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
       const presentation = presentTelegraph(telegraph, state.turn, source)
-      this.text(50, 41 + i, presentation.label.slice(0, 45), presentation.color)
+      this.text(50, 38 + foes.length + i, presentation.label.slice(0, 45), presentation.color)
     })
+    if (!foes.length && !telegraphs.length) this.text(50, 38, 'none', colors.dim)
     const readout = fieldReadout(state)
     const objective = state.floor.objective
     this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
-    this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
     const milestones = state.floor.milestones.filter(current => current.discovered && !current.claimed)
-    const boons = Object.entries(hero.boons ?? {}).filter((entry): entry is [string, number] => (entry[1] ?? 0) > 0).slice(0, 3).map(([id, rank]) => `${boonFor(id).glyph}${rank}`).join(' ')
-    const relics = (hero.relics ?? []).map(id => relicFor(id).glyph).join('')
-    this.text(50, 47, `MARKS ${milestones.length} seen · BOONS ${boons || 'none'} · RELICS ${relics || 'none'}`.slice(0, 45), colors.dim)
+    this.text(50, 45, `MARKS ${milestones.length} seen`, colors.dim)
+    this.boonRelicLists(hero, 48)
   }
 
   private courierSheet(hero: Hero): void {
@@ -649,14 +652,33 @@ export class TerminalRenderer {
     })
   }
 
+  private boonRelicLists(hero: Hero, y: number): void {
+    const boons = Object.entries(hero.boons ?? {}).filter((entry): entry is [string, number] => (entry[1] ?? 0) > 0)
+    const relics = hero.relics ?? []
+    this.text(50, y, 'BOONS', colors.gold)
+    this.text(72, y, 'RELICS', colors.gold)
+    if (!boons.length) this.text(50, y + 1, 'none', colors.dim)
+    boons.slice(0, 3).forEach(([id, rank], index) => {
+      const boon = boonFor(id)
+      this.text(50, y + 1 + index, `${index + 1}. ${boon.glyph} ${boon.name.slice(0, 12)} R${rank}`, colors.purple)
+    })
+    if (boons.length > 3) this.text(50, y + 4, `+${boons.length - 3} more`, colors.dim)
+    if (!relics.length) this.text(72, y + 1, 'none', colors.dim)
+    relics.slice(0, 3).forEach((id, index) => {
+      const relic = relicFor(id)
+      this.text(72, y + 1 + index, `${index + 1}. ${relic.glyph} ${relic.name.slice(0, 14)}`, colors.gold)
+    })
+  }
+
   private log(state: RunState): void {
     this.ruleHorizontal(0, 35, 48)
     const lines = state.messages.flatMap((message, messageIndex) => this.wrap(message, 46).map(line => ({ line, color: messageIndex === 0 ? colors.text : colors.dim }))).slice(0, 14)
     lines.forEach((entry, index) => this.text(1, 36 + index, entry.line, entry.color))
-    this.ruleHorizontal(0, 50, 96)
-    this.text(1, 52, 'ARROWS/IOP K ; , . / NUMPAD move · SHIFT run · ALT cast · L rest · Z readout', colors.dim)
-    this.text(1, 53, 'G get U use D drop T throw E equip A skills S charm B bomb R rope C act Y tools W rewind Q exit', colors.dim)
-    this.text(1, 54, `F autoplay · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)} · ESC pause · turn ${state.turn}`, colors.dim)
+    this.ruleHorizontal(0, 50, MAP_WIDTH)
+    this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
+    this.text(1, 53, 'ACT G/U/D/T/E · A skills · S charm · C act', colors.dim)
+    this.text(1, 54, 'B bomb · R rope · Y tools · W rewind · Q exit', colors.dim)
+    this.text(1, 55, `F ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)}`, colors.dim)
   }
 
   private modal(state: RunState, modal: Modal): void {
