@@ -50,7 +50,7 @@ uv run python -m unittest discover -s tests
 uv run python -m compileall -q src tests
 uv run ruff check .
 uv run kenjaku status --json
-uv run kenjaku play --output-dir runs/play --no-serve
+cd web && npm ci && npm test && npm run build && cd ..
 uv run kenjaku benchmark-discard data/fixtures/tenhou --epochs 3 --models fast --report runs/fixture-discard-benchmark.json
 uv run kenjaku benchmark-report-summary runs/fixture-discard-benchmark.json
 ```

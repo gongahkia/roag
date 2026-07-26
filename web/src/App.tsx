@@ -11,7 +11,9 @@ import {
   deserializeGame,
   gameStateDigest,
   legalActions,
-  tileGlyph
+  restoreTimelineFrame,
+  tileGlyph,
+  undoLastHumanAction
 } from "./game/engine";
 import { exportGameReplay, loadLatestLocalGame, saveLocalGame } from "./game/persistence";
 import { decideAction, DEFAULT_POLICY, loadPolicyArtifact } from "./game/policy";
@@ -27,11 +29,16 @@ function App() {
   const [seed, setSeed] = useState(INITIAL_SEED);
   const [showAllHands, setShowAllHands] = useState(false);
   const [motionEnabled, setMotionEnabled] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const [replayIndex, setReplayIndex] = useState(0);
   const restored = useRef(false);
   const legal = useMemo(() => legalActions(game), [game]);
   const decision = useMemo(() => legal.length > 0 ? decideAction(game, legal, policy) : null, [game, legal, policy]);
   const digest = gameStateDigest(game);
   const lastEvent = game.history.at(-1);
+  const topOpponent = 2;
+  const leftOpponent = game.players === 4 ? 3 : 1;
+  const rightOpponent = game.players === 4 ? 1 : null;
+  const replayFrame = game.timeline[replayIndex] ?? null;
 
   useEffect(() => {
     let active = true;
@@ -75,6 +82,10 @@ function App() {
     });
   }, [game]);
 
+  useEffect(() => {
+    setReplayIndex(Math.max(0, game.timeline.length - 1));
+  }, [game.version]);
+
   function commit(action: GameAction) {
     setGame((current) => settle(applyAction(current, action), policy));
   }
@@ -89,6 +100,17 @@ function App() {
     setGame(settle(createGame({ players, humanSeat: 0, seed: normalized }), policy));
     setSeed(normalized);
     setStorageStatus(`Started a deterministic ${players}-player table.`);
+  }
+
+  function undo() {
+    setGame((current) => undoLastHumanAction(current));
+    setStorageStatus("Rewound to the state before your last local action.");
+  }
+
+  function restoreFrame() {
+    if (replayFrame === null) return;
+    setGame((current) => restoreTimelineFrame(current, replayIndex));
+    setStorageStatus(`Restored local replay frame ${replayIndex + 1}.`);
   }
 
   function exportReplay() {
@@ -132,6 +154,7 @@ function App() {
           </label>
           <button className="command-button" onClick={() => newGame(4)} type="button">New 4P</button>
           <button className="command-button" onClick={() => newGame(3)} type="button">New 3P</button>
+          <button className="command-button" disabled={!game.timeline.some((frame) => frame.event.seat === game.humanSeat && frame.event.action !== null)} onClick={undo} type="button">Undo</button>
           <button className="command-button" onClick={exportReplay} type="button">Export</button>
           <label className="command-button import-button">
             <span>Import</span>
@@ -160,10 +183,10 @@ function App() {
 
         <div className="table-grid">
           <div className="opponent-row top-seat">
-            <SeatPanel game={game} seat={2 % game.players} showTiles={showAllHands} />
+            <SeatPanel game={game} seat={topOpponent} showTiles={showAllHands} />
           </div>
           <div className="opponent-row left-seat">
-            <SeatPanel game={game} seat={3 % game.players} showTiles={showAllHands} />
+            <SeatPanel game={game} seat={leftOpponent} showTiles={showAllHands} />
           </div>
           <section aria-label="ASCII table field" className="table-core">
             <AsciiField seed={`${digest}:${lastEvent?.id ?? "boot"}`} />
@@ -181,9 +204,7 @@ function App() {
               ))}
             </div>
           </section>
-          <div className="opponent-row right-seat">
-            <SeatPanel game={game} seat={1 % game.players} showTiles={showAllHands} />
-          </div>
+          {rightOpponent === null ? <div aria-hidden="true" className="seat-spacer" /> : <div className="opponent-row right-seat"><SeatPanel game={game} seat={rightOpponent} showTiles={showAllHands} /></div>}
         </div>
 
         <section aria-label="Your hand" className="hand-console">
@@ -252,6 +273,8 @@ function App() {
 
         <section className="panel history-panel" aria-labelledby="history-heading">
           <div className="panel-heading"><div><p className="panel-kicker">Append-only replay</p><h2 id="history-heading">History</h2></div><span>{game.history.length} events</span></div>
+          {game.timeline.length > 0 ? <label className="replay-scrub"><span>Frame {replayIndex + 1} / {game.timeline.length}</span><input aria-label="Replay frame" max={game.timeline.length - 1} min="0" onChange={(event) => setReplayIndex(Number(event.currentTarget.value))} type="range" value={replayIndex} /></label> : null}
+          {replayFrame ? <div className="replay-frame"><span>v{replayFrame.state.version} / {replayFrame.state.phase} / {replayFrame.state.wall.length} wall</span><b>{replayFrame.event.message}</b><button className="text-button" disabled={replayIndex === game.timeline.length - 1} onClick={restoreFrame} type="button">Restore this frame</button></div> : null}
           <ol className="event-log" aria-label="Game event history">
             {[...game.history].reverse().slice(0, 14).map((event) => <li key={event.id}><span>{String(event.version).padStart(3, "0")}</span>{event.message}</li>)}
           </ol>

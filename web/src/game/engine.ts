@@ -4,8 +4,10 @@ import {
   type GameAction,
   type GameConfig,
   type GameEvent,
+  type GameFrame,
   type GameMeld,
   type GameSave,
+  type GameSnapshot,
   type GameState,
   type PendingDiscard,
   type PlayerCount,
@@ -65,7 +67,8 @@ export function createGame(config: GameConfig): GameState {
     drawnTile: null,
     pendingDiscard: null,
     terminal: null,
-    history: freezeArray([])
+    history: freezeArray([]),
+    timeline: freezeArray([])
   };
   const started = transition(state, {}, {
     kind: "game_started",
@@ -195,7 +198,7 @@ export function deserializeGame(value: unknown): GameState {
   if (state.humanSeat < 0 || state.humanSeat >= state.players || !Array.isArray(state.hands)) {
     throw new Error("invalid browser game player state");
   }
-  return cloneState(state);
+  return cloneState({ ...state, timeline: Array.isArray(state.timeline) ? state.timeline : [] });
 }
 
 export function gameStateDigest(state: GameState): string {
@@ -214,6 +217,29 @@ export function gameStateDigest(state: GameState): string {
     terminal: state.terminal
   });
   return hash(material).toString(16).padStart(8, "0");
+}
+
+export function restoreTimelineFrame(state: GameState, index: number): GameState {
+  if (!Number.isInteger(index) || index < 0 || index >= state.timeline.length) {
+    throw new Error("timeline frame is outside the local game history");
+  }
+  const timeline = state.timeline.slice(0, index + 1);
+  const snapshot = cloneSnapshot(timeline[index].state);
+  return Object.freeze({
+    ...snapshot,
+    history: freezeArray(timeline.map((frame) => cloneEvent(frame.event))),
+    timeline: freezeArray(timeline.map((frame) => Object.freeze({ event: cloneEvent(frame.event), state: cloneSnapshot(frame.state) })))
+  });
+}
+
+export function undoLastHumanAction(state: GameState): GameState {
+  for (let index = state.timeline.length - 1; index >= 0; index -= 1) {
+    const event = state.timeline[index].event;
+    if (event.seat === state.humanSeat && event.action !== null) {
+      return index === 0 ? state : restoreTimelineFrame(state, index - 1);
+    }
+  }
+  return state;
 }
 
 export function actionKey(action: GameAction): string {
@@ -283,7 +309,7 @@ function legalReactionActions(state: GameState, seat: number): readonly GameActi
   }
   if (countTile(hand, pending.tile) >= 2) actions.push({ kind: "pon", consumed: takeTiles(hand, pending.tile, 2) });
   if (countTile(hand, pending.tile) >= 3) actions.push({ kind: "minkan", consumed: takeTiles(hand, pending.tile, 3) });
-  if (seat === nextSeat(pending.fromSeat, state.players)) actions.push(...chiActions(hand, pending.tile));
+  if (state.players === 4 && seat === nextSeat(pending.fromSeat, state.players)) actions.push(...chiActions(hand, pending.tile));
   return freezeArray(actions);
 }
 
@@ -609,10 +635,20 @@ function transition(
     id: `${state.id}:${String(version).padStart(6, "0")}`,
     version
   });
-  return Object.freeze({ ...state, ...updates, version, history: freezeArray([...state.history, nextEvent]) });
+  const next = { ...state, ...updates, version, history: freezeArray([...state.history, nextEvent]) };
+  const frame: GameFrame = Object.freeze({ event: nextEvent, state: cloneSnapshot(next) });
+  return Object.freeze({ ...next, timeline: freezeArray([...state.timeline, frame]) });
 }
 
 function cloneState(state: GameState): GameState {
+  return Object.freeze({
+    ...cloneSnapshot(state),
+    history: freezeArray(state.history.map(cloneEvent)),
+    timeline: freezeArray(state.timeline.map((frame) => Object.freeze({ event: cloneEvent(frame.event), state: cloneSnapshot(frame.state) })))
+  });
+}
+
+function cloneSnapshot(state: GameSnapshot): GameSnapshot {
   return Object.freeze({
     ...state,
     names: freezeArray(state.names),
@@ -626,9 +662,12 @@ function cloneState(state: GameState): GameState {
     points: freezeArray(state.points),
     riichiSeats: freezeArray(state.riichiSeats),
     pendingDiscard: state.pendingDiscard === null ? null : Object.freeze({ ...state.pendingDiscard, reactionSeats: freezeArray(state.pendingDiscard.reactionSeats) }),
-    terminal: state.terminal === null ? null : Object.freeze({ ...state.terminal, score: cloneScore(state.terminal.score) }),
-    history: freezeArray(state.history.map((event) => Object.freeze({ ...event, action: event.action === null ? null : cloneAction(event.action) })))
+    terminal: state.terminal === null ? null : Object.freeze({ ...state.terminal, score: cloneScore(state.terminal.score) })
   });
+}
+
+function cloneEvent(event: GameEvent): GameEvent {
+  return Object.freeze({ ...event, action: event.action === null ? null : cloneAction(event.action) });
 }
 
 function cloneScore(score: ScoreSummary | null): ScoreSummary | null {

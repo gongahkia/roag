@@ -27,8 +27,11 @@ fast discard models: frequency, linear, risk_context_linear, defense_context_lin
 
 ```bash
 mkdir -p runs/launch-media docs/media
-PYTHONPATH=src python3.13 -m kenjaku play \
-  --output-dir runs/launch-media/play --no-serve
+(
+  cd web
+  npm ci
+  npm run build
+)
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
   data/fixtures/tenhou --output runs/launch-media/decision-snapshots.jsonl --limit 20
 PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
@@ -51,18 +54,18 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard \
 
 ## Capture Browser Artifacts
 
-Run the gameplay server in one shell:
+Run the browser-table preview in one shell:
 
 ```bash
-cd runs/launch-media/play
-python3.13 -m http.server 8876 --bind 127.0.0.1
+cd web
+npm run preview -- --host 127.0.0.1 --port 8876 --strictPort
 ```
 
 Capture the rendered gameplay surface from another shell:
 
 ```bash
 PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
-"$PWCLI" open http://127.0.0.1:8876/index.html
+"$PWCLI" open http://127.0.0.1:8876/
 "$PWCLI" resize 1280 720
 "$PWCLI" screenshot --filename runs/launch-media/play.png --full-page
 "$PWCLI" close

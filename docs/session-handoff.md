@@ -293,10 +293,9 @@ Last updated: 2026-06-13.
 - `replay-public-summary` reads accepted intake JSONL, reuses the same share gate, and writes
   `kenjaku-replay-public-summary-v0` reports with public-safe summaries, URI fingerprints, and
   explicit blocked reasons. It omits raw replay data, accepted queue rows, and raw replay URLs.
-- `play` writes a static `index.html`, `styles.css`, and `game.js` hand gameplay surface under the
-  selected output directory. By default it serves the generated directory with a local HTTP server;
-  use `--no-serve` for CI and nonblocking asset smoke tests. It uses a synthetic fixture wall
-  and does not embed raw replay data.
+- `web/` is the canonical gameplay surface. Its static browser runtime owns local tiles, turns,
+  legal actions, policy selection, score, replay frames, import/export, and IndexedDB persistence;
+  `kenjaku play` is only a compatibility exporter during migration.
 - `self-play-sandbox` runs deterministic synthetic draw/discard episodes across four seats and
   writes `kenjaku-self-play-sandbox-report-v0` reports. It supports `random`, `drawn`, and
   `frequency` discard policies, deterministic episode seeds, optional synthetic trajectories, and
@@ -567,8 +566,12 @@ PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/fixture-benchmar
 PYTHONPATH=src python3 -m kenjaku benchmark-dashboard \
   runs/fixture-benchmark-diagnostics.json \
   --output runs/public-benchmarks/index.html
-PYTHONPATH=src python3 -m kenjaku play \
-  --output-dir runs/play --no-serve
+(
+  cd web
+  npm ci
+  npm test
+  npm run build
+)
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/fixture-disagreements.json --examples 1 --tags
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \

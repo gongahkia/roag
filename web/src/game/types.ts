@@ -109,6 +109,14 @@ export interface GameState {
   readonly pendingDiscard: PendingDiscard | null;
   readonly terminal: TerminalResult | null;
   readonly history: readonly GameEvent[];
+  readonly timeline: readonly GameFrame[];
+}
+
+export type GameSnapshot = Omit<GameState, "history" | "timeline">;
+
+export interface GameFrame {
+  readonly event: GameEvent;
+  readonly state: GameSnapshot;
 }
 
 export interface GameSave {

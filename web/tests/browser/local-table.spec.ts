@@ -11,6 +11,10 @@ test("runs the local browser-owned table with interactive tiles, policy, and his
 
   await page.getByLabel("Player hand").getByRole("button").filter({ hasText: /./ }).first().click();
   await expect(page.locator(".history-panel")).toContainText("discards");
+  await expect(page.getByLabel("Replay frame")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
   await expect(page.getByText(/Saved version \d+ locally\.|Local storage unavailable/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Table ledger" })).toBeVisible();
 });
@@ -20,6 +24,7 @@ test("starts a deterministic Sanma table and exposes engine inspection", async (
   await page.getByLabel("Game seed").fill("browser-sanma-seed");
   await page.getByRole("button", { name: "New 3P" }).click();
   await expect(page.getByText("3P / E1")).toBeVisible();
+  await expect(page.getByText("Kamicha", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Show engine hands" }).click();
   await expect(page.getByRole("button", { name: "Hide engine hands" })).toBeVisible();
   await expect(page.getByText("browser-sanma-seed")).toBeVisible();

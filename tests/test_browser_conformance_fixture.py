@@ -15,7 +15,9 @@ from kenjaku.simulation.environment import (
 
 class BrowserConformanceFixtureTests(unittest.TestCase):
     def test_python_sandbox_discard_fixture_is_current(self) -> None:
-        fixture_path = Path(__file__).parents[1] / "web/tests/fixtures/python-sandbox-discard-v1.json"
+        fixture_path = (
+            Path(__file__).parents[1] / "web/tests/fixtures/python-sandbox-discard-v1.json"
+        )
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         drawn = draw_for_current_seat(initial_sandbox_environment(seed=fixture["seed"]))
         actions = legal_sandbox_actions(drawn)
@@ -35,4 +37,7 @@ class BrowserConformanceFixtureTests(unittest.TestCase):
         self.assertEqual(fixture["after"]["turn"], next_state.turn)
         self.assertEqual(fixture["after"]["wall_remaining"], len(next_state.wall))
         self.assertEqual(fixture["after"]["pending_discard"], next_state.pending_discard.notation)
-        self.assertEqual(fixture["after"]["pending_reaction_seats"], list(next_state.pending_reaction_seats))
+        self.assertEqual(
+            fixture["after"]["pending_reaction_seats"],
+            list(next_state.pending_reaction_seats),
+        )

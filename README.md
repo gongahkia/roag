@@ -22,7 +22,7 @@ backlog and running handoff notes.
 Fixture-only launch media generated on 2026-07-07:
 
 - Replay-analysis clip: `docs/media/replay-analysis.mp4`
-- Gameplay clip: `docs/media/play.mp4`
+- Browser table clip: `docs/media/play.mp4`
 - Benchmark summary image: `docs/media/benchmark-summary.png`
 - Interpretability overlay HTML: `docs/media/interpretability-overlay.html`
 
@@ -33,8 +33,11 @@ Exact reproduction commands:
 
 ```bash
 mkdir -p runs/launch-media docs/media
-PYTHONPATH=src python3.13 -m kenjaku play \
-  --output-dir runs/launch-media/play --no-serve
+(
+  cd web
+  npm ci
+  npm run build
+)
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
   data/fixtures/tenhou --output runs/launch-media/decision-snapshots.jsonl --limit 20
 PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
@@ -76,8 +79,9 @@ Interpretability overlay generation is recorded in `docs/interpretability-overla
 - Offline replay share planning plus public-safe replay summary generation for accepted intake
   rows, gated by demo/redistribution permission scope. These commands do not fetch, post, or expose
   raw replay URLs.
-- Static local PPO gameplay via `kenjaku play`. It writes local HTML/CSS/JS plus a public-safe
-  policy payload, can be served by the CLI, and does not require or embed raw replay data.
+- Browser-native local gameplay in `web/`, built and deployed as a static site. The browser owns
+  tile state, turns, legal actions, local policy decisions, scoring, replay history, import/export,
+  and IndexedDB persistence; the static host does not receive game state or raw replay data.
 - Basic closed-hand winning-shape detection for standard, chiitoitsu, and kokushi hands, plus
   optional synthetic tsumo termination in the self-play sandbox. This is not complete yaku
   validation; unsupported yaku currently include renhou, open riichi, daisharin, and daichisei.
@@ -206,11 +210,11 @@ PYTHONPATH=src python3.13 -m kenjaku replay-public-summary \
   runs/replay-intake-accepted.jsonl --intent demo \
   --report runs/replay-public-summary.json
 
-PYTHONPATH=src python3.13 -m kenjaku play \
-  --output-dir runs/play
-# CI/nonblocking smoke:
-PYTHONPATH=src python3.13 -m kenjaku play \
-  --output-dir runs/play --no-serve
+(
+  cd web
+  npm ci
+  npm run build
+)
 
 PYTHONPATH=src python3.13 -m kenjaku self-play-sandbox \
   --episodes 2 --max-turns 32 --policy frequency --ruleset tenhou-3p \

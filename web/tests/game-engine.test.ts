@@ -10,10 +10,12 @@ import {
   deserializeGame,
   gameStateDigest,
   legalActions,
+  restoreTimelineFrame,
   scoreRound,
-  serializeGame
+  serializeGame,
+  undoLastHumanAction
 } from "../src/game/engine";
-import { decideAction } from "../src/game/policy";
+import { decideAction, validatePolicyArtifact } from "../src/game/policy";
 import type { GameState } from "../src/game/types";
 
 test("createGame is deterministic and deals a complete browser-owned table", () => {
@@ -95,6 +97,18 @@ test("scoreRound recognizes local chiitoitsu and produces browser-owned payments
   assert.ok(score.yaku.some((line) => line.name === "Chiitoitsu"));
 });
 
+test("Sanma reaction actions do not expose chi", () => {
+  const base = createGame({ players: 3, humanSeat: 0, seed: "sanma-no-chi" });
+  const state: GameState = {
+    ...base,
+    phase: "reaction",
+    currentSeat: 1,
+    hands: [[...base.hands[0]], ["2m", "3m", ...base.hands[1].slice(2)], [...base.hands[2]]],
+    pendingDiscard: { tile: "1m", fromSeat: 0, reactionSeats: [1, 2] }
+  };
+  assert.ok(!legalActions(state).some((action) => action.kind === "chi"));
+});
+
 test("policy ranks only legal actions and game saves round-trip", () => {
   const state = createGame({ players: 4, humanSeat: 0, seed: "policy-save" });
   const legal = legalActions(state);
@@ -102,4 +116,21 @@ test("policy ranks only legal actions and game saves round-trip", () => {
   assert.ok(legal.some((action) => actionKey(action) === actionKey(decision.selected.action)));
   const restored = deserializeGame(serializeGame(state));
   assert.equal(gameStateDigest(restored), gameStateDigest(state));
+});
+
+test("the shipped browser policy asset validates against the local policy contract", () => {
+  const artifact = validatePolicyArtifact(JSON.parse(readFileSync(new URL("../public/policies/local-shape-policy-v1.json", import.meta.url), "utf8")));
+  assert.equal(artifact.version, "local-linear-v1");
+  assert.equal(artifact.name, "Local shape policy");
+});
+
+test("timeline snapshots support replay restoration and bounded local undo", () => {
+  const initial = createGame({ players: 4, humanSeat: 0, seed: "timeline-undo" });
+  const initialDigest = gameStateDigest(initial);
+  const discard = legalActions(initial).find((action) => action.kind === "discard");
+  assert.ok(discard);
+  const afterDiscard = applyAction(initial, discard);
+  assert.equal(afterDiscard.timeline.length, initial.timeline.length + 1);
+  assert.equal(restoreTimelineFrame(afterDiscard, 1).version, initial.version);
+  assert.equal(gameStateDigest(undoLastHumanAction(afterDiscard)), initialDigest);
 });

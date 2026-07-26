@@ -26,8 +26,10 @@ Use it for new static viewers instead of hand-writing repeated document shells, 
 
 Current consumers:
 
-- `kenjaku.browser_game`
 - `kenjaku.training_dashboard`
+
+Gameplay is not a generated artifact viewer. The canonical browser table lives in `web/`; see
+[Browser Table](browser-table.md).
 
 ## Visual QA
 

@@ -9,8 +9,7 @@ Date: 2026-07-07
 Kenjaku needs local visualization for training, testing, and gameplay artifacts. The current
 repository already has these relevant surfaces:
 
-- `src/kenjaku/browser_game.py`: static HTML/CSS/JS gameplay generator with tile
-  rendering and no build step.
+- `web/`: static React/Vite browser gameplay application with a local runtime.
 - `kenjaku benchmark-dashboard`: static HTML from benchmark JSON reports.
 - `kenjaku training-dashboard`: static HTML from training metrics JSONL.
 - `kenjaku replay-viewer`: static HTML from self-play trajectory JSONL.
@@ -22,16 +21,13 @@ dependency in `pyproject.toml`.
 
 ## Decision
 
-Use Option A as the baseline: static artifact-generated HTML pages from JSON/JSONL run outputs,
-served by `kenjaku serve` when a local HTTP server is useful.
+Use Option A for static research artifacts and Option C for gameplay. `web/` is the canonical
+browser-native game runtime; Pages serves only its static build. The browser owns local state,
+legal actions, policy selection, score calculation, history, replay, and persistence.
 
-Do not grow `browser_game.py` into one large app. Keep each artifact viewer owned by its command,
-then extract shared tile/CSS/chart helpers only when duplication appears in at least two viewers.
-Reuse `browser_game.py` tile semantics for gameplay views by extracting them into shared static
-asset helpers before adding another board-heavy viewer.
-
-Keep TensorBoard, React/Vite, and FastAPI/HTMX as optional later integrations, not the default
-frontend architecture.
+Keep generated HTML viewers owned by their commands. Do not move gameplay back into a Python HTML
+template or introduce a Python gameplay API unless a later authoritative multiplayer requirement
+needs one.
 
 ## Options
 
@@ -50,7 +46,7 @@ Pros:
 - Works with committed JSON/JSONL fixtures and private local run artifacts.
 - Avoids a frontend build step for public docs and offline demos.
 - Keeps artifacts shareable as files.
-- Fits the existing `browser_game.py` pattern.
+- Keeps research-artifact concerns separate from the browser gameplay runtime.
 
 Cons:
 
@@ -75,9 +71,9 @@ Cons:
 
 Use later as an optional export, not the primary UI.
 
-### Option C: React + Vite App Under `web/`
+### Option C: React + Vite App Under `web/` (selected for gameplay)
 
-Ship a static app that reads local JSON/JSONL artifacts.
+Ship a static app with a deterministic local gameplay engine and browser persistence.
 
 Pros:
 
@@ -91,8 +87,8 @@ Cons:
 - Introduces a second build/test stack for a Python-first repo.
 - Browser file-access rules complicate direct local JSONL loading unless served.
 
-Revisit when static generators share enough JS/CSS that a frontend build becomes cheaper than
-maintaining inline assets.
+Selected because game interaction, action legality, local policy inspection, history, and replay
+need a coherent client runtime rather than a generated fixture page.
 
 ### Option D: FastAPI + HTMX Server
 
@@ -115,8 +111,9 @@ observation or large-artifact search cannot stay static.
 
 ## Consequences
 
-- New visualization commands should emit deterministic, self-contained HTML and read only explicit
-  local artifact paths.
+- Research visualization commands should emit deterministic, self-contained HTML and read only
+  explicit local artifact paths.
+- Gameplay changes belong in `web/` and must keep browser state local by default.
 - JSON/JSONL remains the stable contract between training/testing commands and viewers.
 - Shared frontend code should be extracted from existing generators before adding a new frontend
   stack.
@@ -137,9 +134,8 @@ observation or large-artifact search cannot stay static.
 - [#53 Artifact serve dashboard](https://github.com/gongahkia/kenjaku/issues/53): local static
   artifact index/server.
 
-Future follow-ups should cover shared static viewer helpers, tile renderer extraction from
-`browser_game.py`, optional TensorBoard scalar export, and a React/Vite revisit only after repeated
-viewer code duplication is measured.
+Future follow-ups should cover browser rules conformance, optional server-authoritative multiplayer,
+shared static viewer helpers, and optional TensorBoard scalar export.
 
 ## References
 

@@ -91,6 +91,7 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
 .top-seat { grid-column: 1 / 4; border-bottom: 1px solid var(--line); }
 .left-seat { border-right: 1px solid var(--line); }
 .right-seat { border-left: 1px solid var(--line); }
+.seat-spacer { background: rgba(241, 237, 219, 0.016); border-left: 1px solid var(--line); }
 .seat-panel { min-height: 100%; padding: 0.7rem; }
 .seat-panel.is-current { background: rgba(241, 237, 219, 0.1); box-shadow: inset 3px 0 var(--ink); }
 .seat-panel > div:first-child { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; }
@@ -160,6 +161,12 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
 .event-log { display: grid; gap: 0.35rem; max-height: 22rem; overflow: auto; }
 .event-log li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 0.4rem; border-left: 1px solid var(--line); color: var(--ash); font-size: 0.62rem; line-height: 1.43; padding: 0.22rem 0 0.22rem 0.5rem; }
 .event-log span { color: var(--smoke); font-size: 0.54rem; font-weight: 800; }
+.replay-scrub { display: grid; gap: 0.42rem; margin-top: 0.85rem; color: var(--ash); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.replay-scrub input { width: 100%; accent-color: var(--ink); cursor: ew-resize; }
+.replay-frame { display: grid; gap: 0.42rem; margin-top: 0.65rem; border: 1px dashed var(--line); background: rgba(241, 237, 219, 0.035); padding: 0.55rem; }
+.replay-frame span { color: var(--smoke); font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.replay-frame b { color: var(--ash); font-size: 0.62rem; line-height: 1.4; }
+.replay-frame .text-button { margin-top: 0.1rem; }
 
 @keyframes table-impact {
   0%, 100% { transform: translate(0); }
@@ -194,6 +201,7 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
   .top-seat,
   .left-seat,
   .right-seat { grid-column: auto; border: 0; border-bottom: 1px solid var(--line); }
+  .seat-spacer { display: none; }
   .table-core { min-height: 330px; grid-row: 2; }
   .left-seat { grid-row: 3; }
   .right-seat { grid-row: 4; }
