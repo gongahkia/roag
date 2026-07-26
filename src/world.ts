@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Floor, type FloorEncounter, type Point, type Prop, type Tile, indexOf, inBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type DifficultyContext, type Floor, type FloorEncounter, type Point, type Prop, type Tile, indexOf, inBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -8,7 +8,7 @@ import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, v
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
-const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'].includes(kind)
+const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall', 'cliffWall'].includes(kind)
 const propDefinitionErrors = validatePropDefinitions()
 
 export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
@@ -76,7 +76,12 @@ export const preservesAdjacentExitAccess = (floor: Floor, point: Point, kind: Ti
   return preserves
 }
 
-export function generateFloor(runSeed: number, index: number): Floor {
+export const difficultyFor = (routePosition: number, areaFloor: number): DifficultyContext => {
+  const threat = Math.max(0, Math.min(15, routePosition * 4 + areaFloor))
+  return { routePosition, threat, healthMultiplier: 1 + threat * 0.06, attackBonus: Math.floor(threat / 2), defenseBonus: Math.floor(threat / 5), eliteChance: Math.min(35, 4 + threat * 2), guardianPattern: threat >= 12 ? 3 : threat >= 8 ? 2 : threat >= 4 ? 1 : 0 }
+}
+
+export function generateFloor(runSeed: number, index: number, difficulty = difficultyFor(Math.floor(index / 4), index % 4)): Floor {
   const seed = streamSeed(runSeed, 'generation', index)
   const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
@@ -94,7 +99,8 @@ export function generateFloor(runSeed: number, index: number): Floor {
     guardianDefeated: index % 4 !== 3,
     objective: objectiveForFloor(index),
     milestones: [],
-    telegraphs: []
+    telegraphs: [],
+    difficulty
   }
   const rooms = carveRooms(floor, layoutRng)
   connectRooms(floor, rooms)
@@ -116,10 +122,10 @@ export function generateFloor(runSeed: number, index: number): Floor {
   return floor
 }
 
-export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const).indexOf(biome) * 4 + areaFloor
-export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number): Floor => {
+export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const).indexOf(biome) * 4 + areaFloor
+export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number, routePosition = 0): Floor => {
   if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid area floor: ${areaFloor}`)
-  return generateFloor(runSeed, areaFloorIndex(biome, areaFloor))
+  return generateFloor(runSeed, areaFloorIndex(biome, areaFloor), difficultyFor(routePosition, areaFloor))
 }
 
 interface Room { x: number; y: number; w: number; h: number }
@@ -253,7 +259,7 @@ function placeEncounters(floor: Floor, rng: Rng): void {
     .filter(point => hasPassablePath(floor, floor.start, point))
   const point = candidates.length ? rng.pick(candidates) : undefined
   if (!point) return
-  const kinds: FloorEncounter['kind'][] = ['wayfarer', 'bloodBargain', 'shiftingChamber']
+  const kinds: FloorEncounter['kind'][] = floor.biome === 'cliffs' ? ['stormCache', 'windTrial', 'cursedObject'] : floor.biome === 'burial' ? ['ancestorDebt', 'tombAuction', 'cursedObject'] : ['wayfarer', 'bloodBargain', 'shiftingChamber', 'oathwell', 'cursedObject']
   floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: rng.pick(kinds), ...point, state: 'dormant' }]
 }
 
@@ -270,6 +276,8 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   if (floor.biome === 'ruins') decorateRuins(floor, rng, rooms)
   if (floor.biome === 'furnace') decorateFurnace(floor, rng)
   if (floor.biome === 'floodedRuins') decorateFloodedRuins(floor, rng)
+  if (floor.biome === 'cliffs') decorateCliffs(floor, rng)
+  if (floor.biome === 'burial') decorateBurial(floor, rng)
   if (floor.index % 4 === 3) {
     const chamber = rooms[rooms.length - 1]
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
@@ -403,6 +411,46 @@ function decorateFloodedRuins(floor: Floor, rng: Rng): void {
   paint('water', 8, true)
 }
 
+function decorateCliffs(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      candidates = safe()
+    }
+  }
+  paint('ledge', 12)
+  paint('cliffWall', 10)
+  paint('rope', 4)
+  const lower = safe()
+  if (!lower.length) return
+  const from = rng.pick(lower)
+  const far = lower.filter(point => distance(point, from) > 8)
+  const to = rng.pick(far.length ? far : lower)
+  getTile(floor, from.x, from.y)!.elevation = 0
+  getTile(floor, to.x, to.y)!.elevation = 1
+  floor.climbLinks = [{ id: `climb:${floor.index}:${from.x}:${from.y}:${to.x}:${to.y}`, lower: from, upper: to, anchored: false }]
+}
+
+function decorateBurial(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of cardinalOffsets) if (rng.chance(35) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('graveSoil', 13, true)
+  paint('cairn', 8)
+  paint('ossuary', 7)
+  paint('spiritPath', 10, true)
+}
+
 function placeEvents(floor: Floor, rooms: Room[]): void {
   const eventRoom = rooms[Math.max(1, Math.floor(rooms.length / 2))]
   const point = center(eventRoom)
@@ -436,21 +484,30 @@ function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
 function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
   const definitions = MONSTERS.filter(monster => monster.biome === floor.biome)
   const regular = definitions.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')
-  const count = 8 + floor.index % 4 * 2
+  const count = 8 + floor.index % 4 * 2 + (floor.difficulty?.routePosition ?? 0)
   for (let i = 0; i < count; i++) {
     const point = freeRoomPoint(floor, rng, rooms.slice(1))
     const definition = rng.pick(regular)
-    floor.actors.push(spawnMonster(definition.id, point, `${definition.id}-${i}`))
+    const actor = spawnMonster(definition.id, point, `${definition.id}-${i}`, floor.difficulty)
+    if (rng.chance(floor.difficulty?.eliteChance ?? 0)) {
+      actor.maxHealth = Math.round(actor.maxHealth * 1.25)
+      actor.health = actor.maxHealth
+      actor.attack += 2
+      actor.status = [...(actor.status ?? []), 'elite']
+    }
+    floor.actors.push(actor)
   }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
-    floor.actors.push(spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`))
+    floor.actors.push(spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty))
   }
 }
 
 function placeItems(floor: Floor, rng: Rng, rooms: Room[]): void {
-  const loot = ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
-  const count = 10 + floor.index % 4 * 2
+  const valueCap = 105 + (floor.difficulty?.threat ?? 0) * 14
+  const eligible = ITEMS.filter(item => item.findable !== false && item.value <= valueCap && (!item.slot || rng.chance(30 + (floor.difficulty?.routePosition ?? 0) * 8)))
+  const loot = eligible.length ? eligible : ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
+  const count = 10 + floor.index % 4 * 2 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)
   for (let i = 0; i < count; i++) {
     const point = freeRoomPoint(floor, rng, rooms)
     const id = i === 0 && floor.index % 4 === 0 ? 'key' : rng.pick(loot).id
@@ -468,10 +525,19 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
   return { ...floor.start }
 }
 
-export const spawnMonster = (kind: string, point: Point, id: string): Actor => {
+export const spawnMonster = (kind: string, point: Point, id: string, difficulty?: DifficultyContext): Actor => {
   const definition = monsterById(kind)
   if (!definition) throw new Error(`unknown monster: ${kind}`)
-  return { id, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: definition.health, maxHealth: definition.health, attack: definition.attack, defense: definition.defense, speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const } : {}) }
+  const base = definition.ai === 'guardian'
+    ? { health: 48, attack: 8, defense: 14, speed: 100 }
+    : definition.ai === 'ranged'
+      ? { health: 9, attack: 5, defense: 9, speed: 90 }
+      : definition.ai === 'wander'
+        ? { health: 7, attack: 4, defense: 9, speed: 110 }
+        : { health: 11, attack: 4, defense: 10, speed: 100 }
+  const healthMultiplier = definition.ai === 'guardian' ? 1 + (difficulty?.threat ?? 0) * 0.08 : difficulty?.healthMultiplier ?? 1
+  const maxHealth = Math.max(1, Math.round(base.health * healthMultiplier))
+  return { id, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: maxHealth, maxHealth, attack: base.attack + (difficulty?.attackBonus ?? 0), defense: base.defense + (difficulty?.defenseBonus ?? 0), speed: base.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const, status: difficulty?.guardianPattern ? [`pattern:${difficulty.guardianPattern}`] : [] } : {}) }
 }
 
 function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: string, color: string): Actor {
@@ -554,7 +620,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   }
   for (const encounter of floor.encounters ?? []) {
     const tile = getTile(floor, encounter.x, encounter.y)
-    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
+    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
   }
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()

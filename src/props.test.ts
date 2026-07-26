@@ -15,14 +15,14 @@ const prop = (overrides: Partial<Prop> = {}): Prop => ({ id: 'prop:test:wilds.mu
 describe('world props', () => {
   it('maps every manifest prop cell to one complete definition', () => {
     const manifestIds = spriteSheetSpecs.flatMap(sheet => sheet.labels.filter(label => label.startsWith('prop.')).map(label => label.slice('prop.'.length))).sort()
-    expect(PROP_DEFINITIONS).toHaveLength(36)
+    expect(PROP_DEFINITIONS).toHaveLength(48)
     expect(manifestIds.every(id => PROP_IDS.includes(id as typeof PROP_IDS[number]))).toBe(true)
     expect(validatePropDefinitions()).toEqual([])
     for (const id of PROP_IDS) expect(propDefinition(id).hooks).toEqual(expect.arrayContaining(['operate']))
   })
 
   it('generates deterministic, reachable overlay props without changing route validation', () => {
-    for (const floorIndex of Array.from({ length: 24 }, (_, index) => index)) {
+    for (const floorIndex of Array.from({ length: 32 }, (_, index) => index)) {
       const first = generateFloor(12345, floorIndex)
       const second = generateFloor(12345, floorIndex)
       expect(first.props).toEqual(second.props)
@@ -30,7 +30,7 @@ describe('world props', () => {
       expect(validateGeneration(first)).toEqual({ valid: true, errors: [] })
       for (const current of first.props) expect(hasPassableTerrainPath(first, first.start, current)).toBe(true)
     }
-  })
+  }, 30_000)
 
   it('rejects unreachable or overlapping props', () => {
     const floor = generateFloor(5, 0)

@@ -6,7 +6,7 @@ import type { Actor, Biome, CourierOrigin, Prop, Tile } from './types'
 
 const spriteSize = 14
 const sourceSize = 16
-const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c', furnace: '#321d19', floodedRuins: '#102b34' }
+const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c', furnace: '#321d19', floodedRuins: '#102b34', cliffs: '#172431', burial: '#261d2a' }
 
 const sheetUrls = {
   'terrain-mine': undefined,
@@ -53,7 +53,7 @@ export interface SpriteSheetSpec { id: SpriteSheetId; file: string; url?: string
 
 const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
-const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns' }
+const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns', cliffs: 'terrain-ruins', burial: 'terrain-ruins' }
 export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
 export const generatedSpriteAssetsAvailable = Object.values(sheetUrls).some(Boolean)
 

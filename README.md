@@ -4,7 +4,7 @@
 
 # `Jomon`
 
-Browser-based, turn-based courier roguelike. Carry a sealed parcel through a deterministic four-region, sixteen-floor campaign while managing fog of war, equipment, routes, hazards, and succession.
+Browser-based, turn-based courier roguelike. Every seed draws and orders four distinct biomes from an eight-biome pool for a sixteen-floor campaign; cleared floors increase shared threat regardless of biome identity.
 
 ## Stack
 
@@ -61,7 +61,7 @@ Menu controls: `N` creates a courier, `L`/`Enter` resumes one, arrows select, an
 
 ## Buildcraft
 
-Every floor places one Waycache and three Boon sites. Waycaches bind one of two equipped ritual tools: Stone Wedge, Reedwing, Cord Anchor, or Ashway Rites. Tools recharge by turn cooldown and can be explicitly overdriven for a stronger final effect before retiring. Boon sites offer deterministic three-way, run-only drafts; Boons stack without a cap. Local discovery is default; Scout Eye reveals all remaining milestones. `Shift` + `F` includes an `EXPLORE` autoplay policy that pursues discovered milestones before exit.
+Every floor places one Waycache and three Boon sites. Waycaches bind two ritual tools: Stone Wedge, Reedwing, Cord Anchor, or Ashway Rites. Tools recharge by turn cooldown and can be explicitly overdriven for a stronger final effect before retiring. Boon sites offer deterministic three-way, run-only drafts; Boons stack without a cap. Powerful Boons can suppress conflicting trigger families instead of adding generic penalties. Cliffs add reusable vertical rope links; Burial adds oath, body, and cursed-object risk/reward engines. Local discovery is default; Scout Eye reveals all remaining milestones. `Shift` + `F` includes an `EXPLORE` autoplay policy that pursues discovered milestones before exit.
 
 ## Generated sprite atlas
 

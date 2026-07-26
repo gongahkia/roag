@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 3, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(route).toMatchObject({ version: 4, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
     expect(route).not.toHaveProperty('hero')
   })
 
@@ -66,8 +66,8 @@ describe('four-area campaign flow', () => {
     expect(route).toMatchObject({ areaOrder: order, unlockedAreas: [order[0]], selectedBiome: order[0] })
     expect(nextArea(order[0], order)).toBe(order[1])
     expect(new Set([7, 42, 99, 123].map(seed => campaignOrderForSeed(seed).join(','))).size).toBeGreaterThan(1)
-    expect(order.slice(0, 2).sort()).toEqual(['mine', 'wilds'])
-    expect(order.slice(2, 4).sort()).toEqual(['caverns', 'ruins'])
-    expect(order.slice(4).sort()).toEqual(['floodedRuins', 'furnace'])
+    expect(order).toHaveLength(4)
+    expect(new Set(order).size).toBe(4)
+    expect(order.every(biome => ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'].includes(biome))).toBe(true)
   })
 })

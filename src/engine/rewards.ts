@@ -52,5 +52,7 @@ export const contextualReward = (state: RunState, source: RewardSource): ItemId 
 
 export const merchantStock = (state: RunState): ItemId[] => {
   const featured = contextualReward(state, 'merchant')
-  return [...new Set([featured, ...shopStock(state.area ?? state.floor.biome)])]
+  const cap = 120 + (state.floor.difficulty?.threat ?? 0) * 14
+  const scaled = shopStock(state.area ?? state.floor.biome).filter(id => ITEM[id].value <= cap)
+  return [...new Set([featured, ...(scaled.length ? scaled : shopStock(state.area ?? state.floor.biome))])]
 }

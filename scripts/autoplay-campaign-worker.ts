@@ -8,4 +8,4 @@ const profile = CAMPAIGN_AUTOPLAY_PROFILES.find(candidate => candidate.id === pr
 if (!Number.isInteger(seed) || seed < 0) throw new Error(`invalid CAMPAIGN_AUTOPLAY_SEED: ${process.env.CAMPAIGN_AUTOPLAY_SEED}`)
 if (!profile) throw new Error(`invalid CAMPAIGN_AUTOPLAY_PROFILE: ${profileId}`)
 const report = runAutoplay(newSeededCampaignRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: process.env.CAMPAIGN_AUTOPLAY_TRACE === '1', traceLimit: 24 })
-process.stdout.write(JSON.stringify(compactCampaignAutoplayRun(seed, profile, report)))
+process.stdout.write(JSON.stringify(compactCampaignAutoplayRun(seed, profile, report)), () => process.exit(0))

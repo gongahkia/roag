@@ -3,7 +3,7 @@ import { newSeededCampaignRun } from './engine'
 import { generateAreaFloor, validateGeneration } from './world'
 import type { Biome } from './types'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins']
+const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial']
 export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 19_200
 export const CAMPAIGN_SEED_RETRY_LIMIT = 32
 
@@ -22,11 +22,11 @@ const normalizeSeed = (seed: number): number => seed >>> 0 & 0x7fffffff
 
 export const validateCampaignTopology = (seed: number): string[] => {
   const errors: string[] = []
-  for (const biome of biomes) for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
+  for (const biome of biomes) for (let routePosition = 0; routePosition < 4; routePosition++) for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
     try {
-      const validation = validateGeneration(generateAreaFloor(seed, biome, areaFloor))
-      for (const error of validation.errors) errors.push(`${biome}:${areaFloor + 1}:${error}`)
-    } catch (caught) { errors.push(`${biome}:${areaFloor + 1}:${caught instanceof Error ? caught.message : String(caught)}`) }
+      const validation = validateGeneration(generateAreaFloor(seed, biome, areaFloor, routePosition))
+      for (const error of validation.errors) errors.push(`${biome}:${routePosition + 1}:${areaFloor + 1}:${error}`)
+    } catch (caught) { errors.push(`${biome}:${routePosition + 1}:${areaFloor + 1}:${caught instanceof Error ? caught.message : String(caught)}`) }
   }
   return errors
 }

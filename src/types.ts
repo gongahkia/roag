@@ -2,9 +2,9 @@ export const MAP_WIDTH = 48
 export const MAP_HEIGHT = 35
 export const TERMINAL_WIDTH = 96
 export const TERMINAL_HEIGHT = 60
-export const FLOOR_COUNT = 24
+export const FLOOR_COUNT = 32
 
-export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins' | 'furnace' | 'floodedRuins'
+export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins' | 'furnace' | 'floodedRuins' | 'cliffs' | 'burial'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
@@ -16,7 +16,7 @@ export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
-export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor'
+export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
@@ -31,15 +31,17 @@ export type PropId =
   | 'ruins.brokenStatue' | 'ruins.ritualBrazier' | 'ruins.glyphTablet' | 'ruins.collapsedArch' | 'ruins.sealedCache' | 'ruins.monolith'
   | 'furnace.bellows' | 'furnace.liftConsole' | 'furnace.breakwall' | 'furnace.cinderCache' | 'furnace.smokeStack' | 'furnace.forgeIdol'
   | 'floodedRuins.anchorPost' | 'floodedRuins.floodgate' | 'floodedRuins.sunkenCache' | 'floodedRuins.tideShrine' | 'floodedRuins.currentBell' | 'floodedRuins.mossBridge'
+  | 'cliffs.ropeAnchor' | 'cliffs.windVane' | 'cliffs.nestCache' | 'cliffs.skyShrine' | 'cliffs.crackedLedge' | 'cliffs.signalFire'
+  | 'burial.cairnGate' | 'burial.funeralLantern' | 'burial.ossuaryCache' | 'burial.graveBloom' | 'burial.ancestorStone' | 'burial.sealedTomb'
 export type PropState = 'dormant' | 'inspected' | 'activated' | 'destroyed'
-export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current'
-export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard' | 'ward' | 'gate'
+export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current' | 'wind' | 'climb' | 'grave' | 'spirit'
+export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard' | 'ward' | 'gate' | 'wind' | 'spirit'
 export type PropHook = 'operate' | PropEffectKind
-export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber'
+export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber' | 'stormCache' | 'ancestorDebt' | 'cursedObject' | 'oathwell' | 'windTrial' | 'tombAuction'
 export type EncounterState = 'dormant' | 'resolved'
 
 export interface Point { x: number; y: number }
-export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
+export interface Tile { kind: TileKind; explored: boolean; visible: boolean; elevation?: 0 | 1 }
 export interface ConditionState { kind: ConditionKind; duration: number; potency: number }
 export interface Actor {
   id: string
@@ -79,6 +81,8 @@ export interface Prop {
 export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean }
+export interface ClimbLink { id: string; lower: Point; upper: Point; anchored: boolean }
+export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number }
 export interface TransientTerrain { x: number; y: number; original: TileKind; expiresAt: number }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
@@ -99,6 +103,8 @@ export interface Floor {
   transientTerrain?: TransientTerrain[]
   telegraphs?: Telegraph[]
   puzzleIds?: string[]
+  climbLinks?: ClimbLink[]
+  difficulty?: DifficultyContext
 }
 
 export interface Hero {
@@ -132,6 +138,8 @@ export interface Hero {
   boons?: Partial<Record<BoonId, number>>
   boonEvolutions?: Partial<Record<BoonId, number>>
   safePositions?: Point[]
+  oaths?: OathState[]
+  curse?: CurseState
 }
 
 export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
@@ -150,7 +158,9 @@ export interface HubState {
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
-export interface CampaignRouteState { version: 3; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
+export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
+export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
+export interface CampaignRouteState { version: 3 | 4; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
 
 export interface LegacyRecord {
   id: string
@@ -187,7 +197,7 @@ export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
 export interface RunState {
-  version: 4
+  version: 4 | 5
   seed: number
   floor: Floor
   hero: Hero

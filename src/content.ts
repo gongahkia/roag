@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch', 'wind', 'climb', 'grave', 'spirit', 'echo', 'curse'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -96,7 +96,21 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'pull', name: 'Pull Charm', glyph: '?', color: '#d2b1ed', value: 125, use: 'spell', spell: 'pull' },
   { id: 'gust', name: 'Gust Charm', glyph: '?', color: '#c1b8f4', value: 115, use: 'spell', spell: 'gust' },
   { id: 'wardScript', name: 'Ward Charm', glyph: '?', color: '#ecb7e3', value: 130, use: 'spell', spell: 'ward' },
-  { id: 'gate', name: 'Gate Charm', glyph: '?', color: '#f1db78', value: 160, use: 'spell', spell: 'gate' }
+  { id: 'gate', name: 'Gate Charm', glyph: '?', color: '#f1db78', value: 160, use: 'spell', spell: 'gate' },
+  { id: 'windhook', name: 'Windhook', glyph: 'J', color: '#b9dcf4', slot: 'mainHand', weapon: { damage: 9, reach: 2, shape: 'line', cooldown: 1, tags: ['hook', 'wind', 'climb'] }, value: 220, tags: ['cliffs', 'wind', 'climb'] },
+  { id: 'galeMantle', name: 'Gale Mantle', glyph: '[', color: '#d8edf9', slot: 'body', defense: 2, value: 200, tags: ['cliffs', 'wind', 'mobility'] },
+  { id: 'cliffSpool', name: 'Cliff Spool', glyph: '~', color: '#d8b66f', value: 85, use: 'rope', tags: ['cliffs', 'climb'] },
+  { id: 'thunderJar', name: 'Thunder Jar', glyph: '!', color: '#a8c7ff', value: 100, throwable: true, tags: ['cliffs', 'wind', 'force'] },
+  { id: 'skyMap', name: 'Sky Map', glyph: '?', color: '#c4e5f2', value: 75, use: 'map', tags: ['cliffs', 'wind'] },
+  { id: 'graveSickle', name: 'Grave Sickle', glyph: '/', color: '#c6b7d4', slot: 'mainHand', weapon: { damage: 9, reach: 1, shape: 'cone', cooldown: 1, tags: ['blade', 'grave', 'spirit'] }, value: 220, tags: ['burial', 'grave', 'spirit'] },
+  { id: 'mourningBell', name: 'Mourning Bell', glyph: 'o', color: '#d3bce7', slot: 'charm', defense: 2, value: 205, tags: ['burial', 'spirit', 'echo'] },
+  { id: 'graveSalt', name: 'Grave Salt', glyph: '!', color: '#d9d3c5', value: 65, use: 'heal', tags: ['burial', 'grave'] },
+  { id: 'ancestorToken', name: 'Ancestor Token', glyph: '?', color: '#d9b9e3', value: 95, use: 'focus', tags: ['burial', 'spirit'] },
+  { id: 'tombKey', name: 'Tomb Key', glyph: '?', color: '#bfaa70', value: 80, use: 'key', tags: ['burial', 'grave'] },
+  { id: 'cursedMirror', name: 'Cursed Mirror', glyph: '☠', color: '#d9a3c6', value: 240, findable: false, tags: ['curse'] },
+  { id: 'graveFleece', name: 'Grave Fleece', glyph: '☠', color: '#9d8baf', value: 180, findable: false, tags: ['curse'] },
+  { id: 'stormIdol', name: 'Storm Idol', glyph: '☠', color: '#9ebfec', value: 180, findable: false, tags: ['curse'] },
+  { id: 'oathShard', name: 'Oath Shard', glyph: '☠', color: '#e7c680', value: 200, findable: false, tags: ['curse'] }
 ]
 
 export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Record<string, ItemDefinition>
@@ -169,7 +183,25 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'drownblade', name: 'Drownblade', glyph: 'd', color: '#71b7c3', health: 24, attack: 15, defense: 20, speed: 110, ai: 'chase', xp: 78, biome: 'floodedRuins', tags: ['floodedRuins', 'blade', 'water'] },
   { id: 'coralguard', name: 'Coral Guard', glyph: 'c', color: '#d69b92', health: 33, attack: 14, defense: 24, speed: 70, ai: 'chase', xp: 82, biome: 'floodedRuins', tags: ['floodedRuins', 'anchor', 'counterplay'] },
   { id: 'currentcaller', name: 'Current Caller', glyph: 'c', color: '#9ae5ea', health: 20, attack: 16, defense: 18, speed: 100, ai: 'ranged', xp: 84, biome: 'floodedRuins', tags: ['floodedRuins', 'current', 'displacement'] },
-  { id: 'drownedRegent', name: 'The Drowned Regent', glyph: 'D', color: '#b3edf0', health: 132, attack: 20, defense: 25, speed: 100, ai: 'guardian', xp: 320, biome: 'floodedRuins', tags: ['floodedRuins', 'water', 'anchor'] }
+  { id: 'drownedRegent', name: 'The Drowned Regent', glyph: 'D', color: '#b3edf0', health: 132, attack: 20, defense: 25, speed: 100, ai: 'guardian', xp: 320, biome: 'floodedRuins', tags: ['floodedRuins', 'water', 'anchor'] },
+  { id: 'cliffkite', name: 'Cliff Kite', glyph: 'k', color: '#b9dcf4', health: 18, attack: 10, defense: 15, speed: 135, ai: 'wander', xp: 55, biome: 'cliffs', tags: ['cliffs', 'wind', 'mobility'] },
+  { id: 'ropeRaider', name: 'Rope Raider', glyph: 'r', color: '#d8b66f', health: 23, attack: 12, defense: 17, speed: 110, ai: 'chase', xp: 62, biome: 'cliffs', tags: ['cliffs', 'climb', 'hook'] },
+  { id: 'galeSeer', name: 'Gale Seer', glyph: 'g', color: '#a8c7ff', health: 17, attack: 13, defense: 15, speed: 105, ai: 'ranged', xp: 67, biome: 'cliffs', tags: ['cliffs', 'wind', 'telegraph'] },
+  { id: 'ledgeStalker', name: 'Ledge Stalker', glyph: 'l', color: '#8398b4', health: 25, attack: 11, defense: 19, speed: 95, ai: 'chase', xp: 66, biome: 'cliffs', tags: ['cliffs', 'climb', 'counterplay'] },
+  { id: 'stormCrow', name: 'Storm Crow', glyph: 'c', color: '#778ec3', health: 15, attack: 14, defense: 14, speed: 145, ai: 'ranged', xp: 70, biome: 'cliffs', tags: ['cliffs', 'wind', 'force'] },
+  { id: 'cragMoth', name: 'Crag Moth', glyph: 'm', color: '#ccd7eb', health: 16, attack: 12, defense: 15, speed: 140, ai: 'wander', xp: 58, biome: 'cliffs', tags: ['cliffs', 'wind', 'light'] },
+  { id: 'screeHound', name: 'Scree Hound', glyph: 'h', color: '#8b99aa', health: 27, attack: 13, defense: 18, speed: 110, ai: 'chase', xp: 72, biome: 'cliffs', tags: ['cliffs', 'force', 'counterplay'] },
+  { id: 'wireSinger', name: 'Wire Singer', glyph: 'w', color: '#adc9ed', health: 18, attack: 14, defense: 16, speed: 100, ai: 'ranged', xp: 74, biome: 'cliffs', tags: ['cliffs', 'wind', 'telegraph'] },
+  { id: 'skyWarden', name: 'Sky Warden', glyph: 'S', color: '#ecf5ff', health: 118, attack: 18, defense: 23, speed: 115, ai: 'guardian', xp: 280, biome: 'cliffs', tags: ['cliffs', 'wind', 'climb'] },
+  { id: 'graveMite', name: 'Grave Mite', glyph: 'm', color: '#a99aad', health: 20, attack: 11, defense: 17, speed: 105, ai: 'chase', xp: 60, biome: 'burial', tags: ['burial', 'grave'] },
+  { id: 'ossuaryGuard', name: 'Ossuary Guard', glyph: 'o', color: '#d9d3c5', health: 32, attack: 13, defense: 22, speed: 75, ai: 'chase', xp: 74, biome: 'burial', tags: ['burial', 'grave', 'guard'] },
+  { id: 'mourner', name: 'Mourner', glyph: 'm', color: '#c9a6db', health: 19, attack: 14, defense: 17, speed: 95, ai: 'ranged', xp: 76, biome: 'burial', tags: ['burial', 'spirit', 'telegraph'] },
+  { id: 'ancestorEcho', name: 'Ancestor Echo', glyph: 'e', color: '#cbbde7', health: 17, attack: 15, defense: 16, speed: 130, ai: 'wander', xp: 78, biome: 'burial', tags: ['burial', 'spirit', 'echo'] },
+  { id: 'tombWarden', name: 'Tomb Warden', glyph: 't', color: '#9d8b76', health: 29, attack: 14, defense: 21, speed: 85, ai: 'chase', xp: 80, biome: 'burial', tags: ['burial', 'grave', 'counterplay'] },
+  { id: 'graveWisp', name: 'Grave Wisp', glyph: 'w', color: '#e0c9f0', health: 14, attack: 15, defense: 15, speed: 145, ai: 'wander', xp: 67, biome: 'burial', tags: ['burial', 'spirit', 'light'] },
+  { id: 'barrowHound', name: 'Barrow Hound', glyph: 'h', color: '#8f796d', health: 28, attack: 15, defense: 19, speed: 105, ai: 'chase', xp: 82, biome: 'burial', tags: ['burial', 'grave', 'force'] },
+  { id: 'lamenter', name: 'Lamenter', glyph: 'l', color: '#d6b4e5', health: 20, attack: 16, defense: 17, speed: 95, ai: 'ranged', xp: 84, biome: 'burial', tags: ['burial', 'spirit', 'telegraph'] },
+  { id: 'barrowKing', name: 'The Barrow King', glyph: 'B', color: '#f0d5a0', health: 128, attack: 19, defense: 25, speed: 100, ai: 'guardian', xp: 310, biome: 'burial', tags: ['burial', 'grave', 'spirit'] }
 ]
 export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
 export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
@@ -184,15 +216,17 @@ export const SKILLS: SkillDefinition[] = [
 const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<string, SkillDefinition>
 export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
-export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins' }
+export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const)[Math.floor(index / 4)]
+export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'grappleLine', 'portableWinch', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'grappleLine', 'bridgeKit', 'cordmarkTalisman', 'reedstepBoots'],
   caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune', 'reedGlider'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key'],
   furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'liftKey', 'steamJetpack', 'portableWinch', 'cinderHammer', 'smokeKnife', 'liftHook', 'bellowsShield', 'chainGuard', 'smokeMask'],
-  floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'bridgeKit', 'grappleLine', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb']
+  floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'bridgeKit', 'grappleLine', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb'],
+  cliffs: ['cliffSpool', 'windhook', 'galeMantle', 'thunderJar', 'skyMap', 'grappleLine', 'reedGlider'],
+  burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell', 'ward', 'mend']
 }
 
 const idPattern = /^[a-z][a-zA-Z0-9]*$/

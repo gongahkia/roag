@@ -112,7 +112,7 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const evolutions = Object.entries(hero.boonEvolutions ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
   const milestones = state.floor.milestones.map(milestone => `${milestone.id}:${milestone.discovered ? 1 : 0}:${milestone.claimed ? 1 : 0}`).join('|')
   const encounters = (state.floor.encounters ?? []).map(encounter => `${encounter.id}:${encounter.state}`).join('|')
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${relics}:${relicCharges}:${boons}:${evolutions}:${milestones}:${encounters}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${hero.curse ? `${hero.curse.itemId}:${hero.curse.remainingEncounters}:${hero.curse.failed ? 1 : 0}` : '-'}:${hero.oaths?.map(oath => `${oath.id}:${oath.remainingFloors}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${relics}:${relicCharges}:${boons}:${evolutions}:${milestones}:${encounters}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
 }
 
 // compact diagnostic identity; loop detection retains the full state signature above.
@@ -780,7 +780,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
     const source = state.floor.encounters?.find(current => current.id === modal.encounterId)
     if (!source) return { command: 'Escape', reason: 'stale encounter', score: 200 }
     const options = encounterOptions(state, source)
-    const preferred = source.kind === 'wayfarer' ? options[0].available ? 0 : 1 : source.kind === 'shiftingChamber' ? options[0].available ? 0 : 2 : 2
+    const preferred = source.kind === 'wayfarer' || source.kind === 'stormCache' ? options[0].available ? 0 : 1 : source.kind === 'shiftingChamber' || source.kind === 'oathwell' ? options[0].available ? 0 : 2 : source.kind === 'cursedObject' ? 2 : options[0].available ? 0 : 2
     return { command: String(preferred + 1), reason: `encounter:${source.kind}:${preferred + 1}`, score: 200 }
   }
   if (modal.kind === 'tools') return { command: 'Escape', reason: 'close tools', score: 200 }

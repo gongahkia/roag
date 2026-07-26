@@ -26,9 +26,9 @@ const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => {
 
 describe('expedition generation', () => {
   it('provides the locked full content roster', () => {
-    expect(ITEMS).toHaveLength(61)
-    expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(6)
-    expect(MONSTERS.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')).toHaveLength(45)
+    expect(ITEMS).toHaveLength(79)
+    expect(MONSTERS.filter(monster => monster.ai === 'guardian')).toHaveLength(8)
+    expect(MONSTERS.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')).toHaveLength(61)
     expect(MONSTERS.find(monster => monster.id === 'startledBirds')?.spawn).toBe('triggered')
   })
 
@@ -43,7 +43,7 @@ describe('expedition generation', () => {
       expect(first.actors.map(actor => actor.kind)).toEqual(second.actors.map(actor => actor.kind))
       expect(exitReachable(first)).toBe(true)
     }
-  })
+  }, 30_000)
 
   it('assigns deterministic objectives for all local floor roles', () => {
     expect(Array.from({ length: 4 }, (_, index) => generateFloor(99, index).objective.kind)).toEqual(['recoverSupplies', 'rescueScout', 'invokeAltar', 'defeatGuardian'])

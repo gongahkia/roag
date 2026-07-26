@@ -24,6 +24,7 @@ export function perform(state: RunState, command: string): ActionResult {
   if (lower === 'e') { state.modal = { kind: 'inventory', mode: 'equip' }; return [event('menu')] }
   if (lower === 'a') { state.modal = { kind: 'skills' }; return [event('menu')] }
   if (lower === 'b') {
+    if (state.hero.oaths?.some(oath => oath.id === 'noBombs')) { log(state, 'Your active oath forbids bombs.'); return [] }
     if (state.hero.bombs < 1) { log(state, 'No bombs remain.'); return [] }
     state.modal = { kind: 'target', action: 'bomb' }
     return [event('menu')]

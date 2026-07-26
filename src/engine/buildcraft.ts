@@ -8,7 +8,8 @@ import { recordTelemetryCount } from '../telemetry'
 import { armRelicTraversal, consumeRelicTool, relicChoices, relicFor } from './relics'
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
-export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'; drawback?: string; rare?: boolean }
+export type BoonFamily = 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'
+export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: BoonFamily; suppresses?: readonly BoonFamily[]; rare?: boolean }
 
 export const TOOLS: readonly TraversalTool[] = [
   { id: 'stoneWedge', name: 'Stone Wedge', glyph: 'W', cooldown: 6, text: 'Breach one adjacent blocker.', overdrive: 'Breach a three-tile wedge, then retire.' },
@@ -36,43 +37,75 @@ export const BOONS: readonly Boon[] = [
   { id: 'reedMemory', name: 'Reed Memory', glyph: '≋', family: 'traversal', text: 'Reedwing crosses one extra hazard per stack.' },
   { id: 'lastLight', name: 'Last Light', glyph: 'i', family: 'recovery', text: 'At 25% HP, tool use restores 2 HP per stack.' },
   { id: 'parcelMark', name: 'Parcel Mark', glyph: '□', family: 'economy', text: 'Unclaimed milestones show distance after one stack.' }
-  ,{ id: 'breachTempo', name: 'Breach Tempo', glyph: '↯', family: 'traversal', text: 'Breaking terrain restores 1 focus per stack.', drawback: 'Each breach also emits noise.' }
-  ,{ id: 'updraftStep', name: 'Updraft Step', glyph: '↑', family: 'traversal', text: 'Lifts and glides travel 1 extra tile per stack.', drawback: 'Landing on a hazard deals 1 more damage.' }
-  ,{ id: 'anchorHabit', name: 'Anchor Habit', glyph: '⚓', family: 'traversal', text: 'Ropes and anchors restore 1 HP per stack.', drawback: 'Your run speed is reduced after anchoring.' }
-  ,{ id: 'smokeWalker', name: 'Smoke Walker', glyph: '≈', family: 'terrain', text: 'Smoke deals 1 less damage and reveals nearby ground.', drawback: 'Clear air drains 1 focus after long rests.' }
-  ,{ id: 'currentSense', name: 'Current Sense', glyph: '≋', family: 'terrain', text: 'Current crossings reveal a route and grant 1 focus.', drawback: 'Still water slows you.' }
-  ,{ id: 'wallSong', name: 'Wall Song', glyph: '♫', family: 'terrain', text: 'Breach tools clear one additional adjacent blocker per stack.', drawback: 'Open ground makes you marked for 1 turn.' }
-  ,{ id: 'ashDividend', name: 'Ash Dividend', glyph: '¤', family: 'economy', text: 'Destroyed terrain and props yield 4 cash per stack.', drawback: 'Shop prices rise by 4 cash per stack.' }
-  ,{ id: 'salvager', name: 'Salvager', glyph: '⛏', family: 'economy', text: 'First used consumable each floor has a 25% return chance per stack.', drawback: 'Your pack holds one fewer item per stack.' }
-  ,{ id: 'lastMatch', name: 'Last Match', glyph: '†', family: 'consumable', text: 'At 25% HP, bombs and fire items gain +2 damage per stack.', drawback: 'Fire damage to you is increased by 1.' }
-  ,{ id: 'spareFuse', name: 'Spare Fuse', glyph: '!', family: 'consumable', text: 'Bomb packs restore one extra bomb per stack.', drawback: 'Bomb blasts have +1 radius.' }
-  ,{ id: 'quietPocket', name: 'Quiet Pocket', glyph: '◌', family: 'consumable', text: 'Tonics also remove one condition per stack.', drawback: 'Tonic healing is reduced by 1.' }
-  ,{ id: 'scavengerMap', name: 'Scavenger Map', glyph: '⌖', family: 'scouting', text: 'Containers reveal a nearby item or milestone per stack.', drawback: 'Map use consumes 1 focus.' }
-  ,{ id: 'dangerInstinct', name: 'Danger Instinct', glyph: '!', family: 'scouting', text: 'Entering a new hazard reveals adjacent enemies per stack.', drawback: 'Nearby enemies deal +1 damage on their first hit.' }
-  ,{ id: 'slagSkin', name: 'Slag Skin', glyph: '◒', family: 'recovery', text: 'Fire and smoke damage are reduced by 1 per stack.', drawback: 'Water and current damage are increased by 1.' }
-  ,{ id: 'tideSkin', name: 'Tide Skin', glyph: '◓', family: 'recovery', text: 'Water and current damage are reduced by 1 per stack.', drawback: 'Fire damage is increased by 1.' }
-  ,{ id: 'pressureSeal', name: 'Pressure Seal', glyph: '◈', family: 'recovery', text: 'Gain 1 shield after using a traversal tool per stack.', drawback: 'Shield expiry deals 1 focus damage.' }
-  ,{ id: 'bloodCompass', name: 'Blood Compass', glyph: '✥', family: 'combat', text: 'Killing an enemy reveals 2 tiles per stack.', drawback: 'You lose 1 HP when no enemy is nearby for 8 turns.' }
-  ,{ id: 'hookLine', name: 'Hook Line', glyph: '⌇', family: 'combat', text: 'Reach weapons deal +1 damage per stack after movement.', drawback: 'Adjacent attacks deal 1 less damage.' }
-  ,{ id: 'guardRattle', name: 'Guard Rattle', glyph: ')', family: 'combat', text: 'Off-hand gear grants +1 guard after a hit per stack.', drawback: 'Weapon cooldowns last 1 extra turn.' }
-  ,{ id: 'tideEdge', name: 'Tide Edge', glyph: '/', family: 'combat', text: 'Water/current weapon hits pull targets 1 tile per stack.', drawback: 'Targets in dry terrain gain +1 defense.' }
-  ,{ id: 'cinderEdge', name: 'Cinder Edge', glyph: '/', family: 'combat', text: 'Fire/hammer weapon hits ignite gas or smoke per stack.', drawback: 'Your attacks can ignite nearby flammables.' }
-  ,{ id: 'echoCache', name: 'Echo Cache', glyph: '$', family: 'economy', text: 'Each distinct Boon family grants 5 cash at milestones.', drawback: 'Duplicate Boons grant no cash.' }
-  ,{ id: 'openCircuit', name: 'Open Circuit', glyph: '⌁', family: 'spellcraft', text: 'Casting after traversal restores 1 focus per stack.', drawback: 'Casting while stationary costs 1 extra focus.' }
-  ,{ id: 'blinkDebt', name: 'Blink Debt', glyph: '?', family: 'spellcraft', text: 'Blink and pull gain 1 range per stack.', drawback: 'After teleporting, lose 1 HP per stack.' }
-  ,{ id: 'rootBattery', name: 'Root Battery', glyph: '♣', family: 'spellcraft', text: 'Root/ward effects grant 1 shield or focus per stack.', drawback: 'Your next move is slowed.' }
-  ,{ id: 'scrapPrayer', name: 'Scrap Prayer', glyph: '☼', family: 'terrain', text: 'Activated props restore 1 HP and focus per stack.', drawback: 'Destroyed props no longer grant their normal reward.' }
-  ,{ id: 'softLanding', name: 'Soft Landing', glyph: '∨', family: 'traversal', text: 'Hazard crossings reduce incoming damage by 1 per stack.', drawback: 'Direct movement has a 1-turn slow after a crossing.' }
-  ,{ id: 'hardLesson', name: 'Hard Lesson', glyph: '∆', family: 'combat', text: 'Taking hazard damage gives +1 melee damage next attack per stack.', drawback: 'Hazard recovery items heal 1 less.' }
-  ,{ id: 'sealedBreath', name: 'Sealed Breath', glyph: '◍', family: 'recovery', text: 'Smoke and gas no longer reduce sight per stack.', drawback: 'Focus recovery from resting is reduced by 1.' }
-  ,{ id: 'relayStep', name: 'Relay Step', glyph: '›', family: 'traversal', text: 'Alternating move and tool use lowers tool cooldown by 1 per stack.', drawback: 'Repeated tool use costs 1 HP.' }
-  ,{ id: 'borrowedTime', name: 'Borrowed Time', glyph: '⌛', family: 'recovery', text: 'Time Knot gains one extra safe position per stack.', drawback: 'Each rewind marks you for 2 turns.' }
-  ,{ id: 'furnaceHeart', name: 'Furnace Heart', glyph: '♥', family: 'terrain', text: 'Fire actions grant +1 damage and +1 focus per stack.', drawback: 'Water actions cost 1 HP.', rare: true }
-  ,{ id: 'drownedOath', name: 'Drowned Oath', glyph: '♆', family: 'terrain', text: 'Water/current actions heal 1 HP and pull enemies per stack.', drawback: 'Fire actions cost 1 HP.', rare: true }
-  ,{ id: 'blackLedger', name: 'Black Ledger', glyph: '§', family: 'economy', text: 'Gain 12 cash whenever you claim a milestone per stack.', drawback: 'Lose 2 HP at every exit.', rare: true }
-  ,{ id: 'glassNerve', name: 'Glass Nerve', glyph: '◇', family: 'combat', text: 'Your first attack each turn gains +3 damage per stack.', drawback: 'All other damage taken is increased by 1.', rare: true }
-  ,{ id: 'wayEater', name: 'Way Eater', glyph: '⌘', family: 'traversal', text: 'Clearing terrain permanently lowers all tool cooldowns by 1 per stack.', drawback: 'Each cleared tile costs 1 focus.', rare: true }
-  ,{ id: 'deepPockets', name: 'Deep Pockets', glyph: '▣', family: 'consumable', text: 'Used items have a 35% chance per stack to return after combat.', drawback: 'All item use costs 1 focus.', rare: true }
+  ,{ id: 'breachTempo', name: 'Breach Tempo', glyph: '↯', family: 'traversal', text: 'Breaking terrain restores 1 focus per stack.' }
+  ,{ id: 'updraftStep', name: 'Updraft Step', glyph: '↑', family: 'traversal', text: 'Lifts and glides travel 1 extra tile per stack.' }
+  ,{ id: 'anchorHabit', name: 'Anchor Habit', glyph: '⚓', family: 'traversal', text: 'Ropes and anchors restore 1 HP per stack.' }
+  ,{ id: 'smokeWalker', name: 'Smoke Walker', glyph: '≈', family: 'terrain', text: 'Smoke deals 1 less damage and reveals nearby ground.' }
+  ,{ id: 'currentSense', name: 'Current Sense', glyph: '≋', family: 'terrain', text: 'Current crossings reveal a route and grant 1 focus.' }
+  ,{ id: 'wallSong', name: 'Wall Song', glyph: '♫', family: 'terrain', text: 'Breach tools clear one additional adjacent blocker per stack.' }
+  ,{ id: 'ashDividend', name: 'Ash Dividend', glyph: '¤', family: 'economy', text: 'Destroyed terrain and props yield 4 cash per stack.' }
+  ,{ id: 'salvager', name: 'Salvager', glyph: '⛏', family: 'economy', text: 'First used consumable each floor has a 25% return chance per stack.' }
+  ,{ id: 'lastMatch', name: 'Last Match', glyph: '†', family: 'consumable', text: 'At 25% HP, bombs and fire items gain +2 damage per stack.' }
+  ,{ id: 'spareFuse', name: 'Spare Fuse', glyph: '!', family: 'consumable', text: 'Bomb packs restore one extra bomb per stack.' }
+  ,{ id: 'quietPocket', name: 'Quiet Pocket', glyph: '◌', family: 'consumable', text: 'Tonics also remove one condition per stack.' }
+  ,{ id: 'scavengerMap', name: 'Scavenger Map', glyph: '⌖', family: 'scouting', text: 'Containers reveal a nearby item or milestone per stack.' }
+  ,{ id: 'dangerInstinct', name: 'Danger Instinct', glyph: '!', family: 'scouting', text: 'Entering a new hazard reveals adjacent enemies per stack.' }
+  ,{ id: 'slagSkin', name: 'Slag Skin', glyph: '◒', family: 'recovery', text: 'Fire and smoke damage are reduced by 1 per stack.' }
+  ,{ id: 'tideSkin', name: 'Tide Skin', glyph: '◓', family: 'recovery', text: 'Water and current damage are reduced by 1 per stack.' }
+  ,{ id: 'pressureSeal', name: 'Pressure Seal', glyph: '◈', family: 'recovery', text: 'Gain 1 shield after using a traversal tool per stack.' }
+  ,{ id: 'bloodCompass', name: 'Blood Compass', glyph: '✥', family: 'combat', text: 'Killing an enemy reveals 2 tiles per stack.' }
+  ,{ id: 'hookLine', name: 'Hook Line', glyph: '⌇', family: 'combat', text: 'Reach weapons deal +1 damage per stack after movement.' }
+  ,{ id: 'guardRattle', name: 'Guard Rattle', glyph: ')', family: 'combat', text: 'Off-hand gear grants +1 guard after a hit per stack.' }
+  ,{ id: 'tideEdge', name: 'Tide Edge', glyph: '/', family: 'combat', text: 'Water/current weapon hits pull targets 1 tile per stack.' }
+  ,{ id: 'cinderEdge', name: 'Cinder Edge', glyph: '/', family: 'combat', text: 'Fire/hammer weapon hits ignite gas or smoke per stack.' }
+  ,{ id: 'echoCache', name: 'Echo Cache', glyph: '$', family: 'economy', text: 'Each distinct Boon family grants 5 cash at milestones.' }
+  ,{ id: 'openCircuit', name: 'Open Circuit', glyph: '⌁', family: 'spellcraft', text: 'Casting after traversal restores 1 focus per stack.' }
+  ,{ id: 'blinkDebt', name: 'Blink Debt', glyph: '?', family: 'spellcraft', text: 'Blink and pull gain 1 range per stack.' }
+  ,{ id: 'rootBattery', name: 'Root Battery', glyph: '♣', family: 'spellcraft', text: 'Root/ward effects grant 1 shield or focus per stack.' }
+  ,{ id: 'scrapPrayer', name: 'Scrap Prayer', glyph: '☼', family: 'terrain', text: 'Activated props restore 1 HP and focus per stack.' }
+  ,{ id: 'softLanding', name: 'Soft Landing', glyph: '∨', family: 'traversal', text: 'Hazard crossings reduce incoming damage by 1 per stack.' }
+  ,{ id: 'hardLesson', name: 'Hard Lesson', glyph: '∆', family: 'combat', text: 'Taking hazard damage gives +1 melee damage next attack per stack.' }
+  ,{ id: 'sealedBreath', name: 'Sealed Breath', glyph: '◍', family: 'recovery', text: 'Smoke and gas no longer reduce sight per stack.' }
+  ,{ id: 'relayStep', name: 'Relay Step', glyph: '›', family: 'traversal', text: 'Alternating move and tool use lowers tool cooldown by 1 per stack.' }
+  ,{ id: 'borrowedTime', name: 'Borrowed Time', glyph: '⌛', family: 'recovery', text: 'Time Knot gains one extra safe position per stack.' }
+  ,{ id: 'furnaceHeart', name: 'Furnace Heart', glyph: '♥', family: 'terrain', text: 'Fire actions grant +1 damage and +1 focus per stack.', rare: true }
+  ,{ id: 'drownedOath', name: 'Drowned Oath', glyph: '♆', family: 'terrain', text: 'Water/current actions heal 1 HP and pull enemies per stack.', rare: true }
+  ,{ id: 'blackLedger', name: 'Black Ledger', glyph: '§', family: 'economy', text: 'Gain 12 cash whenever you claim a milestone per stack.', rare: true }
+  ,{ id: 'glassNerve', name: 'Glass Nerve', glyph: '◇', family: 'combat', text: 'Your first attack each turn gains +3 damage per stack.', rare: true }
+  ,{ id: 'wayEater', name: 'Way Eater', glyph: '⌘', family: 'traversal', text: 'Clearing terrain permanently lowers all tool cooldowns by 1 per stack.', rare: true }
+  ,{ id: 'deepPockets', name: 'Deep Pockets', glyph: '▣', family: 'consumable', text: 'Used items have a 35% chance per stack to return after combat.', rare: true },
+  { id: 'galeThread', name: 'Gale Thread', glyph: '≈', family: 'traversal', text: 'Each climb restores 1 focus per stack.' },
+  { id: 'ropewright', name: 'Ropewright', glyph: '⌁', family: 'traversal', text: 'At rank 2+, every second vertical rope costs no reserve rope.' },
+  { id: 'updraftCadence', name: 'Updraft Cadence', glyph: '↑', family: 'traversal', text: 'Ledge movement grants 1 focus per stack.' },
+  { id: 'skyhookReprisal', name: 'Skyhook Reprisal', glyph: 'J', family: 'combat', text: 'After climbing, your next attack gains +2 damage per stack.' },
+  { id: 'thunderVessel', name: 'Thunder Vessel', glyph: 'ϟ', family: 'combat', text: 'Thrown damage gains +1 and marks targets per stack.' },
+  { id: 'eyrieHoard', name: 'Eyrie Hoard', glyph: '$', family: 'economy', text: 'Caches and chests yield 12 cash per stack.' },
+  { id: 'windScribe', name: 'Wind Scribe', glyph: '⌇', family: 'spellcraft', text: 'Wind and force charms gain 1 range per stack.' },
+  { id: 'highPath', name: 'High Path', glyph: '⌖', family: 'scouting', text: 'Climbs reveal 2 tiles per stack around the destination.' },
+  { id: 'graveLedger', name: 'Grave Ledger', glyph: '§', family: 'economy', text: 'Enemy kills grant 3 cash per stack.' },
+  { id: 'ancestorLantern', name: 'Ancestor Lantern', glyph: 'i', family: 'recovery', text: 'Enemy kills restore 1 focus per stack.' },
+  { id: 'boneOrchard', name: 'Bone Orchard', glyph: '✦', family: 'recovery', text: 'Enemy kills restore 1 HP per stack.' },
+  { id: 'cairnPact', name: 'Cairn Pact', glyph: '▲', family: 'terrain', text: 'Oath and body payments grant 18 cash per stack.', suppresses: ['consumable'], rare: true },
+  { id: 'mournersBell', name: 'Mourner’s Bell', glyph: 'o', family: 'spellcraft', text: 'Spirit events restore 1 focus per stack.' },
+  { id: 'ossuaryWard', name: 'Ossuary Ward', glyph: '□', family: 'recovery', text: 'At each encounter resolution, gain 1 shield per stack.' },
+  { id: 'funeralExchange', name: 'Funeral Exchange', glyph: '¤', family: 'economy', text: 'Discarded items yield 10 cash per stack.' },
+  { id: 'lastRites', name: 'Last Rites', glyph: '†', family: 'combat', text: 'At 25% HP, attacks gain +2 damage per stack.' },
+  { id: 'stormwake', name: 'Stormwake Engine', glyph: 'ϟ', family: 'combat', text: 'Traversal actions charge +1 attack damage per stack; suppresses recovery triggers.', suppresses: ['recovery'], rare: true },
+  { id: 'burialCurrent', name: 'Burial Current', glyph: '≈', family: 'terrain', text: 'Current, spirit, and grave terrain restore 1 HP per stack.' },
+  { id: 'echoDividend', name: 'Echo Dividend', glyph: '$', family: 'economy', text: 'Every resolved encounter grants 10 cash per stack.' },
+  { id: 'tetheredThunder', name: 'Tethered Thunder', glyph: '⌁', family: 'combat', text: 'Rope and climb actions arm +1 thrown damage per stack.' },
+  { id: 'riftLedger', name: 'Rift Ledger', glyph: '§', family: 'economy', text: 'Elite kills grant 15 extra cash per stack.' },
+  { id: 'saltedAncestor', name: 'Salted Ancestor', glyph: 'i', family: 'spellcraft', text: 'A charm cast after a kill refunds 1 focus per stack.' },
+  { id: 'windfall', name: 'Windfall', glyph: '↑', family: 'economy', text: 'Each route transition grants 20 cash per stack.' },
+  { id: 'gravewind', name: 'Gravewind', glyph: '◌', family: 'terrain', text: 'Marked enemies take +1 damage per stack.' },
+  { id: 'cliffsideCairn', name: 'Cliffside Cairn', glyph: '▲', family: 'scouting', text: 'Revealed milestones restore 1 focus per stack.' },
+  { id: 'spiritSail', name: 'Spirit Sail', glyph: '⌇', family: 'traversal', text: 'Each climb or current crossing gains +1 movement range per stack.' },
+  { id: 'descentEngine', name: 'Descent Engine', glyph: '↯', family: 'combat', text: 'Damage after a terrain crossing gains +1 per stack.' },
+  { id: 'altarCompound', name: 'Altar Compound', glyph: '+', family: 'spellcraft', text: 'Altar and oath rewards add 1 boon evolution rank per stack at 3+.' },
+  { id: 'stormRations', name: 'Storm Rations', glyph: '+', family: 'consumable', text: 'Using a tonic after moving restores 2 extra HP per stack.' },
+  { id: 'heirloomCircuit', name: 'Heirloom Circuit', glyph: '◇', family: 'recovery', text: 'Guardian kills restore 4 HP and focus per stack.' },
+  { id: 'bridgeOfNames', name: 'Bridge of Names', glyph: '=', family: 'traversal', text: 'Each active oath grants 1 armor per stack.' },
+  { id: 'cursedInvestment', name: 'Cursed Investment', glyph: '☠', family: 'economy', text: 'While cursed, all cash gains are doubled per stack.', suppresses: ['consumable'], rare: true }
 ]
 
 const toolById = Object.fromEntries(TOOLS.map(tool => [tool.id, tool])) as Record<TraversalToolId, TraversalTool>
@@ -82,7 +115,15 @@ const hazardous = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent',
 
 export const toolFor = (id: TraversalToolId): TraversalTool => toolById[id]
 export const boonFor = (id: BoonId): Boon => boonById[id]
-export const boonRank = (state: RunState, id: BoonId): number => (state.hero.boons?.[id] ?? 0) + (state.hero.boonEvolutions?.[id] ?? 0)
+export const boonRank = (state: RunState, id: BoonId): number => {
+  const boon = boonById[id]
+  if (!boon) return 0
+  const suppressed = Object.keys(state.hero.boons ?? {}).some(ownerId => {
+    const owner = boonById[ownerId]
+    return ownerId !== id && (state.hero.boons?.[ownerId] ?? 0) > 0 && owner?.suppresses?.includes(boon.family)
+  })
+  return suppressed ? 0 : (state.hero.boons?.[id] ?? 0) + (state.hero.boonEvolutions?.[id] ?? 0)
+}
 export const hasBoon = (state: RunState, id: BoonId): boolean => boonRank(state, id) > 0
 export const toolCooldown = (state: RunState, id: TraversalToolId): number => state.hero.cooldowns?.[`tool:${id}`] ?? 0
 
@@ -174,7 +215,7 @@ export function chooseAugment(state: RunState, milestoneId: string, command: str
       recordTelemetryCount(state, 'boonAugments', `evolve:${choice}`)
       claim(state, current)
       state.modal = undefined
-      log(state, `${boonFor(choice).name} evolves to tier ${state.hero.boonEvolutions[choice]}. Drawback deepens: ${boonFor(choice).drawback ?? 'the burden of its power.'}`)
+      log(state, `${boonFor(choice).name} evolves to tier ${state.hero.boonEvolutions[choice]}. Its engine strengthens.`)
       return true
     }
     state.modal = { ...modal, selected: [choice] }
@@ -193,7 +234,7 @@ export function chooseAugment(state: RunState, milestoneId: string, command: str
   recordTelemetryCount(state, 'boonAugments', `${modal.mode}:${selected}:${choice.id}`)
   claim(state, current)
   state.modal = undefined
-  log(state, modal.mode === 'reforge' ? `${boonFor(selected).name} reforges into ${choice.name}.` : `${boonFor(selected).name} transmutes into ${choice.name}: ${choice.drawback ?? 'power carries a cost.'}`)
+  log(state, modal.mode === 'reforge' ? `${boonFor(selected).name} reforges into ${choice.name}.` : `${boonFor(selected).name} transmutes into ${choice.name}.`)
   return true
 }
 

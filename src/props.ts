@@ -53,7 +53,19 @@ export const PROP_DEFINITIONS = [
   define({ id: 'floodedRuins.sunkenCache', biome: 'floodedRuins', name: 'sunken cache', description: 'A lacquered cache rests under clear black water.', glyph: '?', color: '#a1dfe2', terrain: ['floor', 'water', 'current'], tags: ['cache', 'water', 'salvage'], hooks: ['operate', 'water', 'bomb', 'throw', 'hazard'], activationReward: 'floodSalt', effectReward: 'anchorBlade' }),
   define({ id: 'floodedRuins.tideShrine', biome: 'floodedRuins', name: 'tide shrine', description: 'A shrine’s bowl fills and drains with the current.', glyph: '+', color: '#a4e7e9', terrain: ['floor', 'water', 'anchor'], tags: ['ritual', 'water', 'anchor'], hooks: ['operate', 'water', 'force', 'ward', 'hazard'], activationReward: 'tideCutter', effectReward: 'wingfoil' }),
   define({ id: 'floodedRuins.currentBell', biome: 'floodedRuins', name: 'current bell', description: 'A submerged bell hums whenever the water shifts.', glyph: 'b', color: '#b2e5e5', terrain: ['floor', 'current', 'anchor'], tags: ['current', 'warning', 'water'], hooks: ['operate', 'water', 'force', 'throw', 'hazard'], activationReward: 'salvageKit', effectReward: 'currentRune' }),
-  define({ id: 'floodedRuins.mossBridge', biome: 'floodedRuins', name: 'moss bridge', description: 'A rope bridge sags between tide-worn columns.', glyph: '=', color: '#82b6a1', terrain: ['floor', 'anchor', 'water'], tags: ['route', 'growth', 'water'], hooks: ['operate', 'fire', 'water', 'force', 'throw', 'hazard'], activationReward: 'wingfoil', effectReward: 'anchorSpool' })
+  define({ id: 'floodedRuins.mossBridge', biome: 'floodedRuins', name: 'moss bridge', description: 'A rope bridge sags between tide-worn columns.', glyph: '=', color: '#82b6a1', terrain: ['floor', 'anchor', 'water'], tags: ['route', 'growth', 'water'], hooks: ['operate', 'fire', 'water', 'force', 'throw', 'hazard'], activationReward: 'wingfoil', effectReward: 'anchorSpool' }),
+  define({ id: 'cliffs.ropeAnchor', biome: 'cliffs', name: 'rope anchor', description: 'A weathered iron ring marks a vertical route.', glyph: '⚓', color: '#d8b66f', terrain: ['floor', 'ledge', 'rope'], tags: ['route', 'climb', 'wind'], hooks: ['operate', 'force', 'wind', 'throw'], activationReward: 'cliffSpool', effectReward: 'grappleLine' }),
+  define({ id: 'cliffs.windVane', biome: 'cliffs', name: 'wind vane', description: 'A bent vane sings with the crosswind.', glyph: 'V', color: '#a8c7ff', terrain: ['floor', 'ledge'], tags: ['warning', 'wind', 'force'], hooks: ['operate', 'wind', 'force', 'hazard'], activationReward: 'skyMap', effectReward: 'thunderJar' }),
+  define({ id: 'cliffs.nestCache', biome: 'cliffs', name: 'nest cache', description: 'A bundle is wedged beneath a high nest.', glyph: '?', color: '#d8d1b7', terrain: ['floor', 'ledge'], tags: ['cache', 'climb', 'salvage'], hooks: ['operate', 'wind', 'throw', 'hazard'], activationReward: 'cliffSpool', effectReward: 'windhook' }),
+  define({ id: 'cliffs.skyShrine', biome: 'cliffs', name: 'sky shrine', description: 'Stone ribbons point toward the open sky.', glyph: '+', color: '#c4e5f2', terrain: ['floor', 'ledge'], tags: ['ritual', 'wind', 'climb'], hooks: ['operate', 'wind', 'force', 'ward', 'hazard'], activationReward: 'gust', effectReward: 'galeMantle' }),
+  define({ id: 'cliffs.crackedLedge', biome: 'cliffs', name: 'cracked ledge', description: 'A ledge flexes over a deep drop.', glyph: '=', color: '#8398b4', terrain: ['floor', 'ledge'], tags: ['route', 'climb', 'hazard'], hooks: ['operate', 'force', 'throw', 'hazard'], activationReward: 'ropeBundle', effectReward: 'thunderJar' }),
+  define({ id: 'cliffs.signalFire', biome: 'cliffs', name: 'signal fire', description: 'Cold charcoal waits in a storm-bent brazier.', glyph: 'i', color: '#c9e7f7', terrain: ['floor', 'ledge'], tags: ['light', 'wind', 'fire'], hooks: ['operate', 'fire', 'wind', 'hazard'], activationReward: 'ember', effectReward: 'skyMap' }),
+  define({ id: 'burial.cairnGate', biome: 'burial', name: 'cairn gate', description: 'Stacked stones seal a narrow barrow path.', glyph: 'A', color: '#b9aa94', terrain: ['floor', 'cairn'], tags: ['route', 'grave', 'force'], hooks: ['operate', 'force', 'bomb', 'spirit'], activationReward: 'tombKey', effectReward: 'graveSickle' }),
+  define({ id: 'burial.funeralLantern', biome: 'burial', name: 'funeral lantern', description: 'A violet flame burns without oil.', glyph: 'i', color: '#c9a6db', terrain: ['floor', 'graveSoil', 'spiritPath'], tags: ['light', 'spirit', 'ritual'], hooks: ['operate', 'spirit', 'ward', 'hazard'], activationReward: 'ancestorToken', effectReward: 'mourningBell' }),
+  define({ id: 'burial.ossuaryCache', biome: 'burial', name: 'ossuary cache', description: 'Bone clasps protect a sealed offering.', glyph: '?', color: '#d9d3c5', terrain: ['floor', 'ossuary'], tags: ['cache', 'grave', 'salvage'], hooks: ['operate', 'spirit', 'bomb', 'throw'], activationReward: 'graveSalt', effectReward: 'tombKey' }),
+  define({ id: 'burial.graveBloom', biome: 'burial', name: 'grave bloom', description: 'Pale flowers thread through old soil.', glyph: '*', color: '#d8c1e7', terrain: ['floor', 'graveSoil'], tags: ['growth', 'grave', 'spirit'], hooks: ['operate', 'spirit', 'root', 'hazard'], activationReward: 'graveSalt', effectReward: 'ancestorToken' }),
+  define({ id: 'burial.ancestorStone', biome: 'burial', name: 'ancestor stone', description: 'A carved name waits beneath soft lichen.', glyph: 'S', color: '#bba9d0', terrain: ['floor', 'cairn', 'spiritPath'], tags: ['ritual', 'spirit', 'grave'], hooks: ['operate', 'spirit', 'ward', 'force'], activationReward: 'mourningBell', effectReward: 'ward' }),
+  define({ id: 'burial.sealedTomb', biome: 'burial', name: 'sealed tomb', description: 'Bronze seals bind a tomb door shut.', glyph: 'T', color: '#cba96f', terrain: ['floor', 'ossuary'], tags: ['cache', 'grave', 'hazard'], hooks: ['operate', 'bomb', 'spirit', 'throw'], activationReward: 'tombKey', effectReward: 'graveSickle' })
 ] as const satisfies readonly PropDefinition[]
 
 export const PROP_IDS = PROP_DEFINITIONS.map(definition => definition.id) as readonly PropId[]
@@ -75,7 +87,7 @@ export const propEffects = (hooks: readonly PropHook[]): PropEffectKind[] => hoo
 
 export const validatePropDefinitions = (): string[] => {
   const errors: string[] = []
-  if (PROP_DEFINITIONS.length !== 36) errors.push(`expected 36 prop definitions, found ${PROP_DEFINITIONS.length}`)
+  if (PROP_DEFINITIONS.length !== 48) errors.push(`expected 48 prop definitions, found ${PROP_DEFINITIONS.length}`)
   const ids = new Set<string>()
   for (const definition of PROP_DEFINITIONS) {
     if (ids.has(definition.id)) errors.push(`duplicate prop definition: ${definition.id}`)
@@ -84,6 +96,6 @@ export const validatePropDefinitions = (): string[] => {
     if (!definition.hooks.includes('operate') || !propEffects(definition.hooks).length) errors.push(`incomplete hooks: ${definition.id}`)
     if (!ITEM[definition.activationReward] || !ITEM[definition.effectReward]) errors.push(`unknown reward: ${definition.id}`)
   }
-  for (const biome of ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
+  for (const biome of ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
   return errors
 }

@@ -5,7 +5,7 @@ import { refreshFov } from './visibility'
 import { hydrateEncyclopediaLegacy } from './encyclopedia'
 import { createRunTelemetry } from '../telemetry'
 import { recordSafePosition } from './buildcraft'
-import { AREA_ORDER, campaignOrderForSeed } from './campaign'
+import { DEFAULT_AREA_ORDER, campaignOrderForSeed } from './campaign'
 
 export interface CourierBuild { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode }
 
@@ -36,12 +36,14 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
   }
 }
 
-export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = AREA_ORDER): RunState {
-  const floor = generateAreaFloor(seed, area, areaFloor)
+export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER): RunState {
+  const routePosition = Math.max(0, areaOrder.indexOf(area))
+  const floor = generateAreaFloor(seed, area, areaFloor, routePosition)
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
+  if (inheritedHero && areaFloor === 0 && routePosition > 0) hero.gold = Math.min(500, hero.gold + (hero.boons?.windfall ?? 0) * 20)
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 4, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)

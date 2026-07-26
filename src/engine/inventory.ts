@@ -3,7 +3,7 @@ import { DIRECTIONS, MAP_WIDTH, type Direction, type Modal, type RunState } from
 import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
-import { modifyIncomingDamage } from './conditions'
+import { addCondition, modifyIncomingDamage } from './conditions'
 import { gateForRun } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
@@ -110,12 +110,14 @@ export function descend(state: RunState): ActionResult {
   const areaFloor = state.areaFloor ?? state.floor.index % 4
   if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
-  state.floor = generateAreaFloor(state.seed, state.area ?? state.floor.biome, nextAreaFloor)
+  const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(state.area ?? state.floor.biome))
+  state.floor = generateAreaFloor(state.seed, state.area ?? state.floor.biome, nextAreaFloor, routePosition)
   state.areaFloor = nextAreaFloor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4 + vitalityRecovery(state.hero))
   state.hero.focus = state.hero.maxFocus
+  state.hero.oaths = (state.hero.oaths ?? []).flatMap(oath => oath.remainingFloors <= 1 ? [] : [{ ...oath, remainingFloors: oath.remainingFloors - 1 }])
   state.modal = { kind: 'trailcraft' }
   log(state, `You continue through ${biomeName[state.floor.biome]}.`)
   log(state, 'Trail cleared: choose a trailcraft.')
@@ -140,6 +142,25 @@ export function inventoryChoice(state: RunState, modal: Extract<Modal, { kind: '
 }
 
 export function useRope(state: RunState): ActionResult {
+  const climb = state.floor.climbLinks?.find(link => (link.lower.x === state.hero.x && link.lower.y === state.hero.y) || (link.upper.x === state.hero.x && link.upper.y === state.hero.y))
+  if (climb?.anchored) {
+    const destination = climb.lower.x === state.hero.x && climb.lower.y === state.hero.y ? climb.upper : climb.lower
+    state.hero.x = destination.x
+    state.hero.y = destination.y
+    state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'galeThread'))
+    for (let radius = 0; radius < boonRank(state, 'highPath'); radius++) for (const tile of state.floor.tiles) if (!tile.explored) { tile.explored = true; break }
+    refreshFov(state)
+    log(state, 'You climb the secured vertical rope.')
+    return advance(state, [event('traverse'), event('rope')])
+  }
+  if (climb) {
+    const free = boonRank(state, 'ropewright') >= 2 && state.turn % 2 === 0
+    if (!free && state.hero.ropes < 1) { log(state, 'No ropes remain.'); return [] }
+    if (!free) state.hero.ropes--
+    climb.anchored = true
+    log(state, free ? 'Ropewright binds the vertical route without spending reserve rope.' : 'You secure a vertical rope between the cliff tiers.')
+    return advance(state, [event('rope')])
+  }
   if (state.hero.ropes < 1) { log(state, 'No ropes remain.'); return [] }
   const tile = getTile(state.floor, state.hero.x, state.hero.y)!
   if (tile.kind === 'pit') tile.kind = 'rope'
@@ -178,6 +199,7 @@ export function useRope(state: RunState): ActionResult {
 }
 
 export function castFirstSpell(state: RunState): ActionResult {
+  if (state.hero.oaths?.some(oath => oath.id === 'noCharms')) { log(state, 'Your active oath forbids charms.'); return [] }
   const id = state.hero.inventory.find(item => ITEM[item].use === 'spell')
   if (!id) { log(state, 'You know no ready charm.'); return [] }
   state.modal = { kind: 'target', action: 'spell', item: id }
@@ -191,6 +213,7 @@ export function quickCast(state: RunState, direction: Direction): ActionResult {
 }
 
 export function bomb(state: RunState, direction: Direction): ActionResult {
+  if (state.hero.oaths?.some(oath => oath.id === 'noBombs')) { log(state, 'Your active oath forbids bombs.'); return [] }
   if (state.hero.bombs < 1) { log(state, 'No bombs remain.'); return [] }
   state.hero.bombs--
   const delta = DIRECTIONS[direction]
@@ -308,7 +331,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
   const cells = resolveLineEffect(state.floor, state.hero, destination).cells
   const point = cells.at(-1) ?? { x: state.hero.x, y: state.hero.y }
   const target = actorAt(state.floor, point.x, point.y)
-  if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength + boonRank(state, 'emberFletching')); log(state, `${ITEM[id].name} hits ${target.name}.`) }
+  if (target?.hostile) { target.health -= modifyIncomingDamage(target, 3 + state.hero.stats.strength + boonRank(state, 'emberFletching') + boonRank(state, 'thunderVessel') + boonRank(state, 'tetheredThunder')); if (boonRank(state, 'thunderVessel')) addCondition(target, { kind: 'marked', duration: 2, potency: boonRank(state, 'thunderVessel') }); log(state, `${ITEM[id].name} hits ${target.name}.`) }
   if (id === 'fireJar') explode(state, point.x, point.y, 5, ['bomb', 'fire'])
   else {
     state.floor.items.push({ id, x: point.x, y: point.y, count: 1, visibleInFog: true })
@@ -319,6 +342,7 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
 }
 
 export function castSpell(state: RunState, id: string, direction: Direction): ActionResult {
+  if (state.hero.oaths?.some(oath => oath.id === 'noCharms')) { log(state, 'Your active oath forbids charms.'); return [] }
   const item = ITEM[id]
   const profile = scriptCastProfile(state.hero, id)
   const circuitReady = Boolean(state.hero.relicCharges?.ashCircuit)
@@ -373,7 +397,7 @@ const recoverUsedItem = (state: RunState, id: string): void => {
 function useItem(state: RunState, id: string, inventoryIndex: number): ActionResult {
   const item = ITEM[id]
   if (item.slot) return equip(state, id, inventoryIndex)
-  if (item.use === 'heal') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + Math.max(1, 10 + vitalityRecovery(state.hero) - boonRank(state, 'quietPocket') - boonRank(state, 'hardLesson'))); if (boonRank(state, 'quietPocket')) state.hero.conditions = []; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
+  if (item.use === 'heal') { if (state.hero.oaths?.some(oath => oath.id === 'noHealing')) { log(state, 'Your active oath forbids healing.'); return [] }; state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + Math.max(1, 10 + vitalityRecovery(state.hero) - boonRank(state, 'quietPocket') - boonRank(state, 'hardLesson')) + boonRank(state, 'stormRations') * 2); if (boonRank(state, 'quietPocket')) state.hero.conditions = []; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Warmth returns to your limbs.'); return advance(state, [event('spell')]) }
   if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, [event('spell')]) }
   if (item.use === 'teleport') {

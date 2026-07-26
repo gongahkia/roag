@@ -8,13 +8,13 @@ const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean)
   profile,
   mode: profile === 'omniscient-clear' ? 'omniscient' : 'visible',
   policy: profile === 'omniscient-clear' ? 'clear' : 'explore',
-  areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'],
+  areaOrder: ['mine', 'wilds', 'caverns', 'ruins'],
   campaignComplete,
   outcome: campaignComplete ? 'complete' : 'stalled',
   turns: 240,
-  finalBiome: campaignComplete ? 'floodedRuins' : 'mine',
-  floor: campaignComplete ? 24 : 1,
-  completedAreas: campaignComplete ? ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] : []
+  finalBiome: campaignComplete ? 'ruins' : 'mine',
+  floor: campaignComplete ? 16 : 1,
+  completedAreas: campaignComplete ? ['mine', 'wilds', 'caverns', 'ruins'] : []
 })
 
 const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
@@ -27,17 +27,17 @@ const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
 })
 
 describe('campaign autoplay baseline', () => {
-  it('requires all six ordered areas for campaign completion', () => {
-    expect(isCompleteCampaign('complete', ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'])).toBe(true)
+  it('requires all four seeded areas for campaign completion', () => {
+    expect(isCompleteCampaign('complete', ['mine', 'wilds', 'caverns', 'ruins'], ['mine', 'wilds', 'caverns', 'ruins'])).toBe(true)
     expect(isCompleteCampaign('complete', ['floodedRuins'])).toBe(false)
-    const state = newRun(7, 'floodedRuins', 3)
+    const state = newRun(7, 'floodedRuins', 3, undefined, [], [], ['floodedRuins'])
     state.floor.actors = []
     state.floor.objective.status = 'complete'
     state.floor.guardianDefeated = true
     state.hero.x = state.floor.exit.x
     state.hero.y = state.floor.exit.y
     const report = runAutoplay(state, { mode: 'omniscient', policy: 'clear', turnLimit: 1 })
-    expect(report).toMatchObject({ outcome: 'complete', campaignComplete: false, completedAreas: ['floodedRuins'] })
+    expect(report).toMatchObject({ outcome: 'complete', campaignComplete: true, completedAreas: ['floodedRuins'] })
     expect(isCompleteCampaign('complete', ['furnace', 'mine'], ['furnace', 'mine'])).toBe(true)
   })
 

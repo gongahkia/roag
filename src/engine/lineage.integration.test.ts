@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { initialCampaignRoute, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
+import { initialCampaignRoute, unlockCampaignArea } from './campaign'
 import { gateForArea, resolveAreaGate } from './gates'
 import { createRun } from '../test/factories'
 
 describe('campaign, gate, and lineage integration', () => {
-  it('keeps a non-NPC gate route open in every area and records an NPC sacrifice only when chosen', () => {
+  it('keeps a non-NPC gate route open in every area and keeps NPC sacrifices run-only', () => {
     const alternatives = [
       ['mine', 1, ['ember'], [], 20, 0], ['mine', 2, [], [], 8, 1], ['wilds', 1, ['lantern', 'ropeBundle'], [], 25, 0], ['wilds', 2, ['blinkRune'], [], 15, 0],
       ['caverns', 1, ['ward'], ['int6'], 40, 0], ['caverns', 2, ['sunseal'], [], 0, 0], ['ruins', 1, ['ember'], [], 55, 0], ['ruins', 2, [], [], 20, 1],
@@ -24,8 +24,8 @@ describe('campaign, gate, and lineage integration', () => {
     }
     const state = createRun({ area: 'mine', rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine', floor: 1 }] })
     const resolution = resolveAreaGate(state, gateForArea('mine'), 0)
-    const campaign = recordCampaignSacrifice(initialCampaignRoute(), resolution.lineageEvent!)
     expect(resolution).toMatchObject({ resolved: true, sacrificedNpc: { id: 'scout-1' } })
-    expect(campaign).toMatchObject({ rescuedNpcs: [], lineageEvents: [{ npcId: 'scout-1', gateId: 'mine-wilds-pass' }] })
+    expect(resolution.lineageEvent).toBeUndefined()
+    expect(state.lineageEvents ?? []).toEqual([])
   })
 })

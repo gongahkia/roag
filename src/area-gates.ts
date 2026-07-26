@@ -2,7 +2,7 @@ import type { Biome, ItemId, Point } from './types'
 import { biomeName } from './content'
 
 export interface GateCost { gold: number; items: ItemId[] }
-export interface GateAlternative { label: string; kind: 'npc' | 'tag' | 'bomb'; tags: string[]; cost?: GateCost }
+export interface GateAlternative { label: string; kind: 'npc' | 'tag' | 'bomb' | 'body' | 'oath'; tags: string[]; cost?: GateCost }
 export interface GateDestination { biome: Biome; floor: number; point: Point }
 export interface AreaGate { id: string; biome: Biome; npcOffering: string; tagAlternatives: GateAlternative[]; cost: GateCost; unlockedDestination: GateDestination }
 
@@ -12,7 +12,9 @@ export const AREA_GATES: Record<Biome, AreaGate> = {
   caverns: { id: 'caverns-ruins-pass', biome: 'caverns', npcOffering: 'A companion can hold the Stone Circle path.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ward and sky charm', kind: 'tag', tags: ['ward', 'astral'], cost: { gold: 40, items: [] } }, { label: 'sunstone seal', kind: 'tag', tags: ['relic'], cost: { gold: 0, items: ['sunseal'] } }], cost: { gold: 40, items: [] }, unlockedDestination: { biome: 'ruins', floor: 0, point: { x: 2, y: 2 } } },
   ruins: { id: 'ruins-furnace-descent', biome: 'ruins', npcOffering: 'A companion can hold the ashward descent.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ritual charm', kind: 'tag', tags: ['script', 'arcane'], cost: { gold: 55, items: [] } }, { label: 'breach the seal', kind: 'bomb', tags: ['bomb'], cost: { gold: 20, items: [] } }], cost: { gold: 55, items: [] }, unlockedDestination: { biome: 'furnace', floor: 0, point: { x: 2, y: 2 } } },
   furnace: { id: 'furnace-flooded-descent', biome: 'furnace', npcOffering: 'A companion can hold the flooded sluice.', tagAlternatives: [{ label: 'leave a companion to guide', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'ride the lift chain', kind: 'tag', tags: ['lift'], cost: { gold: 65, items: [] } }, { label: 'cut a cooled breach', kind: 'tag', tags: ['rubble'], cost: { gold: 30, items: [] } }], cost: { gold: 65, items: [] }, unlockedDestination: { biome: 'floodedRuins', floor: 0, point: { x: 2, y: 2 } } },
-  floodedRuins: { id: 'flooded-ruins-seal', biome: 'floodedRuins', npcOffering: 'The final tide asks for a courier’s resolve.', tagAlternatives: [{ label: 'anchor the final route', kind: 'tag', tags: ['anchor'] }, { label: 'open a tide gate', kind: 'tag', tags: ['script', 'arcane'] }, { label: 'blast the drowned seal', kind: 'bomb', tags: ['bomb'] }], cost: { gold: 90, items: [] }, unlockedDestination: { biome: 'floodedRuins', floor: 3, point: { x: 45, y: 32 } } }
+  floodedRuins: { id: 'flooded-ruins-seal', biome: 'floodedRuins', npcOffering: 'The final tide asks for a courier’s resolve.', tagAlternatives: [{ label: 'anchor the final route', kind: 'tag', tags: ['anchor'] }, { label: 'open a tide gate', kind: 'tag', tags: ['script', 'arcane'] }, { label: 'blast the drowned seal', kind: 'bomb', tags: ['bomb'] }], cost: { gold: 90, items: [] }, unlockedDestination: { biome: 'floodedRuins', floor: 3, point: { x: 45, y: 32 } } },
+  cliffs: { id: 'cliffs-sky-pass', biome: 'cliffs', npcOffering: 'A companion can hold the vertical line.', tagAlternatives: [{ label: 'leave a companion to belay', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'pay in breath and blood', kind: 'body', tags: ['body'], cost: { gold: 0, items: [] } }, { label: 'take a high oath', kind: 'oath', tags: ['oath'], cost: { gold: 0, items: [] } }, { label: 'bind a wind route', kind: 'tag', tags: ['rope'], cost: { gold: 25, items: [] } }], cost: { gold: 25, items: [] }, unlockedDestination: { biome: 'burial', floor: 0, point: { x: 2, y: 2 } } },
+  burial: { id: 'burial-barrow-pass', biome: 'burial', npcOffering: 'A companion can keep the barrow bell ringing.', tagAlternatives: [{ label: 'leave a companion to toll', kind: 'npc', tags: ['npc'], cost: { gold: 0, items: [] } }, { label: 'pay in breath and blood', kind: 'body', tags: ['body'], cost: { gold: 0, items: [] } }, { label: 'take a grave oath', kind: 'oath', tags: ['oath'], cost: { gold: 0, items: [] } }, { label: 'cut the tomb seal', kind: 'tag', tags: ['ward'], cost: { gold: 25, items: [] } }], cost: { gold: 25, items: [] }, unlockedDestination: { biome: 'mine', floor: 0, point: { x: 2, y: 2 } } }
 }
 
 export const gateForArea = (biome: Biome, destination = AREA_GATES[biome].unlockedDestination.biome): AreaGate => {
@@ -25,8 +27,8 @@ export const validateAreaGate = (gate: AreaGate): string[] => {
   const errors: string[] = []
   if (!gate.id || !gate.npcOffering) errors.push('missing gate identity')
   if (gate.tagAlternatives.length < 2) errors.push('insufficient gate alternatives')
-  if (gate.tagAlternatives.length > 3) errors.push('too many gate alternatives')
-  if (!gate.tagAlternatives.some(alternative => alternative.kind === 'npc' || alternative.kind === 'bomb' || alternative.tags.every(tag => GATE_TAGS.has(tag)))) errors.push('no possible gate alternative')
+  if (gate.tagAlternatives.length > 4) errors.push('too many gate alternatives')
+  if (!gate.tagAlternatives.some(alternative => alternative.kind === 'npc' || alternative.kind === 'bomb' || alternative.kind === 'body' || alternative.kind === 'oath' || alternative.tags.every(tag => GATE_TAGS.has(tag)))) errors.push('no possible gate alternative')
   if (!gate.unlockedDestination || gate.unlockedDestination.floor < 0 || !Number.isInteger(gate.unlockedDestination.floor)) errors.push('invalid gate destination')
   for (const alternative of gate.tagAlternatives) if (alternative.kind === 'tag' && !alternative.tags.every(tag => GATE_TAGS.has(tag))) errors.push(`unknown gate tag: ${alternative.tags.join(' + ')}`)
   return errors

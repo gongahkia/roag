@@ -153,3 +153,4 @@ console.log(JSON.stringify({
   localTerrain: localTerrain(state),
   trace: trace.slice(-12)
 }, null, 2))
+process.exit(0)

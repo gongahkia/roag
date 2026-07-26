@@ -3,8 +3,8 @@ import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
 import type { AutoplayMode, AutoplayPolicy, AutoplayTraceEntry, Biome } from './types'
 
-export const CAMPAIGN_AUTOPLAY_SEEDS = [7, 42, 99, 123, 256, 512, 999, 1337, 4096, 77123] as const
-export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = 19_200
+export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = [7, 42, 99, 123, 256, 512, 999, 1337, 4096, 77123, 11, 17, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211]
+export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = 1_600
 export const CAMPAIGN_AUTOPLAY_PROFILES = [
   { id: 'omniscient-clear', mode: 'omniscient', policy: 'clear' },
   { id: 'visible-explore', mode: 'visible', policy: 'explore' }

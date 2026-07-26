@@ -4,10 +4,8 @@ import { newRun } from './run'
 
 describe('area gate data model', () => {
   it('defines NPC offering, tag alternatives, cost, and destination for every area', () => {
-    const destinations = { mine: 'wilds', wilds: 'caverns', caverns: 'ruins', ruins: 'furnace', furnace: 'floodedRuins', floodedRuins: 'floodedRuins' }
     for (const [biome, gate] of Object.entries(AREA_GATES)) {
-      const destination = destinations[biome as keyof typeof destinations]
-      expect(gate).toMatchObject({ biome, npcOffering: expect.any(String), cost: { gold: expect.any(Number), items: expect.any(Array) }, unlockedDestination: { biome: destination, floor: destination === biome ? 3 : 0, point: destination === biome ? { x: 45, y: 32 } : { x: 2, y: 2 } } })
+      expect(gate).toMatchObject({ biome, npcOffering: expect.any(String), cost: { gold: expect.any(Number), items: expect.any(Array) }, unlockedDestination: { biome: expect.any(String), floor: expect.any(Number), point: { x: expect.any(Number), y: expect.any(Number) } } })
       expect(gate.tagAlternatives.length).toBeGreaterThan(1)
       expect(gate.tagAlternatives.every(option => option.tags.length > 0)).toBe(true)
     }
@@ -20,9 +18,9 @@ describe('area gate data model', () => {
   })
 
   it('routes a gate to the persisted campaign successor', () => {
-    const state = newRun(7, 'mine', 0, undefined, [], [], ['mine', 'furnace', 'wilds', 'caverns', 'ruins', 'floodedRuins'])
+    const state = newRun(7, 'mine', 0, undefined, [], [], ['mine', 'furnace', 'cliffs', 'burial'])
     expect(gateForRun(state)?.unlockedDestination.biome).toBe('furnace')
-    state.area = 'floodedRuins'
+    state.area = 'burial'
     expect(gateForRun(state)).toBeUndefined()
   })
 

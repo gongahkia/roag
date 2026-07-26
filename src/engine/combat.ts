@@ -24,6 +24,8 @@ import { trailcraftTags } from './trailcraft'
 import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
 import { recordTelemetryKill } from '../telemetry'
 import { armRelicMove, armRelicWaterCrossing, markbreakerDamage, resolveKillRelics } from './relics'
+import { markCurseDamaged } from './curses'
+import { grantGold } from './economy'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -79,6 +81,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     if (isPassable(state.floor, drift.x, drift.y)) { state.hero.x = drift.x; state.hero.y = drift.y; log(state, 'The current carries you onward.') }
   }
   if (tile.kind === 'lift') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + boonRank(state, 'updraftStep')); log(state, 'The lift raises your momentum.') }
+  if (tile.kind === 'ledge') state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'updraftCadence'))
+  if (tile.kind === 'graveSoil' || tile.kind === 'spiritPath') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + boonRank(state, 'burialCurrent'))
   if (tile.kind === 'anchor') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + boonRank(state, 'anchorHabit')); log(state, 'The anchor steadies your route.') }
   if (tile.kind === 'crumble') {
     if (preservesAdjacentExitAccess(state.floor, destination, 'pit')) { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }
@@ -188,7 +192,6 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   }
   tickEnvironment(state, events)
   tickConditionEffects(state, events)
-  applyEvolutionBurden(state, events)
   for (const [id, cooldown] of Object.entries(state.hero.cooldowns ?? {})) {
     if (cooldown <= 1) delete state.hero.cooldowns![id]
     else state.hero.cooldowns![id] = cooldown - 1
@@ -214,8 +217,9 @@ const revalidateProjectileTelegraphs = (state: RunState, telegraphs: Telegraph[]
 })
 
 export function damageHero(state: RunState, amount: number, source: string, hazard = false): ActionResult {
-  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - (hazard ? vitalityHazardReduction(state.hero) : 0))
+  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - boonRank(state, 'bridgeOfNames') * (state.hero.oaths?.length ?? 0) - (hazard ? vitalityHazardReduction(state.hero) : 0))
   state.hero.health -= amount
+  markCurseDamaged(state)
   log(state, `${source} harms you for ${amount}.`)
   if (state.hero.health > 0) return [event('hurt')]
   state.hero.health = 0
@@ -255,7 +259,15 @@ export function resolveDefeatedActors(state: RunState): void {
       log(state, 'The way to the exit is open; a guardian echo remains.')
     }
     gainXp(state, monsterXp(actor.kind))
-    if (actor.hostile) resolveKillRelics(state)
+    if (actor.hostile) {
+      const cash = boonRank(state, 'graveLedger') * 3 + (actor.status?.includes('elite') ? boonRank(state, 'riftLedger') * 15 : 0)
+      if (cash) grantGold(state, cash)
+      const healing = boonRank(state, 'boneOrchard') + (actor.role === 'guardian' ? boonRank(state, 'heirloomCircuit') * 4 : 0)
+      if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
+      const focus = boonRank(state, 'ancestorLantern') + (actor.role === 'guardian' ? boonRank(state, 'heirloomCircuit') * 4 : 0)
+      if (focus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)
+      resolveKillRelics(state)
+    }
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
 }
@@ -265,7 +277,10 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
   for (const target of targets) {
     const rng = turnRng(state, 'combat', `hero:${target.id}`)
     if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) { log(state, `Your attack misses ${target.name}.`); continue }
-    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const stormwake = boonRank(state, 'stormwake')
+    const marked = target.conditions?.some(condition => condition.kind === 'marked') ? boonRank(state, 'gravewind') : 0
+    const lowHealth = state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastRites') * 2 : 0
+    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + stormwake + marked + lowHealth + rng.int(0, 3) - Math.floor(target.defense / 8)))
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
     if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })
@@ -450,19 +465,11 @@ function tickConditionEffects(state: RunState, events: ActionResult): void {
   resolveDefeatedActors(state)
 }
 
-function applyEvolutionBurden(state: RunState, events: ActionResult): void {
-  const burden = Object.values(state.hero.boonEvolutions ?? {}).reduce<number>((sum, tier) => sum + (tier ?? 0), 0)
-  if (!burden || state.turn % 5) return
-  const cost = Math.max(1, Math.ceil(burden / 4))
-  if (state.hero.focus >= cost) { state.hero.focus -= cost; log(state, `Evolved Boons demand ${cost} focus.`); return }
-  events.push(...damageHero(state, cost, 'your evolved Boons'))
-}
-
 function dropLoot(state: RunState, actor: Actor): void {
   const rng = turnRng(state, 'loot', `drop:${actor.id}`)
   state.floor.items.push({ id: 'gold', x: actor.x, y: actor.y, count: actor.role === 'guardian' ? rng.int(130, 210) : rng.int(5, 18) })
   const tables: Record<string, string[]> = {
-    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune'], furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'cinderHammer', 'smokeKnife'], floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'anchorBlade', 'tideCutter']
+    mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune'], furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'cinderHammer', 'smokeKnife'], floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'anchorBlade', 'tideCutter'], cliffs: ['cliffSpool', 'thunderJar', 'skyMap', 'windhook', 'galeMantle'], burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell']
   }
   if (actor.role === 'guardian' || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
 }

@@ -4,7 +4,8 @@ import { biomeName } from '../content'
 import { nextArea } from './campaign'
 import { getTile } from '../world'
 import { hasAstralGateAccess } from './intellect'
-import { spendGold } from './economy'
+import { grantGold, spendGold } from './economy'
+import { boonRank } from './buildcraft'
 
 export { AREA_GATES, gateForArea, validateAreaGate }
 export type { AreaGate, GateAlternative, GateCost, GateDestination }
@@ -14,7 +15,13 @@ export interface GateResolution { resolved: boolean; destination?: Biome; sacrif
 export const gateForRun = (state: Pick<RunState, 'area' | 'floor' | 'areaOrder'>): AreaGate | undefined => {
   const biome = state.area ?? state.floor.biome
   const destination = nextArea(biome, state.areaOrder)
-  return destination ? gateForArea(biome, destination) : undefined
+  if (!destination) return undefined
+  const gate = gateForArea(biome, destination)
+  const surcharge = (state.floor.difficulty?.threat ?? 0) * 5
+  const alternatives = [...gate.tagAlternatives]
+  if (!alternatives.some(option => option.kind === 'body')) alternatives.push({ label: 'pay in breath and blood', kind: 'body', tags: ['body'], cost: { gold: 0, items: [] } })
+  if (!alternatives.some(option => option.kind === 'oath')) alternatives.push({ label: 'take an oath burden', kind: 'oath', tags: ['oath'], cost: { gold: 0, items: [] } })
+  return { ...gate, cost: { ...gate.cost, gold: gate.cost.gold + surcharge }, tagAlternatives: alternatives.map(option => option.cost ? { ...option, cost: { ...option.cost, gold: option.cost.gold + surcharge } } : option) }
 }
 
 const hasFireTag = (state: RunState): boolean => state.hero.inventory.some(item => item === 'fireJar' || item === 'ember')
@@ -49,17 +56,27 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   if (state.hero.gold < cost.gold) return { resolved: false, message: 'Insufficient cash for this passage.' }
   if (!cost.items.every(item => state.hero.inventory.includes(item))) return { resolved: false, message: 'Required gate item is missing.' }
   if (alternative.kind === 'npc' && !hasNpcOffering(state)) return { resolved: false, message: 'A rescued NPC is required.' }
+  if (alternative.kind === 'body' && state.hero.maxHealth <= 8) return { resolved: false, message: 'You need more than 8 maximum health for this passage.' }
+  if (alternative.kind === 'oath' && (state.hero.oaths?.length ?? 0) >= 3) return { resolved: false, message: 'Too many active oaths already bind this courier.' }
   if (alternative.kind === 'tag' && !alternative.tags.every(tag => hasGateTag(state, tag))) return { resolved: false, message: `Required tags missing: ${alternative.tags.join(' + ')}.` }
   if (alternative.kind === 'bomb' && state.hero.bombs < 1) return { resolved: false, message: 'A bomb is required.' }
   spendGold(state, cost.gold)
   for (const item of cost.items) state.hero.inventory.splice(state.hero.inventory.indexOf(item), 1)
   if (alternative.kind === 'bomb') state.hero.bombs--
   const sacrificedNpc = alternative.kind === 'npc' ? state.rescuedNpcs!.shift()! : undefined
-  const lineageEvent = sacrificedNpc ? { id: `sacrifice:${gate.id}:${sacrificedNpc.id}`, kind: 'npcSacrifice' as const, npcId: sacrificedNpc.id, npcName: sacrificedNpc.name, biome: state.area ?? state.floor.biome, floor: state.areaFloor ?? state.floor.index % 4, gateId: gate.id, seed: state.seed } : undefined
-  if (lineageEvent && !(state.lineageEvents ?? []).some(event => event.id === lineageEvent.id)) state.lineageEvents = [...(state.lineageEvents ?? []), lineageEvent].slice(-12)
+  if (alternative.kind === 'body') {
+    state.hero.maxHealth -= 4
+    state.hero.health = Math.min(state.hero.health, state.hero.maxHealth)
+    grantGold(state, 35 + boonRank(state, 'cairnPact') * 18)
+  }
+  if (alternative.kind === 'oath') {
+    const id = (['noHealing', 'noBombs', 'noCharms'] as const)[(state.seed + state.floor.index + state.turn) % 3]
+    state.hero.oaths = [...(state.hero.oaths ?? []), { id, remainingFloors: 2 }]
+    grantGold(state, 35 + boonRank(state, 'cairnPact') * 18)
+  }
   openNearbyGate(state)
   state.gateDestination = gate.unlockedDestination.biome
-  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, lineageEvent, message: `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
+  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, message: `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
 }
 
 export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false): string[] => {
@@ -67,7 +84,7 @@ export const gateModalLines = (gate: AreaGate, choice?: number, confirming = fal
   const choiceCost = selected?.cost ?? gate.cost
   const cost = `${choiceCost.gold} cash${choiceCost.items.length ? ` + ${choiceCost.items.join(', ')}` : ''}`
   const destination = `${biomeName[gate.unlockedDestination.biome]} stage ${gate.unlockedDestination.floor + 1}`
-  const requirement = (option: GateAlternative): string => option.kind === 'npc' ? 'leave one companion behind' : option.tags.join(' + ')
+  const requirement = (option: GateAlternative): string => option.kind === 'npc' ? 'leave one companion behind for this run' : option.kind === 'body' ? 'lose 4 maximum HP; gain cash' : option.kind === 'oath' ? 'two-floor oath; gain cash' : option.tags.join(' + ')
   if (!selected) return [...gate.tagAlternatives.map((option, index) => `${index + 1}. ${option.label}: ${requirement(option)}`), `FINAL: pay ${cost}; open ${destination}.`, 'number chooses · Esc cancels']
   return [`CHOICE: ${selected.label} (${requirement(selected)})`, `FINAL: pay ${cost}; open ${destination}.`, confirming ? 'ENTER confirms this final passage choice.' : 'ENTER reviews confirmation · number changes choice']
 }
