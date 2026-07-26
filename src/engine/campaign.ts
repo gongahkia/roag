@@ -2,8 +2,12 @@ import type { Biome, CampaignRouteState, LegacyRecord, LineageEvent } from '../t
 import { rngFor } from '../rng'
 
 export const AREA_ORDER = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const satisfies readonly Biome[]
+const CAMPAIGN_BANDS: readonly (readonly Biome[])[] = [['mine', 'wilds'], ['caverns', 'ruins'], ['furnace', 'floodedRuins']]
 export const isCampaignAreaOrder = (value: readonly Biome[]): boolean => value.length === AREA_ORDER.length && value.every(area => AREA_ORDER.includes(area)) && new Set(value).size === AREA_ORDER.length
-export const campaignOrderForSeed = (seed: number): Biome[] => rngFor(seed, 'progression', 'campaign-area-order').shuffle([...AREA_ORDER])
+export const campaignOrderForSeed = (seed: number): Biome[] => {
+  const rng = rngFor(seed, 'progression', 'campaign-area-order')
+  return CAMPAIGN_BANDS.flatMap(band => rng.shuffle([...band]))
+}
 export const nextArea = (biome: Biome, areaOrder: readonly Biome[] = AREA_ORDER): Biome | undefined => areaOrder[areaOrder.indexOf(biome) + 1]
 export const unlockNextArea = (unlocked: readonly Biome[], completed: Biome, areaOrder: readonly Biome[] = AREA_ORDER): Biome[] => {
   const next = nextArea(completed, areaOrder)

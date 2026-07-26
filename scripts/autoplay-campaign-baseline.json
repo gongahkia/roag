@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "seeds": [
     7,
     42,
@@ -31,6 +31,14 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
       "turns": 445,
@@ -51,6 +59,14 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
       "turns": 137,
@@ -71,18 +87,26 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1356,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
+      "turns": 1315,
+      "finalBiome": "furnace",
+      "floor": 20,
       "completedAreas": [
-        "mine",
         "wilds",
-        "caverns",
+        "mine",
         "ruins",
-        "furnace",
-        "floodedRuins"
+        "caverns",
+        "floodedRuins",
+        "furnace"
       ]
     },
     {
@@ -90,16 +114,24 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
-      "turns": 485,
-      "finalBiome": "mine",
-      "floor": 1,
+      "turns": 482,
+      "finalBiome": "wilds",
+      "floor": 5,
       "completedAreas": [],
       "failure": {
         "outcome": "stalled",
-        "finalBiome": "mine",
-        "floor": 1,
+        "finalBiome": "wilds",
+        "floor": 5,
         "completedAreas": [],
         "reason": "recovery cycle guard",
         "trace": []
@@ -110,57 +142,17 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
-      "campaignComplete": false,
-      "outcome": "stalled",
-      "turns": 733,
-      "finalBiome": "ruins",
-      "floor": 15,
-      "completedAreas": [
+      "areaOrder": [
         "mine",
         "wilds",
-        "caverns"
+        "caverns",
+        "ruins",
+        "furnace",
+        "floodedRuins"
       ],
-      "failure": {
-        "outcome": "stalled",
-        "finalBiome": "ruins",
-        "floor": 15,
-        "completedAreas": [
-          "mine",
-          "wilds",
-          "caverns"
-        ],
-        "reason": "operate objective",
-        "trace": []
-      }
-    },
-    {
-      "seed": 99,
-      "profile": "visible-explore",
-      "mode": "visible",
-      "policy": "explore",
-      "campaignComplete": false,
-      "outcome": "stalled",
-      "turns": 472,
-      "finalBiome": "mine",
-      "floor": 1,
-      "completedAreas": [],
-      "failure": {
-        "outcome": "stalled",
-        "finalBiome": "mine",
-        "floor": 1,
-        "completedAreas": [],
-        "reason": "recovery cycle guard",
-        "trace": []
-      }
-    },
-    {
-      "seed": 123,
-      "profile": "omniscient-clear",
-      "mode": "omniscient",
-      "policy": "clear",
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1383,
+      "turns": 1083,
       "finalBiome": "floodedRuins",
       "floor": 24,
       "completedAreas": [
@@ -173,10 +165,73 @@
       ]
     },
     {
+      "seed": 99,
+      "profile": "visible-explore",
+      "mode": "visible",
+      "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "furnace",
+        "floodedRuins"
+      ],
+      "campaignComplete": false,
+      "outcome": "stalled",
+      "turns": 473,
+      "finalBiome": "mine",
+      "floor": 1,
+      "completedAreas": [],
+      "failure": {
+        "outcome": "stalled",
+        "finalBiome": "mine",
+        "floor": 1,
+        "completedAreas": [],
+        "reason": "recovery cycle guard",
+        "trace": []
+      }
+    },
+    {
+      "seed": 123,
+      "profile": "omniscient-clear",
+      "mode": "omniscient",
+      "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
+      "campaignComplete": true,
+      "outcome": "complete",
+      "turns": 1145,
+      "finalBiome": "furnace",
+      "floor": 20,
+      "completedAreas": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ]
+    },
+    {
       "seed": 123,
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
       "turns": 351,
@@ -197,18 +252,26 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1283,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
+      "turns": 1261,
+      "finalBiome": "furnace",
+      "floor": 20,
       "completedAreas": [
         "mine",
         "wilds",
         "caverns",
         "ruins",
-        "furnace",
-        "floodedRuins"
+        "floodedRuins",
+        "furnace"
       ]
     },
     {
@@ -216,6 +279,14 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "turn-limit",
       "turns": 800,
@@ -236,17 +307,24 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
-      "turns": 1540,
+      "turns": 1232,
       "finalBiome": "floodedRuins",
       "floor": 22,
       "completedAreas": [
         "mine",
         "wilds",
         "caverns",
-        "ruins",
-        "furnace"
+        "ruins"
       ],
       "failure": {
         "outcome": "stalled",
@@ -256,8 +334,7 @@
           "mine",
           "wilds",
           "caverns",
-          "ruins",
-          "furnace"
+          "ruins"
         ],
         "reason": "operate objective",
         "trace": []
@@ -268,6 +345,14 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
       "turns": 354,
@@ -288,18 +373,26 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1192,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
+      "turns": 1394,
+      "finalBiome": "furnace",
+      "floor": 20,
       "completedAreas": [
-        "mine",
         "wilds",
-        "caverns",
+        "mine",
         "ruins",
-        "furnace",
-        "floodedRuins"
+        "caverns",
+        "floodedRuins",
+        "furnace"
       ]
     },
     {
@@ -307,9 +400,72 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
-      "turns": 315,
+      "turns": 381,
+      "finalBiome": "wilds",
+      "floor": 7,
+      "completedAreas": [],
+      "failure": {
+        "outcome": "stalled",
+        "finalBiome": "wilds",
+        "floor": 7,
+        "completedAreas": [],
+        "reason": "no recovery action",
+        "trace": []
+      }
+    },
+    {
+      "seed": 1337,
+      "profile": "omniscient-clear",
+      "mode": "omniscient",
+      "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
+      "campaignComplete": true,
+      "outcome": "complete",
+      "turns": 1066,
+      "finalBiome": "furnace",
+      "floor": 20,
+      "completedAreas": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ]
+    },
+    {
+      "seed": 1337,
+      "profile": "visible-explore",
+      "mode": "visible",
+      "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
+      "campaignComplete": false,
+      "outcome": "stalled",
+      "turns": 418,
       "finalBiome": "mine",
       "floor": 1,
       "completedAreas": [],
@@ -323,61 +479,30 @@
       }
     },
     {
-      "seed": 1337,
-      "profile": "omniscient-clear",
-      "mode": "omniscient",
-      "policy": "clear",
-      "campaignComplete": true,
-      "outcome": "complete",
-      "turns": 1190,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
-      "completedAreas": [
-        "mine",
-        "wilds",
-        "caverns",
-        "ruins",
-        "furnace",
-        "floodedRuins"
-      ]
-    },
-    {
-      "seed": 1337,
-      "profile": "visible-explore",
-      "mode": "visible",
-      "policy": "explore",
-      "campaignComplete": false,
-      "outcome": "stalled",
-      "turns": 127,
-      "finalBiome": "mine",
-      "floor": 1,
-      "completedAreas": [],
-      "failure": {
-        "outcome": "stalled",
-        "finalBiome": "mine",
-        "floor": 1,
-        "completedAreas": [],
-        "reason": "no recovery action",
-        "trace": []
-      }
-    },
-    {
       "seed": 4096,
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1360,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
+      "turns": 1346,
+      "finalBiome": "furnace",
+      "floor": 20,
       "completedAreas": [
-        "mine",
         "wilds",
-        "caverns",
+        "mine",
         "ruins",
-        "furnace",
-        "floodedRuins"
+        "caverns",
+        "floodedRuins",
+        "furnace"
       ]
     },
     {
@@ -385,16 +510,24 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "wilds",
+        "mine",
+        "ruins",
+        "caverns",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
-      "turns": 314,
-      "finalBiome": "mine",
-      "floor": 1,
+      "turns": 36,
+      "finalBiome": "wilds",
+      "floor": 5,
       "completedAreas": [],
       "failure": {
         "outcome": "stalled",
-        "finalBiome": "mine",
-        "floor": 1,
+        "finalBiome": "wilds",
+        "floor": 5,
         "completedAreas": [],
         "reason": "no recovery action",
         "trace": []
@@ -405,18 +538,26 @@
       "profile": "omniscient-clear",
       "mode": "omniscient",
       "policy": "clear",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": true,
       "outcome": "complete",
-      "turns": 1359,
-      "finalBiome": "floodedRuins",
-      "floor": 24,
+      "turns": 1319,
+      "finalBiome": "furnace",
+      "floor": 20,
       "completedAreas": [
         "mine",
         "wilds",
         "caverns",
         "ruins",
-        "furnace",
-        "floodedRuins"
+        "floodedRuins",
+        "furnace"
       ]
     },
     {
@@ -424,9 +565,17 @@
       "profile": "visible-explore",
       "mode": "visible",
       "policy": "explore",
+      "areaOrder": [
+        "mine",
+        "wilds",
+        "caverns",
+        "ruins",
+        "floodedRuins",
+        "furnace"
+      ],
       "campaignComplete": false,
       "outcome": "stalled",
-      "turns": 528,
+      "turns": 493,
       "finalBiome": "mine",
       "floor": 1,
       "completedAreas": [],
@@ -442,15 +591,15 @@
   ],
   "summary": {
     "total": 20,
-    "completed": 7,
-    "failed": 13,
-    "failureRate": 0.65,
+    "completed": 8,
+    "failed": 12,
+    "failureRate": 0.6,
     "byProfile": {
       "omniscient-clear": {
         "total": 10,
-        "completed": 7,
-        "failed": 3,
-        "failureRate": 0.3
+        "completed": 8,
+        "failed": 2,
+        "failureRate": 0.2
       },
       "visible-explore": {
         "total": 10,
