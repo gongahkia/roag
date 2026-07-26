@@ -9,7 +9,7 @@ describe('optional floor encounters', () => {
   it('trades with a wayfarer only after the player selects a priced option', () => {
     const state = createRun({ hero: createHero({ gold: 35 }) })
     state.floor.encounters = [encounter('wayfarer')]
-    perform(state, 'c')
+    expect(perform(state, 'c').map(event => event.type)).toContain('encounter')
     expect(state.modal).toMatchObject({ kind: 'encounter' })
     perform(state, '1')
     expect(state.hero.gold).toBe(0)
@@ -21,7 +21,7 @@ describe('optional floor encounters', () => {
   it('leaves a risky bargain untouched without forcing a cost', () => {
     const state = createRun()
     state.floor.encounters = [encounter('bloodBargain')]
-    perform(state, 'c'); perform(state, '3')
+    perform(state, 'c'); expect(perform(state, '3').map(event => event.type)).toContain('encounter')
     expect(state.hero).toMatchObject({ maxHealth: 22, focus: 8, gold: 0 })
     expect(state.floor.encounters[0].state).toBe('resolved')
     expect(state.telemetry?.eventOutcomes['bloodBargain:decline']).toBe(1)

@@ -4,6 +4,8 @@ export interface ParticleFeedback { color: string; count: number; speed: number;
 export interface VisualFeedback { shake: number; flash: number; color: string; particles?: ParticleFeedback }
 
 const feedback: Partial<Record<GameEventType, VisualFeedback>> = {
+  traverse: { shake: 0, flash: 34, color: '#8edce1', particles: { color: '#8edce1', count: 12, speed: 1.1, life: 500 } },
+  encounter: { shake: 0, flash: 42, color: '#f4d26a', particles: { color: '#f4d26a', count: 16, speed: 1, life: 620 } },
   hit: { shake: 35, flash: 48, color: '#f4d26a', particles: { color: '#f4d26a', count: 8, speed: .8, life: 410 } },
   hurt: { shake: 115, flash: 70, color: '#f0a45d', particles: { color: '#f0a45d', count: 5, speed: .5, life: 260 } },
   spell: { shake: 0, flash: 48, color: '#bea6ff', particles: { color: '#bea6ff', count: 15, speed: 1.25, life: 650 } },

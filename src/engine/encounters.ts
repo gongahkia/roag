@@ -1,7 +1,6 @@
 import { ITEM } from '../content'
 import type { FloorEncounter, RunState } from '../types'
 import { recordTelemetryCount } from '../telemetry'
-import { getTile } from '../world'
 import { advance } from './combat'
 import { grantGold } from './economy'
 import { event, log, type ActionResult } from './shared'
@@ -21,7 +20,7 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
   source.state = 'resolved'
   state.modal = undefined
   recordTelemetryCount(state, 'eventOutcomes', `${source.kind}:${outcome}`)
-  return events
+  return [event('encounter'), ...events]
 }
 
 export const encounterOptions = (state: RunState, source: FloorEncounter): EncounterOption[] => {
@@ -47,7 +46,7 @@ export const openEncounter = (state: RunState): ActionResult | undefined => {
   if (!source) return undefined
   state.modal = { kind: 'encounter', encounterId: source.id }
   log(state, source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : 'The chamber walls grind, awaiting a command.')
-  return [event('menu')]
+  return [event('encounter'), event('menu')]
 }
 
 const chamberCells = (state: RunState, source: FloorEncounter, radius: number) => state.floor.tiles.flatMap((tile, index) => {

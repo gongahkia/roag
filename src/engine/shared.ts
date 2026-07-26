@@ -4,7 +4,7 @@ import type { Hero, RunState } from '../types'
 import { evaluateEquipmentEffects } from './equipment'
 import { recordTelemetryCount } from '../telemetry'
 
-export type GameEventType = 'move' | 'hit' | 'hurt' | 'pickup' | 'spell' | 'boom' | 'danger' | 'menu' | 'level' | 'rope' | 'suspend' | 'death' | 'win' | 'floor' | 'areaComplete' | 'gateResolved' | 'rescue'
+export type GameEventType = 'move' | 'traverse' | 'encounter' | 'hit' | 'hurt' | 'pickup' | 'spell' | 'boom' | 'danger' | 'menu' | 'level' | 'rope' | 'suspend' | 'death' | 'win' | 'floor' | 'areaComplete' | 'gateResolved' | 'rescue'
 export interface GameEvent { type: GameEventType }
 export type ActionResult = GameEvent[]
 export const event = (type: GameEventType): GameEvent => ({ type })

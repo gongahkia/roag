@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CAMPAIGN_AUTOPLAY_PROFILES, campaignAutoplayDelta, summarizeCampaignAutoplay, type CampaignAutoplayRun, type CampaignAutoplaySuite } from './autoplay-campaign'
+import { CAMPAIGN_AUTOPLAY_PROFILES, assertCampaignAutoplaySuite, campaignAutoplayDelta, campaignAutoplaySuite, summarizeCampaignAutoplay, type CampaignAutoplayRun, type CampaignAutoplaySuite } from './autoplay-campaign'
 import { isCompleteCampaign, runAutoplay } from './autoplay-runner'
 import { newRun } from './engine'
 
@@ -44,5 +44,10 @@ describe('campaign autoplay baseline', () => {
     const current = suite([run('omniscient-clear', true), run('visible-explore', false)])
     expect(current.summary).toMatchObject({ total: 2, completed: 1, failed: 1, failureRate: .5 })
     expect(campaignAutoplayDelta(current, baseline)).toEqual({ overall: -.5, byProfile: { 'omniscient-clear': -1, 'visible-explore': 0 } })
+  })
+
+  it('rejects a seed/profile matrix with missing runs', () => {
+    expect(() => campaignAutoplaySuite([])).toThrow('campaign autoplay suite has missing or duplicate seed/profile runs')
+    expect(() => assertCampaignAutoplaySuite(suite([run('omniscient-clear', true), run('visible-explore', false)]))).toThrow('campaign autoplay suite has missing or duplicate seed/profile runs')
   })
 })

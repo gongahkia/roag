@@ -216,7 +216,7 @@ export function drill(state: RunState, id: string, direction: Exclude<Direction,
   consume(state, index)
   refreshFov(state)
   log(state, 'The auger opens a narrow passage.')
-  return advance(state, [event('pickup')])
+  return advance(state, [event('traverse'), event('pickup')])
 }
 
 export function glide(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
@@ -232,7 +232,7 @@ export function glide(state: RunState, id: string, direction: Exclude<Direction,
   consume(state, index)
   refreshFov(state)
   log(state, 'You ride the reed glider across the hazard.')
-  return advance(state, [event('move')])
+  return advance(state, [event('traverse'), event('move')])
 }
 
 export function grapple(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
@@ -251,7 +251,7 @@ export function grapple(state: RunState, id: string, direction: Exclude<Directio
   consume(state, index)
   refreshFov(state)
   log(state, 'The grappling line carries you over the break.')
-  return advance(state, [event('move')])
+  return advance(state, [event('traverse'), event('move')])
 }
 
 export function bridge(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
@@ -263,7 +263,7 @@ export function bridge(state: RunState, id: string, direction: Exclude<Direction
   consume(state, index)
   refreshFov(state)
   log(state, 'The bridge locks into a permanent crossing.')
-  return advance(state, [event('rope')])
+  return advance(state, [event('traverse'), event('rope')])
 }
 
 export function dash(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
@@ -279,7 +279,7 @@ export function dash(state: RunState, id: string, direction: Exclude<Direction, 
   consume(state, index)
   refreshFov(state)
   log(state, 'Steam carries you through the hazard.')
-  return advance(state, [event('move')])
+  return advance(state, [event('traverse'), event('move')])
 }
 
 export function winch(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
@@ -295,7 +295,7 @@ export function winch(state: RunState, id: string, direction: Exclude<Direction,
   consume(state, index)
   refreshFov(state)
   log(state, 'The winch clears the obstruction and reels you forward.')
-  return advance(state, [event('move')])
+  return advance(state, [event('traverse'), event('move')])
 }
 
 export function throwItem(state: RunState, id: string, direction: Direction): ActionResult {

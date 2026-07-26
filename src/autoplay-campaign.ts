@@ -19,6 +19,13 @@ export interface CampaignAutoplaySuite { version: 1; seeds: number[]; turnLimit:
 export interface CampaignAutoplayDelta { overall: number; byProfile: Record<CampaignAutoplayProfileId, number> }
 export interface CampaignAutoplaySuiteOptions { captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
 
+export const assertCampaignAutoplaySuite = (suite: CampaignAutoplaySuite): void => {
+  const expected = new Set(CAMPAIGN_AUTOPLAY_SEEDS.flatMap(seed => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => `${seed}:${profile.id}`)))
+  const actual = new Set(suite.runs.map(run => `${run.seed}:${run.profile}`))
+  if (suite.runs.length !== expected.size || actual.size !== expected.size || [...actual].some(key => !expected.has(key))) throw new Error('campaign autoplay suite has missing or duplicate seed/profile runs')
+  if (suite.summary.total !== suite.runs.length || suite.summary.completed + suite.summary.failed !== suite.runs.length) throw new Error('campaign autoplay suite summary is inconsistent')
+}
+
 const rate = (runs: readonly CampaignAutoplayRun[]): CampaignAutoplayRate => {
   const completed = runs.filter(run => run.campaignComplete).length
   return { total: runs.length, completed, failed: runs.length - completed, failureRate: runs.length ? (runs.length - completed) / runs.length : 0 }
@@ -52,14 +59,18 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   ...(!report.campaignComplete ? { failure: failure(report) } : {})
 })
 
-export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
-  version: 1,
-  seeds: [...CAMPAIGN_AUTOPLAY_SEEDS],
-  turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT,
-  profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
-  runs,
-  summary: summarizeCampaignAutoplay(runs)
-})
+export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => {
+  const suite = {
+    version: 1 as const,
+    seeds: [...CAMPAIGN_AUTOPLAY_SEEDS],
+    turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT,
+    profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
+    runs,
+    summary: summarizeCampaignAutoplay(runs)
+  }
+  assertCampaignAutoplaySuite(suite)
+  return suite
+}
 
 export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions = {}): CampaignAutoplaySuite => {
   const runs: CampaignAutoplayRun[] = []
