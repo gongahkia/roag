@@ -155,7 +155,7 @@ function App() {
         </div>
         <div className="signal-window">
           <AsciiField seed={rendererSeed} />
-          <p className="renderer-caption">1-bit glyph field / {selectedStep ? "replay signal locked" : "awaiting trajectory"}</p>
+          <p className="renderer-caption">field / {selectedStep ? "replay locked" : "idle"}</p>
         </div>
       </header>
 
