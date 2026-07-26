@@ -21,7 +21,7 @@ from urllib.parse import quote
 from kenjaku import __version__
 from kenjaku.ablation_benchmark import build_policy_heuristic_ablation_benchmark
 from kenjaku.bot import run_stdio_bot
-from kenjaku.browser_demo import write_browser_demo
+from kenjaku.browser_game import write_browser_game
 from kenjaku.core import Action, ActionKind, Tile, TileType
 from kenjaku.device_benchmark import (
     ModelDeviceBenchmarkConfig,
@@ -326,7 +326,7 @@ ARTIFACT_TYPE_LABELS = {
 }
 ARTIFACT_DASHBOARD_KNOWN_VIEWERS = {
     "benchmark-dashboard/index.html": "Benchmark Dashboard",
-    "browser-demo/index.html": "Browser Demo",
+    "play/index.html": "Play",
     "replay-viewer/index.html": "Replay Viewer",
     "review-game/index.html": "Review Game",
     "training-dashboard/index.html": "Training Dashboard",
@@ -444,33 +444,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     demo.set_defaults(func=_demo)
 
-    browser_demo = subparsers.add_parser(
-        "browser-demo",
-        help="write and optionally serve the browser-playable demo",
+    play = subparsers.add_parser(
+        "play",
+        help="write and optionally serve the local gameplay surface",
     )
-    browser_demo.add_argument(
+    play.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("runs/browser-demo"),
-        help="directory for generated demo assets",
+        default=Path("runs/play"),
+        help="directory for generated gameplay assets",
     )
-    browser_demo.add_argument(
+    play.add_argument(
         "--host",
         default="127.0.0.1",
-        help="host to bind when serving the demo",
+        help="host to bind when serving the gameplay surface",
     )
-    browser_demo.add_argument(
+    play.add_argument(
         "--port",
         type=int,
         default=8765,
-        help="port to bind when serving the demo",
+        help="port to bind when serving the gameplay surface",
     )
-    browser_demo.add_argument(
+    play.add_argument(
         "--no-serve",
         action="store_true",
-        help="write the demo assets without starting an HTTP server",
+        help="write the gameplay assets without starting an HTTP server",
     )
-    browser_demo.set_defaults(func=_browser_demo)
+    play.set_defaults(func=_play)
 
     serve = subparsers.add_parser(
         "serve",
@@ -2865,7 +2865,7 @@ def _demo(args: argparse.Namespace) -> int:
         "command": f"kenjaku demo --output-dir {output_dir}",
         "date": DEMO_SOURCE_DATE,
     }
-    browser_dir = output_dir / "browser-demo"
+    play_dir = output_dir / "play"
     dashboard_path = output_dir / "benchmark-dashboard" / "index.html"
     snapshots_path = output_dir / "decision-snapshots.jsonl"
     summary_path = output_dir / "decision-snapshot-summary.json"
@@ -2875,7 +2875,7 @@ def _demo(args: argparse.Namespace) -> int:
     manifest_path = output_dir / "manifest.json"
     landing_path = output_dir / "index.html"
 
-    browser_manifest = _response_payload(write_browser_demo(browser_dir)).to_dict()
+    game_manifest = _response_payload(write_browser_game(play_dir)).to_dict()
     dataset = parse_tenhou_xml_dataset([DEMO_FIXTURE_SOURCE], skip_errors=False)
     snapshots = build_decision_snapshots(
         dataset.game,
@@ -2934,7 +2934,7 @@ def _demo(args: argparse.Namespace) -> int:
 
     artifacts = {
         "landing_page": landing_path,
-        "browser_demo": Path(browser_manifest["entrypoint"]),
+        "game": Path(game_manifest["entrypoint"]),
         "decision_snapshots": snapshots_path,
         "decision_snapshot_summary": summary_path,
         "decision_predictions": predictions_path,
@@ -2962,14 +2962,14 @@ def _demo(args: argparse.Namespace) -> int:
     return 0
 
 
-def _browser_demo(args: argparse.Namespace) -> int:
+def _play(args: argparse.Namespace) -> int:
     if not 0 <= args.port <= 65535:
         raise SystemExit("--port must be between 0 and 65535")
 
-    manifest = _response_payload(write_browser_demo(args.output_dir)).to_dict()
+    manifest = _response_payload(write_browser_game(args.output_dir)).to_dict()
     output_dir = Path(manifest["output_dir"])
     entrypoint = Path(manifest["entrypoint"])
-    print(f"wrote browser demo: {entrypoint}")
+    print(f"wrote gameplay surface: {entrypoint}")
     for file_path in manifest["files"]:
         print(f"asset: {file_path}")
 
@@ -2983,11 +2983,11 @@ def _browser_demo(args: argparse.Namespace) -> int:
     )
     server = ThreadingHTTPServer((args.host, args.port), handler)
     host, port = server.server_address[:2]
-    print(f"serving browser demo: http://{host}:{port}/")
+    print(f"serving gameplay surface: http://{host}:{port}/")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nstopped browser demo server")
+        print("\nstopped gameplay server")
     finally:
         server.server_close()
     return 0

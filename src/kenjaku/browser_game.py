@@ -25,12 +25,12 @@ from kenjaku.training.ppo_schema import (
     ppo_state_features,
 )
 
-BROWSER_DEMO_KIND = "kenjaku-browser-demo-v0"
-BROWSER_DEMO_POLICY_KIND = "kenjaku-browser-demo-ppo-policy-v0"
-BROWSER_DEMO_MANIFEST_KIND = "kenjaku-browser-demo-manifest-v0"
-BROWSER_DEMO_FILES = ("index.html", "styles.css", "demo.js", "policy.json", "manifest.json")
-FIXTURE_WALL_SEED = "kenjaku-browser-demo-wall-v0"
-DEMO_POLICY_EXPORT_SEED = "kenjaku-browser-demo-ppo-export-v0"
+BROWSER_GAME_KIND = "kenjaku-browser-game-v0"
+BROWSER_GAME_POLICY_KIND = "kenjaku-browser-game-ppo-policy-v0"
+BROWSER_GAME_MANIFEST_KIND = "kenjaku-browser-game-manifest-v0"
+BROWSER_GAME_FILES = ("index.html", "styles.css", "game.js", "policy.json", "manifest.json")
+FIXTURE_WALL_SEED = "kenjaku-browser-game-wall-v0"
+GAME_POLICY_EXPORT_SEED = "kenjaku-browser-game-ppo-export-v0"
 _DRAWN_TILE_FEATURE_OFFSET = 17
 _FIXTURE_WALL_POOL = (
     "5p",
@@ -60,7 +60,7 @@ def fixture_wall(seed: str = FIXTURE_WALL_SEED) -> tuple[str, ...]:
     return tuple(tile for _key, tile in sorted(keyed_tiles))
 
 
-def browser_demo_policy() -> dict[str, Any]:
+def browser_game_policy() -> dict[str, Any]:
     tile_types = tuple(tile.notation for tile in all_tile_types())
     bias = [-0.42 for _action in range(PPO_ACTION_DIM)]
     sparse_weights: list[dict[str, int | float]] = []
@@ -82,14 +82,14 @@ def browser_demo_policy() -> dict[str, Any]:
     bias[PPO_RIICHI_ACTION_INDEX] = 0.1
     bias[PPO_KYUSHU_ACTION_INDEX] = -0.1
 
-    verification_entry = _demo_policy_verification_entry()
+    verification_entry = _game_policy_verification_entry()
     legal_actions = _discard_actions(verification_entry["state"]["hands"][0])
-    logits = browser_demo_policy_logits(verification_entry, legal_actions, bias, sparse_weights)
+    logits = browser_game_policy_logits(verification_entry, legal_actions, bias, sparse_weights)
     selected_action_index = max(range(len(logits)), key=logits.__getitem__)
     return {
-        "kind": BROWSER_DEMO_POLICY_KIND,
-        "seed": DEMO_POLICY_EXPORT_SEED,
-        "description": "Static browser export for the Kenjaku sandbox PPO policy interface.",
+        "kind": BROWSER_GAME_POLICY_KIND,
+        "seed": GAME_POLICY_EXPORT_SEED,
+        "description": "Static local gameplay surface for the Kenjaku sandbox PPO policy interface.",
         "model": {
             "policy_kind": PPO_SANDBOX_POLICY_KIND,
             "input_dim": PPO_STATE_DIM,
@@ -128,14 +128,14 @@ def browser_demo_policy() -> dict[str, Any]:
     }
 
 
-def browser_demo_policy_logits(
+def browser_game_policy_logits(
     entry: dict[str, Any],
     legal_actions: list[dict[str, str]],
     bias: list[float] | None = None,
     sparse_weights: list[dict[str, int | float]] | None = None,
 ) -> list[float]:
     if bias is None or sparse_weights is None:
-        payload = browser_demo_policy()
+        payload = browser_game_policy()
         model_state = payload["model_state"]
         bias = list(model_state["bias"])
         sparse_weights = list(model_state["weights"])
@@ -170,7 +170,7 @@ def _discard_actions(hand: list[str]) -> list[dict[str, str]]:
     return [{"kind": "discard", "tile": tile} for tile in dict.fromkeys(hand)]
 
 
-def _demo_policy_verification_entry() -> dict[str, Any]:
+def _game_policy_verification_entry() -> dict[str, Any]:
     return {
         "decision_type": "discard",
         "seat": 0,
@@ -208,15 +208,15 @@ def _action_from_index(action_index: int) -> dict[str, str]:
     return {"kind": special_actions[action_index]}
 
 
-def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
+def write_browser_game(output_dir: str | Path) -> dict[str, Any]:
     target_dir = Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
-    policy = browser_demo_policy()
+    policy = browser_game_policy()
     manifest = {
-        "kind": BROWSER_DEMO_MANIFEST_KIND,
-        "demo_kind": BROWSER_DEMO_KIND,
+        "kind": BROWSER_GAME_MANIFEST_KIND,
+        "game_kind": BROWSER_GAME_KIND,
         "entrypoint": "index.html",
-        "assets": list(BROWSER_DEMO_FILES),
+        "assets": list(BROWSER_GAME_FILES),
         "policy": {
             "kind": policy["kind"],
             "policy_kind": policy["model"]["policy_kind"],
@@ -227,22 +227,22 @@ def write_browser_demo(output_dir: str | Path) -> dict[str, Any]:
     files = {
         "index.html": _INDEX_HTML,
         "styles.css": _STYLES_CSS,
-        "demo.js": _demo_js(policy),
+        "game.js": _game_js(policy),
         "policy.json": json.dumps(policy, indent=2, sort_keys=True) + "\n",
         "manifest.json": json.dumps(manifest, indent=2, sort_keys=True) + "\n",
     }
     for filename, contents in files.items():
         (target_dir / filename).write_text(contents, encoding="utf-8")
     return {
-        "kind": BROWSER_DEMO_KIND,
+        "kind": BROWSER_GAME_KIND,
         "output_dir": str(target_dir),
         "entrypoint": str(target_dir / "index.html"),
-        "files": [str(target_dir / filename) for filename in BROWSER_DEMO_FILES],
+        "files": [str(target_dir / filename) for filename in BROWSER_GAME_FILES],
     }
 
 
 _INDEX_BODY_HTML = """
-  <main class="demo-shell">
+  <main class="game-shell">
     <section class="table-view kj-table-surface" aria-label="Mahjong table">
       <canvas id="ascii-field" class="ascii-field" aria-hidden="true"></canvas>
       <header class="table-identity">
@@ -293,7 +293,7 @@ _INDEX_BODY_HTML = """
               <p class="label">Terminal Result</p>
               <p id="terminal-result" class="result-text">In progress</p>
               <p id="turn-vector" class="turn-vector" aria-live="polite">You → Shimocha</p>
-              <div class="mode-controls" aria-label="Demo controls">
+              <div class="mode-controls" aria-label="Gameplay controls">
                 <button
                   id="autoplay-button"
                   class="action-button mode-button kj-action-badge kj-motion-lift kj-motion-press"
@@ -372,7 +372,7 @@ _INDEX_BODY_HTML = """
 
     <aside class="side-panel" aria-label="Game log">
       <section class="side-card kj-card">
-        <h1>Kenjaku Demo</h1>
+        <h1>Kenjaku</h1>
         <dl id="scoreboard" class="scoreboard"></dl>
       </section>
       <section class="side-card kj-card policy-panel">
@@ -410,10 +410,10 @@ _INDEX_BODY_HTML = """
 
 
 _INDEX_HTML = html_document(
-    title="Kenjaku Browser Demo",
+    title="Kenjaku",
     body_html=_INDEX_BODY_HTML,
     stylesheets=("styles.css",),
-    scripts=("demo.js",),
+    scripts=("game.js",),
 )
 
 
@@ -460,7 +460,7 @@ h2 {
   font-size: 16px;
 }
 
-.demo-shell {
+.game-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
@@ -813,7 +813,7 @@ h2 {
 }
 
 @media (max-width: 980px) {
-  .demo-shell {
+  .game-shell {
     grid-template-columns: 1fr;
   }
 
@@ -823,7 +823,7 @@ h2 {
 }
 
 @media (max-width: 680px) {
-  .demo-shell {
+  .game-shell {
     gap: 10px;
     padding: 10px;
   }
@@ -930,7 +930,7 @@ h1 { font-size: clamp(1.8rem, 3vw, 2.7rem); line-height: 0.9; }
 
 h2 { font-size: 0.9rem; text-transform: uppercase; }
 
-.demo-shell {
+.game-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 306px;
   gap: 1rem;
@@ -1324,7 +1324,7 @@ h2 { font-size: 0.9rem; text-transform: uppercase; }
 .discard-target.has-intent .discard-target-copy { color: var(--ob-ink); opacity: 1; }
 
 .discard-target.is-impact {
-  animation: demo-target-impact 460ms cubic-bezier(.16, .84, .28, 1) both;
+  animation: game-target-impact 460ms cubic-bezier(.16, .84, .28, 1) both;
 }
 
 .center-stack { z-index: 1; }
@@ -1379,12 +1379,12 @@ h2 { font-size: 0.9rem; text-transform: uppercase; }
   text-transform: uppercase;
 }
 
-.table-view.demo-impact-heavy {
-  animation: demo-impact-heavy 440ms cubic-bezier(.18, .72, .2, 1) both;
+.table-view.game-impact-heavy {
+  animation: game-impact-heavy 440ms cubic-bezier(.18, .72, .2, 1) both;
 }
 
-.table-view.demo-impact-light {
-  animation: demo-impact-light 300ms cubic-bezier(.18, .72, .2, 1) both;
+.table-view.game-impact-light {
+  animation: game-impact-light 300ms cubic-bezier(.18, .72, .2, 1) both;
 }
 
 .tile-flight {
@@ -1419,7 +1419,7 @@ h2 { font-size: 0.9rem; text-transform: uppercase; }
   transform: rotate(45deg);
 }
 
-@keyframes demo-impact-heavy {
+@keyframes game-impact-heavy {
   0%, 100% { transform: translate3d(0, 0, 0); filter: brightness(1); }
   14% { transform: translate3d(-9px, 3px, 0) rotate(-.18deg); filter: brightness(1.14); }
   28% { transform: translate3d(11px, -4px, 0) rotate(.16deg); }
@@ -1428,27 +1428,27 @@ h2 { font-size: 0.9rem; text-transform: uppercase; }
   78% { transform: translate3d(-2px, 1px, 0); }
 }
 
-@keyframes demo-impact-light {
+@keyframes game-impact-light {
   0%, 100% { transform: translate3d(0, 0, 0); }
   30% { transform: translate3d(-5px, 1px, 0); }
   60% { transform: translate3d(5px, -1px, 0); }
 }
 
-@keyframes demo-target-impact {
+@keyframes game-target-impact {
   0% { box-shadow: inset 0 0 0 0 var(--ob-ink); }
   32% { box-shadow: inset 0 0 0 3px var(--ob-ink), 0 0 0 6px rgba(241, 237, 219, 0.18); }
   100% { box-shadow: inset 0 0 0 0 var(--ob-ink); }
 }
 
-body.demo-motion-off .kj-motion-lift:hover,
-body.demo-motion-off .tile-button:hover:not(:disabled),
-body.demo-motion-off .tile-button:focus-visible,
-body.demo-motion-off .tile-button.is-selected:not(:hover):not(:focus-visible) {
+body.game-motion-off .kj-motion-lift:hover,
+body.game-motion-off .tile-button:hover:not(:disabled),
+body.game-motion-off .tile-button:focus-visible,
+body.game-motion-off .tile-button.is-selected:not(:hover):not(:focus-visible) {
   filter: none;
   transform: none;
 }
 
-body.demo-motion-off .tile-button { transition: none; }
+body.game-motion-off .tile-button { transition: none; }
 
 button:focus-visible,
 [tabindex]:not([tabindex="-1"]):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
@@ -1475,14 +1475,14 @@ button:focus-visible,
 }
 
 @media (max-width: 980px) {
-  .demo-shell { grid-template-columns: 1fr; }
+  .game-shell { grid-template-columns: 1fr; }
   .table-view { min-height: auto; }
   .side-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .side-card:first-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 680px) {
-  .demo-shell { gap: 0.75rem; padding: 0.75rem; }
+  .game-shell { gap: 0.75rem; padding: 0.75rem; }
   .table-view { padding: 0.75rem; }
   .table-identity { display: grid; gap: 0.35rem; }
   .table-hud,
@@ -1497,7 +1497,7 @@ button:focus-visible,
 """))
 
 
-_DEMO_JS_TEMPLATE = motion_primitives_script() + "\n\n" + """"use strict";
+_GAME_JS_TEMPLATE = motion_primitives_script() + "\n\n" + """"use strict";
 
 const POLICY = __POLICY_JSON__;
 const SEATS = ["You", "Shimocha", "Toimen", "Kamicha"];
@@ -1866,7 +1866,7 @@ function renderControls() {
   motionButton.textContent = `Motion: ${state.motionEnabled ? "On" : "Off"}`;
   motionButton.setAttribute("aria-pressed", state.motionEnabled ? "true" : "false");
   motionButton.classList.toggle("is-active", state.motionEnabled);
-  document.body.classList.toggle("demo-motion-off", !state.motionEnabled);
+  document.body.classList.toggle("game-motion-off", !state.motionEnabled);
 }
 
 function renderOpponents() {
@@ -2146,7 +2146,7 @@ function createTileVector(sourceRect, endX, endY) {
 }
 
 function triggerScreenShake(level) {
-  const className = level === "heavy" ? "demo-impact-heavy" : "demo-impact-light";
+  const className = level === "heavy" ? "game-impact-heavy" : "game-impact-light";
   triggerMotionClass(
     document.querySelector(".table-view"),
     className,
@@ -2555,7 +2555,7 @@ document.getElementById("user-mode-button").addEventListener("click", () => setM
 document.getElementById("pause-button").addEventListener("click", togglePause);
 document.getElementById("step-button").addEventListener("click", stepModelAction);
 document.getElementById("motion-button").addEventListener("click", toggleMotion);
-window.KenjakuDemo = {
+window.KenjakuGame = {
   policy: POLICY,
   selectModelAction,
   setMode,
@@ -2570,10 +2570,10 @@ startHand();
 """
 
 
-def _demo_js(policy: dict[str, Any]) -> str:
+def _game_js(policy: dict[str, Any]) -> str:
     fixture_json = json.dumps(list(fixture_wall()))
     policy_json = json.dumps(policy, separators=(",", ":"), sort_keys=True)
-    return _DEMO_JS_TEMPLATE.replace("__FIXTURE_WALL_JSON__", fixture_json).replace(
+    return _GAME_JS_TEMPLATE.replace("__FIXTURE_WALL_JSON__", fixture_json).replace(
         "__POLICY_JSON__",
         policy_json,
     )

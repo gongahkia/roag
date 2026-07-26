@@ -4,7 +4,7 @@ from kenjaku.commands import (
     bc_examples,
     benchmarks,
     bot,
-    browser_demo,
+    play,
     deal_in,
     defense,
     discard_training,
@@ -23,7 +23,7 @@ from kenjaku.commands import (
 
 COMMAND_MODULES = (
     status,
-    browser_demo,
+    play,
     replay,
     self_play,
     training,

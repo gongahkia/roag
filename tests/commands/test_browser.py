@@ -12,15 +12,15 @@ from tests.commands.conftest import (
 
 
 class BrowserCommandTests(CliCommandTests):
-    def test_browser_demo_writes_static_assets_without_serving(self) -> None:
+    def test_play_writes_static_assets_without_serving(self) -> None:
         with TemporaryDirectory() as directory:
-            output_dir = Path(directory) / "demo"
+            output_dir = Path(directory) / "play"
             stdout = io.StringIO()
 
             with contextlib.redirect_stdout(stdout):
                 exit_code = main(
                     [
-                        "browser-demo",
+                        "play",
                         "--output-dir",
                         str(output_dir),
                         "--no-serve",
@@ -29,36 +29,36 @@ class BrowserCommandTests(CliCommandTests):
 
             index_html = (output_dir / "index.html").read_text(encoding="utf-8")
             styles_css = (output_dir / "styles.css").read_text(encoding="utf-8")
-            demo_js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            game_js = (output_dir / "game.js").read_text(encoding="utf-8")
             policy_json = (output_dir / "policy.json").read_text(encoding="utf-8")
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("wrote browser demo:", stdout.getvalue())
+        self.assertIn("wrote gameplay surface:", stdout.getvalue())
         self.assertIn("open:", stdout.getvalue())
-        self.assertIn("Kenjaku Browser Demo", index_html)
+        self.assertIn("<title>Kenjaku</title>", index_html)
         self.assertIn("Legal Actions", index_html)
         self.assertIn("Dora", index_html)
         self.assertIn("Calls", index_html)
-        self.assertIn("finishExhaustiveDraw", demo_js)
-        self.assertIn("selectModelAction", demo_js)
-        self.assertIn("kenjaku-browser-demo-ppo-policy-v0", policy_json)
+        self.assertIn("finishExhaustiveDraw", game_js)
+        self.assertIn("selectModelAction", game_js)
+        self.assertIn("kenjaku-browser-game-ppo-policy-v0", policy_json)
         self.assertIn("sandbox-linear-ppo-actor-critic-v0", policy_json)
-        self.assertIn("window.KenjakuDemo", demo_js)
-        self.assertIn("setupAsciiField", demo_js)
-        self.assertIn("setupDiscardTarget", demo_js)
-        self.assertIn("playDiscardMotion", demo_js)
-        self.assertIn("toggleMotion", demo_js)
+        self.assertIn("window.KenjakuGame", game_js)
+        self.assertIn("setupAsciiField", game_js)
+        self.assertIn("setupDiscardTarget", game_js)
+        self.assertIn("playDiscardMotion", game_js)
+        self.assertIn("toggleMotion", game_js)
         self.assertIn('id="ascii-field"', index_html)
         self.assertIn('id="discard-target"', index_html)
         self.assertIn('id="motion-button"', index_html)
         self.assertIn(".ascii-field", styles_css)
-        self.assertIn(".demo-impact-heavy", styles_css)
+        self.assertIn(".game-impact-heavy", styles_css)
         self.assertIn(".tile-flight", styles_css)
         self.assertIn(".tile", styles_css)
-        self.assertNotIn("private", index_html + styles_css + demo_js + policy_json)
+        self.assertNotIn("private", index_html + styles_css + game_js + policy_json)
         self.assertNotIn(
             "replay",
-            (index_html + styles_css + demo_js + policy_json).lower(),
+            (index_html + styles_css + game_js + policy_json).lower(),
         )
 
     def test_serve_writes_artifact_dashboard_without_serving(self) -> None:

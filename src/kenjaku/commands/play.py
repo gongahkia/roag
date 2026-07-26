@@ -4,7 +4,7 @@ import argparse
 
 from kenjaku.commands._registry import handle, register_commands
 
-COMMANDS = ("demo", "browser-demo", "serve")
+COMMANDS = ("demo", "play", "serve")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

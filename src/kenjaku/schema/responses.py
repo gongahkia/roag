@@ -33,8 +33,8 @@ class ReproReportResponse(ResponsePayload):
     KIND = "kenjaku-repro-report-v0"
 
 
-class BrowserDemoResponse(ResponsePayload):
-    KIND = "kenjaku-browser-demo-v0"
+class BrowserGameResponse(ResponsePayload):
+    KIND = "kenjaku-browser-game-v0"
 
 
 class TrainingDashboardResponse(ResponsePayload):
@@ -190,7 +190,7 @@ _RESPONSE_TYPES: dict[str, type[ResponsePayload]] = {
     for response_type in (
         StatusResponse,
         ReproReportResponse,
-        BrowserDemoResponse,
+        BrowserGameResponse,
         TrainingDashboardResponse,
         DemoManifestResponse,
         ReplayIntakeReviewResponse,

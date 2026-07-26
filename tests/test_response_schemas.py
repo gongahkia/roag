@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.browser_demo import BROWSER_DEMO_KIND
+from kenjaku.browser_game import BROWSER_GAME_KIND
 from kenjaku.cli import main
 from kenjaku.experiments import (
     BENCHMARK_SUMMARY_KIND,
@@ -40,7 +40,7 @@ from kenjaku.schema import (
     AnalyzeHandResponse,
     BenchmarkDealInResponse,
     BenchmarkSummaryResponse,
-    BrowserDemoResponse,
+    BrowserGameResponse,
     CallBenchmarkResponse,
     DecisionSnapshotComparisonResponse,
     DecisionSnapshotSummaryResponse,
@@ -90,7 +90,7 @@ from kenjaku.training_dashboard import TRAINING_DASHBOARD_KIND
 RESPONSE_CASES = (
     (StatusResponse, STATUS_KIND),
     (ReproReportResponse, REPRO_REPORT_KIND),
-    (BrowserDemoResponse, BROWSER_DEMO_KIND),
+    (BrowserGameResponse, BROWSER_GAME_KIND),
     (TrainingDashboardResponse, TRAINING_DASHBOARD_KIND),
     (DemoManifestResponse, "kenjaku-demo-manifest-v0"),
     (ReplayIntakeReviewResponse, REPLAY_INTAKE_REVIEW_KIND),

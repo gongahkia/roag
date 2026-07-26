@@ -9,15 +9,15 @@ from html.parser import HTMLParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kenjaku.browser_demo import (
-    BROWSER_DEMO_FILES,
-    BROWSER_DEMO_KIND,
-    BROWSER_DEMO_POLICY_KIND,
+from kenjaku.browser_game import (
+    BROWSER_GAME_FILES,
+    BROWSER_GAME_KIND,
+    BROWSER_GAME_POLICY_KIND,
     FIXTURE_WALL_SEED,
-    browser_demo_policy,
-    browser_demo_policy_logits,
+    browser_game_policy,
+    browser_game_policy_logits,
     fixture_wall,
-    write_browser_demo,
+    write_browser_game,
 )
 
 
@@ -42,25 +42,25 @@ class _AssetParser(HTMLParser):
             self.scripts.append(str(values["src"]))
 
 
-class BrowserDemoTests(unittest.TestCase):
-    def test_write_browser_demo_writes_relative_static_assets(self) -> None:
+class BrowserGameTests(unittest.TestCase):
+    def test_write_browser_game_writes_relative_static_assets(self) -> None:
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            result = write_browser_demo(output_dir)
+            result = write_browser_game(output_dir)
             html = (output_dir / "index.html").read_text(encoding="utf-8")
             css = (output_dir / "styles.css").read_text(encoding="utf-8")
-            js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            js = (output_dir / "game.js").read_text(encoding="utf-8")
             policy_json = (output_dir / "policy.json").read_text(encoding="utf-8")
             manifest_json = (output_dir / "manifest.json").read_text(encoding="utf-8")
 
-        self.assertEqual(result["kind"], BROWSER_DEMO_KIND)
-        self.assertEqual([Path(path).name for path in result["files"]], list(BROWSER_DEMO_FILES))
+        self.assertEqual(result["kind"], BROWSER_GAME_KIND)
+        self.assertEqual([Path(path).name for path in result["files"]], list(BROWSER_GAME_FILES))
         policy = json.loads(policy_json)
         manifest = json.loads(manifest_json)
         self.assertTrue(html.startswith("<!doctype html>"))
         self.assertIn("kenjaku-static-frontend-helpers-v0", html)
         self.assertIn('href="styles.css"', html)
-        self.assertIn('src="demo.js"', html)
+        self.assertIn('src="game.js"', html)
         self.assertIn("kj-table-surface", html)
         self.assertIn('id="ascii-field"', html)
         self.assertIn("table-identity", html)
@@ -71,11 +71,12 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn("← → select", html)
         self.assertIn("kj-motion-lift", html)
         self.assertIn(".ascii-field", css)
-        self.assertIn(".demo-impact-heavy", css)
+        self.assertIn(".game-impact-heavy", css)
         self.assertIn(".tile-flight", css)
         self.assertIn(".tile-vector", css)
         self.assertIn("kj-motion-confirm-flash", css)
         self.assertIn("window.KenjakuMotion", js)
+        self.assertIn("window.KenjakuGame", js)
         self.assertIn("countUp", js)
         self.assertIn("setupAsciiField", js)
         self.assertIn("createAsciiFrame", js)
@@ -83,11 +84,11 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn("setupDiscardTarget", js)
         self.assertIn("playDiscardMotion", js)
         self.assertIn("toggleMotion", js)
-        self.assertEqual(policy["kind"], BROWSER_DEMO_POLICY_KIND)
+        self.assertEqual(policy["kind"], BROWSER_GAME_POLICY_KIND)
         self.assertEqual(policy["model"]["input_dim"], 58)
         self.assertEqual(policy["model"]["action_dim"], 276)
         self.assertEqual(policy["model_state"]["format"], "linear-sparse-v0")
-        self.assertEqual(manifest["policy"]["kind"], BROWSER_DEMO_POLICY_KIND)
+        self.assertEqual(manifest["policy"]["kind"], BROWSER_GAME_POLICY_KIND)
         for contents in (html, css, js, policy_json, manifest_json):
             self.assertNotIn(directory, contents)
             self.assertNotIn("file://", contents)
@@ -97,15 +98,15 @@ class BrowserDemoTests(unittest.TestCase):
     def test_html_assets_and_css_selectors_resolve(self) -> None:
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            write_browser_demo(output_dir)
+            write_browser_game(output_dir)
             html = (output_dir / "index.html").read_text(encoding="utf-8")
             css = (output_dir / "styles.css").read_text(encoding="utf-8")
-            js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            js = (output_dir / "game.js").read_text(encoding="utf-8")
 
         parser = _AssetParser()
         parser.feed(html)
         self.assertEqual(parser.links, ["styles.css"])
-        self.assertEqual(parser.scripts, ["demo.js"])
+        self.assertEqual(parser.scripts, ["game.js"])
         selector_names = _css_selector_names(css)
         source_names = set(re.findall(r"[A-Za-z][A-Za-z0-9_-]+", html + js))
         optional_shared = {"is-disabled", "is-error"}
@@ -121,7 +122,7 @@ class BrowserDemoTests(unittest.TestCase):
     def test_arcade_table_dom_hooks_exist(self) -> None:
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            write_browser_demo(output_dir)
+            write_browser_game(output_dir)
             html = (output_dir / "index.html").read_text(encoding="utf-8")
 
         parser = _AssetParser()
@@ -174,14 +175,14 @@ class BrowserDemoTests(unittest.TestCase):
             },
         )
 
-    def test_demo_javascript_parses(self) -> None:
+    def test_game_javascript_parses(self) -> None:
         node = shutil.which("node")
         if node is None:
             self.skipTest("node is not available")
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            write_browser_demo(output_dir)
-            script = output_dir / "demo.js"
+            write_browser_game(output_dir)
+            script = output_dir / "game.js"
             result = subprocess.run(
                 [node, "--check", str(script)],
                 check=False,
@@ -201,21 +202,21 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertEqual(len(first), 16)
         self.assertEqual(sorted(first), sorted(alternate))
 
-    def test_demo_javascript_embeds_default_fixture_wall(self) -> None:
+    def test_game_javascript_embeds_default_fixture_wall(self) -> None:
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            write_browser_demo(output_dir)
-            js = (output_dir / "demo.js").read_text(encoding="utf-8")
+            write_browser_game(output_dir)
+            js = (output_dir / "game.js").read_text(encoding="utf-8")
 
         match = re.search(r"const FIXTURE_WALL = (\[.*?\]);", js)
         self.assertIsNotNone(match)
         assert match is not None
         self.assertEqual(tuple(json.loads(match.group(1))), fixture_wall())
 
-    def test_browser_demo_policy_verification_vector_matches_logits(self) -> None:
-        policy = browser_demo_policy()
+    def test_browser_game_policy_verification_vector_matches_logits(self) -> None:
+        policy = browser_game_policy()
         verification = policy["verification"]
-        logits = browser_demo_policy_logits(
+        logits = browser_game_policy_logits(
             verification["entry"],
             verification["legal_actions"],
         )

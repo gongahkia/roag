@@ -285,7 +285,7 @@ def kenjaku_arcade_theme_contract() -> dict[str, Any]:
         "ip_note": KENJAKU_ARCADE_THEME_IP_NOTE,
         "css": KENJAKU_ARCADE_THEME_CSS,
         "surfaces": {
-            "browser-demo": "table, hand, wall, legal-action rail, score HUD",
+            "play": "table, hand, wall, legal-action rail, score HUD",
             "replay-viewer": "timeline rows, decision cards, reward chips",
             "benchmark-dashboard": "comparison cards, sortable tables, score chips",
             "training-dashboard": "metric cards, progress bands, status badges",

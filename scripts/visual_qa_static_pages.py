@@ -15,7 +15,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from kenjaku.browser_demo import write_browser_demo
+from kenjaku.browser_game import write_browser_game
 from kenjaku.cli import main as kenjaku_main
 from kenjaku.replay_viewer import write_self_play_replay_viewer_html
 from kenjaku.training.interpretability_overlay import (
@@ -24,7 +24,7 @@ from kenjaku.training.interpretability_overlay import (
 )
 
 VISUAL_QA_PAGES = (
-    ("browser-demo", "browser-demo/index.html"),
+    ("play", "play/index.html"),
     ("serve-index", "serve-index/index.html"),
     ("benchmark-dashboard", "benchmark-dashboard/index.html"),
     ("training-dashboard", "training-dashboard/index.html"),
@@ -78,7 +78,7 @@ def generate_visual_qa_pages(output_dir: Path) -> list[dict[str, str]]:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    write_browser_demo(output_dir / "browser-demo")
+    write_browser_game(output_dir / "play")
     _write_serve_fixture(output_dir / "serve-index")
     _write_benchmark_dashboard_fixture(output_dir / "benchmark-dashboard" / "index.html")
     _write_training_dashboard_fixture(output_dir / "training-dashboard" / "index.html")
@@ -125,7 +125,7 @@ def run_visual_qa(
             "--session",
             session,
             "open",
-            _url(server_host, server_port, "browser-demo/index.html"),
+            _url(server_host, server_port, "play/index.html"),
         )
         for viewport_name, (width, height) in VIEWPORTS.items():
             _run_pw(playwright_cli, "--session", session, "resize", str(width), str(height))
