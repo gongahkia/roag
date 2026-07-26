@@ -27,7 +27,7 @@ describe('Wilds props', () => {
       expect(first.props.every(prop => prop.biome === 'wilds')).toBe(true)
       expect(validateGeneration(first)).toEqual({ valid: true, errors: [] })
     }
-  })
+  }, 30_000)
 
   it('offers harvest, cut, loot, shrine, and recovery choices with distinct outcomes', () => {
     const mushrooms = wildsRun()

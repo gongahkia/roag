@@ -178,7 +178,7 @@ export class TerminalRenderer {
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
     if (this.effects.needsFrame(now) || route.screen === 'loading' || Boolean(story)) this.scheduleRender()
-    else if ((this.spriteMode && route.screen === 'level' && state) || (route.screen === 'hub' && now < this.hubAnimationUntil)) this.scheduleRender(spriteFrameInterval)
+    else if ((this.spriteMode && route.screen === 'level' && state) || (route.screen === 'hub' && now < this.hubAnimationUntil) || (route.screen === 'createCourier' && courierDraft?.focus === 0)) this.scheduleRender(spriteFrameInterval)
   }
 
   private scheduleRender(delay = 0): void {
@@ -245,7 +245,8 @@ export class TerminalRenderer {
     const death = draft.deathMode === 'checkpoint' ? ['CHECKPOINT', 'Death restores the last cleared floor.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery.']
     this.box(6, 3, 84, 53, 'CREATE COURIER')
     this.text(10, 7, 'Out of the forgotten trail, a courier answers the village call...', colors.text)
-    this.creatorField(10, 11, 'NAME', draft.name || 'Unnamed Courier', draft.focus === 0)
+    const name = draft.name.trim()
+    this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
     this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
     this.creatorField(10, 29, 'CALLING', calling.label, draft.focus === 2)
     this.creatorField(10, 41, 'DEATH', death[0], draft.focus === 3)
@@ -261,9 +262,11 @@ export class TerminalRenderer {
     this.text(10, 51, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
 
-  private creatorField(x: number, y: number, label: string, value: string, focus: boolean): void {
+  private creatorField(x: number, y: number, label: string, value: string, focus: boolean, placeholder = false, cursor = false): void {
     this.text(x, y, label, colors.gold)
-    this.text(x, y + 2, `${focus ? '>' : ' '} ${value}`, focus ? colors.green : colors.text)
+    this.text(x, y + 2, `${focus ? '>' : ' '} `, focus ? colors.green : colors.text)
+    this.text(x + 2, y + 2, value, placeholder ? 'rgba(150, 211, 139, .45)' : focus ? colors.green : colors.text)
+    if (cursor) this.text(x + 2 + value.length, y + 2, '_', colors.green)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {

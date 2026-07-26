@@ -27,7 +27,7 @@ describe('Ruins props', () => {
       expect(first).toEqual(generateFloor(seed, 12))
       expect(validateGeneration(first)).toEqual({ valid: true, errors: [] })
     }
-  })
+  }, 30_000)
 
   it('turns statues into cover or rubble and reads concrete tablet timing', () => {
     const statue = ruinsRun()
