@@ -4,7 +4,7 @@ import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { modifyIncomingDamage } from './conditions'
-import { gateForArea } from './gates'
+import { gateForRun } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
 import { completeObjective } from '../objectives'
@@ -89,7 +89,8 @@ export function operate(state: RunState): ActionResult {
       log(state, 'You unlock the sealed door.')
       return advance(state, [event('gateResolved')])
     }
-    const gate = gateForArea(state.area ?? state.floor.biome)
+    const gate = gateForRun(state)
+    if (!gate) { log(state, 'This is the final route. Cross the area to complete the delivery.'); return [] }
     state.modal = { kind: 'gate', gateId: gate.id }
     log(state, gate.npcOffering)
     return [event('menu')]

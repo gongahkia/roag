@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AREA_GATES, gateForArea, validateAreaGate } from './gates'
+import { AREA_GATES, gateForArea, gateForRun, validateAreaGate } from './gates'
+import { newRun } from './run'
 
 describe('area gate data model', () => {
   it('defines NPC offering, tag alternatives, cost, and destination for every area', () => {
@@ -16,6 +17,13 @@ describe('area gate data model', () => {
     expect(gateForArea('mine').id).toBe('mine-wilds-pass')
     expect(gateForArea('ruins').unlockedDestination.biome).toBe('furnace')
     expect(gateForArea('furnace').unlockedDestination.biome).toBe('floodedRuins')
+  })
+
+  it('routes a gate to the persisted campaign successor', () => {
+    const state = newRun(7, 'mine', 0, undefined, [], [], ['mine', 'furnace', 'wilds', 'caverns', 'ruins', 'floodedRuins'])
+    expect(gateForRun(state)?.unlockedDestination.biome).toBe('furnace')
+    state.area = 'floodedRuins'
+    expect(gateForRun(state)).toBeUndefined()
   })
 
   it('rejects impossible gate definitions', () => {

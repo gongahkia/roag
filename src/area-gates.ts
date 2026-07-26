@@ -1,4 +1,5 @@
 import type { Biome, ItemId, Point } from './types'
+import { biomeName } from './content'
 
 export interface GateCost { gold: number; items: ItemId[] }
 export interface GateAlternative { label: string; kind: 'npc' | 'tag' | 'bomb'; tags: string[]; cost?: GateCost }
@@ -14,7 +15,11 @@ export const AREA_GATES: Record<Biome, AreaGate> = {
   floodedRuins: { id: 'flooded-ruins-seal', biome: 'floodedRuins', npcOffering: 'The final tide asks for a courier’s resolve.', tagAlternatives: [{ label: 'anchor the final route', kind: 'tag', tags: ['anchor'] }, { label: 'open a tide gate', kind: 'tag', tags: ['script', 'arcane'] }, { label: 'blast the drowned seal', kind: 'bomb', tags: ['bomb'] }], cost: { gold: 90, items: [] }, unlockedDestination: { biome: 'floodedRuins', floor: 3, point: { x: 45, y: 32 } } }
 }
 
-export const gateForArea = (biome: Biome): AreaGate => AREA_GATES[biome]
+export const gateForArea = (biome: Biome, destination = AREA_GATES[biome].unlockedDestination.biome): AreaGate => {
+  const gate = AREA_GATES[biome]
+  if (destination === gate.unlockedDestination.biome) return gate
+  return { ...gate, npcOffering: `A companion can hold the route to ${biomeName[destination]}.`, unlockedDestination: { ...gate.unlockedDestination, biome: destination, floor: 0, point: { x: 2, y: 2 } } }
+}
 const GATE_TAGS = new Set(['fire', 'light', 'rope', 'mobility', 'ward', 'astral', 'relic', 'script', 'arcane', 'rubble', 'piercing', 'lift', 'anchor'])
 export const validateAreaGate = (gate: AreaGate): string[] => {
   const errors: string[] = []

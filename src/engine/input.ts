@@ -5,7 +5,7 @@ import { chooseSkill } from './progression'
 import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
-import { gateForArea, resolveAreaGate } from './gates'
+import { gateForRun, resolveAreaGate } from './gates'
 import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 import { chooseEncounter } from './encounters'
 
@@ -92,7 +92,8 @@ function performEncyclopediaModal(state: RunState, modal: Extract<Modal, { kind:
 
 function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' }>, command: string): ActionResult {
   const choice = Number(command) - 1
-  const gate = gateForArea(state.area ?? state.floor.biome)
+  const gate = gateForRun(state)
+  if (!gate) { state.modal = undefined; log(state, 'This is the final route. Cross the area to complete the delivery.'); return [] }
   if (Number.isInteger(choice) && choice >= 0 && choice < gate.tagAlternatives.length) { state.modal = { ...modal, choice, confirming: false }; return [event('menu')] }
   if (command !== 'Enter') return []
   if (modal.choice === undefined) { log(state, 'Choose a gate alternative first.'); return [] }

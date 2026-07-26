@@ -1,5 +1,6 @@
 import { runAutoplay, type AutoplayOutcome, type AutoplayReport } from './autoplay-runner'
-import { newRun } from './engine'
+import { newSeededCampaignRun } from './engine'
+import { isCampaignAreaOrder } from './engine/campaign'
 import type { AutoplayMode, AutoplayPolicy, AutoplayTraceEntry, Biome } from './types'
 
 export const CAMPAIGN_AUTOPLAY_SEEDS = [7, 42, 99, 123, 256, 512, 999, 1337, 4096, 77123] as const
@@ -12,10 +13,10 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
 export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'command' | 'reason' | 'events'>> }
-export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; failure?: CampaignAutoplayFailure }
+export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
-export interface CampaignAutoplaySuite { version: 1; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary }
+export interface CampaignAutoplaySuite { version: 2; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary }
 export interface CampaignAutoplayDelta { overall: number; byProfile: Record<CampaignAutoplayProfileId, number> }
 export interface CampaignAutoplaySuiteOptions { captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
 
@@ -24,6 +25,7 @@ export const assertCampaignAutoplaySuite = (suite: CampaignAutoplaySuite): void 
   const actual = new Set(suite.runs.map(run => `${run.seed}:${run.profile}`))
   if (suite.runs.length !== expected.size || actual.size !== expected.size || [...actual].some(key => !expected.has(key))) throw new Error('campaign autoplay suite has missing or duplicate seed/profile runs')
   if (suite.summary.total !== suite.runs.length || suite.summary.completed + suite.summary.failed !== suite.runs.length) throw new Error('campaign autoplay suite summary is inconsistent')
+  if (suite.runs.some(run => !isCampaignAreaOrder(run.areaOrder))) throw new Error('campaign autoplay suite has an invalid area order')
 }
 
 const rate = (runs: readonly CampaignAutoplayRun[]): CampaignAutoplayRate => {
@@ -50,6 +52,7 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   profile: profile.id,
   mode: profile.mode,
   policy: profile.policy,
+  areaOrder: [...report.areaOrder],
   campaignComplete: report.campaignComplete,
   outcome: report.outcome,
   turns: report.turns,
@@ -61,7 +64,7 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
 
 export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => {
   const suite = {
-    version: 1 as const,
+    version: 2 as const,
     seeds: [...CAMPAIGN_AUTOPLAY_SEEDS],
     turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT,
     profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
@@ -76,7 +79,7 @@ export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions =
   const runs: CampaignAutoplayRun[] = []
   const total = CAMPAIGN_AUTOPLAY_SEEDS.length * CAMPAIGN_AUTOPLAY_PROFILES.length
   for (const seed of CAMPAIGN_AUTOPLAY_SEEDS) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
-    const report = runAutoplay(newRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: options.captureTrace ?? false, traceLimit: 24 })
+    const report = runAutoplay(newSeededCampaignRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: options.captureTrace ?? false, traceLimit: 24 })
     const current = compactCampaignAutoplayRun(seed, profile, report)
     runs.push(current)
     options.onRun?.(current, runs.length, total)

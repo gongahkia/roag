@@ -8,6 +8,7 @@ const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean)
   profile,
   mode: profile === 'omniscient-clear' ? 'omniscient' : 'visible',
   policy: profile === 'omniscient-clear' ? 'clear' : 'explore',
+  areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'],
   campaignComplete,
   outcome: campaignComplete ? 'complete' : 'stalled',
   turns: 240,
@@ -17,7 +18,7 @@ const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean)
 })
 
 const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
-  version: 1,
+  version: 2,
   seeds: [7],
   turnLimit: 19_200,
   profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
@@ -37,6 +38,7 @@ describe('campaign autoplay baseline', () => {
     state.hero.y = state.floor.exit.y
     const report = runAutoplay(state, { mode: 'omniscient', policy: 'clear', turnLimit: 1 })
     expect(report).toMatchObject({ outcome: 'complete', campaignComplete: false, completedAreas: ['floodedRuins'] })
+    expect(isCompleteCampaign('complete', ['furnace', 'mine'], ['furnace', 'mine'])).toBe(true)
   })
 
   it('summarizes failure rates and reports improvements as negative deltas', () => {

@@ -4,7 +4,7 @@ import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, inBounds } from './types'
 import type { Actor, Biome, CampaignRouteState, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, DeathMode, EncounterKind, EncyclopediaState, Floor, FloorEncounter, FloorMilestone, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, Point, Prop, Records, RelicId, RescuedNpc, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunTelemetry, Telegraph, Tile, TransientTerrain, TraversalToolId } from './types'
 import { createRunTelemetry } from './telemetry'
 import { PROP_IDS } from './props'
-import { initialCampaignRoute } from './engine/campaign'
+import { AREA_ORDER, initialCampaignRoute, isCampaignAreaOrder } from './engine/campaign'
 
 const DB = 'jomon-expedition-v2'
 const STORE = 'state'
@@ -17,7 +17,8 @@ const COURIER_PREFIX = 'courier:'
 type RunRecord = Omit<RunState, 'version'> & { version: number }
 type UnknownRecord = Record<string, unknown>
 interface CampaignRouteRecord {
-  version: 1 | 2
+  version: 1 | 2 | 3
+  areaOrder?: Biome[]
   completedAreas: Biome[]
   unlockedAreas: Biome[]
   selectedBiome: Biome
@@ -48,6 +49,7 @@ const isCourierCalling = (value: unknown): value is CourierCalling => value === 
 const isDeathMode = (value: unknown): value is DeathMode => value === 'checkpoint' || value === 'ironTrail'
 const oneOf = <T extends string>(value: unknown, values: readonly T[]): value is T => typeof value === 'string' && values.some(current => current === value)
 const BIOMES = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const
+const isAreaOrder = (value: unknown): value is Biome[] => Array.isArray(value) && value.every(area => oneOf(area, BIOMES)) && isCampaignAreaOrder(value)
 const TILE_KINDS = ['wall', 'floor', 'exit', 'door', 'lockedDoor', 'water', 'lava', 'pit', 'rope', 'spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'web', 'gas', 'support', 'rail', 'rubble', 'bramble', 'darkness', 'crate', 'chest', 'altar', 'shop', 'rescue', 'smoke', 'lift', 'breakwall', 'current', 'deepWater', 'anchor'] as const
 const isPoint = (value: unknown): value is Point => isRecord(value) && isNumber(value.x) && isNumber(value.y)
 const isTile = (value: unknown): value is Tile => isRecord(value) && oneOf(value.kind, TILE_KINDS) && typeof value.explored === 'boolean' && typeof value.visible === 'boolean'
@@ -96,9 +98,9 @@ const isModal = (value: unknown): value is Modal | undefined => {
   return value.kind === 'target' && oneOf(value.action, ['throw', 'spell', 'bomb', 'drill', 'glide', 'grapple', 'bridge', 'dash', 'winch', 'stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites']) && (value.item === undefined || isItemId(value.item)) && (value.tool === undefined || isTraversalTool(value.tool)) && (value.overdrive === undefined || typeof value.overdrive === 'boolean')
 }
 
-const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, BIOMES)) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.gateDestination === undefined || oneOf(value.gateDestination, BIOMES)) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia)) && (value.telemetry === undefined || isRunTelemetry(value.telemetry))
+const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, BIOMES)) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.areaOrder === undefined || isAreaOrder(value.areaOrder)) && (value.gateDestination === undefined || oneOf(value.gateDestination, BIOMES)) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia)) && (value.telemetry === undefined || isRunTelemetry(value.telemetry))
 const isRunState = (value: unknown): value is RunState => isRunRecord(value) && value.version === 4
-const isCampaignRoute = (value: unknown): value is CampaignRouteRecord => isRecord(value) && (value.version === 1 || value.version === 2) && Array.isArray(value.completedAreas) && value.completedAreas.every(area => oneOf(area, BIOMES)) && Array.isArray(value.unlockedAreas) && value.unlockedAreas.every(area => oneOf(area, BIOMES)) && oneOf(value.selectedBiome, BIOMES) && value.unlockedAreas.includes(value.selectedBiome) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.legacyRecords === undefined || (Array.isArray(value.legacyRecords) && value.legacyRecords.every(isLegacyRecord)))
+const isCampaignRoute = (value: unknown): value is CampaignRouteRecord => isRecord(value) && (value.version === 1 || value.version === 2 || value.version === 3) && Array.isArray(value.completedAreas) && value.completedAreas.every(area => oneOf(area, BIOMES)) && Array.isArray(value.unlockedAreas) && value.unlockedAreas.every(area => oneOf(area, BIOMES)) && oneOf(value.selectedBiome, BIOMES) && value.unlockedAreas.includes(value.selectedBiome) && (value.version !== 3 || isAreaOrder(value.areaOrder)) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.legacyRecords === undefined || (Array.isArray(value.legacyRecords) && value.legacyRecords.every(isLegacyRecord)))
 
 type LegacyHero = Omit<Hero, 'name' | 'origin' | 'calling' | 'deathMode'>
 type LegacyFloor = Omit<Floor, 'props' | 'objective' | 'milestones' | 'transientTerrain'> & { props?: Floor['props']; objective?: Floor['objective']; milestones?: Floor['milestones']; transientTerrain?: Floor['transientTerrain'] }
@@ -139,10 +141,11 @@ export const migrateRunRecord = (value: unknown): RunState | undefined => {
   for (const key of ['itemsUsed', 'boonPicks', 'boonAugments', 'relicPicks', 'purchases', 'enemyKills', 'eventOutcomes'] as const) telemetry[key] ??= {}
   run.hero.relics ??= []
   run.hero.relicCharges ??= {}
+  run.areaOrder ??= [...AREA_ORDER]
   return run
 }
 
-export const migrateCampaignRoute = (value: unknown): CampaignRouteState => isCampaignRoute(value) ? { version: 2, completedAreas: [...value.completedAreas], unlockedAreas: [...value.unlockedAreas], selectedBiome: value.selectedBiome, rescuedNpcs: (value.rescuedNpcs ?? []).map(npc => ({ ...npc })), lineageEvents: (value.lineageEvents ?? []).map(event => ({ ...event })), legacyRecords: copyLegacyRecords(value.legacyRecords ?? []) } : initialCampaignRoute()
+export const migrateCampaignRoute = (value: unknown): CampaignRouteState => isCampaignRoute(value) ? { version: 3, areaOrder: value.version === 3 ? [...value.areaOrder!] : [...AREA_ORDER], completedAreas: [...value.completedAreas], unlockedAreas: [...value.unlockedAreas], selectedBiome: value.selectedBiome, rescuedNpcs: (value.rescuedNpcs ?? []).map(npc => ({ ...npc })), lineageEvents: (value.lineageEvents ?? []).map(event => ({ ...event })), legacyRecords: copyLegacyRecords(value.legacyRecords ?? []) } : initialCampaignRoute()
 
 const database = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const request = indexedDB.open(DB, 1)

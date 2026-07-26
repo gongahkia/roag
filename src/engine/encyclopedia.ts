@@ -1,6 +1,7 @@
 import { biomeName, MONSTERS } from '../content'
 import type { Actor, EncyclopediaSection, EncyclopediaState, LegacyRecord, RunState } from '../types'
 import { AREA_GATES } from './gates'
+import { nextArea } from './campaign'
 import { actionById } from './actions'
 import { actorTags, itemTags, scriptTags, skillTags } from './tags'
 import { terrainTags } from './terrain'
@@ -49,6 +50,10 @@ export const encyclopediaEntries = (state: RunState, section: EncyclopediaSectio
   if (section === 'enemies') return book.enemies.map(id => { const monster = MONSTERS.find(current => current.id === id); return monster ? `${monster.name} — ${(monster.tags ?? [monster.biome]).join(', ')}` : id })
   if (section === 'telegraphs') return book.telegraphs.map(id => { const action = actionById(id); return action ? `${action.name} — ${action.tags.join(', ')}` : id })
   if (section === 'tags') return book.tags.map(tag => `#${displayTag(tag)}`)
-  if (section === 'gates') return book.gates.map(id => { const gate = Object.values(AREA_GATES).find(current => current.id === id); return gate ? `${biomeName[gate.biome]} → ${biomeName[gate.unlockedDestination.biome]}: ${gate.tagAlternatives.map(option => option.label).join(' / ')}` : id })
+  if (section === 'gates') return book.gates.map(id => {
+    const gate = Object.values(AREA_GATES).find(current => current.id === id)
+    const destination = gate && nextArea(gate.biome, state.areaOrder)
+    return gate ? `${biomeName[gate.biome]} → ${destination ? biomeName[destination] : 'final delivery'}: ${gate.tagAlternatives.map(option => option.label).join(' / ')}` : id
+  })
   return book.legacyRecords.map(record => `${record.heirName} fell in ${biomeName[record.biome]} ${record.floor + 1}`)
 }

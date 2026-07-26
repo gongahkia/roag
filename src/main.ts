@@ -262,7 +262,8 @@ function createCourierFromDraft(): void {
   const name = courierDraft.name.trim() || 'Unnamed Courier'
   const id = crypto.randomUUID()
   const identity = { id, name, origin: courierDraft.origin, calling: courierDraft.calling, deathMode: courierDraft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
-  const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute()), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
+  const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
+  const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
   couriers = [...couriers, courier]
   activeCourier = courier
   selectedCourierId = id
@@ -272,7 +273,6 @@ function createCourierFromDraft(): void {
   courierDraft = undefined
   inheritedCampaign = undefined
   successorParentId = undefined
-  const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
   beginTrailhead(seed, openingLore(seed, courier.identity.name), heir)
   persistCourier(courier, id)
   audio.play([event('menu')])
@@ -359,7 +359,7 @@ function start(): void {
   if (!activeCourier) return
   campaign = { ...campaign, selectedBiome: route.biome }
   hubNotice = undefined
-  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
+  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   activeCourier.heir = structuredClone(state.hero)
@@ -462,11 +462,11 @@ function completeArea(): 'continued' | 'finished' | 'returned' {
   heir = structuredClone(state.hero)
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed)
+  const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed, campaign.areaOrder)
   if (successor) {
     campaign = unlockCampaignArea(campaign, successor)
     hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-    const next = newRun(state.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords)
+    const next = newRun(state.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
     next.turn = state.turn
     next.lineageEvents = structuredClone(state.lineageEvents ?? [])
     next.telemetry = structuredClone(state.telemetry!)

@@ -1,5 +1,5 @@
 import { runAutoplay, type AutoplayReport } from './autoplay-runner'
-import { newRun } from './engine'
+import { newSeededCampaignRun } from './engine'
 import { generateAreaFloor, validateGeneration } from './world'
 import type { Biome } from './types'
 
@@ -35,7 +35,7 @@ export const validateCampaignSeed = (seed: number, turnLimit = CAMPAIGN_CLEARANC
   const normalized = normalizeSeed(seed)
   const errors = validateCampaignTopology(normalized)
   if (errors.length) return { requestedSeed: normalized, seed: normalized, kind: 'generation-invalid', accepted: false, errors }
-  const report = runAutoplay(newRun(normalized), { mode: 'omniscient', policy: 'clear', turnLimit, captureTrace: Boolean(options.diagnostic), includeState: Boolean(options.diagnostic), includeDebug: Boolean(options.diagnostic) })
+  const report = runAutoplay(newSeededCampaignRun(normalized), { mode: 'omniscient', policy: 'clear', turnLimit, captureTrace: Boolean(options.diagnostic), includeState: Boolean(options.diagnostic), includeDebug: Boolean(options.diagnostic) })
   const kind: CampaignValidationKind = report.campaignComplete ? 'clear' : report.outcome === 'complete' ? 'error' : report.outcome
   return { requestedSeed: normalized, seed: normalized, kind, accepted: kind === 'clear', report, errors: [] }
 }

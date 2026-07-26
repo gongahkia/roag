@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -858,8 +858,9 @@ export class TerminalRenderer {
   }
 
   private gate(state: RunState, modal: Extract<Modal, { kind: 'gate' }>): void {
-    const gate = gateForArea(state.area ?? state.floor.biome)
+    const gate = gateForRun(state)
     this.box(8, 6, 64, 29, 'OPEN TRAIL PASSAGE')
+    if (!gate) { this.text(12, 10, 'This is the final route. Cross the area to complete the delivery.', colors.gold); return }
     this.text(12, 10, gate.npcOffering, colors.gold)
     gateModalLines(gate, modal.choice, modal.confirming).forEach((line, index) => this.text(12, 14 + index * 3, line, line.startsWith('FINAL') ? colors.red : modal.confirming && line.startsWith('ENTER') ? colors.gold : colors.text))
   }

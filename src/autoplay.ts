@@ -2,7 +2,7 @@ import { ITEM } from './content'
 import { actionCells, perform, skillChoices } from './engine'
 import { agilityMoveDistance, agilityReachBonus } from './engine/agility'
 import { evaluateEquipmentEffects } from './engine/equipment'
-import { resolveAreaGate, gateForArea } from './engine/gates'
+import { resolveAreaGate, gateForRun } from './engine/gates'
 import { canAffect, resolveLineEffect } from './engine/line-effect'
 import { projectBolt } from './engine/projectiles'
 import { merchantStock } from './engine/rewards'
@@ -720,7 +720,8 @@ const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefin
 }
 
 const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined => {
-  const gate = gateForArea(state.area ?? state.floor.biome)
+  const gate = gateForRun(state)
+  if (!gate) return undefined
   const choices = gate.tagAlternatives.map((option, index) => {
     const clone = planningClone(state)
     const resolution = resolveAreaGate(clone, gate, index)

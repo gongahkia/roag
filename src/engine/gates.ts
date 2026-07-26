@@ -1,6 +1,7 @@
 import { DIRECTIONS, type Biome, type LineageEvent, type RescuedNpc, type RunState } from '../types'
 import { AREA_GATES, gateForArea, validateAreaGate, type AreaGate, type GateAlternative, type GateCost, type GateDestination } from '../area-gates'
 import { biomeName } from '../content'
+import { nextArea } from './campaign'
 import { getTile } from '../world'
 import { hasAstralGateAccess } from './intellect'
 import { spendGold } from './economy'
@@ -9,6 +10,12 @@ export { AREA_GATES, gateForArea, validateAreaGate }
 export type { AreaGate, GateAlternative, GateCost, GateDestination }
 
 export interface GateResolution { resolved: boolean; destination?: Biome; sacrificedNpc?: RescuedNpc; lineageEvent?: LineageEvent; message: string }
+
+export const gateForRun = (state: Pick<RunState, 'area' | 'floor' | 'areaOrder'>): AreaGate | undefined => {
+  const biome = state.area ?? state.floor.biome
+  const destination = nextArea(biome, state.areaOrder)
+  return destination ? gateForArea(biome, destination) : undefined
+}
 
 const hasFireTag = (state: RunState): boolean => state.hero.inventory.some(item => item === 'fireJar' || item === 'ember')
 const hasNpcOffering = (state: RunState): boolean => Boolean(state.rescuedNpcs?.length)

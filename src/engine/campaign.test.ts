@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendLegacyRecord, completeCampaignArea, initialCampaignRoute, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
+import { appendLegacyRecord, campaignOrderForSeed, completeCampaignArea, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
 import { descend } from './inventory'
 import { newRun } from './run'
 
@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toEqual({ version: 2, completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(route).toEqual({ version: 3, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
     expect(route).not.toHaveProperty('hero')
   })
 
@@ -56,5 +56,14 @@ describe('four-area campaign flow', () => {
     let route = initialCampaignRoute()
     for (let i = 0; i < 13; i++) route = appendLegacyRecord(route, { id: `legacy-${i}`, heirName: 'Ari', biome: 'mine', floor: i % 4, seed: i })
     expect(route.legacyRecords.map(record => record.id)).toEqual(Array.from({ length: 12 }, (_, i) => `legacy-${i + 1}`))
+  })
+
+  it('derives and persists a complete route from the campaign seed', () => {
+    const order = campaignOrderForSeed(77123)
+    const route = initialCampaignRoute(77123)
+    expect(campaignOrderForSeed(77123)).toEqual(order)
+    expect(isCampaignAreaOrder(order)).toBe(true)
+    expect(route).toMatchObject({ areaOrder: order, unlockedAreas: [order[0]], selectedBiome: order[0] })
+    expect(nextArea(order[0], order)).toBe(order[1])
   })
 })
