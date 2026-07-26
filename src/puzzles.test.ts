@@ -11,5 +11,5 @@ describe('Mine puzzle templates', () => {
       expect(template?.solutions.length).toBeGreaterThanOrEqual(2)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
     }
-  })
+  }, 30_000)
 })

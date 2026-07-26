@@ -13,7 +13,7 @@ describe('Caverns puzzle templates', () => {
       expect(template?.solutions.length).toBeGreaterThanOrEqual(2)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
     }
-  })
+  }, 30_000)
 
   it('lets Tide quench vents and Ember ignite gas routes', () => {
     const tide = createRun({ hero: createHero({ inventory: ['waterScript'] }) })

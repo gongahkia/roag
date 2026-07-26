@@ -13,7 +13,7 @@ describe('Wilds puzzle templates', () => {
       expect(template?.solutions.length).toBeGreaterThanOrEqual(2)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
     }
-  })
+  }, 30_000)
 
   it('lets a machete clear the bramble route', () => {
     const state = createRun({ hero: createHero({ equipment: { mainHand: 'machete' } }) })

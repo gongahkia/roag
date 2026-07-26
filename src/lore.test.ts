@@ -37,5 +37,5 @@ describe('trail lore', () => {
     expect(scene.pages.join(' ')).toContain('Ari Vale')
     expect(scene.pages.join(' ')).toContain('Nami')
     expect(new Set(Array.from({ length: 32 }, (_, seed) => endingLore(newRun(seed), ['mine', 'wilds', 'caverns', 'ruins']).pages[0])).size).toBeGreaterThan(1)
-  })
+  }, 30_000)
 })

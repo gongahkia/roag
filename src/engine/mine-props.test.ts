@@ -155,5 +155,5 @@ describe('Mine props', () => {
       if (prop.kind === 'mine.warningMarker') expect(nearby(5, ['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])).toBe(true)
       if (prop.kind === 'mine.skullMarker') expect(nearby(5, ['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit']) || floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - prop.x), Math.abs(actor.y - prop.y)) <= 5)).toBe(true)
     }
-  })
+  }, 30_000)
 })

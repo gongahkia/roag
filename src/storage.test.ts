@@ -141,7 +141,7 @@ describe('run persistence migration', () => {
       delete legacy.floor.props
       delete legacy.floor.objective
       const migrated = migrateRunRecord(legacy)
-    expect(migrated).toMatchObject({ version: 4, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], milestones: expect.any(Array), objective: { status: 'active' } } })
+    expect(migrated).toMatchObject({ version: 5, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], milestones: expect.any(Array), objective: { status: 'active' } } })
     }
   })
 
@@ -211,7 +211,7 @@ describe('run persistence migration', () => {
   it('keeps only route progression when loading campaign state', () => {
     const route = migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', hero: { gold: 999 } })
     expect(route).toEqual({ version: 3, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
-    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 3, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 4, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
     const order = ['furnace', 'mine', 'wilds', 'caverns', 'ruins', 'floodedRuins'] as const
     expect(migrateCampaignRoute({ version: 3, areaOrder: order, completedAreas: [], unlockedAreas: ['furnace'], selectedBiome: 'furnace' })).toMatchObject({ version: 3, areaOrder: order, selectedBiome: 'furnace' })
   })

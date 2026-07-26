@@ -6,7 +6,7 @@ import { createEnemy, createHero, createRun } from '../test/factories'
 describe('weapon tactical profiles', () => {
   it('replaces weapon damage-only data with reach, shape, cooldown, and tags', () => {
     const weapons = ITEMS.filter(item => item.weapon)
-    expect(weapons).toHaveLength(11)
+    expect(weapons).toHaveLength(13)
     expect(weapons.find(item => item.id === 'tideSpear')?.weapon).toMatchObject({ damage: 7, reach: 2, shape: 'line', cooldown: 1, tags: ['water'] })
     for (const weapon of weapons) {
       expect(weapon).not.toHaveProperty('damage')
