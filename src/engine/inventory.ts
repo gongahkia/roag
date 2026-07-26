@@ -22,6 +22,7 @@ import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } fro
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
 import { boonRank, openMilestone } from './buildcraft'
+import { recordTelemetryCount } from '../telemetry'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -276,6 +277,7 @@ export function shopChoice(state: RunState, command: string): ActionResult {
   if (blocker) { log(state, blocker); return [event('menu')] }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [event('menu')] }
   spendGold(state, item.value)
+  recordTelemetryCount(state, 'purchases', id)
   state.hero.inventory.push(id)
   log(state, `You buy ${item.name}.`)
   return advance(state, [event('pickup')])

@@ -160,7 +160,7 @@ export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east'
 export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
 export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
-export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
+export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
 export interface AutoplayCandidate { command: string; reason: string; score: number }
 export interface AutoplayTraceEntry {
   turn: number

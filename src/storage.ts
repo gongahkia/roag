@@ -64,7 +64,8 @@ const isEncyclopedia = (value: unknown): value is EncyclopediaState => isRecord(
 const isRunMetricSample = (value: unknown): value is RunMetricSample => isRecord(value) && isNumber(value.turn) && isNumber(value.floor) && isNumber(value.health) && isNumber(value.focus) && isNumber(value.gold) && isNumber(value.bombs) && isNumber(value.ropes) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken)
 const isRunFloorMetrics = (value: unknown): value is RunFloorMetrics => isRecord(value) && isNumber(value.floor) && isNumber(value.turns) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken) && isNumber(value.goldGained) && isNumber(value.xpGained) && isNumber(value.pickups) && isNumber(value.bombsUsed) && isNumber(value.ropesUsed)
 const isRunActions = (value: unknown): boolean => isRecord(value) && ['moves', 'attacks', 'casts', 'pickups', 'bombs', 'ropes', 'rests'].every(key => isNumber(value[key]))
-const isRunTelemetry = (value: unknown): value is RunTelemetry => isRecord(value) && isNumber(value.turns) && isRunActions(value.actions) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken) && isNumber(value.goldGained) && isNumber(value.xpGained) && isNumber(value.pickups) && isNumber(value.bombsUsed) && isNumber(value.ropesUsed) && Array.isArray(value.samples) && value.samples.every(isRunMetricSample) && Array.isArray(value.floors) && value.floors.every(isRunFloorMetrics)
+const isCounterMap = (value: unknown): boolean => isRecord(value) && Object.values(value).every(isNumber)
+const isRunTelemetry = (value: unknown): value is RunTelemetry => isRecord(value) && isNumber(value.turns) && isRunActions(value.actions) && isNumber(value.kills) && isNumber(value.damageDealt) && isNumber(value.damageTaken) && isNumber(value.goldGained) && (value.goldSpent === undefined || isNumber(value.goldSpent)) && isNumber(value.xpGained) && isNumber(value.pickups) && isNumber(value.bombsUsed) && isNumber(value.ropesUsed) && ['itemsUsed', 'boonPicks', 'boonAugments', 'purchases', 'enemyKills', 'eventOutcomes'].every(key => value[key] === undefined || isCounterMap(value[key])) && Array.isArray(value.samples) && value.samples.every(isRunMetricSample) && Array.isArray(value.floors) && value.floors.every(isRunFloorMetrics)
 const isRunAnalysis = (value: unknown): value is RunAnalysis => isRecord(value) && isNumber(value.seed) && oneOf(value.biome, BIOMES) && isNumber(value.floor) && oneOf(value.outcome, ['lost', 'complete', 'suspended']) && isString(value.date) && isRunTelemetry(value.metrics)
 const isTelegraph = (value: unknown): value is Telegraph => isRecord(value) && isString(value.id) && isString(value.sourceId) && isString(value.actionId) && Array.isArray(value.cells) && value.cells.every(isPoint) && oneOf(value.danger, ['minor', 'major']) && isNumber(value.resolveTurn) && (value.collision === undefined || (isRecord(value.collision) && isPoint(value.collision.point) && isString(value.collision.by))) && (value.cover === undefined || typeof value.cover === 'boolean')
 const isMilestone = (value: unknown): value is FloorMilestone => isRecord(value) && isString(value.id) && oneOf(value.kind, ['waycache', 'boon', 'augment']) && isPoint(value) && typeof value.discovered === 'boolean' && typeof value.claimed === 'boolean'
@@ -128,7 +129,9 @@ export const migrateRunRecord = (value: unknown): RunState | undefined => {
   const run = isRunState(value) ? { ...value } : isLegacyRunState(value) ? migrateLegacyRun(value) : undefined
   if (!run || !validPersistedRun(run)) return undefined
   if (run.encyclopedia) run.encyclopedia = { ...run.encyclopedia, legacyRecords: copyLegacyRecords(run.encyclopedia.legacyRecords) }
-  run.telemetry ??= createRunTelemetry(run)
+  const telemetry = run.telemetry ??= createRunTelemetry(run)
+  telemetry.goldSpent ??= 0
+  for (const key of ['itemsUsed', 'boonPicks', 'boonAugments', 'purchases', 'enemyKills', 'eventOutcomes'] as const) telemetry[key] ??= {}
   return run
 }
 

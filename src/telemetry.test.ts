@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analysisFor, createRunTelemetry, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
+import { analysisFor, createRunTelemetry, observeTelemetryTurn, recordTelemetryCount, recordTelemetryKill, telemetrySnapshot } from './telemetry'
 import { createEnemy, createFloor, createHero, createRun } from './test/factories'
 
 describe('run telemetry', () => {
@@ -14,9 +14,12 @@ describe('run telemetry', () => {
     state.hero.xp = 10
     state.hero.bombs = 0
     state.hero.ropes = 0
-    state.floor.actors = []
+    enemy.health = 0
     observeTelemetryTurn(state, before, [{ type: 'hit' }, { type: 'pickup' }, { type: 'boom' }, { type: 'rope' }], 'b')
-    expect(state.telemetry).toMatchObject({ turns: 1, kills: 1, damageDealt: 6, damageTaken: 4, goldGained: 12, xpGained: 10, pickups: 1, bombsUsed: 1, ropesUsed: 1, actions: { attacks: 1, bombs: 1, ropes: 1 } })
+    recordTelemetryCount(state, 'boonPicks', 'coolAsh')
+    recordTelemetryCount(state, 'boonPicks', 'coolAsh')
+    recordTelemetryKill(state, 'rat')
+    expect(state.telemetry).toMatchObject({ turns: 1, kills: 1, damageDealt: 6, damageTaken: 4, goldGained: 12, goldSpent: 0, xpGained: 10, pickups: 1, bombsUsed: 1, ropesUsed: 1, boonPicks: { coolAsh: 2 }, actions: { attacks: 1, bombs: 1, ropes: 1 } })
     expect(analysisFor(state, 'suspended')).toMatchObject({ outcome: 'suspended', floor: 1, metrics: { samples: [{ turn: 0 }, { turn: 1 }] } })
   })
 })

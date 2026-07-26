@@ -4,6 +4,7 @@ import { getTile, isPassable } from '../world'
 import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
+import { recordTelemetryCount } from '../telemetry'
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
 export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'; drawback?: string; rare?: boolean }
@@ -123,6 +124,7 @@ export function chooseBoon(state: RunState, milestoneId: string, command: string
   if (!choice) return false
   state.hero.boons ??= {}
   state.hero.boons[choice.id] = (state.hero.boons[choice.id] ?? 0) + 1
+  recordTelemetryCount(state, 'boonPicks', choice.id)
   claim(state, current)
   state.modal = undefined
   log(state, `Boon: ${choice.name} · rank ${boonRank(state, choice.id)}.`)
@@ -168,6 +170,7 @@ export function chooseAugment(state: RunState, milestoneId: string, command: str
     if (modal.mode === 'evolve') {
       state.hero.boonEvolutions ??= {}
       state.hero.boonEvolutions[choice] = (state.hero.boonEvolutions[choice] ?? 0) + 1
+      recordTelemetryCount(state, 'boonAugments', `evolve:${choice}`)
       claim(state, current)
       state.modal = undefined
       log(state, `${boonFor(choice).name} evolves to tier ${state.hero.boonEvolutions[choice]}. Drawback deepens: ${boonFor(choice).drawback ?? 'the burden of its power.'}`)
@@ -186,6 +189,7 @@ export function chooseAugment(state: RunState, milestoneId: string, command: str
   if (state.hero.boons![selected] === 0) delete state.hero.boons![selected]
   delete state.hero.boonEvolutions?.[selected]
   state.hero.boons![choice.id] = (state.hero.boons![choice.id] ?? 0) + (modal.mode === 'reforge' ? 1 : Math.max(1, prior))
+  recordTelemetryCount(state, 'boonAugments', `${modal.mode}:${selected}:${choice.id}`)
   claim(state, current)
   state.modal = undefined
   log(state, modal.mode === 'reforge' ? `${boonFor(selected).name} reforges into ${choice.name}.` : `${boonFor(selected).name} transmutes into ${choice.name}: ${choice.drawback ?? 'power carries a cost.'}`)

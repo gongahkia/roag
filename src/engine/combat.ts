@@ -22,6 +22,7 @@ import { announceSynergies, resolveSynergies } from './synergies'
 import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
 import { trailcraftTags } from './trailcraft'
 import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
+import { recordTelemetryKill } from '../telemetry'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -240,6 +241,7 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
 
 export function resolveDefeatedActors(state: RunState): void {
   for (const actor of state.floor.actors.filter(actor => actor.health <= 0)) {
+    if (actor.hostile) recordTelemetryKill(state, actor.kind)
     log(state, `${actor.name} falls.`)
     dropLoot(state, actor)
     if (actor.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian passed.'); log(state, 'The way to the exit is open.') }
