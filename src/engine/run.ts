@@ -5,6 +5,7 @@ import { refreshFov } from './visibility'
 import { hydrateEncyclopediaLegacy } from './encyclopedia'
 import { createRunTelemetry } from '../telemetry'
 import { recordSafePosition } from './buildcraft'
+import { AREA_ORDER, campaignOrderForSeed } from './campaign'
 
 export interface CourierBuild { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode }
 
@@ -35,15 +36,20 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
   }
 }
 
-export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = []): RunState {
+export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = AREA_ORDER): RunState {
   const floor = generateAreaFloor(seed, area, areaFloor)
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 4, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
+  const state: RunState = { version: 4, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)
   recordSafePosition(state)
   return state
+}
+
+export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = []): RunState => {
+  const areaOrder = campaignOrderForSeed(seed)
+  return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder)
 }
