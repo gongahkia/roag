@@ -29,6 +29,18 @@ grep --fixed-strings --quiet 'game' <<<"$focus"
 "${CLI[@]}" press n
 "${CLI[@]}" snapshot
 "${CLI[@]}" screenshot
+blank_cursor_frame="$(canvas_hash)"
+sleep .6
+blank_cursor_next_frame="$(canvas_hash)"
+test "$blank_cursor_frame" != "$blank_cursor_next_frame"
+"${CLI[@]}" press Enter
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'createCourier' <<<"$route"
+for key in u n n a m e d Space c o u r i e r; do "${CLI[@]}" press "$key"; done
+"${CLI[@]}" press Enter
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'createCourier' <<<"$route"
+for _ in {1..15}; do "${CLI[@]}" press Backspace; done
 "${CLI[@]}" press a
 "${CLI[@]}" press r
 "${CLI[@]}" press i

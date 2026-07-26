@@ -260,7 +260,7 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
 function createCourierFromDraft(): void {
   if (!courierDraft) return
   const name = courierDraft.name.trim()
-  if (!name) { redraw(); return }
+  if (!name || name.toLowerCase() === 'unnamed courier') { redraw(); return }
   const id = crypto.randomUUID()
   const identity = { id, name, origin: courierDraft.origin, calling: courierDraft.calling, deathMode: courierDraft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
   const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
