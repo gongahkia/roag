@@ -88,6 +88,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
     actors: [],
     items: [],
     props: [],
+    encounters: [],
     start: { x: 2, y: 2 },
     exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
     guardianDefeated: index % 4 !== 3,
@@ -109,6 +110,7 @@ export function generateFloor(runSeed: number, index: number): Floor {
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
   placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), ensureReachable(floor))
   placeMilestones(floor, rngFor(runSeed, 'progression', index, 'milestones'))
+  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'))
   const validation = validateGeneration(floor)
   if (!validation.valid) throw new Error(`invalid generated floor ${index}: ${validation.errors.join('; ')}`)
   return floor
@@ -242,6 +244,17 @@ function placeMilestones(floor: Floor, rng: Rng): void {
   }
   if (selected.length < 5) throw new Error(`failed to place milestones on floor ${floor.index}`)
   floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : index === 4 ? 'augment' : 'boon', ...point, discovered: false, claimed: false }))
+}
+
+function placeEncounters(floor: Floor, rng: Rng): void {
+  const candidates = floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
+    .filter(point => distance(point, floor.start) > 7 && distance(point, floor.exit) > 5)
+    .filter(point => !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && !floor.props.some(prop => prop.x === point.x && prop.y === point.y) && !floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y))
+    .filter(point => hasPassablePath(floor, floor.start, point))
+  const point = candidates.length ? rng.pick(candidates) : undefined
+  if (!point) return
+  const kinds: FloorEncounter['kind'][] = ['wayfarer', 'bloodBargain', 'shiftingChamber']
+  floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: rng.pick(kinds), ...point, state: 'dormant' }]
 }
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
@@ -529,14 +542,19 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
   if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
-  if (floor.milestones.length !== 5) errors.push('invalid milestone count')
+  if (floor.milestones.length < 5 || floor.milestones.length > 6) errors.push('invalid milestone count')
+  if ((floor.encounters?.length ?? 0) !== 1) errors.push('invalid encounter count')
   const milestoneLocations = new Set<string>()
   for (const milestone of floor.milestones) {
     const key = pointKey(milestone)
     const tile = getTile(floor, milestone.x, milestone.y)
-    if (!milestone.id || !['waycache', 'boon', 'augment'].includes(milestone.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
+    if (!milestone.id || !['waycache', 'boon', 'augment', 'relic'].includes(milestone.kind) || !tile || !passable(tile.kind) || (tile.kind === 'exit' && milestone.kind !== 'relic') || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
     if (milestoneLocations.has(key)) errors.push(`overlapping milestone: ${key}`)
     milestoneLocations.add(key)
+  }
+  for (const encounter of floor.encounters ?? []) {
+    const tile = getTile(floor, encounter.x, encounter.y)
+    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
   }
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()

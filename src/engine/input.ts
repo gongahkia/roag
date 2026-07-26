@@ -1,12 +1,13 @@
 import type { Direction, Modal, RunState } from '../types'
 import { advance, moveHero } from './combat'
-import { bomb, castFirstSpell, castSpell, descend, drill, glide, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope } from './inventory'
+import { bomb, bridge, castFirstSpell, castSpell, dash, descend, drill, glide, grapple, inventoryChoice, operate, pickUp, quickCast, shopChoice, swap, throwItem, useRope, winch } from './inventory'
 import { chooseSkill } from './progression'
 import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
 import { gateForArea, resolveAreaGate } from './gates'
-import { chooseAugment, chooseBoon, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
+import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
+import { chooseEncounter } from './encounters'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -67,6 +68,8 @@ function performModal(state: RunState, command: string): ActionResult {
   if (modal.kind === 'boon') return chooseBoon(state, modal.milestoneId, command) ? [event('level')] : []
   if (modal.kind === 'augment') return chooseAugment(state, modal.milestoneId, command) ? [event('level')] : []
   if (modal.kind === 'tool') return chooseTool(state, modal.milestoneId, command) ? [event('level')] : []
+  if (modal.kind === 'relic') return chooseRelic(state, modal.milestoneId, command) ? [event('level')] : []
+  if (modal.kind === 'encounter') return chooseEncounter(state, modal.encounterId, command)
   if (modal.kind === 'tools') return chooseToolUse(state, command) ? [event('menu')] : []
   if (modal.kind === 'shop') return shopChoice(state, command)
   if (modal.kind === 'gate') return performGateModal(state, modal, command)
@@ -109,6 +112,10 @@ function commitTarget(state: RunState, modal: Extract<Modal, { kind: 'target' }>
   if (modal.action === 'spell' && modal.item) return castSpell(state, modal.item, direction)
   if (modal.action === 'drill' && modal.item) return drill(state, modal.item, direction)
   if (modal.action === 'glide' && modal.item) return glide(state, modal.item, direction)
+  if (modal.action === 'grapple' && modal.item) return grapple(state, modal.item, direction)
+  if (modal.action === 'bridge' && modal.item) return bridge(state, modal.item, direction)
+  if (modal.action === 'dash' && modal.item) return dash(state, modal.item, direction)
+  if (modal.action === 'winch' && modal.item) return winch(state, modal.item, direction)
   if (modal.tool && ['stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites'].includes(modal.action)) return useTool(state, modal.tool, direction, modal.overdrive)
   return []
 }

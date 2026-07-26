@@ -9,12 +9,12 @@ export const targetPreview = (state: RunState, modal: Extract<Modal, { kind: 'ta
   const delta = DIRECTIONS[modal.direction]
   const origin = state.hero
   const bounds = { width: MAP_WIDTH, height: MAP_HEIGHT }
-  if (modal.action === 'drill' || modal.action === 'stoneWedge') {
+  if (modal.action === 'drill' || modal.action === 'bridge' || modal.action === 'winch' || modal.action === 'stoneWedge') {
     const point = { x: origin.x + delta.x, y: origin.y + delta.y }
     return { path: [point], cells: [point] }
   }
-  if (modal.action === 'glide' || modal.action === 'reedwing' || modal.action === 'cordAnchor' || modal.action === 'ashwayRites') {
-    const length = modal.action === 'cordAnchor' ? modal.overdrive ? 4 : 2 : modal.action === 'reedwing' ? modal.overdrive ? 3 : 2 : modal.action === 'ashwayRites' ? modal.overdrive ? 3 : 2 : 2
+  if (modal.action === 'glide' || modal.action === 'grapple' || modal.action === 'dash' || modal.action === 'reedwing' || modal.action === 'cordAnchor' || modal.action === 'ashwayRites') {
+    const length = modal.action === 'grapple' ? 3 : modal.action === 'cordAnchor' ? modal.overdrive ? 4 : 2 : modal.action === 'reedwing' ? modal.overdrive ? 3 : 2 : modal.action === 'ashwayRites' ? modal.overdrive ? 3 : 2 : 2
     const middle = { x: origin.x + delta.x, y: origin.y + delta.y }
     const landing = { x: origin.x + delta.x * length, y: origin.y + delta.y * length }
     const path = Array.from({ length }, (_, index) => ({ x: origin.x + delta.x * (index + 1), y: origin.y + delta.y * (index + 1) }))

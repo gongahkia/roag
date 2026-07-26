@@ -23,6 +23,7 @@ import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from '
 import { trailcraftTags } from './trailcraft'
 import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
 import { recordTelemetryKill } from '../telemetry'
+import { armRelicMove, armRelicWaterCrossing, markbreakerDamage, resolveKillRelics } from './relics'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -72,6 +73,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     if (boonRank(state, 'smokeWalker')) for (const nearby of state.floor.tiles) if (!nearby.explored) { nearby.explored = true; break }
   }
   if (tile.kind === 'current') {
+    armRelicWaterCrossing(state)
     state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'currentSense'))
     const drift = { x: destination.x + delta.x, y: destination.y + delta.y }
     if (isPassable(state.floor, drift.x, drift.y)) { state.hero.x = drift.x; state.hero.y = drift.y; log(state, 'The current carries you onward.') }
@@ -83,6 +85,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     else { tile.kind = 'floor'; log(state, 'The floor holds before it can seal the trail.') }
   }
   if (tile.kind === 'boulder') { tile.kind = 'floor'; events.push(...damageHero(state, 6, 'a rolling boulder', true)) }
+  if (['water', 'current'].includes(tile.kind)) armRelicWaterCrossing(state)
+  armRelicMove(state)
   return advance(state, events)
 }
 
@@ -244,8 +248,14 @@ export function resolveDefeatedActors(state: RunState): void {
     if (actor.hostile) recordTelemetryKill(state, actor.kind)
     log(state, `${actor.name} falls.`)
     dropLoot(state, actor)
-    if (actor.role === 'guardian') { state.floor.guardianDefeated = true; if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian passed.'); log(state, 'The way to the exit is open.') }
+    if (actor.role === 'guardian') {
+      state.floor.guardianDefeated = true
+      if (!state.floor.milestones.some(milestone => milestone.kind === 'relic')) state.floor.milestones.push({ id: `relic:${state.floor.index}:${actor.id}`, kind: 'relic', x: actor.x, y: actor.y, discovered: true, claimed: false })
+      if (completeObjective(state, 'defeatGuardian')) log(state, 'Objective complete: guardian passed.')
+      log(state, 'The way to the exit is open; a guardian echo remains.')
+    }
     gainXp(state, monsterXp(actor.kind))
+    if (actor.hostile) resolveKillRelics(state)
   }
   state.floor.actors = state.floor.actors.filter(actor => actor.health > 0)
 }
@@ -255,7 +265,7 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
   for (const target of targets) {
     const rng = turnRng(state, 'combat', `hero:${target.id}`)
     if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) { log(state, `Your attack misses ${target.name}.`); continue }
-    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + state.hero.stats.strength + strengthMeleeBonus(state.hero) + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + rng.int(0, 3) - Math.floor(target.defense / 8)))
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
     if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })

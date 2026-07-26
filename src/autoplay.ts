@@ -10,6 +10,8 @@ import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
 import { trailcraftTags } from './engine/trailcraft'
 import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices } from './engine/buildcraft'
+import { relicChoices } from './engine/relics'
+import { encounterOptions } from './engine/encounters'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -25,6 +27,11 @@ const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'brambl
 const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder'])
 const drillableTiles = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder', 'breakwall'])
 const glidableTiles = new Set<TileKind>(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder', 'bramble', 'rubble', 'current'])
+const grappleTiles = new Set<TileKind>(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'current'])
+const grappleBlockers = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder', 'breakwall', 'crate', 'chest', 'lockedDoor'])
+const bridgeTiles = new Set<TileKind>(['pit', 'water', 'deepWater', 'current'])
+const dashTiles = new Set<TileKind>(['smoke', 'gas', 'fireVent', 'current'])
+const winchTiles = new Set<TileKind>(['boulder', 'rubble', 'crate'])
 const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).filter(([direction]) => direction !== 'wait') as Array<[Exclude<Direction, 'wait'>, Point]>
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
@@ -45,6 +52,8 @@ const planningClone = (state: RunState): RunState => {
       equipment: { ...state.hero.equipment },
       cooldowns: state.hero.cooldowns ? { ...state.hero.cooldowns } : undefined,
       traversalTools: state.hero.traversalTools ? [...state.hero.traversalTools] : undefined,
+      relics: state.hero.relics ? [...state.hero.relics] : undefined,
+      relicCharges: state.hero.relicCharges ? { ...state.hero.relicCharges } : undefined,
       boons: state.hero.boons ? { ...state.hero.boons } : undefined,
       boonEvolutions: state.hero.boonEvolutions ? { ...state.hero.boonEvolutions } : undefined,
       safePositions: state.hero.safePositions?.map(point => ({ ...point }))
@@ -55,6 +64,7 @@ const planningClone = (state: RunState): RunState => {
       actors: floor.actors.map(actor => ({ ...cloneConditions(actor), status: actor.status ? [...actor.status] : undefined })),
       items: floor.items.map(item => ({ ...item })),
       props: floor.props.map(prop => ({ ...prop, tags: [...prop.tags], hooks: prop.hooks ? [...prop.hooks] : undefined, effectCells: prop.effectCells?.map(point => ({ ...point })) })),
+      encounters: floor.encounters?.map(encounter => ({ ...encounter })),
       start: { ...floor.start },
       exit: { ...floor.exit },
       objective: { ...floor.objective },
@@ -96,10 +106,13 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const tiles = state.floor.tiles.map(tile => `${tile.kind}:${tile.explored ? 1 : 0}`).join('|')
   const telegraphs = (state.floor.telegraphs ?? []).map(telegraph => `${telegraph.id}:${telegraph.resolveTurn}:${telegraph.cells.map(pointKey).join(',')}`).sort().join('|')
   const tools = (hero.traversalTools ?? []).join(',')
+  const relics = (hero.relics ?? []).join(',')
+  const relicCharges = Object.entries(hero.relicCharges ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([id, charge]) => `${id}:${charge}`).join(',')
   const boons = Object.entries(hero.boons ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
   const evolutions = Object.entries(hero.boonEvolutions ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
   const milestones = state.floor.milestones.map(milestone => `${milestone.id}:${milestone.discovered ? 1 : 0}:${milestone.claimed ? 1 : 0}`).join('|')
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${boons}:${evolutions}:${milestones}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
+  const encounters = (state.floor.encounters ?? []).map(encounter => `${encounter.id}:${encounter.state}`).join('|')
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${relics}:${relicCharges}:${boons}:${evolutions}:${milestones}:${encounters}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
 }
 
 // compact diagnostic identity; loop detection retains the full state signature above.
@@ -133,8 +146,9 @@ const autoplayProgressFingerprint = (state: RunState, includePosition: boolean):
     return summary
   }, { explored: 0, containers: 0 })
   const props = state.floor.props.map(propFingerprint).sort().join('|')
+  const encounters = (state.floor.encounters ?? []).map(encounter => `${encounter.id}:${encounter.state}`).sort().join('|')
   const position = includePosition ? `${hero.x},${hero.y}:` : ''
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}:${props}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}:${props}:${encounters}`
 }
 
 export const autoplayRecoveryFingerprint = (state: RunState): string => autoplayProgressFingerprint(state, true)
@@ -567,8 +581,9 @@ const spellTargetRange = (state: RunState, item: string): number => {
 const targetImpactCells = (state: RunState, action: TargetAction, direction: Exclude<Direction, 'wait'>, item?: string): Point[] => {
   if (action === 'bomb') return actionCells('burst', state.hero, direction, 2)
   const delta = DIRECTIONS[direction]
-  if (action === 'drill') return [{ x: state.hero.x + delta.x, y: state.hero.y + delta.y }]
-  if (action === 'glide') return [{ x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }]
+  if (action === 'drill' || action === 'bridge' || action === 'winch') return [{ x: state.hero.x + delta.x, y: state.hero.y + delta.y }]
+  if (action === 'glide' || action === 'dash') return [{ x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }]
+  if (action === 'grapple') return [{ x: state.hero.x + delta.x * 3, y: state.hero.y + delta.y * 3 }]
   if (action === 'throw') {
     const point = resolveLineEffect(state.floor, state.hero, { x: state.hero.x + delta.x * 5, y: state.hero.y + delta.y * 5 }).cells.at(-1)
     if (!point) return []
@@ -606,6 +621,30 @@ const targetDirection = (state: RunState, mode: AutoplayMode, action: TargetActi
       const middle = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
       const landing = { x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }
       return { direction, score: Boolean(middle && glidableTiles.has(middle.kind) && passable(state, mode, landing, false)) ? 64 : 0 }
+    }
+    if (action === 'grapple') {
+      const delta = DIRECTIONS[direction]
+      const usable = [3, 2].some(range => {
+        const crossing = Array.from({ length: range - 1 }, (_, offset) => getTile(state.floor, state.hero.x + delta.x * (offset + 1), state.hero.y + delta.y * (offset + 1)))
+        return crossing.every(tile => tile && !grappleBlockers.has(tile.kind)) && crossing.some(tile => tile && grappleTiles.has(tile.kind)) && passable(state, mode, { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }, false)
+      })
+      return { direction, score: usable ? 64 : 0 }
+    }
+    if (action === 'bridge') {
+      const delta = DIRECTIONS[direction]
+      const point = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
+      return { direction, score: bridgeTiles.has(getTile(state.floor, point.x, point.y)?.kind ?? 'wall') ? 64 : 0 }
+    }
+    if (action === 'dash') {
+      const delta = DIRECTIONS[direction]
+      const middle = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+      const landing = { x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }
+      return { direction, score: Boolean(middle && dashTiles.has(middle.kind) && passable(state, mode, landing, false)) ? 64 : 0 }
+    }
+    if (action === 'winch') {
+      const delta = DIRECTIONS[direction]
+      const point = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
+      return { direction, score: winchTiles.has(getTile(state.floor, point.x, point.y)?.kind ?? 'wall') ? 64 : 0 }
     }
     const spell = ITEM[item ?? '']?.spell
     if (!spell || !item) return { direction, score: 0 }
@@ -728,6 +767,20 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
     if ((state.hero.traversalTools?.length ?? 0) >= 2 && modal.replace === undefined) return { command: '1', reason: 'replace traversal tool', score: 200 }
     const choice = toolChoices(state, milestone)[0]
     return { command: choice ? '1' : 'Escape', reason: choice ? `bind:${choice.id}` : 'empty Waycache', score: 200 }
+  }
+  if (modal.kind === 'relic') {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return { command: 'Escape', reason: 'stale guardian echo', score: 200 }
+    if ((state.hero.relics?.length ?? 0) >= 3 && modal.replace === undefined) return { command: '1', reason: 'replace relic', score: 200 }
+    const choice = relicChoices(state, milestone).map((relic, index) => ({ relic, index })).sort((a, b) => b.relic.priority - a.relic.priority || a.relic.id.localeCompare(b.relic.id))[0]
+    return { command: choice ? String(choice.index + 1) : 'Escape', reason: choice ? `bind:${choice.relic.id}` : 'empty guardian echo', score: 200 }
+  }
+  if (modal.kind === 'encounter') {
+    const source = state.floor.encounters?.find(current => current.id === modal.encounterId)
+    if (!source) return { command: 'Escape', reason: 'stale encounter', score: 200 }
+    const options = encounterOptions(state, source)
+    const preferred = source.kind === 'wayfarer' ? options[0].available ? 0 : 1 : source.kind === 'shiftingChamber' ? options[0].available ? 0 : 2 : 2
+    return { command: String(preferred + 1), reason: `encounter:${source.kind}:${preferred + 1}`, score: 200 }
   }
   if (modal.kind === 'tools') return { command: 'Escape', reason: 'close tools', score: 200 }
   if (modal.kind === 'skills') {
@@ -1070,7 +1123,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     if (modal.action === 'bomb' && damage < 1 && mobilityGain < 1 && propValue < 1) return []
     if (state.floor.biome === 'ruins' && modal.action === 'bomb' && harm >= 4) return []
     if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0 && propValue < 1) return []
-    if ((modal.action === 'drill' || modal.action === 'glide') && !routeGained) return []
+    if ((modal.action === 'drill' || modal.action === 'glide' || modal.action === 'grapple' || modal.action === 'bridge' || modal.action === 'dash' || modal.action === 'winch') && !routeGained) return []
     if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
     return [{ direction, score, mobilityGain, terrainCleared, routeGained }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
@@ -1136,7 +1189,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (throwable && throwTarget && safeThrowTarget && (throwTarget.score >= throwThreshold || safeThrowTarget.score >= 72)) candidates.push({ command: 't', reason: rooted ? `break root: throw:${throwable}` : safeThrowTarget.score >= 72 ? `throw prop:${throwable}` : `throw:${throwable}`, score: (rooted ? 330 : 96) + Math.max(throwTarget.score, safeThrowTarget.score) / 10 + (pressure >= 100 ? 60 : 0), intent: { kind: 'throw', item: throwable } })
   const traversal = state.hero.inventory.flatMap(id => {
     const use = ITEM[id]?.use
-    const action: TargetAction | undefined = use === 'drill' ? 'drill' : use === 'glide' ? 'glide' : undefined
+    const action: TargetAction | undefined = use === 'drill' ? 'drill' : use === 'glide' ? 'glide' : use === 'grapple' ? 'grapple' : use === 'bridge' ? 'bridge' : use === 'dash' ? 'dash' : use === 'winch' ? 'winch' : undefined
     if (!action) return []
     const target = targetDirection(state, mode, action, id)
     const resolved = usableTarget(state, mode, action, id)
@@ -1149,6 +1202,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (spell) candidates.push({ command: 'u', reason: rooted ? `break root: cast:${spell.id}` : spell.resolved.score >= 72 ? `cast prop:${spell.id}` : `cast:${spell.id}`, score: (rooted ? 310 : 90) + Math.max(spell.target.score, spell.resolved.score) / 5 + (pressure >= 100 ? 60 : 0), intent: { kind: 'use', item: spell.id } })
   const nearbyContainer = adjacentCells(heroPoint).some(point => ['crate', 'chest'].includes(getTile(state.floor, point.x, point.y)?.kind ?? ''))
   const nearbyMilestone = state.floor.milestones.some(current => !current.claimed && (mode === 'omniscient' || current.discovered) && chebyshev(state.hero, current) <= 1)
+  const nearbyEncounter = state.floor.encounters?.some(current => current.state === 'dormant' && chebyshev(current, heroPoint) <= 1)
   const nearLockedDoor = adjacentCells(heroPoint).some(point => getTile(state.floor, point.x, point.y)?.kind === 'lockedDoor')
   const merchant = state.floor.actors.find(actor => actor.role === 'merchant' && chebyshev(actor, state.hero) <= 1)
   const nearMerchant = Boolean(merchant) && !context.closedMerchants.has(merchant!.id)
@@ -1158,7 +1212,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const viableGate = nearLockedDoor && !unlockedByKey && !preserveOffering && gateChoice(state, policy) !== undefined
   const nearbyObjective = nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly
   const standingObjective = tile?.kind === 'rescue' || (tile?.kind === 'altar' && state.hero.gold >= 75)
-  if (standingObjective) candidates.push({ command: 'c', reason: 'operate objective', score: 300 })
+  if (nearbyEncounter) candidates.push({ command: 'c', reason: 'inspect encounter', score: 142 })
+  else if (standingObjective) candidates.push({ command: 'c', reason: 'operate objective', score: 300 })
   else if (policy === 'explore' && nearbyMilestone) candidates.push({ command: 'c', reason: 'claim milestone', score: 280 })
   else if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })

@@ -11,6 +11,7 @@ export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
 export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread'
 export type TraversalToolId = 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'
+export type RelicId = 'ashCircuit' | 'markbreakerSeal' | 'cairnCoil' | 'tideFetter'
 export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
@@ -34,6 +35,8 @@ export type PropState = 'dormant' | 'inspected' | 'activated' | 'destroyed'
 export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current'
 export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard' | 'ward' | 'gate'
 export type PropHook = 'operate' | PropEffectKind
+export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber'
+export type EncounterState = 'dormant' | 'resolved'
 
 export interface Point { x: number; y: number }
 export interface Tile { kind: TileKind; explored: boolean; visible: boolean }
@@ -73,8 +76,9 @@ export interface Prop {
   effectCells?: Point[]
   expiresAt?: number
 }
+export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
-export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment'; x: number; y: number; discovered: boolean; claimed: boolean }
+export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean }
 export interface TransientTerrain { x: number; y: number; original: TileKind; expiresAt: number }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
@@ -86,6 +90,7 @@ export interface Floor {
   actors: Actor[]
   items: GroundItem[]
   props: Prop[]
+  encounters?: FloorEncounter[]
   start: Point
   exit: Point
   guardianDefeated: boolean
@@ -122,6 +127,8 @@ export interface Hero {
   cooldowns?: Record<string, number>
   trailcrafts?: Partial<Record<TrailcraftId, number>>
   traversalTools?: TraversalToolId[]
+  relics?: RelicId[]
+  relicCharges?: Partial<Record<RelicId, number>>
   boons?: Partial<Record<BoonId, number>>
   boonEvolutions?: Partial<Record<BoonId, number>>
   safePositions?: Point[]
@@ -160,7 +167,7 @@ export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east'
 export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
 export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
-export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
+export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; relicPicks: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
 export interface AutoplayCandidate { command: string; reason: string; score: number }
 export interface AutoplayTraceEntry {
   turn: number
@@ -208,11 +215,13 @@ export type Modal =
   | { kind: 'boon'; milestoneId: string }
   | { kind: 'augment'; milestoneId: string; mode?: 'evolve' | 'reforge' | 'transmute'; selected?: BoonId[] }
   | { kind: 'tool'; milestoneId: string; replace?: number }
+  | { kind: 'relic'; milestoneId: string; replace?: number }
+  | { kind: 'encounter'; encounterId: string }
   | { kind: 'tools' }
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
-  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }

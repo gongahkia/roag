@@ -22,7 +22,7 @@ const addCounts = (target: Counts, source: Counts): Counts => {
 
 const total = (runs: readonly BalanceRun[], project: (metrics: RunTelemetry) => number): number => runs.reduce((sum, run) => sum + project(run.metrics), 0)
 const average = (runs: readonly BalanceRun[], project: (metrics: RunTelemetry) => number): number => runs.length ? Number((total(runs, project) / runs.length).toFixed(2)) : 0
-const rank = (counts: Counts) => Object.entries(counts).sort(([, a], [, b]) => b - a || a[0].localeCompare(b[0])).map(([id, count]) => ({ id, count }))
+const rank = (counts: Counts) => Object.entries(counts).sort(([idA, countA], [idB, countB]) => countB - countA || idA.localeCompare(idB)).map(([id, count]) => ({ id, count }))
 
 const run = (seed: number): Promise<BalanceRun> => new Promise((resolveRun, reject) => {
   const child = spawn(resolve('node_modules/.bin/vite-node'), ['--script', resolve('scripts/balance-report-worker.ts')], { env: { ...process.env, BALANCE_SEED: String(seed), BALANCE_TURN_LIMIT: String(turnLimit) }, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -71,6 +71,7 @@ console.log(JSON.stringify({
   choices: {
     boons: rank(aggregate(metrics => metrics.boonPicks)),
     augments: rank(aggregate(metrics => metrics.boonAugments)),
+    relics: rank(aggregate(metrics => metrics.relicPicks)),
     purchases: rank(aggregate(metrics => metrics.purchases)),
     itemsUsed: rank(aggregate(metrics => metrics.itemsUsed))
   },

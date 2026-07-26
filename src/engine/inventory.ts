@@ -23,6 +23,9 @@ import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope,
 import { trailcraftTags } from './trailcraft'
 import { boonRank, openMilestone } from './buildcraft'
 import { recordTelemetryCount } from '../telemetry'
+import { consumeRelicSpell } from './relics'
+import { armRelicMove, armRelicWaterCrossing } from './relics'
+import { openEncounter } from './encounters'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -39,6 +42,8 @@ export function pickUp(state: RunState): ActionResult {
 export function operate(state: RunState): ActionResult {
   const milestone = openMilestone(state)
   if (milestone) return milestone
+  const encounter = openEncounter(state)
+  if (encounter) return encounter
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
@@ -196,6 +201,11 @@ export function bomb(state: RunState, direction: Direction): ActionResult {
 
 const drillableTerrain = new Set(['wall', 'rubble', 'bramble', 'boulder', 'breakwall'])
 const glidableTerrain = new Set(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder', 'bramble', 'rubble', 'current'])
+const grappleTerrain = new Set(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'current'])
+const grappleBlockers = new Set(['wall', 'rubble', 'bramble', 'boulder', 'breakwall', 'crate', 'chest', 'lockedDoor'])
+const bridgeTerrain = new Set(['pit', 'water', 'deepWater', 'current'])
+const dashTerrain = new Set(['smoke', 'gas', 'fireVent', 'current'])
+const winchTerrain = new Set(['boulder', 'rubble', 'crate'])
 
 export function drill(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
   const index = state.hero.inventory.indexOf(id)
@@ -217,9 +227,74 @@ export function glide(state: RunState, id: string, direction: Exclude<Direction,
   if (index < 0 || !middle || !glidableTerrain.has(middle.kind) || !isPassable(state.floor, landing.x, landing.y)) { log(state, 'The glider needs a clear landing beyond hazardous ground.'); return [] }
   state.hero.x = landing.x
   state.hero.y = landing.y
+  if (middle.kind === 'water' || middle.kind === 'current') armRelicWaterCrossing(state)
+  armRelicMove(state)
   consume(state, index)
   refreshFov(state)
   log(state, 'You ride the reed glider across the hazard.')
+  return advance(state, [event('move')])
+}
+
+export function grapple(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const route = [3, 2].map(range => {
+    const crossing = Array.from({ length: range - 1 }, (_, offset) => getTile(state.floor, state.hero.x + delta.x * (offset + 1), state.hero.y + delta.y * (offset + 1)))
+    const landing = { x: state.hero.x + delta.x * range, y: state.hero.y + delta.y * range }
+    return { crossing, landing }
+  }).find(candidate => candidate.crossing.every(tile => tile && !grappleBlockers.has(tile.kind)) && candidate.crossing.some(tile => tile && grappleTerrain.has(tile.kind)) && isPassable(state.floor, candidate.landing.x, candidate.landing.y))
+  if (index < 0 || !route) { log(state, 'The grappling line needs a clear landing beyond a gap or hazard.'); return [] }
+  state.hero.x = route.landing.x
+  state.hero.y = route.landing.y
+  if (route.crossing.some(tile => tile?.kind === 'water' || tile?.kind === 'current')) armRelicWaterCrossing(state)
+  armRelicMove(state)
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'The grappling line carries you over the break.')
+  return advance(state, [event('move')])
+}
+
+export function bridge(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const tile = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+  if (index < 0 || !tile || !bridgeTerrain.has(tile.kind)) { log(state, 'The bridge needs an adjacent pit, water, current, or deep water.'); return [] }
+  tile.kind = 'rope'
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'The bridge locks into a permanent crossing.')
+  return advance(state, [event('rope')])
+}
+
+export function dash(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const middle = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
+  const landing = { x: state.hero.x + delta.x * 2, y: state.hero.y + delta.y * 2 }
+  if (index < 0 || !middle || !dashTerrain.has(middle.kind) || !isPassable(state.floor, landing.x, landing.y)) { log(state, 'The steam jetpack needs smoke, gas, fire, or current before a clear landing.'); return [] }
+  state.hero.x = landing.x
+  state.hero.y = landing.y
+  if (middle.kind === 'current') armRelicWaterCrossing(state)
+  armRelicMove(state)
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'Steam carries you through the hazard.')
+  return advance(state, [event('move')])
+}
+
+export function winch(state: RunState, id: string, direction: Exclude<Direction, 'wait'>): ActionResult {
+  const index = state.hero.inventory.indexOf(id)
+  const delta = DIRECTIONS[direction]
+  const target = { x: state.hero.x + delta.x, y: state.hero.y + delta.y }
+  const tile = getTile(state.floor, target.x, target.y)
+  if (index < 0 || !tile || !winchTerrain.has(tile.kind)) { log(state, 'The winch needs an adjacent boulder, rubble, or crate.'); return [] }
+  tile.kind = 'floor'
+  state.hero.x = target.x
+  state.hero.y = target.y
+  armRelicMove(state)
+  consume(state, index)
+  refreshFov(state)
+  log(state, 'The winch clears the obstruction and reels you forward.')
   return advance(state, [event('move')])
 }
 
@@ -245,8 +320,11 @@ export function throwItem(state: RunState, id: string, direction: Direction): Ac
 export function castSpell(state: RunState, id: string, direction: Direction): ActionResult {
   const item = ITEM[id]
   const profile = scriptCastProfile(state.hero, id)
-  if (state.hero.focus < profile.focusCost) { log(state, 'You lack focus.'); return [] }
-  state.hero.focus -= profile.focusCost
+  const circuitReady = Boolean(state.hero.relicCharges?.ashCircuit)
+  const focusCost = Math.max(1, profile.focusCost - Number(circuitReady))
+  if (state.hero.focus < focusCost) { log(state, 'You lack focus.'); return [] }
+  const circuit = circuitReady && consumeRelicSpell(state)
+  state.hero.focus -= focusCost
   const geometry = resolveSynergies({ scripts: [id], skills: state.hero.skills }, { range: profile.range })
   const delta = DIRECTIONS[direction]
   const point = { x: state.hero.x + delta.x * Math.max(1, Math.floor(geometry.values.range ?? profile.range)), y: state.hero.y + delta.y * Math.max(1, Math.floor(geometry.values.range ?? profile.range)) }
@@ -262,6 +340,7 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   const trailcraft = resolveSynergies({ tags })
   announceSynergies(state, trailcraft)
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + (effect.values.focus ?? 0) + (trailcraft.values.focus ?? 0))
+  if (circuit) { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 2); log(state, 'Ash Circuit completes the traversal-to-Charm relay.') }
   resolveDefeatedActors(state)
   refreshFov(state)
   log(state, `${item.name} takes effect.`)
@@ -303,6 +382,10 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
   }
   if (item.use === 'drill') { state.modal = { kind: 'target', action: 'drill', item: id }; return [event('menu')] }
   if (item.use === 'glide') { state.modal = { kind: 'target', action: 'glide', item: id }; return [event('menu')] }
+  if (item.use === 'grapple') { state.modal = { kind: 'target', action: 'grapple', item: id }; return [event('menu')] }
+  if (item.use === 'bridge') { state.modal = { kind: 'target', action: 'bridge', item: id }; return [event('menu')] }
+  if (item.use === 'dash') { state.modal = { kind: 'target', action: 'dash', item: id }; return [event('menu')] }
+  if (item.use === 'winch') { state.modal = { kind: 'target', action: 'winch', item: id }; return [event('menu')] }
   if (item.use === 'bomb') { const restored = restoreBombs(state.hero, 3 + boonRank(state, 'spareFuse')); if (!restored) { log(state, 'Your bomb reserve is full.'); return [] }; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, `You gain ${restored} bombs.`); return advance(state, [event('pickup')]) }
   if (item.use === 'rope') { const restored = restoreRopes(state.hero, 3); if (!restored) { log(state, 'Your rope reserve is full.'); return [] }; consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, `You gain ${restored} ropes.`); return advance(state, [event('pickup')]) }
   if (item.use === 'key') { state.hero.keys++; consume(state, inventoryIndex); return advance(state, [event('pickup')]) }

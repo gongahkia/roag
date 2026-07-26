@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { augmentChoices, boonChoices, boonFor, boonRank, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encyclopediaEntries, fieldReadout, gateForArea, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -463,7 +463,7 @@ export class TerminalRenderer {
       if (!this.spriteMode) this.cell(x, y, ' ', colors.ink, colors.ink)
       if (!this.spriteMode && isItemVisible(tile, item)) this.drawItem(item!, x, y)
       const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
-      if (milestone && !this.spriteMode) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
+      if (milestone && !this.spriteMode) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : milestone.kind === 'relic' ? 'R' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' || milestone.kind === 'relic' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
       return
     }
     const telegraph = overlays.telegraphs[index]
@@ -493,7 +493,9 @@ export class TerminalRenderer {
       }
     }
     const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
-    if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
+    if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : milestone.kind === 'relic' ? 'R' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' || milestone.kind === 'relic' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
+    const encounter = state.floor.encounters?.find(current => current.x === x && current.y === y && current.state === 'dormant')
+    if (encounter && !this.spriteMode) this.cell(x, y, encounter.kind === 'wayfarer' ? '&' : encounter.kind === 'bloodBargain' ? '$' : '≈', encounter.kind === 'bloodBargain' ? colors.red : encounter.kind === 'shiftingChamber' ? colors.blue : colors.green)
     if (item) this.drawItem(item, x, y)
     const actor = overlays.actors[index]
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
@@ -603,7 +605,8 @@ export class TerminalRenderer {
     this.text(50, 45, `NOW: ${readout.brief}`.slice(0, 45), colors.text)
     const milestones = state.floor.milestones.filter(current => current.discovered && !current.claimed)
     const boons = Object.entries(hero.boons ?? {}).filter((entry): entry is [string, number] => (entry[1] ?? 0) > 0).slice(0, 3).map(([id, rank]) => `${boonFor(id).glyph}${rank}`).join(' ')
-    this.text(50, 47, `MARKS ${milestones.length} seen · BOONS ${boons || 'none'}`.slice(0, 45), colors.dim)
+    const relics = (hero.relics ?? []).map(id => relicFor(id).glyph).join('')
+    this.text(50, 47, `MARKS ${milestones.length} seen · BOONS ${boons || 'none'} · RELICS ${relics || 'none'}`.slice(0, 45), colors.dim)
   }
 
   private courierSheet(hero: Hero): void {
@@ -657,6 +660,8 @@ export class TerminalRenderer {
     if (modal.kind === 'trailcraft') return this.trailcraft(state)
     if (modal.kind === 'boon') return this.boon(state, modal)
     if (modal.kind === 'augment') return this.augment(state, modal)
+    if (modal.kind === 'relic') return this.relic(state, modal)
+    if (modal.kind === 'encounter') return this.encounter(state, modal)
     if (modal.kind === 'tool') return this.tool(state, modal)
     if (modal.kind === 'tools') return this.tools(state)
     if (modal.kind === 'pause') return this.pause()
@@ -792,6 +797,38 @@ export class TerminalRenderer {
     this.text(14, 30, 'number binds · Esc/backtick leaves it for later', colors.dim)
   }
 
+  private relic(state: RunState, modal: Extract<Modal, { kind: 'relic' }>): void {
+    const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
+    if (!milestone) return
+    const relics = state.hero.relics ?? []
+    this.box(10, 6, 60, 28, 'GUARDIAN ECHO — BIND A RELIC')
+    if (relics.length >= 3 && modal.replace === undefined) {
+      this.text(14, 10, 'RELIC LOADOUT FULL · CHOOSE ONE TO REPLACE', colors.gold)
+      relics.forEach((id, index) => this.text(16, 15 + index * 4, `${index + 1}. ${relicFor(id).glyph} ${relicFor(id).name.toUpperCase()} · ${relicFor(id).text}`.slice(0, 48), colors.text))
+      this.text(14, 30, 'number chooses slot · Esc/backtick leaves the echo', colors.dim)
+      return
+    }
+    this.text(14, 10, modal.replace === undefined ? 'CHOOSE A RUN-ONLY ACTIVE RELIC' : `REPLACING SLOT ${(modal.replace ?? 0) + 1}`, colors.gold)
+    relicChoices(state, milestone).forEach((choice, index) => {
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}`, colors.gold)
+      this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
+    })
+    this.text(14, 30, 'number binds · Esc/backtick leaves the echo', colors.dim)
+  }
+
+  private encounter(state: RunState, modal: Extract<Modal, { kind: 'encounter' }>): void {
+    const source = state.floor.encounters?.find(current => current.id === modal.encounterId)
+    if (!source) return
+    const title = source.kind === 'wayfarer' ? 'WANDERING WAYFARER' : source.kind === 'bloodBargain' ? 'SEALED BARGAIN' : 'SHIFTING CHAMBER'
+    this.box(10, 6, 60, 28, title)
+    this.text(14, 10, source.kind === 'wayfarer' ? 'A TRADER OFFERS A ROUTE-BOUND CHOICE' : source.kind === 'bloodBargain' ? 'POWER IS OFFERED WITH A VISIBLE COST' : 'CHANGE THE ROOM; THE CONSEQUENCE STAYS', colors.gold)
+    encounterOptions(state, source).forEach((choice, index) => {
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.label}`, choice.available ? colors.green : colors.dim)
+      this.text(18, 16 + index * 5, choice.detail.slice(0, 47), choice.available ? colors.text : colors.dim)
+    })
+    this.text(14, 30, 'number chooses · Esc/backtick leaves for now', colors.dim)
+  }
+
   private tools(state: RunState): void {
     this.box(13, 8, 54, 24, 'RITUAL TOOL LOADOUT')
     const tools = state.hero.traversalTools ?? []
@@ -829,7 +866,7 @@ export class TerminalRenderer {
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
     this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
-    const action = modal.tool ? `${toolFor(modal.tool).name}${modal.overdrive ? ' OVERDRIVE' : ''}` : modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : 'throw item'
+    const action = modal.tool ? `${toolFor(modal.tool).name}${modal.overdrive ? ' OVERDRIVE' : ''}` : modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : modal.action === 'grapple' ? 'grapple across a gap' : modal.action === 'bridge' ? 'deploy a bridge' : modal.action === 'dash' ? 'dash through smoke, gas, fire, or current' : modal.action === 'winch' ? 'reel through an obstruction' : 'throw item'
     const preview = targetPreview(state, modal)
     this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
     this.text(21, 23, modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)

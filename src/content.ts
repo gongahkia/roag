@@ -17,7 +17,7 @@ export interface ItemDefinition {
   weapon?: WeaponProfile
   defense?: number
   value: number
-  use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'drill' | 'glide' | 'spell'
+  use?: 'heal' | 'focus' | 'map' | 'teleport' | 'bomb' | 'rope' | 'key' | 'torch' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'spell'
   spell?: string
   throwable?: boolean
   findable?: boolean
@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -68,6 +68,10 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'ropeBundle', name: 'Rope Bundle', glyph: '~', color: '#dab272', value: 55, use: 'rope' },
   { id: 'auger', name: 'Obsidian Auger', glyph: '%', color: '#c7c4ba', value: 100, use: 'drill', findable: false, tags: ['mine', 'mobility'] },
   { id: 'reedGlider', name: 'Reed Glider', glyph: '^', color: '#d8bc82', value: 95, use: 'glide', findable: false, tags: ['wilds', 'mobility'] },
+  { id: 'grappleLine', name: 'Grappling Line', glyph: '⌁', color: '#d8b66f', value: 105, use: 'grapple', tags: ['mobility', 'grapple', 'hook'] },
+  { id: 'bridgeKit', name: 'Deployable Bridge', glyph: '=', color: '#caa56d', value: 85, use: 'bridge', tags: ['mobility', 'bridge', 'water'] },
+  { id: 'steamJetpack', name: 'Steam Jetpack', glyph: '↑', color: '#ee9364', value: 125, use: 'dash', tags: ['mobility', 'dash', 'smoke', 'heat'] },
+  { id: 'portableWinch', name: 'Portable Winch', glyph: 'W', color: '#c6c8cc', value: 115, use: 'winch', tags: ['mobility', 'winch', 'force'] },
   { id: 'key', name: 'Carved Key', glyph: '?', color: '#d7c268', value: 40, use: 'key' },
   { id: 'rock', name: 'Throwing Stone', glyph: '*', color: '#9da5a9', value: 5, throwable: true },
   { id: 'fireJar', name: 'Fire Jar', glyph: '!', color: '#ff874f', value: 95, throwable: true },
@@ -183,12 +187,12 @@ export const isSkillId = (id: unknown): id is string => typeof id === 'string' &
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const)[Math.floor(index / 4)]
 export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
-  mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'pickaxe', 'cap', 'key'],
-  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'cordmarkTalisman', 'reedstepBoots'],
+  mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'grappleLine', 'portableWinch', 'pickaxe', 'cap', 'key'],
+  wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'grappleLine', 'bridgeKit', 'cordmarkTalisman', 'reedstepBoots'],
   caverns: ['focusTonic', 'lantern', 'spear', 'ember', 'mend', 'sight', 'blink', 'pull', 'blinkRune', 'reedGlider'],
   ruins: ['mail', 'ward', 'sunblade', 'gate', 'wardScript', 'blink', 'pull', 'key'],
-  furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'liftKey', 'cinderHammer', 'smokeKnife', 'liftHook', 'bellowsShield', 'chainGuard', 'smokeMask'],
-  floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb']
+  furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'liftKey', 'steamJetpack', 'portableWinch', 'cinderHammer', 'smokeKnife', 'liftHook', 'bellowsShield', 'chainGuard', 'smokeMask'],
+  floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'bridgeKit', 'grappleLine', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb']
 }
 
 const idPattern = /^[a-z][a-zA-Z0-9]*$/

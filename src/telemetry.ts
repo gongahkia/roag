@@ -2,10 +2,10 @@ import type { ActionResult } from './engine/shared'
 import type { RunAnalysis, RunFloorMetrics, RunMetricSample, RunOutcome, RunState, RunTelemetry } from './types'
 
 export interface TelemetrySnapshot { turn: number; floor: number; health: number; focus: number; gold: number; xp: number; bombs: number; ropes: number; hostiles: Map<string, number> }
-export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'purchases' | 'enemyKills' | 'eventOutcomes'
+export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'relicPicks' | 'purchases' | 'enemyKills' | 'eventOutcomes'
 
 const emptyActions = () => ({ moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 })
-const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, purchases: {}, enemyKills: {}, eventOutcomes: {} })
+const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {} })
 const floorMetrics = (floor: number): RunFloorMetrics => ({ floor, turns: 0, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0 })
 
 export const telemetrySnapshot = (state: RunState): TelemetrySnapshot => ({

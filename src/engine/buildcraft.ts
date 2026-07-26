@@ -5,6 +5,7 @@ import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 import { recordTelemetryCount } from '../telemetry'
+import { armRelicTraversal, consumeRelicTool, relicChoices, relicFor } from './relics'
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
 export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'; drawback?: string; rare?: boolean }
@@ -99,8 +100,8 @@ export function openMilestone(state: RunState): ActionResult | undefined {
   const milestone = milestoneAtReach(state)
   if (!milestone) return undefined
   milestone.discovered = true
-  state.modal = milestone.kind === 'waycache' ? { kind: 'tool', milestoneId: milestone.id } : milestone.kind === 'augment' ? { kind: 'augment', milestoneId: milestone.id } : { kind: 'boon', milestoneId: milestone.id }
-  log(state, milestone.kind === 'waycache' ? 'Waycache found: choose a ritual tool.' : milestone.kind === 'augment' ? 'Build-up moment: evolve, reforge, or transmute a Boon.' : 'Boon site found: choose one mark.')
+  state.modal = milestone.kind === 'waycache' ? { kind: 'tool', milestoneId: milestone.id } : milestone.kind === 'augment' ? { kind: 'augment', milestoneId: milestone.id } : milestone.kind === 'relic' ? { kind: 'relic', milestoneId: milestone.id } : { kind: 'boon', milestoneId: milestone.id }
+  log(state, milestone.kind === 'waycache' ? 'Waycache found: choose a ritual tool.' : milestone.kind === 'augment' ? 'Build-up moment: evolve, reforge, or transmute a Boon.' : milestone.kind === 'relic' ? 'Guardian echo found: bind one active relic.' : 'Boon site found: choose one mark.')
   return [event('menu')]
 }
 
@@ -220,6 +221,31 @@ export function chooseTool(state: RunState, milestoneId: string, command: string
   return true
 }
 
+export function chooseRelic(state: RunState, milestoneId: string, command: string): boolean {
+  const current = milestone(state, milestoneId)
+  const modal = state.modal?.kind === 'relic' ? state.modal : undefined
+  if (!current || !modal) return false
+  const relics = state.hero.relics ??= []
+  if (relics.length >= 3 && modal.replace === undefined) {
+    const slot = Number(command) - 1
+    if (slot < 0 || slot >= relics.length) return false
+    state.modal = { ...modal, replace: slot }
+    log(state, `Replace ${relicFor(relics[slot]).name}; choose a guardian relic.`)
+    return true
+  }
+  const choice = relicChoices(state, current)[Number(command) - 1]
+  if (!choice) return false
+  if (modal.replace === undefined) relics.push(choice.id)
+  else relics[modal.replace] = choice.id
+  state.hero.relicCharges ??= {}
+  for (const id of relics) if (id !== choice.id) delete state.hero.relicCharges[id]
+  recordTelemetryCount(state, 'relicPicks', choice.id)
+  claim(state, current)
+  state.modal = undefined
+  log(state, `Relic bound: ${choice.name}.`)
+  return true
+}
+
 export function openTools(state: RunState): ActionResult {
   const tools = state.hero.traversalTools ?? []
   if (!tools.length) { log(state, 'No ritual traversal tool is bound. Find a Waycache.'); return [] }
@@ -249,6 +275,8 @@ export function useTool(state: RunState, tool: TraversalToolId, direction: Exclu
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
   const focus = boonRank(state, 'cordTempo')
   if (focus) state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)
+  if (consumeRelicTool(state)) { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 3); log(state, 'Tide Fetter restores 3 HP after the crossing.') }
+  armRelicTraversal(state)
   if (boonRank(state, 'pressureSeal')) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: boonRank(state, 'pressureSeal') }]
   if (boonRank(state, 'wayfinderCord')) revealNearbyMilestones(state, 2 + boonRank(state, 'wayfinderCord'))
   if (overdrive) {

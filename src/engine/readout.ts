@@ -41,6 +41,8 @@ export const fieldReadout = (state: RunState): FieldReadout => {
     const horizontal = milestone.x < state.hero.x ? 'west' : milestone.x > state.hero.x ? 'east' : ''
     lines.push(`MARK: ${milestone.kind === 'waycache' ? 'Waycache' : 'Boon site'} ${distance(milestone, state.hero)} tiles ${[vertical, horizontal].filter(Boolean).join('-') || 'here'}.`)
   }
+  const encounter = state.floor.encounters?.find(current => current.state === 'dormant' && getTile(state.floor, current.x, current.y)?.visible)
+  if (encounter) lines.push(`OPTION C: inspect ${encounter.kind === 'wayfarer' ? 'a wandering wayfarer' : encounter.kind === 'bloodBargain' ? 'a sealed bargain' : 'a shifting chamber'}`)
   const ground = state.floor.items.filter(item => item.x === state.hero.x && item.y === state.hero.y)
   for (const item of ground.slice(0, 2)) lines.push(`OPTION G: take ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`)
   for (const prop of nearbyProps(state).slice(0, 2)) {
