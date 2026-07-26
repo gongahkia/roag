@@ -11,6 +11,10 @@ test("runs the local browser-owned table with interactive tiles, policy, and his
 
   await page.getByLabel("Player hand").getByRole("button").filter({ hasText: /./ }).first().click();
   await expect(page.locator(".history-panel")).toContainText("discards");
+  await expect(page.getByRole("heading", { name: "Decision curve" })).toBeVisible();
+  await expect(page.getByLabel("Seat 0 decision review").getByRole("button")).toHaveCount(1);
+  await page.getByLabel("Seat 0 decision review").getByRole("button").click();
+  await expect(page.getByText(/Frame 3 \/ \d+/)).toBeVisible();
   await expect(page.getByLabel("Replay frame")).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
   await page.getByRole("button", { name: "Undo" }).click();
@@ -25,10 +29,14 @@ test("autoplay uses the local policy for every seat and can be stopped", async (
   const initialEvents = await history.locator(".event-log li").count();
   await page.getByRole("button", { name: "Autoplay all" }).click();
   await expect(page.getByRole("button", { name: "Stop autoplay" })).toBeVisible();
+  await expect.poll(() => page.getByRole("img", { name: /ASCII cutscene/ }).getAttribute("aria-label")).toMatch(/Shimocha/);
   await expect(page.getByText("all seats autoplaying")).toBeVisible();
   await expect.poll(() => history.locator(".event-log li").count()).toBeGreaterThan(initialEvents);
   await page.getByRole("button", { name: "Stop autoplay" }).click();
   await expect(page.getByRole("button", { name: "Autoplay all" })).toBeVisible();
+  const stoppedEvents = await history.locator(".event-log li").count();
+  await page.waitForTimeout(240);
+  await expect(history.locator(".event-log li")).toHaveCount(stoppedEvents);
 });
 
 test("starts a deterministic Sanma table and exposes engine inspection", async ({ page }) => {

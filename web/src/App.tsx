@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
 import { AsciiField } from "./components/AsciiField";
+import { DecisionReview } from "./components/DecisionReview";
+import { analyzeHumanDecisions } from "./game/analysis";
 import {
   actionKey,
   actionLabel,
@@ -35,6 +37,7 @@ function App() {
   const restored = useRef(false);
   const legal = useMemo(() => legalActions(game), [game]);
   const decision = useMemo(() => legal.length > 0 ? decideAction(game, legal, policy) : null, [game, legal, policy]);
+  const review = useMemo(() => analyzeHumanDecisions(game, policy), [game, policy]);
   const digest = gameStateDigest(game);
   const lastEvent = game.history.at(-1);
   const topOpponent = 2;
@@ -93,7 +96,8 @@ function App() {
     const timeout = window.setTimeout(() => {
       setGame((current) => advanceAutomated(current, (active, actions) => decideAction(active, actions, policy).selected.action, {
         includeHuman: true,
-        limit: 1
+        limit: 1,
+        allowPartial: true
       }));
     }, AUTOPLAY_STEP_MS);
     return () => window.clearTimeout(timeout);
@@ -212,23 +216,24 @@ function App() {
             <SeatPanel game={game} seat={leftOpponent} showTiles={showAllHands} />
           </div>
           <section aria-label="ASCII table field" className="table-core">
-            <AsciiField seed={`${digest}:${lastEvent?.id ?? "boot"}`} />
+            <AsciiField activeSeat={game.currentSeat} eventKind={lastEvent?.kind ?? null} names={game.names} players={game.players} seed={`${digest}:${lastEvent?.id ?? "boot"}`} />
             <div className="ascii-overlay">
               <p>LOCAL ENGINE / {game.phase.toUpperCase()}</p>
               <strong>{lastEvent?.message ?? "Booting table."}</strong>
               <span className="turn-arrow">{seatArrow(game.currentSeat)} {game.names[game.currentSeat]}</span>
             </div>
-            <div className="discard-field" aria-label="Discard fields">
-              {Array.from({ length: game.players }, (_, seat) => (
-                <div className="discard-stack" key={seat}>
-                  <span>{game.names[seat]}</span>
-                  <TileStrip tiles={game.discards[seat]} />
-                </div>
-              ))}
-            </div>
           </section>
           {rightOpponent === null ? <div aria-hidden="true" className="seat-spacer" /> : <div className="opponent-row right-seat"><SeatPanel game={game} seat={rightOpponent} showTiles={showAllHands} /></div>}
         </div>
+
+        <section className="discard-field" aria-label="Discard fields">
+          {Array.from({ length: game.players }, (_, seat) => (
+            <div className="discard-stack" key={seat}>
+              <span>{game.names[seat]}</span>
+              <TileStrip tiles={game.discards[seat]} />
+            </div>
+          ))}
+        </section>
 
         <section aria-label="Your hand" className="hand-console">
           <div className="hand-heading">
@@ -303,6 +308,8 @@ function App() {
           </ol>
         </section>
       </section>
+
+      <DecisionReview onSelectFrame={setReplayIndex} review={review} />
     </main>
   );
 }

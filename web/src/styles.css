@@ -104,12 +104,12 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
 
 .table-core { position: relative; display: grid; min-height: 360px; overflow: hidden; background: radial-gradient(circle at center, rgba(241, 237, 219, 0.11), transparent 50%), var(--void); }
 .table-core::before { position: absolute; z-index: 2; inset: 10%; border: 1px solid rgba(241, 237, 219, 0.3); content: ""; pointer-events: none; }
-.ascii-field { width: 100%; height: 100%; min-height: 360px; image-rendering: pixelated; }
+.ascii-field { width: 100%; height: 100%; min-height: 360px; background: radial-gradient(circle at center, rgba(241, 237, 219, 0.06), transparent 58%); image-rendering: pixelated; }
 .ascii-overlay { position: absolute; z-index: 3; top: 1rem; left: 1rem; max-width: min(80%, 35rem); text-shadow: 2px 2px var(--void); pointer-events: none; }
 .ascii-overlay p { margin-bottom: 0.35rem; color: var(--ash); font-size: 0.59rem; font-weight: 800; letter-spacing: 0.1em; }
 .ascii-overlay strong { display: block; font-size: clamp(0.7rem, 1.6vw, 0.95rem); line-height: 1.35; }
 .turn-arrow { display: inline-block; margin-top: 0.7rem; border: 1px solid var(--line); background: var(--void); color: var(--ash); font-size: 0.62rem; padding: 0.32rem 0.45rem; }
-.discard-field { position: absolute; z-index: 4; right: 0.8rem; bottom: 0.8rem; left: 0.8rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.discard-field { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); gap: 0.4rem; padding: 0.55rem 0.8rem; }
 .discard-stack { min-width: 0; border: 1px solid var(--line); background: rgba(9, 10, 8, 0.83); padding: 0.3rem; }
 .discard-stack > span { display: block; overflow: hidden; color: var(--smoke); font-size: 0.52rem; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 
@@ -168,6 +168,32 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
 .replay-frame b { color: var(--ash); font-size: 0.62rem; line-height: 1.4; }
 .replay-frame .text-button { margin-top: 0.1rem; }
 
+.review-panel { margin-top: 1rem; }
+.review-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; margin: 0.9rem 0; }
+.review-stats div { border: 1px solid var(--line); background: rgba(241, 237, 219, 0.035); padding: 0.5rem; }
+.review-stats dt { color: var(--smoke); font-size: 0.55rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.review-stats dd { margin: 0.28rem 0 0; color: var(--ink); font-size: 0.74rem; font-weight: 800; }
+.review-chart-wrap { border: 1px solid var(--line); background: rgba(9, 10, 8, 0.6); padding: 0.6rem; }
+.review-chart { display: block; width: 100%; min-height: 10rem; overflow: visible; }
+.review-chart line { stroke: var(--line); stroke-dasharray: 1 1; vector-effect: non-scaling-stroke; }
+.review-chart path:not(.review-marker) { fill: none; stroke: var(--ink); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.review-chart text { fill: var(--smoke); font-family: inherit; font-size: 3px; letter-spacing: 0.15px; }
+.review-marker { stroke: var(--ink); stroke-width: 0.7; vector-effect: non-scaling-stroke; }
+.review-marker.best { fill: var(--void); }
+.review-marker.inaccuracy { fill: var(--ash); }
+.review-marker.mistake { fill: var(--smoke); }
+.review-marker.blunder { fill: var(--ink); }
+.review-chart-wrap > p { display: flex; flex-wrap: wrap; gap: 0.45rem 1rem; margin: 0.25rem 0 0; color: var(--smoke); font-size: 0.56rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.review-list { display: grid; gap: 0.4rem; max-height: 20rem; margin: 0.9rem 0 0; overflow: auto; padding: 0; list-style: none; }
+.review-list li { border-left: 1px solid var(--line); background: rgba(241, 237, 219, 0.025); padding: 0.35rem 0.5rem; }
+.review-list button { display: flex; width: 100%; border: 0; background: transparent; color: var(--ink); cursor: pointer; justify-content: space-between; padding: 0; text-align: left; }
+.review-list button:hover { color: var(--hot); text-decoration: underline; }
+.review-list button span { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.review-list button b { font-size: 0.63rem; }
+.review-list p { margin: 0.35rem 0 0; color: var(--ash); font-size: 0.62rem; }
+.review-list p span { color: var(--smoke); }
+.review-list em { display: block; margin-top: 0.35rem; color: var(--smoke); font-size: 0.56rem; font-style: normal; }
+
 @keyframes table-impact {
   0%, 100% { transform: translate(0); }
   20% { transform: translate(-6px, 3px); }
@@ -208,7 +234,7 @@ h2 { margin-bottom: 0.35rem; font-size: 1.08rem; line-height: 1; }
   .seat-panel { min-height: auto; }
   .hidden-tiles { max-width: 80vw; }
   .ascii-field { min-height: 330px; }
-  .discard-field { grid-template-columns: 1fr; max-height: 8.6rem; overflow: auto; }
+  .discard-field { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .game-tile { min-width: 2.35rem; min-height: 3.7rem; }
   .hand-heading { display: block; }
   .hand-heading p:last-child { margin-top: 0.55rem; text-align: left; }

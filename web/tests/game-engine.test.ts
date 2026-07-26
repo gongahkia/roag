@@ -15,7 +15,8 @@ import {
   serializeGame,
   undoLastHumanAction
 } from "../src/game/engine";
-import { decideAction, validatePolicyArtifact } from "../src/game/policy";
+import { analyzeHumanDecisions } from "../src/game/analysis";
+import { decideAction, DEFAULT_POLICY, validatePolicyArtifact } from "../src/game/policy";
 import type { GameState } from "../src/game/types";
 
 test("createGame is deterministic and deals a complete browser-owned table", () => {
@@ -56,6 +57,45 @@ test("the local policy can complete a hand for every seat", () => {
   assert.ok(completed.history.some((event) => event.seat === 1 && event.action !== null));
   assert.ok(completed.history.some((event) => event.seat === 2 && event.action !== null));
   assert.ok(completed.history.some((event) => event.seat === 3 && event.action !== null));
+});
+
+test("partial automated progress permits a paced all-seat UI loop", () => {
+  const initial = createGame({ players: 4, humanSeat: 0, seed: "paced-all-seat-autoplay" });
+  const progressed = advanceAutomated(initial, (state, actions) => decideAction(state, actions).selected.action, {
+    includeHuman: true,
+    limit: 1,
+    allowPartial: true
+  });
+  assert.equal(progressed.version, initial.version + 1);
+  assert.equal(progressed.currentSeat, 1);
+  assert.equal(progressed.phase, "reaction");
+});
+
+test("policy review identifies a recorded Seat 0 divergence without mutating history", () => {
+  const initial = createGame({ players: 4, humanSeat: 0, seed: "policy-review-divergence" });
+  const ranked = decideAction(initial, legalActions(initial));
+  const alternative = ranked.choices.at(-1);
+  assert.ok(alternative);
+  const afterAction = applyAction(initial, alternative.action);
+  const beforeDigest = gameStateDigest(afterAction);
+  const review = analyzeHumanDecisions(afterAction, DEFAULT_POLICY);
+  assert.equal(review.decisions.length, 1);
+  assert.equal(actionKey(review.decisions[0].action), actionKey(alternative.action));
+  assert.equal(actionKey(review.decisions[0].recommendedAction), actionKey(ranked.selected.action));
+  assert.ok(review.decisions[0].policyLoss > 0);
+  assert.notEqual(review.decisions[0].severity, "best");
+  assert.equal(review.totalPolicyLoss, review.decisions[0].policyLoss);
+  assert.equal(gameStateDigest(afterAction), beforeDigest);
+});
+
+test("policy review marks the exact heuristic action as best", () => {
+  const initial = createGame({ players: 4, humanSeat: 0, seed: "policy-review-best" });
+  const selected = decideAction(initial, legalActions(initial)).selected.action;
+  const review = analyzeHumanDecisions(applyAction(initial, selected), DEFAULT_POLICY);
+  assert.equal(review.decisions.length, 1);
+  assert.equal(review.decisions[0].policyLoss, 0);
+  assert.equal(review.decisions[0].severity, "best");
+  assert.equal(review.counts.best, 1);
 });
 
 test("the browser core consumes the frozen Python discard trace shape", () => {

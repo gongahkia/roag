@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ASCII_GLYPHS, createAsciiFrame } from "../src/lib/ascii-renderer";
+import { ASCII_GLYPHS, createAsciiFrame, createTableCutsceneFrame } from "../src/lib/ascii-renderer";
 
 test("builds deterministic bounded 1-bit ASCII frames", () => {
   const first = createAsciiFrame({ columns: 48, rows: 20, seed: "east-1" });
@@ -22,4 +22,24 @@ test("builds deterministic bounded 1-bit ASCII frames", () => {
 test("rejects invalid ASCII frame dimensions", () => {
   assert.deepEqual(createAsciiFrame({ columns: 0, rows: 20, seed: "invalid" }), []);
   assert.deepEqual(createAsciiFrame({ columns: 20, rows: -1, seed: "invalid" }), []);
+});
+
+test("builds a deterministic active-seat cutscene around a four-player table", () => {
+  const options = {
+    columns: 72,
+    rows: 28,
+    seed: "cutscene-east-1",
+    players: 4 as const,
+    names: ["You", "Shimocha", "Toimen", "Kamicha"],
+    activeSeat: 2,
+    eventKind: "discard" as const
+  };
+  const first = createTableCutsceneFrame(options);
+  const changedSeat = createTableCutsceneFrame({ ...options, activeSeat: 0 });
+  assert.deepEqual(first, createTableCutsceneFrame(options));
+  assert.equal(first.length, 28);
+  assert.ok(first.some((line) => line.includes(">TOIMEN<")));
+  assert.ok(first.some((line) => line.includes("[YOU]")));
+  assert.ok(first.some((line) => line.includes("[ DISCARD ]")));
+  assert.notDeepEqual(first, changedSeat);
 });

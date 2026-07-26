@@ -119,7 +119,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 export function advanceAutomated(
   state: GameState,
   choose: (current: GameState, legal: readonly GameAction[]) => GameAction,
-  options: { readonly includeHuman?: boolean; readonly limit?: number } = {}
+  options: { readonly includeHuman?: boolean; readonly limit?: number; readonly allowPartial?: boolean } = {}
 ): GameState {
   const includeHuman = options.includeHuman ?? false;
   const limit = options.limit ?? 512;
@@ -135,6 +135,7 @@ export function advanceAutomated(
     if (legal.length === 0) throw new Error("active browser game state has no legal action");
     current = applyAction(current, choose(current, legal));
   }
+  if (options.allowPartial) return current;
   throw new Error("automated game progression exceeded the action limit");
 }
 

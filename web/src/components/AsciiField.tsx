@@ -1,12 +1,16 @@
 import { useEffect, useRef } from "react";
 
-import { createAsciiFrame } from "../lib/ascii-renderer";
+import { createTableCutsceneFrame } from "../lib/ascii-renderer";
 
 interface AsciiFieldProps {
   readonly seed: string;
+  readonly players: 3 | 4;
+  readonly names: readonly string[];
+  readonly activeSeat: number;
+  readonly eventKind: "game_started" | "draw" | "discard" | "riichi" | "call" | "pass" | "win" | "draw_game" | "system" | null;
 }
 
-export function AsciiField({ seed }: AsciiFieldProps) {
+export function AsciiField({ seed, players, names, activeSeat, eventKind }: AsciiFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -23,7 +27,7 @@ export function AsciiField({ seed }: AsciiFieldProps) {
       const rows = Math.max(16, Math.min(42, Math.floor(bounds.height / 11)));
       const characterWidth = bounds.width / columns;
       const characterHeight = bounds.height / rows;
-      const frame = createAsciiFrame({ columns, rows, seed });
+      const frame = createTableCutsceneFrame({ columns, rows, seed, players, names, activeSeat, eventKind });
 
       target.width = Math.max(1, Math.floor(bounds.width * ratio));
       target.height = Math.max(1, Math.floor(bounds.height * ratio));
@@ -57,7 +61,7 @@ export function AsciiField({ seed }: AsciiFieldProps) {
     const observer = new ResizeObserver(render);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [seed]);
+  }, [activeSeat, eventKind, names, players, seed]);
 
-  return <canvas aria-hidden="true" className="ascii-field" data-ascii-renderer ref={canvasRef} />;
+  return <canvas aria-label={`ASCII cutscene: camera focuses ${names[activeSeat] ?? `seat ${activeSeat + 1}`} at the mahjong table.`} className="ascii-field" data-ascii-renderer ref={canvasRef} role="img" />;
 }
