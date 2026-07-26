@@ -19,7 +19,7 @@ class VisualQaStaticPagesTests(unittest.TestCase):
             self.assertEqual(
                 slugs,
                 {
-                    "browser-demo",
+                    "play",
                     "serve-index",
                     "benchmark-dashboard",
                     "training-dashboard",
@@ -31,8 +31,8 @@ class VisualQaStaticPagesTests(unittest.TestCase):
                 html = (output_dir / page["path"]).read_text(encoding="utf-8")
                 self.assertIn("<!doctype html>", html)
                 self.assertIn("width=device-width, initial-scale=1", html)
-            self.assertTrue((output_dir / "browser-demo" / "styles.css").is_file())
-            self.assertTrue((output_dir / "browser-demo" / "demo.js").is_file())
+            self.assertTrue((output_dir / "play" / "styles.css").is_file())
+            self.assertTrue((output_dir / "play" / "game.js").is_file())
 
     def test_parse_playwright_raw_json_accepts_encoded_cli_output(self) -> None:
         module = _load_visual_qa_module()

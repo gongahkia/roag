@@ -10,7 +10,7 @@ EXPECTED_COMMANDS = (
     "status",
     "repro-report",
     "demo",
-    "browser-demo",
+    "play",
     "serve",
     "replay-intake-review",
     "replay-share-plan",

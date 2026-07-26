@@ -25,4 +25,4 @@ These primitives use transform, filter, and box-shadow only. They must not chang
 - `countUp(target, nextText, options)`
 - `prefersReducedMotion()`
 
-Use these from static viewers when feedback is caused by state changes. Browser-demo currently uses lift/press, selected pulse, confirmation flash, and score count-up.
+Use these from static viewers when feedback is caused by state changes. The gameplay surface uses lift/press, selected pulse, confirmation flash, and score count-up.

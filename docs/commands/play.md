@@ -1,14 +1,14 @@
-# `browser-demo`
+# `play`
 
 Generated from `argparse` help and reviewed on 2026-07-07.
 
 ## Purpose
 
-Generate the static browser-playable PPO policy demo and optionally serve it locally.
+Generate the static local PPO gameplay surface and optionally serve it locally.
 
 ## Inputs
 
-No external input; it uses fixture-safe demo assets.
+No external input; it uses fixture-safe gameplay assets.
 
 ## Outputs
 
@@ -18,7 +18,7 @@ binds a local HTTP server.
 ## Example
 
 ```bash
-PYTHONPATH=src python3.13 -m kenjaku browser-demo --output-dir runs/browser-demo --no-serve
+PYTHONPATH=src python3.13 -m kenjaku play --output-dir runs/play --no-serve
 ```
 
 ## Gotchas
@@ -31,14 +31,14 @@ PYTHONPATH=src python3.13 -m kenjaku browser-demo --output-dir runs/browser-demo
 ## Help
 
 ```text
-usage: kenjaku browser-demo [-h] [--output-dir OUTPUT_DIR] [--host HOST]
-                            [--port PORT] [--no-serve]
+usage: kenjaku play [-h] [--output-dir OUTPUT_DIR] [--host HOST]
+                    [--port PORT] [--no-serve]
 
 options:
   -h, --help            show this help message and exit
   --output-dir OUTPUT_DIR
-                        directory for generated demo assets
-  --host HOST           host to bind when serving the demo
-  --port PORT           port to bind when serving the demo
-  --no-serve            write the demo assets without starting an HTTP server
+                        directory for generated gameplay assets
+  --host HOST           host to bind when serving the gameplay surface
+  --port PORT           port to bind when serving the gameplay surface
+  --no-serve            write the gameplay assets without starting an HTTP server
 ```

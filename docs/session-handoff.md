@@ -30,7 +30,7 @@ Last updated: 2026-06-13.
   `replay-intake-review`, an offline manifest-gated replay intake review command with accepted-item
   JSONL output. Added `replay-share-plan`, an offline shareability planner for accepted intake rows.
   Added `replay-public-summary`, a sanitized public-safe summary report for accepted and permitted
-  demo/redistribution rows. Added `browser-demo`, a static browser-playable hand demo generator
+  demo/redistribution rows. Added `play`, a static local hand gameplay surface
   with a CLI local server path and a nonblocking asset-write mode for smoke tests.
   Added `self-play-sandbox`, a deterministic four-seat draw/discard sandbox for turn-rotation and
   synthetic trajectory plumbing. Added basic closed-hand winning-shape detection and optional
@@ -293,9 +293,9 @@ Last updated: 2026-06-13.
 - `replay-public-summary` reads accepted intake JSONL, reuses the same share gate, and writes
   `kenjaku-replay-public-summary-v0` reports with public-safe summaries, URI fingerprints, and
   explicit blocked reasons. It omits raw replay data, accepted queue rows, and raw replay URLs.
-- `browser-demo` writes a static `index.html`, `styles.css`, and `demo.js` hand demo under the
+- `play` writes a static `index.html`, `styles.css`, and `game.js` hand gameplay surface under the
   selected output directory. By default it serves the generated directory with a local HTTP server;
-  use `--no-serve` for CI and nonblocking asset smoke tests. The demo uses a synthetic fixture wall
+  use `--no-serve` for CI and nonblocking asset smoke tests. It uses a synthetic fixture wall
   and does not embed raw replay data.
 - `self-play-sandbox` runs deterministic synthetic draw/discard episodes across four seats and
   writes `kenjaku-self-play-sandbox-report-v0` reports. It supports `random`, `drawn`, and
@@ -567,8 +567,8 @@ PYTHONPATH=src python3 -m kenjaku benchmark-report-summary runs/fixture-benchmar
 PYTHONPATH=src python3 -m kenjaku benchmark-dashboard \
   runs/fixture-benchmark-diagnostics.json \
   --output runs/public-benchmarks/index.html
-PYTHONPATH=src python3 -m kenjaku browser-demo \
-  --output-dir runs/browser-demo --no-serve
+PYTHONPATH=src python3 -m kenjaku play \
+  --output-dir runs/play --no-serve
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \
   runs/fixture-disagreements.json --examples 1 --tags
 PYTHONPATH=src python3 -m kenjaku disagreement-report-summary \

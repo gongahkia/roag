@@ -5,7 +5,7 @@ Status: generated from synthetic fixtures on 2026-07-07.
 Selected public-safe artifacts:
 
 - `docs/media/replay-analysis.mp4`
-- `docs/media/browser-demo.mp4`
+- `docs/media/play.mp4`
 - `docs/media/benchmark-summary.png`
 
 Source data:
@@ -27,8 +27,8 @@ fast discard models: frequency, linear, risk_context_linear, defense_context_lin
 
 ```bash
 mkdir -p runs/launch-media docs/media
-PYTHONPATH=src python3.13 -m kenjaku browser-demo \
-  --output-dir runs/launch-media/browser-demo --no-serve
+PYTHONPATH=src python3.13 -m kenjaku play \
+  --output-dir runs/launch-media/play --no-serve
 PYTHONPATH=src python3.13 -m kenjaku export-decision-snapshots \
   data/fixtures/tenhou --output runs/launch-media/decision-snapshots.jsonl --limit 20
 PYTHONPATH=src python3.13 -m kenjaku produce-decision-predictions \
@@ -51,20 +51,20 @@ PYTHONPATH=src python3.13 -m kenjaku benchmark-dashboard \
 
 ## Capture Browser Artifacts
 
-Run the browser-demo server in one shell:
+Run the gameplay server in one shell:
 
 ```bash
-cd runs/launch-media/browser-demo
+cd runs/launch-media/play
 python3.13 -m http.server 8876 --bind 127.0.0.1
 ```
 
-Capture the rendered demo page from another shell:
+Capture the rendered gameplay surface from another shell:
 
 ```bash
 PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 "$PWCLI" open http://127.0.0.1:8876/index.html
 "$PWCLI" resize 1280 720
-"$PWCLI" screenshot --filename runs/launch-media/browser-demo.png --full-page
+"$PWCLI" screenshot --filename runs/launch-media/play.png --full-page
 "$PWCLI" close
 ```
 
@@ -103,9 +103,9 @@ magick -size 1280x720 xc:'#0b1117' \
 ffmpeg -y -framerate 0.5 -i runs/launch-media/replay-frame-%02d.png \
   -vf "scale=1280:720,format=yuv420p" -c:v libx264 -movflags +faststart \
   docs/media/replay-analysis.mp4
-ffmpeg -y -loop 1 -i runs/launch-media/browser-demo.png \
+ffmpeg -y -loop 1 -i runs/launch-media/play.png \
   -vf "zoompan=z=1:x=0:y='min(ih-oh,on*4)':d=120:s=1280x720:fps=30,format=yuv420p" \
-  -t 4 -c:v libx264 -movflags +faststart docs/media/browser-demo.mp4
+  -t 4 -c:v libx264 -movflags +faststart docs/media/play.mp4
 ```
 
 ## Verify Media
@@ -113,7 +113,7 @@ ffmpeg -y -loop 1 -i runs/launch-media/browser-demo.png \
 ```bash
 ffprobe -v error -select_streams v:0 \
   -show_entries stream=width,height,nb_frames,duration \
-  -of default=noprint_wrappers=1 docs/media/browser-demo.mp4
+  -of default=noprint_wrappers=1 docs/media/play.mp4
 ffprobe -v error -select_streams v:0 \
   -show_entries stream=width,height,nb_frames,duration \
   -of default=noprint_wrappers=1 docs/media/replay-analysis.mp4
@@ -123,7 +123,7 @@ identify docs/media/benchmark-summary.png
 Expected media properties:
 
 ```text
-browser-demo.mp4: 1280x720, 4.000000 seconds, 120 frames
+play.mp4: 1280x720, 4.000000 seconds, 120 frames
 replay-analysis.mp4: 1280x720, 4.000000 seconds, 2 frames
 benchmark-summary.png: 1280x1395
 ```

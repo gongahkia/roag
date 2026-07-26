@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "benchmark_dashboard": "benchmark-dashboard/index.html",
-    "browser_demo": "browser-demo/index.html",
+    "game": "play/index.html",
     "decision_predictions": "decision-predictions.jsonl",
     "decision_snapshot_summary": "decision-snapshot-summary.json",
     "decision_snapshots": "decision-snapshots.jsonl",

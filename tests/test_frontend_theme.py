@@ -60,7 +60,7 @@ class FrontendThemeTests(unittest.TestCase):
         self.assertGreaterEqual(
             set(surfaces),
             {
-                "browser-demo",
+                "play",
                 "replay-viewer",
                 "benchmark-dashboard",
                 "training-dashboard",

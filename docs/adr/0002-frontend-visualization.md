@@ -9,7 +9,7 @@ Date: 2026-07-07
 Kenjaku needs local visualization for training, testing, and gameplay artifacts. The current
 repository already has these relevant surfaces:
 
-- `src/kenjaku/browser_demo.py`: 635-line static HTML/CSS/JS fixture demo generator with tile
+- `src/kenjaku/browser_game.py`: static HTML/CSS/JS gameplay generator with tile
   rendering and no build step.
 - `kenjaku benchmark-dashboard`: static HTML from benchmark JSON reports.
 - `kenjaku training-dashboard`: static HTML from training metrics JSONL.
@@ -25,9 +25,9 @@ dependency in `pyproject.toml`.
 Use Option A as the baseline: static artifact-generated HTML pages from JSON/JSONL run outputs,
 served by `kenjaku serve` when a local HTTP server is useful.
 
-Do not grow `browser_demo.py` into one large app. Keep each artifact viewer owned by its command,
+Do not grow `browser_game.py` into one large app. Keep each artifact viewer owned by its command,
 then extract shared tile/CSS/chart helpers only when duplication appears in at least two viewers.
-Reuse `browser_demo.py` tile semantics for gameplay views by extracting them into shared static
+Reuse `browser_game.py` tile semantics for gameplay views by extracting them into shared static
 asset helpers before adding another board-heavy viewer.
 
 Keep TensorBoard, React/Vite, and FastAPI/HTMX as optional later integrations, not the default
@@ -50,7 +50,7 @@ Pros:
 - Works with committed JSON/JSONL fixtures and private local run artifacts.
 - Avoids a frontend build step for public docs and offline demos.
 - Keeps artifacts shareable as files.
-- Fits the existing `browser_demo.py` pattern.
+- Fits the existing `browser_game.py` pattern.
 
 Cons:
 
@@ -138,7 +138,7 @@ observation or large-artifact search cannot stay static.
   artifact index/server.
 
 Future follow-ups should cover shared static viewer helpers, tile renderer extraction from
-`browser_demo.py`, optional TensorBoard scalar export, and a React/Vite revisit only after repeated
+`browser_game.py`, optional TensorBoard scalar export, and a React/Vite revisit only after repeated
 viewer code duplication is measured.
 
 ## References

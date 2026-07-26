@@ -89,7 +89,9 @@ def browser_game_policy() -> dict[str, Any]:
     return {
         "kind": BROWSER_GAME_POLICY_KIND,
         "seed": GAME_POLICY_EXPORT_SEED,
-        "description": "Static local gameplay surface for the Kenjaku sandbox PPO policy interface.",
+        "description": (
+            "Static local gameplay surface for the Kenjaku sandbox PPO policy interface."
+        ),
         "model": {
             "policy_kind": PPO_SANDBOX_POLICY_KIND,
             "input_dim": PPO_STATE_DIM,
@@ -247,7 +249,7 @@ _INDEX_BODY_HTML = """
       <canvas id="ascii-field" class="ascii-field" aria-hidden="true"></canvas>
       <header class="table-identity">
         <p class="terminal-kicker">Kenjaku / local policy table</p>
-        <p class="terminal-serial">Fixture hand / one-bit simulation</p>
+        <p class="terminal-serial">Local policy table / one-bit simulation</p>
       </header>
       <div class="table-hud kj-hud" aria-label="Round status">
         <div class="hud-chip kj-chip">

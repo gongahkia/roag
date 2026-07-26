@@ -124,7 +124,7 @@ class BrowserCommandTests(CliCommandTests):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Open", stdout.getvalue())
-        self.assertIn("browser-demo/index.html", index_html)
+        self.assertIn("play/index.html", index_html)
         self.assertIn("benchmark-dashboard/index.html", index_html)
         self.assertEqual(manifest["kind"], "kenjaku-demo-manifest-v0")
         self.assertEqual(manifest["snapshot_count"], 8)

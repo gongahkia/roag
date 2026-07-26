@@ -26,7 +26,7 @@ Use it for new static viewers instead of hand-writing repeated document shells, 
 
 Current consumers:
 
-- `kenjaku.browser_demo`
+- `kenjaku.browser_game`
 - `kenjaku.training_dashboard`
 
 ## Visual QA

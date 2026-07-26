@@ -65,7 +65,7 @@ def build_status_payload() -> dict[str, Any]:
                 "permitted_replay_share_planning": True,
                 "public_safe_replay_summary": True,
                 "public_benchmark_dashboard": True,
-                "browser_playable_demo": True,
+                "browser_playable_game": True,
                 "self_play_sandbox": True,
                 "self_play_match_sandbox": True,
                 "self_play_match_trajectory_artifacts": True,

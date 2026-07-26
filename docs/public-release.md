@@ -50,7 +50,7 @@ uv run python -m unittest discover -s tests
 uv run python -m compileall -q src tests
 uv run ruff check .
 uv run kenjaku status --json
-uv run kenjaku browser-demo --output-dir runs/browser-demo --no-serve
+uv run kenjaku play --output-dir runs/play --no-serve
 uv run kenjaku benchmark-discard data/fixtures/tenhou --epochs 3 --models fast --report runs/fixture-discard-benchmark.json
 uv run kenjaku benchmark-report-summary runs/fixture-discard-benchmark.json
 ```
@@ -72,7 +72,7 @@ Kenjaku is an open-source, local-first riichi mahjong research toolkit.
 
 This release can parse small Tenhou XML fixtures, reconstruct discard/call/riichi decision points,
 train dependency-free supervised baselines, export neutral decision snapshots, compare prediction
-JSONL files, generate public-safe replay summaries, build a static browser demo, and run a
+JSONL files, generate public-safe replay summaries, build a static local gameplay surface, and run a
 deterministic sandbox for rules/reward experiments.
 
 Verified scope:
@@ -110,7 +110,7 @@ I built Kenjaku, an open-source Python toolkit for local riichi mahjong replay a
 supervised-baseline experiments.
 
 It currently focuses on Tenhou XML parsing, decision reconstruction, discard/call/riichi baseline
-reports, neutral prediction snapshots, public-safe replay summaries, a static browser demo, and a
+reports, neutral prediction snapshots, public-safe replay summaries, a static local gameplay surface, and a
 deterministic sandbox for rules/reward plumbing.
 
 It is not a trained production mahjong agent, does not include raw replay data or model weights,
@@ -139,7 +139,7 @@ Current scope:
 - discard/call/riichi baseline reports over local permitted logs
 - neutral decision snapshot and prediction-comparison JSONL
 - public-safe replay summary generation
-- static browser demo generation
+- static local gameplay surface generation
 - deterministic sandbox plumbing for rules/reward experiments
 
 Non-scope:
@@ -149,7 +149,7 @@ Non-scope:
 - no complete yaku validator yet; unsupported yaku are explicit in `kenjaku status`
 
 I would value feedback on the data-policy boundaries, benchmark reporting, and what public-safe
-demo artifacts would be most useful for riichi players/researchers.
+gameplay artifacts would be most useful for riichi players/researchers.
 
 Repo: https://github.com/gongahkia/kenjaku
 ```
@@ -159,7 +159,7 @@ Repo: https://github.com/gongahkia/kenjaku
 ```text
 Kenjaku is a local-first Python toolkit for riichi mahjong replay analysis: Tenhou XML parsing,
 decision reconstruction, supervised baseline reports, neutral snapshots, public-safe summaries,
-browser demo assets, and sandbox experiments.
+local gameplay assets, and sandbox experiments.
 
 No live ladder automation or bundled model weights.
 https://github.com/gongahkia/kenjaku

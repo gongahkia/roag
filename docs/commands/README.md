@@ -11,7 +11,7 @@ and PyTorch RNGs before command execution.
 - [`status`](status.md) - Print the implemented feature matrix and local environment status.
 - [`repro-report`](repro-report.md) - Verify report provenance against the current checkout.
 - [`demo`](demo.md) - Run the fixture quickstart and write a linked local artifact landing page.
-- [`browser-demo`](browser-demo.md) - Generate the static browser-playable demo and optionally serve it locally.
+- [`play`](play.md) - Generate the static local gameplay surface and optionally serve it locally.
 - [`serve`](serve.md) - Serve a local artifact directory with an auto-generated landing page.
 - [`replay-intake-review`](replay-intake-review.md) - Validate a permission-aware replay intake manifest before local analysis.
 - [`replay-share-plan`](replay-share-plan.md) - Plan whether accepted replay intake rows can be used for a demo or redistribution.
