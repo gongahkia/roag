@@ -9,7 +9,9 @@ export const RELICS: readonly Relic[] = [
   { id: 'ashCircuit', name: 'Ash Circuit', glyph: 'ϟ', text: 'Tool use arms your next Charm: -1 focus, then +2 focus.', priority: 28 },
   { id: 'markbreakerSeal', name: 'Markbreaker Seal', glyph: '◇', text: 'First hit marks; hit a marked foe to consume it for +5 damage.', priority: 32 },
   { id: 'cairnCoil', name: 'Cairn Coil', glyph: '◌', text: 'Move first, then kill: restore 3 focus.', priority: 25 },
-  { id: 'tideFetter', name: 'Tide Fetter', glyph: '⚓', text: 'Cross water/current, then your next tool restores 3 HP.', priority: 22 }
+  { id: 'tideFetter', name: 'Tide Fetter', glyph: '⚓', text: 'Cross water/current, then your next tool restores 3 HP.', priority: 22 },
+  { id: 'prismRelay', name: 'Prism Relay', glyph: '◇', text: 'Cross a salt mirror, then your next strike gains +4 damage and marks.', priority: 30 },
+  { id: 'winterSeal', name: 'Winter Seal', glyph: '❄', text: 'Cross ice, then the next damage you take is reduced by 3.', priority: 27 }
 ]
 
 const byId = Object.fromEntries(RELICS.map(relic => [relic.id, relic])) as Record<RelicId, Relic>
@@ -30,8 +32,18 @@ const consume = (state: RunState, id: RelicId): boolean => {
 export const armRelicMove = (state: RunState): void => arm(state, 'cairnCoil')
 export const armRelicTraversal = (state: RunState): void => arm(state, 'ashCircuit')
 export const armRelicWaterCrossing = (state: RunState): void => arm(state, 'tideFetter')
+export const armRelicMirror = (state: RunState): void => arm(state, 'prismRelay')
+export const armRelicIce = (state: RunState): void => arm(state, 'winterSeal')
 export const consumeRelicSpell = (state: RunState): boolean => consume(state, 'ashCircuit')
 export const consumeRelicTool = (state: RunState): boolean => consume(state, 'tideFetter')
+export const consumeRelicWinterGuard = (state: RunState): boolean => consume(state, 'winterSeal')
+
+export const consumeRelicPrismStrike = (state: RunState, target: Actor): number => {
+  if (!consume(state, 'prismRelay')) return 0
+  addCondition(target, { kind: 'marked', duration: 2, potency: 1 })
+  log(state, 'Prism Relay refracts the strike.')
+  return 4
+}
 
 export const markbreakerDamage = (state: RunState, target: Actor): number => {
   if (!hasRelic(state, 'markbreakerSeal')) return 0

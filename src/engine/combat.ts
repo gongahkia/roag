@@ -23,7 +23,7 @@ import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from '
 import { trailcraftTags } from './trailcraft'
 import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
 import { recordTelemetryKill } from '../telemetry'
-import { armRelicMove, armRelicWaterCrossing, markbreakerDamage, resolveKillRelics } from './relics'
+import { armRelicIce, armRelicMirror, armRelicMove, armRelicWaterCrossing, consumeRelicPrismStrike, consumeRelicWinterGuard, markbreakerDamage, resolveKillRelics } from './relics'
 import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 
@@ -36,7 +36,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
   const profile = weapon?.weapon ?? { damage: 2, reach: 1, shape: 'adjacent' as const, cooldown: 0, tags: ['unarmed'] }
   const modified = evaluateEquipmentEffects(state.hero, 'action', { actionId: 'player-strike' }, { damage: profile.damage, range: profile.reach + agilityReachBonus(state.hero), cooldown: profile.cooldown }).values
-  const tags = [...trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot'), ...Object.keys(state.hero.boons ?? {}).filter(id => boonRank(state, id) > 0).map(id => `boon:${id}`)]
+  const tags = [...trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot' || id === 'sunstride' || id === 'prismLedger' || id === 'rimeEdge' || id === 'iceNerve'), ...Object.keys(state.hero.boons ?? {}).filter(id => boonRank(state, id) > 0).map(id => `boon:${id}`)]
   const items = Object.values(state.hero.equipment).filter((id): id is string => Boolean(id))
   const synergy = resolveSynergies({ items, skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
   const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
@@ -73,6 +73,33 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
     const damage = Math.max(0, 1 - boonRank(state, 'smokeWalker') - boonRank(state, 'slagSkin'))
     if (damage) events.push(...damageHero(state, damage, 'choking smoke', true))
     if (boonRank(state, 'smokeWalker')) for (const nearby of state.floor.tiles) if (!nearby.explored) { nearby.explored = true; break }
+  }
+  if (tile.kind === 'saltMirror') {
+    armRelicMirror(state)
+    state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'sunstep'))
+    for (let i = 0; i < boonRank(state, 'mirageMap'); i++) {
+      const unseen = state.floor.tiles.find(candidate => !candidate.explored)
+      if (unseen) unseen.explored = true
+    }
+  }
+  if (tile.kind === 'brine') {
+    const damage = Math.max(0, 2 - boonRank(state, 'brineWard'))
+    if (damage) events.push(...damageHero(state, damage, 'cutting brine', true))
+    if (boonRank(state, 'whiteRoad')) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: boonRank(state, 'whiteRoad') }]
+    if ((state.hero.trailcrafts?.brineGrit ?? 0) > 0) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 1)
+  }
+  if (tile.kind === 'ice') {
+    armRelicIce(state)
+    const coldRead = boonRank(state, 'coldRead')
+    state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + coldRead)
+    if (coldRead) for (const actor of state.floor.actors.filter(actor => actor.hostile && Math.max(Math.abs(actor.x - state.hero.x), Math.abs(actor.y - state.hero.y)) <= 2)) getTile(state.floor, actor.x, actor.y)!.explored = true
+    const rimeGuard = boonRank(state, 'rimeGuard') + ((state.hero.trailcrafts?.winterVow ?? 0) > 0 ? 1 : 0)
+    if (rimeGuard) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: rimeGuard }]
+  }
+  if (tile.kind === 'frostRime') {
+    const damage = Math.max(0, 2 - boonRank(state, 'thawStep'))
+    if (damage) events.push(...damageHero(state, damage, 'biting rime', true))
+    addCondition(state.hero, { kind: 'slowed', duration: 1, potency: 1 })
   }
   if (tile.kind === 'current') {
     armRelicWaterCrossing(state)
@@ -183,7 +210,12 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   if (resolvedTelegraphs.length) events.push(event('danger'))
   for (const actor of [...state.floor.actors]) {
     if (!actor.hostile || actor.health <= 0) continue
-    const terrainMomentum = (actor.kind === 'railguard' || actor.kind === 'foreman') && getTile(state.floor, actor.x, actor.y)?.kind === 'rail' ? 50 : actor.kind === 'marshskater' && getTile(state.floor, actor.x, actor.y)?.kind === 'water' ? 50 : actor.kind === 'fumeeel' && getTile(state.floor, actor.x, actor.y)?.kind === 'gas' ? 50 : 0
+    const terrain = getTile(state.floor, actor.x, actor.y)?.kind
+    const terrainMomentum = (actor.kind === 'railguard' || actor.kind === 'foreman') && terrain === 'rail' ? 50
+      : actor.kind === 'marshskater' && terrain === 'water' ? 50
+        : actor.kind === 'fumeeel' && terrain === 'gas' ? 50
+          : (actor.kind === 'saltRaider' || actor.kind === 'mirageSkirmisher') && terrain === 'saltMirror' ? 45
+            : actor.kind === 'shardHound' && terrain === 'ice' ? 40 : 0
     actor.energy += conditionSpeed(actor, actor.speed) + terrainMomentum
     while (actor.energy >= 100 && state.status === 'playing') {
       actor.energy -= 100
@@ -217,7 +249,9 @@ const revalidateProjectileTelegraphs = (state: RunState, telegraphs: Telegraph[]
 })
 
 export function damageHero(state: RunState, amount: number, source: string, hazard = false): ActionResult {
-  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - boonRank(state, 'bridgeOfNames') * (state.hero.oaths?.length ?? 0) - (hazard ? vitalityHazardReduction(state.hero) : 0))
+  const winterGuard = consumeRelicWinterGuard(state) ? 3 : 0
+  amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - boonRank(state, 'bridgeOfNames') * (state.hero.oaths?.length ?? 0) - (hazard ? vitalityHazardReduction(state.hero) : 0) - winterGuard)
+  if (winterGuard) log(state, 'Winter Seal absorbs part of the blow.')
   state.hero.health -= amount
   markCurseDamaged(state)
   log(state, `${source} harms you for ${amount}.`)
@@ -260,7 +294,7 @@ export function resolveDefeatedActors(state: RunState): void {
     }
     gainXp(state, monsterXp(actor.kind))
     if (actor.hostile) {
-      const cash = boonRank(state, 'graveLedger') * 3 + (actor.status?.includes('elite') ? boonRank(state, 'riftLedger') * 15 : 0)
+      const cash = boonRank(state, 'graveLedger') * 3 + boonRank(state, 'heatDebt') * 14 + (actor.status?.includes('elite') ? boonRank(state, 'riftLedger') * 15 + boonRank(state, 'iceLedger') * 10 : 0)
       if (cash) grantGold(state, cash)
       const healing = boonRank(state, 'boneOrchard') + (actor.role === 'guardian' ? boonRank(state, 'heirloomCircuit') * 4 : 0)
       if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
@@ -279,8 +313,12 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
     if (rng.int(1, 20) + state.hero.stats.strength + state.hero.level < target.defense) { log(state, `Your attack misses ${target.name}.`); continue }
     const stormwake = boonRank(state, 'stormwake')
     const marked = target.conditions?.some(condition => condition.kind === 'marked') ? boonRank(state, 'gravewind') : 0
-    const lowHealth = state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastRites') * 2 : 0
-    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + stormwake + marked + lowHealth + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const lowHealth = state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastRites') * 2 + boonRank(state, 'lastWinter') * 3 : 0
+    const mirrorDamage = getTile(state.floor, state.hero.x, state.hero.y)?.kind === 'saltMirror' ? boonRank(state, 'mirrorHunt') : 0
+    const markedDamage = target.conditions?.some(condition => condition.kind === 'marked') ? boonRank(state, 'glassEdge') : 0
+    const frozenDamage = target.conditions?.some(condition => condition.kind === 'marked' || condition.kind === 'slowed') ? boonRank(state, 'shatterMark') : 0
+    const duelDamage = target.role === 'guardian' || target.status?.includes('elite') ? boonRank(state, 'duelistOath') * 2 : 0
+    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + consumeRelicPrismStrike(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + stormwake + marked + lowHealth + mirrorDamage + markedDamage + frozenDamage + duelDamage + rng.int(0, 3) - Math.floor(target.defense / 8)))
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
     if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })

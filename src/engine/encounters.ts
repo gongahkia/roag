@@ -1,5 +1,5 @@
 import { ITEM } from '../content'
-import type { FloorEncounter, RunState } from '../types'
+import type { FloorEncounter, ItemId, RunState } from '../types'
 import { recordTelemetryCount } from '../telemetry'
 import { advance } from './combat'
 import { grantGold } from './economy'
@@ -7,8 +7,30 @@ import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 import { boonRank } from './buildcraft'
 import { settleCurseAfterEncounter } from './curses'
+import { addCondition } from './conditions'
 
 export interface EncounterOption { label: string; detail: string; available: boolean }
+
+const expansionEncounterKinds = ['sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial'] as const
+type ExpansionEncounterKind = typeof expansionEncounterKinds[number]
+type ExpansionCost = 'health' | 'maxHealth' | 'focus' | 'item'
+type ExpansionRisk = 'curse' | 'terrain' | 'map' | 'shield'
+interface ExpansionProfile { title: string; cost: ExpansionCost; value: number; item?: ItemId; boon: string; reward?: ItemId; gold: number; risk: ExpansionRisk; terrain: 'brine' | 'frostRime' }
+const expansionProfiles: Record<ExpansionEncounterKind, ExpansionProfile> = {
+  sunTribute: { title: 'SUN TRIBUTE', cost: 'health', value: 3, boon: 'sunstep', reward: 'fireJar', gold: 100, risk: 'terrain', terrain: 'brine' },
+  mirageMarket: { title: 'MIRAGE MARKET', cost: 'focus', value: 3, boon: 'mirageMap', reward: 'blink', gold: 75, risk: 'map', terrain: 'brine' },
+  brineOath: { title: 'BRINE OATH', cost: 'maxHealth', value: 3, boon: 'brineWard', reward: 'focusTonic', gold: 120, risk: 'curse', terrain: 'brine' },
+  glassTrial: { title: 'GLASS TRIAL', cost: 'item', value: 1, item: 'tonic', boon: 'mirrorHunt', reward: 'sight', gold: 95, risk: 'terrain', terrain: 'brine' },
+  whiteRoad: { title: 'WHITE ROAD', cost: 'health', value: 4, boon: 'whiteRoad', reward: 'bridgeKit', gold: 115, risk: 'shield', terrain: 'brine' },
+  saltCache: { title: 'SALT CACHE', cost: 'focus', value: 2, boon: 'saltLedger', reward: 'mapScroll', gold: 90, risk: 'curse', terrain: 'brine' },
+  iceDuel: { title: 'ICE DUEL', cost: 'health', value: 4, boon: 'duelistOath', reward: 'ward', gold: 120, risk: 'shield', terrain: 'frostRime' },
+  winterTithe: { title: 'WINTER TITHE', cost: 'maxHealth', value: 3, boon: 'winterRations', reward: 'mend', gold: 125, risk: 'curse', terrain: 'frostRime' },
+  rimeContract: { title: 'RIME CONTRACT', cost: 'item', value: 1, item: 'focusTonic', boon: 'shatterMark', reward: 'grappleLine', gold: 105, risk: 'terrain', terrain: 'frostRime' },
+  frostCache: { title: 'FROST CACHE', cost: 'focus', value: 3, boon: 'coldRead', reward: 'sight', gold: 90, risk: 'map', terrain: 'frostRime' },
+  whiteout: { title: 'WHITEOUT', cost: 'health', value: 3, boon: 'thawStep', reward: 'tonic', gold: 110, risk: 'curse', terrain: 'frostRime' },
+  reliquaryTrial: { title: 'RELIQUARY TRIAL', cost: 'focus', value: 3, boon: 'reliquaryEcho', reward: 'wardScript', gold: 110, risk: 'shield', terrain: 'frostRime' }
+}
+const expansionProfileFor = (kind: FloorEncounter['kind']): ExpansionProfile | undefined => expansionEncounterKinds.includes(kind as ExpansionEncounterKind) ? expansionProfiles[kind as ExpansionEncounterKind] : undefined
 
 const traversalRewards = ['grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch'] as const
 const encounterAtReach = (state: RunState): FloorEncounter | undefined => state.floor.encounters?.find(encounter => encounter.state === 'dormant' && Math.max(Math.abs(encounter.x - state.hero.x), Math.abs(encounter.y - state.hero.y)) <= 1)
@@ -33,6 +55,18 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
 }
 
 export const encounterOptions = (state: RunState, source: FloorEncounter): EncounterOption[] => {
+  const expansion = expansionProfileFor(source.kind)
+  if (expansion) {
+    const primary = expansion.cost === 'health' ? { label: 'BLEED FOR THE OFFER', detail: `Lose ${expansion.value} HP; gain ${expansion.gold} cash, ${expansion.boon}, and ${expansion.reward ? ITEM[expansion.reward].name : 'a reward'}.`, available: state.hero.health > expansion.value + 2 }
+      : expansion.cost === 'maxHealth' ? { label: 'PAY VITALITY', detail: `Lose ${expansion.value} maximum HP; gain ${expansion.gold} cash and ${expansion.boon}.`, available: state.hero.maxHealth > expansion.value + 6 }
+        : expansion.cost === 'focus' ? { label: 'SPEND FOCUS', detail: `Spend ${expansion.value} focus; gain ${expansion.gold} cash and ${expansion.boon}.`, available: state.hero.focus >= expansion.value }
+          : { label: 'GIVE AN OFFERING', detail: `Consume ${ITEM[expansion.item!].name}; gain ${expansion.gold} cash and ${expansion.boon}.`, available: state.hero.inventory.includes(expansion.item!) }
+    const risk = expansion.risk === 'curse' ? { label: 'TAKE THE CURSE', detail: 'Take a two-encounter damage curse for 150 cash.', available: !state.hero.curse }
+      : expansion.risk === 'terrain' ? { label: 'CRACK THE GROUND', detail: `Gain 90 cash; nearby ground becomes dangerous ${expansion.terrain === 'brine' ? 'brine' : 'rime'}.`, available: true }
+        : expansion.risk === 'map' ? { label: 'READ THE OMEN', detail: 'Reveal the floor and gain 2 focus.', available: true }
+          : { label: 'TAKE THE WARD', detail: 'Gain a three-turn shield and 70 cash.', available: true }
+    return [primary, risk, { label: 'LEAVE', detail: 'Leave the offer untouched.', available: true }]
+  }
   if (source.kind === 'stormCache') return [
     { label: 'OPEN CACHE', detail: 'Gain climbing gear, 60 cash, and one traversal Boon rank.', available: true },
     { label: 'MAP WIND', detail: 'Reveal the floor and gain 2 focus.', available: true },
@@ -86,7 +120,8 @@ export const openEncounter = (state: RunState): ActionResult | undefined => {
   const source = encounterAtReach(state)
   if (!source) return undefined
   state.modal = { kind: 'encounter', encounterId: source.id }
-  log(state, source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
+  const expansion = expansionProfileFor(source.kind)
+  log(state, expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
   return [event('encounter'), event('menu')]
 }
 
@@ -96,6 +131,48 @@ const chamberCells = (state: RunState, source: FloorEncounter, radius: number) =
   return Math.max(Math.abs(x - source.x), Math.abs(y - source.y)) <= radius ? [{ tile, x, y }] : []
 }).filter(cell => !(cell.x === state.hero.x && cell.y === state.hero.y) && !(cell.x === state.floor.start.x && cell.y === state.floor.start.y) && !(cell.x === state.floor.exit.x && cell.y === state.floor.exit.y))
 
+const resolveExpansionEncounter = (state: RunState, source: FloorEncounter, index: number): ActionResult | undefined => {
+  const profile = expansionProfileFor(source.kind)
+  if (!profile) return undefined
+  if (index === 0) {
+    if (profile.cost === 'health') state.hero.health -= profile.value
+    if (profile.cost === 'maxHealth') { state.hero.maxHealth -= profile.value; state.hero.health = Math.min(state.hero.health, state.hero.maxHealth) }
+    if (profile.cost === 'focus') state.hero.focus -= profile.value
+    if (profile.cost === 'item') state.hero.inventory.splice(state.hero.inventory.indexOf(profile.item!), 1)
+    state.hero.boons ??= {}
+    state.hero.boons[profile.boon] = (state.hero.boons[profile.boon] ?? 0) + 1
+    grantContextGold(state, profile.gold)
+    if (profile.reward) grantItem(state, profile.reward)
+    log(state, `${profile.title} grants ${profile.boon}.`)
+    return resolve(state, source, 'offer', advance(state, [event('pickup')]))
+  }
+  if (index === 1) {
+    if (profile.risk === 'curse') {
+      state.hero.curse = { itemId: 'cursedMirror', name: ITEM.cursedMirror.name, condition: 'Take no damage before resolving two encounters.', remainingEncounters: 2, lethal: false }
+      grantItem(state, 'cursedMirror')
+      grantContextGold(state, 150)
+      return resolve(state, source, 'curse', [event('pickup')])
+    }
+    if (profile.risk === 'terrain') {
+      const cells = chamberCells(state, source, 2).filter(cell => cell.tile.kind === 'floor').slice(0, 5)
+      cells.forEach(cell => { cell.tile.kind = profile.terrain })
+      grantContextGold(state, 90)
+      refreshFov(state)
+      return resolve(state, source, 'terrain', advance(state, [event('danger')]))
+    }
+    if (profile.risk === 'map') {
+      state.floor.tiles.forEach(tile => { tile.explored = true })
+      state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 2)
+      refreshFov(state)
+      return resolve(state, source, 'map', [event('menu')])
+    }
+    addCondition(state.hero, { kind: 'shielded', duration: 3, potency: 2 })
+    grantContextGold(state, 70)
+    return resolve(state, source, 'ward', [event('spell')])
+  }
+  return resolve(state, source, 'leave', [event('menu')])
+}
+
 export const chooseEncounter = (state: RunState, encounterId: string, command: string): ActionResult => {
   const source = encounter(state, encounterId)
   if (!source) return []
@@ -103,6 +180,8 @@ export const chooseEncounter = (state: RunState, encounterId: string, command: s
   const option = encounterOptions(state, source)[index]
   if (!option) return []
   if (!option.available) { log(state, 'You cannot meet that cost.'); return [event('menu')] }
+  const expansion = resolveExpansionEncounter(state, source, index)
+  if (expansion) return expansion
   if (source.kind === 'stormCache') {
     if (index === 0) { grantContextGold(state, 60); grantItem(state, 'cliffSpool'); state.hero.boons ??= {}; state.hero.boons.galeThread = (state.hero.boons.galeThread ?? 0) + 1; return resolve(state, source, 'open', advance(state, [event('pickup')])) }
     if (index === 1) { state.floor.tiles.forEach(tile => { tile.explored = true }); state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 2); refreshFov(state); return resolve(state, source, 'map', [event('menu')]) }

@@ -122,7 +122,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   return floor
 }
 
-export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const).indexOf(biome) * 4 + areaFloor
+export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const).indexOf(biome) * 4 + areaFloor
 export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number, routePosition = 0): Floor => {
   if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid area floor: ${areaFloor}`)
   return generateFloor(runSeed, areaFloorIndex(biome, areaFloor), difficultyFor(routePosition, areaFloor))
@@ -259,7 +259,11 @@ function placeEncounters(floor: Floor, rng: Rng): void {
     .filter(point => hasPassablePath(floor, floor.start, point))
   const point = candidates.length ? rng.pick(candidates) : undefined
   if (!point) return
-  const kinds: FloorEncounter['kind'][] = floor.biome === 'cliffs' ? ['stormCache', 'windTrial', 'cursedObject'] : floor.biome === 'burial' ? ['ancestorDebt', 'tombAuction', 'cursedObject'] : ['wayfarer', 'bloodBargain', 'shiftingChamber', 'oathwell', 'cursedObject']
+  const kinds: FloorEncounter['kind'][] = floor.biome === 'cliffs' ? ['stormCache', 'windTrial', 'cursedObject']
+    : floor.biome === 'burial' ? ['ancestorDebt', 'tombAuction', 'cursedObject']
+      : floor.biome === 'saltFlats' ? ['sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'sunTribute', 'mirageMarket']
+        : floor.biome === 'frostReliquary' ? ['iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', 'iceDuel', 'winterTithe']
+          : ['wayfarer', 'bloodBargain', 'shiftingChamber', 'oathwell', 'cursedObject']
   floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: rng.pick(kinds), ...point, state: 'dormant' }]
 }
 
@@ -278,6 +282,8 @@ function decorateBiome(floor: Floor, rng: Rng, rooms: Room[]): void {
   if (floor.biome === 'floodedRuins') decorateFloodedRuins(floor, rng)
   if (floor.biome === 'cliffs') decorateCliffs(floor, rng)
   if (floor.biome === 'burial') decorateBurial(floor, rng)
+  if (floor.biome === 'saltFlats') decorateSaltFlats(floor, rng)
+  if (floor.biome === 'frostReliquary') decorateFrostReliquary(floor, rng)
   if (floor.index % 4 === 3) {
     const chamber = rooms[rooms.length - 1]
     for (let y = chamber.y; y < chamber.y + chamber.h; y++) for (let x = chamber.x; x < chamber.x + chamber.w; x++) setKind(floor, x, y, 'floor')
@@ -451,6 +457,38 @@ function decorateBurial(floor: Floor, rng: Rng): void {
   paint('spiritPath', 10, true)
 }
 
+function decorateSaltFlats(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of cardinalOffsets) if (rng.chance(35) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('saltMirror', 14, true)
+  paint('brine', 8, true)
+  paint('crumble', 6)
+}
+
+function decorateFrostReliquary(floor: Floor, rng: Rng): void {
+  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    let candidates = safe()
+    for (let i = 0; i < count && candidates.length; i++) {
+      const point = rng.pick(candidates)
+      setKind(floor, point.x, point.y, kind)
+      if (clustered) for (const [x, y] of cardinalOffsets) if (rng.chance(35) && getTile(floor, point.x + x, point.y + y)?.kind === 'floor') setKind(floor, point.x + x, point.y + y, kind)
+      candidates = safe()
+    }
+  }
+  paint('ice', 15, true)
+  paint('frostRime', 9, true)
+  paint('boulder', 4)
+}
+
 function placeEvents(floor: Floor, rooms: Room[]): void {
   const eventRoom = rooms[Math.max(1, Math.floor(rooms.length / 2))]
   const point = center(eventRoom)
@@ -489,7 +527,7 @@ function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
     const point = freeRoomPoint(floor, rng, rooms.slice(1))
     const definition = rng.pick(regular)
     const actor = spawnMonster(definition.id, point, `${definition.id}-${i}`, floor.difficulty)
-    if (rng.chance(floor.difficulty?.eliteChance ?? 0)) {
+    if (rng.chance(floor.difficulty?.eliteChance ?? 0) || (floor.biome === 'frostReliquary' && floor.index % 4 >= 1 && i === 0)) {
       actor.maxHealth = Math.round(actor.maxHealth * 1.25)
       actor.health = actor.maxHealth
       actor.attack += 2
@@ -620,7 +658,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   }
   for (const encounter of floor.encounters ?? []) {
     const tile = getTile(floor, encounter.x, encounter.y)
-    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
+    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction', 'sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
   }
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()

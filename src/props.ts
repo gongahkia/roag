@@ -65,7 +65,19 @@ export const PROP_DEFINITIONS = [
   define({ id: 'burial.ossuaryCache', biome: 'burial', name: 'ossuary cache', description: 'Bone clasps protect a sealed offering.', glyph: '?', color: '#d9d3c5', terrain: ['floor', 'ossuary'], tags: ['cache', 'grave', 'salvage'], hooks: ['operate', 'spirit', 'bomb', 'throw'], activationReward: 'graveSalt', effectReward: 'tombKey' }),
   define({ id: 'burial.graveBloom', biome: 'burial', name: 'grave bloom', description: 'Pale flowers thread through old soil.', glyph: '*', color: '#d8c1e7', terrain: ['floor', 'graveSoil'], tags: ['growth', 'grave', 'spirit'], hooks: ['operate', 'spirit', 'root', 'hazard'], activationReward: 'graveSalt', effectReward: 'ancestorToken' }),
   define({ id: 'burial.ancestorStone', biome: 'burial', name: 'ancestor stone', description: 'A carved name waits beneath soft lichen.', glyph: 'S', color: '#bba9d0', terrain: ['floor', 'cairn', 'spiritPath'], tags: ['ritual', 'spirit', 'grave'], hooks: ['operate', 'spirit', 'ward', 'force'], activationReward: 'mourningBell', effectReward: 'ward' }),
-  define({ id: 'burial.sealedTomb', biome: 'burial', name: 'sealed tomb', description: 'Bronze seals bind a tomb door shut.', glyph: 'T', color: '#cba96f', terrain: ['floor', 'ossuary'], tags: ['cache', 'grave', 'hazard'], hooks: ['operate', 'bomb', 'spirit', 'throw'], activationReward: 'tombKey', effectReward: 'graveSickle' })
+  define({ id: 'burial.sealedTomb', biome: 'burial', name: 'sealed tomb', description: 'Bronze seals bind a tomb door shut.', glyph: 'T', color: '#cba96f', terrain: ['floor', 'ossuary'], tags: ['cache', 'grave', 'hazard'], hooks: ['operate', 'bomb', 'spirit', 'throw'], activationReward: 'tombKey', effectReward: 'graveSickle' }),
+  define({ id: 'saltFlats.mirageCairn', biome: 'saltFlats', name: 'mirage cairn', description: 'A salt cairn shifts whenever you look away.', glyph: '△', color: '#f1df9a', terrain: ['floor', 'saltMirror'], tags: ['salt', 'mirror', 'warning'], hooks: ['operate', 'force', 'throw', 'hazard'], activationReward: 'mapScroll', effectReward: 'focusTonic' }),
+  define({ id: 'saltFlats.sunMirror', biome: 'saltFlats', name: 'sun mirror', description: 'A polished plate throws hard light across the flats.', glyph: '◇', color: '#fff1ae', terrain: ['floor', 'saltMirror'], tags: ['salt', 'mirror', 'light'], hooks: ['operate', 'fire', 'force', 'hazard'], activationReward: 'sight', effectReward: 'sunblade' }),
+  define({ id: 'saltFlats.brineWell', biome: 'saltFlats', name: 'brine well', description: 'Black brine wells beneath a crust of white salt.', glyph: '≈', color: '#76bbc4', terrain: ['floor', 'brine'], tags: ['brine', 'salt', 'hazard'], hooks: ['operate', 'water', 'force', 'hazard'], activationReward: 'focusTonic', effectReward: 'tonic' }),
+  define({ id: 'saltFlats.caravanHusk', biome: 'saltFlats', name: 'caravan husk', description: 'A stripped courier cart points toward a false horizon.', glyph: 'C', color: '#c7a76f', terrain: ['floor', 'crumble'], tags: ['route', 'salt', 'salvage'], hooks: ['operate', 'bomb', 'force', 'throw'], activationReward: 'ropeBundle', effectReward: 'bridgeKit' }),
+  define({ id: 'saltFlats.glassMarker', biome: 'saltFlats', name: 'glass marker', description: 'A sun-bleached sign lists routes that no longer exist.', glyph: '!', color: '#d5eff0', terrain: ['floor', 'saltMirror'], tags: ['warning', 'mirror', 'salt'], hooks: ['operate', 'fire', 'throw', 'hazard'], activationReward: 'mapScroll', effectReward: 'blink' }),
+  define({ id: 'saltFlats.whiteCache', biome: 'saltFlats', name: 'white cache', description: 'A waxed parcel lies buried in hard salt.', glyph: '?', color: '#f3ebc2', terrain: ['floor', 'saltMirror'], tags: ['cache', 'salt', 'salvage'], hooks: ['operate', 'bomb', 'fire', 'throw', 'hazard'], activationReward: 'tonic', effectReward: 'fireJar' }),
+  define({ id: 'frostReliquary.duelBell', biome: 'frostReliquary', name: 'duel bell', description: 'A silver bell waits for a challenger to ring it.', glyph: 'o', color: '#d8f1ff', terrain: ['floor', 'ice'], tags: ['frost', 'duel', 'ritual'], hooks: ['operate', 'force', 'ward', 'hazard'], activationReward: 'ward', effectReward: 'focusTonic' }),
+  define({ id: 'frostReliquary.rimeSarcophagus', biome: 'frostReliquary', name: 'rime sarcophagus', description: 'A frost-locked coffin hums with held breath.', glyph: '□', color: '#b9dbea', terrain: ['floor', 'frostRime'], tags: ['frost', 'ice', 'cache'], hooks: ['operate', 'bomb', 'force', 'throw'], activationReward: 'mend', effectReward: 'mail' }),
+  define({ id: 'frostReliquary.iceForge', biome: 'frostReliquary', name: 'ice forge', description: 'A frozen anvil holds a blade of pale rime.', glyph: '⊥', color: '#aee6f4', terrain: ['floor', 'ice'], tags: ['frost', 'ice', 'force'], hooks: ['operate', 'fire', 'force', 'hazard'], activationReward: 'sight', effectReward: 'pickaxe' }),
+  define({ id: 'frostReliquary.frozenCache', biome: 'frostReliquary', name: 'frozen cache', description: 'An ice-bound cache preserves a courier’s last reserve.', glyph: '?', color: '#e2f6ff', terrain: ['floor', 'frostRime'], tags: ['cache', 'frost', 'ice'], hooks: ['operate', 'fire', 'bomb', 'throw'], activationReward: 'tonic', effectReward: 'grappleLine' }),
+  define({ id: 'frostReliquary.reliquaryWard', biome: 'frostReliquary', name: 'reliquary ward', description: 'A cold wardstone preserves a narrow dueling ground.', glyph: '◇', color: '#d2c7ff', terrain: ['floor', 'ice'], tags: ['frost', 'duel', 'ward'], hooks: ['operate', 'ward', 'force', 'hazard'], activationReward: 'wardScript', effectReward: 'mend' }),
+  define({ id: 'frostReliquary.thawValve', biome: 'frostReliquary', name: 'thaw valve', description: 'A brass valve can flood the reliquary with freezing melt.', glyph: 'V', color: '#d9bf83', terrain: ['floor', 'frostRime'], tags: ['frost', 'ice', 'route'], hooks: ['operate', 'fire', 'water', 'force', 'hazard'], activationReward: 'portableWinch', effectReward: 'bridgeKit' })
 ] as const satisfies readonly PropDefinition[]
 
 export const PROP_IDS = PROP_DEFINITIONS.map(definition => definition.id) as readonly PropId[]
@@ -87,7 +99,7 @@ export const propEffects = (hooks: readonly PropHook[]): PropEffectKind[] => hoo
 
 export const validatePropDefinitions = (): string[] => {
   const errors: string[] = []
-  if (PROP_DEFINITIONS.length !== 48) errors.push(`expected 48 prop definitions, found ${PROP_DEFINITIONS.length}`)
+  if (PROP_DEFINITIONS.length !== 60) errors.push(`expected 60 prop definitions, found ${PROP_DEFINITIONS.length}`)
   const ids = new Set<string>()
   for (const definition of PROP_DEFINITIONS) {
     if (ids.has(definition.id)) errors.push(`duplicate prop definition: ${definition.id}`)
@@ -96,6 +108,6 @@ export const validatePropDefinitions = (): string[] => {
     if (!definition.hooks.includes('operate') || !propEffects(definition.hooks).length) errors.push(`incomplete hooks: ${definition.id}`)
     if (!ITEM[definition.activationReward] || !ITEM[definition.effectReward]) errors.push(`unknown reward: ${definition.id}`)
   }
-  for (const biome of ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
+  for (const biome of ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const) if (propDefinitionsFor(biome).length !== 6) errors.push(`expected 6 ${biome} props`)
   return errors
 }

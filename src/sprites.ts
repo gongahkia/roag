@@ -6,7 +6,7 @@ import type { Actor, Biome, CourierOrigin, Prop, Tile } from './types'
 
 const spriteSize = 14
 const sourceSize = 16
-const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c', furnace: '#321d19', floodedRuins: '#102b34', cliffs: '#172431', burial: '#261d2a' }
+const terrainBase: Record<Biome, string> = { mine: '#211f1a', wilds: '#18301c', caverns: '#162b32', ruins: '#28222c', furnace: '#321d19', floodedRuins: '#102b34', cliffs: '#172431', burial: '#261d2a', saltFlats: '#30291a', frostReliquary: '#142833' }
 
 const sheetUrls = {
   'terrain-mine': undefined,
@@ -53,8 +53,9 @@ export interface SpriteSheetSpec { id: SpriteSheetId; file: string; url?: string
 
 const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
-const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns', cliffs: 'terrain-ruins', burial: 'terrain-ruins' }
-export const tileSprite = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<Tile['kind'], number>
+const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns', cliffs: 'terrain-ruins', burial: 'terrain-ruins', saltFlats: 'terrain-ruins', frostReliquary: 'terrain-caverns' }
+const manifestTileSprites = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<string, number>
+export const tileSprite: Record<Tile['kind'], number> = { ...manifestTileSprites, saltMirror: manifestTileSprites.darkness, brine: manifestTileSprites.current, ice: manifestTileSprites.water, frostRime: manifestTileSprites.crumble }
 export const generatedSpriteAssetsAvailable = Object.values(sheetUrls).some(Boolean)
 
 const manifestPropIds = manifest.sheets.filter(sheet => sheet.id.startsWith('terrain-')).flatMap(sheet => sheet.props ?? [])
@@ -214,7 +215,11 @@ export function drawTileSprite(ctx: CanvasRenderingContext2D, tile: Tile, biome:
 export function drawPropSprite(ctx: CanvasRenderingContext2D, prop: Prop, x: number, y: number, dim: boolean): void {
   if (prop.state === 'destroyed') return
   const sheet = manifestSheets.get(terrainSheet[prop.biome])!
-  const propIndex = sheet.props?.indexOf(prop.kind) ?? -1
+  const aliases: Partial<Record<Prop['kind'], Prop['kind']>> = {
+    'saltFlats.mirageCairn': 'ruins.monolith', 'saltFlats.sunMirror': 'ruins.glyphTablet', 'saltFlats.brineWell': 'ruins.ritualBrazier', 'saltFlats.caravanHusk': 'ruins.collapsedArch', 'saltFlats.glassMarker': 'ruins.glyphTablet', 'saltFlats.whiteCache': 'ruins.sealedCache',
+    'frostReliquary.duelBell': 'caverns.barnacledShrine', 'frostReliquary.rimeSarcophagus': 'caverns.sealedParcel', 'frostReliquary.iceForge': 'caverns.crystalCluster', 'frostReliquary.frozenCache': 'caverns.sealedParcel', 'frostReliquary.reliquaryWard': 'caverns.barnacledShrine', 'frostReliquary.thawValve': 'caverns.eelTunnel'
+  }
+  const propIndex = sheet.props?.indexOf(aliases[prop.kind] ?? prop.kind) ?? -1
   if (propIndex < 0) { fallbackProp(ctx, prop, x, y, dim); return }
   const index = manifest.terrainLayout.length + propIndex
   if (!textureAtlas.draw(ctx, ref(sheet.id, index % sheet.columns, Math.floor(index / sheet.columns), 1, 160, sheet.cellOffsets?.[index]), x, y, dim)) fallbackProp(ctx, prop, x, y, dim)

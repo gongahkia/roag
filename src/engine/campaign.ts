@@ -1,7 +1,7 @@
 import type { Biome, CampaignRouteState, LegacyRecord, LineageEvent } from '../types'
 import { rngFor } from '../rng'
 
-export const BIOME_POOL = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const satisfies readonly Biome[]
+export const BIOME_POOL = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const satisfies readonly Biome[]
 export const AREA_ORDER = BIOME_POOL
 export const LEGACY_AREA_ORDER = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const satisfies readonly Biome[]
 export const DEFAULT_AREA_ORDER = ['mine', 'wilds', 'caverns', 'ruins'] as const satisfies readonly Biome[]

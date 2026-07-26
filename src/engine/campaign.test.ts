@@ -68,6 +68,6 @@ describe('four-area campaign flow', () => {
     expect(new Set([7, 42, 99, 123].map(seed => campaignOrderForSeed(seed).join(','))).size).toBeGreaterThan(1)
     expect(order).toHaveLength(4)
     expect(new Set(order).size).toBe(4)
-    expect(order.every(biome => ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'].includes(biome))).toBe(true)
+    expect(order.every(biome => ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'].includes(biome))).toBe(true)
   })
 })

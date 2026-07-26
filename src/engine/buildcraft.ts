@@ -1,4 +1,4 @@
-import { DIRECTIONS, type BoonId, type FloorMilestone, type RunState, type TraversalToolId } from '../types'
+import { DIRECTIONS, type Biome, type BoonId, type FloorMilestone, type RunState, type TraversalToolId } from '../types'
 import { rngFor } from '../rng'
 import { getTile, isPassable } from '../world'
 import { advance } from './combat'
@@ -9,7 +9,7 @@ import { armRelicTraversal, consumeRelicTool, relicChoices, relicFor } from './r
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
 export type BoonFamily = 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'
-export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: BoonFamily; suppresses?: readonly BoonFamily[]; rare?: boolean }
+export interface Boon { id: BoonId; name: string; glyph: string; text: string; family: BoonFamily; biomes?: readonly Biome[]; suppresses?: readonly BoonFamily[]; rare?: boolean }
 
 export const TOOLS: readonly TraversalTool[] = [
   { id: 'stoneWedge', name: 'Stone Wedge', glyph: 'W', cooldown: 6, text: 'Breach one adjacent blocker.', overdrive: 'Breach a three-tile wedge, then retire.' },
@@ -105,13 +105,33 @@ export const BOONS: readonly Boon[] = [
   { id: 'stormRations', name: 'Storm Rations', glyph: '+', family: 'consumable', text: 'Using a tonic after moving restores 2 extra HP per stack.' },
   { id: 'heirloomCircuit', name: 'Heirloom Circuit', glyph: '◇', family: 'recovery', text: 'Guardian kills restore 4 HP and focus per stack.' },
   { id: 'bridgeOfNames', name: 'Bridge of Names', glyph: '=', family: 'traversal', text: 'Each active oath grants 1 armor per stack.' },
-  { id: 'cursedInvestment', name: 'Cursed Investment', glyph: '☠', family: 'economy', text: 'While cursed, all cash gains are doubled per stack.', suppresses: ['consumable'], rare: true }
+  { id: 'cursedInvestment', name: 'Cursed Investment', glyph: '☠', family: 'economy', text: 'While cursed, all cash gains are doubled per stack.', suppresses: ['consumable'], rare: true },
+  { id: 'sunstep', name: 'Sunstep', glyph: '☼', family: 'traversal', biomes: ['saltFlats'], text: 'Salt mirrors restore 1 focus per stack and arm a Prism Relay.' },
+  { id: 'brineWard', name: 'Brine Ward', glyph: '≈', family: 'recovery', biomes: ['saltFlats'], text: 'Brine damage is reduced by 1 per stack.' },
+  { id: 'mirrorHunt', name: 'Mirror Hunt', glyph: '◇', family: 'combat', biomes: ['saltFlats'], text: 'Attacks from salt mirrors gain +1 damage per stack.' },
+  { id: 'glassEdge', name: 'Glass Edge', glyph: '◈', family: 'combat', biomes: ['saltFlats'], text: 'Marked targets take +1 damage per stack.' },
+  { id: 'saltLedger', name: 'Salt Ledger', glyph: '§', family: 'economy', biomes: ['saltFlats'], text: 'Milestones grant 6 extra cash per stack.' },
+  { id: 'duneRation', name: 'Dune Ration', glyph: '+', family: 'recovery', biomes: ['saltFlats'], text: 'Milestones restore 1 extra HP per stack.' },
+  { id: 'mirageMap', name: 'Mirage Map', glyph: '⌖', family: 'scouting', biomes: ['saltFlats'], text: 'Salt mirrors reveal 1 nearby unexplored tile per stack.' },
+  { id: 'whiteRoad', name: 'White Road', glyph: '›', family: 'terrain', biomes: ['saltFlats'], text: 'First brine crossing each floor grants 1 shield per stack.' },
+  { id: 'sunsetCircuit', name: 'Sunset Circuit', glyph: 'ϟ', family: 'spellcraft', biomes: ['saltFlats'], text: 'Casting after a salt mirror restores 1 focus per stack.' },
+  { id: 'heatDebt', name: 'Heat Debt', glyph: '☠', family: 'economy', biomes: ['saltFlats'], text: 'Gain 14 cash per hostile kill per stack; suppresses recovery triggers.', suppresses: ['recovery'], rare: true },
+  { id: 'coldRead', name: 'Cold Read', glyph: '❄', family: 'scouting', biomes: ['frostReliquary'], text: 'Ice crossings restore 1 focus and reveal nearby threats per stack.' },
+  { id: 'rimeGuard', name: 'Rime Guard', glyph: '□', family: 'recovery', biomes: ['frostReliquary'], text: 'Ice crossings grant 1 shield per stack.' },
+  { id: 'duelistOath', name: 'Duelist Oath', glyph: '⚔', family: 'combat', biomes: ['frostReliquary'], text: 'Elite and guardian targets take +2 damage per stack.' },
+  { id: 'shatterMark', name: 'Shatter Mark', glyph: '✦', family: 'combat', biomes: ['frostReliquary'], text: 'Slowed or marked targets take +1 damage per stack.' },
+  { id: 'winterRations', name: 'Winter Rations', glyph: '+', family: 'recovery', biomes: ['frostReliquary'], text: 'Milestones restore 1 HP and focus per stack.' },
+  { id: 'iceLedger', name: 'Ice Ledger', glyph: '§', family: 'economy', biomes: ['frostReliquary'], text: 'Elite kills grant 10 extra cash per stack.' },
+  { id: 'frozenFocus', name: 'Frozen Focus', glyph: '◌', family: 'spellcraft', biomes: ['frostReliquary'], text: 'A charm cast while shielded costs 1 less focus per stack.' },
+  { id: 'thawStep', name: 'Thaw Step', glyph: '∨', family: 'terrain', biomes: ['frostReliquary'], text: 'Frost rime damage is reduced by 1 per stack.' },
+  { id: 'reliquaryEcho', name: 'Reliquary Echo', glyph: 'o', family: 'terrain', biomes: ['frostReliquary'], text: 'Resolving an encounter grants 1 shield per stack.' },
+  { id: 'lastWinter', name: 'Last Winter', glyph: '†', family: 'combat', biomes: ['frostReliquary'], text: 'At 25% HP, attacks gain +3 damage per stack; suppresses consumable recovery.', suppresses: ['consumable'], rare: true }
 ]
 
 const toolById = Object.fromEntries(TOOLS.map(tool => [tool.id, tool])) as Record<TraversalToolId, TraversalTool>
 const boonById = Object.fromEntries(BOONS.map(boon => [boon.id, boon])) as Record<string, Boon>
 const drillable = new Set(['wall', 'rubble', 'bramble', 'boulder'])
-const hazardous = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble'])
+const hazardous = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'brine', 'frostRime'])
 
 export const toolFor = (id: TraversalToolId): TraversalTool => toolById[id]
 export const boonFor = (id: BoonId): Boon => boonById[id]
@@ -132,7 +152,10 @@ export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] 
   const owned = new Set(Object.keys(state.hero.boons ?? {}))
   const families = new Set([...owned].map(id => boonById[id]?.family).filter(Boolean))
   const shuffled = rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle([...BOONS])
-  return shuffled.sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || Number(families.has(b.family)) - Number(families.has(a.family))).slice(0, 3)
+  const ranked = shuffled.sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || Number(families.has(b.family)) - Number(families.has(a.family)))
+  const local = ranked.filter(boon => boon.biomes?.includes(state.floor.biome))
+  const global = ranked.filter(boon => !boon.biomes?.includes(state.floor.biome))
+  return [...local.slice(0, 2), ...global].slice(0, 3)
 }
 
 const milestoneAtReach = (state: RunState): FloorMilestone | undefined => state.floor.milestones.find(milestone => !milestone.claimed && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 1)
@@ -149,10 +172,11 @@ export function openMilestone(state: RunState): ActionResult | undefined {
 const milestone = (state: RunState, id: string): FloorMilestone | undefined => state.floor.milestones.find(current => current.id === id && !current.claimed)
 const claim = (state: RunState, current: FloorMilestone): void => {
   current.claimed = true
-  const health = boonRank(state, 'trailRations') * 2
-  const focus = boonRank(state, 'spiritKindling')
+  const health = boonRank(state, 'trailRations') * 2 + boonRank(state, 'duneRation') + boonRank(state, 'winterRations')
+  const focus = boonRank(state, 'spiritKindling') + boonRank(state, 'winterRations')
   const cash = boonRank(state, 'cacheSense') * 8
     + boonRank(state, 'blackLedger') * 12
+    + boonRank(state, 'saltLedger') * 6
     + boonRank(state, 'echoCache') * new Set(Object.keys(state.hero.boons ?? {}).map(id => boonById[id]?.family).filter(Boolean)).size * 5
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + health)
   state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + focus)

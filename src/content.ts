@@ -29,7 +29,7 @@ export interface MonsterDefinition { id: string; name: string; glyph: string; co
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch', 'wind', 'climb', 'grave', 'spirit', 'echo', 'curse'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch', 'wind', 'climb', 'grave', 'spirit', 'echo', 'curse', 'salt', 'mirror', 'brine', 'frost', 'ice', 'duel', 'ambush', 'guardian'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -201,7 +201,17 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'graveWisp', name: 'Grave Wisp', glyph: 'w', color: '#e0c9f0', health: 14, attack: 15, defense: 15, speed: 145, ai: 'wander', xp: 67, biome: 'burial', tags: ['burial', 'spirit', 'light'] },
   { id: 'barrowHound', name: 'Barrow Hound', glyph: 'h', color: '#8f796d', health: 28, attack: 15, defense: 19, speed: 105, ai: 'chase', xp: 82, biome: 'burial', tags: ['burial', 'grave', 'force'] },
   { id: 'lamenter', name: 'Lamenter', glyph: 'l', color: '#d6b4e5', health: 20, attack: 16, defense: 17, speed: 95, ai: 'ranged', xp: 84, biome: 'burial', tags: ['burial', 'spirit', 'telegraph'] },
-  { id: 'barrowKing', name: 'The Barrow King', glyph: 'B', color: '#f0d5a0', health: 128, attack: 19, defense: 25, speed: 100, ai: 'guardian', xp: 310, biome: 'burial', tags: ['burial', 'grave', 'spirit'] }
+  { id: 'barrowKing', name: 'The Barrow King', glyph: 'B', color: '#f0d5a0', health: 128, attack: 19, defense: 25, speed: 100, ai: 'guardian', xp: 310, biome: 'burial', tags: ['burial', 'grave', 'spirit'] },
+  { id: 'saltRaider', name: 'Salt Raider', glyph: 'r', color: '#f0d889', health: 23, attack: 15, defense: 18, speed: 135, ai: 'chase', xp: 76, biome: 'saltFlats', tags: ['saltFlats', 'salt', 'mobility'] },
+  { id: 'mirageSkirmisher', name: 'Mirage Skirmisher', glyph: 'm', color: '#c5e7ee', health: 18, attack: 16, defense: 16, speed: 125, ai: 'ranged', xp: 80, biome: 'saltFlats', tags: ['saltFlats', 'mirror', 'displacement', 'telegraph'] },
+  { id: 'brineStalker', name: 'Brine Stalker', glyph: 'b', color: '#76bac0', health: 26, attack: 14, defense: 20, speed: 105, ai: 'wander', xp: 78, biome: 'saltFlats', tags: ['saltFlats', 'brine', 'ambush'] },
+  { id: 'glassCutter', name: 'Glass Cutter', glyph: 'g', color: '#f4f1c9', health: 20, attack: 16, defense: 17, speed: 115, ai: 'ranged', xp: 83, biome: 'saltFlats', tags: ['saltFlats', 'mirror', 'dart', 'telegraph'] },
+  { id: 'saltSovereign', name: 'The Salt Sovereign', glyph: 'S', color: '#fff2b0', health: 138, attack: 21, defense: 26, speed: 110, ai: 'guardian', xp: 330, biome: 'saltFlats', tags: ['saltFlats', 'salt', 'mirror', 'guardian'] },
+  { id: 'rimeDuelist', name: 'Rime Duelist', glyph: 'd', color: '#b8dcf2', health: 29, attack: 17, defense: 22, speed: 105, ai: 'chase', xp: 88, biome: 'frostReliquary', tags: ['frostReliquary', 'frost', 'duel'] },
+  { id: 'iceSentinel', name: 'Ice Sentinel', glyph: 'i', color: '#d5f1ff', health: 34, attack: 15, defense: 25, speed: 75, ai: 'chase', xp: 90, biome: 'frostReliquary', tags: ['frostReliquary', 'ice', 'guard', 'duel'] },
+  { id: 'whiteoutOracle', name: 'Whiteout Oracle', glyph: 'o', color: '#e8f6ff', health: 21, attack: 17, defense: 18, speed: 100, ai: 'ranged', xp: 92, biome: 'frostReliquary', tags: ['frostReliquary', 'frost', 'telegraph', 'ritual'] },
+  { id: 'shardHound', name: 'Shard Hound', glyph: 'h', color: '#9dc7e2', health: 27, attack: 16, defense: 19, speed: 125, ai: 'chase', xp: 86, biome: 'frostReliquary', tags: ['frostReliquary', 'ice', 'mobility'] },
+  { id: 'reliquaryWarden', name: 'The Reliquary Warden', glyph: 'R', color: '#f0fbff', health: 146, attack: 22, defense: 28, speed: 95, ai: 'guardian', xp: 350, biome: 'frostReliquary', tags: ['frostReliquary', 'frost', 'ice', 'guardian', 'duel'] }
 ]
 export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
 export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
@@ -216,8 +226,8 @@ export const SKILLS: SkillDefinition[] = [
 const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<string, SkillDefinition>
 export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
-export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields' }
+export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const)[Math.floor(index / 4)]
+export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields', saltFlats: 'Mirror Salt Flats', frostReliquary: 'Frost Reliquary' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'grappleLine', 'portableWinch', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'grappleLine', 'bridgeKit', 'cordmarkTalisman', 'reedstepBoots'],
@@ -226,7 +236,9 @@ export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'liftKey', 'steamJetpack', 'portableWinch', 'cinderHammer', 'smokeKnife', 'liftHook', 'bellowsShield', 'chainGuard', 'smokeMask'],
   floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'bridgeKit', 'grappleLine', 'salvageKit', 'anchorBlade', 'tideCutter', 'anchorBuckler', 'currentOrb'],
   cliffs: ['cliffSpool', 'windhook', 'galeMantle', 'thunderJar', 'skyMap', 'grappleLine', 'reedGlider'],
-  burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell', 'ward', 'mend']
+  burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell', 'ward', 'mend'],
+  saltFlats: ['focusTonic', 'tonic', 'fireJar', 'blink', 'pull', 'mapScroll', 'bridgeKit', 'reedGlider', 'sunblade'],
+  frostReliquary: ['focusTonic', 'tonic', 'ward', 'mend', 'sight', 'blink', 'grappleLine', 'portableWinch', 'mail']
 }
 
 const idPattern = /^[a-z][a-zA-Z0-9]*$/

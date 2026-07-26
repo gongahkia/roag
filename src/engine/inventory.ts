@@ -4,6 +4,7 @@ import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { addCondition, modifyIncomingDamage } from './conditions'
+import { hasCondition } from './conditions'
 import { gateForRun } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
@@ -346,7 +347,8 @@ export function castSpell(state: RunState, id: string, direction: Direction): Ac
   const item = ITEM[id]
   const profile = scriptCastProfile(state.hero, id)
   const circuitReady = Boolean(state.hero.relicCharges?.ashCircuit)
-  const focusCost = Math.max(1, profile.focusCost - Number(circuitReady))
+  const currentTerrain = getTile(state.floor, state.hero.x, state.hero.y)?.kind
+  const focusCost = Math.max(1, profile.focusCost - Number(circuitReady) - boonRank(state, 'frozenFocus') * Number(hasCondition(state.hero, 'shielded')) - boonRank(state, 'sunsetCircuit') * Number(currentTerrain === 'saltMirror'))
   if (state.hero.focus < focusCost) { log(state, 'You lack focus.'); return [] }
   const circuit = circuitReady && consumeRelicSpell(state)
   state.hero.focus -= focusCost

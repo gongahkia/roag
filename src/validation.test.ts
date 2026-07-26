@@ -6,7 +6,7 @@ import { migrateRunRecord } from './storage'
 import type { Biome, Hero } from './types'
 import { generateFloor, validateGeneration } from './world'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial']
+const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
 const floorFingerprint = (seed: number, index: number) => {
   const floor = generateFloor(seed, index)
   return { tiles: floor.tiles.map(tile => tile.kind), actors: floor.actors.map(actor => `${actor.id}:${actor.kind}:${actor.x},${actor.y}`), props: floor.props, puzzleIds: floor.puzzleIds }

@@ -2,21 +2,21 @@ export const MAP_WIDTH = 48
 export const MAP_HEIGHT = 35
 export const TERMINAL_WIDTH = 96
 export const TERMINAL_HEIGHT = 60
-export const FLOOR_COUNT = 32
+export const FLOOR_COUNT = 40
 
-export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins' | 'furnace' | 'floodedRuins' | 'cliffs' | 'burial'
+export type Biome = 'mine' | 'wilds' | 'caverns' | 'ruins' | 'furnace' | 'floodedRuins' | 'cliffs' | 'burial' | 'saltFlats' | 'frostReliquary'
 export type Direction = 'nw' | 'n' | 'ne' | 'w' | 'wait' | 'e' | 'sw' | 's' | 'se'
 export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
-export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread'
+export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread' | 'sunstride' | 'prismLedger' | 'brineGrit' | 'rimeEdge' | 'iceNerve' | 'winterVow'
 export type TraversalToolId = 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites'
-export type RelicId = 'ashCircuit' | 'markbreakerSeal' | 'cairnCoil' | 'tideFetter'
+export type RelicId = 'ashCircuit' | 'markbreakerSeal' | 'cairnCoil' | 'tideFetter' | 'prismRelay' | 'winterSeal'
 export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
-export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath'
+export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
@@ -33,11 +33,15 @@ export type PropId =
   | 'floodedRuins.anchorPost' | 'floodedRuins.floodgate' | 'floodedRuins.sunkenCache' | 'floodedRuins.tideShrine' | 'floodedRuins.currentBell' | 'floodedRuins.mossBridge'
   | 'cliffs.ropeAnchor' | 'cliffs.windVane' | 'cliffs.nestCache' | 'cliffs.skyShrine' | 'cliffs.crackedLedge' | 'cliffs.signalFire'
   | 'burial.cairnGate' | 'burial.funeralLantern' | 'burial.ossuaryCache' | 'burial.graveBloom' | 'burial.ancestorStone' | 'burial.sealedTomb'
+  | 'saltFlats.mirageCairn' | 'saltFlats.sunMirror' | 'saltFlats.brineWell' | 'saltFlats.caravanHusk' | 'saltFlats.glassMarker' | 'saltFlats.whiteCache'
+  | 'frostReliquary.duelBell' | 'frostReliquary.rimeSarcophagus' | 'frostReliquary.iceForge' | 'frostReliquary.frozenCache' | 'frostReliquary.reliquaryWard' | 'frostReliquary.thawValve'
 export type PropState = 'dormant' | 'inspected' | 'activated' | 'destroyed'
-export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current' | 'wind' | 'climb' | 'grave' | 'spirit'
+export type PropTag = 'salvage' | 'light' | 'route' | 'warning' | 'ritual' | 'growth' | 'water' | 'cache' | 'force' | 'fire' | 'root' | 'hazard' | 'smoke' | 'lift' | 'anchor' | 'current' | 'wind' | 'climb' | 'grave' | 'spirit' | 'ward' | 'salt' | 'mirror' | 'brine' | 'frost' | 'ice' | 'duel'
 export type PropEffectKind = 'bomb' | 'fire' | 'water' | 'root' | 'force' | 'throw' | 'hazard' | 'ward' | 'gate' | 'wind' | 'spirit'
 export type PropHook = 'operate' | PropEffectKind
 export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber' | 'stormCache' | 'ancestorDebt' | 'cursedObject' | 'oathwell' | 'windTrial' | 'tombAuction'
+  | 'sunTribute' | 'mirageMarket' | 'brineOath' | 'glassTrial' | 'whiteRoad' | 'saltCache'
+  | 'iceDuel' | 'winterTithe' | 'rimeContract' | 'frostCache' | 'whiteout' | 'reliquaryTrial'
 export type EncounterState = 'dormant' | 'resolved'
 
 export interface Point { x: number; y: number }

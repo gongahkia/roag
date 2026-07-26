@@ -46,6 +46,10 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   if (actor.kind === 'crystalpuller' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-pull'), phase, reason: `pull line at range ${range}` }
   if (actor.kind === 'dartadept' && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-dart'), phase, reason: `dart line at range ${range}` }
   if (actor.kind === 'ritualist' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-ritual'), phase, reason: `marking ritual at range ${range}` }
+  if (actor.kind === 'mirageSkirmisher' && range >= 2 && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-pull'), phase, reason: `mirage hook at range ${range}` }
+  if (actor.kind === 'glassCutter' && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-dart'), phase, reason: `glass line at range ${range}` }
+  if (actor.kind === 'iceSentinel' && !hasCondition(actor, 'shielded')) return { action: action('enemy-ward'), phase, reason: 'raising a duelist ward' }
+  if (actor.kind === 'whiteoutOracle' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-ritual'), phase, reason: `whiteout ritual at range ${range}` }
   if (actor.kind === 'gloomseer' && hasLight(state)) return { action: action('enemy-reposition'), phase, reason: 'repelled by light' }
   if (actor.ai === 'ranged' && range <= 7 && (actor.kind === 'fusewarden' || canAffect(state.floor, actor, state.hero))) return { action: action('enemy-shot'), phase, reason: actor.kind === 'fusewarden' ? `fuse line at range ${range}` : `clear line at range ${range}` }
   return { action: action('enemy-approach'), phase, reason: `closing range ${range}` }

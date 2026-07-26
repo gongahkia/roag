@@ -15,7 +15,7 @@ const prop = (overrides: Partial<Prop> = {}): Prop => ({ id: 'prop:test:wilds.mu
 describe('world props', () => {
   it('maps every manifest prop cell to one complete definition', () => {
     const manifestIds = spriteSheetSpecs.flatMap(sheet => sheet.labels.filter(label => label.startsWith('prop.')).map(label => label.slice('prop.'.length))).sort()
-    expect(PROP_DEFINITIONS).toHaveLength(48)
+    expect(PROP_DEFINITIONS).toHaveLength(60)
     expect(manifestIds.every(id => PROP_IDS.includes(id as typeof PROP_IDS[number]))).toBe(true)
     expect(validatePropDefinitions()).toEqual([])
     for (const id of PROP_IDS) expect(propDefinition(id).hooks).toEqual(expect.arrayContaining(['operate']))
