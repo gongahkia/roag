@@ -1,0 +1,17 @@
+{
+  "kind": "kenjaku-browser-policy-v1",
+  "version": "local-linear-v1",
+  "name": "Local shape policy",
+  "weights": {
+    "terminalDiscard": 0.74,
+    "honorDiscard": 0.62,
+    "isolatedDiscard": 0.44,
+    "duplicateKeep": 0.56,
+    "sequenceKeep": 0.38,
+    "riichi": 2.3,
+    "chi": 0.82,
+    "pon": 0.61,
+    "kan": 0.45,
+    "pass": 0.35
+  }
+}

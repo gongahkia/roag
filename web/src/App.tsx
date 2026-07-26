@@ -1,334 +1,296 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
 import { AsciiField } from "./components/AsciiField";
 import {
-  DecisionRationaleDetails,
-  type DecisionCounterfactualsView
-} from "./components/DecisionRationaleDetails";
-import { readLocalMjsonFile } from "./lib/local-file";
-import {
-  loadLocalMultiActionOnnxPolicy,
-  type BrowserMultiActionOnnxPolicy
-} from "./lib/onnx-inference";
-import {
-  buildReplayPolicyInput,
-  selectReplayPolicyAction
-} from "./lib/replay-policy-input";
-import { buildReplayTimeline, type ReplayBoardState, type ReplayTimelineStep } from "./lib/replay";
+  actionKey,
+  actionLabel,
+  advanceAutomated,
+  applyAction,
+  createGame,
+  deserializeGame,
+  gameStateDigest,
+  legalActions,
+  tileGlyph
+} from "./game/engine";
+import { exportGameReplay, loadLatestLocalGame, saveLocalGame } from "./game/persistence";
+import { decideAction, DEFAULT_POLICY, loadPolicyArtifact } from "./game/policy";
+import type { GameAction, GameState, PolicyArtifact } from "./game/types";
 
-const rationalePreview: DecisionCounterfactualsView = {
-  decision: {
-    selected_action: { action: "discard", tile: "5p" },
-    rationale: {
-      factors: [
-        {
-          factor: "shape_improvement",
-          value: 0.8,
-          contribution: 0.24,
-          evidence: ["Retains two-sided wait potential"]
-        },
-        {
-          factor: "defense_risk",
-          value: 0.15,
-          contribution: -0.06,
-          evidence: []
-        }
-      ]
-    }
-  },
-  selected_score: 0.42,
-  top_alternatives: [
-    {
-      action: { action: "discard", tile: "9p" },
-      score: 0.35,
-      score_delta: -0.07,
-      rationale: {
-        factors: [
-          {
-            factor: "shape_improvement",
-            value: 0.5,
-            contribution: 0.12,
-            evidence: ["Keeps a weaker wait"]
-          }
-        ]
-      }
-    }
-  ]
-};
+const INITIAL_SEED = "kenjaku-local-table-v1";
 
 function App() {
-  const [timeline, setTimeline] = useState<readonly ReplayTimelineStep[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [fileStatus, setFileStatus] = useState("No local trajectory loaded.");
-  const [modelStatus, setModelStatus] = useState("No local ONNX model loaded.");
-  const [policy, setPolicy] = useState<BrowserMultiActionOnnxPolicy | null>(null);
-  const [inferenceStatus, setInferenceStatus] = useState("Load a local ONNX model to run inference.");
-  const modelLoadSequence = useRef(0);
-  const selectedStep = timeline[selectedIndex];
-  const rendererSeed = selectedStep ? `${selectedStep.index}:${selectedStep.label}` : "idle";
-
-  useEffect(() => () => {
-    if (policy) void policy.release();
-  }, [policy]);
+  const [game, setGame] = useState<GameState>(() => settle(createGame({ players: 4, humanSeat: 0, seed: INITIAL_SEED }), DEFAULT_POLICY));
+  const [policy, setPolicy] = useState<PolicyArtifact>(DEFAULT_POLICY);
+  const [policyStatus, setPolicyStatus] = useState("Built-in local policy active.");
+  const [storageStatus, setStorageStatus] = useState("Loading local table history.");
+  const [seed, setSeed] = useState(INITIAL_SEED);
+  const [showAllHands, setShowAllHands] = useState(false);
+  const [motionEnabled, setMotionEnabled] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const restored = useRef(false);
+  const legal = useMemo(() => legalActions(game), [game]);
+  const decision = useMemo(() => legal.length > 0 ? decideAction(game, legal, policy) : null, [game, legal, policy]);
+  const digest = gameStateDigest(game);
+  const lastEvent = game.history.at(-1);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!selectedStep?.decision) return undefined;
-    if (!policy) {
-      setInferenceStatus("Load a local ONNX model to run inference.");
-      return undefined;
-    }
-    let input;
-    try {
-      input = buildReplayPolicyInput(selectedStep);
-    } catch (error) {
-      setInferenceStatus(error instanceof Error ? error.message : "could not build local inference input");
-      return undefined;
-    }
-    setInferenceStatus("Running local ONNX inference.");
-    void policy.infer(input.observation, input.legalActionMask).then((logits) => {
-      if (cancelled) return;
-      const selection = selectReplayPolicyAction(input, logits);
-      setInferenceStatus(`Model selection: ${selection.action.label} (score ${selection.score.toFixed(3)}).`);
-    }).catch((error: unknown) => {
-      if (!cancelled) setInferenceStatus(error instanceof Error ? error.message : "local ONNX inference failed");
+    let active = true;
+    void loadPolicyArtifact().then((nextPolicy) => {
+      if (!active) return;
+      setPolicy(nextPolicy);
+      setPolicyStatus(`${nextPolicy.name} ${nextPolicy.version} loaded from local site assets.`);
+    }).catch(() => {
+      if (active) setPolicyStatus("Policy asset unavailable; built-in local policy remains active.");
     });
-    return () => { cancelled = true; };
-  }, [policy, selectedStep]);
+    return () => { active = false; };
+  }, []);
 
-  async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      const result = await readLocalMjsonFile(file);
-      setTimeline(buildReplayTimeline(result.events));
-      setSelectedIndex(0);
-      setFileStatus(`Loaded ${result.events.length} events with ${result.errors.length} invalid lines.`);
-    } catch (error) {
-      setFileStatus(error instanceof Error ? error.message : "local file could not be read");
-    } finally {
-      input.value = "";
-    }
+  useEffect(() => {
+    let active = true;
+    void loadLatestLocalGame().then((saved) => {
+      if (!active) return;
+      restored.current = true;
+      if (saved !== null) {
+        setGame(saved);
+        setSeed(saved.seed);
+        setStorageStatus(`Recovered local table ${saved.id}.`);
+      } else {
+        setStorageStatus("New local table. Changes save on this device.");
+      }
+    }).catch(() => {
+      if (active) {
+        restored.current = true;
+        setStorageStatus("Local storage unavailable; this table remains in this tab.");
+      }
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!restored.current) return;
+    void saveLocalGame(game).then(() => {
+      setStorageStatus(`Saved version ${game.version} locally.`);
+    }).catch(() => {
+      setStorageStatus("Could not persist this table locally.");
+    });
+  }, [game]);
+
+  function commit(action: GameAction) {
+    setGame((current) => settle(applyAction(current, action), policy));
   }
 
-  async function onModelChange(event: ChangeEvent<HTMLInputElement>) {
+  function letPolicyCommit() {
+    if (decision === null) return;
+    setGame((current) => settle(applyAction(current, decision.selected.action), policy));
+  }
+
+  function newGame(players: 3 | 4) {
+    const normalized = seed.trim() || INITIAL_SEED;
+    setGame(settle(createGame({ players, humanSeat: 0, seed: normalized }), policy));
+    setSeed(normalized);
+    setStorageStatus(`Started a deterministic ${players}-player table.`);
+  }
+
+  function exportReplay() {
+    const blob = new Blob([exportGameReplay(game)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${game.id}-v${game.version}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setStorageStatus("Exported deterministic local history.");
+  }
+
+  async function importReplay(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
-    const sequence = modelLoadSequence.current + 1;
-    modelLoadSequence.current = sequence;
-    setModelStatus(`Loading ${file.name} from this device.`);
     try {
-      const nextPolicy = await loadLocalMultiActionOnnxPolicy(file);
-      if (sequence !== modelLoadSequence.current) {
-        await nextPolicy.release();
-        return;
-      }
-      setPolicy(nextPolicy);
-      setModelStatus(
-        `Loaded ${file.name} with ${nextPolicy.provider.toUpperCase()}${nextPolicy.usedFallback ? " fallback" : ""}.`
-      );
+      setGame(settle(deserializeGame(JSON.parse(await file.text())), policy));
+      setStorageStatus(`Imported ${file.name} into the browser table.`);
     } catch (error) {
-      if (sequence === modelLoadSequence.current) {
-        setModelStatus(error instanceof Error ? error.message : "local ONNX model could not be loaded");
-      }
+      setStorageStatus(error instanceof Error ? error.message : "Could not import local game history.");
     } finally {
       input.value = "";
     }
   }
 
   return (
-    <main className="app-shell">
-      <a className="skip-link" href="#workspace">Skip signal field</a>
-      <header className="signal-header">
-        <div className="title-copy">
-          <p className="eyebrow">Kenjaku / local signal station</p>
-          <h1>Trace the hand.</h1>
-          <p className="lede">Inspect local trajectories and ONNX policy decisions without sending a single tile off-device.</p>
-          <div className="signal-legend" aria-label="Application properties">
-            <span>01 / offline</span>
-            <span>02 / deterministic</span>
-            <span>03 / local models</span>
-          </div>
+    <main className={motionEnabled ? "game-app" : "game-app motion-off"}>
+      <a className="skip-link" href="#table">Skip to table</a>
+      <header className="command-header">
+        <div>
+          <p className="eyebrow">Kenjaku / browser-native local table</p>
+          <h1>Own the hand.</h1>
+          <p className="lede">Tiles, turns, legal actions, policy choice, score, and replay history execute in this browser. No game state leaves this device.</p>
         </div>
-        <div className="signal-window">
-          <AsciiField seed={rendererSeed} />
-          <p className="renderer-caption">field / {selectedStep ? "replay locked" : "idle"}</p>
+        <div className="command-actions" aria-label="Table controls">
+          <label className="seed-input">
+            <span>Seed</span>
+            <input aria-label="Game seed" onChange={(event) => setSeed(event.currentTarget.value)} value={seed} />
+          </label>
+          <button className="command-button" onClick={() => newGame(4)} type="button">New 4P</button>
+          <button className="command-button" onClick={() => newGame(3)} type="button">New 3P</button>
+          <button className="command-button" onClick={exportReplay} type="button">Export</button>
+          <label className="command-button import-button">
+            <span>Import</span>
+            <input accept="application/json,.json" aria-label="Import local game history" onChange={importReplay} type="file" />
+          </label>
+          <button className="command-button" onClick={() => setMotionEnabled((value) => !value)} type="button">{motionEnabled ? "Motion on" : "Motion off"}</button>
         </div>
       </header>
 
-      <section className="intake-grid" id="workspace" aria-label="Local artifact intake">
-        <section aria-labelledby="local-file-heading" className="panel intake-panel">
-          <div className="panel-heading">
-            <span className="panel-index" aria-hidden="true">01</span>
-            <div>
-              <p className="panel-kicker">Trajectory feed</p>
-              <h2 id="local-file-heading">Local trajectory</h2>
-            </div>
-          </div>
-          <label className="file-picker">
-            <span className="file-picker-copy">Choose MJSON or JSONL</span>
-            <span className="file-picker-action" aria-hidden="true">Browse</span>
-            <input accept=".mjson,.jsonl,application/json,text/plain" onChange={onFileChange} type="file" />
-          </label>
-          <p aria-live="polite" className="status-line"><span aria-hidden="true" />{fileStatus}</p>
-        </section>
+      <section aria-label="Runtime state" className="runtime-strip">
+        <span>state {digest}</span>
+        <span>v{game.version}</span>
+        <span>{game.players}P / E{game.handNumber}</span>
+        <span>{storageStatus}</span>
+      </section>
 
-        <section aria-labelledby="local-model-heading" className="panel intake-panel">
-          <div className="panel-heading">
-            <span className="panel-index" aria-hidden="true">02</span>
-            <div>
-              <p className="panel-kicker">Policy feed</p>
-              <h2 id="local-model-heading">Local ONNX model</h2>
-            </div>
+      <section className={lastEvent?.kind === "discard" || lastEvent?.kind === "win" ? "table-shell is-impact" : "table-shell"} id="table">
+        <div className="table-hud" aria-label="Round status">
+          <Stat label="Round" value={`${game.roundWind}${game.handNumber}`} />
+          <Stat label="Wall" value={`${game.wall.length}`} />
+          <Stat label="Dora" value={game.doraIndicators.map(tileGlyph).join(" ") || "—"} />
+          <Stat label="Phase" value={game.phase} />
+          <Stat label="Turn" value={game.names[game.currentSeat]} />
+          <Stat label="Sticks" value={`${game.riichiSticks}`} />
+        </div>
+
+        <div className="table-grid">
+          <div className="opponent-row top-seat">
+            <SeatPanel game={game} seat={2 % game.players} showTiles={showAllHands} />
           </div>
-          <label className="file-picker">
-            <span className="file-picker-copy">Choose ONNX model</span>
-            <span className="file-picker-action" aria-hidden="true">Browse</span>
-            <input accept=".onnx,application/onnx,application/octet-stream" onChange={onModelChange} type="file" />
-          </label>
-          <p aria-live="polite" className="status-line"><span aria-hidden="true" />{modelStatus}</p>
+          <div className="opponent-row left-seat">
+            <SeatPanel game={game} seat={3 % game.players} showTiles={showAllHands} />
+          </div>
+          <section aria-label="ASCII table field" className="table-core">
+            <AsciiField seed={`${digest}:${lastEvent?.id ?? "boot"}`} />
+            <div className="ascii-overlay">
+              <p>LOCAL ENGINE / {game.phase.toUpperCase()}</p>
+              <strong>{lastEvent?.message ?? "Booting table."}</strong>
+              <span className="turn-arrow">{seatArrow(game.currentSeat)} {game.names[game.currentSeat]}</span>
+            </div>
+            <div className="discard-field" aria-label="Discard fields">
+              {Array.from({ length: game.players }, (_, seat) => (
+                <div className="discard-stack" key={seat}>
+                  <span>{game.names[seat]}</span>
+                  <TileStrip tiles={game.discards[seat]} />
+                </div>
+              ))}
+            </div>
+          </section>
+          <div className="opponent-row right-seat">
+            <SeatPanel game={game} seat={1 % game.players} showTiles={showAllHands} />
+          </div>
+        </div>
+
+        <section aria-label="Your hand" className="hand-console">
+          <div className="hand-heading">
+            <div>
+              <p className="panel-kicker">Seat 0 / direct control</p>
+              <h2>{game.names[game.humanSeat]} hand</h2>
+            </div>
+            <p>{game.phase === "terminal" ? "Round complete" : game.currentSeat === game.humanSeat ? "Select a tile or legal action" : "Models are resolving the table"}</p>
+          </div>
+          <div aria-label="Player hand" className="player-hand">
+            {game.hands[game.humanSeat].map((tile, index) => {
+              const discard = legal.find((action): action is Extract<GameAction, { kind: "discard" }> => action.kind === "discard" && action.tile === tile);
+              return (
+                <button
+                  aria-label={`Discard ${tileGlyph(tile)} ${tile}`}
+                  className={discard ? "game-tile is-legal" : "game-tile"}
+                  disabled={!discard}
+                  key={`${tile}-${index}`}
+                  onClick={() => discard && commit(discard)}
+                  type="button"
+                >
+                  <b>{tileGlyph(tile)}</b><span>{tile}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div aria-label="Legal game actions" className="action-rail">
+            {legal.filter((action) => action.kind !== "discard").map((action) => (
+              <button className="action-button" key={actionKey(action)} onClick={() => commit(action)} type="button">{actionLabel(action)}</button>
+            ))}
+            {legal.length === 0 && game.phase !== "terminal" ? <span className="disabled-action">Awaiting model turn</span> : null}
+          </div>
         </section>
       </section>
 
-      {selectedStep ? (
-        <ReplayViewer
-          inferenceStatus={inferenceStatus}
-          onSelect={setSelectedIndex}
-          selectedIndex={selectedIndex}
-          selectedStep={selectedStep}
-          timeline={timeline}
-        />
-      ) : (
-        <section className="panel empty-state">
-          <p className="panel-kicker">Replay monitor</p>
-          <h2>Replay timeline</h2>
-          <p>Choose a local trajectory to inspect its board state and action requests.</p>
+      <section className="control-grid">
+        <section className="panel policy-panel" aria-labelledby="policy-heading">
+          <div className="panel-heading">
+            <div><p className="panel-kicker">Browser policy</p><h2 id="policy-heading">Action aperture</h2></div>
+            <button className="command-button" disabled={decision === null} onClick={letPolicyCommit} type="button">Model commit</button>
+          </div>
+          <p className="status-line" aria-live="polite">{policyStatus}</p>
+          {decision ? (
+            <ol className="policy-list" aria-label="Policy ranked actions">
+              {decision.choices.slice(0, 6).map((choice) => (
+                <li key={actionKey(choice.action)}>
+                  <button onClick={() => commit(choice.action)} type="button">
+                    <span>{actionLabel(choice.action)}</span><b>{Math.round(choice.probability * 100)}%</b>
+                  </button>
+                  <p>{choice.rationale.join(" · ")}</p>
+                </li>
+              ))}
+            </ol>
+          ) : <p className="muted">No action is pending.</p>}
         </section>
-      )}
 
-      <DecisionRationaleDetails counterfactuals={rationalePreview} title="Rationale preview" />
-      <p className="preview-note">Example payload; not an inference result.</p>
+        <section className="panel ledger-panel" aria-labelledby="ledger-heading">
+          <div className="panel-heading"><div><p className="panel-kicker">Scores / ownership</p><h2 id="ledger-heading">Table ledger</h2></div></div>
+          <ol className="score-list">
+            {game.points.map((points, seat) => <li className={seat === game.currentSeat ? "is-current" : ""} key={seat}><span>{seatArrow(seat)} {game.names[seat]}</span><b>{points.toLocaleString()}</b>{game.riichiSeats[seat] ? <em>riichi</em> : null}</li>)}
+          </ol>
+          <button className="text-button" onClick={() => setShowAllHands((value) => !value)} type="button">{showAllHands ? "Hide engine hands" : "Show engine hands"}</button>
+          {game.terminal?.score ? <ScoreResult score={game.terminal.score} /> : game.terminal ? <p className="terminal-copy">Exhaustive draw. No score transfer.</p> : null}
+        </section>
+
+        <section className="panel history-panel" aria-labelledby="history-heading">
+          <div className="panel-heading"><div><p className="panel-kicker">Append-only replay</p><h2 id="history-heading">History</h2></div><span>{game.history.length} events</span></div>
+          <ol className="event-log" aria-label="Game event history">
+            {[...game.history].reverse().slice(0, 14).map((event) => <li key={event.id}><span>{String(event.version).padStart(3, "0")}</span>{event.message}</li>)}
+          </ol>
+        </section>
+      </section>
     </main>
   );
 }
 
-interface ReplayViewerProps {
-  readonly inferenceStatus: string;
-  readonly onSelect: (index: number) => void;
-  readonly selectedIndex: number;
-  readonly selectedStep: ReplayTimelineStep;
-  readonly timeline: readonly ReplayTimelineStep[];
+function settle(state: GameState, policy: PolicyArtifact): GameState {
+  return advanceAutomated(state, (current, legal) => decideAction(current, legal, policy).selected.action);
 }
 
-function ReplayViewer({ inferenceStatus, onSelect, selectedIndex, selectedStep, timeline }: ReplayViewerProps) {
+function Stat({ label, value }: { readonly label: string; readonly value: string }) {
+  return <div className="stat"><span>{label}</span><b>{value}</b></div>;
+}
+
+function SeatPanel({ game, seat, showTiles }: { readonly game: GameState; readonly seat: number; readonly showTiles: boolean }) {
   return (
-    <section aria-label="Replay timeline" className="replay">
-      <section className="panel replay-controls">
-        <div className="replay-summary">
-          <p className="panel-kicker">Replay monitor</p>
-          <h2>Replay timeline</h2>
-          <p aria-live="polite">Event {selectedIndex + 1} of {timeline.length}: {selectedStep.label}</p>
-        </div>
-        <label className="timeline-slider">
-          <span>Timeline position</span>
-          <input
-            aria-label="Timeline position"
-            max={timeline.length - 1}
-            min="0"
-            onChange={(event) => onSelect(Number(event.currentTarget.value))}
-            type="range"
-            value={selectedIndex}
-          />
-        </label>
-      </section>
-      <div className="replay-layout">
-        <ol aria-label="Replay events" className="event-list panel">
-          {timeline.map((step) => (
-            <li key={step.index}>
-              <button
-                aria-label={`${step.index + 1}. ${step.label}`}
-                aria-current={step.index === selectedIndex ? "step" : undefined}
-                onClick={() => onSelect(step.index)}
-                type="button"
-              >
-                <span aria-hidden="true">{String(step.index + 1).padStart(2, "0")}</span>{step.label}
-              </button>
-            </li>
-          ))}
-        </ol>
-        <DecisionInspection inferenceStatus={inferenceStatus} step={selectedStep} />
-      </div>
-      <BoardState state={selectedStep.state} />
+    <section className={seat === game.currentSeat ? "seat-panel is-current" : "seat-panel"} aria-label={`${game.names[seat]} state`}>
+      <div><span>{seatArrow(seat)}</span><b>{game.names[seat]}</b><em>{game.points[seat].toLocaleString()}</em></div>
+      <p>{game.riichiSeats[seat] ? "RIICHI / " : ""}{game.hands[seat].length} concealed / {game.melds[seat].length} meld</p>
+      {showTiles ? <TileStrip tiles={game.hands[seat]} /> : <div className="hidden-tiles" aria-label={`${game.hands[seat].length} concealed tiles`}>{"▣".repeat(Math.min(14, game.hands[seat].length))}</div>}
+      {game.melds[seat].length > 0 ? <p className="meld-line">{game.melds[seat].map((meld) => `${meld.kind}: ${meld.tiles.join(" ")}`).join(" / ")}</p> : null}
     </section>
   );
 }
 
-function DecisionInspection({
-  inferenceStatus,
-  step
-}: {
-  readonly inferenceStatus: string;
-  readonly step: ReplayTimelineStep;
-}) {
-  return (
-    <section aria-labelledby="decision-heading" className="panel decision-inspection">
-      <p className="panel-kicker">Action aperture</p>
-      <h2 id="decision-heading">Decision inspection</h2>
-      {step.decision ? (
-        <>
-          <p>Seat {step.decision.actor ?? "?"} requested an action.</p>
-          <ul aria-label="Legal actions" className="legal-actions">
-            {step.decision.legal_actions.map((action, index) => <li key={`${action}-${index}`}>{action}</li>)}
-          </ul>
-          <p aria-live="polite" className="inference-status"><span aria-hidden="true" />{inferenceStatus}</p>
-        </>
-      ) : (
-        <p>This event has no requested action.</p>
-      )}
-    </section>
-  );
+function TileStrip({ tiles }: { readonly tiles: readonly string[] }) {
+  return <div className="tile-strip">{tiles.length === 0 ? <span>—</span> : tiles.map((tile, index) => <span className="mini-tile" key={`${tile}-${index}`}>{tileGlyph(tile)}</span>)}</div>;
 }
 
-function BoardState({ state }: { readonly state: ReplayBoardState }) {
-  return (
-    <section aria-labelledby="board-heading" className="panel board-state">
-      <div className="board-heading">
-        <div>
-          <p className="panel-kicker">State reconstruction</p>
-          <h2 id="board-heading">Board state</h2>
-        </div>
-        <p className="board-meta">
-          {state.round_wind ?? "?"}{state.kyoku ?? "?"} / honba {state.honba} / sticks {state.kyotaku} / dora {state.dora_indicators.join(", ") || "?"}
-        </p>
-      </div>
-      <div className="seat-grid">
-        {Array.from({ length: state.players }, (_, seat) => (
-          <section className={state.active_seat === seat ? "seat active-seat" : "seat"} key={seat}>
-            <h3>
-              <span>Seat {seat}</span>{state.names[seat]} · {state.scores[seat]}{state.riichi_seats[seat] ? " · riichi" : ""}
-            </h3>
-            <TileRow label="Hand" tiles={state.hands[seat]} />
-            <TileRow label="Discards" tiles={state.discards[seat]} />
-            <p className="seat-meta">Melds: {state.melds[seat].map((meld) => meld.tiles.join(" ")).join(" | ") || "none"}<br />Kita: {state.kita_tiles[seat].join(" ") || "none"}</p>
-          </section>
-        ))}
-      </div>
-    </section>
-  );
+function ScoreResult({ score }: { readonly score: NonNullable<GameState["terminal"]>["score"] & {} }) {
+  if (score === null) return null;
+  return <div className="score-result"><strong>{score.winKind.toUpperCase()} / {score.han} HAN / {score.fu} FU</strong><span>{score.yaku.map((line) => `${line.name} ${line.han}`).join(" · ")}</span><b>{score.total.toLocaleString()} point transfer</b></div>;
 }
 
-function TileRow({ label, tiles }: { readonly label: string; readonly tiles: readonly string[] }) {
-  return (
-    <div className="tile-group">
-      <span>{label}</span>
-      <div aria-label={`${label}: ${tiles.join(" ") || "none"}`} className="tile-row">
-        {tiles.length > 0 ? tiles.map((tile, index) => <b key={`${tile}-${index}`}>{tile}</b>) : "—"}
-      </div>
-    </div>
-  );
+function seatArrow(seat: number): string {
+  return ["↓", "←", "↑", "→"][seat] ?? "•";
 }
 
 export default App;

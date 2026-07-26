@@ -1,0 +1,29 @@
+{
+  "action": { "kind": "discard", "tile": "2m" },
+  "after": {
+    "current_seat": 1,
+    "discard": "2m",
+    "hand": ["C", "4m", "E", "E", "3p", "7s", "1s", "3m", "8p", "N", "2p", "3s", "2p"],
+    "pending_discard": "2m",
+    "pending_reaction_seats": [1, 2, 3],
+    "turn": 1,
+    "wall_remaining": 69
+  },
+  "before": {
+    "current_seat": 0,
+    "hand": ["C", "4m", "E", "E", "3p", "7s", "1s", "3m", "8p", "N", "2m", "2p", "3s", "2p"],
+    "legal_actions": [
+      { "kind": "discard", "tile": "2m" }, { "kind": "discard", "tile": "3m" },
+      { "kind": "discard", "tile": "4m" }, { "kind": "discard", "tile": "2p" },
+      { "kind": "discard", "tile": "3p" }, { "kind": "discard", "tile": "8p" },
+      { "kind": "discard", "tile": "1s" }, { "kind": "discard", "tile": "3s" },
+      { "kind": "discard", "tile": "7s" }, { "kind": "discard", "tile": "E" },
+      { "kind": "discard", "tile": "N" }, { "kind": "discard", "tile": "C" }
+    ],
+    "players": 4,
+    "wall_remaining": 69
+  },
+  "kind": "kenjaku-browser-python-conformance-v1",
+  "ruleset": "tenhou-4p",
+  "seed": "browser-conformance-discard-v1"
+}
