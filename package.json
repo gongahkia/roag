@@ -12,6 +12,7 @@
     "test:e2e": "./scripts/browser-e2e.sh",
     "smoke:autoplay": "vite-node --script scripts/autoplay-smoke.ts",
     "autoplay:headless": "vite-node --script scripts/autoplay-headless.ts",
+    "autoplay:campaign": "vite-node --script scripts/autoplay-campaign.ts",
     "autoplay:benchmark": "vite-node --script scripts/autoplay-benchmark.ts",
     "autoplay:diagnose": "vite-node --script scripts/autoplay-diagnose.ts",
     "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs"

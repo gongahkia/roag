@@ -4,7 +4,7 @@ import { generateAreaFloor, validateGeneration } from './world'
 import type { Biome } from './types'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins']
-export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 3200
+export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 19_200
 export const CAMPAIGN_SEED_RETRY_LIMIT = 32
 
 export type CampaignValidationKind = 'clear' | 'generation-invalid' | 'dead' | 'stalled' | 'turn-limit' | 'error'

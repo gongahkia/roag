@@ -4,7 +4,7 @@ import { newRun } from '../src/engine'
 import type { Biome } from '../src/types'
 import { generateAreaFloor, validateGeneration } from '../src/world'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins']
+const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins']
 const outcomes = new Map<string, number>()
 
 for (const seed of [7, 42, 999]) for (const biome of biomes) for (let floor = 0; floor < 4; floor++) assert.deepEqual(validateGeneration(generateAreaFloor(seed, biome, floor)), { valid: true, errors: [] })

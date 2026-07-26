@@ -2,14 +2,14 @@ import { runAutoplay } from '../src/autoplay-runner'
 import { newRun } from '../src/engine'
 import type { AutoplayMode, AutoplayPolicy, Biome } from '../src/types'
 
-const biomes = ['mine', 'wilds', 'caverns', 'ruins'] as const
+const biomes = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const
 const modes = ['visible', 'omniscient'] as const
-const policies = ['survival', 'clear', 'legacy'] as const
+const policies = ['survival', 'clear', 'explore', 'legacy'] as const
 const biomeValue = process.env.BIOME ?? 'mine'
 const modeValue = process.env.MODE ?? 'omniscient'
 const policyValue = process.env.POLICY ?? 'clear'
 const seed = Number(process.env.SEED ?? 7)
-const turnLimit = Number(process.env.TURNS ?? 3200)
+const turnLimit = Number(process.env.TURNS ?? 19200)
 const captureTrace = process.env.TRACE === '1'
 const includeState = process.env.DEBUG_STATE === '1'
 const includeDebug = process.env.DEBUG_CONTEXT === '1'

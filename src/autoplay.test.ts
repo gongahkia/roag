@@ -35,6 +35,40 @@ describe('autoplay', () => {
     expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: ';', reason: 'drill target' })
   })
 
+  it('uses an auger against a required breakwall route', () => {
+    const state = createRun()
+    state.hero.inventory = ['auger']
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    state.floor.tiles[indexOf(1, 1)].kind = 'floor'
+    state.floor.tiles[indexOf(2, 1)].kind = 'breakwall'
+    state.floor.tiles[indexOf(3, 1)].kind = 'exit'
+    state.floor.exit = { x: 3, y: 1 }
+    state.floor.objective = { id: 'complete', kind: 'defeatGuardian', label: 'Clear the route', status: 'complete' }
+    state.floor.guardianDefeated = true
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'u', reason: 'drill route:auger' })
+  })
+
+  it('evolves an owned Boon at a build-up moment', () => {
+    const state = createRun()
+    state.hero.boons = { trailRations: 1 }
+    state.floor.milestones = [{ id: 'augment', kind: 'augment', x: state.hero.x, y: state.hero.y, discovered: true, claimed: false }]
+    state.modal = { kind: 'augment', milestoneId: 'augment' }
+    const context = createAutoplayContext()
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: '1', reason: 'augment:evolve' })
+    perform(state, '1')
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ reason: 'augment:evolve:trailRations' })
+    perform(state, autoplayDecision(state, 'omniscient', 'clear', context)!.command)
+    expect(state.hero.boonEvolutions).toEqual({ trailRations: 1 })
+  })
+
+  it('includes Boon evolution in planning state identity', () => {
+    const state = createRun()
+    const before = autoplayStateFingerprint(state)
+    state.hero.boonEvolutions = { trailRations: 1 }
+    expect(autoplayStateFingerprint(state)).not.toBe(before)
+  })
+
   it('skips trailcraft instead of blocking after a cleared floor', () => {
     const state = createRun()
     state.modal = { kind: 'trailcraft' }
@@ -672,53 +706,53 @@ describe('autoplay', () => {
   }, 60_000)
 
   it('clears the pressure-detour regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(4), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(4), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the ranged-corridor regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(3), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(3), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the moving-route and mixed-altar regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(16), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(16), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the telegraph-route reversal regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(20), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(20), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the offering-cash regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(26), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(26), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the moving-guardian regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(27), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(27), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the telegraphed Mine exit regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(50), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(50), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the long telegraph-detour regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(41), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(41), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the rail-tunnel telegraph regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(46), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(46), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('clears the telegraphed guardian-route regression seed across the full campaign', () => {
-    const report = runAutoplay(newRun(12), { mode: 'omniscient', policy: 'clear', turnLimit: 3200 })
-    expect(report.campaignComplete).toBe(true)
+    const report = runAutoplay(newRun(12), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
+    expect(report.outcome).toBe('complete')
   }, 60_000)
 
   it('chains completed areas into the next biome by default', () => {

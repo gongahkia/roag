@@ -5,9 +5,9 @@ import { newRun } from '../src/engine/run'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
 import { getTile, validateGeneration } from '../src/world'
 
-const biomes = ['mine', 'wilds', 'caverns', 'ruins'] as const
+const biomes = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const
 const modes = ['visible', 'omniscient'] as const
-const policies = ['survival', 'clear', 'legacy'] as const
+const policies = ['survival', 'clear', 'explore', 'legacy'] as const
 const biomeValue = process.env.BIOME ?? 'mine'
 const modeValue = process.env.MODE ?? 'omniscient'
 const policyValue = process.env.POLICY ?? 'clear'
@@ -21,7 +21,7 @@ if (!Number.isInteger(seed) || seed < 0) throw new Error(`invalid SEED: ${proces
 if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid AREA_FLOOR: ${process.env.AREA_FLOOR}`)
 if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURNS: ${process.env.TURNS}`)
 
-const blocked = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
+const blocked = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'])
 const directionPoints = Object.entries(DIRECTIONS).filter(([direction]) => direction !== 'wait').map(([, point]) => point)
 const key = (point: Point) => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))

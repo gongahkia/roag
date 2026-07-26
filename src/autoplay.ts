@@ -9,7 +9,7 @@ import { merchantStock } from './engine/rewards'
 import { scriptCastProfile } from './engine/scripts'
 import { resolveSynergies } from './engine/synergies'
 import { trailcraftTags } from './engine/trailcraft'
-import { boonChoices, toolChoices } from './engine/buildcraft'
+import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices } from './engine/buildcraft'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -21,10 +21,10 @@ const AUTOPLAY_MAX_RECOVERY_REPEATS = 8
 export const autoplayModes: readonly AutoplayMode[] = ['off', 'visible', 'omniscient']
 export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear', 'explore', 'legacy']
 const directionCommands: Record<Direction, string> = { nw: 'i', n: 'o', ne: 'p', w: 'k', wait: 'l', e: ';', sw: ',', s: '.', se: '/' }
-const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest'])
-const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder'])
-const drillableTiles = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder'])
-const glidableTiles = new Set<TileKind>(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble'])
+const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'])
+const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder'])
+const drillableTiles = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder', 'breakwall'])
+const glidableTiles = new Set<TileKind>(['pit', 'water', 'deepWater', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder', 'bramble', 'rubble', 'current'])
 const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).filter(([direction]) => direction !== 'wait') as Array<[Exclude<Direction, 'wait'>, Point]>
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
@@ -46,6 +46,7 @@ const planningClone = (state: RunState): RunState => {
       cooldowns: state.hero.cooldowns ? { ...state.hero.cooldowns } : undefined,
       traversalTools: state.hero.traversalTools ? [...state.hero.traversalTools] : undefined,
       boons: state.hero.boons ? { ...state.hero.boons } : undefined,
+      boonEvolutions: state.hero.boonEvolutions ? { ...state.hero.boonEvolutions } : undefined,
       safePositions: state.hero.safePositions?.map(point => ({ ...point }))
     },
     floor: {
@@ -96,8 +97,9 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const telegraphs = (state.floor.telegraphs ?? []).map(telegraph => `${telegraph.id}:${telegraph.resolveTurn}:${telegraph.cells.map(pointKey).join(',')}`).sort().join('|')
   const tools = (hero.traversalTools ?? []).join(',')
   const boons = Object.entries(hero.boons ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
+  const evolutions = Object.entries(hero.boonEvolutions ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
   const milestones = state.floor.milestones.map(milestone => `${milestone.id}:${milestone.discovered ? 1 : 0}:${milestone.claimed ? 1 : 0}`).join('|')
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${boons}:${milestones}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${boons}:${evolutions}:${milestones}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
 }
 
 // compact diagnostic identity; loop detection retains the full state signature above.
@@ -691,6 +693,24 @@ const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined
   return choices[0]?.index
 }
 
+const boonPriority = (state: RunState, id: Parameters<typeof boonFor>[0], policy: AutoplayPolicy): number => {
+  const boon = boonFor(id)
+  const family = policy === 'explore'
+    ? boon.family === 'scouting' ? 34 : boon.family === 'traversal' ? 28 : boon.family === 'recovery' ? 24 : 18
+    : boon.family === 'recovery' ? 26 : boon.family === 'combat' ? 22 : 18
+  return boonRank(state, id) * 3 + family
+}
+
+const augmentChoice = (state: RunState, modal: Extract<Modal, { kind: 'augment' }>, policy: AutoplayPolicy): Candidate | undefined => {
+  if (!modal.mode) {
+    const owned = augmentChoices(state, modal.milestoneId, 'evolve')
+    return owned.length ? { command: '1', reason: 'augment:evolve', score: 200 } : { command: 'Escape', reason: 'skip empty build-up', score: 200 }
+  }
+  const choices = augmentChoices(state, modal.milestoneId, modal.mode)
+  const best = choices.map((boon, index) => ({ boon, index, score: boonPriority(state, boon.id, policy) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
+  return best ? { command: String(best.index + 1), reason: `augment:${modal.mode}:${best.boon.id}`, score: 200 } : { command: 'Escape', reason: 'skip empty build-up', score: 200 }
+}
+
 const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
   const modal = state.modal
   if (!modal) return undefined
@@ -701,6 +721,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
     const choice = boonChoices(state, milestone).map((boon, index) => ({ index, boon, score: (state.hero.boons?.[boon.id] ?? 0) * 3 + (policy === 'explore' ? boon.family === 'scouting' ? 34 : boon.family === 'traversal' ? 28 : boon.family === 'recovery' ? 24 : 18 : boon.family === 'recovery' ? 26 : boon.family === 'combat' ? 22 : 18) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
     return { command: String((choice?.index ?? 0) + 1), reason: `boon:${choice?.boon.id ?? 'none'}`, score: 200 }
   }
+  if (modal.kind === 'augment') return augmentChoice(state, modal, policy)
   if (modal.kind === 'tool') {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
     if (!milestone) return { command: 'Escape', reason: 'stale Waycache', score: 200 }
