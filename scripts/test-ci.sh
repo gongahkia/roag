@@ -13,19 +13,19 @@ fi
 
 vitest=(npx vitest run --maxWorkers=1 --no-file-parallelism)
 campaign_tests=(
-  'completes the Mine reference run'
+  'replays the Mine tactical reference run without an engine error'
   'clears the pressure-detour regression seed'
   'clears the ranged-corridor regression seed'
   'clears the moving-route and mixed-altar regression seed'
   'clears the telegraph-route reversal regression seed'
   'clears the offering-cash regression seed'
   'clears the moving-guardian regression seed'
-  'clears the telegraphed Mine exit regression seed'
+  'replays the telegraphed Mine exit regression seed without an engine error'
   'clears the long telegraph-detour regression seed'
   'clears the rail-tunnel telegraph regression seed'
   'clears the telegraphed guardian-route regression seed'
 )
 
 "${vitest[@]}" --exclude src/autoplay.test.ts
-"${vitest[@]}" src/autoplay.test.ts --testNamePattern='^(?!.*(completes the Mine reference run|clears the pressure-detour regression seed|clears the ranged-corridor regression seed|clears the moving-route and mixed-altar regression seed|clears the telegraph-route reversal regression seed|clears the offering-cash regression seed|clears the moving-guardian regression seed|clears the telegraphed Mine exit regression seed|clears the long telegraph-detour regression seed|clears the rail-tunnel telegraph regression seed|clears the telegraphed guardian-route regression seed)).*$'
+"${vitest[@]}" src/autoplay.test.ts --testNamePattern='^(?!.*(replays the Mine tactical reference run without an engine error|clears the pressure-detour regression seed|clears the ranged-corridor regression seed|clears the moving-route and mixed-altar regression seed|clears the telegraph-route reversal regression seed|clears the offering-cash regression seed|clears the moving-guardian regression seed|replays the telegraphed Mine exit regression seed without an engine error|clears the long telegraph-detour regression seed|clears the rail-tunnel telegraph regression seed|clears the telegraphed guardian-route regression seed)).*$'
 for test_name in "${campaign_tests[@]}"; do "${vitest[@]}" src/autoplay.test.ts --testNamePattern="$test_name"; done
