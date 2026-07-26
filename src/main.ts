@@ -274,7 +274,7 @@ function createCourierFromDraft(): void {
   courierDraft = undefined
   inheritedCampaign = undefined
   successorParentId = undefined
-  beginTrailhead(seed, openingLore(seed, courier.identity.name), heir)
+  beginTrailheadAfterLoading(seed, openingLore(seed, courier.identity.name), heir)
   persistCourier(courier, id)
   audio.play([event('menu')])
   redraw()
@@ -382,6 +382,23 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   storyExit = 'hub'
 }
 
+function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
+  route = { screen: 'loading', biome: campaign.selectedBiome, heirSeed: seed }
+  loading = { phase: 'fade', startedAt: performance.now() }
+  redraw()
+  window.setTimeout(() => {
+    if (loading?.phase !== 'fade') return
+    loading = { phase: 'loading', startedAt: performance.now() }
+    redraw()
+    window.setTimeout(() => {
+      if (loading?.phase !== 'loading') return
+      loading = undefined
+      beginTrailhead(seed, scene, nextHero)
+      redraw()
+    }, 650)
+  }, 350)
+}
+
 function acceptedCampaignSeed(requestedSeed: number): number {
   const validation = findStructurallyPlayableCampaignSeed(requestedSeed)
   if (!validation.accepted) throw new Error(`no playable campaign seed after ${validation.errors.at(-1) ?? 'validation failure'}`)
@@ -437,24 +454,11 @@ function finishStory(): void {
 function beginSuccession(): void {
   if (!pendingSuccessor || loading) return
   story = undefined
-  route = { ...route, screen: 'loading', heirSeed: pendingSuccessor.seed }
-  loading = { phase: 'fade', startedAt: performance.now() }
-  redraw()
-  window.setTimeout(() => {
-    if (loading?.phase !== 'fade') return
-    loading = { phase: 'loading', startedAt: performance.now() }
-    redraw()
-    window.setTimeout(() => {
-      const successor = pendingSuccessor
-      if (!successor || loading?.phase !== 'loading') return
-      loading = undefined
-      pendingSuccessor = undefined
-      createAfterStory = true
-      const seed = acceptedCampaignSeed(successor.seed)
-      beginTrailhead(seed, successionLore(successor.record, seed))
-      redraw()
-    }, 650)
-  }, 350)
+  const successor = pendingSuccessor
+  pendingSuccessor = undefined
+  createAfterStory = true
+  const seed = acceptedCampaignSeed(successor.seed)
+  beginTrailheadAfterLoading(seed, successionLore(successor.record, seed))
 }
 
 function completeArea(): 'continued' | 'finished' | 'returned' {

@@ -45,11 +45,14 @@ for _ in {1..15}; do "${CLI[@]}" press Backspace; done
 "${CLI[@]}" press r
 "${CLI[@]}" press i
 "${CLI[@]}" press Enter
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'loading' <<<"$route"
+sleep 1.1
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'approach' <<<"$route"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
 grep --fixed-strings --quiet 'runes' <<<"$visual"
-route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
-grep --fixed-strings --quiet 'approach' <<<"$route"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"
 grep --fixed-strings --quiet 'ascii' <<<"$visual"

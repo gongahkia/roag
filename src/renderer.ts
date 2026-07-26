@@ -309,7 +309,11 @@ export class TerminalRenderer {
     }
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    this.box(27, 13, 42, 25, 'PREPARING THE TRAIL')
     this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
+    this.text(36, 28, 'MARKING THE NEXT ROUTE', colors.text)
+    this.text(34, 31, 'The village gathers provisions.', colors.dim)
+    this.text(38, 34, 'Please stand by.', colors.dim)
   }
 
   private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {
