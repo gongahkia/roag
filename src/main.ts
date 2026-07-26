@@ -382,21 +382,29 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   storyExit = 'hub'
 }
 
-function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
-  route = { screen: 'loading', biome: campaign.selectedBiome, heirSeed: seed }
-  loading = { phase: 'fade', startedAt: performance.now() }
+function beginLoadingTransition(nextRoute: ScreenRoute, transition: Omit<LoadingState, 'phase' | 'startedAt'>, onComplete: () => void): void {
+  route = nextRoute
+  loading = { ...transition, phase: 'fade', startedAt: performance.now() }
   redraw()
   window.setTimeout(() => {
     if (loading?.phase !== 'fade') return
-    loading = { phase: 'loading', startedAt: performance.now() }
+    loading = { ...transition, phase: 'loading', startedAt: performance.now() }
     redraw()
     window.setTimeout(() => {
       if (loading?.phase !== 'loading') return
       loading = undefined
-      beginTrailhead(seed, scene, nextHero)
+      onComplete()
       redraw()
     }, 650)
   }, 350)
+}
+
+function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
+  beginLoadingTransition({ screen: 'loading', biome: campaign.selectedBiome, heirSeed: seed }, { kind: 'trailhead' }, () => beginTrailhead(seed, scene, nextHero))
+}
+
+function beginBiomeTransition(fromBiome: ScreenRoute['biome'], toBiome: ScreenRoute['biome'] | undefined, onComplete: () => void): void {
+  beginLoadingTransition({ ...route, screen: 'loading', biome: toBiome ?? fromBiome }, { kind: 'biome', fromBiome, toBiome }, onComplete)
 }
 
 function acceptedCampaignSeed(requestedSeed: number): number {
@@ -461,43 +469,49 @@ function beginSuccession(): void {
   beginTrailheadAfterLoading(seed, successionLore(successor.record, seed))
 }
 
-function completeArea(): 'continued' | 'finished' | 'returned' {
+function completeArea(): 'finished' | 'returned' | 'transitioning' {
   if (!state) return 'returned'
-  const completed = state.area ?? state.floor.biome
-  heir = structuredClone(state.hero)
+  const completedState = state
+  const completed = completedState.area ?? completedState.floor.biome
+  heir = structuredClone(completedState.hero)
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed, campaign.areaOrder)
   if (successor) {
     campaign = unlockCampaignArea(campaign, successor)
     hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-    const next = newRun(state.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
-    next.turn = state.turn
-    next.lineageEvents = structuredClone(state.lineageEvents ?? [])
-    next.telemetry = structuredClone(state.telemetry!)
-    state = next
-    saved = structuredClone(next)
-    route = { ...route, screen: 'level', biome: successor }
-    autoplayContext = createAutoplayContext()
-    if (activeCourier) activeCourier.checkpoint = structuredClone(next)
-    persistActiveCourier()
-    return 'continued'
+    beginBiomeTransition(completed, successor, () => {
+      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
+      next.turn = completedState.turn
+      next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
+      next.telemetry = structuredClone(completedState.telemetry!)
+      state = next
+      saved = structuredClone(next)
+      route = { ...route, screen: 'level', biome: successor }
+      autoplayContext = createAutoplayContext()
+      if (activeCourier) activeCourier.checkpoint = structuredClone(next)
+      persistActiveCourier()
+    })
+    return 'transitioning'
   }
   if (settings.autoplayMode !== 'off') {
     persistActiveCourier()
     return 'finished'
   }
-  if (!activeCourier) return 'returned'
-  saved = undefined
-  activeCourier.run = undefined
-  activeCourier.checkpoint = undefined
-  activeCourier.campaign = campaign
-  activeCourier.heir = structuredClone(heir)
-  state = undefined
-  persistActiveCourier()
-  hubPosition = outpostSpawn()
-  route = { ...route, screen: 'hub', biome: campaign.selectedBiome }
-  return 'returned'
+  const courier = activeCourier
+  if (!courier) return 'returned'
+  beginBiomeTransition(completed, undefined, () => {
+    saved = undefined
+    courier.run = undefined
+    courier.checkpoint = undefined
+    courier.campaign = campaign
+    courier.heir = structuredClone(heir)
+    state = undefined
+    persistActiveCourier()
+    hubPosition = outpostSpawn()
+    route = { ...route, screen: 'hub', biome: campaign.selectedBiome }
+  })
+  return 'transitioning'
 }
 
 function unlockGateDestination(): void {
@@ -730,6 +744,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
   const areaResult = hasEvent(events, 'areaComplete') ? completeArea() : undefined
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
+  if (areaResult === 'transitioning') { redraw(); return }
   if (areaResult === 'finished' && state) {
     state.status = 'victory'
     finish(true)

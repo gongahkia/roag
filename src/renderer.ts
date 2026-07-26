@@ -299,7 +299,7 @@ export class TerminalRenderer {
       this.stage(state)
       this.sidebar(state)
       this.log(state)
-      this.end(state, false)
+      if (state.status !== 'playing') this.end(state, false)
       this.ctx.save()
       this.ctx.globalAlpha = Math.min(1, Math.max(0, (now - loading.startedAt) / 350))
       this.ctx.fillStyle = '#05070b'
@@ -309,11 +309,15 @@ export class TerminalRenderer {
     }
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    this.box(27, 13, 42, 25, 'PREPARING THE TRAIL')
+    const biomeTransition = loading?.kind === 'biome'
+    const title = biomeTransition ? 'TRAIL COMPLETE' : 'PREPARING THE TRAIL'
+    const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'Village Outpost'
+    const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'MARKING THE NEXT ROUTE'
+    this.box(27, 13, 42, 25, title)
     this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
-    this.text(36, 28, 'MARKING THE NEXT ROUTE', colors.text)
-    this.text(34, 31, 'The village gathers provisions.', colors.dim)
-    this.text(38, 34, 'Please stand by.', colors.dim)
+    this.text(48 - Math.floor(message.length / 2), 28, message, colors.text)
+    this.text(48 - Math.floor((biomeTransition ? 'THE PARCEL MOVES ON.' : 'The village gathers provisions.').length / 2), 31, biomeTransition ? 'THE PARCEL MOVES ON.' : 'The village gathers provisions.', colors.dim)
+    this.text(48 - Math.floor('Please stand by.'.length / 2), 34, 'Please stand by.', colors.dim)
   }
 
   private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {
