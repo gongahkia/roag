@@ -17,6 +17,10 @@ describe('content registry validation', () => {
     expect(isSkillId('missing')).toBe(false)
   })
 
+  it('keeps active traversal consumables out of procedural loot', () => {
+    for (const id of ['grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch']) expect(ITEMS.find(item => item.id === id)?.findable).toBe(false)
+  })
+
   it('rejects invalid ids and tags', () => {
     expect(() => validateContent({ ...CONTENT, items: [...ITEMS, { ...ITEMS[0], id: 'bad id' }] })).toThrow('invalid item id')
     expect(() => validateContent({ ...CONTENT, items: [{ ...ITEMS[0], value: 0 }, ...ITEMS.slice(1)] })).toThrow('invalid item price')
