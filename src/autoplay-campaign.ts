@@ -17,7 +17,7 @@ export interface CampaignAutoplayRate { total: number; completed: number; failed
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
 export interface CampaignAutoplaySuite { version: 1; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary }
 export interface CampaignAutoplayDelta { overall: number; byProfile: Record<CampaignAutoplayProfileId, number> }
-export interface CampaignAutoplaySuiteOptions { onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
+export interface CampaignAutoplaySuiteOptions { captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
 
 const rate = (runs: readonly CampaignAutoplayRun[]): CampaignAutoplayRate => {
   const completed = runs.filter(run => run.campaignComplete).length
@@ -52,16 +52,25 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   ...(!report.campaignComplete ? { failure: failure(report) } : {})
 })
 
+export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
+  version: 1,
+  seeds: [...CAMPAIGN_AUTOPLAY_SEEDS],
+  turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT,
+  profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
+  runs,
+  summary: summarizeCampaignAutoplay(runs)
+})
+
 export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions = {}): CampaignAutoplaySuite => {
   const runs: CampaignAutoplayRun[] = []
   const total = CAMPAIGN_AUTOPLAY_SEEDS.length * CAMPAIGN_AUTOPLAY_PROFILES.length
   for (const seed of CAMPAIGN_AUTOPLAY_SEEDS) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
-    const report = runAutoplay(newRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: true, traceLimit: 24 })
+    const report = runAutoplay(newRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: options.captureTrace ?? false, traceLimit: 24 })
     const current = compactCampaignAutoplayRun(seed, profile, report)
     runs.push(current)
     options.onRun?.(current, runs.length, total)
   }
-  return { version: 1, seeds: [...CAMPAIGN_AUTOPLAY_SEEDS], turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })), runs, summary: summarizeCampaignAutoplay(runs) }
+  return campaignAutoplaySuite(runs)
 }
 
 export const campaignAutoplayDelta = (current: CampaignAutoplaySuite, baseline: CampaignAutoplaySuite): CampaignAutoplayDelta => ({

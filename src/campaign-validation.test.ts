@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { findStructurallyPlayableCampaignSeed, validateCampaignTopology } from './campaign-validation'
 
 describe('campaign seed validation', () => {
-  it('keeps all sixteen floors structurally playable for a deterministic seed', () => {
+  it('keeps all twenty-four floors structurally playable for a deterministic seed', () => {
     expect(validateCampaignTopology(7)).toEqual([])
   })
 
@@ -12,5 +12,5 @@ describe('campaign seed validation', () => {
 
   it('keeps the first hundred campaign seeds structurally playable', () => {
     for (let seed = 0; seed < 100; seed++) expect(validateCampaignTopology(seed)).toEqual([])
-  }, 30_000)
+  }, 60_000)
 })
