@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
+import { AsciiField } from "./components/AsciiField";
 import {
   DecisionRationaleDetails,
   type DecisionCounterfactualsView
@@ -65,6 +66,7 @@ function App() {
   const [inferenceStatus, setInferenceStatus] = useState("Load a local ONNX model to run inference.");
   const modelLoadSequence = useRef(0);
   const selectedStep = timeline[selectedIndex];
+  const rendererSeed = selectedStep ? `${selectedStep.index}:${selectedStep.label}` : "idle";
 
   useEffect(() => () => {
     if (policy) void policy.release();
@@ -103,9 +105,7 @@ function App() {
       const result = await readLocalMjsonFile(file);
       setTimeline(buildReplayTimeline(result.events));
       setSelectedIndex(0);
-      setFileStatus(
-        `Loaded ${result.events.length} events with ${result.errors.length} invalid lines.`
-      );
+      setFileStatus(`Loaded ${result.events.length} events with ${result.errors.length} invalid lines.`);
     } catch (error) {
       setFileStatus(error instanceof Error ? error.message : "local file could not be read");
     } finally {
@@ -141,41 +141,74 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header>
-        <p className="eyebrow">Kenjaku browser</p>
-        <h1>Local trajectory inspection</h1>
-        <p className="lede">Trajectory data and ONNX models stay in this browser and are never uploaded.</p>
+      <a className="skip-link" href="#workspace">Skip signal field</a>
+      <header className="signal-header">
+        <div className="title-copy">
+          <p className="eyebrow">Kenjaku / local signal station</p>
+          <h1>Trace the hand.</h1>
+          <p className="lede">Inspect local trajectories and ONNX policy decisions without sending a single tile off-device.</p>
+          <div className="signal-legend" aria-label="Application properties">
+            <span>01 / offline</span>
+            <span>02 / deterministic</span>
+            <span>03 / local models</span>
+          </div>
+        </div>
+        <div className="signal-window">
+          <AsciiField seed={rendererSeed} />
+          <p className="renderer-caption">1-bit glyph field / {selectedStep ? "replay signal locked" : "awaiting trajectory"}</p>
+        </div>
       </header>
-      <section aria-labelledby="local-file-heading" className="panel">
-        <h2 id="local-file-heading">Local trajectory</h2>
-        <label className="file-picker">
-          Choose MJSON or JSONL
-          <input accept=".mjson,.jsonl,application/json,text/plain" onChange={onFileChange} type="file" />
-        </label>
-        <p aria-live="polite">{fileStatus}</p>
+
+      <section className="intake-grid" id="workspace" aria-label="Local artifact intake">
+        <section aria-labelledby="local-file-heading" className="panel intake-panel">
+          <div className="panel-heading">
+            <span className="panel-index" aria-hidden="true">01</span>
+            <div>
+              <p className="panel-kicker">Trajectory feed</p>
+              <h2 id="local-file-heading">Local trajectory</h2>
+            </div>
+          </div>
+          <label className="file-picker">
+            <span className="file-picker-copy">Choose MJSON or JSONL</span>
+            <span className="file-picker-action" aria-hidden="true">Browse</span>
+            <input accept=".mjson,.jsonl,application/json,text/plain" onChange={onFileChange} type="file" />
+          </label>
+          <p aria-live="polite" className="status-line"><span aria-hidden="true" />{fileStatus}</p>
+        </section>
+
+        <section aria-labelledby="local-model-heading" className="panel intake-panel">
+          <div className="panel-heading">
+            <span className="panel-index" aria-hidden="true">02</span>
+            <div>
+              <p className="panel-kicker">Policy feed</p>
+              <h2 id="local-model-heading">Local ONNX model</h2>
+            </div>
+          </div>
+          <label className="file-picker">
+            <span className="file-picker-copy">Choose ONNX model</span>
+            <span className="file-picker-action" aria-hidden="true">Browse</span>
+            <input accept=".onnx,application/onnx,application/octet-stream" onChange={onModelChange} type="file" />
+          </label>
+          <p aria-live="polite" className="status-line"><span aria-hidden="true" />{modelStatus}</p>
+        </section>
       </section>
-      <section aria-labelledby="local-model-heading" className="panel">
-        <h2 id="local-model-heading">Local ONNX model</h2>
-        <label className="file-picker">
-          Choose ONNX model
-          <input accept=".onnx,application/onnx,application/octet-stream" onChange={onModelChange} type="file" />
-        </label>
-        <p aria-live="polite">{modelStatus}</p>
-      </section>
+
       {selectedStep ? (
         <ReplayViewer
+          inferenceStatus={inferenceStatus}
           onSelect={setSelectedIndex}
           selectedIndex={selectedIndex}
           selectedStep={selectedStep}
           timeline={timeline}
-          inferenceStatus={inferenceStatus}
         />
       ) : (
-        <section className="panel">
+        <section className="panel empty-state">
+          <p className="panel-kicker">Replay monitor</p>
           <h2>Replay timeline</h2>
           <p>Choose a local trajectory to inspect its board state and action requests.</p>
         </section>
       )}
+
       <DecisionRationaleDetails counterfactuals={rationalePreview} title="Rationale preview" />
       <p className="preview-note">Example payload; not an inference result.</p>
     </main>
@@ -183,25 +216,24 @@ function App() {
 }
 
 interface ReplayViewerProps {
+  readonly inferenceStatus: string;
   readonly onSelect: (index: number) => void;
   readonly selectedIndex: number;
   readonly selectedStep: ReplayTimelineStep;
   readonly timeline: readonly ReplayTimelineStep[];
-  readonly inferenceStatus: string;
 }
 
 function ReplayViewer({ inferenceStatus, onSelect, selectedIndex, selectedStep, timeline }: ReplayViewerProps) {
   return (
     <section aria-label="Replay timeline" className="replay">
       <section className="panel replay-controls">
-        <div>
+        <div className="replay-summary">
+          <p className="panel-kicker">Replay monitor</p>
           <h2>Replay timeline</h2>
-          <p aria-live="polite">
-            Event {selectedIndex + 1} of {timeline.length}: {selectedStep.label}
-          </p>
+          <p aria-live="polite">Event {selectedIndex + 1} of {timeline.length}: {selectedStep.label}</p>
         </div>
         <label className="timeline-slider">
-          Timeline position
+          <span>Timeline position</span>
           <input
             aria-label="Timeline position"
             max={timeline.length - 1}
@@ -217,11 +249,12 @@ function ReplayViewer({ inferenceStatus, onSelect, selectedIndex, selectedStep, 
           {timeline.map((step) => (
             <li key={step.index}>
               <button
+                aria-label={`${step.index + 1}. ${step.label}`}
                 aria-current={step.index === selectedIndex ? "step" : undefined}
                 onClick={() => onSelect(step.index)}
                 type="button"
               >
-                {step.index + 1}. {step.label}
+                <span aria-hidden="true">{String(step.index + 1).padStart(2, "0")}</span>{step.label}
               </button>
             </li>
           ))}
@@ -242,16 +275,15 @@ function DecisionInspection({
 }) {
   return (
     <section aria-labelledby="decision-heading" className="panel decision-inspection">
+      <p className="panel-kicker">Action aperture</p>
       <h2 id="decision-heading">Decision inspection</h2>
       {step.decision ? (
         <>
           <p>Seat {step.decision.actor ?? "?"} requested an action.</p>
           <ul aria-label="Legal actions" className="legal-actions">
-            {step.decision.legal_actions.map((action, index) => (
-              <li key={`${action}-${index}`}>{action}</li>
-            ))}
+            {step.decision.legal_actions.map((action, index) => <li key={`${action}-${index}`}>{action}</li>)}
           </ul>
-          <p aria-live="polite">{inferenceStatus}</p>
+          <p aria-live="polite" className="inference-status"><span aria-hidden="true" />{inferenceStatus}</p>
         </>
       ) : (
         <p>This event has no requested action.</p>
@@ -263,25 +295,24 @@ function DecisionInspection({
 function BoardState({ state }: { readonly state: ReplayBoardState }) {
   return (
     <section aria-labelledby="board-heading" className="panel board-state">
-      <h2 id="board-heading">Board state</h2>
-      <p className="board-meta">
-        {state.round_wind ?? "?"}{state.kyoku ?? "?"} · honba {state.honba} · sticks {state.kyotaku} · dora{" "}
-        {state.dora_indicators.join(", ") || "?"}
-      </p>
+      <div className="board-heading">
+        <div>
+          <p className="panel-kicker">State reconstruction</p>
+          <h2 id="board-heading">Board state</h2>
+        </div>
+        <p className="board-meta">
+          {state.round_wind ?? "?"}{state.kyoku ?? "?"} / honba {state.honba} / sticks {state.kyotaku} / dora {state.dora_indicators.join(", ") || "?"}
+        </p>
+      </div>
       <div className="seat-grid">
         {Array.from({ length: state.players }, (_, seat) => (
           <section className={state.active_seat === seat ? "seat active-seat" : "seat"} key={seat}>
             <h3>
-              {state.names[seat]} · {state.scores[seat]}
-              {state.riichi_seats[seat] ? " · riichi" : ""}
+              <span>Seat {seat}</span>{state.names[seat]} · {state.scores[seat]}{state.riichi_seats[seat] ? " · riichi" : ""}
             </h3>
             <TileRow label="Hand" tiles={state.hands[seat]} />
             <TileRow label="Discards" tiles={state.discards[seat]} />
-            <p className="seat-meta">
-              Melds: {state.melds[seat].map((meld) => meld.tiles.join(" ")).join(" | ") || "none"}
-              <br />
-              Kita: {state.kita_tiles[seat].join(" ") || "none"}
-            </p>
+            <p className="seat-meta">Melds: {state.melds[seat].map((meld) => meld.tiles.join(" ")).join(" | ") || "none"}<br />Kita: {state.kita_tiles[seat].join(" ") || "none"}</p>
           </section>
         ))}
       </div>
@@ -293,7 +324,9 @@ function TileRow({ label, tiles }: { readonly label: string; readonly tiles: rea
   return (
     <div className="tile-group">
       <span>{label}</span>
-      <div className="tile-row">{tiles.length > 0 ? tiles.map((tile, index) => <b key={`${tile}-${index}`}>{tile}</b>) : "—"}</div>
+      <div aria-label={`${label}: ${tiles.join(" ") || "none"}`} className="tile-row">
+        {tiles.length > 0 ? tiles.map((tile, index) => <b key={`${tile}-${index}`}>{tile}</b>) : "—"}
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ const FIXTURE_ONNX_MODEL = Buffer.from(
 
 test("replays the four-player fixture while offline after page load", async ({ context, page }) => {
   await page.goto("/");
+  await expect(page.locator("[data-ascii-renderer]")).toBeVisible();
   await context.setOffline(true);
   await page.locator('input[accept*=".mjson"]').setInputFiles(FIXTURE_TRAJECTORY);
 

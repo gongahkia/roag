@@ -52,8 +52,12 @@ test("browser source has no network transport APIs", () => {
     fileURLToPath(new URL("../src/lib/onnx-inference.ts", import.meta.url)),
     "utf8"
   );
+  const asciiField = readFileSync(
+    fileURLToPath(new URL("../src/components/AsciiField.tsx", import.meta.url)),
+    "utf8"
+  );
 
-  assert.doesNotMatch(app + localFile + onnxInference, /\bfetch\s*\(|XMLHttpRequest|WebSocket/);
+  assert.doesNotMatch(app + localFile + onnxInference + asciiField, /\bfetch\s*\(|XMLHttpRequest|WebSocket/);
 });
 
 function localFile(
