@@ -5,7 +5,7 @@ PORT="${PORT:-4173}"
 URL="http://127.0.0.1:${PORT}"
 LOG="${TMPDIR:-/tmp}/jomon-vite-${PORT}.log"
 CLI=(npx --yes --package @playwright/cli playwright-cli)
-canvas_hash() { "${CLI[@]}" eval "(() => { const el = document.querySelector('#game'); const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 97) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 })()"; }
+canvas_hash() { "${CLI[@]}" eval "(() => { const el = document.querySelector('#game'); const data = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let hash = 2166136261; for (let i = 0; i < data.length; i += 4) { hash ^= data[i]; hash = Math.imul(hash, 16777619) } return hash >>> 0 })()"; }
 
 "${CLI[@]}" close >/dev/null 2>&1 || true
 "${CLI[@]}" install-browser chromium
