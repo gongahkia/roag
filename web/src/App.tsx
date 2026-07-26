@@ -20,6 +20,7 @@ import { decideAction, DEFAULT_POLICY, loadPolicyArtifact } from "./game/policy"
 import type { GameAction, GameState, PolicyArtifact } from "./game/types";
 
 const INITIAL_SEED = "kenjaku-local-table-v1";
+const AUTOPLAY_STEP_MS = 80;
 
 function App() {
   const [game, setGame] = useState<GameState>(() => settle(createGame({ players: 4, humanSeat: 0, seed: INITIAL_SEED }), DEFAULT_POLICY));
@@ -29,6 +30,7 @@ function App() {
   const [seed, setSeed] = useState(INITIAL_SEED);
   const [showAllHands, setShowAllHands] = useState(false);
   const [motionEnabled, setMotionEnabled] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const [autoplayEnabled, setAutoplayEnabled] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
   const restored = useRef(false);
   const legal = useMemo(() => legalActions(game), [game]);
@@ -86,12 +88,28 @@ function App() {
     setReplayIndex(Math.max(0, game.timeline.length - 1));
   }, [game.version]);
 
+  useEffect(() => {
+    if (!autoplayEnabled || game.phase === "terminal") return;
+    const timeout = window.setTimeout(() => {
+      setGame((current) => advanceAutomated(current, (active, actions) => decideAction(active, actions, policy).selected.action, {
+        includeHuman: true,
+        limit: 1
+      }));
+    }, AUTOPLAY_STEP_MS);
+    return () => window.clearTimeout(timeout);
+  }, [autoplayEnabled, game.phase, game.version, policy]);
+
+  useEffect(() => {
+    if (game.phase === "terminal") setAutoplayEnabled(false);
+  }, [game.phase]);
+
   function commit(action: GameAction) {
+    if (autoplayEnabled) return;
     setGame((current) => settle(applyAction(current, action), policy));
   }
 
   function letPolicyCommit() {
-    if (decision === null) return;
+    if (autoplayEnabled || decision === null) return;
     setGame((current) => settle(applyAction(current, decision.selected.action), policy));
   }
 
@@ -103,12 +121,14 @@ function App() {
   }
 
   function undo() {
+    setAutoplayEnabled(false);
     setGame((current) => undoLastHumanAction(current));
     setStorageStatus("Rewound to the state before your last local action.");
   }
 
   function restoreFrame() {
     if (replayFrame === null) return;
+    setAutoplayEnabled(false);
     setGame((current) => restoreTimelineFrame(current, replayIndex));
     setStorageStatus(`Restored local replay frame ${replayIndex + 1}.`);
   }
@@ -129,6 +149,7 @@ function App() {
     const file = input.files?.[0];
     if (!file) return;
     try {
+      setAutoplayEnabled(false);
       setGame(settle(deserializeGame(JSON.parse(await file.text())), policy));
       setStorageStatus(`Imported ${file.name} into the browser table.`);
     } catch (error) {
@@ -154,6 +175,7 @@ function App() {
           </label>
           <button className="command-button" onClick={() => newGame(4)} type="button">New 4P</button>
           <button className="command-button" onClick={() => newGame(3)} type="button">New 3P</button>
+          <button aria-pressed={autoplayEnabled} className="command-button" disabled={game.phase === "terminal"} onClick={() => setAutoplayEnabled((value) => !value)} type="button">{autoplayEnabled ? "Stop autoplay" : "Autoplay all"}</button>
           <button className="command-button" disabled={!game.timeline.some((frame) => frame.event.seat === game.humanSeat && frame.event.action !== null)} onClick={undo} type="button">Undo</button>
           <button className="command-button" onClick={exportReplay} type="button">Export</button>
           <label className="command-button import-button">
@@ -168,6 +190,7 @@ function App() {
         <span>state {digest}</span>
         <span>v{game.version}</span>
         <span>{game.players}P / E{game.handNumber}</span>
+        <span>{autoplayEnabled ? "all seats autoplaying" : "manual seat 0"}</span>
         <span>{storageStatus}</span>
       </section>
 
@@ -210,10 +233,10 @@ function App() {
         <section aria-label="Your hand" className="hand-console">
           <div className="hand-heading">
             <div>
-              <p className="panel-kicker">Seat 0 / direct control</p>
+              <p className="panel-kicker">Seat 0 / {autoplayEnabled ? "policy control" : "direct control"}</p>
               <h2>{game.names[game.humanSeat]} hand</h2>
             </div>
-            <p>{game.phase === "terminal" ? "Round complete" : game.currentSeat === game.humanSeat ? "Select a tile or legal action" : "Models are resolving the table"}</p>
+            <p>{game.phase === "terminal" ? "Round complete" : autoplayEnabled ? "All seats are resolving with the local policy" : game.currentSeat === game.humanSeat ? "Select a tile or legal action" : "Models are resolving the table"}</p>
           </div>
           <div aria-label="Player hand" className="player-hand">
             {game.hands[game.humanSeat].map((tile, index) => {
@@ -222,7 +245,7 @@ function App() {
                 <button
                   aria-label={`Discard ${tileGlyph(tile)} ${tile}`}
                   className={discard ? "game-tile is-legal" : "game-tile"}
-                  disabled={!discard}
+                  disabled={!discard || autoplayEnabled}
                   key={`${tile}-${index}`}
                   onClick={() => discard && commit(discard)}
                   type="button"
@@ -234,7 +257,7 @@ function App() {
           </div>
           <div aria-label="Legal game actions" className="action-rail">
             {legal.filter((action) => action.kind !== "discard").map((action) => (
-              <button className="action-button" key={actionKey(action)} onClick={() => commit(action)} type="button">{actionLabel(action)}</button>
+              <button className="action-button" disabled={autoplayEnabled} key={actionKey(action)} onClick={() => commit(action)} type="button">{actionLabel(action)}</button>
             ))}
             {legal.length === 0 && game.phase !== "terminal" ? <span className="disabled-action">Awaiting model turn</span> : null}
           </div>
@@ -245,14 +268,14 @@ function App() {
         <section className="panel policy-panel" aria-labelledby="policy-heading">
           <div className="panel-heading">
             <div><p className="panel-kicker">Browser policy</p><h2 id="policy-heading">Action aperture</h2></div>
-            <button className="command-button" disabled={decision === null} onClick={letPolicyCommit} type="button">Model commit</button>
+            <button className="command-button" disabled={autoplayEnabled || decision === null} onClick={letPolicyCommit} type="button">Model commit</button>
           </div>
           <p className="status-line" aria-live="polite">{policyStatus}</p>
           {decision ? (
             <ol className="policy-list" aria-label="Policy ranked actions">
               {decision.choices.slice(0, 6).map((choice) => (
                 <li key={actionKey(choice.action)}>
-                  <button onClick={() => commit(choice.action)} type="button">
+                  <button disabled={autoplayEnabled} onClick={() => commit(choice.action)} type="button">
                     <span>{actionLabel(choice.action)}</span><b>{Math.round(choice.probability * 100)}%</b>
                   </button>
                   <p>{choice.rationale.join(" · ")}</p>

@@ -19,6 +19,18 @@ test("runs the local browser-owned table with interactive tiles, policy, and his
   await expect(page.getByRole("heading", { name: "Table ledger" })).toBeVisible();
 });
 
+test("autoplay uses the local policy for every seat and can be stopped", async ({ page }) => {
+  await page.goto("/");
+  const history = page.locator(".history-panel");
+  const initialEvents = await history.locator(".event-log li").count();
+  await page.getByRole("button", { name: "Autoplay all" }).click();
+  await expect(page.getByRole("button", { name: "Stop autoplay" })).toBeVisible();
+  await expect(page.getByText("all seats autoplaying")).toBeVisible();
+  await expect.poll(() => history.locator(".event-log li").count()).toBeGreaterThan(initialEvents);
+  await page.getByRole("button", { name: "Stop autoplay" }).click();
+  await expect(page.getByRole("button", { name: "Autoplay all" })).toBeVisible();
+});
+
 test("starts a deterministic Sanma table and exposes engine inspection", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Game seed").fill("browser-sanma-seed");

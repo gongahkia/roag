@@ -45,6 +45,19 @@ test("discard enters the ordered reaction window and passes advance the wall", (
   assert.equal(settled.currentSeat, 0);
 });
 
+test("the local policy can complete a hand for every seat", () => {
+  const initial = createGame({ players: 4, humanSeat: 0, seed: "all-seat-autoplay" });
+  const completed = advanceAutomated(initial, (state, actions) => decideAction(state, actions).selected.action, {
+    includeHuman: true,
+    limit: 512
+  });
+  assert.equal(completed.phase, "terminal");
+  assert.ok(completed.history.some((event) => event.seat === 0 && event.action !== null));
+  assert.ok(completed.history.some((event) => event.seat === 1 && event.action !== null));
+  assert.ok(completed.history.some((event) => event.seat === 2 && event.action !== null));
+  assert.ok(completed.history.some((event) => event.seat === 3 && event.action !== null));
+});
+
 test("the browser core consumes the frozen Python discard trace shape", () => {
   const fixture = JSON.parse(readFileSync(new URL("./fixtures/python-sandbox-discard-v1.json", import.meta.url), "utf8")) as {
     seed: string;
