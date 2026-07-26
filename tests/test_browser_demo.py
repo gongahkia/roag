@@ -62,11 +62,27 @@ class BrowserDemoTests(unittest.TestCase):
         self.assertIn('href="styles.css"', html)
         self.assertIn('src="demo.js"', html)
         self.assertIn("kj-table-surface", html)
+        self.assertIn('id="ascii-field"', html)
+        self.assertIn("table-identity", html)
         self.assertIn("action-rail", html)
+        self.assertIn('id="discard-target"', html)
+        self.assertIn('id="motion-button"', html)
+        self.assertIn('id="interaction-status"', html)
+        self.assertIn("← → select", html)
         self.assertIn("kj-motion-lift", html)
+        self.assertIn(".ascii-field", css)
+        self.assertIn(".demo-impact-heavy", css)
+        self.assertIn(".tile-flight", css)
+        self.assertIn(".tile-vector", css)
         self.assertIn("kj-motion-confirm-flash", css)
         self.assertIn("window.KenjakuMotion", js)
         self.assertIn("countUp", js)
+        self.assertIn("setupAsciiField", js)
+        self.assertIn("createAsciiFrame", js)
+        self.assertIn("handleTileKeydown", js)
+        self.assertIn("setupDiscardTarget", js)
+        self.assertIn("playDiscardMotion", js)
+        self.assertIn("toggleMotion", js)
         self.assertEqual(policy["kind"], BROWSER_DEMO_POLICY_KIND)
         self.assertEqual(policy["model"]["input_dim"], 58)
         self.assertEqual(policy["model"]["action_dim"], 276)
@@ -130,12 +146,17 @@ class BrowserDemoTests(unittest.TestCase):
                 "policy-export",
                 "policy-decision",
                 "policy-confidence",
+                "discard-target",
+                "motion-button",
+                "interaction-status",
             },
         )
         self.assertGreaterEqual(
             parser.classes,
             {
                 "table-hud",
+                "ascii-field",
+                "table-identity",
                 "table-core",
                 "table-center",
                 "player-console",
@@ -143,6 +164,9 @@ class BrowserDemoTests(unittest.TestCase):
                 "score-chip",
                 "mode-controls",
                 "mode-button",
+                "discard-target",
+                "turn-vector",
+                "control-hint",
                 "policy-grid",
                 "policy-row",
                 "kj-motion-lift",
