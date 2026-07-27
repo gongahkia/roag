@@ -1,3 +1,5 @@
+import type { RouteContract } from './route-contract'
+
 export const MAP_WIDTH = 48
 export const MAP_HEIGHT = 35
 export const TERMINAL_WIDTH = 96
@@ -108,6 +110,7 @@ export interface Floor {
   width: number
   height: number
   layoutId: string
+  routeContract?: RouteContract
   tiles: Tile[]
   actors: Actor[]
   items: GroundItem[]

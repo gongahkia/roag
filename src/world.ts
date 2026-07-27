@@ -5,6 +5,7 @@ import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
+import { generateRouteContract, validateRouteContract } from './route-contract'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -21,15 +22,37 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
   return Boolean(target && passable(target.kind) && target.kind !== 'lockedDoor' && !actorAt(floor, x, y) && !isBlockingProp(propAt(floor.props, x, y)))
 }
 
-export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => {
+const pathOffsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
+const isPathPassable = (floor: Floor, point: Point, ignoreBlockingProps: boolean): boolean => {
+  const current = getTile(floor, point.x, point.y)
+  return Boolean(current && passable(current.kind) && current.kind !== 'lockedDoor' && (ignoreBlockingProps || !isBlockingProp(propAt(floor.props, point.x, point.y))))
+}
+
+export const reachableFloorIndexes = (floor: Floor, start = floor.start, ignoreBlockingProps = false): Set<number> => {
+  if (!isPathPassable(floor, start, ignoreBlockingProps)) return new Set()
+  const initial = indexOf(floor, start.x, start.y)
+  const seen = new Set<number>([initial])
+  const queue = [initial]
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const point = pointAt(floor, queue[cursor])
+    for (const [x, y] of pathOffsets) {
+      const next = { x: point.x + x, y: point.y + y }
+      if (!inBounds(floor, next.x, next.y) || !isPathPassable(floor, next, ignoreBlockingProps)) continue
+      const nextIndex = indexOf(floor, next.x, next.y)
+      if (!seen.has(nextIndex)) { seen.add(nextIndex); queue.push(nextIndex) }
+    }
+  }
+  return seen
+}
+
+const hasPath = (floor: Floor, start: Point, destination: Point, ignoreBlockingProps: boolean): boolean => {
   const queue = [{ ...start }]
   const seen = new Set<string>([pointKey(start)])
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const point = queue[cursor]
-    const current = getTile(floor, point.x, point.y)
-    if (!current || !passable(current.kind) || current.kind === 'lockedDoor') continue
+    if (!isPathPassable(floor, point, ignoreBlockingProps)) continue
     if (point.x === destination.x && point.y === destination.y) return true
-    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+    for (const [x, y] of pathOffsets) {
       const next = { x: point.x + x, y: point.y + y }
       const key = pointKey(next)
       if (!seen.has(key)) { seen.add(key); queue.push(next) }
@@ -38,22 +61,8 @@ export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: 
   return false
 }
 
-export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => {
-  const queue = [{ ...start }]
-  const seen = new Set<string>([pointKey(start)])
-  for (let cursor = 0; cursor < queue.length; cursor++) {
-    const point = queue[cursor]
-    const current = getTile(floor, point.x, point.y)
-    if (!current || !passable(current.kind) || current.kind === 'lockedDoor' || isBlockingProp(propAt(floor.props, point.x, point.y))) continue
-    if (point.x === destination.x && point.y === destination.y) return true
-    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
-      const next = { x: point.x + x, y: point.y + y }
-      const key = pointKey(next)
-      if (!seen.has(key)) { seen.add(key); queue.push(next) }
-    }
-  }
-  return false
-}
+export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, true)
+export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, false)
 
 export const preservesExitPath = (floor: Floor, start: Point, point: Point, kind: Tile['kind']): boolean => {
   const target = getTile(floor, point.x, point.y)
@@ -91,6 +100,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
   const layoutId = layoutFor(runSeed, biome, index % 4)
+  const routeContract = generateRouteContract(runSeed, index, biome, index % 4, layoutId)
   const { width, height } = dimensionsFor(biome)
   const floor: Floor = {
     index,
@@ -99,6 +109,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     width,
     height,
     layoutId,
+    routeContract,
     tiles: Array.from({ length: width * height }, () => tile('wall')),
     actors: [],
     items: [],
@@ -802,22 +813,7 @@ const distance = (a: Point, b: Point): number => Math.abs(a.x - b.x) + Math.abs(
 
 export interface GenerationValidation { valid: boolean; errors: string[] }
 
-const reachableIndexes = (floor: Floor): Set<number> => {
-  const start = indexOf(floor, floor.start.x, floor.start.y)
-  const seen = new Set<number>([start])
-  const queue = [start]
-  for (let cursor = 0; cursor < queue.length; cursor++) {
-    const index = queue[cursor]
-    const { x, y } = pointAt(floor, index)
-    const tile = floor.tiles[index]
-    if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') continue
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(floor, x + dx, y + dy)) {
-      const next = indexOf(floor, x + dx, y + dy)
-      if (!seen.has(next)) { seen.add(next); queue.push(next) }
-    }
-  }
-  return seen
-}
+const reachableIndexes = (floor: Floor): Set<number> => reachableFloorIndexes(floor)
 
 const objectiveTargets = (floor: Floor): Point[] => {
   if (floor.objective.kind === 'recoverSupplies') return floor.tiles.flatMap((tile, i) => tile.kind === 'crate' || tile.kind === 'chest' ? [pointAt(floor, i)] : [])
@@ -831,6 +827,7 @@ const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
   errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor), ...propDefinitionErrors)
+  if (floor.routeContract) errors.push(...validateRouteContract(floor.routeContract).errors.map(error => `invalid route contract: ${error}`))
   if (puzzleTemplatesFor(floor.biome).length && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
   if (floor.tiles.length !== floor.width * floor.height || floor.width < MAP_WIDTH || floor.height < MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
   if (!floor.layoutId || !layoutVariants[floor.biome].some(layout => floor.layoutId === layout || floor.layoutId === `${layout}-remix`)) errors.push('invalid layout id')
