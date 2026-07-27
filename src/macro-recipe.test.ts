@@ -36,6 +36,13 @@ describe('route macro recipes', () => {
     expect(first.diagnostics).toEqual(expect.arrayContaining([expect.stringMatching(/^attempt 0: node .*footprint/), expect.stringMatching(/^attempt 2: node .*footprint/)]))
   })
 
+  it('keeps every Mine floor-four remix footprint disjoint', () => {
+    for (const recipeId of ['rail-spine-remix', 'branching-drifts-remix', 'collapse-loop-remix']) {
+      const contract = generateRouteContract(input({ areaFloor: 3, floorIndex: 3, recipeId, escalationVariant: 'stage-4' }))
+      expect(compileRouteContract(contract, { width: 48, height: 35 })).toMatchObject({ valid: true })
+    }
+  })
+
   it('keeps Mine connectors visible in generated-floor metadata and traversable after props', () => {
     for (const recipeFloor of [0, 1, 2, 3]) {
       const floor = generateAreaFloor(101, 'mine', recipeFloor)

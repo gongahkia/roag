@@ -51,10 +51,10 @@ const edgeRoles = (terrain: string): Record<RouteEdgeMode, MacroEdgeRole> => ({
 })
 
 const tight: Record<RouteNodeKind, Point> = { start: { x: 11, y: 48 }, landmark: { x: 28, y: 48 }, fork: { x: 48, y: 48 }, objective: { x: 76, y: 48 }, optionalReward: { x: 63, y: 77 }, exit: { x: 92, y: 48 }, boss: { x: 91, y: 48 } }
-const broad: Record<RouteNodeKind, Point> = { start: { x: 10, y: 52 }, landmark: { x: 28, y: 30 }, fork: { x: 49, y: 52 }, objective: { x: 80, y: 28 }, optionalReward: { x: 74, y: 78 }, exit: { x: 93, y: 52 }, boss: { x: 91, y: 52 } }
+const broad: Record<RouteNodeKind, Point> = { start: { x: 10, y: 52 }, landmark: { x: 28, y: 30 }, fork: { x: 49, y: 52 }, objective: { x: 72, y: 28 }, optionalReward: { x: 74, y: 78 }, exit: { x: 93, y: 52 }, boss: { x: 91, y: 52 } }
 const vertical: Record<RouteNodeKind, Point> = { start: { x: 22, y: 84 }, landmark: { x: 32, y: 64 }, fork: { x: 45, y: 48 }, objective: { x: 70, y: 18 }, optionalReward: { x: 76, y: 66 }, exit: { x: 91, y: 12 }, boss: { x: 91, y: 14 } }
 const directedFlow: Record<RouteNodeKind, Point> = { start: { x: 9, y: 28 }, landmark: { x: 28, y: 68 }, fork: { x: 48, y: 42 }, objective: { x: 80, y: 70 }, optionalReward: { x: 70, y: 18 }, exit: { x: 93, y: 38 }, boss: { x: 91, y: 42 } }
-const looped: Record<RouteNodeKind, Point> = { start: { x: 10, y: 50 }, landmark: { x: 27, y: 26 }, fork: { x: 48, y: 42 }, objective: { x: 79, y: 50 }, optionalReward: { x: 48, y: 77 }, exit: { x: 93, y: 50 }, boss: { x: 91, y: 50 } }
+const looped: Record<RouteNodeKind, Point> = { start: { x: 10, y: 50 }, landmark: { x: 27, y: 26 }, fork: { x: 48, y: 42 }, objective: { x: 74, y: 50 }, optionalReward: { x: 48, y: 77 }, exit: { x: 93, y: 50 }, boss: { x: 91, y: 50 } }
 
 const recipe = (id: string, biome: Biome, topology: MacroTopology, anchors: Record<RouteNodeKind, Point>, pilot = false): RouteMacroRecipe => ({ id, biome, topology, pilot, nodeRoles: nodeRoles(`${biome}-landmark`, topology === 'directedFlow' ? 'current' : topology === 'vertical' ? 'ledge' : 'floor'), edgeRoles: edgeRoles(topology === 'directedFlow' ? 'current' : topology === 'vertical' ? 'ledge' : 'floor'), anchors })
 const recipes: RouteMacroRecipe[] = [
