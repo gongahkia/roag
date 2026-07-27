@@ -19,7 +19,7 @@ export interface RouteMacroRecipe {
 }
 
 export interface MacroNodePlacement { nodeId: string; kind: RouteNodeKind; footprint: { x: number; y: number; width: number; height: number }; terrain: string; landmark: string; visual: string }
-export interface MacroEdgePlacement { edgeId: string; from: Point; to: Point; cells: Point[]; terrain: string; visual: string }
+export interface MacroEdgePlacement { edgeId: string; modes: RouteEdgeMode[]; from: Point; to: Point; cells: Point[]; terrain: string; visual: string }
 export interface MacroRecipeDebug {
   valid: boolean
   recipeId: string
@@ -132,7 +132,7 @@ const compileAttempt = (contract: RouteContract, recipe: RouteMacroRecipe, optio
     const cells = axisPath(fromPoint, toPoint, role.connector === 'horizontalFirst')
     const invalid = cells.find(point => !inside(point, options.width, options.height))
     if (invalid) diagnostics.push(`edge ${edge.id}: connector leaves bounds at ${invalid.x},${invalid.y} on attempt ${attempt}`)
-    edges.push({ edgeId: edge.id, from: fromPoint, to: toPoint, cells, terrain: role.terrain, visual: role.visual })
+    edges.push({ edgeId: edge.id, modes: [...edge.modes], from: fromPoint, to: toPoint, cells, terrain: role.terrain, visual: role.visual })
   }
   return { valid: !diagnostics.length, recipeId: recipe.id, topology: recipe.topology, attempt, nodes, edges, diagnostics }
 }

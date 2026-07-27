@@ -1,12 +1,13 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, type TileKind, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
-import { generateRouteContract, validateRouteContract, type RouteNodeKind } from './route-contract'
+import { generateRouteContract, validateRouteContract, type RouteEdgeMode, type RouteNodeKind } from './route-contract'
 import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMacroRealization, type MacroRecipeDebug } from './macro-recipe'
+import { selectPlacement, type PlacementContext, type PlacementContract, type PlacementDebug } from './placement-contract'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -14,6 +15,7 @@ const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bra
 const propDefinitionErrors = validatePropDefinitions()
 const macroDebugs = new WeakMap<Floor, MacroRecipeDebug>()
 const macroPilots = new WeakMap<Floor, boolean>()
+const placementDebugs = new WeakMap<Floor, PlacementDebug[]>()
 
 const indexOf = (floor: Floor, x: number, y: number): number => floorIndex(floor, x, y)
 const pointAt = (floor: Floor, index: number): Point => floorPoint(floor, index)
@@ -67,6 +69,7 @@ const hasPath = (floor: Floor, start: Point, destination: Point, ignoreBlockingP
 export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, true)
 export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, false)
 export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
+export const placementDebug = (floor: Floor): readonly PlacementDebug[] => placementDebugs.get(floor) ?? []
 export const validateMacroRecipe = (floor: Floor): string[] => {
   const debug = macroDebugs.get(floor)
   return !debug || !macroPilots.get(floor) ? [] : validateMacroRealization(debug, point => Boolean(getTile(floor, point.x, point.y) && isPathPassable(floor, point, false)))
@@ -114,6 +117,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const { width, height } = dimensionsFor(biome)
   const macro = compileRouteContract(routeContract, { width, height })
   if (!macro.valid) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macro.diagnostics.join('; ')}`)
+  const placements: PlacementRuntime = { macro, pilot: macroRecipeFor(routeContract).pilot, diagnostics: [] }
   const floor: Floor = {
     index,
     biome,
@@ -141,19 +145,20 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
   placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
-  placeEvents(floor, rooms)
+  placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms, reservedMacroCells)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   repairMandatoryPath(floor)
-  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
-  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
-  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), reachableIndexes(floor), reservedMacroCells)
-  placeMilestones(floor, rngFor(runSeed, 'progression', index, 'milestones'))
-  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'))
+  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
+  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
+  placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
+  placeMilestones(floor, placements)
+  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'), placements)
   macroDebugs.set(floor, macro)
   macroPilots.set(floor, macroRecipeFor(routeContract).pilot)
+  placementDebugs.set(floor, placements.diagnostics)
   const macroErrors = validateMacroRecipe(floor)
   if (macroErrors.length) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macroErrors.join('; ')}`)
   const validation = validateGeneration(floor)
@@ -366,8 +371,41 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
   }
 }
 
-function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>, reserved: ReadonlySet<number> = new Set()): void {
-  const definitions = rng.shuffle([...propDefinitionsFor(floor.biome)])
+interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[] }
+const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
+  const adjacent = (point: Point): Point[] => cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(point => inBounds(floor, point.x, point.y))
+  const blocked = (point: Point): boolean => !eligible(point) || floor.props.some(prop => prop.x === point.x && prop.y === point.y) || floor.actors.some(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y) || floor.items.some(item => item.x === point.x && item.y === point.y) || floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y)
+  return {
+    points: floor.tiles.map((_, index) => pointAt(floor, index)),
+    terrainAt: point => getTile(floor, point.x, point.y)?.kind,
+    passableAt: point => Boolean(getTile(floor, point.x, point.y) && isPathPassable(floor, point, true)),
+    blockedAt: blocked,
+    distanceFromStart: point => distance(point, floor.start),
+    visibleAt: point => Boolean(getTile(floor, point.x, point.y)?.visible),
+    coveredAt: point => adjacent(point).some(candidate => !passable(getTile(floor, candidate.x, candidate.y)?.kind ?? 'wall') || isBlockingProp(propAt(floor.props, candidate.x, candidate.y))),
+    chokepointAt: point => adjacent(point).filter(candidate => isPathPassable(floor, candidate, false)).length <= 2,
+    adjacentTerrainAt: point => adjacent(point).map(candidate => getTile(floor, candidate.x, candidate.y)?.kind).filter((kind): kind is TileKind => Boolean(kind)),
+    nodeKindsAt: point => runtime.pilot ? runtime.macro.nodes.filter(node => point.x >= node.footprint.x && point.x < node.footprint.x + node.footprint.width && point.y >= node.footprint.y && point.y < node.footprint.y + node.footprint.height).map(node => node.kind) : [],
+    edgeModesAt: point => runtime.pilot ? runtime.macro.edges.filter(edge => edge.cells.some(cell => cell.x === point.x && cell.y === point.y)).flatMap(edge => edge.modes) : []
+  }
+}
+const choosePlacement = (floor: Floor, runtime: PlacementRuntime, contract: PlacementContract, eligible?: (point: Point) => boolean): Point | undefined => {
+  const selection = selectPlacement(contract, placementContext(floor, runtime, eligible))
+  runtime.diagnostics.push(selection.debug)
+  return selection.point
+}
+
+function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: ReadonlySet<number>, runtime: PlacementRuntime): void {
+  const links: Partial<Record<Prop['kind'], Prop['kind']>> = {
+    'mine.lanternPost': 'mine.warningMarker',
+    'mine.brokenCart': 'mine.discardedParcel',
+    'wilds.rootShrine': 'wilds.lostParcel',
+    'caverns.barnacledShrine': 'caverns.sealedParcel',
+    'ruins.ritualBrazier': 'ruins.sealedCache'
+  }
+  const companions = new Set(Object.values(links))
+  const definitions = [...propDefinitionsFor(floor.biome)].sort((left, right) => Number(companions.has(left.id)) - Number(companions.has(right.id)))
+  const anchors = new Map<Prop['kind'], Point>()
   const occupied = new Set<number>([
     indexOf(floor, floor.start.x, floor.start.y),
     indexOf(floor, floor.exit.x, floor.exit.y),
@@ -376,15 +414,24 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>, rese
     ...floor.items.map(item => indexOf(floor, item.x, item.y))
   ])
   for (const definition of definitions) {
-    const candidates: number[] = []
-    for (let index = 0; index < floor.tiles.length; index++) {
-      const tile = floor.tiles[index]
-      const point = pointAt(floor, index)
-      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !reserved.has(index) && !occupied.has(index) && hasPropContext(floor, definition.id, point)) candidates.push(index)
+    const anchor = Object.entries(links).find(([, companion]) => companion === definition.id)?.[0] as Prop['kind'] | undefined
+    if (companions.has(definition.id) && !anchor) {
+      runtime.diagnostics.push({ id: `prop:${definition.id}`, ranked: 0, usedFallback: false, diagnostics: [`placement prop:${definition.id}: linked setpiece anchor is unavailable`], requirements: { terrain: [...definition.terrain] } })
+      continue
     }
-    if (!candidates.length) continue
-    const placement = rng.pick(candidates)
-    const point = pointAt(floor, placement)
+    const tags = new Set(definition.tags)
+    const requirements: PlacementContract = {
+      id: `prop:${definition.id}`,
+      requirements: {
+        terrain: [...definition.terrain],
+        minDistance: tags.has('cache') ? 8 : 5,
+        ...(runtime.pilot && tags.has('route') ? { edgeModes: ['main'] as RouteEdgeMode[] } : {}),
+        ...(runtime.pilot && tags.has('cache') ? { nodeKinds: ['optionalReward'] as RouteNodeKind[] } : {}),
+        ...(anchor ? { near: anchors.get(anchor), nearDistance: 10 } : {})
+      }
+    }
+    const point = choosePlacement(floor, runtime, requirements, candidate => reachable.has(indexOf(floor, candidate.x, candidate.y)) && !reserved.has(indexOf(floor, candidate.x, candidate.y)) && !occupied.has(indexOf(floor, candidate.x, candidate.y)) && hasPropContext(floor, definition.id, candidate))
+    if (!point) continue
     const prop: Prop = {
       id: `prop:${floor.index}:${definition.id}:${point.x}:${point.y}`,
       kind: definition.id,
@@ -403,41 +450,33 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>, rese
       if (!keepsExitReachable || !keepsObjectiveReachable) continue
     }
     floor.props.push(prop)
-    occupied.add(placement)
-    break
+    occupied.add(indexOf(floor, point.x, point.y))
+    if (links[definition.id]) anchors.set(definition.id, point)
   }
 }
 
-function placeMilestones(floor: Floor, rng: Rng): void {
-  const reachable = reachableIndexes(floor)
-  const occupied = new Set<number>([
-    indexOf(floor, floor.start.x, floor.start.y), indexOf(floor, floor.exit.x, floor.exit.y),
-    ...objectiveTargets(floor).map(point => indexOf(floor, point.x, point.y)),
-    ...floor.actors.map(actor => indexOf(floor, actor.x, actor.y)),
-    ...floor.items.map(item => indexOf(floor, item.x, item.y)),
-    ...floor.props.map(prop => indexOf(floor, prop.x, prop.y))
-  ])
-  const candidates = floor.tiles.flatMap((current, index) => {
-    const point = pointAt(floor, index)
-    return passable(current.kind) && current.kind !== 'exit' && !occupied.has(index) && reachable.has(index) && distance(point, floor.start) >= 4 ? [point] : []
-  })
-  const selected: Point[] = []
-  for (const candidate of rng.shuffle(candidates)) {
-    if (!hasPassablePath(floor, floor.start, candidate)) continue
-    selected.push(candidate)
-    if (selected.length === 5) break
+function placeMilestones(floor: Floor, runtime: PlacementRuntime): void {
+  const specs = [
+    { id: 'waycache', kind: 'waycache' as const, primary: { nodeKinds: ['landmark'] as RouteNodeKind[], minDistance: 5 }, legacy: { minDistance: 5, maxDistance: 18 } },
+    { id: 'boon-teach', kind: 'boon' as const, primary: { nodeKinds: ['fork'] as RouteNodeKind[], minDistance: 7 }, legacy: { minDistance: 7, maxDistance: 24 } },
+    { id: 'boon-test', kind: 'boon' as const, primary: { edgeModes: ['costly'] as RouteEdgeMode[], routeCost: 'costly' as const, minDistance: 9 }, legacy: { minDistance: 10, chokepoint: false } },
+    { id: 'boon-payoff', kind: 'boon' as const, primary: { nodeKinds: ['optionalReward'] as RouteNodeKind[], minDistance: 10 }, legacy: { minDistance: 12 } },
+    { id: 'augment', kind: 'augment' as const, primary: { nodeKinds: ['objective'] as RouteNodeKind[], minDistance: 12 }, legacy: { minDistance: 14 } }
+  ]
+  floor.milestones = []
+  for (const spec of specs) {
+    const contract: PlacementContract = { id: `milestone:${spec.id}`, requirements: runtime.pilot ? spec.primary : spec.legacy, ...(runtime.pilot ? { fallback: spec.legacy } : {}) }
+    const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
+    if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    floor.milestones.push({ id: `milestone:${floor.index}:${spec.id}:${point.x}:${point.y}`, kind: spec.kind, ...point, discovered: false, claimed: false })
   }
-  if (selected.length < 5) throw new Error(`failed to place milestones on floor ${floor.index}`)
-  floor.milestones = selected.map((point, index) => ({ id: `milestone:${floor.index}:${index}:${point.x}:${point.y}`, kind: index === 0 ? 'waycache' : index === 4 ? 'augment' : 'boon', ...point, discovered: false, claimed: false }))
 }
 
-function placeEncounters(floor: Floor, rng: Rng): void {
-  const reachable = reachableIndexes(floor)
-  const candidates = floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [pointAt(floor, index)] : [])
-    .filter(point => distance(point, floor.start) > 7 && distance(point, floor.exit) > 5)
-    .filter(point => !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && !floor.props.some(prop => prop.x === point.x && prop.y === point.y) && !floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y))
-    .filter(point => reachable.has(indexOf(floor, point.x, point.y)))
-  const point = candidates.length ? rng.pick(candidates) : undefined
+function placeEncounters(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
+  const contract: PlacementContract = runtime.pilot
+    ? { id: 'encounter:guarded-shrine', requirements: { edgeModes: ['costly'], routeCost: 'costly', minDistance: 8, cover: true }, fallback: { minDistance: 8, terrain: ['floor'] } }
+    : { id: 'encounter:guarded-shrine', requirements: { minDistance: 8, terrain: ['floor'] } }
+  const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
   if (!point) return
   const aligned: Record<Biome, readonly FloorEncounter['kind'][]> = {
     mine: ['minePact', 'mineKami'], wilds: ['wildsPact', 'wildsKami'], caverns: ['cavernsPact', 'cavernsKami'], ruins: ['ruinsPact', 'ruinsKami'], furnace: ['furnacePact', 'furnaceKami'], floodedRuins: ['floodedPact', 'floodedKami'], cliffs: ['cliffsPact', 'cliffsKami'], burial: ['burialPact', 'burialKami'], saltFlats: ['saltPact', 'saltKami'], frostReliquary: ['frostPact', 'frostKami']
@@ -723,9 +762,12 @@ function decorateFrostReliquary(floor: Floor, rng: Rng): void {
   paint('boulder', 4)
 }
 
-function placeEvents(floor: Floor, rooms: Room[]): void {
+function placeEvents(floor: Floor, rooms: Room[], runtime: PlacementRuntime): void {
   const eventRoom = rooms[floor.biome === 'ruins' && rooms.length > 2 ? 1 : Math.max(1, Math.floor(rooms.length / 2))]
-  const point = center(eventRoom)
+  const fallback = center(eventRoom)
+  const nodeKinds: RouteNodeKind[] = floor.index % 4 === 0 ? ['landmark'] : floor.index % 4 === 1 ? ['fork'] : ['objective']
+  const point = choosePlacement(floor, runtime, { id: `event:${floor.index}`, requirements: runtime.pilot ? { nodeKinds, minDistance: 5 } : { near: fallback, nearDistance: 0 }, ...(runtime.pilot ? { fallback: { near: fallback, nearDistance: 0 } } : {}) })
+  if (!point) throw new Error(`failed placement event:${floor.index}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
   const kind: Tile['kind'] = floor.index % 4 === 0 ? 'shop' : floor.index % 4 === 1 ? 'rescue' : floor.index % 4 === 2 ? 'altar' : 'shop'
   setKind(floor, point.x, point.y, kind)
   if (kind === 'shop') floor.actors.push(friendly('merchant', `${floor.biome} trader`, point, '$', '#f4d26a'))
@@ -801,7 +843,7 @@ function placeContainers(floor: Floor, rng: Rng, rooms: Room[], reserved: Readon
   }
 }
 
-function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
+function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   const definitions = MONSTERS.filter(monster => monster.biome === floor.biome)
   const regular = definitions.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')
   const baselineCount = floor.biome === 'mine'
@@ -809,8 +851,12 @@ function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
     : 3 + floor.index % 4 + Math.floor((floor.difficulty?.routePosition ?? 0) / 3)
   const count = floor.biome !== 'mine' && floor.index % 4 === 3 ? 0 : baselineCount
   for (let i = 0; i < count; i++) {
-    const point = freeRoomPoint(floor, rng, rooms.slice(1))
     const definition = rng.pick(regular)
+    const contract: PlacementContract = runtime.pilot
+      ? { id: `actor:${definition.id}:${i}`, requirements: { edgeModes: ['costly'], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 7 } }
+      : { id: `actor:${definition.id}:${i}`, requirements: { terrain: ['floor'], minDistance: 7 } }
+    const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
+    if (!point) continue
     const actor = spawnMonster(definition.id, point, `${definition.id}-${i}`, floor.difficulty)
     if (rng.chance(floor.difficulty?.eliteChance ?? 0) || (floor.biome === 'frostReliquary' && floor.index % 4 >= 1 && i === 0)) {
       actor.maxHealth = Math.round(actor.maxHealth * 1.25)
@@ -826,13 +872,17 @@ function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
   }
 }
 
-function placeItems(floor: Floor, rng: Rng, rooms: Room[]): void {
+function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRuntime): void {
   const valueCap = 105 + (floor.difficulty?.threat ?? 0) * 14
   const eligible = ITEMS.filter(item => item.findable !== false && item.value <= valueCap && (!item.slot || rng.chance(30 + (floor.difficulty?.routePosition ?? 0) * 8)))
   const loot = eligible.length ? eligible : ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
   const count = 10 + floor.index % 4 * 2 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)
   for (let i = 0; i < count; i++) {
-    const point = freeRoomPoint(floor, rng, rooms)
+    const contract: PlacementContract = runtime.pilot && i > 0
+      ? { id: `loot:${i}`, requirements: { nodeKinds: ['optionalReward'], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 4 } }
+      : { id: `loot:${i}`, requirements: { terrain: ['floor'], minDistance: 4 } }
+    const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
+    if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
     const id = i === 0 && floor.index % 4 === 0 ? 'key' : rng.pick(loot).id
     floor.items.push({ id, x: point.x, y: point.y, count: 1 })
   }
