@@ -60,6 +60,10 @@ describe('expedition generation', () => {
     expect(native.some(entry => entry.requirements.terrain?.some(terrain => terrain === 'water' || terrain === 'web'))).toBe(true)
   })
 
+  it('restores Mine contract connectors before floor-four event placement', () => {
+    for (let seed = 0; seed < 24; seed++) expect(validateGeneration(generateAreaFloor(seed, 'mine', 3))).toEqual({ valid: true, errors: [] })
+  }, 30_000)
+
   it('uses water, brambles, and webs to vary solvable Wilds sightlines', () => {
     for (const seed of [8, 42, 1000]) {
       const floor = generateAreaFloor(seed, 'wilds', 0)

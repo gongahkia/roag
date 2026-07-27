@@ -158,6 +158,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
   decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
   placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
+  restoreMacroConnectors(floor, macro, reservedMacroCells)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
