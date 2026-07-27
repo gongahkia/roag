@@ -414,7 +414,8 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
     ...floor.items.map(item => indexOf(floor, item.x, item.y))
   ])
   for (const definition of definitions) {
-    const anchor = Object.entries(links).find(([, companion]) => companion === definition.id)?.[0] as Prop['kind'] | undefined
+    const anchorId = Object.entries(links).find(([, companion]) => companion === definition.id)?.[0] as Prop['kind'] | undefined
+    const anchor = anchorId ? anchors.get(anchorId) : undefined
     if (companions.has(definition.id) && !anchor) {
       runtime.diagnostics.push({ id: `prop:${definition.id}`, ranked: 0, usedFallback: false, diagnostics: [`placement prop:${definition.id}: linked setpiece anchor is unavailable`], requirements: { terrain: [...definition.terrain] } })
       continue
@@ -427,7 +428,7 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
         minDistance: tags.has('cache') ? 8 : 5,
         ...(runtime.pilot && tags.has('route') ? { edgeModes: ['main'] as RouteEdgeMode[] } : {}),
         ...(runtime.pilot && tags.has('cache') ? { nodeKinds: ['optionalReward'] as RouteNodeKind[] } : {}),
-        ...(anchor ? { near: anchors.get(anchor), nearDistance: 10 } : {})
+        ...(anchor ? { near: anchor, nearDistance: 10 } : {})
       }
     }
     const point = choosePlacement(floor, runtime, requirements, candidate => reachable.has(indexOf(floor, candidate.x, candidate.y)) && !reserved.has(indexOf(floor, candidate.x, candidate.y)) && !occupied.has(indexOf(floor, candidate.x, candidate.y)) && hasPropContext(floor, definition.id, candidate))
@@ -447,7 +448,11 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
       const keepsExitReachable = hasPassablePath(floor, floor.start, floor.exit)
       const keepsObjectiveReachable = objectiveTargets(floor).some(target => canReachObjectiveWithProps(floor, target))
       floor.props.pop()
-      if (!keepsExitReachable || !keepsObjectiveReachable) continue
+      if (!keepsExitReachable || !keepsObjectiveReachable) {
+        const debug = runtime.diagnostics.at(-1)
+        if (debug) { delete debug.selected; debug.diagnostics.push(`placement prop:${definition.id}: rejected because it blocks mandatory pathing`) }
+        continue
+      }
     }
     floor.props.push(prop)
     occupied.add(indexOf(floor, point.x, point.y))
