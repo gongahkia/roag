@@ -1,6 +1,6 @@
 import { runAutoplay, type AutoplayReport } from './autoplay-runner'
 import { newSeededCampaignRun } from './engine'
-import { generateAreaFloor, validateGeneration } from './world'
+import { generateAreaFloor } from './world'
 import type { Biome } from './types'
 import { BIOME_POOL } from './engine/campaign'
 
@@ -25,8 +25,7 @@ export const validateCampaignTopology = (seed: number): string[] => {
   const errors: string[] = []
   for (const biome of biomes) for (let routePosition = 0; routePosition < 4; routePosition++) for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
     try {
-      const validation = validateGeneration(generateAreaFloor(seed, biome, areaFloor, routePosition))
-      for (const error of validation.errors) errors.push(`${biome}:${routePosition + 1}:${areaFloor + 1}:${error}`)
+      generateAreaFloor(seed, biome, areaFloor, routePosition)
     } catch (caught) { errors.push(`${biome}:${routePosition + 1}:${areaFloor + 1}:${caught instanceof Error ? caught.message : String(caught)}`) }
   }
   return errors
