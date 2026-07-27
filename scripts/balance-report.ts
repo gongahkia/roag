@@ -25,7 +25,7 @@ const average = (runs: readonly BalanceRun[], project: (metrics: RunTelemetry) =
 const rank = (counts: Counts) => Object.entries(counts).sort(([idA, countA], [idB, countB]) => countB - countA || idA.localeCompare(idB)).map(([id, count]) => ({ id, count }))
 
 const run = (seed: number): Promise<BalanceRun> => new Promise((resolveRun, reject) => {
-  const child = spawn(resolve('node_modules/.bin/vite-node'), ['--script', resolve('scripts/balance-report-worker.ts')], { env: { ...process.env, BALANCE_SEED: String(seed), BALANCE_TURN_LIMIT: String(turnLimit) }, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(resolve('node_modules/.bin/tsx'), [resolve('scripts/balance-report-worker.ts')], { env: { ...process.env, BALANCE_SEED: String(seed), BALANCE_TURN_LIMIT: String(turnLimit) }, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
   let errors = ''
   child.stdout.on('data', chunk => { output += chunk })

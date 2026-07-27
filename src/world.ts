@@ -152,7 +152,6 @@ export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFl
 
 interface Room { x: number; y: number; w: number; h: number }
 const center = (room: Room): Point => ({ x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) })
-const overlaps = (a: Room, b: Room) => a.x - 2 < b.x + b.w && a.x + a.w + 2 > b.x && a.y - 2 < b.y + b.h && a.y + a.h + 2 > b.y
 const cardinalOffsets = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const
 const mineHazards = new Set<Tile['kind']>(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
 
@@ -199,18 +198,6 @@ const hasCavernPropContext = (floor: Floor, kind: Prop['kind'], point: Point): b
 }
 
 const hasPropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean => hasMinePropContext(floor, kind, point) && hasCavernPropContext(floor, kind, point)
-
-function carveRooms(floor: Floor, rng: Rng): Room[] {
-  const rooms: Room[] = []
-  for (let attempt = 0; attempt < 160 && rooms.length < 12; attempt++) {
-    const room: Room = { x: rng.int(2, floor.width - 11), y: rng.int(2, floor.height - 9), w: rng.int(5, 10), h: rng.int(4, 7) }
-    if (rooms.some(other => overlaps(room, other))) continue
-    rooms.push(room)
-    for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) setKind(floor, x, y, 'floor')
-  }
-  if (rooms.length < 2) throw new Error('failed to generate rooms')
-  return rooms.sort((a, b) => a.x - b.x || a.y - b.y)
-}
 
 const carveRect = (floor: Floor, room: Room, kind: Tile['kind'] = 'floor'): void => {
   for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) setKind(floor, x, y, kind)
@@ -698,7 +685,7 @@ function decorateFrostReliquary(floor: Floor, rng: Rng): void {
 }
 
 function placeEvents(floor: Floor, rooms: Room[]): void {
-  const eventRoom = rooms[Math.max(1, Math.floor(rooms.length / 2))]
+  const eventRoom = rooms[floor.biome === 'ruins' && rooms.length > 2 ? 1 : Math.max(1, Math.floor(rooms.length / 2))]
   const point = center(eventRoom)
   const kind: Tile['kind'] = floor.index % 4 === 0 ? 'shop' : floor.index % 4 === 1 ? 'rescue' : floor.index % 4 === 2 ? 'altar' : 'shop'
   setKind(floor, point.x, point.y, kind)
