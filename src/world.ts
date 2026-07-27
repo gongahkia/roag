@@ -234,11 +234,43 @@ const landmarkRooms = (floor: Floor): Room[] => {
   rooms.forEach(room => carveRect(floor, room))
   return rooms
 }
+
+const carveMineRouteContract = (floor: Floor, rng: Rng): Room[] => {
+  const variant = floor.layoutId.replace('-remix', '')
+  const mainY = variant === 'collapse-loop' ? 13 : rng.int(12, 15)
+  const upperY = variant === 'branching-drifts' ? 3 : 5
+  const lowerY = variant === 'rail-spine' ? floor.height - 10 : floor.height - 9
+  const rooms: Room[] = [
+    { x: 2, y: mainY, w: 6, h: 6 },
+    { x: 10, y: mainY, w: 7, h: 6 },
+    { x: 20, y: mainY, w: 6, h: 6 },
+    { x: 28, y: upperY, w: 7, h: 6 },
+    { x: 28, y: lowerY, w: 7, h: 6 },
+    { x: 37, y: lowerY, w: 5, h: 5 },
+    { x: 36, y: mainY, w: 6, h: 6 },
+    { x: 43, y: mainY + 1, w: 3, h: 4 }
+  ]
+  rooms.forEach(room => carveRect(floor, room))
+  const [start, landmark, fork, safeRoute, riskRoute, reward, objective, exit] = rooms.map(center)
+  const connect = (from: Point, to: Point, verticalFirst = false) => {
+    if (verticalFirst) { carveV(floor, from.y, to.y, from.x); carveH(floor, from.x, to.x, to.y) }
+    else { carveH(floor, from.x, to.x, from.y); carveV(floor, from.y, to.y, to.x) }
+  }
+  connect(start, landmark)
+  connect(landmark, fork)
+  connect(fork, safeRoute, variant === 'branching-drifts')
+  connect(fork, riskRoute, true)
+  connect(safeRoute, objective, true)
+  connect(riskRoute, objective)
+  connect(riskRoute, reward, variant === 'collapse-loop')
+  connect(reward, objective, true)
+  connect(objective, exit)
+  return rooms
+}
+
 const carveBiomeLayout = (floor: Floor, rng: Rng): Room[] => {
   if (floor.biome === 'mine') {
-    const rooms = carveRooms(floor, rng)
-    connectRooms(floor, rooms)
-    return rooms
+    return carveMineRouteContract(floor, rng)
   }
   carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
   const rooms = landmarkRooms(floor)

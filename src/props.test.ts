@@ -6,9 +6,9 @@ import { operate, throwItem } from './engine/inventory'
 import { castVerdant } from './engine/verdant'
 import { PROP_DEFINITIONS, PROP_IDS, propDefinition, validatePropDefinitions } from './props'
 import { spriteSheetSpecs } from './sprites'
-import { createRun } from './test/factories'
+import { createFloor, createRun } from './test/factories'
 import type { Prop } from './types'
-import { generateFloor, hasPassableTerrainPath, validateGeneration } from './world'
+import { generateFloor, hasPassableTerrainPath, reachableFloorIndexes, validateGeneration } from './world'
 
 const prop = (overrides: Partial<Prop> = {}): Prop => ({ id: 'prop:test:wilds.mushrooms:2:1', kind: 'wilds.mushrooms', x: 2, y: 1, biome: 'wilds', state: 'dormant', tags: ['growth', 'root', 'fire'], hooks: ['operate', 'fire', 'water', 'root', 'throw'], ...overrides })
 
@@ -38,6 +38,16 @@ describe('world props', () => {
     floor.props[0].y = 0
     floor.props.push({ ...floor.props[0], id: 'prop:duplicate' })
     expect(validateGeneration(floor)).toMatchObject({ valid: false, errors: expect.arrayContaining([`illegal prop placement: ${floor.props[0].id}`, 'overlapping prop placement: 0,0']) })
+  })
+
+  it('uses props-aware reachability for later generated placements', () => {
+    const floor = createFloor()
+    floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    for (const x of [1, 2, 3]) floor.tiles[1 * floor.width + x].kind = x === 2 ? 'rail' : 'floor'
+    floor.start = { x: 1, y: 1 }
+    floor.props = [prop({ id: 'prop:test:cart', kind: 'mine.brokenCart', biome: 'mine', x: 2, y: 1, tags: ['route', 'force', 'salvage'], hooks: ['operate', 'bomb', 'force', 'throw'] })]
+    expect(hasPassableTerrainPath(floor, floor.start, { x: 3, y: 1 })).toBe(true)
+    expect(reachableFloorIndexes(floor).has(1 * floor.width + 3)).toBe(false)
   })
 
   it('keeps existing C actions ahead of props, then transitions props deterministically', () => {
