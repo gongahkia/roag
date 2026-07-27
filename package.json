@@ -18,7 +18,8 @@
     "balance:report": "tsx scripts/balance-report.ts",
     "autoplay:benchmark": "tsx scripts/autoplay-benchmark.ts",
     "autoplay:diagnose": "tsx scripts/autoplay-diagnose.ts",
-    "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs"
+    "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs",
+    "test:generation-sweep": "tsx scripts/generation-sweep.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

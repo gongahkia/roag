@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
 import { hasLine } from './engine/visibility'
+import { createFloor } from './test/factories'
 import { FLOOR_COUNT } from './types'
-import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, placementDebug, validateFloor, validateGeneration } from './world'
+import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, placementDebug, traverseFloor, validateFloor, validateGeneration } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => hasPassablePath(floor, floor.start, floor.exit)
 
@@ -141,6 +142,19 @@ describe('expedition generation', () => {
     floor.tiles[1 * floor.width + 1].kind = 'floor'
     floor.tiles[2 * floor.width + 2].kind = 'floor'
     expect(hasPassableTerrainPath(floor, { x: 1, y: 1 }, { x: 2, y: 2 })).toBe(true)
+  })
+
+  it('uses the same prop-aware traversal trace for reachability and diagnostics', () => {
+    const floor = createFloor({ biome: 'mine', start: { x: 1, y: 1 }, exit: { x: 3, y: 1 }, props: [{ id: 'blocking-cart', kind: 'mine.brokenCart', biome: 'mine', x: 2, y: 1, state: 'dormant', tags: ['route', 'force', 'salvage'], hooks: ['operate', 'bomb', 'force', 'throw'] }] })
+    floor.tiles.forEach(tile => { tile.kind = 'wall' })
+    floor.tiles[1 * floor.width + 1].kind = 'floor'
+    floor.tiles[1 * floor.width + 2].kind = 'rail'
+    floor.tiles[1 * floor.width + 3].kind = 'exit'
+    const trace = traverseFloor(floor, floor.start, { target: floor.exit })
+    expect(trace.path).toBeUndefined()
+    expect(trace.blockers).toContain('2,1:prop:blocking-cart')
+    expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(false)
+    expect(hasPassableTerrainPath(floor, floor.start, floor.exit)).toBe(true)
   })
 
   it('starts an explorer on a visible, passable map cell', () => {
