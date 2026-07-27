@@ -3,7 +3,7 @@ import { ITEMS, MONSTERS } from './content'
 import { newRun, perform, refreshFov } from './engine'
 import { hasLine } from './engine/visibility'
 import { FLOOR_COUNT } from './types'
-import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, validateFloor, validateGeneration } from './world'
+import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, placementDebug, validateFloor, validateGeneration } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => hasPassablePath(floor, floor.start, floor.exit)
 
@@ -43,6 +43,14 @@ describe('expedition generation', () => {
       expect(kinds).toContain('rubble')
       expect(exitReachable(floor)).toBe(true)
     }
+  })
+
+  it('records contextual dead-end payoff, guarded shrine, and explicit placement failures', () => {
+    const floor = generateAreaFloor(42, 'mine', 0)
+    const debug = placementDebug(floor)
+    expect(debug.find(entry => entry.id === 'milestone:boon-payoff')).toMatchObject({ selected: expect.any(Object), usedFallback: false, requirements: { nodeKinds: ['optionalReward'] } })
+    expect(debug.find(entry => entry.id === 'encounter:guarded-shrine')).toMatchObject({ selected: expect.any(Object) })
+    expect(debug.every(entry => entry.selected || entry.diagnostics.length)).toBe(true)
   })
 
   it('uses water, brambles, and webs to vary solvable Wilds sightlines', () => {

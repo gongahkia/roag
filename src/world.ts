@@ -390,7 +390,7 @@ const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (po
   }
 }
 const choosePlacement = (floor: Floor, runtime: PlacementRuntime, contract: PlacementContract, eligible?: (point: Point) => boolean): Point | undefined => {
-  const selection = selectPlacement(contract, placementContext(floor, runtime, eligible))
+  const selection = selectPlacement(contract, placementContext(floor, runtime, point => reachableFloorIndexes(floor).has(indexOf(floor, point.x, point.y)) && (eligible?.(point) ?? true)))
   runtime.diagnostics.push(selection.debug)
   return selection.point
 }
@@ -764,9 +764,10 @@ function decorateFrostReliquary(floor: Floor, rng: Rng): void {
 
 function placeEvents(floor: Floor, rooms: Room[], runtime: PlacementRuntime): void {
   const eventRoom = rooms[floor.biome === 'ruins' && rooms.length > 2 ? 1 : Math.max(1, Math.floor(rooms.length / 2))]
-  const fallback = center(eventRoom)
   const nodeKinds: RouteNodeKind[] = floor.index % 4 === 0 ? ['landmark'] : floor.index % 4 === 1 ? ['fork'] : ['objective']
-  const point = choosePlacement(floor, runtime, { id: `event:${floor.index}`, requirements: runtime.pilot ? { nodeKinds, minDistance: 5 } : { near: fallback, nearDistance: 0 }, ...(runtime.pilot ? { fallback: { near: fallback, nearDistance: 0 } } : {}) })
+  const node = runtime.pilot ? runtime.macro.nodes.find(candidate => nodeKinds.includes(candidate.kind)) : undefined
+  const fallback = node ? { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) } : center(eventRoom)
+  const point = choosePlacement(floor, runtime, { id: `event:${floor.index}`, requirements: runtime.pilot ? { nodeKinds, minDistance: 5, near: fallback, nearDistance: 0 } : { near: fallback, nearDistance: 3 }, ...(runtime.pilot ? { fallback: { near: fallback, nearDistance: 3 } } : {}) })
   if (!point) throw new Error(`failed placement event:${floor.index}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
   const kind: Tile['kind'] = floor.index % 4 === 0 ? 'shop' : floor.index % 4 === 1 ? 'rescue' : floor.index % 4 === 2 ? 'altar' : 'shop'
   setKind(floor, point.x, point.y, kind)
