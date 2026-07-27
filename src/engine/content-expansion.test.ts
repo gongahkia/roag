@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignOrderForSeed } from './campaign'
+import { BIOME_POOL, campaignOrderForSeed } from './campaign'
 import { newRun } from './run'
 import { useRope } from './inventory'
 import { generateAreaFloor, spawnMonster } from '../world'
@@ -16,7 +16,7 @@ describe('scalable biome content', () => {
       expect(new Set(first).size).toBe(4)
       first.forEach((biome, slot) => seen[slot].add(biome))
     }
-    for (const slot of seen) expect(slot.size).toBe(8)
+    for (const slot of seen) expect(slot.size).toBe(BIOME_POOL.length)
   })
 
   it('scales the same biome by route threat instead of assigning biome difficulty', () => {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { CAMPAIGN_AUTOPLAY_PROFILES, assertCampaignAutoplaySuite, campaignAutoplayDelta, campaignAutoplaySuite, summarizeCampaignAutoplay, type CampaignAutoplayRun, type CampaignAutoplaySuite } from './autoplay-campaign'
+import { CAMPAIGN_AUTOPLAY_PROFILES, CAMPAIGN_AUTOPLAY_SEEDS, assertCampaignAutoplaySuite, campaignAutoplayDelta, campaignAutoplaySuite, summarizeCampaignAutoplay, type CampaignAutoplayRun, type CampaignAutoplaySuite } from './autoplay-campaign'
 import { isCompleteCampaign, runAutoplay } from './autoplay-runner'
-import { newRun } from './engine'
+import { newRun, newSeededCampaignRun } from './engine'
+import { BIOME_POOL, campaignOrderForSeed } from './engine/campaign'
 
 const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean): CampaignAutoplayRun => ({
   seed: 7,
@@ -27,6 +28,16 @@ const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
 })
 
 describe('campaign autoplay baseline', () => {
+  it('covers every randomized biome in the multi-seed suite', () => {
+    const covered = new Set(CAMPAIGN_AUTOPLAY_SEEDS.flatMap(seed => campaignOrderForSeed(seed)))
+    expect(BIOME_POOL.every(biome => covered.has(biome))).toBe(true)
+  })
+
+  it('does not error during the Salt Flats seed that exercises an environmental kill', () => {
+    const report = runAutoplay(newSeededCampaignRun(42), { mode: 'visible', policy: 'explore', turnLimit: 32, chainAreas: false })
+    expect(report.outcome).not.toBe('error')
+  })
+
   it('requires all four seeded areas for campaign completion', () => {
     expect(isCompleteCampaign('complete', ['mine', 'wilds', 'caverns', 'ruins'], ['mine', 'wilds', 'caverns', 'ruins'])).toBe(true)
     expect(isCompleteCampaign('complete', ['floodedRuins'])).toBe(false)

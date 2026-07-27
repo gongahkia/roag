@@ -2,8 +2,9 @@ import { runAutoplay, type AutoplayReport } from './autoplay-runner'
 import { newSeededCampaignRun } from './engine'
 import { generateAreaFloor, validateGeneration } from './world'
 import type { Biome } from './types'
+import { BIOME_POOL } from './engine/campaign'
 
-const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial']
+const biomes: readonly Biome[] = BIOME_POOL
 export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 19_200
 export const CAMPAIGN_SEED_RETRY_LIMIT = 32
 

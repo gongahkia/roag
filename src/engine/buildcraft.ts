@@ -113,7 +113,7 @@ export const BOONS: readonly Boon[] = [
   { id: 'saltLedger', name: 'Salt Ledger', glyph: '§', family: 'economy', biomes: ['saltFlats'], text: 'Milestones grant 6 extra cash per stack.' },
   { id: 'duneRation', name: 'Dune Ration', glyph: '+', family: 'recovery', biomes: ['saltFlats'], text: 'Milestones restore 1 extra HP per stack.' },
   { id: 'mirageMap', name: 'Mirage Map', glyph: '⌖', family: 'scouting', biomes: ['saltFlats'], text: 'Salt mirrors reveal 1 nearby unexplored tile per stack.' },
-  { id: 'whiteRoad', name: 'White Road', glyph: '›', family: 'terrain', biomes: ['saltFlats'], text: 'First brine crossing each floor grants 1 shield per stack.' },
+  { id: 'whiteRoad', name: 'White Road', glyph: '›', family: 'terrain', biomes: ['saltFlats'], text: 'Brine crossings grant 1 shield per stack.' },
   { id: 'sunsetCircuit', name: 'Sunset Circuit', glyph: 'ϟ', family: 'spellcraft', biomes: ['saltFlats'], text: 'Casting after a salt mirror restores 1 focus per stack.' },
   { id: 'heatDebt', name: 'Heat Debt', glyph: '☠', family: 'economy', biomes: ['saltFlats'], text: 'Gain 14 cash per hostile kill per stack; suppresses recovery triggers.', suppresses: ['recovery'], rare: true },
   { id: 'coldRead', name: 'Cold Read', glyph: '❄', family: 'scouting', biomes: ['frostReliquary'], text: 'Ice crossings restore 1 focus and reveal nearby threats per stack.' },

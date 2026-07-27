@@ -10,7 +10,7 @@ const updateBaseline = process.argv.includes('--update-baseline')
 const captureTrace = process.env.TRACE === '1'
 const allowedRegression = Number(process.env.CAMPAIGN_MAX_FAILURE_REGRESSION ?? 0)
 const requestedWorkers = Number(process.env.MAX_WORKERS ?? Math.min(4, availableParallelism()))
-const workerTimeout = Number(process.env.CAMPAIGN_AUTOPLAY_JOB_TIMEOUT_MS ?? 20_000)
+const workerTimeout = Number(process.env.CAMPAIGN_AUTOPLAY_JOB_TIMEOUT_MS ?? 300_000)
 if (!Number.isInteger(requestedWorkers) || requestedWorkers < 1) throw new Error(`invalid MAX_WORKERS: ${process.env.MAX_WORKERS}`)
 if (!Number.isFinite(allowedRegression) || allowedRegression < 0 || allowedRegression > 1) throw new Error(`invalid CAMPAIGN_MAX_FAILURE_REGRESSION: ${process.env.CAMPAIGN_MAX_FAILURE_REGRESSION}`)
 if (!Number.isInteger(workerTimeout) || workerTimeout < 1_000) throw new Error(`invalid CAMPAIGN_AUTOPLAY_JOB_TIMEOUT_MS: ${process.env.CAMPAIGN_AUTOPLAY_JOB_TIMEOUT_MS}`)

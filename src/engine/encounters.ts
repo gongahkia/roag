@@ -50,6 +50,8 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
   if (dividend) grantContextGold(state, dividend)
   const ward = boonRank(state, 'ossuaryWard')
   if (ward) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: ward }]
+  const reliquaryEcho = boonRank(state, 'reliquaryEcho')
+  if (reliquaryEcho) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: reliquaryEcho }]
   recordTelemetryCount(state, 'eventOutcomes', `${source.kind}:${outcome}`)
   return [event('encounter'), ...events]
 }

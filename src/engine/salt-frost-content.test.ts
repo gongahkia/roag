@@ -8,12 +8,13 @@ import { RELICS } from './relics'
 import { trailcraftChoices } from './trailcraft'
 import { newRun } from './run'
 import { damageHero, moveHero } from './combat'
+import { chooseEncounter } from './encounters'
 
 const expansionBiomes = ['saltFlats', 'frostReliquary'] as const
 
 describe('Salt Flats and Frost Reliquary content', () => {
   it('registers both biomes in the randomized campaign pool', () => {
-    expect(BIOME_POOL).toEqual(expect.arrayContaining(expansionBiomes))
+    expect(BIOME_POOL).toEqual(expect.arrayContaining([...expansionBiomes]))
     expect(biomeName.saltFlats).toBe('Mirror Salt Flats')
     expect(biomeName.frostReliquary).toBe('Frost Reliquary')
     const seen = new Set<number>()
@@ -65,5 +66,13 @@ describe('Salt Flats and Frost Reliquary content', () => {
     damageHero(frost, 6, 'test damage')
     expect(frost.hero.health).toBe(health - 3)
     expect(frost.hero.relicCharges?.winterSeal).toBeUndefined()
+
+    const encounter = frost.floor.encounters![0]
+    encounter.kind = 'reliquaryTrial'
+    encounter.x = frost.hero.x + 1
+    encounter.y = frost.hero.y
+    frost.hero.boons = { reliquaryEcho: 1 }
+    chooseEncounter(frost, encounter.id, '3')
+    expect(frost.hero.conditions?.some(condition => condition.kind === 'shielded')).toBe(true)
   })
 })

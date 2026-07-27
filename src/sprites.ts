@@ -55,7 +55,7 @@ const manifest = manifestData as SpriteManifest
 const manifestSheets = new Map(manifest.sheets.map(sheet => [sheet.id, sheet]))
 const terrainSheet: Record<Biome, SpriteSheetId> = { mine: 'terrain-mine', wilds: 'terrain-wilds', caverns: 'terrain-caverns', ruins: 'terrain-ruins', furnace: 'terrain-mine', floodedRuins: 'terrain-caverns', cliffs: 'terrain-ruins', burial: 'terrain-ruins', saltFlats: 'terrain-ruins', frostReliquary: 'terrain-caverns' }
 const manifestTileSprites = Object.fromEntries(manifest.terrainLayout.map((id, index) => [id, index])) as Record<string, number>
-export const tileSprite: Record<Tile['kind'], number> = { ...manifestTileSprites, saltMirror: manifestTileSprites.darkness, brine: manifestTileSprites.current, ice: manifestTileSprites.water, frostRime: manifestTileSprites.crumble }
+export const tileSprite = { ...manifestTileSprites, saltMirror: manifestTileSprites.darkness, brine: manifestTileSprites.current, ice: manifestTileSprites.water, frostRime: manifestTileSprites.crumble } as Record<Tile['kind'], number>
 export const generatedSpriteAssetsAvailable = Object.values(sheetUrls).some(Boolean)
 
 const manifestPropIds = manifest.sheets.filter(sheet => sheet.id.startsWith('terrain-')).flatMap(sheet => sheet.props ?? [])

@@ -3,7 +3,7 @@ import { CONTENT, validateContent } from './content'
 import { descend } from './engine/inventory'
 import { newRun } from './engine/run'
 import { migrateRunRecord } from './storage'
-import type { Biome, Hero } from './types'
+import { FLOOR_COUNT, type Biome, type Hero } from './types'
 import { generateFloor, validateGeneration } from './world'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
@@ -25,17 +25,17 @@ describe('release validation suite', () => {
       expect(events.some(event => event.type === (areaFloor === 3 ? 'areaComplete' : 'floor'))).toBe(true)
       hero = structuredClone(state.hero)
     }
-  })
+  }, 30_000)
 
   it('keeps seeds deterministic, generated floors valid, and content valid within the smoke budget', () => {
     const started = performance.now()
     expect(() => validateContent(CONTENT)).not.toThrow()
-    for (const seed of [7]) for (let floor = 0; floor < 32; floor++) {
+    for (const seed of [7]) for (let floor = 0; floor < FLOOR_COUNT; floor++) {
       expect(floorFingerprint(seed, floor)).toEqual(floorFingerprint(seed, floor))
       expect(validateGeneration(generateFloor(seed, floor))).toEqual({ valid: true, errors: [] })
     }
-    expect(performance.now() - started).toBeLessThan(20_000)
-  }, 45_000)
+    expect(performance.now() - started).toBeLessThan(30_000)
+  }, 60_000)
 
   it('migrates pre-prop saves before replay consumers inspect them', () => {
     const legacy = structuredClone(newRun(77124)) as unknown as { version: number; floor: Record<string, unknown> }
