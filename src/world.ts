@@ -372,6 +372,9 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
 }
 
 interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[] }
+const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
+  mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['darkness'], ruins: ['dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
+}
 const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
   const adjacent = (point: Point): Point[] => cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(point => inBounds(floor, point.x, point.y))
   const blocked = (point: Point): boolean => !eligible(point) || floor.props.some(prop => prop.x === point.x && prop.y === point.y) || floor.actors.some(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y) || floor.items.some(item => item.x === point.x && item.y === point.y) || floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y)
@@ -858,9 +861,7 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   const count = floor.biome !== 'mine' && floor.index % 4 === 3 ? 0 : baselineCount
   for (let i = 0; i < count; i++) {
     const definition = rng.pick(regular)
-    const contract: PlacementContract = runtime.pilot
-      ? { id: `actor:${definition.id}:${i}`, requirements: { edgeModes: ['costly'], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 7 } }
-      : { id: `actor:${definition.id}:${i}`, requirements: { terrain: ['floor'], minDistance: 7 } }
+    const contract: PlacementContract = { id: `actor:${definition.id}:${i}`, requirements: { terrain: [...nativeActorTerrain[floor.biome]], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 7 } }
     const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
     if (!point) continue
     const actor = spawnMonster(definition.id, point, `${definition.id}-${i}`, floor.difficulty)

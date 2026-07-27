@@ -53,6 +53,12 @@ describe('expedition generation', () => {
     expect(debug.every(entry => entry.selected || entry.diagnostics.length)).toBe(true)
   })
 
+  it('keeps at least one Wilds enemy on native terrain through its placement contract', () => {
+    const native = placementDebug(generateAreaFloor(42, 'wilds', 0)).filter(entry => entry.id.startsWith('actor:') && entry.selected && !entry.usedFallback)
+    expect(native).not.toHaveLength(0)
+    expect(native.some(entry => entry.requirements.terrain?.some(terrain => terrain === 'water' || terrain === 'web'))).toBe(true)
+  })
+
   it('uses water, brambles, and webs to vary solvable Wilds sightlines', () => {
     for (const seed of [8, 42, 1000]) {
       const floor = generateAreaFloor(seed, 'wilds', 0)
