@@ -5,12 +5,15 @@ import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
-import { generateRouteContract, validateRouteContract } from './route-contract'
+import { generateRouteContract, validateRouteContract, type RouteNodeKind } from './route-contract'
+import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMacroRealization, type MacroRecipeDebug } from './macro-recipe'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
 const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall', 'cliffWall'].includes(kind)
 const propDefinitionErrors = validatePropDefinitions()
+const macroDebugs = new WeakMap<Floor, MacroRecipeDebug>()
+const macroPilots = new WeakMap<Floor, boolean>()
 
 const indexOf = (floor: Floor, x: number, y: number): number => floorIndex(floor, x, y)
 const pointAt = (floor: Floor, index: number): Point => floorPoint(floor, index)
@@ -63,6 +66,11 @@ const hasPath = (floor: Floor, start: Point, destination: Point, ignoreBlockingP
 
 export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, true)
 export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => hasPath(floor, start, destination, false)
+export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
+export const validateMacroRecipe = (floor: Floor): string[] => {
+  const debug = macroDebugs.get(floor)
+  return !debug || !macroPilots.get(floor) ? [] : validateMacroRealization(debug, point => Boolean(getTile(floor, point.x, point.y) && isPathPassable(floor, point, false)))
+}
 
 export const preservesExitPath = (floor: Floor, start: Point, point: Point, kind: Tile['kind']): boolean => {
   const target = getTile(floor, point.x, point.y)
@@ -104,6 +112,8 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const routeValidation = validateRouteContract(routeContract)
   if (!routeValidation.valid) throw new Error(`invalid route contract ${routeContract.id}: ${routeValidation.errors.join('; ')}`)
   const { width, height } = dimensionsFor(biome)
+  const macro = compileRouteContract(routeContract, { width, height })
+  if (!macro.valid) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macro.diagnostics.join('; ')}`)
   const floor: Floor = {
     index,
     biome,
@@ -124,7 +134,8 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     telegraphs: [],
     difficulty
   }
-  const rooms = carveLegacyLayoutFromRouteContract(floor, routeContract, layoutRng)
+  const rooms = carveRouteContractLayout(floor, routeContract, macro, layoutRng)
+  const reservedMacroCells = macroRecipeFor(routeContract).pilot ? new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y))) : new Set<number>()
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
@@ -133,13 +144,18 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   placeEvents(floor, rooms)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
-  placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms)
+  placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms, reservedMacroCells)
+  restoreMacroConnectors(floor, macro, reservedMacroCells)
   repairMandatoryPath(floor)
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
-  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), reachableIndexes(floor))
+  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), reachableIndexes(floor), reservedMacroCells)
   placeMilestones(floor, rngFor(runSeed, 'progression', index, 'milestones'))
   placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'))
+  macroDebugs.set(floor, macro)
+  macroPilots.set(floor, macroRecipeFor(routeContract).pilot)
+  const macroErrors = validateMacroRecipe(floor)
+  if (macroErrors.length) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macroErrors.join('; ')}`)
   const validation = validateGeneration(floor)
   if (!validation.valid) throw new Error(`invalid generated floor ${index}/${layoutId}: ${validation.errors.join('; ')}`)
   return floor
@@ -297,6 +313,22 @@ const carveLegacyLayoutFromRouteContract = (floor: Floor, contract: ReturnType<t
   return carveBiomeLayout(floor, rng)
 }
 
+const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, rng: Rng): Room[] => {
+  if (!macroRecipeFor(contract).pilot) return carveLegacyLayoutFromRouteContract(floor, contract, rng)
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  for (const room of rooms) carveRect(floor, room)
+  for (const point of macroConnectorPoints(macro)) setKind(floor, point.x, point.y, 'floor')
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
+const restoreMacroConnectors = (floor: Floor, macro: MacroRecipeDebug, reserved: ReadonlySet<number>): void => {
+  if (!reserved.size) return
+  for (const point of macroConnectorPoints(macro)) if (reserved.has(indexOf(floor, point.x, point.y))) setKind(floor, point.x, point.y, 'floor')
+}
+
 const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
   const paint = (x: number, y: number, kind: Tile['kind']) => { if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, kind) }
   if (floor.biome === 'burial') {
@@ -334,7 +366,7 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
   }
 }
 
-function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): void {
+function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>, reserved: ReadonlySet<number> = new Set()): void {
   const definitions = rng.shuffle([...propDefinitionsFor(floor.biome)])
   const occupied = new Set<number>([
     indexOf(floor, floor.start.x, floor.start.y),
@@ -348,7 +380,7 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
     for (let index = 0; index < floor.tiles.length; index++) {
       const tile = floor.tiles[index]
       const point = pointAt(floor, index)
-      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index) && hasPropContext(floor, definition.id, point)) candidates.push(index)
+      if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !reserved.has(index) && !occupied.has(index) && hasPropContext(floor, definition.id, point)) candidates.push(index)
     }
     if (!candidates.length) continue
     const placement = rng.pick(candidates)
@@ -755,11 +787,11 @@ const repairMandatoryPath = (floor: Floor): void => {
   }
 }
 
-function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
+function placeContainers(floor: Floor, rng: Rng, rooms: Room[], reserved: ReadonlySet<number> = new Set()): void {
   for (let i = 0; i < 4; i++) {
     const kind: Tile['kind'] = i === 3 ? 'chest' : 'crate'
     for (let attempt = 0; attempt < 80; attempt++) {
-      const point = freeRoomPoint(floor, rng, rooms)
+      const point = freeRoomPoint(floor, rng, rooms, reserved)
       const target = getTile(floor, point.x, point.y)
       const exits = cardinalOffsets.filter(([x, y]) => passable(getTile(floor, point.x + x, point.y + y)?.kind ?? 'wall')).length
       if (!target || target.kind !== 'floor' || exits < 2) continue
@@ -806,12 +838,12 @@ function placeItems(floor: Floor, rng: Rng, rooms: Room[]): void {
   }
 }
 
-function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[]): Point {
+function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[], reserved: ReadonlySet<number> = new Set()): Point {
   for (let tries = 0; tries < 200; tries++) {
     const room = rng.pick(rooms)
     const point = { x: rng.int(room.x + 1, room.x + room.w - 2), y: rng.int(room.y + 1, room.y + room.h - 2) }
     const current = getTile(floor, point.x, point.y)
-    if (current?.kind === 'floor' && !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && distance(point, floor.start) > 4) return point
+    if (current?.kind === 'floor' && !reserved.has(indexOf(floor, point.x, point.y)) && !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && distance(point, floor.start) > 4) return point
   }
   return { ...floor.start }
 }
