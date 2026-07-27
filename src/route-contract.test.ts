@@ -39,6 +39,6 @@ describe('route contracts', () => {
     const start = contract.nodes.find(node => node.kind === 'start')!
     const end = contract.nodes.find(node => node.kind === 'exit')!
     contract.edges.push({ id: 'duplicate-main', from: start.id, to: end.id, modes: ['main'], tags: { ...structuredClone(start.tags), visual: [] } })
-    expect(validateRouteContract(contract)).toEqual(expect.objectContaining({ valid: false, errors: expect.arrayContaining(['node ' + start.id + ': expected exactly one main route to ' + end.id + ', found 2']) }))
+    expect(validateRouteContract(contract)).toEqual(expect.objectContaining({ valid: false, errors: expect.arrayContaining(['edge duplicate-main: missing visual tags', 'node ' + start.id + ': expected exactly one main route to ' + end.id + ', found 2']) }))
   })
 })

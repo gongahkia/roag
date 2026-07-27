@@ -103,7 +103,8 @@ const findSimplePaths = (contract: RouteContract, from: string, target: string, 
 
 const validTagSet = (tags: unknown): tags is RouteTags => {
   if (!tags || typeof tags !== 'object') return false
-  return tagKeys.every(key => Array.isArray((tags as Record<string, unknown>)[key]) && (tags as Record<string, unknown>)[key].every(value => typeof value === 'string' && value.length > 0))
+  const values = tags as Record<string, unknown>
+  return tagKeys.every(key => Array.isArray(values[key]) && values[key].length > 0 && values[key].every(value => typeof value === 'string' && value.length > 0))
 }
 
 const validateTags = (owner: string, tags: unknown, errors: string[]): void => {
@@ -111,7 +112,7 @@ const validateTags = (owner: string, tags: unknown, errors: string[]): void => {
   if (!tags || typeof tags !== 'object') { errors.push(`${owner}: missing tag set`); return }
   for (const key of tagKeys) {
     const values = (tags as Record<string, unknown>)[key]
-    if (!Array.isArray(values)) errors.push(`${owner}: missing ${key} tags`)
+    if (!Array.isArray(values) || !values.length) errors.push(`${owner}: missing ${key} tags`)
     else if (values.some(value => typeof value !== 'string' || !value.length)) errors.push(`${owner}: invalid ${key} tag`)
   }
 }

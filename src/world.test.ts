@@ -24,6 +24,7 @@ describe('expedition generation', () => {
       expect(first.exit).toEqual(second.exit)
       expect(first.objective).toEqual(second.objective)
       expect(first.actors.map(actor => actor.kind)).toEqual(second.actors.map(actor => actor.kind))
+      expect(first).not.toHaveProperty('routeContract')
       expect(exitReachable(first)).toBe(true)
     }
   }, 30_000)
