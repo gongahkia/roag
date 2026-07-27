@@ -16,6 +16,8 @@ export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
 export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
+export type Alignment = 'kami' | 'villagePact'
+export type DeliveryEnding = Alignment | 'both' | 'plain'
 export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
@@ -42,6 +44,9 @@ export type PropHook = 'operate' | PropEffectKind
 export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber' | 'stormCache' | 'ancestorDebt' | 'cursedObject' | 'oathwell' | 'windTrial' | 'tombAuction'
   | 'sunTribute' | 'mirageMarket' | 'brineOath' | 'glassTrial' | 'whiteRoad' | 'saltCache'
   | 'iceDuel' | 'winterTithe' | 'rimeContract' | 'frostCache' | 'whiteout' | 'reliquaryTrial'
+  | 'minePact' | 'mineKami' | 'wildsPact' | 'wildsKami' | 'cavernsPact' | 'cavernsKami' | 'ruinsPact' | 'ruinsKami'
+  | 'furnacePact' | 'furnaceKami' | 'floodedPact' | 'floodedKami' | 'cliffsPact' | 'cliffsKami' | 'burialPact' | 'burialKami'
+  | 'saltPact' | 'saltKami' | 'frostPact' | 'frostKami'
 export type EncounterState = 'dormant' | 'resolved'
 
 export interface Point { x: number; y: number }
@@ -164,7 +169,7 @@ export interface RescuedNpc { id: string; name: string; biome: Biome; floor: num
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
 export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
 export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
-export interface CampaignRouteState { version: 3 | 4; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[] }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number> }
 
 export interface LegacyRecord {
   id: string
@@ -215,6 +220,7 @@ export interface RunState {
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
+  alignment?: Record<Alignment, number>
   encyclopedia?: EncyclopediaState
   telemetry?: RunTelemetry
 }

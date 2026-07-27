@@ -1,11 +1,12 @@
-import { DIRECTIONS, type Biome, type BoonId, type FloorMilestone, type RunState, type TraversalToolId } from '../types'
+import { DIRECTIONS, type Alignment, type Biome, type BoonId, type FloorMilestone, type RunState, type TraversalToolId } from '../types'
 import { rngFor } from '../rng'
 import { getTile, isPassable } from '../world'
 import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 import { recordTelemetryCount } from '../telemetry'
-import { armRelicTraversal, consumeRelicTool, relicChoices, relicFor } from './relics'
+import { armRelicTraversal, consumeRelicTool, relicAlignment, relicChoices, relicFor } from './relics'
+import { tend } from './alignment'
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
 export type BoonFamily = 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'
@@ -130,6 +131,8 @@ export const BOONS: readonly Boon[] = [
 
 const toolById = Object.fromEntries(TOOLS.map(tool => [tool.id, tool])) as Record<TraversalToolId, TraversalTool>
 const boonById = Object.fromEntries(BOONS.map(boon => [boon.id, boon])) as Record<string, Boon>
+const KAMI_BOONS = new Set<BoonId>(['timeKnot', 'rootedResolve', 'watchfulStep', 'mapMoss', 'quietTide', 'spiritKindling', 'lastLight', 'wallSong', 'wardMemory', 'echoDividend', 'sunstep', 'mirageMap', 'whiteRoad', 'sunsetCircuit', 'coldRead', 'rimeGuard', 'duelistOath', 'shatterMark', 'frozenFocus', 'reliquaryEcho', 'lastWinter'])
+export const boonAlignment = (id: BoonId): Alignment => KAMI_BOONS.has(id) ? 'kami' : 'villagePact'
 const drillable = new Set(['wall', 'rubble', 'bramble', 'boulder'])
 const hazardous = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'brine', 'frostRime'])
 
@@ -194,6 +197,7 @@ export function chooseBoon(state: RunState, milestoneId: string, command: string
   claim(state, current)
   state.modal = undefined
   log(state, `Boon: ${choice.name} · rank ${boonRank(state, choice.id)}.`)
+  tend(state, boonAlignment(choice.id))
   if (hasBoon(state, 'scoutEye')) revealMilestones(state)
   return true
 }
@@ -259,6 +263,7 @@ export function chooseAugment(state: RunState, milestoneId: string, command: str
   claim(state, current)
   state.modal = undefined
   log(state, modal.mode === 'reforge' ? `${boonFor(selected).name} reforges into ${choice.name}.` : `${boonFor(selected).name} transmutes into ${choice.name}.`)
+  tend(state, boonAlignment(choice.id))
   return true
 }
 
@@ -308,6 +313,7 @@ export function chooseRelic(state: RunState, milestoneId: string, command: strin
   claim(state, current)
   state.modal = undefined
   log(state, `Relic bound: ${choice.name}.`)
+  tend(state, relicAlignment(choice.id))
   return true
 }
 

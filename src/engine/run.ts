@@ -43,7 +43,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   if (inheritedHero && areaFloor === 0 && routePosition > 0) hero.gold = Math.min(500, hero.gold + (hero.boons?.windfall ?? 0) * 20)
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 5, seed, floor, hero, messages: [`You enter ${biomeName[area]} with the sealed parcel.`, 'H opens help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [] }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [], alignment: { kami: 0, villagePact: 0 } }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)

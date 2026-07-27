@@ -10,6 +10,7 @@ import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
 import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
+import { LORE_CODEX_PAGES } from './lore-codex'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
@@ -98,6 +99,7 @@ window.addEventListener('keydown', keyboardEvent => {
   }
   if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
   if (route.screen === 'approach' && story) { handleStoryInput(keyboardEvent); return }
+  if (route.screen === 'codex') { handleCodexInput(keyboardEvent); return }
   if (route.screen === 'splash' || route.screen === 'title') { handleCourierTitle(keyboardEvent); return }
   if (route.screen === 'createCourier') { handleCourierCreation(keyboardEvent); return }
   if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
@@ -204,7 +206,7 @@ function courierMenu() {
 function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
   const key = keyboardEvent.key
   const command = key.toLowerCase()
-  if (route.screen === 'splash' && !['n', 'N', 'l', 'L', 'Enter', 'ArrowUp', 'ArrowDown', 'd', 'D'].includes(key)) { route = { ...route, screen: 'title' }; redraw(); return }
+  if (route.screen === 'splash' && !['n', 'N', 'l', 'L', 'w', 'W', 'Enter', 'ArrowUp', 'ArrowDown', 'd', 'D'].includes(key)) { route = { ...route, screen: 'title' }; redraw(); return }
   route = { ...route, screen: 'title' }
   const entries = courierMenuEntries(couriers)
   if (confirmingCourierDelete) {
@@ -226,7 +228,19 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
     successorParentId = undefined
     route = { ...route, screen: 'createCourier' }
   } else if ((command === 'l' || key === 'Enter') && activeCourier) resumeCourier()
+  else if (command === 'w') route = { ...route, screen: 'codex', codexPage: 0 }
   else if (command === 'd' && activeCourier) confirmingCourierDelete = true
+  audio.play([event('menu')])
+  redraw()
+}
+
+function handleCodexInput(keyboardEvent: KeyboardEvent): void {
+  const key = keyboardEvent.key
+  if (key === 'Escape' || key.toLowerCase() === 'w') route = { ...route, screen: 'title', codexPage: undefined }
+  else if (key === 'ArrowRight' || key === 'Enter' || key === ' ') route = { ...route, codexPage: Math.min(LORE_CODEX_PAGES.length - 1, (route.codexPage ?? 0) + 1) }
+  else if (key === 'ArrowLeft' || key === 'Backspace') route = { ...route, codexPage: Math.max(0, (route.codexPage ?? 0) - 1) }
+  else return
+  keyboardEvent.preventDefault()
   audio.play([event('menu')])
   redraw()
 }
@@ -294,6 +308,7 @@ function resumeCourier(): void {
 
 function persistActiveCourier(restoreCheckpoint = false): void {
   if (!activeCourier) return
+  if (state?.status === 'playing' && state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
   if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
   activeCourier.campaign = campaign
@@ -362,6 +377,7 @@ function start(): void {
   campaign = { ...campaign, selectedBiome: route.biome }
   hubNotice = undefined
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
+  state.alignment = { ...campaign.alignment }
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   activeCourier.heir = structuredClone(state.hero)
@@ -486,6 +502,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
       next.turn = completedState.turn
       next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
       next.telemetry = structuredClone(completedState.telemetry!)
+      next.alignment = { ...(completedState.alignment ?? campaign.alignment) }
       state = next
       saved = structuredClone(next)
       route = { ...route, screen: 'level', biome: successor }
@@ -684,6 +701,7 @@ function handleHubInput(key: string, run = false): boolean {
 
 function finish(won: boolean): void {
   if (!state) return
+  if (state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
   recordedEnd = true
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
@@ -708,7 +726,7 @@ function finish(won: boolean): void {
   else saved = undefined
   if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
   if (won) {
-    story = createStory(endingLore(state, campaign.completedAreas), performance.now())
+    story = createStory(endingLore(state, campaign.completedAreas, campaign.alignment), performance.now())
     storyExit = 'analysis'
     route = { ...route, screen: 'approach' }
   } else route = { ...route, screen: 'analysis' }

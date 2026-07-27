@@ -259,7 +259,7 @@ export function damageHero(state: RunState, amount: number, source: string, haza
   state.hero.health = 0
   state.status = 'dead'
   state.modal = undefined
-  log(state, 'Your delivery ends here.')
+  log(state, 'Your warning falls with you.')
   return [event('death')]
 }
 

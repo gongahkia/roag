@@ -1,5 +1,5 @@
 import { rngFor } from '../rng'
-import type { Actor, FloorMilestone, RelicId, RunState } from '../types'
+import type { Actor, Alignment, FloorMilestone, RelicId, RunState } from '../types'
 import { addCondition, hasCondition } from './conditions'
 import { log } from './shared'
 
@@ -15,6 +15,8 @@ export const RELICS: readonly Relic[] = [
 ]
 
 const byId = Object.fromEntries(RELICS.map(relic => [relic.id, relic])) as Record<RelicId, Relic>
+const KAMI_RELICS = new Set<RelicId>(['ashCircuit', 'cairnCoil', 'prismRelay', 'winterSeal'])
+export const relicAlignment = (id: RelicId): Alignment => KAMI_RELICS.has(id) ? 'kami' : 'villagePact'
 export const relicFor = (id: RelicId): Relic => byId[id]
 export const hasRelic = (state: RunState, id: RelicId): boolean => Boolean(state.hero.relics?.includes(id))
 export const relicChoices = (state: RunState, milestone: FloorMilestone): Relic[] => {

@@ -1,5 +1,5 @@
 import { ITEM } from '../content'
-import type { FloorEncounter, ItemId, RunState } from '../types'
+import type { Alignment, FloorEncounter, ItemId, RunState } from '../types'
 import { recordTelemetryCount } from '../telemetry'
 import { advance } from './combat'
 import { grantGold } from './economy'
@@ -8,6 +8,7 @@ import { refreshFov } from './visibility'
 import { boonRank } from './buildcraft'
 import { settleCurseAfterEncounter } from './curses'
 import { addCondition } from './conditions'
+import { tend } from './alignment'
 
 export interface EncounterOption { label: string; detail: string; available: boolean }
 
@@ -31,6 +32,37 @@ const expansionProfiles: Record<ExpansionEncounterKind, ExpansionProfile> = {
   reliquaryTrial: { title: 'RELIQUARY TRIAL', cost: 'focus', value: 3, boon: 'reliquaryEcho', reward: 'wardScript', gold: 110, risk: 'shield', terrain: 'frostRime' }
 }
 const expansionProfileFor = (kind: FloorEncounter['kind']): ExpansionProfile | undefined => expansionEncounterKinds.includes(kind as ExpansionEncounterKind) ? expansionProfiles[kind as ExpansionEncounterKind] : undefined
+
+const alignmentEncounterKinds = ['minePact', 'mineKami', 'wildsPact', 'wildsKami', 'cavernsPact', 'cavernsKami', 'ruinsPact', 'ruinsKami', 'furnacePact', 'furnaceKami', 'floodedPact', 'floodedKami', 'cliffsPact', 'cliffsKami', 'burialPact', 'burialKami', 'saltPact', 'saltKami', 'frostPact', 'frostKami'] as const
+type AlignmentEncounterKind = typeof alignmentEncounterKinds[number]
+interface AlignmentProfile { title: string; alignment: Alignment; cost: 'health' | 'focus' | 'cash'; value: number; reward: ItemId; gold: number }
+const alignmentProfiles: Record<AlignmentEncounterKind, AlignmentProfile> = {
+  minePact: { title: 'TSUKI NO KUMI', alignment: 'villagePact', cost: 'cash', value: 35, reward: 'bombPack', gold: 70 },
+  mineKami: { title: 'ISHI NO KAMI', alignment: 'kami', cost: 'focus', value: 2, reward: 'ward', gold: 45 },
+  wildsPact: { title: 'MORI NO KUMI', alignment: 'villagePact', cost: 'cash', value: 30, reward: 'ropeBundle', gold: 65 },
+  wildsKami: { title: 'KODAMA NO RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'sight', gold: 45 },
+  cavernsPact: { title: 'MIZU NO KUMI', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'bridgeKit', gold: 60 },
+  cavernsKami: { title: 'MIZU KAMI NO RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'focusTonic', gold: 55 },
+  ruinsPact: { title: 'MURA NO KUMI', alignment: 'villagePact', cost: 'cash', value: 40, reward: 'mapScroll', gold: 80 },
+  ruinsKami: { title: 'SHIMENAWA RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'wardScript', gold: 65 },
+  furnacePact: { title: 'TATARA KUMI', alignment: 'villagePact', cost: 'health', value: 3, reward: 'fireJar', gold: 90 },
+  furnaceKami: { title: 'HI NO KAMI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'tonic', gold: 75 },
+  floodedPact: { title: 'MINATO KUMI', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'portableWinch', gold: 90 },
+  floodedKami: { title: 'WATATSUMI RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'grappleLine', gold: 70 },
+  cliffsPact: { title: 'YAMA KUMI', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'cliffSpool', gold: 75 },
+  cliffsKami: { title: 'KAZE KAMI RITE', alignment: 'kami', cost: 'health', value: 3, reward: 'sight', gold: 70 },
+  burialPact: { title: 'SATO KUMI', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'mend', gold: 85 },
+  burialKami: { title: 'SOREI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'ancestorToken', gold: 75 },
+  saltPact: { title: 'SHIO KUMI', alignment: 'villagePact', cost: 'health', value: 3, reward: 'bridgeKit', gold: 95 },
+  saltKami: { title: 'HI KAMI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'fireJar', gold: 80 },
+  frostPact: { title: 'YUKI KUMI', alignment: 'villagePact', cost: 'cash', value: 50, reward: 'mend', gold: 100 },
+  frostKami: { title: 'YUKI KAMI RITE', alignment: 'kami', cost: 'health', value: 3, reward: 'ward', gold: 80 }
+}
+const alignmentProfileFor = (kind: FloorEncounter['kind']): AlignmentProfile | undefined => alignmentEncounterKinds.includes(kind as AlignmentEncounterKind) ? alignmentProfiles[kind as AlignmentEncounterKind] : undefined
+export const encounterTitle = (kind: FloorEncounter['kind']): string => {
+  const title = alignmentProfileFor(kind)?.title ?? expansionProfileFor(kind)?.title
+  return title ?? (kind === 'wayfarer' ? 'TABIBITO' : kind === 'bloodBargain' ? 'SEALED PACT' : kind === 'stormCache' ? 'KAZE CACHE' : kind === 'windTrial' ? 'KAZE TRIAL' : kind === 'ancestorDebt' ? 'SOREI DEBT' : kind === 'tombAuction' ? 'KOFUN MARKET' : kind === 'oathwell' ? 'OATH WELL' : kind === 'cursedObject' ? 'CURSED OBJECT' : 'SHIFTING CHAMBER')
+}
 
 const traversalRewards = ['grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch'] as const
 const encounterAtReach = (state: RunState): FloorEncounter | undefined => state.floor.encounters?.find(encounter => encounter.state === 'dormant' && Math.max(Math.abs(encounter.x - state.hero.x), Math.abs(encounter.y - state.hero.y)) <= 1)
@@ -57,6 +89,16 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
 }
 
 export const encounterOptions = (state: RunState, source: FloorEncounter): EncounterOption[] => {
+  const alignment = alignmentProfileFor(source.kind)
+  if (alignment) {
+    const cost = alignment.cost === 'health' ? `Lose ${alignment.value} HP` : alignment.cost === 'focus' ? `Spend ${alignment.value} focus` : `Spend ${alignment.value} cash`
+    const available = alignment.cost === 'health' ? state.hero.health > alignment.value + 2 : alignment.cost === 'focus' ? state.hero.focus >= alignment.value : state.hero.gold >= alignment.value
+    return [
+      { label: alignment.alignment === 'kami' ? 'MAKE THE RITE' : 'JOIN THE PACT', detail: `${cost}; gain ${alignment.gold} cash and ${ITEM[alignment.reward].name}.`, available },
+      { label: alignment.alignment === 'kami' ? 'KEEP THE VIGIL' : 'CARRY THE WORD', detail: `Lose 2 HP; reveal the floor and gain ${alignment.reward ? ITEM[alignment.reward].name : 'a route tool'}.`, available: state.hero.health > 4 },
+      { label: 'LEAVE', detail: 'Pass the gathering without answer.', available: true }
+    ]
+  }
   const expansion = expansionProfileFor(source.kind)
   if (expansion) {
     const primary = expansion.cost === 'health' ? { label: 'BLEED FOR THE OFFER', detail: `Lose ${expansion.value} HP; gain ${expansion.gold} cash, ${expansion.boon}, and ${expansion.reward ? ITEM[expansion.reward].name : 'a reward'}.`, available: state.hero.health > expansion.value + 2 }
@@ -123,7 +165,8 @@ export const openEncounter = (state: RunState): ActionResult | undefined => {
   if (!source) return undefined
   state.modal = { kind: 'encounter', encounterId: source.id }
   const expansion = expansionProfileFor(source.kind)
-  log(state, expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
+  const alignment = alignmentProfileFor(source.kind)
+  log(state, alignment ? `${alignment.title} waits for your answer.` : expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
   return [event('encounter'), event('menu')]
 }
 
@@ -175,6 +218,31 @@ const resolveExpansionEncounter = (state: RunState, source: FloorEncounter, inde
   return resolve(state, source, 'leave', [event('menu')])
 }
 
+const resolveAlignmentEncounter = (state: RunState, source: FloorEncounter, index: number): ActionResult | undefined => {
+  const profile = alignmentProfileFor(source.kind)
+  if (!profile) return undefined
+  if (index === 0) {
+    if (profile.cost === 'health') state.hero.health -= profile.value
+    if (profile.cost === 'focus') state.hero.focus -= profile.value
+    if (profile.cost === 'cash') state.hero.gold -= profile.value
+    grantContextGold(state, profile.gold)
+    grantItem(state, profile.reward)
+    log(state, `${profile.title} gives ${ITEM[profile.reward].name}.`)
+    tend(state, profile.alignment)
+    return resolve(state, source, 'pledge', advance(state, [event('pickup')]))
+  }
+  if (index === 1) {
+    state.hero.health -= 2
+    state.floor.tiles.forEach(tile => { tile.explored = true })
+    grantItem(state, profile.reward)
+    refreshFov(state)
+    log(state, `${profile.title} reveals the route.`)
+    tend(state, profile.alignment)
+    return resolve(state, source, 'vigil', advance(state, [event('menu')]))
+  }
+  return resolve(state, source, 'leave', [event('menu')])
+}
+
 export const chooseEncounter = (state: RunState, encounterId: string, command: string): ActionResult => {
   const source = encounter(state, encounterId)
   if (!source) return []
@@ -182,6 +250,8 @@ export const chooseEncounter = (state: RunState, encounterId: string, command: s
   const option = encounterOptions(state, source)[index]
   if (!option) return []
   if (!option.available) { log(state, 'You cannot meet that cost.'); return [event('menu')] }
+  const alignment = resolveAlignmentEncounter(state, source, index)
+  if (alignment) return alignment
   const expansion = resolveExpansionEncounter(state, source, index)
   if (expansion) return expansion
   if (source.kind === 'stormCache') {

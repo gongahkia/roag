@@ -1,4 +1,4 @@
-import type { Biome, CampaignRouteState, LegacyRecord, LineageEvent } from '../types'
+import type { Alignment, Biome, CampaignRouteState, LegacyRecord, LineageEvent } from '../types'
 import { rngFor } from '../rng'
 
 export const BIOME_POOL = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const satisfies readonly Biome[]
@@ -19,9 +19,10 @@ export const unlockNextArea = (unlocked: readonly Biome[], completed: Biome, are
 
 export const initialCampaignRoute = (seed?: number): CampaignRouteState => {
   const areaOrder = seed === undefined ? [...DEFAULT_AREA_ORDER] : campaignOrderForSeed(seed)
-  return { version: 4, areaOrder, completedAreas: [], unlockedAreas: [areaOrder[0]], selectedBiome: areaOrder[0], rescuedNpcs: [], lineageEvents: [], legacyRecords: [] }
+  return { version: 5, areaOrder, completedAreas: [], unlockedAreas: [areaOrder[0]], selectedBiome: areaOrder[0], rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 } }
 }
-export const completeCampaignArea = (state: CampaignRouteState, completed: Biome): CampaignRouteState => ({ version: state.version, areaOrder: [...state.areaOrder], completedAreas: state.completedAreas.includes(completed) ? [...state.completedAreas] : [...state.completedAreas, completed], unlockedAreas: [...state.unlockedAreas], selectedBiome: completed, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords] })
-export const unlockCampaignArea = (state: CampaignRouteState, biome: Biome): CampaignRouteState => ({ version: state.version, areaOrder: [...state.areaOrder], completedAreas: [...state.completedAreas], unlockedAreas: state.unlockedAreas.includes(biome) ? [...state.unlockedAreas] : [...state.unlockedAreas, biome], selectedBiome: biome, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords] })
-export const recordCampaignSacrifice = (state: CampaignRouteState, event: LineageEvent): CampaignRouteState => ({ ...state, rescuedNpcs: state.rescuedNpcs.filter(npc => npc.id !== event.npcId), lineageEvents: state.lineageEvents.some(existing => existing.id === event.id) ? [...state.lineageEvents] : [...state.lineageEvents, event].slice(-12) })
-export const appendLegacyRecord = (state: CampaignRouteState, record: LegacyRecord): CampaignRouteState => ({ ...state, legacyRecords: [...state.legacyRecords, { ...record }].slice(-12) })
+export const completeCampaignArea = (state: CampaignRouteState, completed: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: state.completedAreas.includes(completed) ? [...state.completedAreas] : [...state.completedAreas, completed], unlockedAreas: [...state.unlockedAreas], selectedBiome: completed, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment } })
+export const unlockCampaignArea = (state: CampaignRouteState, biome: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: [...state.completedAreas], unlockedAreas: state.unlockedAreas.includes(biome) ? [...state.unlockedAreas] : [...state.unlockedAreas, biome], selectedBiome: biome, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment } })
+export const recordCampaignSacrifice = (state: CampaignRouteState, event: LineageEvent): CampaignRouteState => ({ ...state, rescuedNpcs: state.rescuedNpcs.filter(npc => npc.id !== event.npcId), lineageEvents: state.lineageEvents.some(existing => existing.id === event.id) ? [...state.lineageEvents] : [...state.lineageEvents, event].slice(-12), alignment: { ...state.alignment } })
+export const appendLegacyRecord = (state: CampaignRouteState, record: LegacyRecord): CampaignRouteState => ({ ...state, legacyRecords: [...state.legacyRecords, { ...record }].slice(-12), alignment: { ...state.alignment } })
+export const addAlignment = (state: CampaignRouteState, alignment: Alignment): CampaignRouteState => ({ ...state, alignment: { ...state.alignment, [alignment]: state.alignment[alignment] + 1 } })

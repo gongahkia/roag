@@ -1,7 +1,7 @@
 import { biomeName } from './content'
+import { deliveryEndingFor } from './engine/alignment'
 import { streamSeed } from './rng'
-import { mineSeason } from './season'
-import type { Biome, LegacyRecord, RunState } from './types'
+import type { Alignment, Biome, LegacyRecord, RunState } from './types'
 
 export const TYPEWRITER_INTERVAL = 28
 
@@ -27,66 +27,50 @@ export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
 
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]
 const characters = (value: string): string[] => Array.from(value)
+const elderNames = ['Ame', 'Kaya', 'Mori', 'Sumi', 'Tama', 'Ume']
+const chiefNames = ['Hana', 'Kiri', 'Nagi', 'Sayo', 'Toki', 'Yuki']
+export const villageElderName = (seed: number): string => pick(seed, 'lore:elder', elderNames)
+export const shrineChiefName = (seed: number): string => pick(seed, 'lore:chief', chiefNames)
 
-export const openingLore = (heirSeed: number, courierName: string): LoreScene => {
-  const season = mineSeason(heirSeed)
-  const opening = pick(heirSeed, 'lore:opening', [
-    `The ${season.name.toLowerCase()} opens over the village trail.`,
-    `The village trail stirs beneath the ${season.name.toLowerCase()}.`,
-    `Under the ${season.name.toLowerCase()}, the old path wakes again.`
-  ])
-  const charge = pick(heirSeed, 'lore:charge', [
-    'The sealed parcel waits beyond the outpost.',
-    'A sealed parcel waits for a steady hand.',
-    'The outpost keeps a parcel for the next courier.'
-  ])
-  return { title: 'VILLAGE TRAILHEAD', vignette: 'opening', pages: [`${opening}\n${season.scene}`, `${courierName} takes the courier\'s mark.\n${charge}`] }
-}
-
-export const successionLore = (record: LegacyRecord, successorSeed: number): LoreScene => {
-  const formerSeason = mineSeason(record.seed)
-  const nextSeason = mineSeason(successorSeed)
-  const passage = pick(successorSeed, `lore:passage:${record.id}`, [
-    `The ${formerSeason.name.toLowerCase()} gives way to ${nextSeason.name.toLowerCase()}.`,
-    `The trail turns from ${formerSeason.name.toLowerCase()} into ${nextSeason.name.toLowerCase()}.`,
-    `Seasons gather where the old road bends: ${formerSeason.name.toLowerCase()} to ${nextSeason.name.toLowerCase()}.`
-  ])
-  const inheritance = pick(successorSeed, `lore:inheritance:${record.id}`, [
-    'The parcel passes on. The trail remembers.',
-    'The road keeps the name, then calls another.',
-    'No delivery ends while another hand answers.'
-  ])
+export const openingLore = (seed: number, courierName: string): LoreScene => {
+  const elder = villageElderName(seed)
+  const chief = shrineChiefName(seed)
   return {
-    title: 'THREADS OF THE TRAIL', vignette: 'succession',
-    pages: [
-      `${record.heirName} fell in ${biomeName[record.biome]}, trail ${record.floor + 1}.\nThe sealed parcel slipped into the dark.`,
-      `${passage}\n${record.heirName}\'s path reaches a new courier.`,
-      `A new courier answers at the village trail.\n${inheritance}`
+    title: 'MURA NO MICHI', vignette: 'opening', pages: [
+      `${elder} (village elder): ${courierName}, take this warning to ${chief} (shrine chief).\nThe coast has armed.`,
+      `${elder}: Carry it through the old roads.\nIf ${chief} reads it, the villages can answer.`
     ]
   }
 }
 
-export const endingLore = (state: RunState, completedAreas: readonly Biome[]): LoreScene => {
-  const arrival = pick(state.seed, 'lore:ending:arrival', [
-    'Lanterns rise along the keeper\'s threshold.',
-    'The outpost bells carry over the quiet trail.',
-    'Rain settles on the road as the gate opens.'
-  ])
-  const remembrance = pick(state.seed, 'lore:ending:remembrance', [
-    'The keeper records every hard-won mile.',
-    'The village sets the parcel among its oldest promises.',
-    'The road is marked safe for the couriers who follow.'
-  ])
-  const companions = state.rescuedNpcs?.map(npc => npc.name) ?? []
-  const rescue = companions.length ? `${companions.join(', ')} return${companions.length === 1 ? 's' : ''} with the trail.` : 'The trail returns its silence to the village.'
-  const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the old road'
-  const kills = state.telemetry?.kills ?? 0
+export const successionLore = (record: LegacyRecord, successorSeed: number): LoreScene => {
+  const elder = villageElderName(successorSeed)
+  const chief = shrineChiefName(successorSeed)
   return {
-    title: 'THE LAST MILE', vignette: 'ending',
-    pages: [
-      `${state.hero.name} brings the sealed parcel to its keeper.\n${arrival}`,
-      `The trail marks return from ${route}.\n${rescue} ${kills} threats were turned aside.`,
-      `${remembrance}\nThe delivery is complete.`
+    title: 'KAKO NO MICHI', vignette: 'succession', pages: [
+      `${elder} (village elder): ${record.heirName} did not reach ${chief}.\nThe warning died in ${biomeName[record.biome]}.`,
+      `${elder}: That generation ends. The coast will not wait.\nAnother courier must carry the warning.`
+    ]
+  }
+}
+
+export const endingLore = (state: RunState, completedAreas: readonly Biome[], alignment: Readonly<Record<Alignment, number>> = state.alignment ?? { kami: 0, villagePact: 0 }): LoreScene => {
+  const elder = villageElderName(state.seed)
+  const chief = shrineChiefName(state.seed)
+  const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the old road'
+  const ending = deliveryEndingFor(alignment)
+  const result = ending === 'both'
+    ? `${chief} (shrine chief): The kami have heard.\n${elder}: The villages will stand together. The coast holds.`
+    : ending === 'kami'
+      ? `${chief} (shrine chief): The rite is set.\nThe kami guide the watchfires on the coast.`
+      : ending === 'villagePact'
+        ? `${elder} (village elder): The pact is carried.\nThe coastal villages gather their guards.`
+        : `${chief} (shrine chief): The warning is read.\nThe villages have time to choose their answer.`
+  return {
+    title: 'SAIGO NO MICHI', vignette: 'ending', pages: [
+      `${state.hero.name}: The warning from the inland villages.\n${chief}: I have it.`,
+      `${elder}: The courier crossed ${route}.\n${chief}: The road has done its work.`,
+      result
     ]
   }
 }

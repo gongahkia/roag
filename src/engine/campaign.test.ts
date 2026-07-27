@@ -42,7 +42,7 @@ describe('four-area campaign flow', () => {
 
   it('records routes without embedding hero power', () => {
     const route = completeCampaignArea(initialCampaignRoute(), 'mine')
-    expect(route).toMatchObject({ version: 4, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [] })
+    expect(route).toMatchObject({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: ['mine'], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 } })
     expect(route).not.toHaveProperty('hero')
   })
 

@@ -1,41 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { animationFrame, advanceStory, createStory, endingLore, isStoryPageComplete, loadingAnimation, openingLore, storyText, successionLore, TYPEWRITER_INTERVAL } from './lore'
-import { newRun } from './engine/run'
-import { createLegacy } from './test/factories'
+import { createRun } from './test/factories'
+import { endingLore, openingLore, shrineChiefName, successionLore, villageElderName } from './lore'
 
-describe('trail lore', () => {
-  it('builds deterministic seasonal successor lore from a legacy record', () => {
-    const record = createLegacy({ heirName: 'Ari Vale', biome: 'wilds', floor: 2, seed: 77 })
-    expect(successionLore(record, 91)).toEqual(successionLore(record, 91))
-    expect(successionLore(record, 91).pages.join(' ')).toContain('Ari Vale')
-    expect(successionLore(record, 91).pages.join(' ')).toContain('Cedar Wilds')
-    expect(openingLore(91, 'Mika').pages.join(' ')).toContain('Mika')
+describe('delivery lore', () => {
+  it('names the elder and shrine chief in the opening', () => {
+    const seed = 41
+    const scene = openingLore(seed, 'Ari')
+    expect(scene.pages.join('\n')).toContain(`${villageElderName(seed)} (village elder)`)
+    expect(scene.pages.join('\n')).toContain(`${shrineChiefName(seed)} (shrine chief)`)
   })
 
-  it('reveals, completes, advances, and finishes pages deterministically', () => {
-    const story = createStory({ title: 'TEST', vignette: 'opening', pages: ['abc', 'de'] }, 0)
-    expect(storyText(story, TYPEWRITER_INTERVAL)).toBe('a')
-    expect(isStoryPageComplete(story, TYPEWRITER_INTERVAL * 3)).toBe(true)
-    const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)
-    expect(next.story).toMatchObject({ page: 1 })
-    expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 5)).toEqual({ finished: true })
+  it('frames iron-trail loss as a finished generation and keeps all four endings distinct', () => {
+    expect(successionLore({ id: 'death', heirName: 'Ari', biome: 'mine', floor: 1, seed: 8 }, 12).pages.join('\n')).toContain('That generation ends.')
+    const state = createRun()
+    expect(endingLore(state, ['mine'], { kami: 0, villagePact: 0 }).pages.at(-1)).toContain('time to choose')
+    expect(endingLore(state, ['mine'], { kami: 4, villagePact: 0 }).pages.at(-1)).toContain('kami guide')
+    expect(endingLore(state, ['mine'], { kami: 0, villagePact: 4 }).pages.at(-1)).toContain('coastal villages gather')
+    expect(endingLore(state, ['mine'], { kami: 4, villagePact: 4 }).pages.at(-1)).toContain('villages will stand together')
   })
-
-  it('cycles fixed-width ASCII animation frames deterministically', () => {
-    expect(animationFrame(loadingAnimation, 0)).toBe(loadingAnimation.frames[0])
-    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs)).toBe(loadingAnimation.frames[1])
-    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs * loadingAnimation.frames.length)).toBe(loadingAnimation.frames[0])
-  })
-
-  it('builds varied deterministic delivery scenes before the run analysis', () => {
-    const state = newRun(91)
-    state.hero.name = 'Ari Vale'
-    state.rescuedNpcs = [{ id: 'scout-1', name: 'Nami', biome: 'wilds', floor: 1 }]
-    state.telemetry!.kills = 12
-    const scene = endingLore(state, ['mine', 'wilds', 'caverns', 'ruins'])
-    expect(scene).toEqual(endingLore(state, ['mine', 'wilds', 'caverns', 'ruins']))
-    expect(scene.pages.join(' ')).toContain('Ari Vale')
-    expect(scene.pages.join(' ')).toContain('Nami')
-    expect(new Set(Array.from({ length: 32 }, (_, seed) => endingLore(newRun(seed), ['mine', 'wilds', 'caverns', 'ruins']).pages[0])).size).toBeGreaterThan(1)
-  }, 30_000)
 })

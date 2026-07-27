@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -10,6 +10,7 @@ import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cellRect } 
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { presentTelegraph } from './renderer/telegraphs'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
+import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
@@ -46,15 +47,15 @@ const jomonMasthead = jomonMastheadSource.trimEnd()
 const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
 const spriteFrameInterval = 80
 const courierOrigins = {
-  mineborn: { label: 'MINEBORN', description: 'Raised among rails, stone dust, and the measured weight of a sealed parcel.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
-  mosswalker: { label: 'MOSSWALKER', description: 'A trail reader who finds sure footing beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
-  cavernSeeker: { label: 'CAVERN SEEKER', description: 'A lantern scholar who follows echoes through the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } },
-  tidebound: { label: 'TIDEBOUND', description: 'A storm-route courier who turns current, rain, and spearpoint into momentum.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
+  mineborn: { label: 'ISHI NO KO', description: 'Raised among stone dust and worked roads. You know the inland warning must reach the coast.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
+  mosswalker: { label: 'MORI NO KO', description: 'A road reader who finds safe ground beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
+  cavernSeeker: { label: 'ANA NO KO', description: 'A lamp carrier who reads sound and water in the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } },
+  tidebound: { label: 'UMI NO KO', description: 'A coast-road courier who turns current and rain into a way forward.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
 } as const
 const courierCallings = {
-  trailguard: { label: 'TRAILGUARD', description: 'Carry a woven guard and hold the route when the trail closes in.', kit: 'Courier Cord · Woven Guard · tonic' },
-  pathmaker: { label: 'PATHMAKER', description: 'Carry extra fire-ash and rope to force a way through bad ground.', kit: 'Courier Cord · 6 bombs · 6 ropes · map' },
-  spiritbearer: { label: 'SPIRITBEARER', description: 'Begin with a focus tonic and a Sight Charm for the unseen route.', kit: 'Courier Cord · focus tonic · Sight Charm' }
+  trailguard: { label: 'MICHI MAMORI', description: 'Carry a woven guard. Hold the road when the way closes.', kit: 'Courier Cord · Woven Guard · tonic' },
+  pathmaker: { label: 'MICHI TSUKURI', description: 'Carry fire-ash and rope. Make a road through bad ground.', kit: 'Courier Cord · 6 bombs · 6 ropes · map' },
+  spiritbearer: { label: 'KAMI MAMORI', description: 'Carry a focus tonic and a Sight Charm for the unseen road.', kit: 'Courier Cord · focus tonic · Sight Charm' }
 } as const
 
 export class TerminalRenderer {
@@ -159,6 +160,7 @@ export class TerminalRenderer {
     this.effects.applyShake(this.ctx, now)
     if (route.screen === 'splash') this.splash(courierMenu)
     else if (route.screen === 'title') this.title(courierMenu)
+    else if (route.screen === 'codex') this.codex(route.codexPage ?? 0)
     else if (route.screen === 'createCourier' && courierDraft) this.createCourier(courierDraft)
     else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub, now)
@@ -226,8 +228,8 @@ export class TerminalRenderer {
       this.text(18, 43, `${selected.name} waits in ${selected.area ? biomeName[selected.area] : 'the village'} · ${status}.`, colors.dim)
     }
     const controls = entries.length
-      ? ['[L]/ENTER  resume · [↑↓]  change selection', '[N]  create courier · [D]  delete courier']
-      : ['[N]  create courier']
+      ? ['[L]/ENTER  resume · [↑↓]  change selection', '[N]  create courier · [D]  delete courier · [W]  codex']
+      : ['[N]  create courier · [W]  codex']
     const controlsY = controls.length === 2 ? 48 : 51
     controls.forEach((line, index) => this.text(8 + Math.floor((80 - line.length) / 2), controlsY + index * 3, line, colors.text))
     if (menu?.confirmingDelete) this.box(27, 27, 42, 9, 'RETIRE COURIER'), this.text(31, 31, 'D confirms · ESC cancels', colors.red)
@@ -239,12 +241,21 @@ export class TerminalRenderer {
     this.text(TERMINAL_WIDTH - notice.length - 2, TERMINAL_HEIGHT - 2, notice, this.persistenceState === 'saving' ? colors.dim : colors.red)
   }
 
+  private codex(page: number): void {
+    const current = LORE_CODEX_PAGES[Math.max(0, Math.min(page, LORE_CODEX_PAGES.length - 1))]!
+    this.box(8, 5, 80, 50, 'KOTOBA · LORE CODEX')
+    this.text(14, 11, current.title, colors.gold)
+    this.ruleHorizontal(14, 13, 68)
+    current.lines.flatMap(line => this.wrap(line, 66)).forEach((line, index) => this.text(14, 17 + index * 3, line, colors.text))
+    this.text(14, 49, `${String(page + 1).padStart(2, '0')}/${String(LORE_CODEX_PAGES.length).padStart(2, '0')}  ←/→ page · W/ESC return`, colors.green)
+  }
+
   private createCourier(draft: CourierDraft): void {
     const origin = courierOrigins[draft.origin]
     const calling = courierCallings[draft.calling]
-    const death = draft.deathMode === 'checkpoint' ? ['CHECKPOINT', 'Death restores the last cleared floor.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery.']
+    const death = draft.deathMode === 'checkpoint' ? ['LODGE REST', 'Death returns you to the last cleared lodge.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery and generation.']
     this.box(6, 3, 84, 53, 'CREATE COURIER')
-    this.text(10, 7, 'Out of the forgotten trail, a courier answers the village call...', colors.text)
+    this.text(10, 7, 'A courier takes the warning from the village road.', colors.text)
     const name = draft.name.trim()
     this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
     this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
@@ -277,7 +288,7 @@ export class TerminalRenderer {
     if (!story) {
       this.drawOutpostViewport(24, 5, { x: 24, y: 29 }, () => this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false))
       this.text(x + 5, 44, season.name.toUpperCase(), season.color)
-      this.text(x + 5, 47, 'Your village entrusts you with a sealed parcel.', colors.text)
+      this.text(x + 5, 47, 'The village entrusts you with a coastal warning.', colors.text)
       this.text(x + 5, 50, season.scene, colors.text)
       this.text(x + 5, 54, `ENTER continue · ESC title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
       return
@@ -316,7 +327,7 @@ export class TerminalRenderer {
     this.box(27, 13, 42, 25, title)
     this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
     this.text(48 - Math.floor(message.length / 2), 28, message, colors.text)
-    this.text(48 - Math.floor((biomeTransition ? 'THE PARCEL MOVES ON.' : 'The village gathers provisions.').length / 2), 31, biomeTransition ? 'THE PARCEL MOVES ON.' : 'The village gathers provisions.', colors.dim)
+    this.text(48 - Math.floor((biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.').length / 2), 31, biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.', colors.dim)
     this.text(48 - Math.floor('Please stand by.'.length / 2), 34, 'Please stand by.', colors.dim)
   }
 
@@ -630,7 +641,7 @@ export class TerminalRenderer {
     this.meter(65, 6, 28, hero.focus, hero.maxFocus, colors.blue)
     this.text(50, 8, `CASH ${String(hero.gold).padStart(4)} B ${hero.bombs} R ${hero.ropes}`, colors.gold)
     this.text(50, 9, `KEYS ${hero.keys}  XP ${hero.xp}  LV ${hero.level}`, colors.text)
-    this.text(72, 9, `${hero.name} · ${hero.deathMode === 'checkpoint' ? 'checkpoint' : 'iron trail'}`, colors.dim)
+    this.text(72, 9, `${hero.name} · ${hero.deathMode === 'checkpoint' ? 'lodge rest' : 'iron trail'}`, colors.dim)
     this.text(50, 11, `STR ${hero.stats.strength}  AGI ${hero.stats.agility}  VIT ${hero.stats.vitality}  INT ${hero.stats.intellect}`, colors.text)
     this.text(50, 13, 'EQUIPMENT', colors.gold)
     for (const [i, slot] of (Object.keys(SLOT_NAMES) as Array<keyof typeof SLOT_NAMES>).entries()) {
@@ -852,7 +863,7 @@ export class TerminalRenderer {
   private encounter(state: RunState, modal: Extract<Modal, { kind: 'encounter' }>): void {
     const source = state.floor.encounters?.find(current => current.id === modal.encounterId)
     if (!source) return
-    const title = source.kind === 'wayfarer' ? 'WANDERING WAYFARER' : source.kind === 'bloodBargain' ? 'SEALED BARGAIN' : 'SHIFTING CHAMBER'
+    const title = encounterTitle(source.kind)
     this.box(10, 6, 60, 28, title)
     this.text(14, 10, source.kind === 'wayfarer' ? 'A TRADER OFFERS A ROUTE-BOUND CHOICE' : source.kind === 'bloodBargain' ? 'POWER IS OFFERED WITH A VISIBLE COST' : 'CHANGE THE ROOM; THE CONSEQUENCE STAYS', colors.gold)
     encounterOptions(state, source).forEach((choice, index) => {
@@ -986,7 +997,7 @@ export class TerminalRenderer {
     this.ctx.fillStyle = '#05070bdd'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     this.box(17, 14, 46, 16, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
-    this.text(23, 19, won ? 'The sealed parcel reaches its keeper.' : 'The path keeps its due.', won ? colors.gold : colors.red)
+    this.text(23, 19, won ? 'The coastal warning reaches the shrine chief.' : 'The road ends for this courier.', won ? colors.gold : colors.red)
     this.text(23, 22, `cash ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
     this.text(23, 26, won ? 'N starts a new delivery.' : 'ANY KEY continues the trail.', colors.green)
   }

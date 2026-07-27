@@ -6,7 +6,7 @@ export { BOONS, TOOLS, augmentChoices, boonChoices, boonFor, boonRank, chooseRel
 export type { Boon, TraversalTool } from './engine/buildcraft'
 export { RELICS, relicChoices, relicFor } from './engine/relics'
 export type { Relic } from './engine/relics'
-export { chooseEncounter, encounterOptions, openEncounter } from './engine/encounters'
+export { chooseEncounter, encounterOptions, encounterTitle, openEncounter } from './engine/encounters'
 export type { EncounterOption } from './engine/encounters'
 export { newHero, newRun, newSeededCampaignRun } from './engine/run'
 export type { ActionResult, GameEvent, GameEventType } from './engine/shared'
