@@ -109,7 +109,11 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       })
       if (traceLimit !== undefined && trace.length > traceLimit) trace.splice(0, trace.length - traceLimit)
       commands.push(command)
-      if (events.some(event => event.type === 'floor') && options.chainFloors === false) { outcome = 'complete'; break }
+      if (events.some(event => event.type === 'floor')) {
+        if (options.chainFloors === false) { outcome = 'complete'; break }
+        context = createAutoplayContext()
+        stalled = 0
+      }
       if (events.some(event => event.type === 'areaComplete')) {
         const completed = state.area ?? state.floor.biome
         completedAreas.push(completed)

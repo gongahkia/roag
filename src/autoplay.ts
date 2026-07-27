@@ -376,8 +376,9 @@ const terrainRouteMove = (state: RunState, targets: readonly Point[]): Candidate
   const seen = new Set([pointKey(state.hero)])
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const current = queue[cursor]!
-    for (const [direction, delta] of directions) {
-      const point = { x: current.point.x + delta.x, y: current.point.y + delta.y }
+    for (const [direction] of directions) {
+      const point = projectedMove(state, 'omniscient', current.point, direction, false, false)
+      if (!point) continue
       const key = pointKey(point)
       if (seen.has(key) || !passable(state, 'omniscient', point, false, false)) continue
       const first = current.first ?? direction
@@ -820,7 +821,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   if (modal.kind === 'tools') return { command: 'Escape', reason: 'close tools', score: 200 }
   if (modal.kind === 'skills') {
     const choices = skillChoices(state)
-    const discipline = choices.map((choice, index) => ({ index, choice, score: policy === 'clear' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 25 : choice.stat === 'intellect' ? 18 : 8 : policy === 'survival' ? choice.stat === 'vitality' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'intellect' ? 18 : 8 : choice.stat === 'intellect' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'vitality' ? 18 : 8 }))
+    const discipline = choices.map((choice, index) => ({ index, choice, score: policy === 'clear' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 25 : choice.stat === 'intellect' ? 18 : 8 : policy === 'survival' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 24 : choice.stat === 'intellect' ? 18 : 8 : choice.stat === 'intellect' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'vitality' ? 18 : 8 }))
       .sort((a, b) => b.score - a.score || a.choice.id.localeCompare(b.choice.id))[0]
     return { command: discipline ? String(discipline.index + 1) : 'Escape', reason: discipline ? `discipline:${discipline.choice.id}` : 'close discipline', score: 200 }
   }
@@ -884,8 +885,8 @@ const safeInventoryChoice = (state: RunState, command: string): boolean => {
 const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayContext, policy: AutoplayPolicy): Candidate | undefined => {
   const currentPressure = hostilePressure(state, mode, state.hero)
   const standingInTelegraph = telegraphDanger(state, state.hero)
-  const canPressObjective = policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth
-  if (!standingInTelegraph && (currentPressure < 100 || canPressObjective)) return undefined
+  const canPressGuardianObjective = policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth && state.floor.objective.kind === 'defeatGuardian'
+  if (!standingInTelegraph && (currentPressure < 100 || canPressGuardianObjective)) return undefined
   const options = directions.map(([direction, delta]) => ({ direction, point: { x: state.hero.x + delta.x, y: state.hero.y + delta.y } }))
     .filter(option => passable(state, mode, option.point, true) && !telegraphDanger(state, option.point))
     .map(option => ({ ...option, pressure: hostilePressure(state, mode, option.point), repeats: context.recentPositions.filter(key => key === pointKey(option.point)).length }))
@@ -979,6 +980,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
     : planningClone(state)
   if (!candidate.intent && candidate.command !== 'b') perform(simulated, candidate.command)
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
+  if (candidate.reason === 'wait root') return 0
   const healthAdjustment = (simulated.hero.health - health) * 18
   if (simulated.hero.health * 3 <= simulated.hero.maxHealth && simulated.hero.health < health && hostilePressure(simulated, mode, simulated.hero) >= 25) return Number.NEGATIVE_INFINITY
   if (simulated.modal) {
@@ -1328,8 +1330,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 230 })
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
-    const terrainExit = !exitRoute && !predictiveExit && mode === 'visible' && state.floor.biome !== 'mine' ? terrainRouteMove(state, [state.floor.exit]) : undefined
-    if (exitRoute || predictiveExit || terrainExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute?.command ?? terrainExit!.command, reason: predictiveExit ? 'predictive exit route' : exitRoute ? 'reach exit' : 'survey exit route', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : exitRoute ? 240 : 205 : 140 })
+    const terrainExit = !exitRoute && !predictiveExit && state.floor.biome !== 'mine' ? terrainRouteMove(state, [state.floor.exit]) : undefined
+    if (exitRoute || predictiveExit || terrainExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute?.command ?? terrainExit!.command, reason: predictiveExit ? 'predictive exit route' : exitRoute ? 'reach exit' : 'survey exit route', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : exitRoute ? 240 : 205 : exitRoute ? 240 : 205 })
     else {
       const frontier = mode === 'visible' ? explorationMove(state, mode) : undefined
       if (frontier) candidates.push({ ...frontier, reason: 'find exit', score: 210 })

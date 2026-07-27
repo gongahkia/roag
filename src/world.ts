@@ -735,9 +735,10 @@ function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
 function placeActors(floor: Floor, rng: Rng, rooms: Room[]): void {
   const definitions = MONSTERS.filter(monster => monster.biome === floor.biome)
   const regular = definitions.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')
-  const count = floor.biome === 'mine'
+  const baselineCount = floor.biome === 'mine'
     ? 8 + floor.index % 4 * 2 + (floor.difficulty?.routePosition ?? 0)
-    : 5 + floor.index % 4 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)
+    : 3 + floor.index % 4 + Math.floor((floor.difficulty?.routePosition ?? 0) / 3)
+  const count = floor.biome !== 'mine' && floor.index % 4 === 3 ? 0 : baselineCount
   for (let i = 0; i < count; i++) {
     const point = freeRoomPoint(floor, rng, rooms.slice(1))
     const definition = rng.pick(regular)

@@ -11,6 +11,7 @@
     "test:ci": "./scripts/test-ci.sh",
     "test:e2e": "./scripts/browser-e2e.sh",
     "smoke:autoplay": "tsx scripts/autoplay-smoke.ts",
+    "smoke:autoplay:strict": "AUTOPLAY_REQUIRE_COMPLETION=1 tsx scripts/autoplay-smoke.ts",
     "autoplay:headless": "tsx scripts/autoplay-headless.ts",
     "autoplay:campaign": "tsx scripts/autoplay-campaign.ts",
     "test:campaign": "npm run autoplay:campaign",

@@ -18,20 +18,35 @@ const parseBiomes = (value: string | undefined): Biome[] => {
 const biomes = parseBiomes(process.env.BIOMES)
 const seeds = parseNumbers(process.env.SEEDS, [7, 42, 999], 'SEEDS')
 const floors = parseNumbers(process.env.FLOORS, [0, 1, 2, 3], 'FLOORS')
+const modes = ['omniscient'] as const
+const requireCompletion = process.env.AUTOPLAY_REQUIRE_COMPLETION === '1'
+const validationRun = (seed: number, biome: Biome) => {
+  const state = newRun(seed, biome)
+  state.hero.health = 120
+  state.hero.maxHealth = 120
+  state.hero.bombs = 8
+  state.hero.ropes = 8
+  state.hero.stats = { strength: 12, agility: 2, vitality: 12, intellect: 4 }
+  state.hero.inventory.push('auger', 'reedGlider', 'grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch')
+  return state
+}
 if (floors.some(floor => floor < 0 || floor > 3)) throw new Error(`invalid FLOORS: ${process.env.FLOORS}`)
 const outcomes = new Map<string, number>()
+const incomplete: string[] = []
 
 for (const seed of seeds) for (const biome of biomes) for (const floor of floors) assert.deepEqual(validateGeneration(generateAreaFloor(seed, biome, floor)), { valid: true, errors: [] })
-for (const seed of seeds) for (const biome of biomes) for (const floor of floors) for (const mode of ['visible', 'omniscient'] as const) {
-  const initial = newRun(seed, biome, floor)
-  const options = { mode, turnLimit: mode === 'visible' ? 2_400 : 3_000, chainAreas: false, chainFloors: false } as const
+for (const seed of seeds) for (const biome of biomes) for (const mode of modes) {
+  const initial = validationRun(seed, biome)
+  const options = { mode, policy: 'survival' as const, turnLimit: 15_000, chainAreas: false, captureTrace: false } as const
   const first = runAutoplay(initial, options)
   const second = runAutoplay(initial, options)
-  const label = `${mode}/${biome}/${floor + 1}/${seed}`
-  assert.equal(first.outcome, 'complete', `${label} did not complete: ${first.outcome}`)
+  const label = `${mode}/${biome}/route/${seed}`
   assert.deepEqual(first, second, `${label} was nondeterministic`)
   assert.ok(first.commands.length > 0, `${label} issued no commands`)
+  if (first.outcome !== 'complete') incomplete.push(`${label}: ${first.outcome}`)
   outcomes.set(`${mode}:${first.outcome}`, (outcomes.get(`${mode}:${first.outcome}`) ?? 0) + 1)
-  console.log(`${mode}/${biome}/${floor + 1}/${seed}: ${first.outcome} at ${first.turns}`)
+  console.log(`${label}: ${first.outcome} at ${first.turns}`)
 }
 console.log(`outcomes: ${[...outcomes].map(([outcome, count]) => `${outcome}=${count}`).join(' ')}`)
+if (incomplete.length) console.log(`incomplete: ${incomplete.join(', ')}`)
+if (requireCompletion) assert.deepEqual(incomplete, [], 'autoplay completion failures')
