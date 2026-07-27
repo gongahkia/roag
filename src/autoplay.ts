@@ -1311,7 +1311,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       const cycle = breaksPositionCycle(context)
       const targetKey = pointKey(route.target)
       const predictive = policy === 'clear' && (stalledTelegraphRoute || cycle) ? predictiveRouteStep(state, mode, routeTargets, false, cycle ? new Set(context.recentPositions.slice(-12)) : undefined) : undefined
-      candidates.push({ command: predictive?.commands[0] ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, routePlan: predictive && predictive.commands.length > 1 ? { kind: 'objective', targetKey, commands: predictive.commands.slice(1) } : undefined, score: policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70 })
+      const routeScore = policy === 'clear' ? predictive ? 205 : detour ? 166 : route.blocked ? 158 : 150 : detour ? 88 : route.blocked ? 76 : 70
+      const criticalRoute = state.hero.health * 3 <= state.hero.maxHealth && (telegraphDanger(state, state.hero) || hostilePressure(state, mode, state.hero) >= 25)
+      candidates.push({ command: predictive?.commands[0] ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, routePlan: predictive && predictive.commands.length > 1 ? { kind: 'objective', targetKey, commands: predictive.commands.slice(1) } : undefined, score: criticalRoute ? Math.min(routeScore, 80) : routeScore })
       const weapon = state.hero.equipment.mainHand
       if (route.blocked && weapon && (state.hero.cooldowns?.[weapon] ?? 0) > 0 && !telegraphDanger(state, state.hero)) candidates.push({ command: 'l', reason: 'wait weapon cooldown', score: 185 })
     } else if (pinTarget && context.objectiveTarget) {
