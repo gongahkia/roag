@@ -100,7 +100,9 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
   const layoutId = layoutFor(runSeed, biome, index % 4)
-  const routeContract = generateRouteContract(runSeed, index, biome, index % 4, layoutId)
+  const routeContract = generateRouteContract({ campaignSeed: runSeed, floorIndex: index, biome, areaFloor: index % 4, recipeId: layoutId, escalationVariant: `stage-${index % 4 + 1}` })
+  const routeValidation = validateRouteContract(routeContract)
+  if (!routeValidation.valid) throw new Error(`invalid route contract ${routeContract.id}: ${routeValidation.errors.join('; ')}`)
   const { width, height } = dimensionsFor(biome)
   const floor: Floor = {
     index,
@@ -109,7 +111,6 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     width,
     height,
     layoutId,
-    routeContract,
     tiles: Array.from({ length: width * height }, () => tile('wall')),
     actors: [],
     items: [],
@@ -123,7 +124,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     telegraphs: [],
     difficulty
   }
-  const rooms = carveBiomeLayout(floor, layoutRng)
+  const rooms = carveLegacyLayoutFromRouteContract(floor, routeContract, layoutRng)
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
@@ -288,6 +289,12 @@ const carveBiomeLayout = (floor: Floor, rng: Rng): Room[] => {
   connectRooms(floor, rooms)
   imprintBiomeLandmarks(floor, rng, rooms)
   return rooms
+}
+
+const carveLegacyLayoutFromRouteContract = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  return carveBiomeLayout(floor, rng)
 }
 
 const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
@@ -846,7 +853,6 @@ const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
   errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor), ...propDefinitionErrors)
-  if (floor.routeContract) errors.push(...validateRouteContract(floor.routeContract).errors.map(error => `invalid route contract: ${error}`))
   if (puzzleTemplatesFor(floor.biome).length && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
   if (floor.tiles.length !== floor.width * floor.height || floor.width < MAP_WIDTH || floor.height < MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
   if (!floor.layoutId || !layoutVariants[floor.biome].some(layout => floor.layoutId === layout || floor.layoutId === `${layout}-remix`)) errors.push('invalid layout id')

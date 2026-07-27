@@ -1,49 +1,76 @@
 import { rngFor } from './rng'
 import type { Biome } from './types'
 
-export const ROUTE_NODE_KINDS = ['start', 'landmark', 'fork', 'safeRoute', 'riskRoute', 'objective', 'optionalReward', 'exit', 'boss'] as const
+export const ROUTE_NODE_KINDS = ['start', 'landmark', 'fork', 'objective', 'optionalReward', 'exit', 'boss'] as const
 export type RouteNodeKind = typeof ROUTE_NODE_KINDS[number]
-export const ROUTE_EDGE_KINDS = ['main', 'safe', 'risk', 'optional'] as const
-export type RouteEdgeKind = typeof ROUTE_EDGE_KINDS[number]
+export const ROUTE_EDGE_MODES = ['main', 'safe', 'costly', 'optional'] as const
+export type RouteEdgeMode = typeof ROUTE_EDGE_MODES[number]
+
+export interface RouteTags {
+  terrain: string[]
+  encounter: string[]
+  reward: string[]
+  gate: string[]
+  visual: string[]
+  escalation: string[]
+}
 
 export interface RouteNode {
   id: string
   kind: RouteNodeKind
-  tags: string[]
+  tags: RouteTags
 }
 
 export interface RouteEdge {
   id: string
   from: string
   to: string
-  kind: RouteEdgeKind
-  tags: string[]
+  modes: RouteEdgeMode[]
+  tags: RouteTags
 }
 
-export interface RouteContract {
-  id: string
+export interface RouteContractInput {
+  campaignSeed: number
+  floorIndex: number
   biome: Biome
   areaFloor: number
   recipeId: string
   escalationVariant: string
+}
+
+export interface RouteContract extends RouteContractInput {
+  id: string
   nodes: RouteNode[]
   edges: RouteEdge[]
 }
 
 export interface RouteContractValidation { valid: boolean; errors: string[] }
 
-const biomeRouteTags: Record<Biome, readonly [string, string]> = {
-  mine: ['rail', 'collapse'],
-  wilds: ['water', 'bramble'],
-  caverns: ['tide', 'darkness'],
-  ruins: ['ward', 'sightline'],
-  furnace: ['smoke', 'lift'],
-  floodedRuins: ['current', 'anchor'],
-  cliffs: ['wind', 'climb'],
-  burial: ['ritual', 'spirit'],
-  saltFlats: ['brine', 'mirror'],
-  frostReliquary: ['ice', 'whiteout']
+const tagKeys = ['terrain', 'encounter', 'reward', 'gate', 'visual', 'escalation'] as const
+const tagSet = (tags: Partial<RouteTags> = {}): RouteTags => ({
+  terrain: [...(tags.terrain ?? [])],
+  encounter: [...(tags.encounter ?? [])],
+  reward: [...(tags.reward ?? [])],
+  gate: [...(tags.gate ?? [])],
+  visual: [...(tags.visual ?? [])],
+  escalation: [...(tags.escalation ?? [])]
+})
+
+const biomeRouteTags: Record<Biome, { terrain: string; pressure: string; encounter: string; landmark: string }> = {
+  mine: { terrain: 'rail', pressure: 'collapse', encounter: 'mine-guard', landmark: 'shaft' },
+  wilds: { terrain: 'water', pressure: 'bramble', encounter: 'wilds-hunter', landmark: 'grove' },
+  caverns: { terrain: 'tide', pressure: 'darkness', encounter: 'cavern-stalker', landmark: 'chamber' },
+  ruins: { terrain: 'ward', pressure: 'sightline', encounter: 'ruin-sentinel', landmark: 'precinct' },
+  furnace: { terrain: 'smoke', pressure: 'lift', encounter: 'cinder-guard', landmark: 'kiln' },
+  floodedRuins: { terrain: 'current', pressure: 'anchor', encounter: 'flood-hunter', landmark: 'floodgate' },
+  cliffs: { terrain: 'wind', pressure: 'climb', encounter: 'ledge-hunter', landmark: 'anchor' },
+  burial: { terrain: 'ritual', pressure: 'spirit', encounter: 'grave-guardian', landmark: 'stone-circle' },
+  saltFlats: { terrain: 'brine', pressure: 'mirror', encounter: 'salt-stalker', landmark: 'caravan' },
+  frostReliquary: { terrain: 'ice', pressure: 'whiteout', encounter: 'frost-hunter', landmark: 'reliquary' }
 }
+
+const nodesOfKind = (contract: RouteContract, kind: RouteNodeKind): RouteNode[] => contract.nodes.filter(node => node.kind === kind)
+const edgesFrom = (contract: RouteContract, id: string, predicate: (edge: RouteEdge) => boolean = () => true): RouteEdge[] => contract.edges.filter(edge => edge.from === id && predicate(edge))
 
 const reaches = (contract: RouteContract, from: string, target: string): boolean => {
   const queue = [from]
@@ -51,7 +78,7 @@ const reaches = (contract: RouteContract, from: string, target: string): boolean
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const current = queue[cursor]
     if (current === target) return true
-    for (const edge of contract.edges) if (edge.from === current && !seen.has(edge.to)) {
+    for (const edge of edgesFrom(contract, current)) if (!seen.has(edge.to)) {
       seen.add(edge.to)
       queue.push(edge.to)
     }
@@ -59,74 +86,132 @@ const reaches = (contract: RouteContract, from: string, target: string): boolean
   return false
 }
 
-const nodesOfKind = (contract: RouteContract, kind: RouteNodeKind): RouteNode[] => contract.nodes.filter(node => node.kind === kind)
+const findSimplePaths = (contract: RouteContract, from: string, target: string, predicate: (edge: RouteEdge) => boolean, limit = 2): RouteEdge[][] => {
+  const paths: RouteEdge[][] = []
+  const visit = (current: string, seen: ReadonlySet<string>, path: RouteEdge[]): void => {
+    if (paths.length >= limit) return
+    if (current === target) { paths.push(path); return }
+    for (const edge of edgesFrom(contract, current, predicate)) if (!seen.has(edge.to)) {
+      const next = new Set(seen)
+      next.add(edge.to)
+      visit(edge.to, next, [...path, edge])
+    }
+  }
+  visit(from, new Set([from]), [])
+  return paths
+}
+
+const validTagSet = (tags: unknown): tags is RouteTags => {
+  if (!tags || typeof tags !== 'object') return false
+  return tagKeys.every(key => Array.isArray((tags as Record<string, unknown>)[key]) && (tags as Record<string, unknown>)[key].every(value => typeof value === 'string' && value.length > 0))
+}
+
+const validateTags = (owner: string, tags: unknown, errors: string[]): void => {
+  if (validTagSet(tags)) return
+  if (!tags || typeof tags !== 'object') { errors.push(`${owner}: missing tag set`); return }
+  for (const key of tagKeys) {
+    const values = (tags as Record<string, unknown>)[key]
+    if (!Array.isArray(values)) errors.push(`${owner}: missing ${key} tags`)
+    else if (values.some(value => typeof value !== 'string' || !value.length)) errors.push(`${owner}: invalid ${key} tag`)
+  }
+}
 
 export const validateRouteContract = (contract: RouteContract): RouteContractValidation => {
   const errors: string[] = []
   const nodeIds = new Set<string>()
   for (const node of contract.nodes) {
-    if (!node.id || nodeIds.has(node.id)) errors.push(`duplicate or missing node id: ${node.id || '<empty>'}`)
+    const owner = `node ${node.id || '<empty>'}`
+    if (!node.id) errors.push(`${owner}: missing id`)
+    else if (nodeIds.has(node.id)) errors.push(`${owner}: duplicate id`)
     nodeIds.add(node.id)
-    if (!ROUTE_NODE_KINDS.includes(node.kind)) errors.push(`invalid node kind: ${node.kind}`)
+    if (!ROUTE_NODE_KINDS.includes(node.kind)) errors.push(`${owner}: invalid kind ${node.kind}`)
+    validateTags(owner, node.tags, errors)
   }
-  const required: RouteNodeKind[] = ['start', 'landmark', 'fork', 'safeRoute', 'riskRoute', 'objective', 'optionalReward']
-  for (const kind of required) if (nodesOfKind(contract, kind).length !== 1) errors.push(`expected one ${kind} node`)
-  const endNodes = [...nodesOfKind(contract, 'exit'), ...nodesOfKind(contract, 'boss')]
-  if (endNodes.length !== 1) errors.push('expected one end node')
+  const required: RouteNodeKind[] = ['start', 'landmark', 'fork', 'objective', 'optionalReward']
+  for (const kind of required) {
+    const count = nodesOfKind(contract, kind).length
+    if (count !== 1) errors.push(`node kind ${kind}: expected one, found ${count}`)
+  }
+  const ends = [...nodesOfKind(contract, 'exit'), ...nodesOfKind(contract, 'boss')]
+  if (ends.length !== 1) errors.push(`node kind end: expected one exit or boss, found ${ends.length}`)
+
   const edgeIds = new Set<string>()
   for (const edge of contract.edges) {
-    if (!edge.id || edgeIds.has(edge.id)) errors.push(`duplicate or missing edge id: ${edge.id || '<empty>'}`)
+    const owner = `edge ${edge.id || '<empty>'}`
+    if (!edge.id) errors.push(`${owner}: missing id`)
+    else if (edgeIds.has(edge.id)) errors.push(`${owner}: duplicate id`)
     edgeIds.add(edge.id)
-    if (!ROUTE_EDGE_KINDS.includes(edge.kind)) errors.push(`invalid edge kind: ${edge.kind}`)
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) errors.push(`edge references unknown node: ${edge.id}`)
+    if (!nodeIds.has(edge.from)) errors.push(`${owner}: unknown source node ${edge.from}`)
+    if (!nodeIds.has(edge.to)) errors.push(`${owner}: unknown target node ${edge.to}`)
+    if (!edge.modes.length) errors.push(`${owner}: missing route modes`)
+    for (const mode of edge.modes) if (!ROUTE_EDGE_MODES.includes(mode)) errors.push(`${owner}: invalid route mode ${mode}`)
+    validateTags(owner, edge.tags, errors)
   }
+
   const start = nodesOfKind(contract, 'start')[0]
   const fork = nodesOfKind(contract, 'fork')[0]
-  const safe = nodesOfKind(contract, 'safeRoute')[0]
-  const risk = nodesOfKind(contract, 'riskRoute')[0]
-  const objective = nodesOfKind(contract, 'objective')[0]
   const reward = nodesOfKind(contract, 'optionalReward')[0]
-  const end = endNodes[0]
-  if (start && objective && !reaches(contract, start.id, objective.id)) errors.push('objective is unreachable from start')
-  if (start && end && !reaches(contract, start.id, end.id)) errors.push('end is unreachable from start')
-  if (fork && safe && risk) {
-    const exits = contract.edges.filter(edge => edge.from === fork.id).map(edge => edge.to)
-    if (!exits.includes(safe.id) || !exits.includes(risk.id)) errors.push('fork lacks safe and risk branches')
+  const end = ends[0]
+  if (start && end) {
+    if (!reaches(contract, start.id, end.id)) errors.push(`node ${end.id}: unreachable from start ${start.id}`)
+    const mainPaths = findSimplePaths(contract, start.id, end.id, edge => edge.modes.includes('main'))
+    if (mainPaths.length !== 1) errors.push(`node ${start.id}: expected exactly one main route to ${end.id}, found ${mainPaths.length}`)
+    if (mainPaths.length === 1) {
+      const mainPathEdges = new Set(mainPaths[0].map(edge => edge.id))
+      for (const edge of contract.edges) if (edge.modes.includes('main') && !mainPathEdges.has(edge.id)) errors.push(`edge ${edge.id}: main route edge is disconnected from the main route`)
+    }
   }
-  if (safe && end && !reaches(contract, safe.id, end.id)) errors.push('safe route does not reach end')
-  if (risk && end && !reaches(contract, risk.id, end.id)) errors.push('risk route does not reach end')
-  if (reward && start && !reaches(contract, start.id, reward.id)) errors.push('optional reward is unreachable from start')
+  if (fork && end) {
+    const choices = edgesFrom(contract, fork.id).filter(edge => nodeIds.has(edge.to))
+    const safe = choices.filter(edge => edge.modes.includes('safe'))
+    const costly = choices.filter(edge => edge.modes.includes('costly'))
+    if (!safe.length) errors.push(`node ${fork.id}: missing safe route choice`)
+    if (!costly.length) errors.push(`node ${fork.id}: missing costly route choice`)
+    if (safe.length && costly.length && safe.some(edge => costly.some(other => other.to === edge.to))) errors.push(`node ${fork.id}: safe and costly routes share a destination`)
+    for (const edge of [...safe, ...costly]) if (!reaches(contract, edge.to, end.id)) errors.push(`edge ${edge.id}: route choice cannot reach ${end.id}`)
+  }
+  if (reward && start && end) {
+    if (!reaches(contract, start.id, reward.id)) errors.push(`node ${reward.id}: optional payoff is unreachable from ${start.id}`)
+    if (!reaches(contract, reward.id, end.id)) errors.push(`node ${reward.id}: optional payoff cannot rejoin route to ${end.id}`)
+    const optionalEdges = contract.edges.filter(edge => edge.to === reward.id && edge.modes.includes('optional'))
+    if (!optionalEdges.length) errors.push(`node ${reward.id}: missing optional route edge`)
+  }
   return { valid: errors.length === 0, errors }
 }
 
-export const generateRouteContract = (runSeed: number, index: number, biome: Biome, areaFloor: number, recipeId: string): RouteContract => {
-  const rng = rngFor(runSeed, 'generation', index, 'route-contract')
-  const [terrain, pressure] = biomeRouteTags[biome]
-  const routeTag = rng.chance(50) ? terrain : pressure
-  const endKind: RouteNodeKind = areaFloor === 3 ? 'boss' : 'exit'
-  const prefix = `${biome}:${index}:${recipeId}`
-  const node = (kind: RouteNodeKind, tags: string[] = []): RouteNode => ({ id: `${prefix}:${kind}`, kind, tags })
+const assertGenerationInput = (input: RouteContractInput): void => {
+  if (!Number.isInteger(input.campaignSeed)) throw new Error('route contract campaign seed must be an integer')
+  if (!Number.isInteger(input.floorIndex) || input.floorIndex < 0) throw new Error('route contract floor index must be non-negative')
+  if (!Number.isInteger(input.areaFloor) || input.areaFloor < 0 || input.areaFloor > 3) throw new Error('route contract area floor must be between 0 and 3')
+  if (!input.recipeId) throw new Error('route contract recipe id is required')
+  if (!input.escalationVariant) throw new Error('route contract escalation variant is required')
+}
+
+export const generateRouteContract = (input: RouteContractInput): RouteContract => {
+  assertGenerationInput(input)
+  const rng = rngFor(input.campaignSeed, 'generation', input.floorIndex, 'route-contract', input.biome, input.recipeId, input.escalationVariant)
+  const biome = biomeRouteTags[input.biome]
+  const routeTerrain = rng.chance(50) ? biome.terrain : biome.pressure
+  const endKind: RouteNodeKind = input.areaFloor === 3 ? 'boss' : 'exit'
+  const prefix = `${input.biome}:${input.floorIndex}:${input.recipeId}:${input.escalationVariant}`
+  const tags = (overrides: Partial<RouteTags>): RouteTags => tagSet({ escalation: [input.escalationVariant], ...overrides })
+  const node = (kind: RouteNodeKind, overrides: Partial<RouteTags>): RouteNode => ({ id: `${prefix}:${kind}`, kind, tags: tags(overrides) })
   const nodes = [
-    node('start', ['entry']),
-    node('landmark', ['visible', terrain]),
-    node('fork', ['choice', routeTag]),
-    node('safeRoute', ['safe', terrain]),
-    node('riskRoute', ['risk', pressure]),
-    node('objective', [`objective:${areaFloor}`, terrain]),
-    node('optionalReward', ['reward', pressure]),
-    node(endKind, ['area-end', routeTag])
+    node('start', { terrain: ['entry'], encounter: ['none'], reward: ['none'], gate: ['open'], visual: ['entry-marker'] }),
+    node('landmark', { terrain: [biome.terrain], encounter: ['none'], reward: ['orientation'], gate: ['open'], visual: [biome.landmark] }),
+    node('fork', { terrain: [routeTerrain], encounter: [biome.encounter], reward: ['choice'], gate: ['open'], visual: ['branch-marker'] }),
+    node('objective', { terrain: [biome.terrain], encounter: [biome.encounter], reward: ['objective'], gate: ['key-or-counterroute'], visual: ['objective-marker'] }),
+    node('optionalReward', { terrain: [biome.pressure], encounter: [biome.encounter], reward: ['optional-payoff'], gate: ['costly-gate'], visual: ['reward-marker'] }),
+    node(endKind, { terrain: [routeTerrain], encounter: [endKind === 'boss' ? 'boss' : 'none'], reward: ['exit-payoff'], gate: ['resolved'], visual: [endKind === 'boss' ? 'boss-marker' : 'exit-marker'] })
   ]
-  const edge = (from: RouteNodeKind, to: RouteNodeKind, kind: RouteEdgeKind, tags: string[] = []): RouteEdge => ({ id: `${prefix}:${from}:${to}:${kind}`, from: `${prefix}:${from}`, to: `${prefix}:${to}`, kind, tags })
+  const edge = (from: RouteNodeKind, to: RouteNodeKind, modes: RouteEdgeMode[], overrides: Partial<RouteTags>): RouteEdge => ({ id: `${prefix}:${from}:${to}:${modes.join('+')}`, from: `${prefix}:${from}`, to: `${prefix}:${to}`, modes, tags: tags(overrides) })
   const edges = [
-    edge('start', 'landmark', 'main', ['arrival']),
-    edge('landmark', 'fork', 'main', ['orientation']),
-    edge('fork', 'safeRoute', 'safe', ['lower-cost']),
-    edge('fork', 'riskRoute', 'risk', ['higher-reward', routeTag]),
-    edge('safeRoute', 'objective', 'main', [terrain]),
-    edge('riskRoute', 'optionalReward', 'optional', [pressure]),
-    edge('optionalReward', 'objective', 'optional', ['payoff']),
-    edge('riskRoute', 'objective', 'risk', [routeTag]),
-    edge('objective', endKind, 'main', ['resolution'])
+    edge('start', 'landmark', ['main'], { terrain: ['approach'], encounter: ['none'], reward: ['orientation'], gate: ['open'], visual: ['route-line'] }),
+    edge('landmark', 'fork', ['main'], { terrain: [biome.terrain], encounter: [biome.encounter], reward: ['choice'], gate: ['open'], visual: ['fork-line'] }),
+    edge('fork', 'objective', ['main', 'safe'], { terrain: [biome.terrain], encounter: ['guarded'], reward: ['objective'], gate: ['key'], visual: ['safe-route'] }),
+    edge('fork', 'optionalReward', ['costly', 'optional'], { terrain: [biome.pressure], encounter: ['ambush'], reward: ['optional-payoff'], gate: ['costly-gate'], visual: ['risk-route'] }),
+    edge('optionalReward', 'objective', ['costly', 'optional'], { terrain: [routeTerrain], encounter: [biome.encounter], reward: ['payoff'], gate: ['rejoin'], visual: ['return-route'] }),
+    edge('objective', endKind, ['main'], { terrain: [routeTerrain], encounter: [endKind === 'boss' ? 'boss' : 'none'], reward: ['completion'], gate: ['resolved'], visual: ['exit-route'] })
   ]
-  return { id: `route:${prefix}`, biome, areaFloor, recipeId, escalationVariant: `${recipeId}:${rng.int(0, 2)}`, nodes, edges }
+  return { id: `route:${prefix}`, ...input, nodes, edges }
 }
