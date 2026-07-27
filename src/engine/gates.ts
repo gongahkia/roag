@@ -1,4 +1,4 @@
-import { DIRECTIONS, type Biome, type LineageEvent, type RescuedNpc, type RunState } from '../types'
+import { DIRECTIONS, type Alignment, type Biome, type LineageEvent, type RescuedNpc, type RunState } from '../types'
 import { AREA_GATES, gateForArea, validateAreaGate, type AreaGate, type GateAlternative, type GateCost, type GateDestination } from '../area-gates'
 import { biomeName } from '../content'
 import { nextArea } from './campaign'
@@ -10,7 +10,7 @@ import { boonRank } from './buildcraft'
 export { AREA_GATES, gateForArea, validateAreaGate }
 export type { AreaGate, GateAlternative, GateCost, GateDestination }
 
-export interface GateResolution { resolved: boolean; destination?: Biome; sacrificedNpc?: RescuedNpc; lineageEvent?: LineageEvent; message: string }
+export interface GateResolution { resolved: boolean; destination?: Biome; sacrificedNpc?: RescuedNpc; lineageEvent?: LineageEvent; alignment?: Alignment; message: string }
 
 export const gateForRun = (state: Pick<RunState, 'area' | 'floor' | 'areaOrder'>): AreaGate | undefined => {
   const biome = state.area ?? state.floor.biome
@@ -76,7 +76,8 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number)
   }
   openNearbyGate(state)
   state.gateDestination = gate.unlockedDestination.biome
-  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, message: `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
+  const alignment: Alignment = alternative.kind === 'body' || alternative.kind === 'oath' || alternative.tags.some(tag => ['ward', 'astral', 'relic', 'script', 'arcane'].includes(tag)) ? 'kami' : 'villagePact'
+  return { resolved: true, destination: gate.unlockedDestination.biome, sacrificedNpc, alignment, message: `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
 }
 
 export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false): string[] => {

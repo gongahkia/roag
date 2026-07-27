@@ -15,7 +15,7 @@ import { defaultSettings, settingChoices, settingsPageCount, type GameSettings }
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Hero, type Modal, type RunAnalysis, type RunMetricSample, type RunState } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type Direction, type GroundItem, type Hero, type Modal, type Point, type RunAnalysis, type RunMetricSample, type RunState, type Tile } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { getTile } from './world'
 
@@ -60,13 +60,15 @@ const courierCallings = {
 
 export class TerminalRenderer {
   private readonly ctx: CanvasRenderingContext2D
-  private readonly effects = new TerminalEffects(CW, CH, MAP_WIDTH, MAP_HEIGHT)
+  private readonly effects = new TerminalEffects(CW, CH)
   private spriteMode = false
   private runeMode = false
   private heroFacingLeft = false
   private heroAnimation: HeroAnimation = 'idle'
   private heroAnimationUntil = 0
   private boardZoom = 1
+  private camera?: Point
+  private cameraFloor?: number
   private lastRoute: ScreenRoute = { screen: 'title', biome: 'mine' }
   private lastState?: RunState
   private lastRecords?: { bestDepth: number; wins: number; deaths: number }
@@ -121,6 +123,15 @@ export class TerminalRenderer {
   setBoardZoom(value: number): void {
     this.boardZoom = Math.max(.5, Math.min(5, value))
   }
+  panCamera(dx: number, dy: number): void {
+    if (!this.lastState) return
+    const floor = this.lastState.floor
+    const current = this.camera ?? { x: this.lastState.hero.x, y: this.lastState.hero.y }
+    this.camera = { x: Math.max(0, Math.min(floor.width - 1, current.x + dx)), y: Math.max(0, Math.min(floor.height - 1, current.y + dy)) }
+    this.cameraFloor = floor.index
+    this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode)
+  }
+  recenterCamera(): void { this.camera = undefined; this.cameraFloor = undefined }
   setSettings(settings: GameSettings): void { this.settings = settings; this.effects.setReducedFlash(settings.reducedFlash) }
   setAutoplayDiagnostic(value: AutoplayDiagnostic | undefined): void { this.autoplayDiagnostic = value }
   setBootstrapState(state: 'loading' | 'ready' | 'error', message?: string): void { this.bootstrapState = state; if (message) this.bootstrapMessage = message }
@@ -180,6 +191,7 @@ export class TerminalRenderer {
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
     if (this.effects.needsFrame(now) || route.screen === 'loading' || Boolean(story)) this.scheduleRender()
+    else if (route.screen === 'level' && state?.floor.tiles.some(tile => tile.visible && tile.flow)) this.scheduleRender(180)
     else if ((this.spriteMode && route.screen === 'level' && state) || (route.screen === 'hub' && now < this.hubAnimationUntil) || (route.screen === 'createCourier' && courierDraft?.focus === 0)) this.scheduleRender(spriteFrameInterval)
   }
 
@@ -453,8 +465,10 @@ export class TerminalRenderer {
     const overlays = mapOverlays(state.floor, preview)
     const boardWidth = MAP_WIDTH * CW
     const boardHeight = MAP_HEIGHT * CH
-    const focusX = (state.hero.x + .5) * CW
-    const focusY = (state.hero.y + .5) * CH
+    if (this.cameraFloor !== state.floor.index) this.recenterCamera()
+    const camera = this.camera ?? state.hero
+    const focusX = (camera.x + .5) * CW
+    const focusY = (camera.y + .5) * CH
     const centerX = boardWidth / 2
     const centerY = boardHeight / 2
     this.ctx.save()
@@ -466,7 +480,7 @@ export class TerminalRenderer {
     this.ctx.translate(centerX, centerY)
     this.ctx.scale(this.boardZoom, this.boardZoom)
     this.ctx.translate(-focusX, -focusY)
-    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) this.drawMapCell(state, overlays, x, y)
+    for (let y = 0; y < state.floor.height; y++) for (let x = 0; x < state.floor.width; x++) this.drawMapCell(state, overlays, x, y)
     if (this.spriteMode) this.drawTelegraphs(state)
     if (this.spriteMode) {
       const animation = state.status === 'dead' || performance.now() < this.heroAnimationUntil ? this.heroAnimation : 'idle'
@@ -481,7 +495,7 @@ export class TerminalRenderer {
 
   private drawMapCell(state: RunState, overlays: MapOverlays, x: number, y: number): void {
     const tile = getTile(state.floor, x, y)!
-    const index = mapCellIndex(x, y)
+    const index = mapCellIndex(state.floor, x, y)
     const item = overlays.items[index]
     const prop = overlays.props[index]
     if (!tile.explored) {
@@ -494,11 +508,18 @@ export class TerminalRenderer {
     const telegraph = overlays.telegraphs[index]
     const previewPath = Boolean(overlays.previewPath[index])
     const previewCell = Boolean(overlays.previewCells[index])
-    if (this.spriteMode) drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false, !tile.visible)
-    else if (this.runeMode) this.drawRuneTile(tile.kind, tile.visible, x, y)
+    if (this.spriteMode) {
+      drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false, !tile.visible)
+      if (tile.flow) this.drawFlowMarker(tile, x, y)
+    } else if (this.runeMode) {
+      this.drawRuneTile(tile.kind, tile.visible, x, y)
+      if (tile.flow) this.drawFlowMarker(tile, x, y)
+    }
     else {
       const [glyph, color] = tileGlyph[tile.kind]
-      this.cell(x, y, glyph, tile.visible ? color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+      const flowGlyph: Partial<Record<string, string>> = { n: '↑', ne: '↗', e: '→', se: '↘', s: '↓', sw: '↙', w: '←', nw: '↖' }
+      const showDirection = Math.floor(performance.now() / 180) % 2 === 0
+      this.cell(x, y, tile.flow && showDirection ? flowGlyph[tile.flow.direction] ?? glyph : glyph, tile.visible ? tile.flow?.hazard ? colors.red : color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
     }
     if (!tile.visible) {
       if (isItemVisible(tile, item) && !this.spriteMode) this.drawItem(item!, x, y)
@@ -531,6 +552,12 @@ export class TerminalRenderer {
     if (!this.spriteMode && (previewPath || previewCell)) this.cell(x, y, previewCell ? 'X' : '·', previewCell ? colors.purple : colors.blue, this.runeMode ? previewCell ? '#2a203d' : '#182842' : undefined)
   }
 
+  private drawFlowMarker(tile: Tile, x: number, y: number): void {
+    if (!tile.flow || Math.floor(performance.now() / 180) % 2 !== 0) return
+    const glyph: Partial<Record<Direction, string>> = { n: '↑', ne: '↗', e: '→', se: '↘', s: '↓', sw: '↙', w: '←', nw: '↖' }
+    this.cell(x, y, glyph[tile.flow.direction] ?? '≋', tile.flow.hazard ? colors.red : '#a8eff0')
+  }
+
   private drawRuneTile(kind: string, visible: boolean, x: number, y: number): void {
     const [glyph, fore, back] = runeTileGlyph[kind]
     this.cell(x, y, glyph, visible ? fore : shade(fore), visible ? back : shade(back))
@@ -543,7 +570,7 @@ export class TerminalRenderer {
 
   private spriteFog(state: RunState): void {
     this.ctx.save()
-    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) {
+    for (let y = 0; y < state.floor.height; y++) for (let x = 0; x < state.floor.width; x++) {
       const tile = getTile(state.floor, x, y)!
       const rect = cellRect(x, y)
       if (!tile.explored) {

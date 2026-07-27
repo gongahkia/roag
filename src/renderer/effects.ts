@@ -16,7 +16,7 @@ export class TerminalEffects {
   private lastUpdate = performance.now()
   private reducedFlash = false
 
-  constructor(private readonly cellWidth: number, private readonly cellHeight: number, private readonly mapWidth: number, private readonly mapHeight: number) {}
+  constructor(private readonly cellWidth: number, private readonly cellHeight: number) {}
   setReducedFlash(value: boolean): void { this.reducedFlash = value }
 
   trigger(events: ActionResult, state: RunState | undefined, canvas: HTMLCanvasElement, effectId?: string): void {
@@ -64,9 +64,6 @@ export class TerminalEffects {
 
   drawMap(ctx: CanvasRenderingContext2D, now = performance.now()): void {
     ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, 0, this.mapWidth * this.cellWidth, this.mapHeight * this.cellHeight)
-    ctx.clip()
     for (const particle of this.particles) {
       ctx.globalAlpha = particle.life / particle.maxLife
       ctx.fillStyle = particle.color

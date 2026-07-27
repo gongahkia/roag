@@ -1,5 +1,5 @@
 import { ITEM } from '../content'
-import { DIRECTIONS, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type Direction, type ItemId, type RunState, type Telegraph } from '../types'
+import { DIRECTIONS, type Actor, type Biome, type Direction, type ItemId, type RunState, type Telegraph } from '../types'
 import { actorAt, getTile, isPassable, preservesAdjacentExitAccess, preservesExitPath } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
@@ -104,8 +104,6 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'current') {
     armRelicWaterCrossing(state)
     state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'currentSense'))
-    const drift = { x: destination.x + delta.x, y: destination.y + delta.y }
-    if (isPassable(state.floor, drift.x, drift.y)) { state.hero.x = drift.x; state.hero.y = drift.y; log(state, 'The current carries you onward.') }
   }
   if (tile.kind === 'lift') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + boonRank(state, 'updraftStep')); log(state, 'The lift raises your momentum.') }
   if (tile.kind === 'ledge') state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'updraftCadence'))
@@ -222,6 +220,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
       events.push(...actorTurn(state, actor))
     }
   }
+  resolveFlows(state, events)
   tickEnvironment(state, events)
   tickConditionEffects(state, events)
   for (const [id, cooldown] of Object.entries(state.hero.cooldowns ?? {})) {
@@ -231,6 +230,32 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   refreshFov(state)
   recordSafePosition(state)
   return events
+}
+
+const resolveFlows = (state: RunState, events: ActionResult): void => {
+  const push = (target: { x: number; y: number; health?: number; hostile?: boolean; name?: string }, isHero: boolean): void => {
+    const tile = getTile(state.floor, target.x, target.y)
+    if (tile?.kind !== 'current' || !tile.flow) return
+    const braced = isHero && (state.hero.traversalTools?.includes('cordAnchor') ?? false) && Object.values(DIRECTIONS).some(delta => getTile(state.floor, target.x + delta.x, target.y + delta.y)?.kind === 'anchor')
+    if (braced) { log(state, 'Your cord holds at the anchor.'); return }
+    const delta = DIRECTIONS[tile.flow.direction]
+    const destination = { x: target.x + delta.x, y: target.y + delta.y }
+    const downstream = getTile(state.floor, destination.x, destination.y)
+    const blocked = !downstream || !isPassable(state.floor, destination.x, destination.y) || (!isHero && destination.x === state.hero.x && destination.y === state.hero.y)
+    if (!blocked) {
+      target.x = destination.x
+      target.y = destination.y
+      log(state, isHero ? 'The current carries you downstream.' : `${target.name} is carried downstream.`)
+    }
+    if (tile.flow.hazard === 'undertow' || downstream?.kind === 'deepWater' || downstream?.kind === 'brine') {
+      if (isHero) events.push(...damageHero(state, Math.max(1, 4 - boonRank(state, 'tideSkin')), 'the undertow', true))
+      else if (target.health !== undefined) target.health -= 3
+      if (isHero) log(state, 'The marked undertow drags at your footing.')
+    }
+  }
+  push(state.hero, true)
+  for (const actor of state.floor.actors.filter(actor => actor.hostile && actor.health > 0)) push(actor, false)
+  resolveDefeatedActors(state)
 }
 
 const revalidateProjectileTelegraphs = (state: RunState, telegraphs: Telegraph[]): Telegraph[] => telegraphs.flatMap(telegraph => {
@@ -270,7 +295,7 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
     const ty = y + dy
     points.push({ x: tx, y: ty })
     const tile = getTile(state.floor, tx, ty)
-    if (tile && tile.kind === 'wall' && tx > 0 && tx < MAP_WIDTH - 1 && ty > 0 && ty < MAP_HEIGHT - 1) tile.kind = 'floor'
+    if (tile && tile.kind === 'wall' && tx > 0 && tx < state.floor.width - 1 && ty > 0 && ty < state.floor.height - 1) tile.kind = 'floor'
     const actor = actorAt(state.floor, tx, ty)
     if (actor?.hostile) actor.health -= modifyIncomingDamage(actor, damage)
     if (state.hero.x === tx && state.hero.y === ty) damageHero(state, Math.max(1, Math.floor(damage / 3)), source)

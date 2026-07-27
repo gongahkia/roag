@@ -15,6 +15,8 @@ describe('rescued NPC roster', () => {
     expect(state.rescuedNpcs).toEqual([{ id: 'rescue:wilds:5:scout-1', name: 'lost scout', biome: 'wilds', floor: 1 }])
     expect(state.floor.objective.status).toBe('complete')
     expect(state.floor.actors).toEqual([])
+    expect(state.alignment).toEqual({ kami: 0, villagePact: 1 })
+    expect(state.messages[0]).toBe('You tend toward the village pact.')
     recordRescue(state, scout)
     expect(state.rescuedNpcs).toHaveLength(1)
   })

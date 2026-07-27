@@ -402,8 +402,9 @@ const useAshway = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 
   state.floor.transientTerrain ??= []
   targets.forEach(({ cell, tile }) => {
     const existing = state.floor.transientTerrain!.find(current => current.x === cell.x && current.y === cell.y)
-    if (!existing) state.floor.transientTerrain!.push({ ...cell, original: tile.kind, expiresAt: state.turn + 6 })
+    if (!existing) state.floor.transientTerrain!.push({ ...cell, original: tile.kind, ...(tile.flow ? { originalFlow: { ...tile.flow } } : {}), expiresAt: state.turn + 6 })
     tile.kind = 'floor'
+    delete tile.flow
   })
   log(state, 'Warm ash settles into a temporary route.')
   return true
@@ -414,7 +415,7 @@ export function expireAshways(state: RunState): void {
   const active = pending.filter(current => {
     if (current.expiresAt > state.turn || (state.hero.x === current.x && state.hero.y === current.y)) return true
     const tile = getTile(state.floor, current.x, current.y)
-    if (tile?.kind === 'floor') tile.kind = current.original
+    if (tile?.kind === 'floor') { tile.kind = current.original; if (current.originalFlow) tile.flow = { ...current.originalFlow } }
     return false
   })
   state.floor.transientTerrain = active.length ? active : undefined

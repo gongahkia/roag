@@ -12,12 +12,13 @@ import { trailcraftTags } from './engine/trailcraft'
 import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices } from './engine/buildcraft'
 import { relicChoices } from './engine/relics'
 import { encounterOptions } from './engine/encounters'
-import { DIRECTIONS, MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
+import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
 export const AUTOPLAY_TURN_MS = Math.round(1000 / 6)
 export const AUTOPLAY_MAX_TURNS = 800
+export const autoplayTurnBudget = (state: RunState): number => Math.ceil(AUTOPLAY_MAX_TURNS * state.floor.tiles.length / (48 * 35))
 const AUTOPLAY_MAX_NON_TURN_COMMANDS = 8
 const AUTOPLAY_MAX_RECOVERY_REPEATS = 8
 export const autoplayModes: readonly AutoplayMode[] = ['off', 'visible', 'omniscient']
@@ -131,7 +132,7 @@ const strategicDistance = (state: RunState): number => {
     ? state.floor.actors.filter(actor => actor.role === 'guardian' && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y }))
     : state.floor.tiles.flatMap((tile, index) => {
       const matches = kind === 'recoverSupplies' ? tile.kind === 'crate' || tile.kind === 'chest' : kind === 'rescueScout' ? tile.kind === 'rescue' : tile.kind === 'altar'
-      return matches ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : []
+      return matches ? [floorPoint(state.floor, index)] : []
     })
   const adjacent = kind === 'recoverSupplies' || kind === 'rescueScout'
   return targets.reduce((nearest, target) => Math.min(nearest, Math.max(0, chebyshev(state.hero, target) - Number(adjacent))), Number.POSITIVE_INFINITY)
@@ -322,6 +323,13 @@ const projectedMove = (state: RunState, mode: AutoplayMode, from: Point, directi
     destination = next
     tile = nextTile
   }
+  if (tile?.kind === 'current' && tile.flow) {
+    const flow = DIRECTIONS[tile.flow.direction]
+    const downstream = { x: destination.x + flow.x, y: destination.y + flow.y }
+    const downstreamTile = getTile(state.floor, downstream.x, downstream.y)
+    if ((tile.flow.hazard || downstreamTile?.kind === 'deepWater' || downstreamTile?.kind === 'brine') && avoidHazards) return undefined
+    if (downstreamTile && passable(state, mode, downstream, avoidHazards, ignoreActors)) destination = downstream
+  }
   return destination
 }
 
@@ -439,9 +447,9 @@ const predictiveRouteStep = (state: RunState, mode: AutoplayMode, targets: reado
 
 const objectiveTargets = (state: RunState, mode: AutoplayMode): Point[] => {
   const objective = state.floor.objective.kind
-  if (objective === 'recoverSupplies') return state.floor.tiles.flatMap((tile, index) => (tile.kind === 'crate' || tile.kind === 'chest') && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
-  if (objective === 'rescueScout') return state.floor.tiles.flatMap((tile, index) => tile.kind === 'rescue' && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
-  if (objective === 'invokeAltar') return state.floor.tiles.flatMap((tile, index) => tile.kind === 'altar' && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
+  if (objective === 'recoverSupplies') return state.floor.tiles.flatMap((tile, index) => (tile.kind === 'crate' || tile.kind === 'chest') && known(state, mode, floorPoint(state.floor, index)) ? [floorPoint(state.floor, index)] : [])
+  if (objective === 'rescueScout') return state.floor.tiles.flatMap((tile, index) => tile.kind === 'rescue' && known(state, mode, floorPoint(state.floor, index)) ? [floorPoint(state.floor, index)] : [])
+  if (objective === 'invokeAltar') return state.floor.tiles.flatMap((tile, index) => tile.kind === 'altar' && known(state, mode, floorPoint(state.floor, index)) ? [floorPoint(state.floor, index)] : [])
   return hostileKnown(state, mode).filter(actor => actor.role === 'guardian').map(actor => ({ x: actor.x, y: actor.y }))
 }
 
@@ -863,7 +871,7 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
     if (urgent) return { command: directionCommands[urgent.direction], reason: 'evade telegraph', score: 152 }
   }
   const refuges = state.floor.tiles.flatMap((_, index) => {
-    const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+    const point = floorPoint(state.floor, index)
     return known(state, mode, point) && passable(state, mode, point, true) && !telegraphDanger(state, point) && hostilePressure(state, mode, point) < 25 && chebyshev(state.hero, point) >= 2 ? [point] : []
   })
   const refuge = stepTo(state, mode, refuges)
@@ -1142,7 +1150,7 @@ const usableTarget = (state: RunState, mode: AutoplayMode, action: TargetAction,
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   const frontier = state.floor.tiles.flatMap((tile, index) => {
     if (!tile.explored || blockedTiles.has(tile.kind)) return []
-    const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+    const point = floorPoint(state.floor, index)
     return adjacentCells(point).some(next => getTile(state.floor, next.x, next.y) && !getTile(state.floor, next.x, next.y)!.explored) ? [point] : []
   })
   const route = stepTo(state, mode, frontier)
@@ -1297,7 +1305,11 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
     if (exitRoute || predictiveExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute!.command, reason: predictiveExit ? 'predictive exit route' : 'reach exit', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : 240 : 140 })
-    else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
+    else {
+      const frontier = mode === 'visible' ? explorationMove(state, mode) : undefined
+      if (frontier) candidates.push({ ...frontier, reason: 'find exit', score: 210 })
+      else if (!evade) candidates.push({ command: 'l', reason: 'await exit opening', score: 32 })
+    }
   } else {
     const milestones = policy === 'explore' ? state.floor.milestones.filter(current => !current.claimed && (mode === 'omniscient' || current.discovered)) : []
     const milestoneRoute = stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
@@ -1306,7 +1318,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const items = collectForObjective ? state.floor.items.filter(current => isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current) && (!needsOffering || current.id === 'gold')).map(current => ({ x: current.x, y: current.y })) : []
     const itemRoute = stepTo(state, mode, items)
     if (itemRoute) candidates.push({ command: itemRoute.command, reason: needsOffering ? 'reach offering cash' : 'reach loot', score: needsOffering ? 148 : 48 })
-    const containers = state.floor.tiles.flatMap((current, index) => (current.kind === 'crate' || current.kind === 'chest') && known(state, mode, { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
+    const containers = state.floor.tiles.flatMap((current, index) => (current.kind === 'crate' || current.kind === 'chest') && known(state, mode, floorPoint(state.floor, index)) ? [floorPoint(state.floor, index)] : [])
     const containerRoute = collectForObjective ? stepTo(state, mode, containers.flatMap(adjacentCells)) : undefined
     if (containerRoute) candidates.push({ command: containerRoute.command, reason: 'reach container', score: needsOffering ? 145 : 43 })
     const frontier = hasObjectiveRoute && policy === 'clear' ? undefined : explorationMove(state, mode)
@@ -1330,8 +1342,9 @@ export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<Auto
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
   context.startedTurn ??= state.turn
-  if (state.turn - context.startedTurn >= AUTOPLAY_MAX_TURNS) {
-    context.lastReason = `turn guard:${AUTOPLAY_MAX_TURNS}`
+  const turnBudget = autoplayTurnBudget(state)
+  if (state.turn - context.startedTurn >= turnBudget) {
+    context.lastReason = `turn guard:${turnBudget}`
     return undefined
   }
   if (context.noTurnCommands >= AUTOPLAY_MAX_NON_TURN_COMMANDS) {

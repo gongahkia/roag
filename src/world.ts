@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Floor, type FloorEncounter, type Point, type Prop, type Tile, indexOf, inBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -11,7 +11,10 @@ const pointKey = (point: Point) => `${point.x},${point.y}`
 const passable = (kind: Tile['kind']) => !['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall', 'cliffWall'].includes(kind)
 const propDefinitionErrors = validatePropDefinitions()
 
-export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(x, y) ? floor.tiles[indexOf(x, y)] : undefined
+const indexOf = (floor: Floor, x: number, y: number): number => floorIndex(floor, x, y)
+const pointAt = (floor: Floor, index: number): Point => floorPoint(floor, index)
+const inBounds = (floor: Floor, x: number, y: number): boolean => inFloorBounds(floor, x, y)
+export const getTile = (floor: Floor, x: number, y: number): Tile | undefined => inBounds(floor, x, y) ? floor.tiles[indexOf(floor, x, y)] : undefined
 export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined => floor.actors.find(actor => actor.x === x && actor.y === y && actor.health > 0)
 export const isPassable = (floor: Floor, x: number, y: number): boolean => {
   const target = getTile(floor, x, y)
@@ -20,32 +23,34 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
 
 export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => {
   const queue = [{ ...start }]
-  const seen = new Set<string>()
+  const seen = new Set<string>([pointKey(start)])
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const point = queue[cursor]
-    const key = pointKey(point)
-    if (seen.has(key)) continue
     const current = getTile(floor, point.x, point.y)
     if (!current || !passable(current.kind) || current.kind === 'lockedDoor') continue
     if (point.x === destination.x && point.y === destination.y) return true
-    seen.add(key)
-    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) queue.push({ x: point.x + x, y: point.y + y })
+    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+      const next = { x: point.x + x, y: point.y + y }
+      const key = pointKey(next)
+      if (!seen.has(key)) { seen.add(key); queue.push(next) }
+    }
   }
   return false
 }
 
 export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => {
   const queue = [{ ...start }]
-  const seen = new Set<string>()
+  const seen = new Set<string>([pointKey(start)])
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const point = queue[cursor]
-    const key = pointKey(point)
-    if (seen.has(key)) continue
     const current = getTile(floor, point.x, point.y)
     if (!current || !passable(current.kind) || current.kind === 'lockedDoor' || isBlockingProp(propAt(floor.props, point.x, point.y))) continue
     if (point.x === destination.x && point.y === destination.y) return true
-    seen.add(key)
-    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) queue.push({ x: point.x + x, y: point.y + y })
+    for (const [x, y] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+      const next = { x: point.x + x, y: point.y + y }
+      const key = pointKey(next)
+      if (!seen.has(key)) { seen.add(key); queue.push(next) }
+    }
   }
   return false
 }
@@ -85,25 +90,29 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const seed = streamSeed(runSeed, 'generation', index)
   const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
+  const layoutId = layoutFor(runSeed, biome, index % 4)
+  const { width, height } = dimensionsFor(biome)
   const floor: Floor = {
     index,
     biome,
     seed,
-    tiles: Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => tile('wall')),
+    width,
+    height,
+    layoutId,
+    tiles: Array.from({ length: width * height }, () => tile('wall')),
     actors: [],
     items: [],
     props: [],
     encounters: [],
     start: { x: 2, y: 2 },
-    exit: { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3 },
+    exit: { x: width - 3, y: height - 3 },
     guardianDefeated: index % 4 !== 3,
     objective: objectiveForFloor(index),
     milestones: [],
     telegraphs: [],
     difficulty
   }
-  const rooms = carveRooms(floor, layoutRng)
-  connectRooms(floor, rooms)
+  const rooms = carveBiomeLayout(floor, layoutRng)
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
@@ -111,14 +120,16 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
   placeEvents(floor, rooms)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
+  openMandatoryLocks(floor)
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms)
+  repairMandatoryPath(floor)
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), rooms)
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms)
-  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), ensureReachable(floor))
+  placeProps(floor, rngFor(runSeed, 'props', index, 'placement'), reachableIndexes(floor))
   placeMilestones(floor, rngFor(runSeed, 'progression', index, 'milestones'))
   placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'))
   const validation = validateGeneration(floor)
-  if (!validation.valid) throw new Error(`invalid generated floor ${index}: ${validation.errors.join('; ')}`)
+  if (!validation.valid) throw new Error(`invalid generated floor ${index}/${layoutId}: ${validation.errors.join('; ')}`)
   return floor
 }
 
@@ -133,6 +144,18 @@ const center = (room: Room): Point => ({ x: room.x + Math.floor(room.w / 2), y: 
 const overlaps = (a: Room, b: Room) => a.x - 2 < b.x + b.w && a.x + a.w + 2 > b.x && a.y - 2 < b.y + b.h && a.y + a.h + 2 > b.y
 const cardinalOffsets = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const
 const mineHazards = new Set<Tile['kind']>(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
+
+const dimensions: Record<Biome, { width: number; height: number }> = {
+  mine: { width: MAP_WIDTH, height: MAP_HEIGHT }, wilds: { width: 72, height: 48 }, caverns: { width: 56, height: 44 }, ruins: { width: 64, height: 48 }, furnace: { width: 56, height: 40 }, floodedRuins: { width: 72, height: 48 }, cliffs: { width: 56, height: 52 }, burial: { width: 80, height: 56 }, saltFlats: { width: 72, height: 44 }, frostReliquary: { width: 64, height: 48 }
+}
+const layoutVariants: Record<Biome, readonly string[]> = {
+  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['ritual-rings', 'breached-precinct', 'collapsed-aqueduct'], furnace: ['kiln-terraces', 'smoke-works', 'slag-channels'], floodedRuins: ['braided-islands', 'drowned-causeway', 'floodgate-basin'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
+}
+const dimensionsFor = (biome: Biome) => dimensions[biome]
+const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
+  const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck').shuffle([...layoutVariants[biome]])
+  return areaFloor < deck.length ? deck[areaFloor] : `${deck[(areaFloor + runSeed) % deck.length]}-remix`
+}
 
 const hasNearbyTile = (floor: Floor, point: Point, radius: number, kinds: ReadonlySet<Tile['kind']>): boolean => {
   for (let y = point.y - radius; y <= point.y + radius; y++) for (let x = point.x - radius; x <= point.x + radius; x++) if (kinds.has(getTile(floor, x, y)?.kind ?? 'wall')) return true
@@ -169,13 +192,100 @@ const hasPropContext = (floor: Floor, kind: Prop['kind'], point: Point): boolean
 function carveRooms(floor: Floor, rng: Rng): Room[] {
   const rooms: Room[] = []
   for (let attempt = 0; attempt < 160 && rooms.length < 12; attempt++) {
-    const room: Room = { x: rng.int(2, MAP_WIDTH - 11), y: rng.int(2, MAP_HEIGHT - 9), w: rng.int(5, 10), h: rng.int(4, 7) }
+    const room: Room = { x: rng.int(2, floor.width - 11), y: rng.int(2, floor.height - 9), w: rng.int(5, 10), h: rng.int(4, 7) }
     if (rooms.some(other => overlaps(room, other))) continue
     rooms.push(room)
     for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) setKind(floor, x, y, 'floor')
   }
   if (rooms.length < 2) throw new Error('failed to generate rooms')
   return rooms.sort((a, b) => a.x - b.x || a.y - b.y)
+}
+
+const carveRect = (floor: Floor, room: Room, kind: Tile['kind'] = 'floor'): void => {
+  for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) setKind(floor, x, y, kind)
+}
+const wallBand = (floor: Floor, vertical: boolean, at: number, gap: number, span = 2): void => {
+  const limit = vertical ? floor.height - 1 : floor.width - 1
+  for (let offset = 1; offset < limit; offset++) {
+    if (Math.abs(offset - gap) <= span) continue
+    setKind(floor, vertical ? at : offset, vertical ? offset : at, 'wall')
+  }
+}
+const landmarkRooms = (floor: Floor): Room[] => {
+  const w = Math.max(7, Math.floor(floor.width / 8))
+  const h = Math.max(6, Math.floor(floor.height / 7))
+  const rooms = [
+    { x: 3, y: Math.max(3, Math.floor(floor.height * .18)), w, h },
+    { x: Math.floor(floor.width * .27), y: Math.floor(floor.height * .58), w, h },
+    { x: Math.floor(floor.width * .52), y: Math.floor(floor.height * .23), w, h },
+    { x: floor.width - w - 4, y: Math.floor(floor.height * .62), w, h }
+  ]
+  rooms.forEach(room => carveRect(floor, room))
+  return rooms
+}
+const carveBiomeLayout = (floor: Floor, rng: Rng): Room[] => {
+  if (floor.biome === 'mine') {
+    const rooms = carveRooms(floor, rng)
+    connectRooms(floor, rooms)
+    return rooms
+  }
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  const rooms = landmarkRooms(floor)
+  const variant = floor.layoutId.replace('-remix', '')
+  if (floor.biome === 'wilds') {
+    if (variant === 'root-maze') for (let x = 11; x < floor.width - 8; x += 10) wallBand(floor, true, x, rng.int(4, floor.height - 5), 2)
+    if (variant === 'wetland-causeways') for (let y = 9; y < floor.height - 7; y += 9) wallBand(floor, false, y, rng.int(5, floor.width - 6), 3)
+  } else if (floor.biome === 'caverns') {
+    for (let x = 10; x < floor.width - 8; x += 11) wallBand(floor, true, x, rng.int(5, floor.height - 6), variant === 'fault-tunnels' ? 1 : 3)
+    if (variant === 'sinkhole-galleries') for (let y = 8; y < floor.height - 6; y += 10) wallBand(floor, false, y, rng.int(5, floor.width - 6), 2)
+  } else if (floor.biome === 'ruins') {
+    for (let x = 9; x < floor.width - 6; x += 9) wallBand(floor, true, x, rng.int(4, floor.height - 5), 2)
+    if (variant !== 'breached-precinct') for (let y = 8; y < floor.height - 6; y += 10) wallBand(floor, false, y, rng.int(5, floor.width - 6), 2)
+  } else if (floor.biome === 'furnace') {
+    for (let y = 7; y < floor.height - 5; y += 7) wallBand(floor, false, y, rng.int(5, floor.width - 6), variant === 'kiln-terraces' ? 2 : 4)
+  } else if (floor.biome === 'floodedRuins') {
+    for (let x = 12; x < floor.width - 8; x += 14) wallBand(floor, true, x, rng.int(5, floor.height - 6), 4)
+  } else if (floor.biome === 'cliffs') {
+    for (let y = 8; y < floor.height - 6; y += 9) wallBand(floor, false, y, rng.int(5, floor.width - 6), variant === 'ravine-switchbacks' ? 1 : 3)
+  } else if (floor.biome === 'burial') {
+    if (variant === 'ringed-necropolis') for (let x = 14; x < floor.width - 10; x += 18) wallBand(floor, true, x, rng.int(6, floor.height - 7), 5)
+  } else if (floor.biome === 'saltFlats') {
+    if (variant === 'brine-fractures') for (let x = 12; x < floor.width - 8; x += 12) wallBand(floor, true, x, rng.int(5, floor.height - 6), 4)
+  } else if (floor.biome === 'frostReliquary') {
+    for (let y = 9; y < floor.height - 7; y += 10) wallBand(floor, false, y, rng.int(5, floor.width - 6), variant === 'reliquary-escarpment' ? 2 : 5)
+  }
+  rooms.forEach(room => carveRect(floor, room))
+  connectRooms(floor, rooms)
+  imprintBiomeLandmarks(floor, rng, rooms)
+  return rooms
+}
+
+const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
+  const paint = (x: number, y: number, kind: Tile['kind']) => { if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, kind) }
+  if (floor.biome === 'burial') {
+    for (const room of rooms.slice(1)) {
+      const origin = center(room)
+      for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) {
+        const distance = Math.abs(x) + Math.abs(y)
+        if (distance === 3) paint(origin.x + x, origin.y + y, 'cairn')
+        else if (distance < 3 && rng.chance(55)) paint(origin.x + x, origin.y + y, 'graveSoil')
+      }
+    }
+  } else if (floor.biome === 'saltFlats') {
+    for (let x = 7; x < floor.width - 5; x += 11) for (let y = 2; y < floor.height - 2; y++) if ((y + x) % 7 !== 0) paint(x, y, floor.layoutId.includes('caravan') ? 'saltMirror' : 'brine')
+  } else if (floor.biome === 'frostReliquary') {
+    const lake = rooms[1] ?? rooms[0]
+    for (let y = lake.y + 1; y < lake.y + lake.h - 1; y++) for (let x = lake.x + 1; x < lake.x + lake.w - 1; x++) paint(x, y, floor.layoutId.includes('frozen-lake') ? 'ice' : 'frostRime')
+  } else if (floor.biome === 'cliffs') {
+    for (let y = 5; y < floor.height - 4; y += 9) for (let x = 2; x < floor.width - 2; x++) if (x % 8 !== 0) paint(x, y, 'ledge')
+  } else if (floor.biome === 'furnace') {
+    for (let y = 4; y < floor.height - 3; y += 7) for (let x = 3; x < floor.width - 3; x++) if (x % 9 !== 0) paint(x, y, floor.layoutId.includes('kiln') ? 'lift' : 'smoke')
+  } else if (floor.biome === 'ruins') {
+    for (const room of rooms.slice(1, -1)) {
+      const origin = center(room)
+      for (const [x, y] of cardinalOffsets) paint(origin.x + x * 2, origin.y + y * 2, 'dart')
+    }
+  }
 }
 
 function connectRooms(floor: Floor, rooms: Room[]): void {
@@ -190,22 +300,22 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
 function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): void {
   const definitions = rng.shuffle([...propDefinitionsFor(floor.biome)])
   const occupied = new Set<number>([
-    indexOf(floor.start.x, floor.start.y),
-    indexOf(floor.exit.x, floor.exit.y),
-    ...objectiveTargets(floor).map(point => indexOf(point.x, point.y)),
-    ...floor.actors.map(actor => indexOf(actor.x, actor.y)),
-    ...floor.items.map(item => indexOf(item.x, item.y))
+    indexOf(floor, floor.start.x, floor.start.y),
+    indexOf(floor, floor.exit.x, floor.exit.y),
+    ...objectiveTargets(floor).map(point => indexOf(floor, point.x, point.y)),
+    ...floor.actors.map(actor => indexOf(floor, actor.x, actor.y)),
+    ...floor.items.map(item => indexOf(floor, item.x, item.y))
   ])
   for (const definition of definitions) {
     const candidates: number[] = []
     for (let index = 0; index < floor.tiles.length; index++) {
       const tile = floor.tiles[index]
-      const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+      const point = pointAt(floor, index)
       if (definition.terrain.includes(tile.kind) && passable(tile.kind) && reachable.has(index) && !occupied.has(index) && hasPropContext(floor, definition.id, point)) candidates.push(index)
     }
     if (!candidates.length) continue
     const placement = rng.pick(candidates)
-    const point = { x: placement % MAP_WIDTH, y: Math.floor(placement / MAP_WIDTH) }
+    const point = pointAt(floor, placement)
     const prop: Prop = {
       id: `prop:${floor.index}:${definition.id}:${point.x}:${point.y}`,
       kind: definition.id,
@@ -232,14 +342,14 @@ function placeProps(floor: Floor, rng: Rng, reachable: ReadonlySet<number>): voi
 function placeMilestones(floor: Floor, rng: Rng): void {
   const reachable = reachableIndexes(floor)
   const occupied = new Set<number>([
-    indexOf(floor.start.x, floor.start.y), indexOf(floor.exit.x, floor.exit.y),
-    ...objectiveTargets(floor).map(point => indexOf(point.x, point.y)),
-    ...floor.actors.map(actor => indexOf(actor.x, actor.y)),
-    ...floor.items.map(item => indexOf(item.x, item.y)),
-    ...floor.props.map(prop => indexOf(prop.x, prop.y))
+    indexOf(floor, floor.start.x, floor.start.y), indexOf(floor, floor.exit.x, floor.exit.y),
+    ...objectiveTargets(floor).map(point => indexOf(floor, point.x, point.y)),
+    ...floor.actors.map(actor => indexOf(floor, actor.x, actor.y)),
+    ...floor.items.map(item => indexOf(floor, item.x, item.y)),
+    ...floor.props.map(prop => indexOf(floor, prop.x, prop.y))
   ])
   const candidates = floor.tiles.flatMap((current, index) => {
-    const point = { x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }
+    const point = pointAt(floor, index)
     return passable(current.kind) && current.kind !== 'exit' && !occupied.has(index) && reachable.has(index) && distance(point, floor.start) >= 4 ? [point] : []
   })
   const selected: Point[] = []
@@ -253,10 +363,11 @@ function placeMilestones(floor: Floor, rng: Rng): void {
 }
 
 function placeEncounters(floor: Floor, rng: Rng): void {
-  const candidates = floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH) }] : [])
+  const reachable = reachableIndexes(floor)
+  const candidates = floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [pointAt(floor, index)] : [])
     .filter(point => distance(point, floor.start) > 7 && distance(point, floor.exit) > 5)
     .filter(point => !actorAt(floor, point.x, point.y) && !floor.items.some(item => item.x === point.x && item.y === point.y) && !floor.props.some(prop => prop.x === point.x && prop.y === point.y) && !floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y))
-    .filter(point => hasPassablePath(floor, floor.start, point))
+    .filter(point => reachable.has(indexOf(floor, point.x, point.y)))
   const point = candidates.length ? rng.pick(candidates) : undefined
   if (!point) return
   const aligned: Record<Biome, readonly FloorEncounter['kind'][]> = {
@@ -272,7 +383,14 @@ function placeEncounters(floor: Floor, rng: Rng): void {
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
 const carveV = (floor: Floor, from: number, to: number, x: number) => { for (let y = Math.min(from, to); y <= Math.max(from, to); y++) setKind(floor, x, y, 'floor') }
-const setKind = (floor: Floor, x: number, y: number, kind: Tile['kind']) => { if (inBounds(x, y)) floor.tiles[indexOf(x, y)].kind = kind }
+const setKind = (floor: Floor, x: number, y: number, kind: Tile['kind']) => {
+  if (!inBounds(floor, x, y)) return
+  const tile = floor.tiles[indexOf(floor, x, y)]
+  tile.kind = kind
+  if (kind !== 'current') delete tile.flow
+}
+const safeFloor = (floor: Floor): Point[] => floor.tiles.flatMap((current, index) => current.kind === 'floor' ? [pointAt(floor, index)] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+const terrainCount = (floor: Floor, count: number): number => Math.max(count, Math.round(count * floor.tiles.length / (MAP_WIDTH * MAP_HEIGHT)))
 const railH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, 'rail') }
 const railV = (floor: Floor, from: number, to: number, x: number) => { for (let y = Math.min(from, to); y <= Math.max(from, to); y++) if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, 'rail') }
 
@@ -302,7 +420,7 @@ function placePuzzleTemplate(floor: Floor, rng: Rng, rooms: Room[]): void {
   const point = center(room)
   for (const placement of template.placements) {
     const tile = getTile(floor, point.x + placement.dx, point.y + placement.dy)
-    if (tile && tile.kind !== 'wall' && tile.kind !== 'exit') tile.kind = placement.kind
+    if (tile && tile.kind !== 'wall' && tile.kind !== 'exit') { tile.kind = placement.kind; if (placement.kind !== 'current') delete tile.flow }
   }
   floor.puzzleIds = [...(floor.puzzleIds ?? []), template.id]
 }
@@ -314,8 +432,9 @@ function decorateMine(floor: Floor, rng: Rng, rooms: Room[]): void {
     if (i % 2) { railH(floor, from.x, to.x, from.y); railV(floor, from.y, to.y, to.x) }
     else { railV(floor, from.y, to.y, from.x); railH(floor, from.x, to.x, to.y) }
   }
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, byRail = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     if (byRail) {
       const adjacent = candidates.filter(point => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => getTile(floor, point.x + x, point.y + y)?.kind === 'rail'))
@@ -334,8 +453,9 @@ function decorateMine(floor: Floor, rng: Rng, rooms: Room[]): void {
 }
 
 function decorateWilds(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -345,13 +465,15 @@ function decorateWilds(floor: Floor, rng: Rng): void {
     }
   }
   paint('water', 9, true)
+  if (floor.layoutId.includes('river-clearings') || floor.layoutId.includes('wetland')) carveFlowChannel(floor, rng, false)
   paint('bramble', 8, true)
   paint('web', 10)
 }
 
 function decorateCaverns(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -367,8 +489,9 @@ function decorateCaverns(floor: Floor, rng: Rng): void {
 }
 
 function decorateRuins(floor: Floor, rng: Rng, rooms: Room[]): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -387,8 +510,9 @@ function decorateRuins(floor: Floor, rng: Rng, rooms: Room[]): void {
 }
 
 function decorateFurnace(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -404,8 +528,9 @@ function decorateFurnace(floor: Floor, rng: Rng): void {
 }
 
 function decorateFloodedRuins(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -414,15 +539,49 @@ function decorateFloodedRuins(floor: Floor, rng: Rng): void {
       candidates = safe()
     }
   }
-  paint('current', 13, true)
+  carveFlowChannel(floor, rng, floor.layoutId.includes('floodgate'))
   paint('anchor', 7)
   paint('deepWater', 9, true)
   paint('water', 8, true)
 }
 
+const carveFlowChannel = (floor: Floor, rng: Rng, hazardous: boolean): void => {
+  const vertical = rng.chance(55)
+  const start = vertical ? rng.int(4, floor.width - 5) : rng.int(4, floor.height - 5)
+  const direction: Exclude<Direction, 'wait'> = vertical ? 's' : 'e'
+  const length = vertical ? floor.height - 3 : floor.width - 3
+  let bend = start
+  let last: Point | undefined
+  for (let step = 1; step < length; step++) {
+    if (step % 8 === 0 && rng.chance(55)) bend += rng.int(-1, 1)
+    const x = vertical ? bend : step
+    const y = vertical ? step : bend
+    if (!inBounds(floor, x, y) || x < 2 || y < 2 || x >= floor.width - 2 || y >= floor.height - 2) continue
+    const current = getTile(floor, x, y)
+    if (!current || current.kind === 'exit' || (x === floor.start.x && y === floor.start.y)) continue
+    if (last) {
+      const previous = getTile(floor, last.x, last.y)
+      if (previous?.flow) previous.flow.direction = flowDirection(x - last.x, y - last.y)
+    }
+    current.kind = 'current'
+    current.flow = { direction, ...(hazardous && step > length - 7 ? { hazard: 'undertow' as const } : {}) }
+    last = { x, y }
+    const bank = vertical ? { x: x + 1, y } : { x, y: y + 1 }
+    if (getTile(floor, bank.x, bank.y)?.kind === 'floor' && rng.chance(45)) setKind(floor, bank.x, bank.y, 'water')
+  }
+  if (hazardous && last) {
+    const delta = ({ n: { x: 0, y: -1 }, ne: { x: 1, y: -1 }, e: { x: 1, y: 0 }, se: { x: 1, y: 1 }, s: { x: 0, y: 1 }, sw: { x: -1, y: 1 }, w: { x: -1, y: 0 }, nw: { x: -1, y: -1 } } as const)[getTile(floor, last.x, last.y)?.flow?.direction ?? direction]
+    const outlet = getTile(floor, last.x + delta.x, last.y + delta.y)
+    if (outlet && outlet.kind !== 'exit') outlet.kind = 'deepWater'
+  }
+}
+
+const flowDirection = (x: number, y: number): Exclude<Direction, 'wait'> => x < 0 ? y < 0 ? 'nw' : y > 0 ? 'sw' : 'w' : x > 0 ? y < 0 ? 'ne' : y > 0 ? 'se' : 'e' : y < 0 ? 'n' : 's'
+
 function decorateCliffs(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -444,8 +603,9 @@ function decorateCliffs(floor: Floor, rng: Rng): void {
 }
 
 function decorateBurial(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -461,8 +621,9 @@ function decorateBurial(floor: Floor, rng: Rng): void {
 }
 
 function decorateSaltFlats(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -477,8 +638,9 @@ function decorateSaltFlats(floor: Floor, rng: Rng): void {
 }
 
 function decorateFrostReliquary(floor: Floor, rng: Rng): void {
-  const safe = () => floor.tiles.flatMap((current, i) => current.kind === 'floor' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : []).filter(point => distance(point, floor.start) > 5 && distance(point, floor.exit) > 3)
+  const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
+    count = terrainCount(floor, count)
     let candidates = safe()
     for (let i = 0; i < count && candidates.length; i++) {
       const point = rng.pick(candidates)
@@ -515,10 +677,58 @@ function placeDoorsAndLocks(floor: Floor, rng: Rng, rooms: Room[]): void {
   }
 }
 
+const routeThroughLocks = (floor: Floor): Point[] | undefined => {
+  const start = { ...floor.start }
+  const queue = [start]
+  const previous = new Map<string, Point | undefined>([[pointKey(start), undefined]])
+  const traversable = (kind: Tile['kind']) => kind !== 'wall' && kind !== 'cliffWall'
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const point = queue[cursor]
+    if (point.x === floor.exit.x && point.y === floor.exit.y) {
+      const path: Point[] = []
+      for (let current: Point | undefined = point; current; current = previous.get(pointKey(current))) path.push(current)
+      return path.reverse()
+    }
+    for (const [x, y] of cardinalOffsets) {
+      const next = { x: point.x + x, y: point.y + y }
+      const key = pointKey(next)
+      if (previous.has(key) || !traversable(getTile(floor, next.x, next.y)?.kind ?? 'wall')) continue
+      previous.set(key, point)
+      queue.push(next)
+    }
+  }
+  return undefined
+}
+
+const openMandatoryLocks = (floor: Floor): void => {
+  if (hasPassablePath(floor, floor.start, floor.exit)) return
+  const route = routeThroughLocks(floor)
+  if (!route) return
+  for (const point of route) {
+    const tile = getTile(floor, point.x, point.y)
+    if (tile?.kind === 'lockedDoor') tile.kind = 'door'
+  }
+}
+
+const repairMandatoryPath = (floor: Floor): void => {
+  if (hasPassableTerrainPath(floor, floor.start, floor.exit)) return
+  for (const point of routeThroughLocks(floor) ?? []) {
+    const tile = getTile(floor, point.x, point.y)
+    if (tile && tile.kind !== 'exit' && !passable(tile.kind)) tile.kind = 'floor'
+  }
+}
+
 function placeContainers(floor: Floor, rng: Rng, rooms: Room[]): void {
   for (let i = 0; i < 4; i++) {
-    const point = freeRoomPoint(floor, rng, rooms)
-    setKind(floor, point.x, point.y, i === 3 ? 'chest' : 'crate')
+    const kind: Tile['kind'] = i === 3 ? 'chest' : 'crate'
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const point = freeRoomPoint(floor, rng, rooms)
+      const target = getTile(floor, point.x, point.y)
+      const exits = cardinalOffsets.filter(([x, y]) => passable(getTile(floor, point.x + x, point.y + y)?.kind ?? 'wall')).length
+      if (!target || target.kind !== 'floor' || exits < 2) continue
+      target.kind = kind
+      break
+    }
   }
 }
 
@@ -585,66 +795,53 @@ function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: 
   return { id: `${role}-${pointKey(point)}`, role, kind: role, name, x: point.x, y: point.y, health: 99, maxHealth: 99, attack: 0, defense: 99, speed: 0, energy: 0, glyph, color, hostile: false, conditions: [] }
 }
 
-function ensureReachable(floor: Floor): Set<number> {
-  const objectives = objectiveTargets(floor).map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
-  let reachable = reachableIndexes(floor)
-  if (!reachable.has(indexOf(floor.exit.x, floor.exit.y))) {
-    carveH(floor, floor.start.x, floor.exit.x, floor.start.y)
-    carveV(floor, floor.start.y, floor.exit.y, floor.exit.x)
-    setKind(floor, floor.exit.x, floor.exit.y, 'exit')
-    reachable = reachableIndexes(floor)
-  }
-  for (const objective of objectives) setKind(floor, objective.point.x, objective.point.y, objective.kind)
-  const target = objectiveTargets(floor).find(point => !canReachObjective(reachable, point))
-  if (!target) return reachable
-  const targetTile = getTile(floor, target.x, target.y)!
-  const originalKind = targetTile.kind
-  const access = passable(originalKind) ? target : { x: target.x + 1, y: target.y }
-  carveH(floor, floor.start.x, access.x, floor.start.y)
-  carveV(floor, floor.start.y, access.y, access.x)
-  for (const [x, y] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(target.x + x, target.y + y)) setKind(floor, target.x + x, target.y + y, 'floor')
-  targetTile.kind = originalKind
-  setKind(floor, floor.exit.x, floor.exit.y, 'exit')
-  return reachableIndexes(floor)
-}
-
 const distance = (a: Point, b: Point): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
 export interface GenerationValidation { valid: boolean; errors: string[] }
 
 const reachableIndexes = (floor: Floor): Set<number> => {
-  const seen = new Set<number>()
-  const queue = [indexOf(floor.start.x, floor.start.y)]
+  const start = indexOf(floor, floor.start.x, floor.start.y)
+  const seen = new Set<number>([start])
+  const queue = [start]
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const index = queue[cursor]
-    if (seen.has(index)) continue
-    const x = index % MAP_WIDTH
-    const y = Math.floor(index / MAP_WIDTH)
+    const { x, y } = pointAt(floor, index)
     const tile = floor.tiles[index]
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor') continue
-    seen.add(index)
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(x + dx, y + dy)) queue.push(indexOf(x + dx, y + dy))
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (inBounds(floor, x + dx, y + dy)) {
+      const next = indexOf(floor, x + dx, y + dy)
+      if (!seen.has(next)) { seen.add(next); queue.push(next) }
+    }
   }
   return seen
 }
 
 const objectiveTargets = (floor: Floor): Point[] => {
-  if (floor.objective.kind === 'recoverSupplies') return floor.tiles.flatMap((tile, i) => tile.kind === 'crate' || tile.kind === 'chest' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
-  if (floor.objective.kind === 'rescueScout') return floor.tiles.flatMap((tile, i) => tile.kind === 'rescue' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
-  if (floor.objective.kind === 'invokeAltar') return floor.tiles.flatMap((tile, i) => tile.kind === 'altar' ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
+  if (floor.objective.kind === 'recoverSupplies') return floor.tiles.flatMap((tile, i) => tile.kind === 'crate' || tile.kind === 'chest' ? [pointAt(floor, i)] : [])
+  if (floor.objective.kind === 'rescueScout') return floor.tiles.flatMap((tile, i) => tile.kind === 'rescue' ? [pointAt(floor, i)] : [])
+  if (floor.objective.kind === 'invokeAltar') return floor.tiles.flatMap((tile, i) => tile.kind === 'altar' ? [pointAt(floor, i)] : [])
   return floor.actors.filter(actor => actor.role === 'guardian').map(actor => ({ x: actor.x, y: actor.y }))
 }
 
-const canReachObjective = (reachable: ReadonlySet<number>, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => inBounds(target.x + x, target.y + y) && reachable.has(indexOf(target.x + x, target.y + y)))
 const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: target.x + x, y: target.y + y }))
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
   errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor), ...propDefinitionErrors)
   if (puzzleTemplatesFor(floor.biome).length && !(floor.puzzleIds?.length)) errors.push('missing puzzle template')
-  if (floor.tiles.length !== MAP_WIDTH * MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
+  if (floor.tiles.length !== floor.width * floor.height || floor.width < MAP_WIDTH || floor.height < MAP_HEIGHT || floor.index < 0 || floor.index >= FLOOR_COUNT) errors.push('invalid floor dimensions')
+  if (!floor.layoutId || !layoutVariants[floor.biome].some(layout => floor.layoutId === layout || floor.layoutId === `${layout}-remix`)) errors.push('invalid layout id')
   if (!getTile(floor, floor.start.x, floor.start.y) || !passable(getTile(floor, floor.start.x, floor.start.y)!.kind)) errors.push('invalid start placement')
   if (getTile(floor, floor.exit.x, floor.exit.y)?.kind !== 'exit') errors.push('invalid exit placement')
+  for (let index = 0; index < floor.tiles.length; index++) {
+    const tile = floor.tiles[index]
+    if (!tile.flow) continue
+    const point = pointAt(floor, index)
+    const delta = ({ n: { x: 0, y: -1 }, ne: { x: 1, y: -1 }, e: { x: 1, y: 0 }, se: { x: 1, y: 1 }, s: { x: 0, y: 1 }, sw: { x: -1, y: 1 }, w: { x: -1, y: 0 }, nw: { x: -1, y: -1 } } as const)[tile.flow.direction]
+    const downstream = getTile(floor, point.x + delta.x, point.y + delta.y)
+    if (tile.kind !== 'current' || !downstream) errors.push(`invalid flow at ${pointKey(point)}`)
+    if (tile.flow.hazard && downstream?.kind !== 'current' && downstream?.kind !== 'deepWater' && downstream?.kind !== 'brine') errors.push(`unmarked flow outlet at ${pointKey(point)}`)
+  }
   const reachable = reachableIndexes(floor)
   if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
@@ -690,7 +887,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     else if (isBlockingProp(prop)) {
       const reachableSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
       if (!reachableSide) errors.push(`unreachable prop: ${prop.id}`)
-    } else if (!reachable.has(indexOf(prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
+    } else if (!reachable.has(indexOf(floor, prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }

@@ -22,7 +22,7 @@ const timedOutRun = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[nu
   return { seed, profile: profile.id, mode: profile.mode, policy: profile.policy, areaOrder, campaignComplete: false, outcome: 'turn-limit', turns: 0, finalBiome, floor: 1, completedAreas: [], failure: { outcome: 'turn-limit', finalBiome, floor: 1, completedAreas: [], reason: `worker wall-time limit (${workerTimeout}ms)`, trace: [] } }
 }
 const run = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[number]): Promise<CampaignAutoplayRun> => new Promise((resolveRun, reject) => {
-  const child = spawn(resolve('node_modules/.bin/vite-node'), ['--script', resolve('scripts/autoplay-campaign-worker.ts')], { env: { ...process.env, CAMPAIGN_AUTOPLAY_SEED: String(seed), CAMPAIGN_AUTOPLAY_PROFILE: profile.id, CAMPAIGN_AUTOPLAY_TRACE: captureTrace ? '1' : '0' }, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(resolve('node_modules/.bin/tsx'), [resolve('scripts/autoplay-campaign-worker.ts')], { env: { ...process.env, CAMPAIGN_AUTOPLAY_SEED: String(seed), CAMPAIGN_AUTOPLAY_PROFILE: profile.id, CAMPAIGN_AUTOPLAY_TRACE: captureTrace ? '1' : '0' }, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
   let errors = ''
   let settled = false

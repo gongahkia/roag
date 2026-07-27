@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, createHero, createRun } from '../test/factories'
 import { resolveDefeatedActors } from './combat'
 import { perform } from './input'
-import { relicChoices } from './relics'
+import { relicAlignment, relicChoices } from './relics'
 
 const relicSite = { id: 'relic-site', kind: 'relic' as const, x: 1, y: 1, discovered: true, claimed: false }
 
@@ -15,6 +15,7 @@ describe('guardian relics', () => {
     expect(state.floor.milestones[0].claimed).toBe(true)
     expect(state.hero.relics).toEqual([offer.id])
     expect(state.telemetry?.relicPicks).toEqual({ [offer.id]: 1 })
+    expect(state.alignment?.[relicAlignment(offer.id)]).toBe(1)
   })
 
   it('creates one echo after a guardian dies', () => {

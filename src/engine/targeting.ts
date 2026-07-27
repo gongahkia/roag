@@ -1,4 +1,4 @@
-import { DIRECTIONS, MAP_HEIGHT, MAP_WIDTH, type Modal, type RunState } from '../types'
+import { DIRECTIONS, type Modal, type RunState } from '../types'
 import { actionCells } from './geometry'
 import { resolveLineEffect } from './line-effect'
 
@@ -8,7 +8,7 @@ export const targetPreview = (state: RunState, modal: Extract<Modal, { kind: 'ta
   if (!modal.direction) return { path: [], cells: [] }
   const delta = DIRECTIONS[modal.direction]
   const origin = state.hero
-  const bounds = { width: MAP_WIDTH, height: MAP_HEIGHT }
+  const bounds = { width: state.floor.width, height: state.floor.height }
   if (modal.action === 'drill' || modal.action === 'bridge' || modal.action === 'winch' || modal.action === 'stoneWedge') {
     const point = { x: origin.x + delta.x, y: origin.y + delta.y }
     return { path: [point], cells: [point] }

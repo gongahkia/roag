@@ -2,7 +2,7 @@ import { runAutoplay } from '../src/autoplay-runner'
 import { newRun } from '../src/engine'
 import type { AutoplayMode, AutoplayPolicy, Biome } from '../src/types'
 
-const allBiomes = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const
+const allBiomes = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const
 const allModes = ['visible', 'omniscient'] as const
 const allPolicies = ['survival', 'clear', 'explore', 'legacy'] as const
 const list = <T extends string>(value: string | undefined, valid: readonly T[], fallback: readonly T[], name: string): T[] => {
@@ -20,8 +20,12 @@ const policy = policyValue as AutoplayPolicy
 const turnLimit = Number(process.env.TURNS ?? 19200)
 if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURNS: ${process.env.TURNS}`)
 const fullTrace = process.env.FULL_TRACE === '1'
-const reports = seeds.flatMap(seed => biomes.flatMap(biome => modes.map(mode => runAutoplay(newRun(seed, biome), { mode, policy, turnLimit }))))
+const chainAreas = process.env.CHAIN_AREAS !== '0'
+const chainFloors = process.env.CHAIN_FLOORS !== '0'
+const floors = (process.env.FLOORS ?? '0').split(',').filter(Boolean).map(value => Number(value))
+if (!floors.length || floors.some(floor => !Number.isInteger(floor) || floor < 0 || floor > 3)) throw new Error(`invalid FLOORS: ${process.env.FLOORS}`)
+const reports = seeds.flatMap(seed => biomes.flatMap(biome => floors.flatMap(floor => modes.map(mode => runAutoplay(newRun(seed, biome, floor), { mode, policy, turnLimit, chainAreas, chainFloors })))))
 const outcomes = Object.fromEntries(['complete', 'dead', 'stalled', 'turn-limit', 'error'].map(outcome => [outcome, reports.filter(report => report.outcome === outcome).length]))
 const clearRate = reports.length ? outcomes.complete / reports.length : 0
 const detail = reports.filter(report => fullTrace || report.outcome !== 'complete').map(report => ({ ...report, trace: fullTrace ? report.trace : report.trace.slice(-40) }))
-console.log(JSON.stringify({ config: { seeds, biomes, modes, policy, turnLimit, fullTrace }, total: reports.length, clearRate, outcomes, detail }, null, 2))
+console.log(JSON.stringify({ config: { seeds, biomes, floors, modes, policy, turnLimit, chainAreas, chainFloors, fullTrace }, total: reports.length, clearRate, outcomes, detail }, null, 2))

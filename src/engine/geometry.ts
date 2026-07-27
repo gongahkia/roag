@@ -1,9 +1,9 @@
-import { DIRECTIONS, MAP_HEIGHT, MAP_WIDTH, type Direction, type Point } from '../types'
+import { DIRECTIONS, type Direction, type Point } from '../types'
 import type { ActionShape } from './actions'
 
 export interface GridBounds { width: number; height: number }
 
-const defaultBounds: GridBounds = { width: MAP_WIDTH, height: MAP_HEIGHT }
+const defaultBounds: GridBounds = { width: 256, height: 256 }
 const key = (point: Point): string => `${point.x},${point.y}`
 const inBounds = (point: Point, bounds: GridBounds): boolean => point.x >= 0 && point.x < bounds.width && point.y >= 0 && point.y < bounds.height
 

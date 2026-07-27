@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { indexOf } from '../types'
 import { createHero, createRun } from '../test/factories'
 import { perform } from './input'
+import { boonAlignment, boonChoices } from './buildcraft'
 
 const waycache = { id: 'waycache', kind: 'waycache' as const, x: 1, y: 1, discovered: true, claimed: false }
 const boonSite = { id: 'boon', kind: 'boon' as const, x: 1, y: 1, discovered: true, claimed: false }
@@ -45,8 +46,10 @@ describe('buildcraft', () => {
   it('claims deterministic Boon drafts from traversed sites', () => {
     const state = createRun()
     state.floor.milestones = [boonSite]
+    const choice = boonChoices(state, boonSite)[0]
     perform(state, 'c'); perform(state, '1')
     expect(state.floor.milestones[0].claimed).toBe(true)
     expect(Object.values(state.hero.boons ?? {}).reduce<number>((sum, rank) => sum + (rank ?? 0), 0)).toBe(1)
+    expect(state.alignment?.[boonAlignment(choice.id)]).toBe(1)
   })
 })

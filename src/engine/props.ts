@@ -1,4 +1,4 @@
-import { DIRECTIONS, MAP_WIDTH, type Point, type Prop, type PropEffectKind, type RunState, type Telegraph } from '../types'
+import { DIRECTIONS, floorPoint, type Point, type Prop, type PropEffectKind, type RunState, type Telegraph } from '../types'
 import { isBlockingProp, propAt, propDefinition } from '../props'
 import { actorAt, getTile, hasPassablePath, isPassable, preservesExitPath, spawnMonster } from '../world'
 import { damageHero, explode, resolveDefeatedActors } from './combat'
@@ -210,7 +210,7 @@ const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
 }
 
 const revealWarnings = (state: RunState, prop: Prop, skull: boolean): number => {
-  const points = state.floor.tiles.flatMap((tile, index) => hazardKinds.has(tile.kind) ? [{ x: index % MAP_WIDTH, y: Math.floor(index / MAP_WIDTH), priority: 0 }] : [])
+  const points = state.floor.tiles.flatMap((tile, index) => hazardKinds.has(tile.kind) ? [{ ...floorPoint(state.floor, index), priority: 0 }] : [])
   if (skull) points.push(...state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y, priority: 1 })))
   const warnings = points
     .filter(point => Math.max(Math.abs(point.x - prop.x), Math.abs(point.y - prop.y)) <= 5)

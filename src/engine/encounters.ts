@@ -59,6 +59,11 @@ const alignmentProfiles: Record<AlignmentEncounterKind, AlignmentProfile> = {
   frostKami: { title: 'YUKI KAMI RITE', alignment: 'kami', cost: 'health', value: 3, reward: 'ward', gold: 80 }
 }
 const alignmentProfileFor = (kind: FloorEncounter['kind']): AlignmentProfile | undefined => alignmentEncounterKinds.includes(kind as AlignmentEncounterKind) ? alignmentProfiles[kind as AlignmentEncounterKind] : undefined
+const existingEncounterAlignment: Partial<Record<FloorEncounter['kind'], Alignment>> = {
+  wayfarer: 'villagePact', bloodBargain: 'kami', stormCache: 'villagePact', windTrial: 'kami', ancestorDebt: 'kami', tombAuction: 'kami', oathwell: 'kami', cursedObject: 'kami',
+  sunTribute: 'kami', mirageMarket: 'villagePact', brineOath: 'kami', glassTrial: 'villagePact', whiteRoad: 'villagePact', saltCache: 'villagePact',
+  iceDuel: 'villagePact', winterTithe: 'kami', rimeContract: 'villagePact', frostCache: 'villagePact', whiteout: 'kami', reliquaryTrial: 'kami'
+}
 export const encounterTitle = (kind: FloorEncounter['kind']): string => {
   const title = alignmentProfileFor(kind)?.title ?? expansionProfileFor(kind)?.title
   return title ?? (kind === 'wayfarer' ? 'TABIBITO' : kind === 'bloodBargain' ? 'SEALED PACT' : kind === 'stormCache' ? 'KAZE CACHE' : kind === 'windTrial' ? 'KAZE TRIAL' : kind === 'ancestorDebt' ? 'SOREI DEBT' : kind === 'tombAuction' ? 'KOFUN MARKET' : kind === 'oathwell' ? 'OATH WELL' : kind === 'cursedObject' ? 'CURSED OBJECT' : 'SHIFTING CHAMBER')
@@ -85,6 +90,8 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
   const reliquaryEcho = boonRank(state, 'reliquaryEcho')
   if (reliquaryEcho) state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'shielded', duration: 2, potency: reliquaryEcho }]
   recordTelemetryCount(state, 'eventOutcomes', `${source.kind}:${outcome}`)
+  const alignment = existingEncounterAlignment[source.kind]
+  if (alignment && outcome !== 'leave' && outcome !== 'decline') tend(state, alignment)
   return [event('encounter'), ...events]
 }
 

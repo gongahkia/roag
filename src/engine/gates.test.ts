@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AREA_GATES, gateForArea, gateForRun, validateAreaGate } from './gates'
+import { AREA_GATES, gateForArea, gateForRun, resolveAreaGate, validateAreaGate } from './gates'
 import { newRun } from './run'
 
 describe('area gate data model', () => {
@@ -26,5 +26,14 @@ describe('area gate data model', () => {
 
   it('rejects impossible gate definitions', () => {
     expect(validateAreaGate({ ...gateForArea('mine'), tagAlternatives: [{ label: 'unknown', kind: 'tag', tags: ['unknown'] }] })).toContain('no possible gate alternative')
+  })
+
+  it('aligns practical gate work with the village pact and rites with the kami', () => {
+    const mine = newRun(4, 'mine')
+    mine.hero.bombs = 1
+    mine.hero.gold = 20
+    expect(resolveAreaGate(mine, gateForRun(mine)!, 2)).toMatchObject({ resolved: true, alignment: 'villagePact' })
+    const cliffs = newRun(4, 'cliffs', 0, undefined, [], [], ['cliffs', 'burial', 'mine', 'wilds'])
+    expect(resolveAreaGate(cliffs, gateForRun(cliffs)!, 1)).toMatchObject({ resolved: true, alignment: 'kami' })
   })
 })

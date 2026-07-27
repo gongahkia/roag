@@ -1,8 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { createRun } from './test/factories'
-import { endingLore, openingLore, shrineChiefName, successionLore, villageElderName } from './lore'
+import { animationFrame, advanceStory, createStory, endingLore, isStoryPageComplete, loadingAnimation, openingLore, shrineChiefName, storyText, successionLore, TYPEWRITER_INTERVAL, villageElderName } from './lore'
+import { createLegacy, createRun } from './test/factories'
 
 describe('delivery lore', () => {
+  it('keeps successor scenes deterministic and identifies the lost courier and road', () => {
+    const record = createLegacy({ heirName: 'Ari Vale', biome: 'wilds', floor: 2, seed: 77 })
+    expect(successionLore(record, 91)).toEqual(successionLore(record, 91))
+    expect(successionLore(record, 91).pages.join(' ')).toContain('Ari Vale')
+    expect(successionLore(record, 91).pages.join(' ')).toContain('Cedar Wilds')
+    expect(openingLore(91, 'Mika').pages.join(' ')).toContain('Mika')
+  })
+
+  it('reveals, completes, advances, and finishes pages deterministically', () => {
+    const story = createStory({ title: 'TEST', vignette: 'opening', pages: ['abc', 'de'] }, 0)
+    expect(storyText(story, TYPEWRITER_INTERVAL)).toBe('a')
+    expect(isStoryPageComplete(story, TYPEWRITER_INTERVAL * 3)).toBe(true)
+    const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)
+    expect(next.story).toMatchObject({ page: 1 })
+    expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 5)).toEqual({ finished: true })
+  })
+
+  it('cycles fixed-width ASCII animation frames deterministically', () => {
+    expect(animationFrame(loadingAnimation, 0)).toBe(loadingAnimation.frames[0])
+    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs)).toBe(loadingAnimation.frames[1])
+    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs * loadingAnimation.frames.length)).toBe(loadingAnimation.frames[0])
+  })
+
   it('names the elder and shrine chief in the opening', () => {
     const seed = 41
     const scene = openingLore(seed, 'Ari')

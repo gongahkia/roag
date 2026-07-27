@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from '../content'
-import { DIRECTIONS, MAP_WIDTH, type Direction, type Modal, type RunState } from '../types'
+import { DIRECTIONS, floorPoint, type Direction, type Modal, type RunState } from '../types'
 import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
@@ -8,6 +8,7 @@ import { hasCondition } from './conditions'
 import { gateForRun } from './gates'
 import { gainXp } from './progression'
 import { recordRescue } from './rescue'
+import { tend } from './alignment'
 import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
@@ -60,6 +61,7 @@ export function operate(state: RunState): ActionResult {
     return advance(state, [event('pickup')])
   }
   if (tile?.kind === 'rescue' || friend?.name === 'stranded traveler' || friend?.name === 'lost scout') {
+    const knownRescue = state.rescuedNpcs?.some(npc => npc.id === `rescue:${state.area ?? state.floor.biome}:${state.floor.index}:${friend?.id ?? `${state.hero.x},${state.hero.y}`}`) ?? false
     const npc = recordRescue(state, friend)
     state.hero.maxHealth += 2
     state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 8 + vitalityRescueRecovery(state.hero))
@@ -69,6 +71,7 @@ export function operate(state: RunState): ActionResult {
     if (eventTile?.kind === 'rescue' || eventTile?.kind === 'altar') eventTile.kind = 'floor'
     log(state, `${npc.name} reaches the village outpost.`)
     if (completeObjective(state, 'rescueScout')) log(state, 'Objective complete: traveler aided.')
+    if (!knownRescue) tend(state, 'villagePact')
     return advance(state, [event('rescue')])
   }
   if (altar?.kind === 'altar') {
@@ -285,6 +288,7 @@ export function bridge(state: RunState, id: string, direction: Exclude<Direction
   const tile = getTile(state.floor, state.hero.x + delta.x, state.hero.y + delta.y)
   if (index < 0 || !tile || !bridgeTerrain.has(tile.kind)) { log(state, 'The bridge needs an adjacent pit, water, current, or deep water.'); return [] }
   tile.kind = 'rope'
+  delete tile.flow
   consume(state, index)
   refreshFov(state)
   log(state, 'The bridge locks into a permanent crossing.')
@@ -403,7 +407,7 @@ function useItem(state: RunState, id: string, inventoryIndex: number): ActionRes
   if (item.use === 'focus') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 8); consume(state, inventoryIndex); recoverUsedItem(state, id); log(state, 'Your mind sharpens.'); return advance(state, [event('spell')]) }
   if (item.use === 'map') { for (const tile of state.floor.tiles) tile.explored = true; consume(state, inventoryIndex); log(state, 'The floor map unfolds in your mind.'); return advance(state, [event('spell')]) }
   if (item.use === 'teleport') {
-    const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [{ x: i % MAP_WIDTH, y: Math.floor(i / MAP_WIDTH) }] : [])
+    const choices = state.floor.tiles.flatMap((tile, i) => tile.kind === 'floor' && tile.explored ? [floorPoint(state.floor, i)] : [])
     if (choices.length) { const target = turnRng(state, 'combat', 'blink').pick(choices); state.hero.x = target.x; state.hero.y = target.y }
     consume(state, inventoryIndex); refreshFov(state); log(state, 'Space folds.'); return advance(state, [event('spell')])
   }

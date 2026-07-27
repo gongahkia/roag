@@ -6,6 +6,7 @@ import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
 import { gateForRun, resolveAreaGate } from './gates'
+import { tend } from './alignment'
 import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 import { chooseEncounter } from './encounters'
 
@@ -102,6 +103,7 @@ function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' 
   const resolution = resolveAreaGate(state, gate, modal.choice)
   log(state, resolution.message)
   if (!resolution.resolved) return []
+  if (resolution.alignment) tend(state, resolution.alignment)
   state.modal = undefined
   return [event('gateResolved')]
 }

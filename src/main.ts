@@ -14,7 +14,8 @@ import { LORE_CODEX_PAGES } from './lore-codex'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import { MAP_WIDTH, type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
+import { type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
+import { getTile } from './world'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
@@ -75,10 +76,34 @@ canvas.addEventListener('wheel', mouseEvent => {
   mouseEvent.preventDefault()
   setGameZoom(gameZoom + (mouseEvent.deltaY < 0 ? .25 : -.25))
 }, { passive: false })
+let cameraDrag: { x: number; y: number } | undefined
+canvas.addEventListener('pointerdown', mouseEvent => {
+  if (mouseEvent.button !== 1 || route.screen !== 'level' || state?.status !== 'playing') return
+  mouseEvent.preventDefault()
+  cameraDrag = { x: mouseEvent.clientX, y: mouseEvent.clientY }
+  canvas.setPointerCapture(mouseEvent.pointerId)
+})
+canvas.addEventListener('pointermove', mouseEvent => {
+  if (!cameraDrag) return
+  const dx = Math.trunc((cameraDrag.x - mouseEvent.clientX) / 10)
+  const dy = Math.trunc((cameraDrag.y - mouseEvent.clientY) / 12)
+  if (!dx && !dy) return
+  cameraDrag = { x: mouseEvent.clientX, y: mouseEvent.clientY }
+  renderer.panCamera(dx, dy)
+})
+canvas.addEventListener('pointerup', mouseEvent => {
+  if (!cameraDrag) return
+  cameraDrag = undefined
+  if (canvas.hasPointerCapture(mouseEvent.pointerId)) canvas.releasePointerCapture(mouseEvent.pointerId)
+})
 
 void bootstrapCouriers()
 
 window.addEventListener('keydown', keyboardEvent => {
+  if (keyboardEvent.ctrlKey && route.screen === 'level' && state?.status === 'playing') {
+    const delta = ({ ArrowUp: [0, -4], ArrowDown: [0, 4], ArrowLeft: [-4, 0], ArrowRight: [4, 0] } as const)[keyboardEvent.key]
+    if (delta) { keyboardEvent.preventDefault(); renderer.panCamera(delta[0], delta[1]); return }
+  }
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
   if (bootstrapState !== 'ready') {
     keyboardEvent.preventDefault()
@@ -90,8 +115,8 @@ window.addEventListener('keydown', keyboardEvent => {
   if ((route.screen === 'hub' || route.screen === 'area' || route.screen === 'level' && state?.status === 'playing') && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
-  if (canAutoplay()) { keyboardEvent.preventDefault(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
+  if (canAutoplay()) { keyboardEvent.preventDefault(); return }
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'analysis') {
     if (!keyboardEvent.repeat) { keyboardEvent.preventDefault(); continueAnalysis() }
@@ -740,7 +765,7 @@ function run(game: RunState, command: string): ReturnType<typeof perform> {
     const y = game.hero.y
     const next = performTracked(game, command)
     events.push(...next)
-    const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && game.floor.tiles[actor.y * MAP_WIDTH + actor.x].visible)
+    const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && getTile(game.floor, actor.x, actor.y)?.visible)
     if (game.status !== 'playing' || game.modal || (x === game.hero.x && y === game.hero.y) || threats) break
   }
   return events
@@ -754,6 +779,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   const autoplayBefore = options.autoplay ? structuredClone(game) : undefined
   const autoplayFingerprint = options.autoplay ? autoplayTraceFingerprint(game) : undefined
   const previousX = game.hero.x
+  const previousY = game.hero.y
   const previousLevel = game.hero.level
   let events = [] as ReturnType<typeof perform>
   if (options.quickCast) {
@@ -767,6 +793,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   else events = performTracked(game, command)
   if (game.hero.level > previousLevel) events.push(event('level'))
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
+  if (game.hero.x !== previousX || game.hero.y !== previousY) renderer.recenterCamera()
   if (options.autoplay && autoplayBefore && autoplayFingerprint) {
     recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
     autoplayTrace.push({

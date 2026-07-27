@@ -50,7 +50,13 @@ export type EncounterKind = 'wayfarer' | 'bloodBargain' | 'shiftingChamber' | 's
 export type EncounterState = 'dormant' | 'resolved'
 
 export interface Point { x: number; y: number }
-export interface Tile { kind: TileKind; explored: boolean; visible: boolean; elevation?: 0 | 1 }
+export interface Tile {
+  kind: TileKind
+  explored: boolean
+  visible: boolean
+  elevation?: 0 | 1
+  flow?: { direction: Exclude<Direction, 'wait'>; hazard?: 'undertow' | 'squall' }
+}
 export interface ConditionState { kind: ConditionKind; duration: number; potency: number }
 export interface Actor {
   id: string
@@ -92,13 +98,16 @@ export interface FloorObjective { id: string; kind: ObjectiveKind; status: Objec
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean }
 export interface ClimbLink { id: string; lower: Point; upper: Point; anchored: boolean }
 export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number }
-export interface TransientTerrain { x: number; y: number; original: TileKind; expiresAt: number }
+export interface TransientTerrain { x: number; y: number; original: TileKind; originalFlow?: Tile['flow']; expiresAt: number }
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
   index: number
   biome: Biome
   seed: number
+  width: number
+  height: number
+  layoutId: string
   tiles: Tile[]
   actors: Actor[]
   items: GroundItem[]
@@ -259,3 +268,6 @@ export const SLOT_NAMES: Record<EquipmentSlot, string> = {
 
 export const indexOf = (x: number, y: number) => y * MAP_WIDTH + x
 export const inBounds = (x: number, y: number) => x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT
+export const floorIndex = (floor: Pick<Floor, 'width'>, x: number, y: number): number => y * floor.width + x
+export const inFloorBounds = (floor: Pick<Floor, 'width' | 'height'>, x: number, y: number): boolean => x >= 0 && x < floor.width && y >= 0 && y < floor.height
+export const floorPoint = (floor: Pick<Floor, 'width'>, index: number): Point => ({ x: index % floor.width, y: Math.floor(index / floor.width) })
