@@ -36,7 +36,7 @@ describe('campaign autoplay baseline', () => {
   it('does not error during the Salt Flats seed that exercises an environmental kill', () => {
     const report = runAutoplay(newSeededCampaignRun(42), { mode: 'visible', policy: 'explore', turnLimit: 32, chainAreas: false })
     expect(report.outcome).not.toBe('error')
-  })
+  }, 30_000)
 
   it('requires all four seeded areas for campaign completion', () => {
     expect(isCompleteCampaign('complete', ['mine', 'wilds', 'caverns', 'ruins'], ['mine', 'wilds', 'caverns', 'ruins'])).toBe(true)

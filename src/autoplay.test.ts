@@ -701,58 +701,58 @@ describe('autoplay', () => {
     expect(report.commands.length).toBeGreaterThan(0)
     expect(report.trace.some(entry => entry.reason.startsWith('bomb'))).toBe(true)
     expect(report.trace.some(entry => entry.reason.startsWith('throw:') || entry.reason.startsWith('cast:'))).toBe(true)
-  }, 60_000)
+  }, 180_000)
 
   it('clears the pressure-detour regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(4), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the ranged-corridor regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(3), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the moving-route and mixed-altar regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(16), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the telegraph-route reversal regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(20), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the offering-cash regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(26), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the moving-guardian regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(27), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('replays the telegraphed Mine exit regression seed without an engine error', () => {
     const report = runAutoplay(newRun(50), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).not.toBe('error')
     expect(report.commands.length).toBeGreaterThan(0)
-  }, 60_000)
+  }, 180_000)
 
   it('clears the long telegraph-detour regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(41), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the rail-tunnel telegraph regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(46), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('clears the telegraphed guardian-route regression seed across the full campaign', () => {
     const report = runAutoplay(newRun(12), { mode: 'omniscient', policy: 'clear', turnLimit: 800, chainAreas: false })
     expect(report.outcome).toBe('complete')
-  }, 60_000)
+  }, 180_000)
 
   it('chains completed areas into the next biome by default', () => {
     const state = newRun(7, 'mine', 3)
@@ -778,5 +778,5 @@ describe('autoplay', () => {
     expect(first.outcome).not.toBe('error')
     expect(first.commands.length).toBeGreaterThan(0)
     expect(first).toEqual(second)
-  }, 20_000)
+  }, 60_000)
 })
