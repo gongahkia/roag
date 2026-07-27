@@ -58,12 +58,12 @@ describe('biome macro generation', () => {
     expect(autoplayTurnBudget(newRun(42, 'burial'))).toBeGreaterThan(2_000)
   })
 
-  it('keeps visible autoplay exploring until it can route to an unseen exit', () => {
+  it('uses surveyed terrain to recover an unseen exit route on wide maps', () => {
     const state = newRun(42, 'floodedRuins')
     state.floor.actors = []
     state.floor.objective.status = 'complete'
     state.floor.guardianDefeated = true
-    expect(autoplayDecision(state, 'visible', 'clear', createAutoplayContext())).toMatchObject({ reason: 'find exit' })
+    expect(autoplayDecision(state, 'visible', 'clear', createAutoplayContext())).toMatchObject({ reason: 'survey exit route' })
   })
 
   it('supports exact one-floor autoplay validation', () => {
@@ -75,4 +75,8 @@ describe('biome macro generation', () => {
     state.hero.y = state.floor.exit.y
     expect(runAutoplay(state, { mode: 'omniscient', chainAreas: false, chainFloors: false, turnLimit: 1 })).toMatchObject({ outcome: 'complete', floor: 2 })
   })
+
+  it('recovers from visible route invalidation on wide layouts', () => {
+    for (const [biome, floor] of [['ruins', 0], ['cliffs', 0], ['cliffs', 2]] as const) expect(runAutoplay(newRun(7, biome, floor), { mode: 'visible', policy: 'clear', turnLimit: 2_400, chainAreas: false, chainFloors: false })).toMatchObject({ outcome: 'complete' })
+  }, 60_000)
 })

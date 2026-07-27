@@ -369,6 +369,32 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
   return route(true, avoidThreats) ?? route(true, false) ?? route(false, false)
 }
 
+const terrainRouteMove = (state: RunState, targets: readonly Point[]): Candidate | undefined => {
+  const targetKeys = new Set(targets.map(pointKey))
+  if (!targetKeys.size) return undefined
+  const queue: Array<{ point: Point; first?: Exclude<Direction, 'wait'> }> = [{ point: state.hero }]
+  const seen = new Set([pointKey(state.hero)])
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const current = queue[cursor]!
+    for (const [direction, delta] of directions) {
+      const point = { x: current.point.x + delta.x, y: current.point.y + delta.y }
+      const key = pointKey(point)
+      if (seen.has(key) || !passable(state, 'omniscient', point, false, false)) continue
+      const first = current.first ?? direction
+      if (targetKeys.has(key)) {
+        const command = directionCommands[first]
+        const simulated = planningClone(state)
+        const before = pointKey(simulated.hero)
+        perform(simulated, command)
+        if (simulated.status === 'playing' && simulated.turn > state.turn && pointKey(simulated.hero) !== before) return { command, reason: 'survey terrain route', score: 22 }
+      }
+      seen.add(key)
+      queue.push({ point, first })
+    }
+  }
+  return undefined
+}
+
 const telegraphSafeStepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], avoidThreats: boolean, ignoreActors = false): { command: string; distance: number } | undefined => directions.flatMap(([direction]) => {
   const command = directionCommands[direction]
   const simulated = planningClone(state)
@@ -882,7 +908,7 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   return option ? { command: directionCommands[option.direction], reason: standingInTelegraph ? 'evade telegraph' : 'retreat threat', score: 152 } : undefined
 }
 
-const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: AutoplayContext): Candidate | undefined => {
+const clearTelegraphSource = (state: RunState, context: AutoplayContext): Candidate | undefined => {
   if (!breaksPositionCycle(context) && !context.recentPositions.includes(pointKey(state.hero))) return undefined
   const telegraph = (state.floor.telegraphs ?? []).find(current => current.actionId === 'enemy-shot' && current.resolveTurn <= state.turn + 1 && current.cells.some(cell => pointKey(cell) === pointKey(state.hero)))
   const source = telegraph ? state.floor.actors.find(actor => actor.id === telegraph.sourceId && actor.hostile && actor.health > 0) : undefined
@@ -890,16 +916,7 @@ const clearTelegraphSource = (state: RunState, mode: AutoplayMode, context: Auto
   const profile = heroAttackProfile(state)
   const attack = directions.find(([direction]) => actionCells(profile.shape, state.hero, direction, profile.reach).some(point => point.x === source.x && point.y === source.y))
   if (attack) return { command: directionCommands[attack[0]], reason: `clear telegraph source:${source.id}`, score: 650 }
-  const route = stepTo(state, mode, adjacentCells(source), false, false)
-  if (!route) return undefined
-  const direction = directions.find(([current]) => directionCommands[current] === route.command)?.[0]
-  const destination = direction ? projectedMove(state, mode, state.hero, direction, false, false) : undefined
-  if (!destination || telegraphDanger(state, destination)) return undefined
-  const from = pointKey(state.hero)
-  const to = pointKey(destination)
-  const previous = context.lastTelegraphRoute
-  if (previous?.sourceId === source.id && (previous.to === to || previous.from === to && previous.to === from)) return undefined
-  return { command: route.command, reason: `clear telegraph source:${source.id}`, score: 650, telegraphRoute: { sourceId: source.id, from, to } }
+  return undefined
 }
 
 const breaksPositionCycle = (context: AutoplayContext): boolean => {
@@ -963,6 +980,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
   if (!candidate.intent && candidate.command !== 'b') perform(simulated, candidate.command)
   if (simulated.status === 'dead') return Number.NEGATIVE_INFINITY
   const healthAdjustment = (simulated.hero.health - health) * 18
+  if (simulated.hero.health * 3 <= simulated.hero.maxHealth && simulated.hero.health < health && hostilePressure(simulated, mode, simulated.hero) >= 25) return Number.NEGATIVE_INFINITY
   if (simulated.modal) {
     if (state.floor.biome !== 'ruins') return 0
     if (health * 3 <= state.hero.maxHealth && simulated.hero.health < health) return Number.NEGATIVE_INFINITY
@@ -1153,8 +1171,12 @@ const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undef
     const point = floorPoint(state.floor, index)
     return adjacentCells(point).some(next => getTile(state.floor, next.x, next.y) && !getTile(state.floor, next.x, next.y)!.explored) ? [point] : []
   })
-  const route = stepTo(state, mode, frontier)
-  return route ? { command: route.command, reason: 'reach frontier', score: 24 } : undefined
+  for (const point of [...frontier].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)) {
+    const route = stepTo(state, mode, [point])
+    if (!route) continue
+    return { command: route.command, reason: 'reach frontier', score: 24 }
+  }
+  return undefined
 }
 
 const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate[] => {
@@ -1238,7 +1260,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (cycleBreak) candidates.push(cycleBreak)
   const evade = evadeThreat(state, mode, context, policy)
   if (evade) candidates.push(evade)
-  const telegraphSource = clearTelegraphSource(state, mode, context)
+  const telegraphSource = clearTelegraphSource(state, context)
   if (telegraphSource) candidates.push(telegraphSource)
   if (rooted) candidates.push({ command: 'l', reason: 'wait root', score: 175 })
   const combat = rooted ? undefined : combatMove(state, mode)
@@ -1304,7 +1326,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 230 })
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
-    if (exitRoute || predictiveExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute!.command, reason: predictiveExit ? 'predictive exit route' : 'reach exit', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : 240 : 140 })
+    const terrainExit = !exitRoute && !predictiveExit && mode === 'visible' && state.floor.biome !== 'mine' ? terrainRouteMove(state, [state.floor.exit]) : undefined
+    if (exitRoute || predictiveExit || terrainExit) candidates.push({ command: predictiveExit?.commands[0] ?? exitRoute?.command ?? terrainExit!.command, reason: predictiveExit ? 'predictive exit route' : exitRoute ? 'reach exit' : 'survey exit route', routePlan: predictiveExit && predictiveExit.commands.length > 1 ? { kind: 'exit', targetKey: pointKey(state.floor.exit), commands: predictiveExit.commands.slice(1) } : undefined, score: policy === 'clear' ? predictiveExit ? 260 : exitRoute ? 240 : 205 : 140 })
     else {
       const frontier = mode === 'visible' ? explorationMove(state, mode) : undefined
       if (frontier) candidates.push({ ...frontier, reason: 'find exit', score: 210 })
@@ -1322,7 +1345,10 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const containerRoute = collectForObjective ? stepTo(state, mode, containers.flatMap(adjacentCells)) : undefined
     if (containerRoute) candidates.push({ command: containerRoute.command, reason: 'reach container', score: needsOffering ? 145 : 43 })
     const frontier = hasObjectiveRoute && policy === 'clear' ? undefined : explorationMove(state, mode)
-    if (frontier) candidates.push(frontier)
+    const terrainFrontier = !frontier && mode === 'visible' && state.floor.biome !== 'mine' && (context.noProgressTurns >= 12 || breaksPositionCycle(context) || context.loopRecoveries > 0)
+      ? terrainRouteMove(state, state.floor.tiles.flatMap((tile, index) => !tile.explored && passable(state, 'omniscient', floorPoint(state.floor, index), false, false) ? [floorPoint(state.floor, index)] : []))
+      : undefined
+    if (frontier || terrainFrontier) candidates.push(frontier ?? { ...terrainFrontier!, reason: 'survey frontier', score: 24 })
   }
   return candidates
 }
@@ -1335,6 +1361,17 @@ const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, '
     .map(candidate => ({ ...candidate, score: candidate.score + candidateLookahead(state, mode, policy, candidate, context) }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
 }
+
+const executableMovementFallback = (state: RunState, mode: Exclude<AutoplayMode, 'off'>): Candidate | undefined => directions.flatMap(([direction]) => {
+  const simulated = planningClone(state)
+  const before = { point: pointKey(simulated.hero), health: simulated.hero.health }
+  perform(simulated, directionCommands[direction])
+  if (simulated.status !== 'playing' || simulated.turn <= state.turn || pointKey(simulated.hero) === before.point) return []
+  const damage = Math.max(0, before.health - simulated.hero.health)
+  const pressure = hostilePressure(simulated, mode, simulated.hero)
+  const telegraph = telegraphDanger(simulated, simulated.hero) ? 80 : 0
+  return [{ command: directionCommands[direction], reason: 'recover executable movement', score: 80 - damage * 32 - pressure / 5 - telegraph }]
+}).sort((a, b) => b.score - a.score || a.command.localeCompare(b.command))[0]
 
 export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context)
   .map(({ command, reason, score }) => ({ command, reason, score }))
@@ -1398,7 +1435,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     } else {
       const combat = combatMove(state, mode)
       const cycleBreak = cycleBreakMove(state, mode, context, true)
-      const telegraphSource = clearTelegraphSource(state, mode, context)
+      const telegraphSource = clearTelegraphSource(state, context)
       const guardianAdvance = guardianApproachMove(state, mode, context)
       const guardianFinish = guardianFinishMove(state, mode, context)
       const strategicRoute = immediateCandidates(state, mode, policy, context)
@@ -1420,16 +1457,18 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   }
   const candidates = scoredAutoplayCandidates(state, mode, policy, context).filter(candidate => Number.isFinite(candidate.score))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
-  if (!selected || selected.score < -500) {
+  const fallback = !selected || selected.score < -500 ? executableMovementFallback(state, mode) : undefined
+  if (!selected && !fallback || selected && selected.score < -500 && !fallback) {
     context.lastReason = 'no viable candidate'
     return undefined
   }
-  context.intent = selected.intent
-  if (selected.propPlanId) context.propPlanId = selected.propPlanId
-  if (selected.routePlan) context.routePlan = selected.routePlan
-  if (selected.telegraphRoute) context.lastTelegraphRoute = selected.telegraphRoute
-  context.lastReason = selected.reason
-  return { command: selected.command, reason: selected.reason, candidates: candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
+  const choice = fallback ?? selected!
+  context.intent = choice.intent
+  if (choice.propPlanId) context.propPlanId = choice.propPlanId
+  if (choice.routePlan) context.routePlan = choice.routePlan
+  if (choice.telegraphRoute) context.lastTelegraphRoute = choice.telegraphRoute
+  context.lastReason = choice.reason
+  return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }
 
 export const autoplayCommand = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context?: AutoplayContext): string | undefined => autoplayDecision(state, mode, policy, context)?.command
