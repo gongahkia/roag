@@ -211,6 +211,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintFurnaceFiringRoute(floor, macro)
   imprintFloodedCurrentNetwork(floor, macro)
   imprintCliffHeightGraph(floor, macro)
+  imprintBurialRitualRoutes(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
@@ -252,7 +253,7 @@ const dimensions: Record<Biome, { width: number; height: number }> = {
   mine: { width: MAP_WIDTH, height: MAP_HEIGHT }, wilds: { width: 72, height: 48 }, caverns: { width: 56, height: 44 }, ruins: { width: 64, height: 48 }, furnace: { width: 56, height: 40 }, floodedRuins: { width: 72, height: 48 }, cliffs: { width: 56, height: 52 }, burial: { width: 80, height: 56 }, saltFlats: { width: 72, height: 44 }, frostReliquary: { width: 64, height: 48 }
 }
 const layoutVariants: Record<Biome, readonly string[]> = {
-  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'], cliffs: ['switchback-face', 'ravine-bridge-loop', 'anchor-chain'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
+  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'], cliffs: ['switchback-face', 'ravine-bridge-loop', 'anchor-chain'], burial: ['stone-circle-center', 'mound-procession', 'cemetery-settlement-edge', 'ossuary-hollow', 'ancestor-path-loop'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
@@ -407,6 +408,7 @@ const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof gene
   if (floor.biome === 'furnace') return carveFurnaceRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'floodedRuins') return carveFloodedRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'cliffs') return carveCliffsRouteContractLayout(floor, contract, macro, rng)
+  if (floor.biome === 'burial') return carveBurialRouteContractLayout(floor, contract, macro, rng)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   for (const room of rooms) carveRect(floor, room)
@@ -540,6 +542,66 @@ const carveCliffsRouteContractLayout = (floor: Floor, contract: ReturnType<typeo
   if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
   carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
   carveCliffContours(floor, floor.layoutId.replace('-remix', ''))
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  rooms.forEach(room => carveRect(floor, room))
+  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
+const paintBurialCircle = (floor: Floor, center: Point, radiusX: number, radiusY: number): void => {
+  for (let y = center.y - radiusY; y <= center.y + radiusY; y++) for (let x = center.x - radiusX; x <= center.x + radiusX; x++) {
+    const dx = (x - center.x) / radiusX
+    const dy = (y - center.y) / radiusY
+    const distance = dx * dx + dy * dy
+    if (distance >= .78 && distance <= 1.22) setKind(floor, x, y, 'cairn')
+    else if (distance < .42 && (x + y) % 3 === 0) setKind(floor, x, y, 'graveSoil')
+  }
+}
+
+const paintBurialLine = (floor: Floor, from: Point, to: Point, kind: Tile['kind']): void => {
+  if (from.x === to.x) for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) setKind(floor, from.x, y, kind)
+  else for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) setKind(floor, x, from.y, kind)
+}
+
+const carveBurialLandscape = (floor: Floor, variant: string): void => {
+  const center = { x: Math.floor(floor.width / 2), y: Math.floor(floor.height / 2) }
+  if (variant === 'stone-circle-center') {
+    paintBurialCircle(floor, center, 15, 10)
+    paintBurialLine(floor, { x: center.x - 19, y: center.y }, { x: center.x + 19, y: center.y }, 'spiritPath')
+  } else if (variant === 'mound-procession') {
+    for (let y = 10, mound = 0; y < floor.height - 8; y += 12, mound++) paintBurialCircle(floor, { x: center.x + (mound % 2 ? 10 : -10), y }, 6, 4)
+    paintBurialLine(floor, { x: center.x, y: 3 }, { x: center.x, y: floor.height - 4 }, 'spiritPath')
+  } else if (variant === 'cemetery-settlement-edge') {
+    for (let x = 8; x < floor.width - 7; x += 5) for (let y = 8; y < floor.height - 7; y += 7) setKind(floor, x, y, (x + y) % 3 === 0 ? 'cairn' : 'graveSoil')
+    paintBurialLine(floor, { x: 3, y: center.y }, { x: floor.width - 4, y: center.y }, 'spiritPath')
+  } else if (variant === 'ossuary-hollow') {
+    for (let y = center.y - 8; y <= center.y + 8; y++) for (let x = center.x - 12; x <= center.x + 12; x++) {
+      const edge = Math.abs(x - center.x) >= 10 || Math.abs(y - center.y) >= 6
+      if (edge) setKind(floor, x, y, 'cairn')
+      else if ((x + y) % 4 === 0) setKind(floor, x, y, 'ossuary')
+    }
+    paintBurialLine(floor, { x: 3, y: center.y }, { x: floor.width - 4, y: center.y }, 'spiritPath')
+  } else {
+    const left = center.x - 18
+    const right = center.x + 18
+    const top = center.y - 12
+    const bottom = center.y + 12
+    paintBurialLine(floor, { x: left, y: top }, { x: right, y: top }, 'spiritPath')
+    paintBurialLine(floor, { x: right, y: top }, { x: right, y: bottom }, 'spiritPath')
+    paintBurialLine(floor, { x: right, y: bottom }, { x: left, y: bottom }, 'spiritPath')
+    paintBurialLine(floor, { x: left, y: bottom }, { x: left, y: top }, 'spiritPath')
+    paintBurialCircle(floor, center, 8, 5)
+  }
+}
+
+const carveBurialRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, _rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  carveBurialLandscape(floor, floor.layoutId.replace('-remix', ''))
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   rooms.forEach(room => carveRect(floor, room))
@@ -709,6 +771,23 @@ const imprintCliffHeightGraph = (floor: Floor, macro: MacroRecipeDebug): void =>
     { lower: lowRoute[lowRoute.length - 2], upper: highRoute[highRoute.length - 2] }
   ]
   floor.climbLinks = links.map(({ lower, upper }, index) => ({ id: `cliff:${floor.index}:${index}:${lower.x}:${lower.y}:${upper.x}:${upper.y}`, lower, upper, anchored: false }))
+}
+
+const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'burial') return
+  const safe = macro.edges.find(candidate => candidate.modes.includes('safe'))
+  const costly = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  const offering = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
+  if (!safe || !costly || !offering) throw new Error(`missing Burial ritual routes: ${macro.recipeId}`)
+  const transit = (cells: readonly Point[]) => cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const spiritRoute = transit(safe.cells)
+  const graveRoute = transit(costly.cells)
+  if (spiritRoute.length < 4 || graveRoute.length < 4) throw new Error(`short Burial ritual route: ${macro.recipeId}`)
+  for (const point of spiritRoute) setKind(floor, point.x, point.y, 'spiritPath')
+  for (const point of graveRoute) setKind(floor, point.x, point.y, 'graveSoil')
+  const cache = Array.from({ length: offering.footprint.width * offering.footprint.height }, (_, index) => ({ x: offering.footprint.x + index % offering.footprint.width, y: offering.footprint.y + Math.floor(index / offering.footprint.width) })).find(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  if (!cache) throw new Error(`missing Burial offering hollow: ${macro.recipeId}`)
+  setKind(floor, cache.x, cache.y, 'ossuary')
 }
 
 const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -1131,6 +1210,7 @@ function decorateCliffs(floor: Floor, rng: Rng): void {
 }
 
 function decorateBurial(floor: Floor, rng: Rng): void {
+  if (['stone-circle-center', 'mound-procession', 'cemetery-settlement-edge', 'ossuary-hollow', 'ancestor-path-loop'].some(variant => floor.layoutId === variant || floor.layoutId === `${variant}-remix`)) return
   const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
     count = terrainCount(floor, count)
@@ -1380,6 +1460,17 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'burial' && areaFloor !== 3 && !floor.actors.some(actor => actor.kind === 'tombWarden' && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const tombWarden = definitions.find(definition => definition.id === 'tombWarden')
+    if (!tombWarden) throw new Error('Burial procession lacks tomb warden')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:procession-warden:tombWarden`, requirements: { terrain: ['graveSoil'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 8 }, fallback: { terrain: ['graveSoil'], minDistance: 5 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Burial procession warden: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:procession-warden`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'leave the grave lane or follow the lit spirit path' }
+    const actor = spawnMonster(tombWarden.id, point, `${tombWarden.id}-procession-warden`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -1391,9 +1482,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace' || floor.biome === 'floodedRuins' || floor.biome === 'cliffs') && runtime.pilot
+  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace' || floor.biome === 'floodedRuins' || floor.biome === 'cliffs' || floor.biome === 'burial') && runtime.pilot
   const contract: PlacementContract = pressureRoute
-    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : ['water'], minDistance: 7 } }
+    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : ['water'], minDistance: 7 } }
     : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
   if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)

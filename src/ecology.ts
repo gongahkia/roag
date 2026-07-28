@@ -12,7 +12,7 @@ const profiles: Record<Biome, EcologyProfile> = {
   furnace: { kind: 'smoke', effect: 'smoke', terrain: ['smoke', 'lift'], warning: 'The kiln stack opens over the firing lane.', responses: ['take the raised lift lane', 'quench the marked smoke stack'], cleanup: 'The stack cools and the smoke thins.' },
   floodedRuins: { kind: 'tide', effect: 'current', terrain: ['current', 'water'], warning: 'Current arrows turn toward the floodgate outlet.', responses: ['hold the marked anchor', 'take the dry island route'], cleanup: 'The flow slackens around the refuges.' },
   cliffs: { kind: 'wind', effect: 'ledge', terrain: ['ledge', 'rope'], warning: 'Wind vectors mark the exposed ledge before the squall.', responses: ['hold a rope or anchor', 'leave the marked ledge before the gust'], cleanup: 'The wind drops.' },
-  burial: { kind: 'migration', effect: 'spiritPath', terrain: ['spiritPath', 'graveSoil'], warning: 'Ancestor lights drift across the graves.', responses: ['leave the procession path', 'follow the lit route'], cleanup: 'The procession passes on.' },
+  burial: { kind: 'migration', effect: 'spiritPath', terrain: ['spiritPath', 'graveSoil'], warning: 'Ancestor lights mark the disturbed grave lane; follow the violet lanterns or leave the trespass route.', responses: ['follow the marked spirit path', 'leave grave soil before the procession arrives'], cleanup: 'The procession passes on and the grave lane settles.' },
   saltFlats: { kind: 'visibility', effect: 'darkness', terrain: ['saltMirror', 'brine'], warning: 'A salt haze swallows the far route.', responses: ['navigate by the mirrors', 'wait out the haze'], cleanup: 'The salt haze clears.' },
   frostReliquary: { kind: 'nesting', effect: 'ice', terrain: ['ice', 'frostRime'], warning: 'Rime shifts around a fresh nest.', responses: ['leave the rime', 'break the ice line'], cleanup: 'The rime settles.' }
 }
@@ -63,11 +63,16 @@ const activate = (floor: Floor, ecology: EcologyEvent): boolean => {
 }
 
 const react = (state: RunState, ecology: EcologyEvent): void => {
-  if (ecology.kind !== 'collapse') return
   const source = state.floor.actors.find(actor => actor.id === ecology.source && actor.hostile && actor.health > 0)
   if (!source || (source.combatRole !== 'guard' && source.combatRole !== 'pursuer')) return
-  addCondition(source, { kind: 'shielded', duration: ecology.duration, potency: 1 })
-  log(state, `${source.name} braces behind the collapse.`)
+  if (ecology.kind === 'collapse') {
+    addCondition(source, { kind: 'shielded', duration: ecology.duration, potency: 1 })
+    log(state, `${source.name} braces behind the collapse.`)
+  }
+  if (ecology.kind === 'migration') {
+    addCondition(source, { kind: 'shielded', duration: ecology.duration, potency: 1 })
+    log(state, `${source.name} guards the disturbed grave lane.`)
+  }
 }
 
 export const advanceEcology = (state: RunState, events: ActionResult): void => {

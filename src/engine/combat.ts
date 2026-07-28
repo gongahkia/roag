@@ -58,10 +58,10 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'breakwall' && (weapon?.weapon?.tags.includes('breakwall') || weapon?.weapon?.tags.includes('hammer') || state.hero.bombs > 0)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You open the scored breakwall.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   let destination = { x, y }
-  for (let step = 1; tile.kind === 'floor' && step < agilityMoveDistance(state.hero); step++) {
+  for (let step = 1; (tile.kind === 'floor' || tile.kind === 'spiritPath') && step < agilityMoveDistance(state.hero); step++) {
     const next = { x: destination.x + delta.x, y: destination.y + delta.y }
     const nextTile = getTile(state.floor, next.x, next.y)
-    if (!nextTile || nextTile.kind !== 'floor' || !isPassable(state.floor, next.x, next.y)) break
+    if (!nextTile || !['floor', 'spiritPath'].includes(nextTile.kind) || !isPassable(state.floor, next.x, next.y)) break
     destination = next
     tile = nextTile
   }
@@ -110,6 +110,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'lift') { state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1 + boonRank(state, 'updraftStep')); log(state, 'The lift raises your momentum.') }
   if (tile.kind === 'ledge') state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + boonRank(state, 'updraftCadence'))
   if (tile.kind === 'graveSoil' || tile.kind === 'spiritPath') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + boonRank(state, 'burialCurrent'))
+  if (tile.kind === 'graveSoil') log(state, 'The grave soil slows your pace.')
+  if (tile.kind === 'spiritPath') state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 1)
   if (tile.kind === 'anchor') { state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + boonRank(state, 'anchorHabit')); log(state, 'The anchor steadies your route.') }
   if (tile.kind === 'crumble') {
     if (preservesAdjacentExitAccess(state.floor, destination, 'pit')) { tile.kind = 'pit'; log(state, 'The floor crumbles into a pit.'); events.push(event('danger')) }

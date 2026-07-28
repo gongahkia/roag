@@ -18,11 +18,16 @@ describe('biome macro generation', () => {
     }
   }, 90_000)
 
-  it('uses each macro archetype before the fourth-floor remix', () => {
+  it('uses unique ordinary-floor macro archetypes', () => {
     for (const biome of biomes) {
       const layouts = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(42, biome, areaFloor).layoutId)
-      expect(new Set(layouts.slice(0, 3)).size).toBe(3)
-      expect(layouts[3]).toMatch(/-remix$/)
+      if (biome === 'burial') {
+        expect(new Set(layouts).size).toBe(4)
+        expect(layouts[3]).not.toMatch(/-remix$/)
+      } else {
+        expect(new Set(layouts.slice(0, 3)).size).toBe(3)
+        expect(layouts[3]).toMatch(/-remix$/)
+      }
     }
   }, 30_000)
 
