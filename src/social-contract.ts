@@ -16,7 +16,7 @@ export const adjustSocialReputation = (reputation: SocialReputation | undefined,
 
 export const socialContractFor = (input: SocialContractInput): SocialContract | undefined => {
   const rng = rngFor(input.seed, 'generation', input.floorIndex, 'social-contract', input.biome, input.recipeId, input.arcId ?? 'legacy')
-  if (rng.int(0, 3) === 0) return undefined
+  if (rng.int(0, 3) !== 0) return undefined
   const role = rng.pick(roles)
   const faction = factionFor(role)
   return { id: `social:${input.floorIndex}:${role}`, faction, role, goal: goals[role], visibility: rng.int(0, 2) === 0 ? 'rumored' : 'visible', offer: offerFor(role), consequence: role === 'rival' || role === 'territorialGroup' ? 'hostility' : role === 'trader' || role === 'strandedExplorer' ? 'alliance' : 'routeChange', disposition: 'neutral' }

@@ -6,7 +6,7 @@ const input = { seed: 7, floorIndex: 0, biome: 'mine' as const, recipeId: 'rail-
 describe('social contracts', () => {
   it('is deterministic and keeps no-social recipes valid', () => {
     expect(socialContractFor(input)).toEqual(socialContractFor(input))
-    expect(socialContractFor({ ...input, seed: 4 })).toBeUndefined()
+    expect(socialContractFor({ ...input, seed: 0 })).toBeUndefined()
   })
 
   it('tracks explicit allied and hostile reputation states', () => {
