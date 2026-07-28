@@ -209,6 +209,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintWildsPressureRoute(floor, macro)
   imprintRuinsWardRoute(floor, macro)
   imprintFurnaceFiringRoute(floor, macro)
+  imprintFloodedCurrentNetwork(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
@@ -250,7 +251,7 @@ const dimensions: Record<Biome, { width: number; height: number }> = {
   mine: { width: MAP_WIDTH, height: MAP_HEIGHT }, wilds: { width: 72, height: 48 }, caverns: { width: 56, height: 44 }, ruins: { width: 64, height: 48 }, furnace: { width: 56, height: 40 }, floodedRuins: { width: 72, height: 48 }, cliffs: { width: 56, height: 52 }, burial: { width: 80, height: 56 }, saltFlats: { width: 72, height: 44 }, frostReliquary: { width: 64, height: 48 }
 }
 const layoutVariants: Record<Biome, readonly string[]> = {
-  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-islands', 'drowned-causeway', 'floodgate-basin'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
+  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
@@ -403,6 +404,7 @@ const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof gene
   if (floor.biome === 'wilds') return carveWildsRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'ruins') return carveRuinsRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'furnace') return carveFurnaceRouteContractLayout(floor, contract, macro, rng)
+  if (floor.biome === 'floodedRuins') return carveFloodedRouteContractLayout(floor, contract, macro, rng)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   for (const room of rooms) carveRect(floor, room)
@@ -476,6 +478,33 @@ const carveFurnaceRouteContractLayout = (floor: Floor, contract: ReturnType<type
   if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
   carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
   carveFurnaceTerraces(floor, floor.layoutId.replace('-remix', ''))
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  rooms.forEach(room => carveRect(floor, room))
+  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
+const carveFloodedChannels = (floor: Floor, variant: string): void => {
+  if (variant === 'braided-current-delta') {
+    wallBand(floor, true, 20, 10, 3)
+    wallBand(floor, true, 45, 35, 3)
+  } else if (variant === 'anchor-gated-ruin') {
+    wallBand(floor, false, 15, 18, 3)
+    wallBand(floor, false, 31, 53, 3)
+  } else {
+    wallBand(floor, true, 24, 11, 4)
+    wallBand(floor, false, 24, 49, 4)
+  }
+}
+
+const carveFloodedRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, _rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  carveFloodedChannels(floor, floor.layoutId.replace('-remix', ''))
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   rooms.forEach(room => carveRect(floor, room))
@@ -583,6 +612,35 @@ const imprintFurnaceFiringRoute = (floor: Floor, macro: MacroRecipeDebug): void 
   const lower = firingLane.find(point => getTile(floor, point.x, point.y)?.kind === 'smoke')!
   const upper = liftLane.find(point => getTile(floor, point.x, point.y)?.kind === 'lift')!
   floor.climbLinks = [{ id: `lift:${floor.index}:${lower.x}:${lower.y}:${upper.x}:${upper.y}`, lower, upper, anchored: true }]
+}
+
+const imprintFloodedCurrentNetwork = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'floodedRuins') return
+  const safe = macro.edges.find(candidate => candidate.modes.includes('safe'))
+  const costly = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  const refuge = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
+  if (!safe || !costly || !refuge) throw new Error(`missing Flooded route network: ${macro.recipeId}`)
+  const transit = (cells: readonly Point[]) => cells.filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const refugeRoute = transit(safe.cells)
+  const currentRoute = transit(costly.cells)
+  if (refugeRoute.length < 3 || currentRoute.length < 4) throw new Error(`short Flooded current network: ${macro.recipeId}`)
+  for (let index = 0; index < refugeRoute.length; index++) setKind(floor, refugeRoute[index].x, refugeRoute[index].y, index % 4 === 1 ? 'anchor' : 'floor')
+  for (let index = 0; index < currentRoute.length - 1; index++) {
+    const point = currentRoute[index]
+    const next = currentRoute[index + 1]
+    const tile = getTile(floor, point.x, point.y)!
+    tile.kind = 'current'
+    tile.flow = { direction: flowDirection(next.x - point.x, next.y - point.y), ...(index >= currentRoute.length - 3 ? { hazard: 'undertow' as const } : {}) }
+  }
+  const outlet = currentRoute[currentRoute.length - 1]
+  const bank = cardinalOffsets.map(([x, y]) => ({ x: outlet.x + x, y: outlet.y + y })).find(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const next = bank ?? currentRoute[currentRoute.length - 2]
+  const outletTile = getTile(floor, outlet.x, outlet.y)!
+  outletTile.kind = 'current'
+  outletTile.flow = { direction: flowDirection(next.x - outlet.x, next.y - outlet.y) }
+  if (bank) setKind(floor, bank.x, bank.y, 'anchor')
+  const island = { x: refuge.footprint.x + Math.floor(refuge.footprint.width / 2), y: refuge.footprint.y + Math.floor(refuge.footprint.height / 2) }
+  if (getTile(floor, island.x, island.y)?.kind === 'floor') setKind(floor, island.x, island.y, 'anchor')
 }
 
 const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -940,7 +998,7 @@ function decorateFloodedRuins(floor: Floor, rng: Rng): void {
       candidates = safe()
     }
   }
-  carveFlowChannel(floor, rng, floor.layoutId.includes('floodgate'))
+  if (!['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'].some(recipe => floor.layoutId.includes(recipe))) carveFlowChannel(floor, rng, floor.layoutId.includes('floodgate'))
   paint('anchor', 7)
   paint('deepWater', 9, true)
   paint('water', 8, true)
@@ -1230,6 +1288,18 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'floodedRuins' && areaFloor !== 3 && !floor.actors.some(actor => actor.kind === 'tidewraith' && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const tidewraith = definitions.find(definition => definition.id === 'tidewraith')
+    const terrain = tidewraith ? terrainAffinityFor(tidewraith).filter(kind => kind === 'current') : []
+    if (!tidewraith || !terrain.length) throw new Error('Flooded current patrol lacks flow affinity')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:current-patrol:tidewraith`, requirements: { terrain, minDistance: 8 }, fallback: { terrain, minDistance: 5 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Flooded current patrol: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:current-patrol`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'hold the anchor and leave the current' }
+    const actor = spawnMonster(tidewraith.id, point, `${tidewraith.id}-current-patrol`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -1241,9 +1311,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace') && runtime.pilot
+  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace' || floor.biome === 'floodedRuins') && runtime.pilot
   const contract: PlacementContract = pressureRoute
-    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : ['water'], minDistance: 7 } }
+    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : ['water'], minDistance: 7 } }
     : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
   if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)

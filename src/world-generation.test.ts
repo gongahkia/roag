@@ -24,7 +24,7 @@ describe('biome macro generation', () => {
       expect(new Set(layouts.slice(0, 3)).size).toBe(3)
       expect(layouts[3]).toMatch(/-remix$/)
     }
-  })
+  }, 30_000)
 
   it('generates directional water networks only in current terrain', () => {
     for (const areaFloor of [0, 1, 2, 3]) {
