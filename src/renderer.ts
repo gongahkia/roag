@@ -8,7 +8,8 @@ import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
 import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cellRect } from './renderer/metrics'
 import { telegraphBeam } from './renderer/telegraph-overlay'
-import { presentTelegraph } from './renderer/telegraphs'
+import { isTelegraphVisible, presentTelegraph } from './renderer/telegraphs'
+import { biomeVisualGrammar, flowGlyph, showMotionAt, terminalGlyph, terminalTileGlyph, terrainVisual } from './renderer/visual-grammar'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -512,14 +513,15 @@ export class TerminalRenderer {
       drawTileSprite(this.ctx, tile, state.area ?? state.floor.biome, x, y, false, !tile.visible)
       if (tile.flow) this.drawFlowMarker(tile, x, y)
     } else if (this.runeMode) {
-      this.drawRuneTile(tile.kind, tile.visible, x, y)
+      this.drawRuneTile(state.area ?? state.floor.biome, tile.kind, tile.visible, x, y)
       if (tile.flow) this.drawFlowMarker(tile, x, y)
     }
     else {
-      const [glyph, color] = tileGlyph[tile.kind]
-      const flowGlyph: Partial<Record<string, string>> = { n: '↑', ne: '↗', e: '→', se: '↘', s: '↓', sw: '↙', w: '←', nw: '↖' }
-      const showDirection = Math.floor(performance.now() / 180) % 2 === 0
-      this.cell(x, y, tile.flow && showDirection ? flowGlyph[tile.flow.direction] ?? glyph : glyph, tile.visible ? tile.flow?.hazard ? colors.red : color : colors.dim, tile.kind === 'pit' ? colors.ink : undefined)
+      const [baseGlyph, color] = tileGlyph[tile.kind]
+      const terrain = terrainVisual(state.area ?? state.floor.biome, tile.kind, 'ascii')
+      const showDirection = showMotionAt(performance.now())
+      const glyph = terrain.glyph ?? terminalTileGlyph(tile.kind, baseGlyph)
+      this.cell(x, y, tile.flow && showDirection ? flowGlyph(tile.flow.direction, 'ascii') : glyph, tile.visible ? tile.flow?.hazard ? colors.red : terrain.color ?? color : colors.dim, tile.visible ? terrain.background ?? (tile.kind === 'pit' ? colors.ink : undefined) : undefined)
     }
     if (!tile.visible) {
       if (isItemVisible(tile, item) && !this.spriteMode) this.drawItem(item!, x, y)
@@ -535,7 +537,7 @@ export class TerminalRenderer {
       else {
         const definition = propDefinition(prop.kind)
         const glyph = prop.kind === 'mine.brokenCart' ? definition.glyph : prop.kind === 'mine.lanternPost' && prop.state === 'activated' ? '*' : prop.state === 'activated' ? '+' : prop.state === 'inspected' ? '?' : definition.glyph
-        this.cell(x, y, glyph, definition.color)
+        this.cell(x, y, this.runeMode ? glyph : terminalGlyph(glyph), definition.color)
       }
     }
     const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
@@ -544,7 +546,7 @@ export class TerminalRenderer {
     if (encounter && !this.spriteMode) this.cell(x, y, encounter.kind === 'wayfarer' ? '&' : encounter.kind === 'bloodBargain' ? '$' : '≈', encounter.kind === 'bloodBargain' ? colors.red : encounter.kind === 'shiftingChamber' ? colors.blue : colors.green)
     if (item) this.drawItem(item, x, y)
     const actor = overlays.actors[index]
-    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, actor.glyph, actor.color)
+    if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, this.runeMode ? actor.glyph : terminalGlyph(actor.glyph), actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')
       this.cell(x, y, presentation.glyph, presentation.color)
@@ -553,19 +555,19 @@ export class TerminalRenderer {
   }
 
   private drawFlowMarker(tile: Tile, x: number, y: number): void {
-    if (!tile.flow || Math.floor(performance.now() / 180) % 2 !== 0) return
-    const glyph: Partial<Record<Direction, string>> = { n: '↑', ne: '↗', e: '→', se: '↘', s: '↓', sw: '↙', w: '←', nw: '↖' }
-    this.cell(x, y, glyph[tile.flow.direction] ?? '≋', tile.flow.hazard ? colors.red : '#a8eff0')
+    if (!tile.flow || !showMotionAt(performance.now())) return
+    this.cell(x, y, flowGlyph(tile.flow.direction, this.runeMode ? 'runes' : 'ascii'), tile.flow.hazard ? colors.red : '#a8eff0')
   }
 
-  private drawRuneTile(kind: string, visible: boolean, x: number, y: number): void {
+  private drawRuneTile(biome: Biome, kind: string, visible: boolean, x: number, y: number): void {
     const [glyph, fore, back] = runeTileGlyph[kind]
-    this.cell(x, y, glyph, visible ? fore : shade(fore), visible ? back : shade(back))
+    const terrain = terrainVisual(biome, kind as Tile['kind'], 'runes')
+    this.cell(x, y, terrain.glyph ?? glyph, visible ? terrain.color ?? fore : shade(terrain.color ?? fore), visible ? terrain.background ?? back : shade(terrain.background ?? back))
   }
 
   private drawItem(item: GroundItem, x: number, y: number, clip = false): void {
     if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y, clip)
-    else this.cell(x, y, ITEM[item.id]?.glyph ?? '*', ITEM[item.id]?.color ?? colors.gold)
+    else this.cell(x, y, this.runeMode ? ITEM[item.id]?.glyph ?? '*' : terminalGlyph(ITEM[item.id]?.glyph ?? '*', '*'), ITEM[item.id]?.color ?? colors.gold)
   }
 
   private spriteFog(state: RunState): void {
@@ -638,6 +640,7 @@ export class TerminalRenderer {
     this.text(50, 1, 'DELIVERY', colors.gold)
     this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 45)
+    this.text(50, 4, biomeVisualGrammar[state.area ?? state.floor.biome].legend, colors.dim)
     this.courierSheet(hero)
     const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
     this.text(50, 32, 'ON GROUND', colors.gold)
@@ -646,7 +649,7 @@ export class TerminalRenderer {
     this.text(50, 37, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
     foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
-    const telegraphs = state.floor.telegraphs?.slice(0, Math.max(0, 3 - foes.length)) ?? []
+    const telegraphs = (state.floor.telegraphs ?? []).filter(telegraph => isTelegraphVisible(state.floor, telegraph)).slice(0, Math.max(0, 3 - foes.length))
     telegraphs.forEach((telegraph, i) => {
       const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
       const presentation = presentTelegraph(telegraph, state.turn, source)

@@ -1,5 +1,6 @@
 import { ITEM } from '../content'
 import { propDefinition } from '../props'
+import { presentTelegraph } from '../telegraph-language'
 import type { Prop, RunState } from '../types'
 import { getTile } from '../world'
 import { planEnemyIntent } from './intents'
@@ -19,8 +20,7 @@ const telegraphLabel = (state: RunState, id: string): string => {
   const telegraph = state.floor.telegraphs?.find(current => current.id === id)
   if (!telegraph) return ''
   const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
-  const outcome = telegraph.cover ? 'COVER' : telegraph.collision ? 'HIT' : 'PATH'
-  return `T-${Math.max(0, telegraph.resolveTurn - state.turn)} ${telegraph.danger === 'major' ? 'MAJ' : 'MIN'} ${outcome} ${source}`
+  return presentTelegraph(telegraph, state.turn, source).label
 }
 
 export const fieldReadout = (state: RunState): FieldReadout => {
