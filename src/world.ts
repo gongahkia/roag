@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, type TileKind, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -30,6 +30,30 @@ export const actorAt = (floor: Floor, x: number, y: number): Actor | undefined =
 export const isPassable = (floor: Floor, x: number, y: number): boolean => {
   const target = getTile(floor, x, y)
   return Boolean(target && passable(target.kind) && target.kind !== 'lockedDoor' && !actorAt(floor, x, y) && !isBlockingProp(propAt(floor.props, x, y)))
+}
+
+const toolDirections = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const
+const toolHazards = new Set<TileKind>(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'brine', 'frostRime'])
+const drillableToolTerrain = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder'])
+export const primaryToolUseAvailable = (floor: Floor): boolean => {
+  const offer = floor.rewardOffers?.find(candidate => candidate.milestoneId === 'waycache')
+  if (offer?.kind !== 'waycache') return false
+  const tool = offer.choices[0]?.id as TraversalToolId | undefined
+  if (!tool) return false
+  for (const index of reachableFloorIndexes(floor)) {
+    const origin = pointAt(floor, index)
+    if (!isPassable(floor, origin.x, origin.y)) continue
+    for (const [dx, dy] of toolDirections) {
+      const first = { x: origin.x + dx, y: origin.y + dy }
+      const second = { x: origin.x + dx * 2, y: origin.y + dy * 2 }
+      const firstTile = getTile(floor, first.x, first.y)
+      if (tool === 'stoneWedge' && firstTile && drillableToolTerrain.has(firstTile.kind)) return true
+      if (tool === 'reedwing' && firstTile && toolHazards.has(firstTile.kind) && isPassable(floor, second.x, second.y)) return true
+      if (tool === 'cordAnchor' && isPassable(floor, second.x, second.y)) return true
+      if (tool === 'ashwayRites' && firstTile && toolHazards.has(firstTile.kind) && firstTile.kind !== 'boulder') return true
+    }
+  }
+  return false
 }
 
 const pathOffsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
@@ -159,6 +183,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     guardianDefeated: areaFloor !== 3,
     objective: { ...objective, label: `${objective.label} — ${areaFloor === 3 ? escalation.payoff : escalation.promise}` },
     milestones: [],
+    rewardOffers: routeContract.rewardOffers,
     escalation,
     telegraphs: [],
     difficulty
@@ -513,10 +538,10 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
 
 function placeMilestones(floor: Floor, runtime: PlacementRuntime): void {
   const specs = [
-    { id: 'waycache', kind: 'waycache' as const, primary: { nodeKinds: ['landmark'] as RouteNodeKind[], minDistance: 5 }, legacy: { minDistance: 5, maxDistance: 18 } },
-    { id: 'boon-teach', kind: 'boon' as const, primary: { nodeKinds: ['fork'] as RouteNodeKind[], minDistance: 7 }, legacy: { minDistance: 7, maxDistance: 24 } },
-    { id: 'boon-test', kind: 'boon' as const, primary: { edgeModes: ['costly'] as RouteEdgeMode[], routeCost: 'costly' as const, minDistance: 9 }, legacy: { minDistance: 10, chokepoint: false } },
-    { id: 'boon-payoff', kind: 'boon' as const, primary: { nodeKinds: ['optionalReward'] as RouteNodeKind[], minDistance: 10 }, legacy: { minDistance: 12 } },
+    { id: 'waycache', kind: 'waycache' as const, rewardKey: 'waycache' as const, primary: { nodeKinds: ['landmark'] as RouteNodeKind[], minDistance: 5 }, legacy: { minDistance: 5, maxDistance: 12 } },
+    { id: 'boon-teach', kind: 'boon' as const, rewardKey: 'boon-teach' as const, primary: { nodeKinds: ['fork'] as RouteNodeKind[], minDistance: 7 }, legacy: { minDistance: 7, maxDistance: 24 } },
+    { id: 'boon-test', kind: 'boon' as const, rewardKey: 'boon-test' as const, primary: { edgeModes: ['costly'] as RouteEdgeMode[], routeCost: 'costly' as const, minDistance: 9 }, legacy: { minDistance: 14, chokepoint: false } },
+    { id: 'boon-payoff', kind: 'boon' as const, rewardKey: 'boon-payoff' as const, primary: { nodeKinds: ['optionalReward'] as RouteNodeKind[], minDistance: 10 }, legacy: { minDistance: 12 } },
     { id: 'augment', kind: 'augment' as const, primary: { nodeKinds: ['objective'] as RouteNodeKind[], minDistance: 12 }, legacy: { minDistance: 14 } }
   ]
   floor.milestones = []
@@ -524,7 +549,7 @@ function placeMilestones(floor: Floor, runtime: PlacementRuntime): void {
     const contract: PlacementContract = { id: `milestone:${spec.id}`, requirements: runtime.pilot ? spec.primary : spec.legacy, ...(runtime.pilot ? { fallback: spec.legacy } : {}) }
     const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
     if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
-    floor.milestones.push({ id: `milestone:${floor.index}:${spec.id}:${point.x}:${point.y}`, kind: spec.kind, ...point, discovered: false, claimed: false })
+    floor.milestones.push({ id: `milestone:${floor.index}:${spec.id}:${point.x}:${point.y}`, kind: spec.kind, ...(spec.rewardKey ? { rewardKey: spec.rewardKey } : {}), ...point, discovered: false, claimed: false })
   }
 }
 
@@ -1034,6 +1059,14 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   const targets = objectiveTargets(floor)
   if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
   if (floor.milestones.length < 5 || floor.milestones.length > 6) errors.push('invalid milestone count')
+  const rewardOffers = floor.rewardOffers ?? []
+  const expectedRewardOffers: Array<[string, string]> = [['waycache', 'waycache'], ['boon-teach', 'boon'], ['boon-test', 'boon'], ['boon-payoff', 'boon']]
+  for (const [milestoneId, kind] of expectedRewardOffers) {
+    const offer = rewardOffers.find(candidate => candidate.milestoneId === milestoneId)
+    if (!offer || offer.kind !== kind || offer.choices.length !== 3 || new Set(offer.choices.map(choice => choice.role)).size !== 3) errors.push(`invalid reward offer: ${milestoneId}`)
+    if (!floor.milestones.some(milestone => milestone.rewardKey === milestoneId && milestone.kind === kind)) errors.push(`missing reward milestone: ${milestoneId}`)
+  }
+  if (!primaryToolUseAvailable(floor)) errors.push('unusable primary Waycache tool')
   if ((floor.encounters?.length ?? 0) !== 1) errors.push('invalid encounter count')
   const milestoneLocations = new Set<string>()
   for (const milestone of floor.milestones) {

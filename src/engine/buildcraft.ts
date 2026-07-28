@@ -1,5 +1,6 @@
 import { DIRECTIONS, type Alignment, type Biome, type BoonId, type FloorMilestone, type RunState, type TraversalToolId } from '../types'
 import { rngFor } from '../rng'
+import { rewardOfferFor } from '../reward-contract'
 import { getTile, isPassable } from '../world'
 import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
@@ -150,8 +151,20 @@ export const boonRank = (state: RunState, id: BoonId): number => {
 export const hasBoon = (state: RunState, id: BoonId): boolean => boonRank(state, id) > 0
 export const toolCooldown = (state: RunState, id: TraversalToolId): number => state.hero.cooldowns?.[`tool:${id}`] ?? 0
 
-export const toolChoices = (state: RunState, milestone: FloorMilestone): TraversalTool[] => rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'tools').shuffle([...TOOLS]).slice(0, 3)
+export const toolChoices = (state: RunState, milestone: FloorMilestone): TraversalTool[] => {
+  const offer = rewardOfferFor(state.floor, milestone.rewardKey)
+  if (offer?.kind === 'waycache') {
+    const choices = offer.choices.map(choice => toolById[choice.id]).filter((choice): choice is TraversalTool => Boolean(choice))
+    if (choices.length === 3 && new Set(choices.map(choice => choice.id)).size === 3) return choices
+  }
+  return rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'tools').shuffle([...TOOLS]).slice(0, 3)
+}
 export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] => {
+  const offer = rewardOfferFor(state.floor, milestone.rewardKey)
+  if (offer?.kind === 'boon') {
+    const choices = offer.choices.map(choice => boonById[choice.id]).filter((choice): choice is Boon => Boolean(choice))
+    if (choices.length === 3 && new Set(choices.map(choice => choice.id)).size === 3) return choices
+  }
   const owned = new Set(Object.keys(state.hero.boons ?? {}))
   const families = new Set([...owned].map(id => boonById[id]?.family).filter(Boolean))
   const shuffled = rngFor(state.seed, 'progression', state.floor.index, milestone.id, 'boons').shuffle([...BOONS])

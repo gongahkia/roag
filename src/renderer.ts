@@ -16,6 +16,7 @@ import { defaultSettings, settingChoices, settingsPageCount, type GameSettings }
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
+import { rewardOfferFor } from './reward-contract'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Hero, type Modal, type Point, type RunAnalysis, type RunMetricSample, type RunState, type Tile } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { getTile } from './world'
@@ -817,11 +818,14 @@ export class TerminalRenderer {
   private boon(state: RunState, modal: Extract<Modal, { kind: 'boon' }>): void {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
     if (!milestone) return
+    const offer = rewardOfferFor(state.floor, milestone.rewardKey)
     this.box(10, 6, 60, 28, 'BOON SITE — CHOOSE ONE')
     this.text(14, 10, '✦ DISCOVERED WHILE TRAVERSING · STACKS ENDLESSLY ✦', colors.gold)
+    if (offer?.kind === 'boon') this.text(14, 12, `TEACH: ${offer.choices[0].problem} · TEST: ${offer.choices[0].route}/${offer.choices[0].terrain}`.slice(0, 52), colors.dim)
     boonChoices(state, milestone).forEach((choice, index) => {
       const rank = boonRank(state, choice.id)
-      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${rank ? ` · RANK ${rank + 1}` : ''}`, colors.purple)
+      const annotation = offer?.kind === 'boon' ? offer.choices[index] : undefined
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${rank ? ` · RANK ${rank + 1}` : ''}${annotation ? ` · ${annotation.role.toUpperCase()}` : ''}`, colors.purple)
       this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
     })
     this.text(14, 30, 'number chooses · Esc/backtick leaves it for later', colors.dim)
@@ -854,6 +858,7 @@ export class TerminalRenderer {
   private tool(state: RunState, modal: Extract<Modal, { kind: 'tool' }>): void {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
     if (!milestone) return
+    const offer = rewardOfferFor(state.floor, milestone.rewardKey)
     const tools = state.hero.traversalTools ?? []
     this.box(10, 6, 60, 28, 'WAYCACHE — BIND A RITUAL TOOL')
     if (tools.length >= 2 && modal.replace === undefined) {
@@ -863,8 +868,10 @@ export class TerminalRenderer {
       return
     }
     this.text(14, 10, modal.replace === undefined ? 'CHOOSE A TOOL FOR AN EMPTY SLOT' : `REPLACING SLOT ${(modal.replace ?? 0) + 1}`, colors.gold)
+    if (offer?.kind === 'waycache') this.text(14, 11, `TEACH: ${offer.choices[0].problem} · TEST: ${offer.choices[0].route}/${offer.choices[0].terrain}`.slice(0, 52), colors.dim)
     toolChoices(state, milestone).forEach((choice, index) => {
-      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}`, colors.green)
+      const annotation = offer?.kind === 'waycache' ? offer.choices[index] : undefined
+      this.text(14, 14 + index * 5, `${index + 1}. ${choice.glyph} ${choice.name.toUpperCase()}${annotation ? ` · ${annotation.role.toUpperCase()}` : ''}`, colors.green)
       this.text(18, 16 + index * 5, choice.text.slice(0, 47), colors.text)
       this.text(18, 17 + index * 5, `OVERDRIVE: ${choice.overdrive}`.slice(0, 47), colors.dim)
     })

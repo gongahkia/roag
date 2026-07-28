@@ -1,5 +1,6 @@
 import { rngFor } from './rng'
-import type { Biome } from './types'
+import { rewardOffersFor } from './reward-contract'
+import type { Biome, RewardOffer } from './types'
 
 export const ROUTE_NODE_KINDS = ['start', 'landmark', 'fork', 'objective', 'optionalReward', 'exit', 'boss'] as const
 export type RouteNodeKind = typeof ROUTE_NODE_KINDS[number]
@@ -42,6 +43,7 @@ export interface RouteContract extends RouteContractInput {
   id: string
   nodes: RouteNode[]
   edges: RouteEdge[]
+  rewardOffers: RewardOffer[]
 }
 
 export interface RouteContractValidation { valid: boolean; errors: string[] }
@@ -117,8 +119,33 @@ const validateTags = (owner: string, tags: unknown, errors: string[]): void => {
   }
 }
 
+const validateRewardOffers = (offers: unknown, errors: string[]): void => {
+  if (!Array.isArray(offers)) { errors.push('reward offers: missing'); return }
+  const expected: Array<[RewardOffer['milestoneId'], RewardOffer['kind']]> = [['waycache', 'waycache'], ['boon-teach', 'boon'], ['boon-test', 'boon'], ['boon-payoff', 'boon']]
+  if (offers.length !== expected.length) errors.push(`reward offers: expected ${expected.length}, found ${offers.length}`)
+  for (const [milestoneId, kind] of expected) {
+    const offer = offers.find(candidate => typeof candidate === 'object' && candidate !== null && (candidate as { milestoneId?: unknown }).milestoneId === milestoneId)
+    if (!offer || typeof offer !== 'object') { errors.push(`reward offer ${milestoneId}: missing`); continue }
+    const value = offer as Record<string, unknown>
+    if (!value.id || typeof value.id !== 'string') errors.push(`reward offer ${milestoneId}: missing id`)
+    if (value.kind !== kind) errors.push(`reward offer ${milestoneId}: invalid kind`)
+    if (!Array.isArray(value.choices) || value.choices.length !== 3) { errors.push(`reward offer ${milestoneId}: expected three choices`); continue }
+    const roles = new Set<string>()
+    for (const choice of value.choices) {
+      if (!choice || typeof choice !== 'object') { errors.push(`reward offer ${milestoneId}: invalid choice`); continue }
+      const annotation = choice as Record<string, unknown>
+      if (typeof annotation.id !== 'string' || !annotation.id) errors.push(`reward offer ${milestoneId}: choice missing id`)
+      if (annotation.role !== 'safe' && annotation.role !== 'risky' && annotation.role !== 'sidegrade') errors.push(`reward offer ${milestoneId}: choice invalid role`)
+      else roles.add(annotation.role)
+      if (typeof annotation.problem !== 'string' || typeof annotation.terrain !== 'string' || typeof annotation.route !== 'string' || typeof annotation.payoff !== 'string' || (annotation.biomeFit !== 'local' && annotation.biomeFit !== 'global')) errors.push(`reward offer ${milestoneId}: choice missing annotation`)
+    }
+    if (roles.size !== 3) errors.push(`reward offer ${milestoneId}: requires safe, risky, and sidegrade choices`)
+  }
+}
+
 export const validateRouteContract = (contract: RouteContract): RouteContractValidation => {
   const errors: string[] = []
+  validateRewardOffers(contract.rewardOffers, errors)
   const nodeIds = new Set<string>()
   for (const node of contract.nodes) {
     const owner = `node ${node.id || '<empty>'}`
@@ -214,5 +241,5 @@ export const generateRouteContract = (input: RouteContractInput): RouteContract 
     edge('optionalReward', 'objective', ['costly', 'optional'], { terrain: [routeTerrain], encounter: [biome.encounter], reward: ['payoff'], gate: ['rejoin'], visual: ['return-route'] }),
     edge('objective', endKind, ['main'], { terrain: [routeTerrain], encounter: [endKind === 'boss' ? 'boss' : 'none'], reward: ['completion'], gate: ['resolved'], visual: ['exit-route'] })
   ]
-  return { id: `route:${prefix}`, ...input, nodes, edges }
+  return { id: `route:${prefix}`, ...input, nodes, edges, rewardOffers: rewardOffersFor(input) }
 }

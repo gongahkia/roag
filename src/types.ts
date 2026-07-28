@@ -105,7 +105,15 @@ export interface Prop {
 }
 export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
-export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean }
+export type RewardMilestoneId = 'waycache' | 'boon-teach' | 'boon-test' | 'boon-payoff'
+export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean; rewardKey?: RewardMilestoneId }
+export type RewardRole = 'safe' | 'risky' | 'sidegrade'
+export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
+export interface BoonRewardChoice extends RewardContext { id: BoonId }
+export interface ToolRewardChoice extends RewardContext { id: TraversalToolId }
+export interface BoonRewardOffer { id: string; milestoneId: Exclude<RewardMilestoneId, 'waycache'>; kind: 'boon'; choices: BoonRewardChoice[] }
+export interface ToolRewardOffer { id: string; milestoneId: 'waycache'; kind: 'waycache'; choices: ToolRewardChoice[] }
+export type RewardOffer = BoonRewardOffer | ToolRewardOffer
 export type ExpeditionPhase = 'survey' | 'pressure' | 'counterroute' | 'climax'
 export interface FloorEscalation { arcId: string; phase: ExpeditionPhase; topology: string; landmark: string; encounter: string; ecology: string; promise: string; payoff: string; encounterOffset: number; carried: ExpeditionPhase[] }
 export interface AreaArcState { biome: Biome; arcId: string; clearedPhases: ExpeditionPhase[] }
@@ -153,6 +161,7 @@ export interface Floor {
   guardianDefeated: boolean
   objective: FloorObjective
   milestones: FloorMilestone[]
+  rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]
   transientTerrain?: TransientTerrain[]
