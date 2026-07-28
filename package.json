@@ -23,7 +23,9 @@
     "test:generation-sweep:ci": "GENERATION_SWEEP_SEEDS=2 tsx scripts/generation-sweep.ts",
     "campaign:composition": "tsx scripts/campaign-composition-report.ts",
     "generation:report": "tsx scripts/generation-report.ts",
-    "test:combat-readability": "tsx scripts/combat-readability.ts"
+    "test:combat-readability": "tsx scripts/combat-readability.ts",
+    "playtest:check": "tsx scripts/check-playtests.ts",
+    "playtest:check:complete": "PLAYTEST_REQUIRE_COMPLETE=1 tsx scripts/check-playtests.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

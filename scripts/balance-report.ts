@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import { availableParallelism } from 'node:os'
 import { resolve } from 'node:path'
 import { summarizeBalanceRuns, type BalanceRun } from '../src/balance-dashboard'
 import { AUTOPLAY_MAX_TURNS } from '../src/autoplay'
 import { CAMPAIGN_AUTOPLAY_SEEDS } from '../src/autoplay-campaign'
 import { BIOME_POOL } from '../src/engine/campaign'
+import { summarizePlaytestRecords } from '../src/playtest-records'
 
 const requestedSeeds = process.env.BALANCE_SEEDS?.split(',').map(Number)
 const seeds = requestedSeeds?.length ? requestedSeeds : CAMPAIGN_AUTOPLAY_SEEDS.slice(0, 4)
@@ -14,6 +16,9 @@ if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid BALA
 const requestedWorkers = Number(process.env.MAX_WORKERS ?? Math.min(4, availableParallelism()))
 if (!Number.isInteger(requestedWorkers) || requestedWorkers < 1) throw new Error(`invalid MAX_WORKERS: ${process.env.MAX_WORKERS}`)
 const requireAcceptance = process.env.BALANCE_REQUIRE_ACCEPTANCE === '1'
+const playtestDocument: unknown = JSON.parse(await readFile(resolve(process.env.PLAYTEST_RECORDS ?? 'docs/playtests/records.json'), 'utf8'))
+const playtests = summarizePlaytestRecords(playtestDocument)
+if (!playtests.valid) throw new Error(`invalid playtest records: ${playtests.errors.join('; ')}`)
 
 const jobs = seeds.flatMap(seed => BIOME_POOL.map(biome => ({ seed, biome })))
 const run = ({ seed, biome }: typeof jobs[number]): Promise<BalanceRun> => new Promise((resolveRun, reject) => {
@@ -42,5 +47,5 @@ await Promise.all(Array.from({ length: Math.min(requestedWorkers, jobs.length) }
   }
 }))
 const dashboard = summarizeBalanceRuns(runs, seeds)
-console.log(JSON.stringify({ ...dashboard, turnLimit, workers: Math.min(requestedWorkers, jobs.length) }, null, 2))
+console.log(JSON.stringify({ ...dashboard, turnLimit, workers: Math.min(requestedWorkers, jobs.length), playtests }, null, 2))
 if (requireAcceptance && !dashboard.acceptance.valid) process.exitCode = 1
