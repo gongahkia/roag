@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { measureGeneration, summarizeGenerationMetrics } from '../src/generation-metrics'
 import { generateRouteContract } from '../src/route-contract'
+import { escalationFor } from '../src/escalation'
 import type { Biome } from '../src/types'
 import { areaFloorIndex, generateAreaFloor, layoutFor, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from '../src/world'
 
@@ -28,10 +29,11 @@ const failures: Array<{ seed: number; biome: Biome; floor: number; recipe: strin
 
 for (const seed of seeds) for (const biome of selectedBiomes) for (const areaFloor of floors) {
   const recipe = layoutFor(seed, biome, areaFloor)
-  const contract = generateRouteContract({ campaignSeed: seed, floorIndex: areaFloorIndex(biome, areaFloor), biome, areaFloor, recipeId: recipe, escalationVariant: `stage-${areaFloor + 1}` })
+  const escalation = escalationFor(seed, biome, areaFloor)
+  const contract = generateRouteContract({ campaignSeed: seed, floorIndex: areaFloorIndex(biome, areaFloor), biome, areaFloor, recipeId: recipe, escalationVariant: `${escalation.arcId}:${escalation.phase}` })
   try {
     const floor = generateAreaFloor(seed, biome, areaFloor)
-    samples.push(measureGeneration({ floor, route: routeContractDebug(floor) ?? contract, macro: macroRecipeDebug(floor), placements: placementDebug(floor), validation: validateGeneration(floor) }))
+    samples.push({ ...measureGeneration({ floor, route: routeContractDebug(floor) ?? contract, macro: macroRecipeDebug(floor), placements: placementDebug(floor), validation: validateGeneration(floor) }), escalation: floor.escalation })
   } catch (error) {
     failures.push({ seed, biome, floor: areaFloor, recipe, contract: contract.id, error: error instanceof Error ? error.message : String(error) })
   }

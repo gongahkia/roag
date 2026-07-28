@@ -28,6 +28,7 @@ export const fieldReadout = (state: RunState): FieldReadout => {
   const telegraphs = [...(state.floor.telegraphs ?? [])].sort((first, second) => first.resolveTurn - second.resolveTurn || first.id.localeCompare(second.id))
   const foes = visibleHostiles(state)
   const lines = [`OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`]
+  if (state.floor.escalation) lines.push(`ARC: ${state.floor.escalation.arcId} / ${state.floor.escalation.phase} — ${state.floor.escalation.landmark}`)
   for (const ecology of (state.floor.ecology ?? []).filter(current => current.state !== 'resolved').sort((first, second) => first.startsAt - second.startsAt || first.id.localeCompare(second.id)).slice(0, 2)) lines.push(`ECOLOGY: ${ecologyReadout(ecology, state.turn)}`)
   for (const telegraph of telegraphs.slice(0, 3)) {
     lines.push(`THREAT: ${telegraphLabel(state, telegraph.id)}`)

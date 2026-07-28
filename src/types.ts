@@ -106,6 +106,9 @@ export interface Prop {
 export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean }
+export type ExpeditionPhase = 'survey' | 'pressure' | 'counterroute' | 'climax'
+export interface FloorEscalation { arcId: string; phase: ExpeditionPhase; topology: string; landmark: string; encounter: string; ecology: string; promise: string; payoff: string; encounterOffset: number; carried: ExpeditionPhase[] }
+export interface AreaArcState { biome: Biome; arcId: string; clearedPhases: ExpeditionPhase[] }
 export interface ClimbLink { id: string; lower: Point; upper: Point; anchored: boolean }
 export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number }
 export interface TransientTerrain { x: number; y: number; original: TileKind; originalFlow?: Tile['flow']; expiresAt: number }
@@ -150,6 +153,7 @@ export interface Floor {
   guardianDefeated: boolean
   objective: FloorObjective
   milestones: FloorMilestone[]
+  escalation?: FloorEscalation
   ecology?: EcologyEvent[]
   transientTerrain?: TransientTerrain[]
   telegraphs?: Telegraph[]
@@ -258,6 +262,7 @@ export interface RunState {
   turn: number
   area?: Biome
   areaFloor?: number
+  areaArc?: AreaArcState
   areaOrder?: Biome[]
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]

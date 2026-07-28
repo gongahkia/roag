@@ -11,7 +11,7 @@ export interface DirectedEncounterPlan {
   fallback: PlacementRequirements
 }
 
-export interface EncounterDirectorInput { biome: Biome; areaFloor: number; routePosition: number; pilot: boolean }
+export interface EncounterDirectorInput { biome: Biome; areaFloor: number; routePosition: number; pilot: boolean; arcOffset?: number }
 
 const biomeOrder: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
 
@@ -27,8 +27,8 @@ const plans: Record<TacticalEncounter, Omit<DirectedEncounterPlan, 'requirements
 
 const schedule: readonly TacticalEncounter[] = ['guardPost', 'ambush', 'artilleryCover', 'pursuitLane', 'nativeTerrainPack', 'objectiveDefense', 'roamingThreat']
 
-export const encounterPlansFor = ({ biome, areaFloor, routePosition, pilot }: EncounterDirectorInput, nativeTerrain: readonly TileKind[]): DirectedEncounterPlan[] => {
-  const start = (biomeOrder.indexOf(biome) + areaFloor + routePosition) % schedule.length
+export const encounterPlansFor = ({ biome, areaFloor, routePosition, pilot, arcOffset = 0 }: EncounterDirectorInput, nativeTerrain: readonly TileKind[]): DirectedEncounterPlan[] => {
+  const start = (biomeOrder.indexOf(biome) + areaFloor + routePosition + arcOffset) % schedule.length
   const count = areaFloor >= 2 ? 2 : 1
   return Array.from({ length: count }, (_, index) => {
     const plan = plans[schedule[(start + index * 3) % schedule.length]]

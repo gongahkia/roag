@@ -10,6 +10,7 @@ import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMac
 import { selectPlacement, type PlacementContext, type PlacementContract, type PlacementDebug } from './placement-contract'
 import { definitionForEncounter, encounterPlansFor, membersForEncounter } from './encounter-director'
 import { ecologyEventFor, ecologyProfileFor } from './ecology'
+import { escalationFor } from './escalation'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -77,6 +78,7 @@ export const hasPassablePath = (floor: Floor, start: Point, destination: Point):
 export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
 export const placementDebug = (floor: Floor): readonly PlacementDebug[] => placementDebugs.get(floor) ?? []
 export const routeContractDebug = (floor: Floor): RouteContract | undefined => routeContractDebugs.get(floor)
+export const escalationDebug = (floor: Floor): Floor['escalation'] => floor.escalation
 export const tacticalEncounterDebug = (floor: Floor): readonly NonNullable<Actor['encounter']>[] => tacticalEncounterDebugs.get(floor) ?? []
 export const validateMacroRecipe = (floor: Floor): string[] => {
   const debug = macroDebugs.get(floor)
@@ -127,10 +129,12 @@ const assertGenerationPhase = (floor: Floor, campaignSeed: number, contract: Ret
 
 export function generateFloor(runSeed: number, index: number, difficulty = difficultyFor(Math.floor(index / 4), index % 4)): Floor {
   const seed = streamSeed(runSeed, 'generation', index)
-  const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const biome = biomeForFloor(index)
-  const layoutId = layoutFor(runSeed, biome, index % 4)
-  const routeContract = generateRouteContract({ campaignSeed: runSeed, floorIndex: index, biome, areaFloor: index % 4, recipeId: layoutId, escalationVariant: `stage-${index % 4 + 1}` })
+  const areaFloor = index % 4
+  const escalation = escalationFor(runSeed, biome, areaFloor)
+  const layoutRng = rngFor(runSeed, 'generation', index, 'layout', escalation.arcId)
+  const layoutId = layoutFor(runSeed, biome, areaFloor)
+  const routeContract = generateRouteContract({ campaignSeed: runSeed, floorIndex: index, biome, areaFloor, recipeId: layoutId, escalationVariant: `${escalation.arcId}:${escalation.phase}` })
   const routeValidation = validateRouteContract(routeContract)
   if (!routeValidation.valid) throw new Error(`invalid route contract ${routeContract.id}: ${routeValidation.errors.join('; ')}`)
   const { width, height } = dimensionsFor(biome)
@@ -151,9 +155,10 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     encounters: [],
     start: { x: 2, y: 2 },
     exit: { x: width - 3, y: height - 3 },
-    guardianDefeated: index % 4 !== 3,
-    objective: objectiveForFloor(index),
+    guardianDefeated: areaFloor !== 3,
+    objective: { ...objectiveForFloor(index), label: `${objectiveForFloor(index).label} — ${areaFloor === 3 ? escalation.payoff : escalation.promise}` },
     milestones: [],
+    escalation,
     telegraphs: [],
     difficulty
   }
@@ -162,8 +167,9 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
-  decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
-  placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
+  decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain', escalation.arcId), rooms)
+  placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle', escalation.arcId), rooms)
+  imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
@@ -172,17 +178,17 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
-  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
+  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors', escalation.arcId), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
   placeEcology(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
-  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
+  placeItems(floor, rngFor(runSeed, 'loot', index, 'items', escalation.arcId), rooms, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'loot')
   placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'props')
   placeMilestones(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'milestones')
-  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'), placements)
+  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters', escalation.arcId), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'encounters')
   macroDebugs.set(floor, macro)
   macroPilots.set(floor, macroRecipeFor(routeContract).pilot)
@@ -214,8 +220,19 @@ const layoutVariants: Record<Biome, readonly string[]> = {
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
-  const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck').shuffle([...layoutVariants[biome]])
+  const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck', escalationFor(runSeed, biome, areaFloor).arcId).shuffle([...layoutVariants[biome]])
   return areaFloor < deck.length ? deck[areaFloor] : `${deck[(areaFloor + runSeed) % deck.length]}-remix`
+}
+
+const escalationLandmarkTerrain: Record<Biome, readonly TileKind[]> = {
+  mine: ['support', 'rail'], wilds: ['web', 'water'], caverns: ['darkness', 'water'], ruins: ['altar', 'dart'], furnace: ['lift', 'smoke'], floodedRuins: ['anchor', 'water'], cliffs: ['rope', 'ledge'], burial: ['cairn', 'graveSoil'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
+}
+const imprintEscalationLandmark = (floor: Floor, rooms: readonly Room[]): void => {
+  const room = rooms[1] ?? rooms[0]
+  if (!room) return
+  const target = center(room)
+  const variant = Math.min(escalationLandmarkTerrain[floor.biome].length - 1, Math.floor((floor.escalation?.encounterOffset ?? 0) / 2))
+  setKind(floor, target.x, target.y, escalationLandmarkTerrain[floor.biome][variant])
 }
 
 const hasNearbyTile = (floor: Floor, point: Point, radius: number, kinds: ReadonlySet<Tile['kind']>): boolean => {
@@ -888,7 +905,7 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   const areaFloor = floor.index % 4
   const routePosition = floor.difficulty?.routePosition ?? 0
   const directed: NonNullable<Actor['encounter']>[] = []
-  if (areaFloor !== 3) for (const [groupIndex, plan] of encounterPlansFor({ biome: floor.biome, areaFloor, routePosition, pilot: runtime.pilot }, nativeActorTerrain[floor.biome]).entries()) {
+  if (areaFloor !== 3) for (const [groupIndex, plan] of encounterPlansFor({ biome: floor.biome, areaFloor, routePosition, pilot: runtime.pilot, arcOffset: floor.escalation?.encounterOffset }, nativeActorTerrain[floor.biome]).entries()) {
     const id = `tactical:${floor.index}:${groupIndex}:${plan.archetype}`
     let leader: Point | undefined
     for (let member = 0; member < membersForEncounter(areaFloor, routePosition); member++) {
@@ -917,7 +934,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
-    floor.actors.push(spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty))
+    const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
+    actor.status = [...(actor.status ?? []), `arc:${floor.escalation?.arcId ?? 'legacy'}:resolved`]
+    floor.actors.push(actor)
   }
   tacticalEncounterDebugs.set(floor, directed)
 }
@@ -930,7 +949,13 @@ function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const source = floor.actors.find(actor => actor.hostile && (actor.combatRole === 'guard' || actor.combatRole === 'pursuer'))
   const node = runtime.pilot ? runtime.macro.nodes.find(candidate => point.x >= candidate.footprint.x && point.x < candidate.footprint.x + candidate.footprint.width && point.y >= candidate.footprint.y && point.y < candidate.footprint.y + candidate.footprint.height)?.nodeId : undefined
   const route = runtime.pilot ? runtime.macro.edges.find(edge => edge.cells.some(cell => cell.x === point.x && cell.y === point.y))?.modes[0] : undefined
-  floor.ecology = [ecologyEventFor(floor, point, source?.id ?? `${floor.biome}:${profile.kind}`, node, route)]
+  const ecology = ecologyEventFor(floor, point, source?.id ?? `${floor.biome}:${profile.kind}`, node, route)
+  if (floor.escalation) {
+    ecology.warning = `${floor.escalation.ecology}: ${ecology.warning}`
+    ecology.responses = [`${floor.escalation.phase}: ${floor.escalation.promise}`, ...ecology.responses]
+    if (floor.escalation.phase === 'climax') { ecology.startsAt = Math.max(2, ecology.startsAt - 1); ecology.duration++ }
+  }
+  floor.ecology = [ecology]
 }
 
 function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRuntime): void {

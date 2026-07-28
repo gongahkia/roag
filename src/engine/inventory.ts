@@ -1,6 +1,7 @@
 import { ITEM, biomeName } from '../content'
 import { DIRECTIONS, floorPoint, type Direction, type Modal, type RunState } from '../types'
 import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
+import { applyAreaArcState, areaArcStateFor, recordAreaArcPhase } from '../escalation'
 import { advance, explode, resolveDefeatedActors } from './combat'
 import { resolveLineEffect } from './line-effect'
 import { addCondition, modifyIncomingDamage } from './conditions'
@@ -112,10 +113,15 @@ export function descend(state: RunState): ActionResult {
   if (state.floor.objective.status !== 'complete') { log(state, `Objective incomplete: ${state.floor.objective.label}.`); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
   const areaFloor = state.areaFloor ?? state.floor.index % 4
+  const biome = state.area ?? state.floor.biome
+  const areaArc = state.areaArc?.biome === biome ? state.areaArc : areaArcStateFor(state.seed, biome)
+  if (state.floor.escalation) recordAreaArcPhase(areaArc, state.floor.escalation.phase)
+  state.areaArc = areaArc
   if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
-  const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(state.area ?? state.floor.biome))
-  state.floor = generateAreaFloor(state.seed, state.area ?? state.floor.biome, nextAreaFloor, routePosition)
+  const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(biome))
+  state.floor = generateAreaFloor(state.seed, biome, nextAreaFloor, routePosition)
+  applyAreaArcState(state.floor, areaArc)
   state.areaFloor = nextAreaFloor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y

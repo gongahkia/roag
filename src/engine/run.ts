@@ -6,6 +6,7 @@ import { hydrateEncyclopediaLegacy } from './encyclopedia'
 import { createRunTelemetry } from '../telemetry'
 import { recordSafePosition } from './buildcraft'
 import { DEFAULT_AREA_ORDER, campaignOrderForSeed } from './campaign'
+import { applyAreaArcState, areaArcStateFor } from '../escalation'
 
 export interface CourierBuild { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode }
 
@@ -39,11 +40,13 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
 export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER): RunState {
   const routePosition = Math.max(0, areaOrder.indexOf(area))
   const floor = generateAreaFloor(seed, area, areaFloor, routePosition)
+  const areaArc = areaArcStateFor(seed, area)
+  applyAreaArcState(floor, areaArc)
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
   if (inheritedHero && areaFloor === 0 && routePosition > 0) hero.gold = Math.min(500, hero.gold + (hero.boons?.windfall ?? 0) * 20)
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [], alignment: { kami: 0, villagePact: 0 } }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaArc, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [], alignment: { kami: 0, villagePact: 0 } }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)
