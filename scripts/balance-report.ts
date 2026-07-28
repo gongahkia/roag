@@ -75,5 +75,6 @@ console.log(JSON.stringify({
     purchases: rank(aggregate(metrics => metrics.purchases)),
     itemsUsed: rank(aggregate(metrics => metrics.itemsUsed))
   },
-  enemies: rank(aggregate(metrics => metrics.enemyKills))
+  enemies: rank(aggregate(metrics => metrics.enemyKills)),
+  deaths: rank(aggregate(metrics => metrics.deathCauses))
 }, null, 2))

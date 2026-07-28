@@ -22,7 +22,7 @@ import { announceSynergies, resolveSynergies } from './synergies'
 import { applyPropEffects, expirePropEffects, resolveMonolithTelegraphs } from './props'
 import { trailcraftTags } from './trailcraft'
 import { boonRank, expireAshways, recordSafePosition } from './buildcraft'
-import { recordTelemetryKill } from '../telemetry'
+import { recordTelemetryCount, recordTelemetryKill } from '../telemetry'
 import { armRelicIce, armRelicMirror, armRelicMove, armRelicWaterCrossing, consumeRelicPrismStrike, consumeRelicWinterGuard, markbreakerDamage, resolveKillRelics } from './relics'
 import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
@@ -286,6 +286,7 @@ export function damageHero(state: RunState, amount: number, source: string, haza
   state.hero.health = 0
   state.status = 'dead'
   state.modal = undefined
+  recordTelemetryCount(state, 'deathCauses', `${state.floor.biome}:${state.floor.layoutId}:${source}`)
   log(state, 'Your warning falls with you.')
   return [event('death')]
 }
