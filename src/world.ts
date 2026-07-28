@@ -451,13 +451,19 @@ const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): vo
   if (floor.biome !== 'caverns') return
   const node = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
   if (!node) throw new Error(`missing Caverns optional chamber: ${macro.recipeId}`)
-  const point = { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }
-  const water = { x: point.x - 1, y: point.y }
-  const darkness = { x: point.x, y: point.y - 1 }
-  const pool = { x: point.x + 1, y: point.y + 1 }
-  if (getTile(floor, water.x, water.y)?.kind === 'floor') setKind(floor, water.x, water.y, 'water')
-  if (getTile(floor, darkness.x, darkness.y)?.kind === 'floor') setKind(floor, darkness.x, darkness.y, 'darkness')
-  if (getTile(floor, pool.x, pool.y)?.kind === 'floor') setKind(floor, pool.x, pool.y, 'deepWater')
+  const candidates = Array.from({ length: Math.max(0, node.footprint.width - 2) * Math.max(0, node.footprint.height - 2) }, (_, index) => ({ x: node.footprint.x + 1 + index % (node.footprint.width - 2), y: node.footprint.y + 1 + Math.floor(index / (node.footprint.width - 2)) }))
+  const point = candidates.find(candidate => getTile(floor, candidate.x, candidate.y)?.kind === 'floor')
+  if (!point) throw new Error(`missing Caverns setpiece floor: ${macro.recipeId}`)
+  const nearby = cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(candidate => getTile(floor, candidate.x, candidate.y)?.kind === 'floor')
+  const darkness = nearby[0]
+  if (!darkness) throw new Error(`missing Caverns setpiece darkness: ${macro.recipeId}`)
+  const water = nearby[1]
+  const pool = nearby[2]
+  setKind(floor, darkness.x, darkness.y, 'darkness')
+  if (water) setKind(floor, water.x, water.y, 'water')
+  if (pool) setKind(floor, pool.x, pool.y, 'deepWater')
+  const fungus = propDefinition('caverns.glowingFungus')
+  floor.props.push({ id: `prop:${floor.index}:caverns.glowingFungus:${point.x}:${point.y}`, kind: fungus.id, x: point.x, y: point.y, biome: floor.biome, state: 'dormant', tags: [...fungus.tags], hooks: [...fungus.hooks] })
 }
 
 const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
