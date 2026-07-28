@@ -130,6 +130,12 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)?.floor.props[0]).toMatchObject({ effectCells: [{ x: 3, y: 4 }], expiresAt: 9 })
   })
 
+  it('preserves valid ecology event contracts', () => {
+    const run = newRun(126)
+    run.floor.ecology = [{ id: 'ecology:test', kind: 'collapse', source: 'brace', target: { x: 3, y: 4 }, warning: 'move clear', startsAt: 2, duration: 2, responses: ['move'], cleanup: 'clear', state: 'waiting', original: 'floor', effect: 'crumble' }]
+    expect(migrateRunRecord(run)?.floor.ecology).toMatchObject([{ id: 'ecology:test', kind: 'collapse', target: { x: 3, y: 4 }, effect: 'crumble' }])
+  })
+
   it('upgrades v1 and v2 runs after the prop schema change', () => {
     for (const version of [1, 2] as const) {
       const legacy = structuredClone(newRun(456)) as unknown as { version: number; hero: Record<string, unknown>; floor: Record<string, unknown> }

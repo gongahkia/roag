@@ -66,6 +66,7 @@ const planningClone = (state: RunState): RunState => {
       items: floor.items.map(item => ({ ...item })),
       props: floor.props.map(prop => ({ ...prop, tags: [...prop.tags], hooks: prop.hooks ? [...prop.hooks] : undefined, effectCells: prop.effectCells?.map(point => ({ ...point })) })),
       encounters: floor.encounters?.map(encounter => ({ ...encounter })),
+      ecology: floor.ecology?.map(ecology => ({ ...ecology, target: { ...ecology.target }, responses: [...ecology.responses], originalFlow: ecology.originalFlow ? { ...ecology.originalFlow } : undefined, effectFlow: ecology.effectFlow ? { ...ecology.effectFlow } : undefined })),
       start: { ...floor.start },
       exit: { ...floor.exit },
       objective: { ...floor.objective },
@@ -106,6 +107,7 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const props = state.floor.props.map(propFingerprint).sort().join('|')
   const tiles = state.floor.tiles.map(tile => `${tile.kind}:${tile.explored ? 1 : 0}`).join('|')
   const telegraphs = (state.floor.telegraphs ?? []).map(telegraph => `${telegraph.id}:${telegraph.resolveTurn}:${telegraph.cells.map(pointKey).join(',')}`).sort().join('|')
+  const ecology = (state.floor.ecology ?? []).map(current => `${current.id}:${current.state}:${current.warned ? 1 : 0}`).sort().join('|')
   const tools = (hero.traversalTools ?? []).join(',')
   const relics = (hero.relics ?? []).join(',')
   const relicCharges = Object.entries(hero.relicCharges ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([id, charge]) => `${id}:${charge}`).join(',')
@@ -113,7 +115,7 @@ export const autoplayStateFingerprint = (state: RunState): string => {
   const evolutions = Object.entries(hero.boonEvolutions ?? {}).filter(([, rank]) => rank).sort(([a], [b]) => a.localeCompare(b)).map(([id, rank]) => `${id}:${rank}`).join(',')
   const milestones = state.floor.milestones.map(milestone => `${milestone.id}:${milestone.discovered ? 1 : 0}:${milestone.claimed ? 1 : 0}`).join('|')
   const encounters = (state.floor.encounters ?? []).map(encounter => `${encounter.id}:${encounter.state}`).join('|')
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${hero.curse ? `${hero.curse.itemId}:${hero.curse.remainingEncounters}:${hero.curse.failed ? 1 : 0}` : '-'}:${hero.oaths?.map(oath => `${oath.id}:${oath.remainingFloors}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${relics}:${relicCharges}:${boons}:${evolutions}:${milestones}:${encounters}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${hero.x},${hero.y}:${hero.health},${hero.focus}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.conditions?.map(condition => `${condition.kind}${condition.duration}`).join(',') ?? '-'}:${hero.curse ? `${hero.curse.itemId}:${hero.curse.remainingEncounters}:${hero.curse.failed ? 1 : 0}` : '-'}:${hero.oaths?.map(oath => `${oath.id}:${oath.remainingFloors}`).join(',') ?? '-'}:${inventory}:${equipment}:${cooldowns}:${tools}:${relics}:${relicCharges}:${boons}:${evolutions}:${milestones}:${encounters}:${ecology}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${state.modal?.kind ?? '-'}:${actors}:${items}:${props}:${telegraphs}:${tiles}`
 }
 
 // compact diagnostic identity; loop detection retains the full state signature above.
@@ -148,8 +150,9 @@ const autoplayProgressFingerprint = (state: RunState, includePosition: boolean):
   }, { explored: 0, containers: 0 })
   const props = state.floor.props.map(propFingerprint).sort().join('|')
   const encounters = (state.floor.encounters ?? []).map(encounter => `${encounter.id}:${encounter.state}`).sort().join('|')
+  const ecology = (state.floor.ecology ?? []).map(current => `${current.id}:${current.state}:${current.warned ? 1 : 0}`).sort().join('|')
   const position = includePosition ? `${hero.x},${hero.y}:` : ''
-  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}:${props}:${encounters}`
+  return `${state.area ?? state.floor.biome}:${state.areaFloor ?? state.floor.index}:${position}${state.floor.objective.kind}:${state.floor.objective.status}:${state.floor.guardianDefeated ? 1 : 0}:${hero.gold},${hero.bombs},${hero.ropes},${hero.keys}:${hero.inventory.join(',')}:${hostiles.length},${hostiles.reduce((sum, actor) => sum + actor.health, 0)}:${state.floor.items.length}:${tileSummary.explored},${tileSummary.containers}:${props}:${encounters}:${ecology}`
 }
 
 export const autoplayRecoveryFingerprint = (state: RunState): string => autoplayProgressFingerprint(state, true)

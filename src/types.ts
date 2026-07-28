@@ -109,6 +109,28 @@ export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augme
 export interface ClimbLink { id: string; lower: Point; upper: Point; anchored: boolean }
 export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number }
 export interface TransientTerrain { x: number; y: number; original: TileKind; originalFlow?: Tile['flow']; expiresAt: number }
+export const ECOLOGY_EVENT_KINDS = ['tide', 'wind', 'smoke', 'collapse', 'fire', 'migration', 'nesting', 'visibility'] as const
+export type EcologyEventKind = typeof ECOLOGY_EVENT_KINDS[number]
+export type EcologyEventState = 'waiting' | 'active' | 'resolved'
+export interface EcologyEvent {
+  id: string
+  kind: EcologyEventKind
+  source: string
+  target: Point
+  route?: string
+  node?: string
+  warning: string
+  startsAt: number
+  duration: number
+  responses: string[]
+  cleanup: string
+  state: EcologyEventState
+  original: TileKind
+  originalFlow?: Tile['flow']
+  effect: TileKind
+  effectFlow?: Tile['flow']
+  warned?: boolean
+}
 export type TelegraphDanger = 'minor' | 'major'
 export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
 export interface Floor {
@@ -128,6 +150,7 @@ export interface Floor {
   guardianDefeated: boolean
   objective: FloorObjective
   milestones: FloorMilestone[]
+  ecology?: EcologyEvent[]
   transientTerrain?: TransientTerrain[]
   telegraphs?: Telegraph[]
   puzzleIds?: string[]

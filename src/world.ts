@@ -9,6 +9,7 @@ import { generateRouteContract, validateRouteContract, type RouteContract, type 
 import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMacroRealization, type MacroRecipeDebug } from './macro-recipe'
 import { selectPlacement, type PlacementContext, type PlacementContract, type PlacementDebug } from './placement-contract'
 import { definitionForEncounter, encounterPlansFor, membersForEncounter } from './encounter-director'
+import { ecologyEventFor, ecologyProfileFor } from './ecology'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -173,6 +174,8 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
+  placeEcology(floor, placements)
+  assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'loot')
   placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
@@ -403,7 +406,7 @@ const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
 }
 const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
   const adjacent = (point: Point): Point[] => cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(point => inBounds(floor, point.x, point.y))
-  const blocked = (point: Point): boolean => !eligible(point) || floor.props.some(prop => prop.x === point.x && prop.y === point.y) || floor.actors.some(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y) || floor.items.some(item => item.x === point.x && item.y === point.y) || floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y)
+  const blocked = (point: Point): boolean => !eligible(point) || floor.props.some(prop => prop.x === point.x && prop.y === point.y) || floor.actors.some(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y) || floor.items.some(item => item.x === point.x && item.y === point.y) || floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y) || floor.ecology?.some(ecology => ecology.target.x === point.x && ecology.target.y === point.y) === true
   return {
     points: floor.tiles.map((_, index) => pointAt(floor, index)),
     terrainAt: point => getTile(floor, point.x, point.y)?.kind,
@@ -919,6 +922,17 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   tacticalEncounterDebugs.set(floor, directed)
 }
 
+function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
+  const profile = ecologyProfileFor(floor.biome)
+  const contract: PlacementContract = { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
+  const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
+  if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+  const source = floor.actors.find(actor => actor.hostile && (actor.combatRole === 'guard' || actor.combatRole === 'pursuer'))
+  const node = runtime.pilot ? runtime.macro.nodes.find(candidate => point.x >= candidate.footprint.x && point.x < candidate.footprint.x + candidate.footprint.width && point.y >= candidate.footprint.y && point.y < candidate.footprint.y + candidate.footprint.height)?.nodeId : undefined
+  const route = runtime.pilot ? runtime.macro.edges.find(edge => edge.cells.some(cell => cell.x === point.x && cell.y === point.y))?.modes[0] : undefined
+  floor.ecology = [ecologyEventFor(floor, point, source?.id ?? `${floor.biome}:${profile.kind}`, node, route)]
+}
+
 function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRuntime): void {
   const valueCap = 105 + (floor.difficulty?.threat ?? 0) * 14
   const eligible = ITEMS.filter(item => item.findable !== false && item.value <= valueCap && (!item.slot || rng.chance(30 + (floor.difficulty?.routePosition ?? 0) * 8)))
@@ -1006,6 +1020,20 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
   for (const encounter of floor.encounters ?? []) {
     const tile = getTile(floor, encounter.x, encounter.y)
     if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction', 'sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', 'minePact', 'mineKami', 'wildsPact', 'wildsKami', 'cavernsPact', 'cavernsKami', 'ruinsPact', 'ruinsKami', 'furnacePact', 'furnaceKami', 'floodedPact', 'floodedKami', 'cliffsPact', 'cliffsKami', 'burialPact', 'burialKami', 'saltPact', 'saltKami', 'frostPact', 'frostKami'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
+  }
+  for (const ecology of floor.ecology ?? []) {
+    const tile = getTile(floor, ecology.target.x, ecology.target.y)
+    if (!ecology.id || !['tide', 'wind', 'smoke', 'collapse', 'fire', 'migration', 'nesting', 'visibility'].includes(ecology.kind) || !tile || !Number.isInteger(ecology.startsAt) || ecology.startsAt < 1 || !Number.isInteger(ecology.duration) || ecology.duration < 1 || !ecology.warning || !ecology.responses.length || !ecology.cleanup || !['waiting', 'active', 'resolved'].includes(ecology.state)) { errors.push(`invalid ecology event: ${ecology.id}`); continue }
+    const previousKind = tile.kind
+    const previousFlow = tile.flow ? { ...tile.flow } : undefined
+    tile.kind = ecology.effect
+    if (ecology.effectFlow) tile.flow = { ...ecology.effectFlow }
+    else delete tile.flow
+    const solvable = hasPassablePath(floor, floor.start, floor.exit) && objectiveTargets(floor).some(target => canReachObjectiveWithProps(floor, target))
+    tile.kind = previousKind
+    if (previousFlow) tile.flow = previousFlow
+    else delete tile.flow
+    if (!solvable) errors.push(`ecology blocks mandatory path: ${ecology.id}`)
   }
   const placements = [...floor.actors.map(actor => ({ ...actor, type: 'actor' as const })), ...floor.items.map(item => ({ ...item, type: 'item' as const }))]
   const occupied = new Set<string>()

@@ -20,6 +20,7 @@ export interface GenerationMetrics {
   placements: { total: number; selected: number; fallbacks: number; rejected: number; roles: Array<{ id: string; selected: boolean; fallback: boolean; ranked: number; diagnostics: string[] }> }
   terrain: Count[]
   encounters: { events: Count[]; actors: Count[]; tactical: Count[] }
+  ecology: Count[]
   boonTiming: { milestones: Count[]; boonDistances: number[]; averageBoonDistance: number }
   validation: GenerationValidation
   acceptance: { valid: boolean; errors: string[] }
@@ -110,6 +111,7 @@ export const measureGeneration = ({ floor, route, macro, placements = [], valida
     placements: { total: placements.length, selected: placements.filter(placement => placement.selected).length, fallbacks: placements.filter(placement => placement.usedFallback).length, rejected: placements.filter(placement => !placement.selected).length, roles: placements.map(placement => ({ id: placement.id, selected: Boolean(placement.selected), fallback: placement.usedFallback, ranked: placement.ranked, diagnostics: [...placement.diagnostics] })) },
     terrain: count(floor.tiles.map(tile => tile.kind)),
     encounters: { events: count((floor.encounters ?? []).map(encounter => encounter.kind)), actors: count(floor.actors.map(actor => actor.kind)), tactical: count(floor.actors.flatMap(actor => actor.encounter?.leader ? [actor.encounter.archetype] : [])) },
+    ecology: count((floor.ecology ?? []).map(ecology => ecology.kind)),
     boonTiming: { milestones: count(floor.milestones.map(milestone => milestone.kind)), boonDistances, averageBoonDistance: boonDistances.length ? Number((boonDistances.reduce((sum, distance) => sum + distance, 0) / boonDistances.length).toFixed(2)) : 0 },
     validation,
     acceptance: acceptance(validation, macro, measuredTopology)

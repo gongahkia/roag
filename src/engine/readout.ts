@@ -5,6 +5,7 @@ import type { Prop, RunState } from '../types'
 import { getTile } from '../world'
 import { planEnemyIntent } from './intents'
 import { distance } from './shared'
+import { ecologyReadout } from '../ecology'
 
 export interface FieldReadout { brief: string; lines: string[] }
 
@@ -27,6 +28,7 @@ export const fieldReadout = (state: RunState): FieldReadout => {
   const telegraphs = [...(state.floor.telegraphs ?? [])].sort((first, second) => first.resolveTurn - second.resolveTurn || first.id.localeCompare(second.id))
   const foes = visibleHostiles(state)
   const lines = [`OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`]
+  for (const ecology of (state.floor.ecology ?? []).filter(current => current.state !== 'resolved').sort((first, second) => first.startsAt - second.startsAt || first.id.localeCompare(second.id)).slice(0, 2)) lines.push(`ECOLOGY: ${ecologyReadout(ecology, state.turn)}`)
   for (const telegraph of telegraphs.slice(0, 3)) {
     lines.push(`THREAT: ${telegraphLabel(state, telegraph.id)}`)
   }

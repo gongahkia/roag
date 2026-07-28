@@ -26,6 +26,7 @@ import { recordTelemetryKill } from '../telemetry'
 import { armRelicIce, armRelicMirror, armRelicMove, armRelicWaterCrossing, consumeRelicPrismStrike, consumeRelicWinterGuard, markbreakerDamage, resolveKillRelics } from './relics'
 import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
+import { advanceEcology } from '../ecology'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -121,6 +122,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
 
 export function advance(state: RunState, events: ActionResult): ActionResult {
   state.turn++
+  advanceEcology(state, events)
   expirePropEffects(state)
   expireAshways(state)
   const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
