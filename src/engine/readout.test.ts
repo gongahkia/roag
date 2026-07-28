@@ -13,7 +13,7 @@ describe('field readout', () => {
     announceTelegraph(state, { id: 'watcher-shot', sourceId: foe.id, actionId: 'enemy-shot', cells: [{ x: 1, y: 1 }], danger: 'major', windup: 2 })
     const readout = fieldReadout(state)
     expect(readout.brief).toContain('T-2 MAJ SHOT PATH Watch Rat')
-    expect(readout.lines).toContain('INTENT: Watch Rat — Shot (clear line at range 4)')
+    expect(readout.lines).toContain('INTENT: Watch Rat — Shot (clear line at range 4; pursuer: use terrain or reach to control approach)')
     expect(readout.lines).toContain('OPTION G: take Vital Tonic')
     expect(perform(state, 'z')).toEqual([{ type: 'menu' }])
     expect(state.modal).toEqual({ kind: 'readout' })

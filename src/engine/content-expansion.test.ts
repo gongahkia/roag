@@ -28,10 +28,11 @@ describe('scalable biome content', () => {
     expect(late.actors.find(actor => actor.hostile)?.attack).toBeGreaterThan(early.actors.find(actor => actor.hostile)?.attack ?? 0)
   })
 
-  it('normalizes same-role enemy baseline stats across biomes before threat scaling', () => {
+  it('preserves authored enemy baseline stats before threat scaling', () => {
     const mine = spawnMonster('mole', { x: 1, y: 1 }, 'mine', undefined)
     const furnace = spawnMonster('liftwarden', { x: 1, y: 1 }, 'furnace', undefined)
-    expect(furnace).toMatchObject({ maxHealth: mine.maxHealth, attack: mine.attack, defense: mine.defense, speed: mine.speed })
+    expect(mine).toMatchObject({ maxHealth: 9, attack: 4, defense: 10, speed: 90, combatRole: 'pursuer' })
+    expect(furnace).toMatchObject({ maxHealth: 24, attack: 12, defense: 19, speed: 85, combatRole: 'pursuer' })
   })
 
   it('anchors and climbs a reusable vertical cliff rope', () => {

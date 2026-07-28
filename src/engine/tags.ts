@@ -29,7 +29,7 @@ export const scriptTags = (id: ItemId): string[] => {
   if (!script) throw new Error(`missing script tag source: ${id}`)
   return canonical([...itemTags(id), script.school, ...script.tags])
 }
-export const actorTags = (actor: Actor): string[] => canonical(['actor', actor.role, actor.kind, actor.hostile ? 'hostile' : 'friendly', ...(MONSTERS.find(monster => monster.id === actor.kind)?.tags ?? []), ...(actor.status ?? [])])
+export const actorTags = (actor: Actor): string[] => canonical(['actor', actor.role, actor.combatRole ?? 'untyped', actor.kind, actor.hostile ? 'hostile' : 'friendly', ...(actor.tags ?? MONSTERS.find(monster => monster.id === actor.kind)?.tags ?? []), ...(actor.status ?? [])])
 export const queryTags = (query: TagQuery): string[] => canonical([
   ...(query.items ?? []).flatMap(itemTags), ...(query.skills ?? []).flatMap(skillTags), ...(query.scripts ?? []).flatMap(scriptTags), ...(query.terrain ?? []).flatMap(terrainTags), ...(query.actors ?? []).flatMap(actorTags), ...(query.tags ?? [])
 ])

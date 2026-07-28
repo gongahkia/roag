@@ -32,7 +32,7 @@ export const fieldReadout = (state: RunState): FieldReadout => {
   }
   for (const foe of foes.slice(0, 3)) {
     const intent = planEnemyIntent(state, foe)
-    lines.push(`INTENT: ${foe.name} — ${intent.action.name} (${intent.reason})`)
+    lines.push(`INTENT: ${foe.name} — ${intent.action.name} (${intent.reason}; ${intent.role}: ${intent.counterplay})`)
   }
   const marked = state.floor.milestones.filter(current => !current.claimed && (current.discovered || (state.hero.boons?.parcelMark ?? 0) > 0))
   const milestone = marked.sort((a, b) => distance(a, state.hero) - distance(b, state.hero))[0]

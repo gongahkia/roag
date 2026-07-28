@@ -1,4 +1,4 @@
-import type { Actor, RunState } from '../types'
+import type { Actor, MonsterRole, RunState } from '../types'
 import { DIRECTIONS } from '../types'
 import { getTile } from '../world'
 import { actionById, type ActionDefinition } from './actions'
@@ -7,9 +7,10 @@ import { distance } from './shared'
 import { guardianPhaseFor } from './guardians'
 import { hasLight } from './visibility'
 import { hasCondition } from './conditions'
+import { roleIntentFor, roleProfileFor } from './roles'
 
 export type EnemyPhase = 'opening' | 'wounded' | 'desperate'
-export interface EnemyIntent { action: ActionDefinition; phase: EnemyPhase; reason: string }
+export interface EnemyIntent { action: ActionDefinition; phase: EnemyPhase; reason: string; role: MonsterRole; counterplay: string }
 
 const action = (id: string): ActionDefinition => {
   const definition = actionById(id)
@@ -26,7 +27,9 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   const phase = phaseFor(actor)
   const terrain = getTile(state.floor, actor.x, actor.y)?.kind
   const guardianPattern = Number(actor.status?.find(status => status.startsWith('pattern:'))?.slice('pattern:'.length) ?? 0)
-  if (hazardous(terrain) && range > 1 && actor.kind !== 'fumeeel') return { action: action('enemy-reposition'), phase, reason: `escaping ${terrain}` }
+  const profile = roleProfileFor(actor)
+  const plan = (): Omit<EnemyIntent, 'role' | 'counterplay'> => {
+  if (hazardous(terrain) && range > 1 && actor.kind !== 'fumeeel' && !actor.terrainAffinity?.includes(terrain ?? 'wall')) return { action: action('enemy-reposition'), phase, reason: `escaping ${terrain}` }
   if (actor.kind === 'foreman' && guardianPhaseFor(actor) !== 'opening' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('foreman-cavein'), phase, reason: `cave-in at range ${range}` }
   if (actor.kind === 'heartwood' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('heartwood-charge'), phase, reason: `bramble charge at range ${range}` }
   if (actor.kind === 'geode' && guardianPhaseFor(actor) !== 'opening' && range >= 2 && range <= 6 && canAffect(state.floor, actor, state.hero)) return { action: action('geode-fissure'), phase, reason: `fissure line at range ${range}` }
@@ -51,6 +54,10 @@ export const planEnemyIntent = (state: RunState, actor: Actor): EnemyIntent => {
   if (actor.kind === 'iceSentinel' && !hasCondition(actor, 'shielded')) return { action: action('enemy-ward'), phase, reason: 'raising a duelist ward' }
   if (actor.kind === 'whiteoutOracle' && range <= 5 && canAffect(state.floor, actor, state.hero)) return { action: action('enemy-ritual'), phase, reason: `whiteout ritual at range ${range}` }
   if (actor.kind === 'gloomseer' && hasLight(state)) return { action: action('enemy-reposition'), phase, reason: 'repelled by light' }
+  const roleIntent = roleIntentFor(profile, range, canAffect(state.floor, actor, state.hero))
+  if (roleIntent) return { action: action(roleIntent.actionId), phase, reason: roleIntent.reason }
   if (actor.ai === 'ranged' && range <= 7 && (actor.kind === 'fusewarden' || canAffect(state.floor, actor, state.hero))) return { action: action('enemy-shot'), phase, reason: actor.kind === 'fusewarden' ? `fuse line at range ${range}` : `clear line at range ${range}` }
   return { action: action('enemy-approach'), phase, reason: `closing range ${range}` }
+  }
+  return { ...plan(), role: profile.role, counterplay: profile.counterplay }
 }

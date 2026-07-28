@@ -21,6 +21,8 @@ export type Alignment = 'kami' | 'villagePact'
 export type DeliveryEnding = Alignment | 'both' | 'plain'
 export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
+export const MONSTER_ROLES = ['guard', 'skirmisher', 'artillery', 'controller', 'ambusher', 'pursuer', 'support', 'scavenger', 'apex'] as const
+export type MonsterRole = typeof MONSTER_ROLES[number]
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
 export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
@@ -76,6 +78,9 @@ export interface Actor {
   color: string
   hostile: boolean
   ai?: 'chase' | 'ranged' | 'wander' | 'guardian'
+  combatRole?: MonsterRole
+  tags?: string[]
+  terrainAffinity?: TileKind[]
   status?: string[]
   conditions?: ConditionState[]
   guardianPhase?: GuardianPhase

@@ -1,4 +1,4 @@
-import type { Biome, EquipmentSlot, ItemId, StatName } from './types'
+import type { Biome, EquipmentSlot, ItemId, MonsterRole, StatName, TileKind } from './types'
 import type { ActionShape } from './engine/actions'
 import { validateEquipmentEffects, type EquipmentEffect } from './effects'
 import { validateItemPrice } from './engine/economy'
@@ -25,7 +25,7 @@ export interface ItemDefinition {
   effects?: readonly EquipmentEffect[]
 }
 
-export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; tags?: string[]; spawn?: 'ambient' | 'triggered' }
+export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; role?: MonsterRole; tags?: string[]; terrainAffinity?: TileKind[]; spawn?: 'ambient' | 'triggered' }
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
@@ -216,6 +216,21 @@ export const MONSTERS: MonsterDefinition[] = [
 export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
 export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
 export const isMonsterId = (id: unknown): id is string => typeof id === 'string' && monsterById(id) !== undefined
+const tagged = (definition: MonsterDefinition, ...tags: string[]): boolean => tags.some(tag => definition.tags?.includes(tag))
+export const monsterRoleFor = (definition: MonsterDefinition): MonsterRole => definition.role
+  ?? (definition.ai === 'guardian' ? 'apex'
+    : tagged(definition, 'ward') ? 'support'
+      : tagged(definition, 'root', 'web', 'displacement', 'dart', 'ritual', 'lock') ? 'controller'
+        : tagged(definition, 'ambush') ? 'ambusher'
+          : tagged(definition, 'guard') ? 'guard'
+            : definition.ai === 'ranged' ? 'artillery'
+              : definition.ai === 'wander' ? 'scavenger'
+                : definition.speed >= 120 ? 'skirmisher'
+                  : 'pursuer')
+const terrainByTag: Array<[string, TileKind[]]> = [
+  ['rail', ['rail']], ['water', ['water', 'current', 'deepWater']], ['current', ['current', 'deepWater']], ['gas', ['gas', 'smoke']], ['smoke', ['smoke', 'gas']], ['fire', ['fireVent', 'lava']], ['heat', ['fireVent', 'lava']], ['climb', ['ledge']], ['grave', ['graveSoil', 'spiritPath']], ['spirit', ['spiritPath']], ['salt', ['saltMirror', 'brine']], ['mirror', ['saltMirror']], ['brine', ['brine']], ['frost', ['frostRime', 'ice']], ['ice', ['ice']], ['anchor', ['anchor']], ['lift', ['lift']]
+]
+export const terrainAffinityFor = (definition: MonsterDefinition): TileKind[] => definition.terrainAffinity ? [...definition.terrainAffinity] : Array.from(new Set(terrainByTag.filter(([tag]) => tagged(definition, tag)).flatMap(([, terrain]) => terrain)))
 
 export const SKILLS: SkillDefinition[] = [
   ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: ['Strength +1, melee damage +1', 'Strength +1, melee damage +1', 'Strength +1, break rubble', 'Strength +1, guard 2 damage', 'Strength +1, melee knockback', 'Strength +1, melee damage +2'][i], tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),

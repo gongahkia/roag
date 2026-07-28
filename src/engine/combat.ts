@@ -362,14 +362,14 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (hasCondition(actor, 'rooted') && (intent.action.id === 'enemy-approach' || intent.action.id === 'enemy-reposition')) { log(state, `${actor.name} is rooted.`); return [] }
   if (intent.action.id === 'enemy-strike') return monsterAttack(state, actor)
   if (intent.action.id === 'enemy-shot') return announceProjectile(state, actor)
-  if (intent.action.id === 'enemy-root') return announceWildsSnare(state, actor, 'enemy-root', 'Vine Binder marks a rooting line.')
-  if (intent.action.id === 'enemy-web') return announceWildsSnare(state, actor, 'enemy-web', 'Web Weaver marks a snare line.')
-  if (intent.action.id === 'enemy-fire') return announceCavernLine(state, actor, 'enemy-fire', 'Cinder Imp marks a fire line.')
-  if (intent.action.id === 'enemy-pull') return announceCavernLine(state, actor, 'enemy-pull', 'Crystal Puller marks a pull line.')
-  if (intent.action.id === 'enemy-ward') { addCondition(actor, { kind: 'shielded', duration: 3, potency: 2 }); log(state, 'The Ward Acolyte raises a shield.'); return [event('danger')] }
+  if (intent.action.id === 'enemy-root') return announceWildsSnare(state, actor, 'enemy-root', `${actor.name} marks a rooting line.`)
+  if (intent.action.id === 'enemy-web') return announceWildsSnare(state, actor, 'enemy-web', `${actor.name} marks a snare line.`)
+  if (intent.action.id === 'enemy-fire') return announceCavernLine(state, actor, 'enemy-fire', `${actor.name} marks a fire line.`)
+  if (intent.action.id === 'enemy-pull') return announceCavernLine(state, actor, 'enemy-pull', `${actor.name} marks a pull line.`)
+  if (intent.action.id === 'enemy-ward') { addCondition(actor, { kind: 'shielded', duration: 3, potency: 2 }); log(state, `${actor.name} raises a shield.`); return [event('danger')] }
   if (intent.action.id === 'enemy-lock') return sealNearbyDoor(state, actor)
-  if (intent.action.id === 'enemy-dart') return announceRuinsLine(state, actor, 'enemy-dart', 'Dart Adept marks a dart line.')
-  if (intent.action.id === 'enemy-ritual') return announceRuinsLine(state, actor, 'enemy-ritual', 'Ash Ritualist begins a marking ritual.')
+  if (intent.action.id === 'enemy-dart') return announceRuinsLine(state, actor, 'enemy-dart', `${actor.name} marks a dart line.`)
+  if (intent.action.id === 'enemy-ritual') return announceRuinsLine(state, actor, 'enemy-ritual', `${actor.name} begins a marking ritual.`)
   if (intent.action.id === 'foreman-cavein') return announceForemanCavein(state, actor)
   if (intent.action.id === 'heartwood-charge') return announceHeartwoodCharge(state, actor)
   if (intent.action.id === 'geode-fissure') return announceGeodeFissure(state, actor)

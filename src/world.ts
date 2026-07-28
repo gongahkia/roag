@@ -1,4 +1,4 @@
-import { ITEMS, MONSTERS, biomeForFloor, monsterById } from './content'
+import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
 import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, type TileKind, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
@@ -931,16 +931,9 @@ function freeRoomPoint(floor: Floor, rng: Rng, rooms: Room[], reserved: Readonly
 export const spawnMonster = (kind: string, point: Point, id: string, difficulty?: DifficultyContext): Actor => {
   const definition = monsterById(kind)
   if (!definition) throw new Error(`unknown monster: ${kind}`)
-  const base = definition.ai === 'guardian'
-    ? { health: 48, attack: 8, defense: 14, speed: 100 }
-    : definition.ai === 'ranged'
-      ? { health: 9, attack: 5, defense: 9, speed: 90 }
-      : definition.ai === 'wander'
-        ? { health: 7, attack: 4, defense: 9, speed: 110 }
-        : { health: 11, attack: 4, defense: 10, speed: 100 }
   const healthMultiplier = definition.ai === 'guardian' ? 1 + (difficulty?.threat ?? 0) * 0.08 : difficulty?.healthMultiplier ?? 1
-  const maxHealth = Math.max(1, Math.round(base.health * healthMultiplier))
-  return { id, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: maxHealth, maxHealth, attack: base.attack + (difficulty?.attackBonus ?? 0), defense: base.defense + (difficulty?.defenseBonus ?? 0), speed: base.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const, status: difficulty?.guardianPattern ? [`pattern:${difficulty.guardianPattern}`] : [] } : {}) }
+  const maxHealth = Math.max(1, Math.round(definition.health * healthMultiplier))
+  return { id, role: definition.ai === 'guardian' ? 'guardian' : 'monster', kind: definition.id, name: definition.name, x: point.x, y: point.y, health: maxHealth, maxHealth, attack: definition.attack + (difficulty?.attackBonus ?? 0), defense: definition.defense + (difficulty?.defenseBonus ?? 0), speed: definition.speed, energy: 0, glyph: definition.glyph, color: definition.color, hostile: true, ai: definition.ai, combatRole: monsterRoleFor(definition), tags: [...(definition.tags ?? [])], terrainAffinity: terrainAffinityFor(definition), conditions: [], ...(definition.ai === 'guardian' ? { guardianPhase: 'opening' as const, status: difficulty?.guardianPattern ? [`pattern:${difficulty.guardianPattern}`] : [] } : {}) }
 }
 
 function friendly(role: 'merchant' | 'ally', name: string, point: Point, glyph: string, color: string): Actor {
