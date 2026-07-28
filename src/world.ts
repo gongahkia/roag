@@ -205,6 +205,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms, reservedMacroCells)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   imprintCavernTideRoute(floor, macro)
+  imprintWildsPressureRoute(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
@@ -396,10 +397,27 @@ const carveLegacyLayoutFromRouteContract = (floor: Floor, contract: ReturnType<t
 
 const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, rng: Rng): Room[] => {
   if (!macroRecipeFor(contract).pilot) return carveLegacyLayoutFromRouteContract(floor, contract, rng)
+  if (floor.biome === 'wilds') return carveWildsRouteContractLayout(floor, contract, macro, rng)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   for (const room of rooms) carveRect(floor, room)
   for (const point of macroConnectorPoints(macro)) setKind(floor, point.x, point.y, 'floor')
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
+const carveWildsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  const variant = floor.layoutId.replace('-remix', '')
+  if (variant === 'root-maze') for (let x = 11; x < floor.width - 8; x += 10) wallBand(floor, true, x, rng.int(4, floor.height - 5), 2)
+  if (variant === 'wetland-causeways') for (let y = 9; y < floor.height - 7; y += 9) wallBand(floor, false, y, rng.int(5, floor.width - 6), 3)
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  rooms.forEach(room => carveRect(floor, room))
+  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
   const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
   const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
   return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
@@ -445,6 +463,17 @@ const imprintCavernTideRoute = (floor: Floor, macro: MacroRecipeDebug): void => 
       tile.flow = { direction: flowDirection(next.x - point.x, next.y - point.y) }
     }
   }
+}
+
+const imprintWildsPressureRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'wilds') return
+  const edge = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  if (!edge) throw new Error(`missing Wilds pressure route: ${macro.recipeId}`)
+  const cells = edge.cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const start = Math.max(0, Math.floor(cells.length / 2) - 3)
+  const route = cells.slice(start, start + 7)
+  if (route.length < 3) throw new Error(`short Wilds pressure route: ${macro.recipeId}`)
+  for (let index = 0; index < route.length; index++) setKind(floor, route[index].x, route[index].y, index % 2 === 0 ? 'water' : 'web')
 }
 
 const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -1056,6 +1085,18 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'wilds' && areaFloor !== 3 && !floor.actors.some(actor => actor.hostile && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const webweaver = definitions.find(definition => definition.id === 'webweaver')
+    const terrain = webweaver ? terrainAffinityFor(webweaver).filter(kind => nativeActorTerrain.wilds.includes(kind)) : []
+    if (!webweaver || !terrain.length) throw new Error('Wilds web ambush lacks terrain affinity')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:web-ambush:webweaver`, requirements: { terrain, minDistance: 8 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Wilds web ambush: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:web-ambush`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'leave the enemy\'s native terrain' }
+    const actor = spawnMonster(webweaver.id, point, `${webweaver.id}-web-ambush`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -1067,8 +1108,8 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const tideRoute = floor.biome === 'caverns' && runtime.pilot
-  const contract: PlacementContract = tideRoute
+  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds') && runtime.pilot
+  const contract: PlacementContract = pressureRoute
     ? { id: `ecology:${profile.kind}`, requirements: { terrain: ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: ['water'], minDistance: 7 } }
     : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))

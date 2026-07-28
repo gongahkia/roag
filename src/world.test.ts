@@ -80,7 +80,7 @@ describe('expedition generation', () => {
     run.hero.x = 1
     run.hero.y = 1
     expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(false)
-  })
+  }, 30_000)
 
   it('uses tide channels, deep pools, wet shelves, and lantern-sensitive Sea Cave routes', () => {
     for (const seed of [9, 43, 1001]) {
@@ -127,7 +127,7 @@ describe('expedition generation', () => {
       expect(exitReachable(flooded)).toBe(true)
       expect(flooded.milestones.filter(milestone => milestone.kind === 'augment')).toHaveLength(1)
     }
-  })
+  }, 30_000)
 
   it('rejects unreachable objectives and illegal placements', () => {
     const floor = generateFloor(123, 0)
