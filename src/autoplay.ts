@@ -62,7 +62,7 @@ const planningClone = (state: RunState): RunState => {
     floor: {
       ...floor,
       tiles: floor.tiles.map(tile => ({ ...tile })),
-      actors: floor.actors.map(actor => ({ ...cloneConditions(actor), status: actor.status ? [...actor.status] : undefined })),
+      actors: floor.actors.map(actor => ({ ...cloneConditions(actor), encounter: actor.encounter ? { ...actor.encounter } : undefined, status: actor.status ? [...actor.status] : undefined })),
       items: floor.items.map(item => ({ ...item })),
       props: floor.props.map(prop => ({ ...prop, tags: [...prop.tags], hooks: prop.hooks ? [...prop.hooks] : undefined, effectCells: prop.effectCells?.map(point => ({ ...point })) })),
       encounters: floor.encounters?.map(encounter => ({ ...encounter })),

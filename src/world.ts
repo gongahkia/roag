@@ -8,6 +8,7 @@ import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, v
 import { generateRouteContract, validateRouteContract, type RouteContract, type RouteEdgeMode, type RouteNodeKind } from './route-contract'
 import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMacroRealization, type MacroRecipeDebug } from './macro-recipe'
 import { selectPlacement, type PlacementContext, type PlacementContract, type PlacementDebug } from './placement-contract'
+import { definitionForEncounter, encounterPlansFor, membersForEncounter } from './encounter-director'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -17,6 +18,7 @@ const macroDebugs = new WeakMap<Floor, MacroRecipeDebug>()
 const macroPilots = new WeakMap<Floor, boolean>()
 const placementDebugs = new WeakMap<Floor, PlacementDebug[]>()
 const routeContractDebugs = new WeakMap<Floor, RouteContract>()
+const tacticalEncounterDebugs = new WeakMap<Floor, readonly NonNullable<Actor['encounter']>[]>()
 
 const indexOf = (floor: Floor, x: number, y: number): number => floorIndex(floor, x, y)
 const pointAt = (floor: Floor, index: number): Point => floorPoint(floor, index)
@@ -74,6 +76,7 @@ export const hasPassablePath = (floor: Floor, start: Point, destination: Point):
 export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
 export const placementDebug = (floor: Floor): readonly PlacementDebug[] => placementDebugs.get(floor) ?? []
 export const routeContractDebug = (floor: Floor): RouteContract | undefined => routeContractDebugs.get(floor)
+export const tacticalEncounterDebug = (floor: Floor): readonly NonNullable<Actor['encounter']>[] => tacticalEncounterDebugs.get(floor) ?? []
 export const validateMacroRecipe = (floor: Floor): string[] => {
   const debug = macroDebugs.get(floor)
   return !debug || !macroPilots.get(floor) ? [] : validateMacroRealization(debug, point => Boolean(getTile(floor, point.x, point.y) && isPathPassable(floor, point, false)))
@@ -878,28 +881,40 @@ function placeContainers(floor: Floor, rng: Rng, rooms: Room[], reserved: Readon
 function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
   const definitions = MONSTERS.filter(monster => monster.biome === floor.biome)
   const regular = definitions.filter(monster => monster.ai !== 'guardian' && monster.spawn !== 'triggered')
-  const baselineCount = floor.biome === 'mine'
-    ? 8 + floor.index % 4 * 2 + (floor.difficulty?.routePosition ?? 0)
-    : 3 + floor.index % 4 + Math.floor((floor.difficulty?.routePosition ?? 0) / 3)
-  const count = floor.biome !== 'mine' && floor.index % 4 === 3 ? 0 : baselineCount
-  for (let i = 0; i < count; i++) {
-    const definition = rng.pick(regular)
-    const contract: PlacementContract = { id: `actor:${definition.id}:${i}`, requirements: { terrain: [...nativeActorTerrain[floor.biome]], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 7 } }
-    const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
-    if (!point) continue
-    const actor = spawnMonster(definition.id, point, `${definition.id}-${i}`, floor.difficulty)
-    if (rng.chance(floor.difficulty?.eliteChance ?? 0) || (floor.biome === 'frostReliquary' && floor.index % 4 >= 1 && i === 0)) {
-      actor.maxHealth = Math.round(actor.maxHealth * 1.25)
-      actor.health = actor.maxHealth
-      actor.attack += 2
-      actor.status = [...(actor.status ?? []), 'elite']
+  const areaFloor = floor.index % 4
+  const routePosition = floor.difficulty?.routePosition ?? 0
+  const directed: NonNullable<Actor['encounter']>[] = []
+  if (areaFloor !== 3) for (const [groupIndex, plan] of encounterPlansFor({ biome: floor.biome, areaFloor, routePosition, pilot: runtime.pilot }, nativeActorTerrain[floor.biome]).entries()) {
+    const id = `tactical:${floor.index}:${groupIndex}:${plan.archetype}`
+    let leader: Point | undefined
+    for (let member = 0; member < membersForEncounter(areaFloor, routePosition); member++) {
+      if (member > 0 && !leader) break
+      const definition = definitionForEncounter(regular, plan, member, nativeActorTerrain[floor.biome])
+      if (!definition) continue
+      const requirements = member === 0 ? plan.requirements : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 5 }
+      const fallback = member === 0 ? plan.fallback : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 8 }
+      const contract: PlacementContract = { id: `actor:${id}:${member}:${definition.id}`, requirements, fallback }
+      const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+      if (!point) continue
+      const encounter = { id, archetype: plan.archetype, leader: member === 0, answer: plan.answer }
+      const actor = spawnMonster(definition.id, point, `${definition.id}-${groupIndex}-${member}`, floor.difficulty)
+      actor.encounter = encounter
+      if (member === 0 && (rng.chance(floor.difficulty?.eliteChance ?? 0) || (floor.biome === 'frostReliquary' && areaFloor >= 1))) {
+        actor.maxHealth = Math.round(actor.maxHealth * 1.25)
+        actor.health = actor.maxHealth
+        actor.attack += 2
+        actor.status = [...(actor.status ?? []), 'elite']
+      }
+      floor.actors.push(actor)
+      directed.push(encounter)
+      leader ??= point
     }
-    floor.actors.push(actor)
   }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     floor.actors.push(spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty))
   }
+  tacticalEncounterDebugs.set(floor, directed)
 }
 
 function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRuntime): void {

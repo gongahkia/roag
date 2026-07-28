@@ -23,6 +23,8 @@ export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'wate
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export const MONSTER_ROLES = ['guard', 'skirmisher', 'artillery', 'controller', 'ambusher', 'pursuer', 'support', 'scavenger', 'apex'] as const
 export type MonsterRole = typeof MONSTER_ROLES[number]
+export const TACTICAL_ENCOUNTERS = ['guardPost', 'ambush', 'artilleryCover', 'pursuitLane', 'nativeTerrainPack', 'objectiveDefense', 'roamingThreat'] as const
+export type TacticalEncounter = typeof TACTICAL_ENCOUNTERS[number]
 export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' | 'charm'
 export type ItemId = string
 export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
@@ -61,6 +63,7 @@ export interface Tile {
   flow?: { direction: Exclude<Direction, 'wait'>; hazard?: 'undertow' | 'squall' }
 }
 export interface ConditionState { kind: ConditionKind; duration: number; potency: number }
+export interface TacticalEncounterMetadata { id: string; archetype: TacticalEncounter; leader: boolean; answer: string }
 export interface Actor {
   id: string
   role: ActorRole
@@ -81,6 +84,7 @@ export interface Actor {
   combatRole?: MonsterRole
   tags?: string[]
   terrainAffinity?: TileKind[]
+  encounter?: TacticalEncounterMetadata
   status?: string[]
   conditions?: ConditionState[]
   guardianPhase?: GuardianPhase

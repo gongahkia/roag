@@ -366,7 +366,16 @@ function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (intent.action.id === 'enemy-web') return announceWildsSnare(state, actor, 'enemy-web', `${actor.name} marks a snare line.`)
   if (intent.action.id === 'enemy-fire') return announceCavernLine(state, actor, 'enemy-fire', `${actor.name} marks a fire line.`)
   if (intent.action.id === 'enemy-pull') return announceCavernLine(state, actor, 'enemy-pull', `${actor.name} marks a pull line.`)
-  if (intent.action.id === 'enemy-ward') { addCondition(actor, { kind: 'shielded', duration: 3, potency: 2 }); log(state, `${actor.name} raises a shield.`); return [event('danger')] }
+  if (intent.action.id === 'enemy-ward') {
+    const leader = actor.encounter ? state.floor.actors.find(other => {
+      const encounter = other.encounter
+      return encounter?.id === actor.encounter!.id && encounter.leader && other.health > 0
+    }) : undefined
+    const target = leader ?? actor
+    addCondition(target, { kind: 'shielded', duration: 3, potency: 2 })
+    log(state, leader && leader.id !== actor.id ? `${actor.name} wards ${leader.name}.` : `${actor.name} raises a shield.`)
+    return [event('danger')]
+  }
   if (intent.action.id === 'enemy-lock') return sealNearbyDoor(state, actor)
   if (intent.action.id === 'enemy-dart') return announceRuinsLine(state, actor, 'enemy-dart', `${actor.name} marks a dart line.`)
   if (intent.action.id === 'enemy-ritual') return announceRuinsLine(state, actor, 'enemy-ritual', `${actor.name} begins a marking ritual.`)
