@@ -5,7 +5,9 @@ import { isBlockingProp, isSightBlockingProp, propAt } from '../props'
 
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
-  const range = (state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10) + Math.min(3, state.hero.boons?.mapMoss ?? 0)
+  const saltHaze = state.floor.biome === 'saltFlats' && state.floor.ecology?.some(ecology => ecology.kind === 'visibility' && ecology.state === 'active')
+  const sheltered = state.floor.props.some(prop => prop.kind === 'saltFlats.caravanHusk' && Math.max(Math.abs(prop.x - state.hero.x), Math.abs(prop.y - state.hero.y)) <= 1)
+  const range = (state.floor.biome === 'caverns' && !hasLight(state) ? 6 : 10) + Math.min(3, state.hero.boons?.mapMoss ?? 0) - (saltHaze && !sheltered ? 3 : 0)
   for (let y = Math.max(0, state.hero.y - range); y <= Math.min(state.floor.height - 1, state.hero.y + range); y++) for (let x = Math.max(0, state.hero.x - range); x <= Math.min(state.floor.width - 1, state.hero.x + range); x++) {
     if (hasLine(state, state.hero, { x, y })) { const tile = getTile(state.floor, x, y)!; tile.visible = true; tile.explored = true }
   }

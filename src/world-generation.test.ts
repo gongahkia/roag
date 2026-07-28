@@ -21,7 +21,7 @@ describe('biome macro generation', () => {
   it('uses unique ordinary-floor macro archetypes', () => {
     for (const biome of biomes) {
       const layouts = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(42, biome, areaFloor).layoutId)
-      if (biome === 'burial') {
+      if (biome === 'burial' || biome === 'saltFlats') {
         expect(new Set(layouts).size).toBe(4)
         expect(layouts[3]).not.toMatch(/-remix$/)
       } else {

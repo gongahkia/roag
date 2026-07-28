@@ -212,6 +212,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintFloodedCurrentNetwork(floor, macro)
   imprintCliffHeightGraph(floor, macro)
   imprintBurialRitualRoutes(floor, macro)
+  imprintSaltRouteContract(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
@@ -253,7 +254,7 @@ const dimensions: Record<Biome, { width: number; height: number }> = {
   mine: { width: MAP_WIDTH, height: MAP_HEIGHT }, wilds: { width: 72, height: 48 }, caverns: { width: 56, height: 44 }, ruins: { width: 64, height: 48 }, furnace: { width: 56, height: 40 }, floodedRuins: { width: 72, height: 48 }, cliffs: { width: 56, height: 52 }, burial: { width: 80, height: 56 }, saltFlats: { width: 72, height: 44 }, frostReliquary: { width: 64, height: 48 }
 }
 const layoutVariants: Record<Biome, readonly string[]> = {
-  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'], cliffs: ['switchback-face', 'ravine-bridge-loop', 'anchor-chain'], burial: ['stone-circle-center', 'mound-procession', 'cemetery-settlement-edge', 'ossuary-hollow', 'ancestor-path-loop'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
+  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['stepped-kiln-chain', 'smoke-choked-service-route', 'lift-and-ash-loop'], floodedRuins: ['braided-current-delta', 'anchor-gated-ruin', 'island-hop-network'], cliffs: ['switchback-face', 'ravine-bridge-loop', 'anchor-chain'], burial: ['stone-circle-center', 'mound-procession', 'cemetery-settlement-edge', 'ossuary-hollow', 'ancestor-path-loop'], saltFlats: ['crust-island-chain', 'brine-maze', 'caravan-causeway', 'mirror-basin-loop', 'salt-ridge-refuge'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
@@ -409,6 +410,7 @@ const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof gene
   if (floor.biome === 'floodedRuins') return carveFloodedRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'cliffs') return carveCliffsRouteContractLayout(floor, contract, macro, rng)
   if (floor.biome === 'burial') return carveBurialRouteContractLayout(floor, contract, macro, rng)
+  if (floor.biome === 'saltFlats') return carveSaltFlatsRouteContractLayout(floor, contract, macro, rng)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   for (const room of rooms) carveRect(floor, room)
@@ -611,6 +613,64 @@ const carveBurialRouteContractLayout = (floor: Floor, contract: ReturnType<typeo
   return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
 }
 
+const paintSaltLine = (floor: Floor, from: Point, to: Point, kind: Tile['kind']): void => {
+  if (from.x === to.x) for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) setKind(floor, from.x, y, kind)
+  else for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) setKind(floor, x, from.y, kind)
+}
+
+const paintSaltPatch = (floor: Floor, left: number, top: number, width: number, height: number, kind: Tile['kind']): void => {
+  for (let y = top; y < top + height; y++) for (let x = left; x < left + width; x++) setKind(floor, x, y, kind)
+}
+
+const carveSaltLandscape = (floor: Floor, variant: string): void => {
+  const center = { x: Math.floor(floor.width / 2), y: Math.floor(floor.height / 2) }
+  if (variant === 'crust-island-chain') {
+    for (let x = 14, island = 0; x < floor.width - 10; x += 15, island++) {
+      paintSaltLine(floor, { x, y: 2 }, { x, y: floor.height - 3 }, 'brine')
+      const gap = island % 2 ? 12 : floor.height - 13
+      paintSaltPatch(floor, x - 1, gap - 2, 3, 5, 'floor')
+    }
+  } else if (variant === 'brine-maze') {
+    for (let x = 12; x < floor.width - 8; x += 14) paintSaltLine(floor, { x, y: 4 }, { x, y: floor.height - 5 }, 'brine')
+    for (let y = 10; y < floor.height - 7; y += 12) paintSaltLine(floor, { x: 5, y }, { x: floor.width - 6, y }, 'brine')
+    paintSaltPatch(floor, center.x - 5, center.y - 3, 11, 7, 'floor')
+  } else if (variant === 'caravan-causeway') {
+    paintSaltLine(floor, { x: 3, y: center.y }, { x: floor.width - 4, y: center.y }, 'saltMirror')
+    paintSaltLine(floor, { x: 3, y: center.y - 5 }, { x: floor.width - 4, y: center.y - 5 }, 'brine')
+    paintSaltLine(floor, { x: 3, y: center.y + 5 }, { x: floor.width - 4, y: center.y + 5 }, 'brine')
+  } else if (variant === 'mirror-basin-loop') {
+    const left = center.x - 19
+    const right = center.x + 19
+    const top = center.y - 12
+    const bottom = center.y + 12
+    paintSaltLine(floor, { x: left, y: top }, { x: right, y: top }, 'saltMirror')
+    paintSaltLine(floor, { x: right, y: top }, { x: right, y: bottom }, 'saltMirror')
+    paintSaltLine(floor, { x: right, y: bottom }, { x: left, y: bottom }, 'saltMirror')
+    paintSaltLine(floor, { x: left, y: bottom }, { x: left, y: top }, 'saltMirror')
+    paintSaltPatch(floor, center.x - 10, center.y - 6, 21, 13, 'brine')
+  } else {
+    for (let y = 8; y < floor.height - 7; y += 10) {
+      paintSaltLine(floor, { x: 5, y }, { x: floor.width - 6, y }, 'crumble')
+      paintSaltPatch(floor, center.x - 5, y - 1, 11, 3, 'floor')
+    }
+    paintSaltPatch(floor, center.x - 12, center.y - 6, 25, 13, 'saltMirror')
+  }
+}
+
+const carveSaltFlatsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, _rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  carveSaltLandscape(floor, floor.layoutId.replace('-remix', ''))
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  rooms.forEach(room => carveRect(floor, room))
+  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
 const restoreMacroConnectors = (floor: Floor, macro: MacroRecipeDebug, reserved: ReadonlySet<number>): void => {
   if (!reserved.size) return
   for (const point of macroConnectorPoints(macro)) if (reserved.has(indexOf(floor, point.x, point.y))) setKind(floor, point.x, point.y, 'floor')
@@ -788,6 +848,30 @@ const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void 
   const cache = Array.from({ length: offering.footprint.width * offering.footprint.height }, (_, index) => ({ x: offering.footprint.x + index % offering.footprint.width, y: offering.footprint.y + Math.floor(index / offering.footprint.width) })).find(point => getTile(floor, point.x, point.y)?.kind === 'floor')
   if (!cache) throw new Error(`missing Burial offering hollow: ${macro.recipeId}`)
   setKind(floor, cache.x, cache.y, 'ossuary')
+}
+
+const imprintSaltRouteContract = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'saltFlats') return
+  const safe = macro.edges.find(candidate => candidate.modes.includes('safe'))
+  const costly = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  const refugeNode = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
+  if (!safe || !costly || !refugeNode) throw new Error(`missing Salt route choices: ${macro.recipeId}`)
+  const transit = (cells: readonly Point[]) => cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const stableRoute = transit(safe.cells)
+  const brineRoute = transit(costly.cells)
+  if (stableRoute.length < 4 || brineRoute.length < 4) throw new Error(`short Salt route: ${macro.recipeId}`)
+  for (const point of stableRoute) setKind(floor, point.x, point.y, 'floor')
+  for (const point of brineRoute) setKind(floor, point.x, point.y, 'brine')
+  const horizon = brineRoute[Math.floor(brineRoute.length / 2)]
+  setKind(floor, horizon.x, horizon.y, 'saltMirror')
+  const refuge = { x: refugeNode.footprint.x + Math.floor(refugeNode.footprint.width / 2), y: refugeNode.footprint.y + Math.floor(refugeNode.footprint.height / 2) }
+  setKind(floor, refuge.x, refuge.y, 'floor')
+  for (const [x, y] of cardinalOffsets) if (getTile(floor, refuge.x + x, refuge.y + y)?.kind === 'floor') setKind(floor, refuge.x + x, refuge.y + y, 'saltMirror')
+  const husk = propDefinition('saltFlats.caravanHusk')
+  floor.props.push({ id: `prop:${floor.index}:saltFlats.caravanHusk:${refuge.x}:${refuge.y}`, kind: husk.id, x: refuge.x, y: refuge.y, biome: floor.biome, state: 'dormant', tags: [...husk.tags], hooks: [...husk.hooks] })
+  const markerPoint = stableRoute[Math.floor(stableRoute.length / 2)]
+  const marker = propDefinition('saltFlats.glassMarker')
+  floor.props.push({ id: `prop:${floor.index}:saltFlats.glassMarker:${markerPoint.x}:${markerPoint.y}`, kind: marker.id, x: markerPoint.x, y: markerPoint.y, biome: floor.biome, state: 'dormant', tags: [...marker.tags], hooks: [...marker.hooks] })
 }
 
 const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -1229,6 +1313,7 @@ function decorateBurial(floor: Floor, rng: Rng): void {
 }
 
 function decorateSaltFlats(floor: Floor, rng: Rng): void {
+  if (['crust-island-chain', 'brine-maze', 'caravan-causeway', 'mirror-basin-loop', 'salt-ridge-refuge'].some(variant => floor.layoutId === variant || floor.layoutId === `${variant}-remix`)) return
   const safe = () => safeFloor(floor)
   const paint = (kind: Tile['kind'], count: number, clustered = false) => {
     count = terrainCount(floor, count)
@@ -1471,6 +1556,17 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'saltFlats' && areaFloor !== 3 && !floor.actors.some(actor => actor.kind === 'mirageSkirmisher' && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const mirageSkirmisher = definitions.find(definition => definition.id === 'mirageSkirmisher')
+    if (!mirageSkirmisher) throw new Error('Salt horizon lacks mirage skirmisher')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:mirror-horizon:mirageSkirmisher`, requirements: { terrain: ['saltMirror'], nodeKinds: ['optionalReward'], minDistance: 8, cover: false }, fallback: { terrain: ['saltMirror'], minDistance: 5 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Salt mirror horizon: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:mirror-horizon`, archetype: 'artilleryCover' as const, leader: true, answer: 'break the mirror sightline or reach the caravan refuge' }
+    const actor = spawnMonster(mirageSkirmisher.id, point, `${mirageSkirmisher.id}-mirror-horizon`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -1482,9 +1578,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace' || floor.biome === 'floodedRuins' || floor.biome === 'cliffs' || floor.biome === 'burial') && runtime.pilot
+  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins' || floor.biome === 'furnace' || floor.biome === 'floodedRuins' || floor.biome === 'cliffs' || floor.biome === 'burial' || floor.biome === 'saltFlats') && runtime.pilot
   const contract: PlacementContract = pressureRoute
-    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : ['water'], minDistance: 7 } }
+    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : floor.biome === 'saltFlats' ? ['saltMirror'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : floor.biome === 'furnace' ? ['smoke'] : floor.biome === 'floodedRuins' ? ['current'] : floor.biome === 'cliffs' ? ['ledge'] : floor.biome === 'burial' ? ['graveSoil'] : floor.biome === 'saltFlats' ? ['saltMirror'] : ['water'], minDistance: 7 } }
     : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
   if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)

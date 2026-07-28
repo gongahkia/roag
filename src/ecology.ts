@@ -13,7 +13,7 @@ const profiles: Record<Biome, EcologyProfile> = {
   floodedRuins: { kind: 'tide', effect: 'current', terrain: ['current', 'water'], warning: 'Current arrows turn toward the floodgate outlet.', responses: ['hold the marked anchor', 'take the dry island route'], cleanup: 'The flow slackens around the refuges.' },
   cliffs: { kind: 'wind', effect: 'ledge', terrain: ['ledge', 'rope'], warning: 'Wind vectors mark the exposed ledge before the squall.', responses: ['hold a rope or anchor', 'leave the marked ledge before the gust'], cleanup: 'The wind drops.' },
   burial: { kind: 'migration', effect: 'spiritPath', terrain: ['spiritPath', 'graveSoil'], warning: 'Ancestor lights mark the disturbed grave lane; follow the violet lanterns or leave the trespass route.', responses: ['follow the marked spirit path', 'leave grave soil before the procession arrives'], cleanup: 'The procession passes on and the grave lane settles.' },
-  saltFlats: { kind: 'visibility', effect: 'darkness', terrain: ['saltMirror', 'brine'], warning: 'A salt haze swallows the far route.', responses: ['navigate by the mirrors', 'wait out the haze'], cleanup: 'The salt haze clears.' },
+  saltFlats: { kind: 'visibility', effect: 'darkness', terrain: ['saltMirror', 'brine'], warning: 'Heat haze gathers over the mirrored flats; reach a caravan refuge before sight shortens.', responses: ['use the marked caravan refuge', 'leave the mirrored horizon before the haze'], cleanup: 'The heat haze clears and the true horizon returns.' },
   frostReliquary: { kind: 'nesting', effect: 'ice', terrain: ['ice', 'frostRime'], warning: 'Rime shifts around a fresh nest.', responses: ['leave the rime', 'break the ice line'], cleanup: 'The rime settles.' }
 }
 

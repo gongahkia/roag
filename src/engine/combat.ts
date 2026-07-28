@@ -58,10 +58,10 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'breakwall' && (weapon?.weapon?.tags.includes('breakwall') || weapon?.weapon?.tags.includes('hammer') || state.hero.bombs > 0)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You open the scored breakwall.'); return advance(state, [event('boom'), event('move')]) }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   let destination = { x, y }
-  for (let step = 1; (tile.kind === 'floor' || tile.kind === 'spiritPath') && step < agilityMoveDistance(state.hero); step++) {
+  for (let step = 1; ['floor', 'spiritPath', 'saltMirror'].includes(tile.kind) && step < agilityMoveDistance(state.hero); step++) {
     const next = { x: destination.x + delta.x, y: destination.y + delta.y }
     const nextTile = getTile(state.floor, next.x, next.y)
-    if (!nextTile || !['floor', 'spiritPath'].includes(nextTile.kind) || !isPassable(state.floor, next.x, next.y)) break
+    if (!nextTile || !['floor', 'spiritPath', 'saltMirror'].includes(nextTile.kind) || !isPassable(state.floor, next.x, next.y)) break
     destination = next
     tile = nextTile
   }
