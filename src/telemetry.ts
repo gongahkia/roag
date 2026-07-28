@@ -1,23 +1,25 @@
 import type { ActionResult } from './engine/shared'
 import type { RunAnalysis, RunFloorMetrics, RunMetricSample, RunOutcome, RunState, RunTelemetry } from './types'
 
-export interface TelemetrySnapshot { turn: number; floor: number; health: number; focus: number; gold: number; xp: number; bombs: number; ropes: number; hostiles: Map<string, number> }
-export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'relicPicks' | 'purchases' | 'enemyKills' | 'eventOutcomes' | 'deathCauses'
+export interface TelemetrySnapshot { turn: number; floor: number; hero: { x: number; y: number }; health: number; focus: number; gold: number; xp: number; bombs: number; ropes: number; hostiles: Map<string, number>; guardians: Map<string, string> }
+export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'relicPicks' | 'purchases' | 'enemyKills' | 'eventOutcomes' | 'deathCauses' | 'terrainInteractions' | 'bossPhases'
 
 const emptyActions = () => ({ moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 })
-const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {} })
+const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {}, terrainInteractions: {}, bossPhases: {} })
 const floorMetrics = (floor: number): RunFloorMetrics => ({ floor, turns: 0, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0 })
 
 export const telemetrySnapshot = (state: RunState): TelemetrySnapshot => ({
   turn: state.turn,
   floor: state.floor.index + 1,
+  hero: { x: state.hero.x, y: state.hero.y },
   health: state.hero.health,
   focus: state.hero.focus,
   gold: state.hero.gold,
   xp: state.hero.xp,
   bombs: state.hero.bombs,
   ropes: state.hero.ropes,
-  hostiles: new Map(state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => [actor.id, actor.health]))
+  hostiles: new Map(state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => [actor.id, actor.health])),
+  guardians: new Map(state.floor.actors.filter(actor => actor.role === 'guardian' && actor.health > 0).map(actor => [actor.id, actor.guardianPhase ?? 'opening']))
 })
 
 const sampleFor = (state: RunState, metrics: RunTelemetry): RunMetricSample => ({
@@ -74,6 +76,7 @@ export const observeTelemetryTurn = (state: RunState, before: TelemetrySnapshot,
   const metrics = telemetryFor(state)
   const floor = activeFloor(metrics, before.floor)
   const afterHostiles = new Map(state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => [actor.id, actor.health]))
+  const afterGuardians = new Map(state.floor.actors.filter(actor => actor.role === 'guardian' && actor.health > 0).map(actor => [actor.id, actor.guardianPhase ?? 'opening']))
   let damageDealt = 0
   if (before.floor === state.floor.index + 1) for (const [id, health] of before.hostiles) {
     const next = afterHostiles.get(id) ?? 0
@@ -110,6 +113,11 @@ export const observeTelemetryTurn = (state: RunState, before: TelemetrySnapshot,
   if (pickups) metrics.actions.pickups += pickups
   metrics.actions.bombs += bombsUsed
   metrics.actions.ropes += ropesUsed
+  if (before.floor === state.floor.index + 1 && (before.hero.x !== state.hero.x || before.hero.y !== state.hero.y)) {
+    const terrain = state.floor.tiles[state.hero.y * state.floor.width + state.hero.x]?.kind
+    if (terrain) recordTelemetryCount(state, 'terrainInteractions', `${state.floor.biome}:${terrain}`)
+  }
+  for (const [id, phase] of afterGuardians) if (before.guardians.get(id) !== phase) recordTelemetryCount(state, 'bossPhases', `${state.floor.biome}:${phase}`)
   metrics.samples.push(sampleFor(state, metrics))
 }
 

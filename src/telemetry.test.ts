@@ -22,4 +22,17 @@ describe('run telemetry', () => {
     expect(state.telemetry).toMatchObject({ turns: 1, kills: 1, damageDealt: 6, damageTaken: 4, goldGained: 12, goldSpent: 0, xpGained: 10, pickups: 1, bombsUsed: 1, ropesUsed: 1, boonPicks: { coolAsh: 2 }, actions: { attacks: 1, bombs: 1, ropes: 1 } })
     expect(analysisFor(state, 'suspended')).toMatchObject({ outcome: 'suspended', floor: 1, metrics: { samples: [{ turn: 0 }, { turn: 1 }] } })
   })
+
+  it('records local terrain interactions and guardian phase entries', () => {
+    const guardian = createEnemy({ id: 'guardian', role: 'guardian', ai: 'guardian', guardianPhase: 'opening' })
+    const state = createRun({ floor: createFloor({ actors: [guardian] }) })
+    state.floor.tiles[1 * state.floor.width + 2].kind = 'water'
+    state.telemetry = createRunTelemetry(state)
+    const before = telemetrySnapshot(state)
+    state.turn = 1
+    state.hero.x = 2
+    guardian.guardianPhase = 'pressure'
+    observeTelemetryTurn(state, before, [{ type: 'move' }], ';')
+    expect(state.telemetry).toMatchObject({ terrainInteractions: { 'mine:water': 1 }, bossPhases: { 'mine:pressure': 1 } })
+  })
 })
