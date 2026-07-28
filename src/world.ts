@@ -208,7 +208,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
   placeEcology(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
-  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
+  placeItems(floor, rngFor(runSeed, 'loot', index, 'items', escalation.arcId), rooms, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'loot')
   placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'props')
