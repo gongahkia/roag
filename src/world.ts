@@ -141,6 +141,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const macro = compileRouteContract(routeContract, { width, height })
   if (!macro.valid) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macro.diagnostics.join('; ')}`)
   const placements: PlacementRuntime = { macro, pilot: macroRecipeFor(routeContract).pilot, diagnostics: [] }
+  const objective = objectiveForFloor(index)
   const floor: Floor = {
     index,
     biome,
@@ -156,7 +157,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
     start: { x: 2, y: 2 },
     exit: { x: width - 3, y: height - 3 },
     guardianDefeated: areaFloor !== 3,
-    objective: { ...objectiveForFloor(index), label: `${objectiveForFloor(index).label} — ${areaFloor === 3 ? escalation.payoff : escalation.promise}` },
+    objective: { ...objective, label: `${objective.label} — ${areaFloor === 3 ? escalation.payoff : escalation.promise}` },
     milestones: [],
     escalation,
     telegraphs: [],
