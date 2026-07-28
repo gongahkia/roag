@@ -4,3 +4,4 @@ coverage/
 .playwright-cli/
 output/
 clearance/
+generation-reports/

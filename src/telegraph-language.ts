@@ -1,4 +1,4 @@
-import type { Floor, Telegraph } from './types'
+import type { Actor, Telegraph, Tile } from './types'
 
 export interface TelegraphPresentation { glyph: string; color: string; label: string }
 
@@ -6,7 +6,7 @@ const actionSignal: Record<string, string> = {
   'enemy-shot': 'SHOT', 'enemy-root': 'ROOT', 'enemy-web': 'WEB', 'enemy-fire': 'FIRE', 'enemy-pull': 'PULL', 'enemy-dart': 'DART', 'enemy-ritual': 'RITUAL', 'foreman-cavein': 'CAVE-IN', 'heartwood-charge': 'CHARGE', 'geode-fissure': 'FISSURE', 'regent-decree': 'DECREE', 'regent-judgment': 'JUDGMENT', 'guardian-slam': 'SLAM'
 }
 
-export const isTelegraphVisible = (floor: Pick<Floor, 'actors' | 'tiles' | 'width' | 'height'>, telegraph: Telegraph): boolean => {
+export const isTelegraphVisible = (floor: { width: number; height: number; tiles: readonly Pick<Tile, 'visible'>[]; actors: readonly Pick<Actor, 'id' | 'x' | 'y'>[] }, telegraph: Telegraph): boolean => {
   const visibleAt = (point: { x: number; y: number }) => point.x >= 0 && point.y >= 0 && point.x < floor.width && point.y < floor.height && Boolean(floor.tiles[point.y * floor.width + point.x]?.visible)
   const source = floor.actors.find(actor => actor.id === telegraph.sourceId)
   return telegraph.cells.some(visibleAt) || Boolean(source && visibleAt(source))

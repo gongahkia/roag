@@ -39,6 +39,12 @@ npm run build
 npm run preview
 ```
 
+Generate deterministic spatial metrics; JSON reports default to ignored `generation-reports/`:
+
+```sh
+npm run generation:report
+```
+
 ## Controls
 
 | Key | Action |

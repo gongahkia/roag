@@ -16,7 +16,7 @@ import { defaultSettings, settingChoices, settingsPageCount, type GameSettings }
 import { mineSeason } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
-import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type Direction, type GroundItem, type Hero, type Modal, type Point, type RunAnalysis, type RunMetricSample, type RunState, type Tile } from './types'
+import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Hero, type Modal, type Point, type RunAnalysis, type RunMetricSample, type RunState, type Tile } from './types'
 import { visualModeLabel, type VisualMode } from './visual-mode'
 import { getTile } from './world'
 

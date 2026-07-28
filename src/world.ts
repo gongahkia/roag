@@ -5,7 +5,7 @@ import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
 import { isBlockingProp, PROP_IDS, propAt, propDefinition, propDefinitionsFor, validatePropDefinitions } from './props'
-import { generateRouteContract, validateRouteContract, type RouteEdgeMode, type RouteNodeKind } from './route-contract'
+import { generateRouteContract, validateRouteContract, type RouteContract, type RouteEdgeMode, type RouteNodeKind } from './route-contract'
 import { compileRouteContract, macroConnectorPoints, macroRecipeFor, validateMacroRealization, type MacroRecipeDebug } from './macro-recipe'
 import { selectPlacement, type PlacementContext, type PlacementContract, type PlacementDebug } from './placement-contract'
 
@@ -16,6 +16,7 @@ const propDefinitionErrors = validatePropDefinitions()
 const macroDebugs = new WeakMap<Floor, MacroRecipeDebug>()
 const macroPilots = new WeakMap<Floor, boolean>()
 const placementDebugs = new WeakMap<Floor, PlacementDebug[]>()
+const routeContractDebugs = new WeakMap<Floor, RouteContract>()
 
 const indexOf = (floor: Floor, x: number, y: number): number => floorIndex(floor, x, y)
 const pointAt = (floor: Floor, index: number): Point => floorPoint(floor, index)
@@ -72,6 +73,7 @@ export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: 
 export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => Boolean(traverseFloor(floor, start, { target: destination }).path)
 export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
 export const placementDebug = (floor: Floor): readonly PlacementDebug[] => placementDebugs.get(floor) ?? []
+export const routeContractDebug = (floor: Floor): RouteContract | undefined => routeContractDebugs.get(floor)
 export const validateMacroRecipe = (floor: Floor): string[] => {
   const debug = macroDebugs.get(floor)
   return !debug || !macroPilots.get(floor) ? [] : validateMacroRealization(debug, point => Boolean(getTile(floor, point.x, point.y) && isPathPassable(floor, point, false)))
@@ -179,6 +181,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   macroDebugs.set(floor, macro)
   macroPilots.set(floor, macroRecipeFor(routeContract).pilot)
   placementDebugs.set(floor, placements.diagnostics)
+  routeContractDebugs.set(floor, routeContract)
   const macroErrors = validateMacroRecipe(floor)
   if (macroErrors.length) throw new Error(`invalid macro recipe ${macro.recipeId}: ${macroErrors.join('; ')}`)
   const validation = validateGeneration(floor)
@@ -204,7 +207,7 @@ const layoutVariants: Record<Biome, readonly string[]> = {
   mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['ritual-rings', 'breached-precinct', 'collapsed-aqueduct'], furnace: ['kiln-terraces', 'smoke-works', 'slag-channels'], floodedRuins: ['braided-islands', 'drowned-causeway', 'floodgate-basin'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
-const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
+export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
   const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck').shuffle([...layoutVariants[biome]])
   return areaFloor < deck.length ? deck[areaFloor] : `${deck[(areaFloor + runSeed) % deck.length]}-remix`
 }
