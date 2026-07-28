@@ -198,11 +198,14 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
   imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
+  restoreMacroNodeCenters(floor, macro)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms, reservedMacroCells)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
+  imprintCavernTideRoute(floor, macro)
+  imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
@@ -407,6 +410,47 @@ const restoreMacroConnectors = (floor: Floor, macro: MacroRecipeDebug, reserved:
   for (const point of macroConnectorPoints(macro)) if (reserved.has(indexOf(floor, point.x, point.y))) setKind(floor, point.x, point.y, 'floor')
 }
 
+const restoreMacroNodeCenters = (floor: Floor, macro: MacroRecipeDebug): void => {
+  for (const node of macro.nodes) {
+    const points = floor.biome === 'caverns'
+      ? Array.from({ length: node.footprint.width * node.footprint.height }, (_, index) => ({ x: node.footprint.x + index % node.footprint.width, y: node.footprint.y + Math.floor(index / node.footprint.width) }))
+      : [{ x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }]
+    for (const point of points) if (point.x !== floor.exit.x || point.y !== floor.exit.y) setKind(floor, point.x, point.y, 'floor')
+  }
+}
+
+const imprintCavernTideRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'caverns') return
+  const edge = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  if (!edge) throw new Error(`missing Caverns tide route: ${macro.recipeId}`)
+  const cells = edge.cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const start = Math.max(0, Math.floor(cells.length / 2) - 3)
+  const route = cells.slice(start, start + 7)
+  if (route.length < 3) throw new Error(`short Caverns tide route: ${macro.recipeId}`)
+  for (let index = 0; index < route.length; index++) {
+    const point = route[index]
+    const tile = getTile(floor, point.x, point.y)
+    if (!tile) continue
+    if (index % 2 === 0) setKind(floor, point.x, point.y, 'water')
+    else {
+      tile.kind = 'current'
+      const next = route[index + 1] ?? route[index - 1]
+      tile.flow = { direction: flowDirection(next.x - point.x, next.y - point.y) }
+    }
+  }
+}
+
+const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'caverns') return
+  const node = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
+  if (!node) throw new Error(`missing Caverns optional chamber: ${macro.recipeId}`)
+  const point = { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }
+  const water = { x: point.x - 1, y: point.y }
+  const darkness = { x: point.x, y: point.y - 1 }
+  if (getTile(floor, water.x, water.y)?.kind === 'floor') setKind(floor, water.x, water.y, 'water')
+  if (getTile(floor, darkness.x, darkness.y)?.kind === 'floor') setKind(floor, darkness.x, darkness.y, 'darkness')
+}
+
 const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
   const paint = (x: number, y: number, kind: Tile['kind']) => { if (getTile(floor, x, y)?.kind === 'floor') setKind(floor, x, y, kind) }
   if (floor.biome === 'burial') {
@@ -446,7 +490,7 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
 
 interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[] }
 const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
-  mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['darkness'], ruins: ['dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
+  mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['water', 'current', 'darkness'], ruins: ['dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
 }
 const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
   const adjacent = (point: Point): Point[] => cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(point => inBounds(floor, point.x, point.y))
@@ -673,9 +717,10 @@ function decorateCaverns(floor: Floor, rng: Rng): void {
       candidates = safe()
     }
   }
-  paint('lava', 8, true)
-  paint('gas', 7, true)
-  paint('fireVent', 10)
+  carveFlowChannel(floor, rng, false)
+  paint('water', 11, true)
+  paint('deepWater', 7, true)
+  paint('crumble', 6)
   paint('darkness', 11, true)
 }
 
@@ -972,6 +1017,18 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'caverns' && areaFloor !== 3 && !floor.actors.some(actor => actor.hostile && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const tideEel = definitions.find(definition => definition.id === 'fumeeel')
+    const terrain = tideEel ? terrainAffinityFor(tideEel).filter(kind => nativeActorTerrain.caverns.includes(kind)) : []
+    if (!tideEel || !terrain.length) throw new Error('Caverns tide patrol lacks terrain affinity')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:tide-patrol:fumeeel`, requirements: { terrain, minDistance: 8 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Caverns tide patrol: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:tide-patrol`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'leave the enemy\'s native terrain' }
+    const actor = spawnMonster(tideEel.id, point, `${tideEel.id}-tide-patrol`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -983,7 +1040,10 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const contract: PlacementContract = { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
+  const tideRoute = floor.biome === 'caverns' && runtime.pilot
+  const contract: PlacementContract = tideRoute
+    ? { id: `ecology:${profile.kind}`, requirements: { terrain: ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: ['water'], minDistance: 7 } }
+    : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
   if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
   const source = floor.actors.find(actor => actor.hostile && (actor.combatRole === 'guard' || actor.combatRole === 'pursuer'))

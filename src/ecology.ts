@@ -7,7 +7,7 @@ export interface EcologyProfile { kind: EcologyEventKind; effect: TileKind; terr
 const profiles: Record<Biome, EcologyProfile> = {
   mine: { kind: 'collapse', effect: 'crumble', terrain: ['crumble'], warning: 'The support beams groan; leave the marked shelf.', responses: ['step off unstable ground', 'draw pursuers through the collapse'], cleanup: 'The dust settles and the shelf holds.' },
   wilds: { kind: 'nesting', effect: 'web', terrain: ['web', 'water'], warning: 'Nest calls gather through the brush.', responses: ['leave the nesting ground', 'clear the webbed approach'], cleanup: 'The nesting calls fade.' },
-  caverns: { kind: 'fire', effect: 'fireVent', terrain: ['fireVent', 'gas'], warning: 'Heat pressure builds under the stone.', responses: ['move clear of the vent', 'use cover and range'], cleanup: 'The vent cools.' },
+  caverns: { kind: 'tide', effect: 'current', terrain: ['water', 'current'], warning: 'The tide marks the low shelves; move before the flood current turns.', responses: ['take the dry shelf', 'brace at an anchor'], cleanup: 'The ebb leaves the shelf clear.' },
   ruins: { kind: 'visibility', effect: 'darkness', terrain: ['darkness', 'dart'], warning: 'Dust veils the ritual passage.', responses: ['bring light', 'break line of sight'], cleanup: 'The ritual dust clears.' },
   furnace: { kind: 'smoke', effect: 'smoke', terrain: ['smoke', 'lift'], warning: 'The kiln exhales a smoke surge.', responses: ['leave the smoke lane', 'use the lift route'], cleanup: 'The smoke thins.' },
   floodedRuins: { kind: 'tide', effect: 'current', terrain: ['current', 'water'], warning: 'Water draws toward a sudden tide.', responses: ['brace at an anchor', 'take the higher route'], cleanup: 'The tide slackens.' },

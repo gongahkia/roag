@@ -82,13 +82,13 @@ describe('expedition generation', () => {
     expect(hasLine(run, run.hero, { x: 3, y: 1 })).toBe(false)
   })
 
-  it('uses lava, gas, vents, and lantern-sensitive Cavern routes', () => {
+  it('uses tide channels, deep pools, wet shelves, and lantern-sensitive Sea Cave routes', () => {
     for (const seed of [9, 43, 1001]) {
       const floor = generateAreaFloor(seed, 'caverns', 0)
       const kinds = floor.tiles.map(tile => tile.kind)
-      expect(kinds).toContain('lava')
-      expect(kinds).toContain('gas')
-      expect(kinds).toContain('fireVent')
+      expect(kinds).toContain('current')
+      expect(kinds).toContain('deepWater')
+      expect(kinds).toContain('water')
       expect(kinds).toContain('darkness')
       expect(exitReachable(floor)).toBe(true)
     }

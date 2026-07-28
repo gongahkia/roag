@@ -8,7 +8,7 @@ describe('boss contracts', () => {
     const mine = bossContractFor('mine')
     const caverns = bossContractForGuardian('geode')!
     expect(mine).toMatchObject({ arena: 'rail quarry', phases: { pressure: { terrain: 'rail', telegraph: 'foreman-cavein' } }, reward: 'relic' })
-    expect(caverns).toMatchObject({ arena: 'fissure chamber', phases: { pressure: { terrain: 'gas', telegraph: 'geode-fissure' } }, reward: 'relic' })
+    expect(caverns).toMatchObject({ arena: 'storm-tide chamber', phases: { pressure: { terrain: 'current', telegraph: 'geode-fissure' } }, reward: 'relic' })
     expect(mine.phases.cataclysm.counterplay).not.toEqual('')
     expect(caverns.adds).toEqual(expect.arrayContaining(['artillery', 'controller']))
   })

@@ -4,7 +4,7 @@ import { spawnMonster } from './world'
 describe('monster spawning', () => {
   it('copies authored stats, role, tags, and terrain affinity to runtime actors', () => {
     expect(spawnMonster('mole', { x: 1, y: 1 }, 'mole')).toMatchObject({ maxHealth: 9, health: 9, attack: 4, defense: 10, speed: 90, combatRole: 'pursuer', tags: [], terrainAffinity: [] })
-    expect(spawnMonster('fumeeel', { x: 1, y: 1 }, 'eel')).toMatchObject({ maxHealth: 13, attack: 7, defense: 12, speed: 100, combatRole: 'pursuer', tags: expect.arrayContaining(['gas', 'mobility']), terrainAffinity: expect.arrayContaining(['gas', 'smoke']) })
+    expect(spawnMonster('fumeeel', { x: 1, y: 1 }, 'eel')).toMatchObject({ maxHealth: 13, attack: 7, defense: 12, speed: 100, combatRole: 'pursuer', tags: expect.arrayContaining(['water', 'tide', 'mobility']), terrainAffinity: expect.arrayContaining(['water', 'current', 'deepWater']) })
   })
 
   it('applies route threat after authored baseline stats', () => {

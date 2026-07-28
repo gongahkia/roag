@@ -10,9 +10,11 @@ import { createFloor } from './test/factories'
 const collapse = (): EcologyEvent => ({ id: 'ecology:test:collapse', kind: 'collapse', source: 'brace', target: { x: 3, y: 1 }, warning: 'The support beams groan; leave the marked shelf.', startsAt: 2, duration: 2, responses: ['step off unstable ground'], cleanup: 'The dust settles and the shelf holds.', state: 'waiting', original: 'floor', effect: 'crumble' })
 
 describe('deterministic ecology', () => {
-  it('maps every ecology kind to a biome recipe and escalates duration by area floor', () => {
+  it('maps active ecology to biome recipes and escalates duration by area floor', () => {
     const biomes: Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
-    expect(new Set(biomes.map(biome => ecologyProfileFor(biome).kind))).toEqual(new Set(ECOLOGY_EVENT_KINDS))
+    const activeKinds = new Set(biomes.map(biome => ecologyProfileFor(biome).kind))
+    for (const kind of ECOLOGY_EVENT_KINDS.filter(kind => kind !== 'fire')) expect(activeKinds.has(kind)).toBe(true)
+    expect(ecologyProfileFor('caverns').kind).toBe('tide')
     const early = ecologyEventFor(createFloor({ index: 0, seed: 7 }), { x: 3, y: 1 }, 'source')
     const late = ecologyEventFor(createFloor({ index: 2, seed: 7 }), { x: 3, y: 1 }, 'source')
     expect(late).toMatchObject({ startsAt: early.startsAt + 2, duration: early.duration + 2 })
