@@ -208,7 +208,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
   placeEcology(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
-  placeItems(floor, rngFor(runSeed, 'loot', index, 'items', escalation.arcId), rooms, placements)
+  placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'loot')
   placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'props')
@@ -538,9 +538,9 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
 
 function placeMilestones(floor: Floor, runtime: PlacementRuntime): void {
   const specs = [
-    { id: 'waycache', kind: 'waycache' as const, rewardKey: 'waycache' as const, primary: { nodeKinds: ['landmark'] as RouteNodeKind[], minDistance: 5 }, legacy: { minDistance: 5, maxDistance: 12 } },
+    { id: 'waycache', kind: 'waycache' as const, rewardKey: 'waycache' as const, primary: { nodeKinds: ['landmark'] as RouteNodeKind[], minDistance: 5 }, legacy: { minDistance: 5, maxDistance: 18 } },
     { id: 'boon-teach', kind: 'boon' as const, rewardKey: 'boon-teach' as const, primary: { nodeKinds: ['fork'] as RouteNodeKind[], minDistance: 7 }, legacy: { minDistance: 7, maxDistance: 24 } },
-    { id: 'boon-test', kind: 'boon' as const, rewardKey: 'boon-test' as const, primary: { edgeModes: ['costly'] as RouteEdgeMode[], routeCost: 'costly' as const, minDistance: 9 }, legacy: { minDistance: 14, chokepoint: false } },
+    { id: 'boon-test', kind: 'boon' as const, rewardKey: 'boon-test' as const, primary: { edgeModes: ['costly'] as RouteEdgeMode[], routeCost: 'costly' as const, minDistance: 9 }, legacy: { minDistance: 10, chokepoint: false } },
     { id: 'boon-payoff', kind: 'boon' as const, rewardKey: 'boon-payoff' as const, primary: { nodeKinds: ['optionalReward'] as RouteNodeKind[], minDistance: 10 }, legacy: { minDistance: 12 } },
     { id: 'augment', kind: 'augment' as const, primary: { nodeKinds: ['objective'] as RouteNodeKind[], minDistance: 12 }, legacy: { minDistance: 14 } }
   ]
