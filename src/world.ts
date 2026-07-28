@@ -198,7 +198,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
   imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
-  restoreMacroNodeCenters(floor, macro)
+  restoreMacroNodeTransit(floor, macro)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
@@ -410,11 +410,18 @@ const restoreMacroConnectors = (floor: Floor, macro: MacroRecipeDebug, reserved:
   for (const point of macroConnectorPoints(macro)) if (reserved.has(indexOf(floor, point.x, point.y))) setKind(floor, point.x, point.y, 'floor')
 }
 
-const restoreMacroNodeCenters = (floor: Floor, macro: MacroRecipeDebug): void => {
+const restoreMacroNodeTransit = (floor: Floor, macro: MacroRecipeDebug): void => {
   for (const node of macro.nodes) {
+    const center = { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }
+    const endpoints = macro.edges.flatMap(edge => [edge.from, edge.to]).filter(point => point.x >= node.footprint.x && point.x < node.footprint.x + node.footprint.width && point.y >= node.footprint.y && point.y < node.footprint.y + node.footprint.height)
     const points = floor.biome === 'caverns'
       ? Array.from({ length: node.footprint.width * node.footprint.height }, (_, index) => ({ x: node.footprint.x + index % node.footprint.width, y: node.footprint.y + Math.floor(index / node.footprint.width) }))
-      : [{ x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }]
+      : endpoints.flatMap(endpoint => {
+        const route: Point[] = []
+        for (let x = Math.min(center.x, endpoint.x); x <= Math.max(center.x, endpoint.x); x++) route.push({ x, y: center.y })
+        for (let y = Math.min(center.y, endpoint.y); y <= Math.max(center.y, endpoint.y); y++) route.push({ x: endpoint.x, y })
+        return route
+      })
     for (const point of points) if (point.x !== floor.exit.x || point.y !== floor.exit.y) setKind(floor, point.x, point.y, 'floor')
   }
 }
@@ -447,8 +454,10 @@ const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): vo
   const point = { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }
   const water = { x: point.x - 1, y: point.y }
   const darkness = { x: point.x, y: point.y - 1 }
+  const pool = { x: point.x + 1, y: point.y + 1 }
   if (getTile(floor, water.x, water.y)?.kind === 'floor') setKind(floor, water.x, water.y, 'water')
   if (getTile(floor, darkness.x, darkness.y)?.kind === 'floor') setKind(floor, darkness.x, darkness.y, 'darkness')
+  if (getTile(floor, pool.x, pool.y)?.kind === 'floor') setKind(floor, pool.x, pool.y, 'deepWater')
 }
 
 const imprintBiomeLandmarks = (floor: Floor, rng: Rng, rooms: readonly Room[]): void => {
@@ -493,6 +502,18 @@ const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
   mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['water', 'current', 'darkness'], ruins: ['dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
 }
 const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
+  const nodeKinds = new Map<string, RouteNodeKind[]>()
+  const edgeModes = new Map<string, RouteEdgeMode[]>()
+  if (runtime.pilot) {
+    for (const node of runtime.macro.nodes) for (let y = node.footprint.y; y < node.footprint.y + node.footprint.height; y++) for (let x = node.footprint.x; x < node.footprint.x + node.footprint.width; x++) {
+      const key = pointKey({ x, y })
+      nodeKinds.set(key, [...(nodeKinds.get(key) ?? []), node.kind])
+    }
+    for (const edge of runtime.macro.edges) for (const point of edge.cells) {
+      const key = pointKey(point)
+      edgeModes.set(key, [...(edgeModes.get(key) ?? []), ...edge.modes])
+    }
+  }
   const adjacent = (point: Point): Point[] => cardinalOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y })).filter(point => inBounds(floor, point.x, point.y))
   const blocked = (point: Point): boolean => !eligible(point) || floor.props.some(prop => prop.x === point.x && prop.y === point.y) || floor.actors.some(actor => actor.health > 0 && actor.x === point.x && actor.y === point.y) || floor.items.some(item => item.x === point.x && item.y === point.y) || floor.milestones.some(milestone => milestone.x === point.x && milestone.y === point.y) || floor.ecology?.some(ecology => ecology.target.x === point.x && ecology.target.y === point.y) === true
   return {
@@ -505,8 +526,8 @@ const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (po
     coveredAt: point => adjacent(point).some(candidate => !passable(getTile(floor, candidate.x, candidate.y)?.kind ?? 'wall') || isBlockingProp(propAt(floor.props, candidate.x, candidate.y))),
     chokepointAt: point => adjacent(point).filter(candidate => isPathPassable(floor, candidate, false)).length <= 2,
     adjacentTerrainAt: point => adjacent(point).map(candidate => getTile(floor, candidate.x, candidate.y)?.kind).filter((kind): kind is TileKind => Boolean(kind)),
-    nodeKindsAt: point => runtime.pilot ? runtime.macro.nodes.filter(node => point.x >= node.footprint.x && point.x < node.footprint.x + node.footprint.width && point.y >= node.footprint.y && point.y < node.footprint.y + node.footprint.height).map(node => node.kind) : [],
-    edgeModesAt: point => runtime.pilot ? runtime.macro.edges.filter(edge => edge.cells.some(cell => cell.x === point.x && cell.y === point.y)).flatMap(edge => edge.modes) : []
+    nodeKindsAt: point => nodeKinds.get(pointKey(point)) ?? [],
+    edgeModesAt: point => edgeModes.get(pointKey(point)) ?? []
   }
 }
 const choosePlacement = (floor: Floor, runtime: PlacementRuntime, contract: PlacementContract, eligible?: (point: Point) => boolean): Point | undefined => {
@@ -1009,7 +1030,7 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     const railguard = definitions.find(definition => definition.id === 'railguard')
     const terrain = railguard ? terrainAffinityFor(railguard).filter(kind => nativeActorTerrain.mine.includes(kind)) : []
     if (!railguard || !terrain.length) throw new Error('Mine rail patrol lacks terrain affinity')
-    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:rail-patrol:railguard`, requirements: { terrain, minDistance: 8, chokepoint: false } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:rail-patrol:railguard`, requirements: { terrain, minDistance: 8 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
     if (!point) throw new Error(`failed placement Mine rail patrol: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
     const encounter = { id: `tactical:${floor.index}:rail-patrol`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'leave the enemy\'s native terrain' }
     const actor = spawnMonster(railguard.id, point, `${railguard.id}-rail-patrol`, floor.difficulty)

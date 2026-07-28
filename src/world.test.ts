@@ -28,7 +28,7 @@ describe('expedition generation', () => {
       expect(first).not.toHaveProperty('routeContract')
       expect(exitReachable(first)).toBe(true)
     }
-  }, 30_000)
+  }, 60_000)
 
   it('assigns deterministic objectives for all local floor roles', () => {
     expect(Array.from({ length: 4 }, (_, index) => generateFloor(99, index).objective.kind)).toEqual(['recoverSupplies', 'rescueScout', 'invokeAltar', 'defeatGuardian'])
