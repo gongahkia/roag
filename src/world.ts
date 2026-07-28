@@ -960,6 +960,18 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
       leader ??= point
     }
   }
+  if (floor.biome === 'mine' && areaFloor !== 3 && !floor.actors.some(actor => actor.hostile && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))) {
+    const railguard = definitions.find(definition => definition.id === 'railguard')
+    const terrain = railguard ? terrainAffinityFor(railguard).filter(kind => nativeActorTerrain.mine.includes(kind)) : []
+    if (!railguard || !terrain.length) throw new Error('Mine rail patrol lacks terrain affinity')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:rail-patrol:railguard`, requirements: { terrain, minDistance: 8, chokepoint: false } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Mine rail patrol: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:rail-patrol`, archetype: 'nativeTerrainPack' as const, leader: true, answer: 'leave the enemy\'s native terrain' }
+    const actor = spawnMonster(railguard.id, point, `${railguard.id}-rail-patrol`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
