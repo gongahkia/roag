@@ -228,7 +228,7 @@ export const monsterRoleFor = (definition: MonsterDefinition): MonsterRole => de
                 : definition.speed >= 120 ? 'skirmisher'
                   : 'pursuer')
 const terrainByTag: Array<[string, TileKind[]]> = [
-  ['rail', ['rail']], ['water', ['water', 'current', 'deepWater']], ['web', ['web']], ['current', ['current', 'deepWater']], ['gas', ['gas', 'smoke']], ['smoke', ['smoke', 'gas']], ['fire', ['fireVent', 'lava']], ['heat', ['fireVent', 'lava']], ['climb', ['ledge']], ['grave', ['graveSoil', 'spiritPath']], ['spirit', ['spiritPath']], ['salt', ['saltMirror', 'brine']], ['mirror', ['saltMirror']], ['brine', ['brine']], ['frost', ['frostRime', 'ice']], ['ice', ['ice']], ['anchor', ['anchor']], ['lift', ['lift']]
+  ['rail', ['rail']], ['water', ['water', 'current', 'deepWater']], ['web', ['web']], ['dart', ['dart']], ['ward', ['altar']], ['current', ['current', 'deepWater']], ['gas', ['gas', 'smoke']], ['smoke', ['smoke', 'gas']], ['fire', ['fireVent', 'lava']], ['heat', ['fireVent', 'lava']], ['climb', ['ledge']], ['grave', ['graveSoil', 'spiritPath']], ['spirit', ['spiritPath']], ['salt', ['saltMirror', 'brine']], ['mirror', ['saltMirror']], ['brine', ['brine']], ['frost', ['frostRime', 'ice']], ['ice', ['ice']], ['anchor', ['anchor']], ['lift', ['lift']]
 ]
 export const terrainAffinityFor = (definition: MonsterDefinition): TileKind[] => definition.terrainAffinity ? [...definition.terrainAffinity] : Array.from(new Set(terrainByTag.filter(([tag]) => tagged(definition, tag)).flatMap(([, terrain]) => terrain)))
 

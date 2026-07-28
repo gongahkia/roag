@@ -199,6 +199,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   restoreMacroNodeTransit(floor, macro)
+  imprintRuinsRitualCenter(floor, macro)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
@@ -206,6 +207,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   imprintCavernTideRoute(floor, macro)
   imprintWildsPressureRoute(floor, macro)
+  imprintRuinsWardRoute(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
@@ -247,7 +249,7 @@ const dimensions: Record<Biome, { width: number; height: number }> = {
   mine: { width: MAP_WIDTH, height: MAP_HEIGHT }, wilds: { width: 72, height: 48 }, caverns: { width: 56, height: 44 }, ruins: { width: 64, height: 48 }, furnace: { width: 56, height: 40 }, floodedRuins: { width: 72, height: 48 }, cliffs: { width: 56, height: 52 }, burial: { width: 80, height: 56 }, saltFlats: { width: 72, height: 44 }, frostReliquary: { width: 64, height: 48 }
 }
 const layoutVariants: Record<Biome, readonly string[]> = {
-  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['ritual-rings', 'breached-precinct', 'collapsed-aqueduct'], furnace: ['kiln-terraces', 'smoke-works', 'slag-channels'], floodedRuins: ['braided-islands', 'drowned-causeway', 'floodgate-basin'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
+  mine: ['rail-spine', 'branching-drifts', 'collapse-loop'], wilds: ['river-clearings', 'root-maze', 'wetland-causeways'], caverns: ['tide-chambers', 'sinkhole-galleries', 'fault-tunnels'], ruins: ['circular-precinct', 'broken-processional-loop', 'courtyard-lattice'], furnace: ['kiln-terraces', 'smoke-works', 'slag-channels'], floodedRuins: ['braided-islands', 'drowned-causeway', 'floodgate-basin'], cliffs: ['escarpment-terraces', 'ravine-switchbacks', 'wind-shelves'], burial: ['rolling-mounds', 'ringed-necropolis', 'scattered-grave-field'], saltFlats: ['salt-basin', 'brine-fractures', 'caravan-road'], frostReliquary: ['glacial-basin', 'frozen-lake', 'reliquary-escarpment']
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
@@ -398,6 +400,7 @@ const carveLegacyLayoutFromRouteContract = (floor: Floor, contract: ReturnType<t
 const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, rng: Rng): Room[] => {
   if (!macroRecipeFor(contract).pilot) return carveLegacyLayoutFromRouteContract(floor, contract, rng)
   if (floor.biome === 'wilds') return carveWildsRouteContractLayout(floor, contract, macro, rng)
+  if (floor.biome === 'ruins') return carveRuinsRouteContractLayout(floor, contract, macro, rng)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
   for (const room of rooms) carveRect(floor, room)
@@ -415,6 +418,39 @@ const carveWildsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof
   if (variant === 'root-maze') for (let x = 11; x < floor.width - 8; x += 10) wallBand(floor, true, x, rng.int(4, floor.height - 5), 2)
   if (variant === 'wetland-causeways') for (let y = 9; y < floor.height - 7; y += 9) wallBand(floor, false, y, rng.int(5, floor.width - 6), 3)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const rooms = macro.nodes.map(toRoom)
+  rooms.forEach(room => carveRect(floor, room))
+  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
+  const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
+  const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
+  return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
+}
+
+const carveRuinsRing = (floor: Floor, center: Point, halfWidth: number, halfHeight: number, gates: readonly Point[]): void => {
+  const gateKeys = new Set(gates.map(pointKey))
+  for (let x = center.x - halfWidth; x <= center.x + halfWidth; x++) for (const y of [center.y - halfHeight, center.y + halfHeight]) if (!gateKeys.has(pointKey({ x, y }))) setKind(floor, x, y, 'wall')
+  for (let y = center.y - halfHeight + 1; y < center.y + halfHeight; y++) for (const x of [center.x - halfWidth, center.x + halfWidth]) if (!gateKeys.has(pointKey({ x, y }))) setKind(floor, x, y, 'wall')
+}
+
+const carveRuinsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, _rng: Rng): Room[] => {
+  if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
+  if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
+  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
+  const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
+  const ritualNode = macro.nodes.find(node => node.kind === 'objective')
+  if (!ritualNode) throw new Error(`missing Ruins ritual node: ${macro.recipeId}`)
+  const ritual = center(toRoom(ritualNode))
+  const variant = floor.layoutId.replace('-remix', '')
+  if (variant === 'circular-precinct') carveRuinsRing(floor, ritual, 9, 7, [{ x: ritual.x, y: ritual.y - 7 }, { x: ritual.x + 9, y: ritual.y }, { x: ritual.x, y: ritual.y + 7 }, { x: ritual.x - 9, y: ritual.y }])
+  if (variant === 'broken-processional-loop') {
+    carveRuinsRing(floor, ritual, 8, 6, [{ x: ritual.x, y: ritual.y - 6 }, { x: ritual.x - 8, y: ritual.y }])
+    wallBand(floor, true, ritual.x - 14, ritual.y + 8, 4)
+  }
+  if (variant === 'courtyard-lattice') {
+    wallBand(floor, true, ritual.x - 11, ritual.y - 8, 4)
+    wallBand(floor, true, ritual.x + 11, ritual.y + 8, 4)
+    wallBand(floor, false, ritual.y, ritual.x, 5)
+  }
   const rooms = macro.nodes.map(toRoom)
   rooms.forEach(room => carveRect(floor, room))
   macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
@@ -442,6 +478,15 @@ const restoreMacroNodeTransit = (floor: Floor, macro: MacroRecipeDebug): void =>
       })
     for (const point of points) if (point.x !== floor.exit.x || point.y !== floor.exit.y) setKind(floor, point.x, point.y, 'floor')
   }
+}
+
+const imprintRuinsRitualCenter = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'ruins') return
+  const node = macro.nodes.find(candidate => candidate.kind === 'objective')
+  if (!node) throw new Error(`missing Ruins ritual center: ${macro.recipeId}`)
+  const point = { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) }
+  for (const [x, y] of cardinalOffsets) setKind(floor, point.x + x, point.y + y, 'floor')
+  setKind(floor, point.x, point.y, 'altar')
 }
 
 const imprintCavernTideRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -474,6 +519,17 @@ const imprintWildsPressureRoute = (floor: Floor, macro: MacroRecipeDebug): void 
   const route = cells.slice(start, start + 7)
   if (route.length < 3) throw new Error(`short Wilds pressure route: ${macro.recipeId}`)
   for (let index = 0; index < route.length; index++) setKind(floor, route[index].x, route[index].y, index % 2 === 0 ? 'water' : 'web')
+}
+
+const imprintRuinsWardRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'ruins') return
+  const edge = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
+  if (!edge) throw new Error(`missing Ruins ward route: ${macro.recipeId}`)
+  const cells = edge.cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor')
+  const start = Math.max(0, Math.floor(cells.length / 2) - 3)
+  const route = cells.slice(start, start + 7)
+  if (route.length < 3) throw new Error(`short Ruins ward route: ${macro.recipeId}`)
+  for (let index = 0; index < route.length; index++) if (index % 2 === 0) setKind(floor, route[index].x, route[index].y, 'dart')
 }
 
 const imprintCavernSetpieceContext = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -534,7 +590,7 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
 
 interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[] }
 const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
-  mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['water', 'current', 'darkness'], ruins: ['dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
+  mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['water', 'current', 'darkness'], ruins: ['altar', 'dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
 }
 const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (point: Point) => boolean = () => true): PlacementContext => {
   const nodeKinds = new Map<string, RouteNodeKind[]>()
@@ -948,7 +1004,7 @@ function decorateFrostReliquary(floor: Floor, rng: Rng): void {
 
 function placeEvents(floor: Floor, rooms: Room[], runtime: PlacementRuntime): void {
   const eventRoom = rooms[floor.biome === 'ruins' && rooms.length > 2 ? 1 : Math.max(1, Math.floor(rooms.length / 2))]
-  const nodeKinds: RouteNodeKind[] = floor.index % 4 === 0 ? ['landmark'] : floor.index % 4 === 1 ? ['fork'] : ['objective']
+  const nodeKinds: RouteNodeKind[] = floor.biome === 'ruins' ? floor.index % 4 === 0 ? ['landmark'] : floor.index % 4 === 1 ? ['fork'] : floor.index % 4 === 2 ? ['optionalReward'] : ['landmark'] : floor.index % 4 === 0 ? ['landmark'] : floor.index % 4 === 1 ? ['fork'] : ['objective']
   const node = runtime.pilot ? runtime.macro.nodes.find(candidate => nodeKinds.includes(candidate.kind)) : undefined
   const fallback = node ? { x: node.footprint.x + Math.floor(node.footprint.width / 2), y: node.footprint.y + Math.floor(node.footprint.height / 2) } : center(eventRoom)
   const point = choosePlacement(floor, runtime, { id: `event:${floor.index}`, requirements: runtime.pilot ? { nodeKinds, minDistance: 5, near: fallback, nearDistance: 0 } : { near: fallback, nearDistance: 3 }, ...(runtime.pilot ? { fallback: { near: fallback, nearDistance: 3 } } : {}) })
@@ -1097,6 +1153,18 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
     floor.actors.push(actor)
     directed.push(encounter)
   }
+  if (floor.biome === 'ruins' && areaFloor !== 3 && !floor.actors.some(actor => actor.kind === 'wardacolyte')) {
+    const acolyte = definitions.find(definition => definition.id === 'wardacolyte')
+    const terrain = acolyte ? terrainAffinityFor(acolyte).filter(kind => nativeActorTerrain.ruins.includes(kind)) : []
+    if (!acolyte || !terrain.length) throw new Error('Ruins ward post lacks terrain affinity')
+    const point = choosePlacement(floor, runtime, { id: `actor:tactical:${floor.index}:ward-post:wardacolyte`, requirements: { terrain, minDistance: 8 }, fallback: { terrain: ['floor'], minDistance: 8 } }, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
+    if (!point) throw new Error(`failed placement Ruins ward post: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
+    const encounter = { id: `tactical:${floor.index}:ward-post`, archetype: 'objectiveDefense' as const, leader: true, answer: 'break line of sight and interrupt the ward' }
+    const actor = spawnMonster(acolyte.id, point, `${acolyte.id}-ward-post`, floor.difficulty)
+    actor.encounter = encounter
+    floor.actors.push(actor)
+    directed.push(encounter)
+  }
   if (floor.index % 4 === 3) {
     const guardian = definitions.find(monster => monster.ai === 'guardian')!
     const actor = spawnMonster(guardian.id, floor.exit, `${guardian.id}-99`, floor.difficulty)
@@ -1108,9 +1176,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
 
 function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const profile = ecologyProfileFor(floor.biome)
-  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds') && runtime.pilot
+  const pressureRoute = (floor.biome === 'caverns' || floor.biome === 'wilds' || floor.biome === 'ruins') && runtime.pilot
   const contract: PlacementContract = pressureRoute
-    ? { id: `ecology:${profile.kind}`, requirements: { terrain: ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: ['water'], minDistance: 7 } }
+    ? { id: `ecology:${profile.kind}`, requirements: { terrain: floor.biome === 'ruins' ? ['dart'] : ['water'], edgeModes: ['costly', 'optional'], optional: true, minDistance: 7 }, fallback: { terrain: floor.biome === 'ruins' ? ['dart'] : ['water'], minDistance: 7 } }
     : { id: `ecology:${profile.kind}`, requirements: { terrain: profile.terrain, minDistance: 7, chokepoint: false }, fallback: { terrain: ['floor'], minDistance: 7, chokepoint: false } }
   const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.start.x || candidate.y !== floor.start.y) && (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y))
   if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
