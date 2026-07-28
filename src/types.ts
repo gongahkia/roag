@@ -19,6 +19,11 @@ export type CourierCalling = 'trailguard' | 'pathmaker' | 'spiritbearer'
 export type DeathMode = 'checkpoint' | 'ironTrail'
 export type Alignment = 'kami' | 'villagePact'
 export type DeliveryEnding = Alignment | 'both' | 'plain'
+export type SocialFaction = 'trailfolk' | 'kami'
+export type SocialRole = 'trader' | 'strandedExplorer' | 'rival' | 'caretaker' | 'ritualist' | 'territorialGroup'
+export type SocialOffer = 'routeReveal' | 'supplyCache' | 'shortcut'
+export type SocialConsequence = 'alliance' | 'hostility' | 'routeChange'
+export type SocialDisposition = 'neutral' | 'allied' | 'hostile'
 export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export const MONSTER_ROLES = ['guard', 'skirmisher', 'artillery', 'controller', 'ambusher', 'pursuer', 'support', 'scavenger', 'apex'] as const
@@ -103,7 +108,8 @@ export interface Prop {
   effectCells?: Point[]
   expiresAt?: number
 }
-export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState }
+export interface SocialContract { id: string; faction: SocialFaction; role: SocialRole; goal: string; visibility: 'visible' | 'rumored'; offer: SocialOffer; consequence: SocialConsequence; disposition: SocialDisposition }
+export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState; social?: SocialContract }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type RewardMilestoneId = 'waycache' | 'boon-teach' | 'boon-test' | 'boon-payoff'
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean; rewardKey?: RewardMilestoneId }
@@ -224,7 +230,8 @@ export interface RescuedNpc { id: string; name: string; biome: Biome; floor: num
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
 export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
 export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number> }
+export type SocialReputation = Record<SocialFaction, number>
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation }
 
 export interface LegacyRecord {
   id: string
@@ -277,6 +284,7 @@ export interface RunState {
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
   alignment?: Record<Alignment, number>
+  reputation?: SocialReputation
   encyclopedia?: EncyclopediaState
   telemetry?: RunTelemetry
 }

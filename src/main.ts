@@ -334,6 +334,7 @@ function resumeCourier(): void {
 function persistActiveCourier(restoreCheckpoint = false): void {
   if (!activeCourier) return
   if (state?.status === 'playing' && state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
+  if (state?.status === 'playing' && state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
   activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
   if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
   activeCourier.campaign = campaign
@@ -403,6 +404,7 @@ function start(): void {
   hubNotice = undefined
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
   state.alignment = { ...campaign.alignment }
+  state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   activeCourier.heir = structuredClone(state.hero)
@@ -528,6 +530,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
       next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
       next.telemetry = structuredClone(completedState.telemetry!)
       next.alignment = { ...(completedState.alignment ?? campaign.alignment) }
+      next.reputation = { ...(completedState.reputation ?? campaign.reputation ?? { trailfolk: 0, kami: 0 }) }
       state = next
       saved = structuredClone(next)
       route = { ...route, screen: 'level', biome: successor }
@@ -727,6 +730,7 @@ function handleHubInput(key: string, run = false): boolean {
 function finish(won: boolean): void {
   if (!state) return
   if (state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
+  if (state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
   finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
   recordedEnd = true
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'

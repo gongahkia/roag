@@ -1,5 +1,5 @@
 import { ITEM } from '../content'
-import type { Alignment, FloorEncounter, ItemId, RunState } from '../types'
+import type { Actor, Alignment, FloorEncounter, ItemId, RunState } from '../types'
 import { recordTelemetryCount } from '../telemetry'
 import { advance } from './combat'
 import { grantGold } from './economy'
@@ -9,6 +9,7 @@ import { boonRank } from './buildcraft'
 import { settleCurseAfterEncounter } from './curses'
 import { addCondition } from './conditions'
 import { tend } from './alignment'
+import { adjustSocialReputation, socialDispositionFor } from '../social-contract'
 
 export interface EncounterOption { label: string; detail: string; available: boolean }
 
@@ -79,6 +80,21 @@ const grantItem = (state: RunState, id: string): void => {
 }
 const grantContextGold = (state: RunState, amount: number): void => { grantGold(state, amount + (state.floor.difficulty?.threat ?? 0) * 5) }
 const contextualCost = (state: RunState, amount: number): number => amount + (state.floor.difficulty?.threat ?? 0) * 3
+const socialOfferDetail = (source: FloorEncounter): string => source.social?.offer === 'supplyCache' ? 'Gain a rope bundle and mark the cache.' : source.social?.offer === 'shortcut' ? 'Open one nearby locked route, if present.' : 'Reveal the remaining route.'
+const applySocialOffer = (state: RunState, source: FloorEncounter): void => {
+  if (source.social?.offer === 'supplyCache') grantItem(state, 'ropeBundle')
+  else if (source.social?.offer === 'shortcut') {
+    const shortcut = state.floor.tiles.find(tile => tile.kind === 'lockedDoor')
+    if (shortcut) shortcut.kind = 'door'
+    else state.floor.tiles.forEach(tile => { tile.explored = true })
+  } else state.floor.tiles.forEach(tile => { tile.explored = true })
+  refreshFov(state)
+}
+const socialHostile = (state: RunState, source: FloorEncounter): void => {
+  const social = source.social!
+  const actor: Actor = { id: `social-hostile:${source.id}`, role: 'ally', kind: 'ally', name: `${social.faction === 'kami' ? 'Offended ritualist' : 'Angered trail rival'}`, x: source.x, y: source.y, health: 12, maxHealth: 12, attack: 4, defense: 9, speed: 90, energy: 0, glyph: '!', color: social.faction === 'kami' ? '#b6d8ff' : '#f7c677', hostile: true, ai: 'chase', tags: ['social', social.faction, social.role], status: [`social:${social.id}:hostile`] }
+  state.floor.actors.push(actor)
+}
 const resolve = (state: RunState, source: FloorEncounter, outcome: string, events: ActionResult): ActionResult => {
   source.state = 'resolved'
   state.modal = undefined
@@ -96,6 +112,15 @@ const resolve = (state: RunState, source: FloorEncounter, outcome: string, event
 }
 
 export const encounterOptions = (state: RunState, source: FloorEncounter): EncounterOption[] => {
+  if (source.social) {
+    const disposition = socialDispositionFor(state.reputation, source.social.faction)
+    const ally = disposition === 'hostile' ? 'MAKE AMENDS' : 'HONOR THE OFFER'
+    return [
+      { label: ally, detail: `${source.social.goal}; ${socialOfferDetail(source)}`, available: true },
+      { label: 'PRESS THE CLAIM', detail: `Lose standing with ${source.social.faction}; they become hostile.`, available: true },
+      { label: 'LEAVE', detail: 'Leave this local concern untouched.', available: true }
+    ]
+  }
   const alignment = alignmentProfileFor(source.kind)
   if (alignment) {
     const cost = alignment.cost === 'health' ? `Lose ${alignment.value} HP` : alignment.cost === 'focus' ? `Spend ${alignment.value} focus` : `Spend ${alignment.value} cash`
@@ -250,6 +275,26 @@ const resolveAlignmentEncounter = (state: RunState, source: FloorEncounter, inde
   return resolve(state, source, 'leave', [event('menu')])
 }
 
+const resolveSocialEncounter = (state: RunState, source: FloorEncounter, index: number): ActionResult | undefined => {
+  const social = source.social
+  if (!social) return undefined
+  if (index === 0) {
+    source.social = { ...social, disposition: 'allied' }
+    state.reputation = adjustSocialReputation(state.reputation, social.faction, 1)
+    applySocialOffer(state, source)
+    log(state, `${social.faction} marks a route for you.`)
+    return resolve(state, source, 'allied', advance(state, [event('pickup')]))
+  }
+  if (index === 1) {
+    source.social = { ...social, disposition: 'hostile' }
+    state.reputation = adjustSocialReputation(state.reputation, social.faction, -1)
+    socialHostile(state, source)
+    log(state, `${social.faction} turns hostile over the route.`)
+    return resolve(state, source, 'hostile', advance(state, [event('encounter')]))
+  }
+  return resolve(state, source, 'leave', [event('menu')])
+}
+
 export const chooseEncounter = (state: RunState, encounterId: string, command: string): ActionResult => {
   const source = encounter(state, encounterId)
   if (!source) return []
@@ -257,6 +302,8 @@ export const chooseEncounter = (state: RunState, encounterId: string, command: s
   const option = encounterOptions(state, source)[index]
   if (!option) return []
   if (!option.available) { log(state, 'You cannot meet that cost.'); return [event('menu')] }
+  const social = resolveSocialEncounter(state, source, index)
+  if (social) return social
   const alignment = resolveAlignmentEncounter(state, source, index)
   if (alignment) return alignment
   const expansion = resolveExpansionEncounter(state, source, index)

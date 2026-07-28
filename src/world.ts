@@ -11,6 +11,7 @@ import { selectPlacement, type PlacementContext, type PlacementContract, type Pl
 import { definitionForEncounter, encounterPlansFor, membersForEncounter } from './encounter-director'
 import { ecologyEventFor, ecologyProfileFor } from './ecology'
 import { escalationFor } from './escalation'
+import { socialContractFor } from './social-contract'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -567,7 +568,8 @@ function placeEncounters(floor: Floor, rng: Rng, runtime: PlacementRuntime): voi
       : floor.biome === 'saltFlats' ? ['sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', ...aligned.saltFlats]
         : floor.biome === 'frostReliquary' ? ['iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', ...aligned.frostReliquary]
           : ['wayfarer', 'bloodBargain', 'shiftingChamber', 'oathwell', 'cursedObject', ...aligned[floor.biome]]
-  floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: rng.pick(kinds), ...point, state: 'dormant' }]
+  const social = socialContractFor({ seed: floor.seed, floorIndex: floor.index, biome: floor.biome, recipeId: floor.layoutId, arcId: floor.escalation?.arcId })
+  floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: social ? 'wayfarer' : rng.pick(kinds), ...point, state: 'dormant', ...(social ? { social } : {}) }]
 }
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
