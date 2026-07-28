@@ -1,6 +1,7 @@
 import './style.css'
 import { AudioBus } from './audio'
 import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayTraceFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
+import { autoplayReplayMetadata } from './autoplay-runner'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
@@ -802,6 +803,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
     recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
     autoplayTrace.push({
       turn: autoplayBefore.turn,
+      replay: autoplayReplayMetadata(autoplayBefore),
       fingerprint: autoplayFingerprint,
       command,
       reason: options.autoplay.reason,

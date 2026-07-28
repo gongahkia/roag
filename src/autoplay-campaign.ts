@@ -1,7 +1,7 @@
 import { runAutoplay, type AutoplayOutcome, type AutoplayReport } from './autoplay-runner'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
-import type { AutoplayMode, AutoplayPolicy, AutoplayTraceEntry, Biome } from './types'
+import type { AutoplayMode, AutoplayPolicy, AutoplayReplayMetadata, AutoplayTraceEntry, Biome } from './types'
 
 export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = [7, 42, 99, 123, 256, 512, 999, 1337, 4096, 77123, 11, 17, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211]
 export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = 38_400
@@ -12,7 +12,7 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
-export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'command' | 'reason' | 'events'>> }
+export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>> }
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
@@ -43,8 +43,9 @@ const failure = (report: AutoplayReport): CampaignAutoplayFailure => ({
   finalBiome: report.finalBiome,
   floor: report.floor,
   completedAreas: [...report.completedAreas],
+  replay: { ...report.replay },
   ...(report.stall?.lastReason ? { reason: report.stall.lastReason } : report.error ? { reason: report.error } : {}),
-  trace: report.trace.slice(-24).map(({ turn, command, reason, events }) => ({ turn, command, reason, events: [...events] }))
+  trace: report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] }))
 })
 
 export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutoplayProfile, report: AutoplayReport): CampaignAutoplayRun => ({
@@ -79,7 +80,7 @@ export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions =
   const runs: CampaignAutoplayRun[] = []
   const total = CAMPAIGN_AUTOPLAY_SEEDS.length * CAMPAIGN_AUTOPLAY_PROFILES.length
   for (const seed of CAMPAIGN_AUTOPLAY_SEEDS) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
-    const report = runAutoplay(newSeededCampaignRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: options.captureTrace ?? false, traceLimit: 24 })
+    const report = runAutoplay(newSeededCampaignRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
     const current = compactCampaignAutoplayRun(seed, profile, report)
     runs.push(current)
     options.onRun?.(current, runs.length, total)

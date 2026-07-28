@@ -3,6 +3,8 @@ import { availableParallelism } from 'node:os'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CAMPAIGN_AUTOPLAY_PROFILES, CAMPAIGN_AUTOPLAY_SEEDS, campaignAutoplayDelta, campaignAutoplaySuite, type CampaignAutoplayRun, type CampaignAutoplaySuite } from '../src/autoplay-campaign'
+import { autoplayReplayMetadata } from '../src/autoplay-runner'
+import { newSeededCampaignRun } from '../src/engine'
 import { campaignOrderForSeed } from '../src/engine/campaign'
 
 const baselinePath = resolve('scripts/autoplay-campaign-baseline.json')
@@ -17,9 +19,10 @@ if (!Number.isInteger(workerTimeout) || workerTimeout < 1_000) throw new Error(`
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) as CampaignAutoplaySuite : undefined
 const jobs = CAMPAIGN_AUTOPLAY_SEEDS.flatMap(seed => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ seed, profile })))
 const timedOutRun = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[number]): CampaignAutoplayRun => {
+  const initial = newSeededCampaignRun(seed)
   const areaOrder = campaignOrderForSeed(seed)
   const finalBiome = areaOrder[0]
-  return { seed, profile: profile.id, mode: profile.mode, policy: profile.policy, areaOrder, campaignComplete: false, outcome: 'turn-limit', turns: 0, finalBiome, floor: 1, completedAreas: [], failure: { outcome: 'turn-limit', finalBiome, floor: 1, completedAreas: [], reason: `worker wall-time limit (${workerTimeout}ms)`, trace: [] } }
+  return { seed, profile: profile.id, mode: profile.mode, policy: profile.policy, areaOrder, campaignComplete: false, outcome: 'turn-limit', turns: 0, finalBiome, floor: 1, completedAreas: [], failure: { outcome: 'turn-limit', finalBiome, floor: 1, completedAreas: [], replay: autoplayReplayMetadata(initial), reason: `worker wall-time limit (${workerTimeout}ms)`, trace: [] } }
 }
 const run = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[number]): Promise<CampaignAutoplayRun> => new Promise((resolveRun, reject) => {
   const child = spawn(resolve('node_modules/.bin/tsx'), [resolve('scripts/autoplay-campaign-worker.ts')], { env: { ...process.env, CAMPAIGN_AUTOPLAY_SEED: String(seed), CAMPAIGN_AUTOPLAY_PROFILE: profile.id, CAMPAIGN_AUTOPLAY_TRACE: captureTrace ? '1' : '0' }, stdio: ['ignore', 'pipe', 'pipe'] })

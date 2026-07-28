@@ -1028,7 +1028,7 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
     const lethal = foe.health <= estimatedDamage
     const safeExchange = state.hero.health > foe.attack * 2 + 4 && hostilePressure(state, mode, state.hero) < 180
     const rangedFinish = objectiveComplete && foe.ai === 'ranged' && state.hero.health > foe.attack + 4
-    if (lethal || safeExchange || rangedFinish || foe.role === 'guardian') return { command: directionCommands[direction], reason: `melee:${foe.id}`, score: lethal ? 176 : safeExchange || rangedFinish ? 164 : foe.role === 'guardian' ? 82 : 64 }
+    if (lethal || safeExchange || rangedFinish || foe.role === 'guardian') return { command: directionCommands[direction], reason: foe.encounter?.archetype === 'nativeTerrainPack' ? `dislodge native pack:${foe.id}` : `melee:${foe.id}`, score: lethal ? 176 : safeExchange || rangedFinish ? 164 : foe.role === 'guardian' ? 82 : 64 }
   }
   const exitThreat = objectiveComplete && state.floor.biome !== 'ruins' ? foes.find(foe => foe.ai === 'ranged') : undefined
   const threatRoute = exitThreat ? stepTo(state, mode, adjacentCells(exitThreat), false, false) : undefined
@@ -1329,8 +1329,10 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   }
   if (objectiveComplete) {
     const milestones = policy === 'explore' ? state.floor.milestones.filter(current => !current.claimed && (mode === 'omniscient' || current.discovered)) : []
-    const milestoneRoute = stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
-    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 230 })
+    const optionalMilestones = milestones.filter(current => current.rewardKey !== undefined)
+    const optionalRoute = stepTo(state, mode, optionalMilestones.flatMap(current => adjacentCells(current)), false, true)
+    const milestoneRoute = optionalRoute ?? stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
+    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: optionalRoute ? 'explore optional reward' : 'explore milestone', score: optionalRoute ? 250 : 245 })
     const exitRoute = stepTo(state, mode, [state.floor.exit], false, policy !== 'clear')
     const predictiveExit = policy === 'clear' && breaksPositionCycle(context) ? predictiveRouteStep(state, mode, [state.floor.exit], false, new Set(context.recentPositions.slice(-12))) : undefined
     const terrainExit = !exitRoute && !predictiveExit && state.floor.biome !== 'mine' ? terrainRouteMove(state, [state.floor.exit]) : undefined
@@ -1342,8 +1344,10 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     }
   } else {
     const milestones = policy === 'explore' ? state.floor.milestones.filter(current => !current.claimed && (mode === 'omniscient' || current.discovered)) : []
-    const milestoneRoute = stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
-    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: 'explore milestone', score: 180 })
+    const optionalMilestones = milestones.filter(current => current.rewardKey !== undefined)
+    const optionalRoute = stepTo(state, mode, optionalMilestones.flatMap(current => adjacentCells(current)), false, true)
+    const milestoneRoute = optionalRoute ?? stepTo(state, mode, milestones.flatMap(current => adjacentCells(current)), false, true)
+    if (milestoneRoute) candidates.push({ command: milestoneRoute.command, reason: optionalRoute ? 'explore optional reward' : 'explore milestone', score: optionalRoute ? 185 : 180 })
     const collectForObjective = policy !== 'clear' || needsOffering
     const items = collectForObjective ? state.floor.items.filter(current => isKnownItem(state, mode, current, Boolean(current.visibleInFog)) && canPick(current) && (!needsOffering || current.id === 'gold')).map(current => ({ x: current.x, y: current.y })) : []
     const itemRoute = stepTo(state, mode, items)
