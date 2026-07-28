@@ -2,6 +2,7 @@ import { floorPoint, type Actor, type GuardianPhase, type RunState, type TileKin
 import { rngFor } from '../rng'
 import { actorAt, getTile, preservesExitPath } from '../world'
 import { log } from './shared'
+import { bossContractForGuardian } from './boss-contracts'
 
 export type ArenaPhase = 'stable' | 'hazard' | 'collapse'
 export interface GuardianTransition { from: GuardianPhase; to: GuardianPhase; arena: ArenaPhase; tile: TileKind }
@@ -9,10 +10,8 @@ export interface GuardianTransition { from: GuardianPhase; to: GuardianPhase; ar
 export const guardianPhaseFor = (guardian: Actor): GuardianPhase => guardian.health * 3 <= guardian.maxHealth ? 'cataclysm' : guardian.health * 3 <= guardian.maxHealth * 2 ? 'pressure' : 'opening'
 export const arenaPhaseFor = (phase: GuardianPhase): ArenaPhase => phase === 'opening' ? 'stable' : phase === 'pressure' ? 'hazard' : 'collapse'
 const arenaTileFor = (guardian: Actor, phase: GuardianPhase): TileKind => {
-  if (guardian.kind === 'foreman') return phase === 'pressure' ? 'rail' : 'crumble'
-  if (guardian.kind === 'heartwood') return phase === 'pressure' ? 'bramble' : 'water'
-  if (guardian.kind === 'geode') return phase === 'pressure' ? 'gas' : 'lava'
-  if (guardian.kind === 'regent') return phase === 'pressure' ? 'dart' : 'darkness'
+  const contract = bossContractForGuardian(guardian.kind)
+  if (contract && phase !== 'opening') return contract.phases[phase].terrain
   return phase === 'pressure' ? 'gas' : 'fireVent'
 }
 

@@ -545,5 +545,5 @@ function dropLoot(state: RunState, actor: Actor): void {
   const tables: Record<Biome, ItemId[]> = {
     mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune'], furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'cinderHammer', 'smokeKnife'], floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'anchorBlade', 'tideCutter'], cliffs: ['cliffSpool', 'thunderJar', 'skyMap', 'windhook', 'galeMantle'], burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell'], saltFlats: ['tonic', 'focusTonic', 'fireJar', 'blink', 'pull', 'mapScroll', 'bridgeKit', 'reedGlider'], frostReliquary: ['tonic', 'focusTonic', 'ward', 'mend', 'sight', 'blink', 'grappleLine', 'mail']
   }
-  if (actor.role === 'guardian' || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
+  if (actor.role === 'guardian' || actor.status?.includes('elite') || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
 }
