@@ -419,7 +419,8 @@ const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (po
   }
 }
 const choosePlacement = (floor: Floor, runtime: PlacementRuntime, contract: PlacementContract, eligible?: (point: Point) => boolean): Point | undefined => {
-  const selection = selectPlacement(contract, placementContext(floor, runtime, point => reachableFloorIndexes(floor).has(indexOf(floor, point.x, point.y)) && (eligible?.(point) ?? true)))
+  const reachable = reachableFloorIndexes(floor)
+  const selection = selectPlacement(contract, placementContext(floor, runtime, point => reachable.has(indexOf(floor, point.x, point.y)) && (eligible?.(point) ?? true)))
   runtime.diagnostics.push(selection.debug)
   return selection.point
 }
@@ -891,8 +892,9 @@ function placeActors(floor: Floor, rng: Rng, runtime: PlacementRuntime): void {
       if (member > 0 && !leader) break
       const definition = definitionForEncounter(regular, plan, member, nativeActorTerrain[floor.biome])
       if (!definition) continue
-      const requirements = member === 0 ? plan.requirements : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 5 }
-      const fallback = member === 0 ? plan.fallback : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 8 }
+      const affinity = plan.archetype === 'nativeTerrainPack' && member === 0 ? terrainAffinityFor(definition).filter(kind => nativeActorTerrain[floor.biome].includes(kind)) : undefined
+      const requirements = member === 0 ? affinity?.length ? { ...plan.requirements, terrain: affinity } : plan.requirements : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 5 }
+      const fallback = member === 0 ? affinity?.length ? { ...plan.fallback, terrain: affinity } : plan.fallback : { minDistance: 7, chokepoint: false, near: leader!, nearDistance: 8 }
       const contract: PlacementContract = { id: `actor:${id}:${member}:${definition.id}`, requirements, fallback }
       const point = choosePlacement(floor, runtime, contract, candidate => (candidate.x !== floor.exit.x || candidate.y !== floor.exit.y) && (candidate.x !== floor.start.x || candidate.y !== floor.start.y))
       if (!point) continue

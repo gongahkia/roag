@@ -42,5 +42,6 @@ export const definitionForEncounter = (definitions: readonly MonsterDefinition[]
   const role = plan.roles[member % plan.roles.length]
   const byRole = definitions.filter(definition => monsterRoleFor(definition) === role)
   const native = plan.archetype === 'nativeTerrainPack' ? byRole.filter(definition => terrainAffinityFor(definition).some(kind => nativeTerrain.includes(kind))) : byRole
-  return native[0] ?? byRole[0] ?? definitions.find(definition => plan.archetype !== 'nativeTerrainPack' || terrainAffinityFor(definition).some(kind => nativeTerrain.includes(kind))) ?? definitions[0]
+  const anyNative = definitions.find(definition => terrainAffinityFor(definition).some(kind => nativeTerrain.includes(kind)))
+  return native[0] ?? (plan.archetype === 'nativeTerrainPack' ? anyNative : byRole[0]) ?? byRole[0] ?? definitions[0]
 }

@@ -4,7 +4,7 @@ import { newRun, perform, refreshFov } from './engine'
 import { hasLine } from './engine/visibility'
 import { createFloor } from './test/factories'
 import { FLOOR_COUNT } from './types'
-import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, placementDebug, traverseFloor, validateFloor, validateGeneration } from './world'
+import { generateAreaFloor, generateFloor, getTile, hasPassablePath, hasPassableTerrainPath, placementDebug, tacticalEncounterDebug, traverseFloor, validateFloor, validateGeneration } from './world'
 
 const exitReachable = (floor: ReturnType<typeof generateFloor>): boolean => hasPassablePath(floor, floor.start, floor.exit)
 
@@ -54,11 +54,13 @@ describe('expedition generation', () => {
     expect(debug.every(entry => entry.selected || entry.diagnostics.length)).toBe(true)
   })
 
-  it('keeps at least one Wilds enemy on native terrain through its placement contract', () => {
-    const native = placementDebug(generateAreaFloor(42, 'wilds', 0)).filter(entry => entry.id.startsWith('actor:') && entry.selected && !entry.usedFallback)
+  it('keeps a Wilds native-terrain pack on affinity terrain with a readable answer', () => {
+    const floor = generateAreaFloor(42, 'wilds', 0, 3)
+    const native = floor.actors.filter(actor => actor.encounter?.archetype === 'nativeTerrainPack')
     expect(native).not.toHaveLength(0)
-    expect(native.some(entry => entry.requirements.terrain?.some(terrain => terrain === 'water' || terrain === 'web'))).toBe(true)
-  })
+    expect(native.some(actor => actor.encounter?.leader && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))).toBe(true)
+    expect(tacticalEncounterDebug(floor).find(encounter => encounter.archetype === 'nativeTerrainPack')?.answer).toContain('native terrain')
+  }, 30_000)
 
   it('restores Mine contract connectors before floor-four event placement', () => {
     for (let seed = 0; seed < 24; seed++) expect(validateGeneration(generateAreaFloor(seed, 'mine', 3))).toEqual({ valid: true, errors: [] })
