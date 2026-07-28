@@ -6,10 +6,10 @@ import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encou
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
-import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cellRect } from './renderer/metrics'
+import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cameraFrame, cellRect } from './renderer/metrics'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { isTelegraphVisible, presentTelegraph } from './renderer/telegraphs'
-import { biomeVisualGrammar, flowGlyph, showMotionAt, terminalGlyph, terminalTileGlyph, terrainVisual } from './renderer/visual-grammar'
+import { flowGlyph, showMotionAt, terrainInspection, terminalGlyph, terminalTileGlyph, terrainVisual, visualIdentitySnapshot, type VisualIdentityState } from './renderer/visual-grammar'
 import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
@@ -468,9 +468,9 @@ export class TerminalRenderer {
     const boardWidth = MAP_WIDTH * CW
     const boardHeight = MAP_HEIGHT * CH
     if (this.cameraFloor !== state.floor.index) this.recenterCamera()
-    const camera = this.camera ?? state.hero
-    const focusX = (camera.x + .5) * CW
-    const focusY = (camera.y + .5) * CH
+    const frame = cameraFrame(state.floor, this.camera ?? state.hero, this.boardZoom)
+    const focusX = (frame.focus.x + .5) * CW
+    const focusY = (frame.focus.y + .5) * CH
     const centerX = boardWidth / 2
     const centerY = boardHeight / 2
     this.ctx.save()
@@ -638,10 +638,18 @@ export class TerminalRenderer {
 
   private sidebar(state: RunState): void {
     const hero = state.hero
+    const biome = state.area ?? state.floor.biome
+    const identityState: VisualIdentityState = state.floor.actors.some(actor => actor.role === 'guardian' && actor.hostile)
+      ? 'climax'
+      : state.floor.ecology?.some(ecology => ecology.state !== 'resolved')
+        ? 'event'
+        : state.floor.actors.some(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible) || (state.floor.telegraphs ?? []).some(telegraph => isTelegraphVisible(state.floor, telegraph))
+          ? 'threat'
+          : 'normal'
     this.text(50, 1, 'DELIVERY', colors.gold)
-    this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[state.area ?? state.floor.biome]}`, colors.text)
+    this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 45)
-    this.text(50, 4, biomeVisualGrammar[state.area ?? state.floor.biome].legend, colors.dim)
+    this.text(50, 4, visualIdentitySnapshot(biome, identityState).line, colors.dim)
     this.courierSheet(hero)
     const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
     this.text(50, 32, 'ON GROUND', colors.gold)
@@ -661,7 +669,9 @@ export class TerminalRenderer {
     const objective = state.floor.objective
     this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
     const milestones = state.floor.milestones.filter(current => current.discovered && !current.claimed)
-    this.text(50, 45, `MARKS ${milestones.length} seen`, colors.dim)
+    const terrain = getTile(state.floor, hero.x, hero.y)
+    if (terrain) this.text(50, 45, terrainInspection(biome, terrain.kind), colors.dim)
+    this.text(50, 46, `MARKS ${milestones.length} seen`, colors.dim)
     this.boonRelicLists(hero, 48)
   }
 
