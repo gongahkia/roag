@@ -12,11 +12,11 @@ import { chooseEncounter } from './encounters'
 
 const expansionBiomes = ['saltFlats', 'frostReliquary'] as const
 
-describe('Salt Flats and Frost Reliquary content', () => {
+describe('Salt Flats and Frost Basin content', () => {
   it('registers both biomes in the randomized campaign pool', () => {
     expect(BIOME_POOL).toEqual(expect.arrayContaining([...expansionBiomes]))
     expect(biomeName.saltFlats).toBe('Mirror Salt Flats')
-    expect(biomeName.frostReliquary).toBe('Frost Reliquary')
+    expect(biomeName.frostReliquary).toBe('Frost Basin')
     const seen = new Set<number>()
     for (let seed = 1; seed <= 160; seed++) for (const biome of campaignOrderForSeed(seed)) if (expansionBiomes.includes(biome as typeof expansionBiomes[number])) seen.add(expansionBiomes.indexOf(biome as typeof expansionBiomes[number]))
     expect(seen.size).toBe(2)

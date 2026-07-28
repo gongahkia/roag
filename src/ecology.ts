@@ -14,7 +14,7 @@ const profiles: Record<Biome, EcologyProfile> = {
   cliffs: { kind: 'wind', effect: 'ledge', terrain: ['ledge', 'rope'], warning: 'Wind vectors mark the exposed ledge before the squall.', responses: ['hold a rope or anchor', 'leave the marked ledge before the gust'], cleanup: 'The wind drops.' },
   burial: { kind: 'migration', effect: 'spiritPath', terrain: ['spiritPath', 'graveSoil'], warning: 'Ancestor lights mark the disturbed grave lane; follow the violet lanterns or leave the trespass route.', responses: ['follow the marked spirit path', 'leave grave soil before the procession arrives'], cleanup: 'The procession passes on and the grave lane settles.' },
   saltFlats: { kind: 'visibility', effect: 'darkness', terrain: ['saltMirror', 'brine'], warning: 'Heat haze gathers over the mirrored flats; reach a caravan refuge before sight shortens.', responses: ['use the marked caravan refuge', 'leave the mirrored horizon before the haze'], cleanup: 'The heat haze clears and the true horizon returns.' },
-  frostReliquary: { kind: 'nesting', effect: 'ice', terrain: ['ice', 'frostRime'], warning: 'Rime shifts around a fresh nest.', responses: ['leave the rime', 'break the ice line'], cleanup: 'The rime settles.' }
+  frostReliquary: { kind: 'visibility', effect: 'frostRime', terrain: ['ice', 'frostRime'], warning: 'Whiteout gathers across the marked ice; reach a wind shelter or leave the exposed crossing before sight closes.', responses: ['use the marked wind shelter', 'follow trail markers back to the shore'], cleanup: 'The whiteout lifts and the pressure crack settles.' }
 }
 
 const tileAt = (floor: Floor, point: Point): Tile | undefined => inFloorBounds(floor, point.x, point.y) ? floor.tiles[floorIndex(floor, point.x, point.y)] : undefined
