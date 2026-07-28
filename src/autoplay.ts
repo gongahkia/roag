@@ -1352,10 +1352,10 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const containerRoute = collectForObjective ? stepTo(state, mode, containers.flatMap(adjacentCells)) : undefined
     if (containerRoute) candidates.push({ command: containerRoute.command, reason: 'reach container', score: needsOffering ? 145 : 43 })
     const frontier = hasObjectiveRoute && policy === 'clear' ? undefined : explorationMove(state, mode)
-    const terrainFrontier = mode === 'visible' && state.floor.biome !== 'mine' && (context.noProgressTurns >= 12 || breaksPositionCycle(context) || context.loopRecoveries > 0)
+    const terrainFrontier = !frontier && mode === 'visible' && state.floor.biome !== 'mine' && (context.noProgressTurns >= 12 || breaksPositionCycle(context) || context.loopRecoveries > 0)
       ? terrainRouteMove(state, state.floor.tiles.flatMap((tile, index) => !tile.explored && passable(state, 'omniscient', floorPoint(state.floor, index), false, false) ? [floorPoint(state.floor, index)] : []))
       : undefined
-    if (frontier || terrainFrontier) candidates.push(terrainFrontier ? { ...terrainFrontier, reason: 'survey frontier', score: 24 } : frontier!)
+    if (frontier || terrainFrontier) candidates.push(frontier ?? { ...terrainFrontier!, reason: 'survey frontier', score: 24 })
   }
   return candidates
 }

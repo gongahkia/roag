@@ -156,7 +156,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   const biome = biomeForFloor(index)
   const areaFloor = index % 4
   const escalation = escalationFor(runSeed, biome, areaFloor)
-  const layoutRng = rngFor(runSeed, 'generation', index, 'layout', escalation.arcId)
+  const layoutRng = rngFor(runSeed, 'generation', index, 'layout')
   const layoutId = layoutFor(runSeed, biome, areaFloor)
   const routeContract = generateRouteContract({ campaignSeed: runSeed, floorIndex: index, biome, areaFloor, recipeId: layoutId, escalationVariant: `${escalation.arcId}:${escalation.phase}` })
   const routeValidation = validateRouteContract(routeContract)
@@ -193,8 +193,8 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   floor.start = center(rooms[0])
   floor.exit = center(rooms[rooms.length - 1])
   setKind(floor, floor.exit.x, floor.exit.y, 'exit')
-  decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain'), rooms)
-  placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle', escalation.arcId), rooms)
+  decorateBiome(floor, rngFor(runSeed, 'generation', index, 'terrain', escalation.arcId), rooms)
+  placePuzzleTemplate(floor, rngFor(runSeed, 'generation', index, 'puzzle'), rooms)
   imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   placeEvents(floor, rooms, placements)
@@ -204,7 +204,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   repairMandatoryPath(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
-  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors', escalation.arcId), placements)
+  placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
   placeEcology(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
@@ -214,7 +214,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   assertGenerationPhase(floor, runSeed, routeContract, 'props')
   placeMilestones(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'milestones')
-  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters', escalation.arcId), placements)
+  placeEncounters(floor, rngFor(runSeed, 'generation', index, 'encounters'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'encounters')
   macroDebugs.set(floor, macro)
   macroPilots.set(floor, macroRecipeFor(routeContract).pilot)
@@ -246,7 +246,7 @@ const layoutVariants: Record<Biome, readonly string[]> = {
 }
 const dimensionsFor = (biome: Biome) => dimensions[biome]
 export const layoutFor = (runSeed: number, biome: Biome, areaFloor: number): string => {
-  const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck', escalationFor(runSeed, biome, areaFloor).arcId).shuffle([...layoutVariants[biome]])
+  const deck = rngFor(runSeed, 'generation', areaFloorIndex(biome, 0), 'layout-deck').shuffle([...layoutVariants[biome]])
   return areaFloor < deck.length ? deck[areaFloor] : `${deck[(areaFloor + runSeed) % deck.length]}-remix`
 }
 
