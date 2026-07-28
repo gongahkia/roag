@@ -188,7 +188,7 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'ropeRaider', name: 'Rope Raider', glyph: 'r', color: '#d8b66f', health: 23, attack: 12, defense: 17, speed: 110, ai: 'chase', xp: 62, biome: 'cliffs', tags: ['cliffs', 'climb', 'hook'] },
   { id: 'galeSeer', name: 'Gale Seer', glyph: 'g', color: '#a8c7ff', health: 17, attack: 13, defense: 15, speed: 105, ai: 'ranged', xp: 67, biome: 'cliffs', tags: ['cliffs', 'wind', 'telegraph'] },
   { id: 'ledgeStalker', name: 'Ledge Stalker', glyph: 'l', color: '#8398b4', health: 25, attack: 11, defense: 19, speed: 95, ai: 'chase', xp: 66, biome: 'cliffs', tags: ['cliffs', 'climb', 'counterplay'] },
-  { id: 'stormCrow', name: 'Storm Crow', glyph: 'c', color: '#778ec3', health: 15, attack: 14, defense: 14, speed: 145, ai: 'ranged', xp: 70, biome: 'cliffs', tags: ['cliffs', 'wind', 'force'] },
+  { id: 'stormCrow', name: 'Storm Crow', glyph: 'c', color: '#778ec3', health: 15, attack: 14, defense: 14, speed: 145, ai: 'ranged', xp: 70, biome: 'cliffs', tags: ['cliffs', 'wind', 'force'], terrainAffinity: ['ledge'] },
   { id: 'cragMoth', name: 'Crag Moth', glyph: 'm', color: '#ccd7eb', health: 16, attack: 12, defense: 15, speed: 140, ai: 'wander', xp: 58, biome: 'cliffs', tags: ['cliffs', 'wind', 'light'] },
   { id: 'screeHound', name: 'Scree Hound', glyph: 'h', color: '#8b99aa', health: 27, attack: 13, defense: 18, speed: 110, ai: 'chase', xp: 72, biome: 'cliffs', tags: ['cliffs', 'force', 'counterplay'] },
   { id: 'wireSinger', name: 'Wire Singer', glyph: 'w', color: '#adc9ed', health: 18, attack: 14, defense: 16, speed: 100, ai: 'ranged', xp: 74, biome: 'cliffs', tags: ['cliffs', 'wind', 'telegraph'] },

@@ -32,6 +32,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
   if (direction === 'wait') return advance(state, [event('move')])
   if (hasCondition(state.hero, 'rooted')) { log(state, 'Roots hold you in place.'); return advance(state, [event('danger')]) }
+  const windLimited = getTile(state.floor, state.hero.x, state.hero.y)?.flow?.hazard === 'squall'
   const x = state.hero.x + delta.x
   const y = state.hero.y + delta.y
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
@@ -40,7 +41,7 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   const tags = [...trailcraftTags(state.hero).filter(id => id === 'flintTemper' || id === 'windKnot' || id === 'sunstride' || id === 'prismLedger' || id === 'rimeEdge' || id === 'iceNerve'), ...Object.keys(state.hero.boons ?? {}).filter(id => boonRank(state, id) > 0).map(id => `boon:${id}`)]
   const items = Object.values(state.hero.equipment).filter((id): id is string => Boolean(id))
   const synergy = resolveSynergies({ items, skills: state.hero.skills, tags }, { range: Math.max(1, Math.floor(modified.range ?? profile.reach)) })
-  const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
+  const targets = actionCells(profile.shape, state.hero, direction, Math.max(1, Math.floor(synergy.values.range ?? profile.reach) - (windLimited ? 1 : 0))).map(point => actorAt(state.floor, point.x, point.y)).filter((target): target is Actor => Boolean(target?.hostile))
   if (targets.length) { announceSynergies(state, synergy); return heroAttack(state, targets, weapon?.id, Math.max(1, Math.floor(synergy.values.damage ?? modified.damage ?? profile.damage)), Math.max(0, Math.floor(modified.cooldown ?? profile.cooldown))) }
   let tile = getTile(state.floor, x, y)
   if (!tile) return []
@@ -237,9 +238,10 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
 const resolveFlows = (state: RunState, events: ActionResult): void => {
   const push = (target: { x: number; y: number; health?: number; hostile?: boolean; name?: string }, isHero: boolean): void => {
     const tile = getTile(state.floor, target.x, target.y)
-    if (tile?.kind !== 'current' || !tile.flow) return
-    const braced = isHero && (state.hero.traversalTools?.includes('cordAnchor') ?? false) && Object.values(DIRECTIONS).some(delta => getTile(state.floor, target.x + delta.x, target.y + delta.y)?.kind === 'anchor')
-    if (braced) { log(state, 'Your cord holds at the anchor.'); return }
+    const squall = tile?.kind === 'ledge' && tile.flow?.hazard === 'squall'
+    if ((!squall && tile?.kind !== 'current') || !tile?.flow) return
+    const braced = isHero && (state.hero.traversalTools?.includes('cordAnchor') ?? false) && Object.values(DIRECTIONS).some(delta => ['anchor', 'rope'].includes(getTile(state.floor, target.x + delta.x, target.y + delta.y)?.kind ?? 'wall'))
+    if (braced) { log(state, 'Your cord holds at the rope anchor.'); return }
     const delta = DIRECTIONS[tile.flow.direction]
     const destination = { x: target.x + delta.x, y: target.y + delta.y }
     const downstream = getTile(state.floor, destination.x, destination.y)
@@ -247,9 +249,9 @@ const resolveFlows = (state: RunState, events: ActionResult): void => {
     if (!blocked) {
       target.x = destination.x
       target.y = destination.y
-      log(state, isHero ? 'The current carries you downstream.' : `${target.name} is carried downstream.`)
+      log(state, squall ? isHero ? 'The squall drives you along the ledge.' : `${target.name} is driven along the ledge.` : isHero ? 'The current carries you downstream.' : `${target.name} is carried downstream.`)
     }
-    if (tile.flow.hazard === 'undertow' || downstream?.kind === 'deepWater' || downstream?.kind === 'brine') {
+    if (!squall && (tile.flow.hazard === 'undertow' || downstream?.kind === 'deepWater' || downstream?.kind === 'brine')) {
       if (isHero) events.push(...damageHero(state, Math.max(1, 4 - boonRank(state, 'tideSkin')), 'the undertow', true))
       else if (target.health !== undefined) target.health -= 3
       if (isHero) log(state, 'The marked undertow drags at your footing.')
