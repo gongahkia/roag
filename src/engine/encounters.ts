@@ -198,7 +198,7 @@ export const openEncounter = (state: RunState): ActionResult | undefined => {
   state.modal = { kind: 'encounter', encounterId: source.id }
   const expansion = expansionProfileFor(source.kind)
   const alignment = alignmentProfileFor(source.kind)
-  log(state, alignment ? `${alignment.title} waits for your answer.` : expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
+  log(state, source.social ? `A ${source.social.role} of ${source.social.faction} signals: ${source.social.goal}.` : alignment ? `${alignment.title} waits for your answer.` : expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
   return [event('encounter'), event('menu')]
 }
 
