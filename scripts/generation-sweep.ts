@@ -1,6 +1,7 @@
 import { generateRouteContract } from '../src/route-contract'
 import { escalationFor } from '../src/escalation'
 import { areaFloorIndex, generateAreaFloor, layoutFor, validateGeneration } from '../src/world'
+import type { Biome } from '../src/types'
 
 const seedCount = Number(process.env.GENERATION_SWEEP_SEEDS ?? 1000)
 if (!Number.isInteger(seedCount) || seedCount < 1) throw new Error('GENERATION_SWEEP_SEEDS must be a positive integer')
@@ -8,7 +9,10 @@ const startSeed = Number(process.env.GENERATION_SWEEP_START ?? 0)
 if (!Number.isInteger(startSeed) || startSeed < 0) throw new Error('GENERATION_SWEEP_START must be a non-negative integer')
 const progressEvery = Number(process.env.GENERATION_SWEEP_PROGRESS_EVERY ?? 0)
 if (!Number.isInteger(progressEvery) || progressEvery < 0) throw new Error('GENERATION_SWEEP_PROGRESS_EVERY must be a non-negative integer')
-const migratedBiomes = ['mine'] as const
+const knownBiomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
+const requestedBiomes = (process.env.GENERATION_SWEEP_BIOMES ?? 'mine').split(',').map(biome => biome.trim()).filter(Boolean)
+if (!requestedBiomes.length || requestedBiomes.some(biome => !knownBiomes.includes(biome as Biome))) throw new Error('GENERATION_SWEEP_BIOMES must contain known comma-separated biomes')
+const migratedBiomes = requestedBiomes as Biome[]
 for (const biome of migratedBiomes) for (let seed = startSeed; seed < startSeed + seedCount; seed++) for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
   const recipe = layoutFor(seed, biome, areaFloor)
   const escalation = escalationFor(seed, biome, areaFloor)
