@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { AREA_GATES, gateForArea, gateForRun, resolveAreaGate, validateAreaGate } from './gates'
+import { AREA_GATES, gateAlternativesForRun, gateForArea, gateForRun, resolveAreaGate, validateAreaGate } from './gates'
 import { newRun } from './run'
 
 describe('area gate data model', () => {
+  it('adds traversal-independent alternatives without changing static gate data', () => {
+    const gate = gateForArea('wilds', 'frostReliquary')
+    expect(gate.tagAlternatives.some(option => option.kind === 'body' || option.kind === 'oath')).toBe(false)
+    expect(gateAlternativesForRun(gate)).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'body', cost: { gold: 0, items: [] } }), expect.objectContaining({ kind: 'oath', cost: { gold: 0, items: [] } })]))
+  })
+
   it('defines NPC offering, tag alternatives, cost, and destination for every area', () => {
     for (const [biome, gate] of Object.entries(AREA_GATES)) {
       expect(gate).toMatchObject({ biome, npcOffering: expect.any(String), cost: { gold: expect.any(Number), items: expect.any(Array) }, unlockedDestination: { biome: expect.any(String), floor: expect.any(Number), point: { x: expect.any(Number), y: expect.any(Number) } } })

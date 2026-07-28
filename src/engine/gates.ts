@@ -12,16 +12,20 @@ export type { AreaGate, GateAlternative, GateCost, GateDestination }
 
 export interface GateResolution { resolved: boolean; destination?: Biome; sacrificedNpc?: RescuedNpc; lineageEvent?: LineageEvent; alignment?: Alignment; message: string }
 
+export const gateAlternativesForRun = (gate: AreaGate, surcharge = 0): GateAlternative[] => {
+  const alternatives = [...gate.tagAlternatives]
+  if (!alternatives.some(option => option.kind === 'body')) alternatives.push({ label: 'pay in breath and blood', kind: 'body', tags: ['body'], cost: { gold: 0, items: [] } })
+  if (!alternatives.some(option => option.kind === 'oath')) alternatives.push({ label: 'take an oath burden', kind: 'oath', tags: ['oath'], cost: { gold: 0, items: [] } })
+  return alternatives.map(option => option.cost ? { ...option, cost: { ...option.cost, gold: option.cost.gold + surcharge } } : option)
+}
+
 export const gateForRun = (state: Pick<RunState, 'area' | 'floor' | 'areaOrder'>): AreaGate | undefined => {
   const biome = state.area ?? state.floor.biome
   const destination = nextArea(biome, state.areaOrder)
   if (!destination) return undefined
   const gate = gateForArea(biome, destination)
   const surcharge = (state.floor.difficulty?.threat ?? 0) * 5
-  const alternatives = [...gate.tagAlternatives]
-  if (!alternatives.some(option => option.kind === 'body')) alternatives.push({ label: 'pay in breath and blood', kind: 'body', tags: ['body'], cost: { gold: 0, items: [] } })
-  if (!alternatives.some(option => option.kind === 'oath')) alternatives.push({ label: 'take an oath burden', kind: 'oath', tags: ['oath'], cost: { gold: 0, items: [] } })
-  return { ...gate, cost: { ...gate.cost, gold: gate.cost.gold + surcharge }, tagAlternatives: alternatives.map(option => option.cost ? { ...option, cost: { ...option.cost, gold: option.cost.gold + surcharge } } : option) }
+  return { ...gate, cost: { ...gate.cost, gold: gate.cost.gold + surcharge }, tagAlternatives: gateAlternativesForRun(gate, surcharge) }
 }
 
 const hasFireTag = (state: RunState): boolean => state.hero.inventory.some(item => item === 'fireJar' || item === 'ember')
