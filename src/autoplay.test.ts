@@ -769,6 +769,17 @@ describe('autoplay', () => {
     expect(singleArea.finalBiome).toBe('mine')
   })
 
+  it('preserves social reputation when chaining campaign areas', () => {
+    const state = newRun(7, 'mine', 3)
+    state.reputation = { trailfolk: 2, kami: -1 }
+    state.floor.actors = []
+    state.floor.objective.status = 'complete'
+    state.floor.guardianDefeated = true
+    state.hero.x = state.floor.exit.x
+    state.hero.y = state.floor.exit.y
+    expect(runAutoplay(state, { mode: 'omniscient', policy: 'clear', turnLimit: 1, includeState: true }).state?.reputation).toEqual({ trailfolk: 2, kami: -1 })
+  })
+
   it('replays deterministically without mutating its input', () => {
     const state = newRun(913, 'mine')
     const before = structuredClone(state)

@@ -123,6 +123,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         next.turn = state.turn
         next.lineageEvents = structuredClone(state.lineageEvents ?? [])
         next.telemetry = structuredClone(state.telemetry!)
+        next.reputation = { ...(state.reputation ?? { trailfolk: 0, kami: 0 }) }
         state = next
         context = createAutoplayContext()
         stalled = 0
