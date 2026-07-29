@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -242,6 +242,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintFurnaceServiceSpaces(floor, macro, rngFor(runSeed, 'generation', index, 'furnace-service-spaces'))
   imprintFloodedWhirlpools(floor, macro, rngFor(runSeed, 'generation', index, 'flooded-whirlpools'))
   imprintCliffAlcoves(floor, macro, rngFor(runSeed, 'generation', index, 'cliff-alcoves'))
+  imprintBurialCrypts(floor, macro, rngFor(runSeed, 'generation', index, 'burial-crypts'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -669,49 +670,46 @@ const carveCliffsRouteContractLayout = (floor: Floor, contract: ReturnType<typeo
   return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
 }
 
-const paintBurialCircle = (floor: Floor, center: Point, radiusX: number, radiusY: number): void => {
+const paintBurialMound = (floor: Floor, center: Point, radiusX: number, radiusY: number): void => {
   for (let y = center.y - radiusY; y <= center.y + radiusY; y++) for (let x = center.x - radiusX; x <= center.x + radiusX; x++) {
     const dx = (x - center.x) / radiusX
     const dy = (y - center.y) / radiusY
-    const distance = dx * dx + dy * dy
-    if (distance >= .78 && distance <= 1.22) setKind(floor, x, y, 'cairn')
-    else if (distance < .42 && (x + y) % 3 === 0) setKind(floor, x, y, 'graveSoil')
+    const distance = dx * dx + dy * dy + ((x * 11 + y * 7) % 5 - 2) * .07
+    if (distance >= .73 && distance <= 1.13) setKind(floor, x, y, 'cairn')
+    else if (distance < .46 && (x * 3 + y) % 4 === 0) setKind(floor, x, y, 'graveSoil')
   }
 }
 
-const paintBurialLine = (floor: Floor, from: Point, to: Point, kind: Tile['kind']): void => {
-  if (from.x === to.x) for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) setKind(floor, from.x, y, kind)
-  else for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) setKind(floor, x, from.y, kind)
+const paintBurialProcession = (floor: Floor, points: readonly Point[]): void => {
+  for (let index = 1; index < points.length; index++) {
+    const from = points[index - 1]!
+    const to = points[index]!
+    const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y))
+    for (let step = 0; step <= steps; step++) setKind(floor, Math.round(from.x + (to.x - from.x) * step / steps), Math.round(from.y + (to.y - from.y) * step / steps), 'spiritPath')
+  }
 }
 
 const carveBurialLandscape = (floor: Floor, variant: string): void => {
   const center = { x: Math.floor(floor.width / 2), y: Math.floor(floor.height / 2) }
   if (variant === 'stone-circle-center') {
-    paintBurialCircle(floor, center, 15, 10)
-    paintBurialLine(floor, { x: center.x - 19, y: center.y }, { x: center.x + 19, y: center.y }, 'spiritPath')
+    ;[{ x: center.x - 18, y: center.y - 8 }, { x: center.x + 3, y: center.y - 10 }, { x: center.x + 19, y: center.y + 4 }, { x: center.x - 6, y: center.y + 10 }].forEach((point, index) => paintBurialMound(floor, point, 7 + index % 2, 4 + index % 3))
+    paintBurialProcession(floor, [{ x: 4, y: center.y + 6 }, { x: center.x - 18, y: center.y + 3 }, { x: center.x - 3, y: center.y - 3 }, { x: center.x + 18, y: center.y + 5 }, { x: floor.width - 5, y: center.y - 2 }])
   } else if (variant === 'mound-procession') {
-    for (let y = 10, mound = 0; y < floor.height - 8; y += 12, mound++) paintBurialCircle(floor, { x: center.x + (mound % 2 ? 10 : -10), y }, 6, 4)
-    paintBurialLine(floor, { x: center.x, y: 3 }, { x: center.x, y: floor.height - 4 }, 'spiritPath')
+    ;[{ x: 18, y: 9 }, { x: 47, y: 14 }, { x: 26, y: 25 }, { x: 59, y: 32 }, { x: 20, y: 43 }, { x: 49, y: 48 }].forEach((point, index) => paintBurialMound(floor, point, 5 + index % 3, 3 + index % 2))
+    paintBurialProcession(floor, [{ x: center.x - 4, y: 3 }, { x: center.x + 7, y: 14 }, { x: center.x - 9, y: 25 }, { x: center.x + 8, y: 38 }, { x: center.x - 5, y: floor.height - 4 }])
   } else if (variant === 'cemetery-settlement-edge') {
-    for (let x = 8; x < floor.width - 7; x += 5) for (let y = 8; y < floor.height - 7; y += 7) setKind(floor, x, y, (x + y) % 3 === 0 ? 'cairn' : 'graveSoil')
-    paintBurialLine(floor, { x: 3, y: center.y }, { x: floor.width - 4, y: center.y }, 'spiritPath')
-  } else if (variant === 'ossuary-hollow') {
-    for (let y = center.y - 8; y <= center.y + 8; y++) for (let x = center.x - 12; x <= center.x + 12; x++) {
-      const edge = Math.abs(x - center.x) >= 10 || Math.abs(y - center.y) >= 6
-      if (edge) setKind(floor, x, y, 'cairn')
-      else if ((x + y) % 4 === 0) setKind(floor, x, y, 'ossuary')
+    for (let cluster = 0; cluster < 7; cluster++) {
+      const origin = { x: 9 + (cluster * 17) % (floor.width - 18), y: 8 + (cluster * 11) % (floor.height - 16) }
+      paintBurialMound(floor, origin, 4 + cluster % 3, 3 + (cluster + 1) % 2)
     }
-    paintBurialLine(floor, { x: 3, y: center.y }, { x: floor.width - 4, y: center.y }, 'spiritPath')
+    paintBurialProcession(floor, [{ x: 3, y: center.y - 7 }, { x: 19, y: center.y - 2 }, { x: 37, y: center.y + 4 }, { x: 58, y: center.y - 3 }, { x: floor.width - 4, y: center.y + 5 }])
+  } else if (variant === 'ossuary-hollow') {
+    ;[{ x: center.x - 18, y: center.y - 8 }, { x: center.x + 17, y: center.y - 6 }, { x: center.x - 11, y: center.y + 11 }, { x: center.x + 13, y: center.y + 10 }].forEach((point, index) => paintBurialMound(floor, point, 7, 4 + index % 2))
+    for (let y = center.y - 7; y <= center.y + 7; y++) for (let x = center.x - 13; x <= center.x + 13; x++) if ((Math.abs(x - center.x) + Math.abs(y - center.y) > 10) && (x * 5 + y) % 4 === 0) setKind(floor, x, y, 'ossuary')
+    paintBurialProcession(floor, [{ x: 4, y: center.y + 5 }, { x: center.x - 15, y: center.y - 2 }, { x: center.x, y: center.y + 3 }, { x: center.x + 17, y: center.y - 4 }, { x: floor.width - 5, y: center.y + 2 }])
   } else {
-    const left = center.x - 18
-    const right = center.x + 18
-    const top = center.y - 12
-    const bottom = center.y + 12
-    paintBurialLine(floor, { x: left, y: top }, { x: right, y: top }, 'spiritPath')
-    paintBurialLine(floor, { x: right, y: top }, { x: right, y: bottom }, 'spiritPath')
-    paintBurialLine(floor, { x: right, y: bottom }, { x: left, y: bottom }, 'spiritPath')
-    paintBurialLine(floor, { x: left, y: bottom }, { x: left, y: top }, 'spiritPath')
-    paintBurialCircle(floor, center, 8, 5)
+    ;[{ x: center.x - 19, y: center.y - 10 }, { x: center.x + 17, y: center.y - 11 }, { x: center.x + 20, y: center.y + 9 }, { x: center.x - 15, y: center.y + 11 }, { x: center.x, y: center.y }].forEach((point, index) => paintBurialMound(floor, point, 6 + index % 2, 4 + (index + 1) % 2))
+    paintBurialProcession(floor, [{ x: center.x - 22, y: center.y - 10 }, { x: center.x - 4, y: center.y - 14 }, { x: center.x + 20, y: center.y - 7 }, { x: center.x + 16, y: center.y + 11 }, { x: center.x - 15, y: center.y + 13 }, { x: center.x - 22, y: center.y - 2 }])
   }
 }
 
@@ -1307,6 +1305,55 @@ const imprintCliffAlcoves = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): v
   }
   if (alcoves.length !== desired) throw new Error(`failed Cliffs alcove generation: expected ${desired}, found ${alcoves.length}`)
   floor.sideSpaces = alcoves
+}
+
+const imprintBurialCrypts = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'burial') return
+  const areaFloor = floor.index % 4
+  const desired = 1 + areaFloor
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  const reserved = new Set<number>()
+  const crypts: BurialCrypt[] = []
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  for (const candidate of rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))) {
+    if (crypts.length === desired) break
+    const depth = 3 + areaFloor
+    const width = 3 + (crypts.length + areaFloor) % 2 * 2
+    const radius = Math.floor(width / 2)
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    const chamber = [] as Point[]
+    for (let forward = 2; forward < depth + 2; forward++) for (let lateral = -radius; lateral <= radius; lateral++) chamber.push({ x: candidate.approach.x + candidate.direction.x * forward + candidate.direction.cross.x * lateral, y: candidate.approach.y + candidate.direction.y * forward + candidate.direction.cross.y * lateral })
+    const rejoin = { x: candidate.approach.x + candidate.direction.x * (depth + 2), y: candidate.approach.y + candidate.direction.y * (depth + 2) }
+    const rejoinApproach = { x: candidate.approach.x + candidate.direction.x * (depth + 3), y: candidate.approach.y + candidate.direction.y * (depth + 3) }
+    const chamberIndexes = new Set(chamber.map(point => indexOf(floor, point.x, point.y)))
+    const barrier = chamber.flatMap(point => pathOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y }))).filter(point => !chamberIndexes.has(indexOf(floor, point.x, point.y)) && (point.x !== entry.x || point.y !== entry.y) && (point.x !== rejoin.x || point.y !== rejoin.y)).filter((point, index, points) => points.findIndex(other => other.x === point.x && other.y === point.y) === index)
+    const changed = [entry, rejoin, ...chamber, ...barrier]
+    const protectedPoints = [candidate.approach, rejoinApproach, ...changed]
+    if (protectedPoints.some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'floor' || macroCells.has(indexOf(floor, point.x, point.y)) || reserved.has(indexOf(floor, point.x, point.y)))) continue
+    const before = changed.map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
+    barrier.forEach(point => setKind(floor, point.x, point.y, 'wall'))
+    setKind(floor, entry.x, entry.y, 'breakwall')
+    setKind(floor, rejoin.x, rejoin.y, 'breakwall')
+    if (!hasPassablePath(floor, floor.start, floor.exit)) { before.forEach(({ point, kind }) => setKind(floor, point.x, point.y, kind)); continue }
+    chamber.forEach((point, index) => setKind(floor, point.x, point.y, index % 7 === 0 ? 'ossuary' : index % 5 === 0 ? 'spiritPath' : index % 3 === 0 ? 'graveSoil' : 'floor'))
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: crypts.length % 3 === 0 ? 'tombKey' : crypts.length % 3 === 1 ? 'wardScript' : 'ropeBundle', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    protectedPoints.forEach(point => reserved.add(indexOf(floor, point.x, point.y)))
+    floor.items.push(reward)
+    crypts.push({ id: `burial-crypt:${floor.seed}:${crypts.length}`, kind: 'burial-crypt', approach: { ...candidate.approach }, entry, approaches: [{ ...candidate.approach }, rejoinApproach], entries: [entry, rejoin], chamber, reward, depth })
+  }
+  if (crypts.length !== desired) throw new Error(`failed Burial crypt generation: expected ${desired}, found ${crypts.length}`)
+  const safe = macro.edges.find(edge => edge.modes.includes('safe'))
+  const costly = macro.edges.find(edge => edge.modes.includes('costly') && edge.modes.includes('optional'))
+  if (!safe || !costly) throw new Error(`missing Burial processions: ${macro.recipeId}`)
+  const spiritRoute = safe.cells.filter(point => getTile(floor, point.x, point.y)?.kind === 'spiritPath')
+  const graveRoute = costly.cells.filter(point => getTile(floor, point.x, point.y)?.kind === 'graveSoil')
+  if (spiritRoute.length < 3 || graveRoute.length < 3) throw new Error(`short Burial processions: ${macro.recipeId}`)
+  const processions = Array.from({ length: desired }, (_, index) => graveRoute.slice(Math.min(graveRoute.length - 3, index * 3), Math.min(graveRoute.length, index * 3 + 3))).filter(route => route.length === 3)
+  if (processions.length !== desired) throw new Error(`short Burial procession network: ${macro.recipeId}`)
+  const shelters = spiritRoute.filter((_, index) => index % Math.max(1, Math.floor(spiritRoute.length / desired)) === 0).slice(0, desired)
+  floor.sideSpaces = crypts
+  floor.burialLayout = { mounds: floor.tiles.flatMap((tile, index) => tile.kind === 'cairn' ? [pointAt(floor, index)] : []).slice(0, 24 + areaFloor * 8), processions, shelters } satisfies BurialLayout
 }
 
 const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -2140,7 +2187,18 @@ function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
     ecology.responses = [`${floor.escalation.phase}: ${floor.escalation.promise}`, ...ecology.responses]
     if (floor.escalation.phase === 'climax') { ecology.startsAt = Math.max(2, ecology.startsAt - 1); ecology.duration++ }
   }
-  floor.ecology = [ecology]
+  const ecologies = [ecology]
+  if (floor.biome === 'burial') for (const [index, procession] of (floor.burialLayout?.processions ?? []).slice(1).entries()) {
+    const target = procession.find(candidate => candidate.x !== point.x || candidate.y !== point.y)
+    if (!target) continue
+    const processionEcology = ecologyEventFor(floor, target, source?.id ?? `${floor.biome}:${profile.kind}`, node, 'costly')
+    processionEcology.startsAt = ecology.startsAt + (index + 1) * 2
+    processionEcology.duration = ecology.duration
+    processionEcology.warning = ecology.warning
+    processionEcology.responses = [...ecology.responses]
+    ecologies.push(processionEcology)
+  }
+  floor.ecology = ecologies
 }
 
 function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRuntime): void {

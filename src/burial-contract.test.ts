@@ -32,6 +32,31 @@ describe('Ancestor Fields generation contract', () => {
     }
   }, 30_000)
 
+  it('escalates from a sparse barrow choice to linked sealed crypt networks and overlapping processions', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'burial', areaFloor, 3))
+    expect(floors.map(floor => floor.sideSpaces?.length)).toEqual([1, 2, 3, 4])
+    expect(floors.map(floor => floor.burialLayout?.processions.length)).toEqual([1, 2, 3, 4])
+    expect(floors.map(floor => floor.ecology?.length)).toEqual([1, 2, 3, 4])
+    for (const floor of floors) {
+      expect(floor.burialLayout).toMatchObject({ mounds: expect.any(Array), processions: expect.any(Array), shelters: expect.any(Array) })
+      expect(floor.burialLayout!.mounds.length).toBeGreaterThan(8)
+      expect(floor.burialLayout!.shelters.length).toBeGreaterThan(0)
+      for (const crypt of floor.sideSpaces ?? []) {
+        expect(crypt.kind).toBe('burial-crypt')
+        if (crypt.kind !== 'burial-crypt') throw new Error('missing burial crypt')
+        expect(crypt.entries).toHaveLength(2)
+        expect(crypt.approaches).toHaveLength(2)
+        expect(crypt.chamber.length).toBeGreaterThan(8)
+        expect(crypt.entries.every(entry => getTile(floor, entry.x, entry.y)?.kind === 'breakwall')).toBe(true)
+        expect(crypt.chamber.some(point => getTile(floor, point.x, point.y)?.kind === 'ossuary')).toBe(true)
+        expect(floor.items).toContainEqual(crypt.reward)
+      }
+      expect(floor.ecology!.every((ecology, index) => ecology.kind === 'migration' && (index === 0 || ecology.startsAt > floor.ecology![index - 1]!.startsAt))).toBe(true)
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+  }, 30_000)
+
   it('places a tomb warden on the telegraphed trespass route of every ordinary floor', () => {
     for (let areaFloor = 0; areaFloor < 3; areaFloor++) {
       const floor = generateAreaFloor(42, 'burial', areaFloor, 3)

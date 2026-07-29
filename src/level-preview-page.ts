@@ -254,7 +254,10 @@ function renderAudit(preview: LevelPreview): void {
     (floor.whirlpools ?? []).map(whirlpool => coordinate(whirlpool.center) + ' r' + whirlpool.radius + ' · anchor ' + coordinate(whirlpool.anchor)).join('\n') || 'none',
     '',
     'cliff layout',
-    floor.cliffLayout ? 'low ' + floor.cliffLayout.lowRoute.length + ' · mid ' + floor.cliffLayout.midLedges.length + ' · high ' + floor.cliffLayout.highRidge.length + ' · wind corridors ' + floor.cliffLayout.windCorridors.length + ' · shelters ' + floor.cliffLayout.shelteredPockets.length : 'none'
+    floor.cliffLayout ? 'low ' + floor.cliffLayout.lowRoute.length + ' · mid ' + floor.cliffLayout.midLedges.length + ' · high ' + floor.cliffLayout.highRidge.length + ' · wind corridors ' + floor.cliffLayout.windCorridors.length + ' · shelters ' + floor.cliffLayout.shelteredPockets.length : 'none',
+    '',
+    'burial layout',
+    floor.burialLayout ? 'mounds ' + floor.burialLayout.mounds.length + ' · processions ' + floor.burialLayout.processions.length + ' · spirit shelters ' + floor.burialLayout.shelters.length + ' · crypts ' + (floor.sideSpaces ?? []).filter(space => space.kind === 'burial-crypt').length : 'none'
   ].join('\n')
   validationOutput.textContent = [
     'generation validation: ' + (validation.valid ? 'PASS' : 'FAIL'),
