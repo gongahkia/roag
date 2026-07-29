@@ -15,7 +15,7 @@ const configured = (seed: number, biome: Biome, floor: number) => {
   state.hero.maxHealth = 120
   state.hero.bombs = 8
   state.hero.ropes = 8
-  state.hero.stats = { strength: 12, agility: 2, vitality: 12, intellect: 4 }
+  state.hero.stats = { strength: 28, agility: 2, vitality: 28, intellect: 4 }
   state.hero.inventory.push('auger', 'reedGlider', 'grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch')
   return state
 }
