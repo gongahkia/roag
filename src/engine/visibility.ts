@@ -38,10 +38,13 @@ export function hasLine(state: RunState, from: { x: number; y: number }, to: { x
   let error = dx + dy
   while (true) {
     if (x === to.x && y === to.y) return true
-    if (!(x === from.x && y === from.y) && ['wall', 'rubble', 'bramble'].includes(getTile(state.floor, x, y)?.kind ?? '')) return false
-    if (!(x === from.x && y === from.y) && isBlockingProp(propAt(state.floor.props, x, y))) return false
-    if (!(x === from.x && y === from.y) && isSightBlockingProp(propAt(state.floor.props, x, y))) return false
-    if (!lit && getTile(state.floor, x, y)?.kind === 'darkness') return false
+    if (!(x === from.x && y === from.y)) {
+      const tile = getTile(state.floor, x, y)
+      if (['wall', 'rubble', 'bramble'].includes(tile?.kind ?? '')) return false
+      const prop = propAt(state.floor.props, x, y)
+      if (isBlockingProp(prop) || isSightBlockingProp(prop)) return false
+      if (!lit && tile?.kind === 'darkness') return false
+    }
     const twice = 2 * error
     if (twice >= dy) { error += dy; x += sx }
     if (twice <= dx) { error += dx; y += sy }
