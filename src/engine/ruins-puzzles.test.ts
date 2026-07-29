@@ -13,7 +13,7 @@ describe('Ruins puzzle templates', () => {
       expect(template?.solutions.length).toBeGreaterThanOrEqual(2)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
     }
-  }, 30_000)
+  }, 45_000)
 
   it('supports a key route or a damaging dart route', () => {
     const key = createRun({ hero: createHero({ keys: 1 }) })

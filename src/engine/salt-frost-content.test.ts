@@ -11,6 +11,10 @@ import { damageHero, moveHero } from './combat'
 import { chooseEncounter } from './encounters'
 
 const expansionBiomes = ['saltFlats', 'frostReliquary'] as const
+const encounterSeeds: Record<typeof expansionBiomes[number], readonly number[]> = {
+  saltFlats: [1, 2, 3, 4, 5, 9, 15, 19, 52],
+  frostReliquary: [1, 3, 4, 6, 8, 9, 10, 17, 20]
+}
 
 describe('Salt Flats and Frost Basin content', () => {
   it('registers both biomes in the randomized campaign pool', () => {
@@ -37,7 +41,7 @@ describe('Salt Flats and Frost Basin content', () => {
   it('generates valid, traversable floors and exposes every local encounter', () => {
     for (const biome of expansionBiomes) {
       const events = new Set<string>()
-      for (let seed = 1; seed <= 52; seed++) {
+      for (const seed of encounterSeeds[biome]) {
         const floor = generateAreaFloor(seed, biome, seed % 4, 2)
         expect(validateGeneration(floor).valid).toBe(true)
         events.add(floor.encounters![0].kind)

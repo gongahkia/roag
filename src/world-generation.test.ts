@@ -82,6 +82,6 @@ describe('biome macro generation', () => {
   })
 
   it('recovers from visible route invalidation on wide layouts', () => {
-    for (const [biome, floor] of [['cliffs', 0], ['cliffs', 2]] as const) expect(runAutoplay(newRun(7, biome, floor), { mode: 'visible', policy: 'clear', turnLimit: 2_400, chainAreas: false, chainFloors: false })).toMatchObject({ outcome: 'complete' })
+    for (const [biome, floor] of [['cliffs', 0], ['cliffs', 2]] as const) expect(runAutoplay(newRun(7, biome, floor), { mode: 'visible', policy: 'clear', turnLimit: 2_400, chainAreas: false, chainFloors: false, captureTrace: false })).toMatchObject({ outcome: 'complete' })
   }, 60_000)
 })
