@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type SaltMirage, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FrostCave, type FrostLayout, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type SaltMirage, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -244,6 +244,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintCliffAlcoves(floor, macro, rngFor(runSeed, 'generation', index, 'cliff-alcoves'))
   imprintBurialCrypts(floor, macro, rngFor(runSeed, 'generation', index, 'burial-crypts'))
   imprintSaltMirages(floor, macro, rngFor(runSeed, 'generation', index, 'salt-mirages'))
+  imprintFrostCaves(floor, macro, rngFor(runSeed, 'generation', index, 'frost-caves'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -786,45 +787,41 @@ const carveSaltFlatsRouteContractLayout = (floor: Floor, contract: ReturnType<ty
   return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
 }
 
-const paintFrostLine = (floor: Floor, from: Point, to: Point, kind: Tile['kind']): void => {
-  if (from.x === to.x) for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) setKind(floor, from.x, y, kind)
-  else for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) setKind(floor, x, from.y, kind)
+const paintFrostShelf = (floor: Floor, center: Point, radiusX: number, radiusY: number, kind: Tile['kind']): void => {
+  for (let y = center.y - radiusY; y <= center.y + radiusY; y++) for (let x = center.x - radiusX; x <= center.x + radiusX; x++) if ((x - center.x) ** 2 / radiusX ** 2 + (y - center.y) ** 2 / radiusY ** 2 + ((x * 5 + y * 7) % 5 - 2) * .08 < 1) setKind(floor, x, y, kind)
 }
 
-const paintFrostPatch = (floor: Floor, left: number, top: number, width: number, height: number, kind: Tile['kind']): void => {
-  for (let y = top; y < top + height; y++) for (let x = left; x < left + width; x++) setKind(floor, x, y, kind)
+const paintFrostCrack = (floor: Floor, points: readonly Point[]): void => {
+  for (let index = 1; index < points.length; index++) {
+    const from = points[index - 1]!
+    const to = points[index]!
+    const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y))
+    for (let step = 0; step <= steps; step++) setKind(floor, Math.round(from.x + (to.x - from.x) * step / steps), Math.round(from.y + (to.y - from.y) * step / steps), 'frostRime')
+  }
 }
 
 const carveFrostLandscape = (floor: Floor, variant: string): void => {
   const center = { x: Math.floor(floor.width / 2), y: Math.floor(floor.height / 2) }
   if (variant === 'frozen-lake-crossing') {
-    paintFrostPatch(floor, 3, center.y - 6, floor.width - 6, 13, 'ice')
-    paintFrostLine(floor, { x: 4, y: center.y - 7 }, { x: floor.width - 5, y: center.y - 7 }, 'frostRime')
-    paintFrostLine(floor, { x: 4, y: center.y + 7 }, { x: floor.width - 5, y: center.y + 7 }, 'frostRime')
+    paintFrostShelf(floor, { x: center.x - 12, y: center.y - 2 }, 19, 8, 'ice')
+    paintFrostShelf(floor, { x: center.x + 14, y: center.y + 3 }, 18, 9, 'ice')
+    paintFrostCrack(floor, [{ x: 4, y: center.y - 8 }, { x: 20, y: center.y - 5 }, { x: 37, y: center.y - 9 }, { x: floor.width - 5, y: center.y - 6 }])
+    paintFrostCrack(floor, [{ x: 5, y: center.y + 8 }, { x: 24, y: center.y + 5 }, { x: 43, y: center.y + 9 }, { x: floor.width - 5, y: center.y + 6 }])
   } else if (variant === 'ridge-hollow-loop') {
-    const left = center.x - 18
-    const right = center.x + 18
-    const top = center.y - 12
-    const bottom = center.y + 12
-    paintFrostLine(floor, { x: left, y: top }, { x: right, y: top }, 'frostRime')
-    paintFrostLine(floor, { x: right, y: top }, { x: right, y: bottom }, 'frostRime')
-    paintFrostLine(floor, { x: right, y: bottom }, { x: left, y: bottom }, 'frostRime')
-    paintFrostLine(floor, { x: left, y: bottom }, { x: left, y: top }, 'frostRime')
-    paintFrostPatch(floor, center.x - 10, center.y - 6, 21, 13, 'ice')
+    paintFrostCrack(floor, [{ x: center.x - 20, y: center.y - 10 }, { x: center.x - 3, y: center.y - 14 }, { x: center.x + 20, y: center.y - 8 }, { x: center.x + 16, y: center.y + 12 }, { x: center.x - 17, y: center.y + 13 }, { x: center.x - 22, y: center.y - 2 }])
+    paintFrostShelf(floor, center, 13, 8, 'ice')
   } else if (variant === 'pressure-crack-maze') {
-    for (let x = 10; x < floor.width - 7; x += 13) paintFrostLine(floor, { x, y: 4 }, { x, y: floor.height - 5 }, 'frostRime')
-    for (let y = 9; y < floor.height - 6; y += 12) paintFrostLine(floor, { x: 5, y }, { x: floor.width - 6, y }, 'ice')
-    paintFrostPatch(floor, center.x - 5, center.y - 3, 11, 7, 'floor')
+    for (let x = 10; x < floor.width - 7; x += 13) paintFrostCrack(floor, [{ x, y: 4 }, { x: x + 3, y: 16 }, { x: x - 2, y: 28 }, { x: x + 2, y: floor.height - 5 }])
+    ;[{ x: 14, y: 10 }, { x: 33, y: 20 }, { x: 49, y: 34 }].forEach(point => paintFrostShelf(floor, point, 10, 5, 'ice'))
   } else if (variant === 'shore-reliquary-route') {
-    paintFrostLine(floor, { x: center.x, y: 3 }, { x: center.x, y: floor.height - 4 }, 'ice')
-    paintFrostLine(floor, { x: center.x - 6, y: 3 }, { x: center.x - 6, y: floor.height - 4 }, 'frostRime')
-    paintFrostLine(floor, { x: center.x + 6, y: 3 }, { x: center.x + 6, y: floor.height - 4 }, 'frostRime')
+    paintFrostShelf(floor, { x: center.x - 5, y: 14 }, 9, 12, 'ice')
+    paintFrostShelf(floor, { x: center.x + 7, y: 34 }, 10, 12, 'ice')
+    paintFrostCrack(floor, [{ x: center.x - 10, y: 3 }, { x: center.x - 4, y: 16 }, { x: center.x - 9, y: 29 }, { x: center.x - 3, y: floor.height - 4 }])
+    paintFrostCrack(floor, [{ x: center.x + 10, y: 3 }, { x: center.x + 4, y: 18 }, { x: center.x + 9, y: 33 }, { x: center.x + 3, y: floor.height - 4 }])
   } else {
-    for (let x = 8; x < floor.width - 7; x += 12) {
-      paintFrostPatch(floor, x, center.y - 4, 7, 9, 'ice')
-      paintFrostLine(floor, { x: x + 3, y: 4 }, { x: x + 3, y: floor.height - 5 }, 'frostRime')
-      paintFrostPatch(floor, x + 1, center.y - 2, 5, 5, 'floor')
-    }
+    ;[{ x: 12, y: center.y - 4 }, { x: 27, y: center.y + 5 }, { x: 43, y: center.y - 3 }, { x: 55, y: center.y + 5 }].forEach((point, index) => paintFrostShelf(floor, point, 6 + index % 2, 5, 'ice'))
+    paintFrostCrack(floor, [{ x: 8, y: 4 }, { x: 17, y: 16 }, { x: 13, y: 30 }, { x: 22, y: floor.height - 5 }])
+    paintFrostCrack(floor, [{ x: 42, y: 4 }, { x: 50, y: 16 }, { x: 45, y: 30 }, { x: 54, y: floor.height - 5 }])
   }
 }
 
@@ -1372,6 +1369,42 @@ const imprintSaltMirages = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): vo
   }
   if (mirages.length !== desired) throw new Error(`failed Salt mirage generation: expected ${desired}, found ${mirages.length}`)
   floor.saltMirages = mirages
+}
+
+const imprintFrostCaves = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'frostReliquary') return
+  const desired = 1 + floor.index % 4
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  const caves: FrostCave[] = []
+  const reserved = new Set<number>()
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  for (const candidate of rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))) {
+    if (caves.length === desired) break
+    const depth = 3 + floor.index % 4
+    const chamber = [] as Point[]
+    for (let forward = 2; forward < depth + 2; forward++) for (let lateral = -1; lateral <= 1; lateral++) chamber.push({ x: candidate.approach.x + candidate.direction.x * forward + candidate.direction.cross.x * lateral, y: candidate.approach.y + candidate.direction.y * forward + candidate.direction.cross.y * lateral })
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    const chamberIndexes = new Set(chamber.map(point => indexOf(floor, point.x, point.y)))
+    const barrier = chamber.flatMap(point => pathOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y }))).filter(point => !chamberIndexes.has(indexOf(floor, point.x, point.y)) && (point.x !== entry.x || point.y !== entry.y)).filter((point, index, points) => points.findIndex(other => other.x === point.x && other.y === point.y) === index)
+    const changed = [entry, ...chamber, ...barrier]
+    if (changed.some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'floor' || macroCells.has(indexOf(floor, point.x, point.y)) || reserved.has(indexOf(floor, point.x, point.y)) || floor.props.some(prop => prop.x === point.x && prop.y === point.y))) continue
+    const before = changed.map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
+    barrier.forEach(point => setKind(floor, point.x, point.y, 'wall'))
+    setKind(floor, entry.x, entry.y, 'breakwall')
+    if (!hasPassablePath(floor, floor.start, floor.exit)) { before.forEach(({ point, kind }) => setKind(floor, point.x, point.y, kind)); continue }
+    chamber.forEach((point, index) => setKind(floor, point.x, point.y, index % 5 === 0 ? 'frostRime' : index % 3 === 0 ? 'ice' : 'floor'))
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: caves.length % 2 ? 'grappleLine' : 'wardScript', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    changed.forEach(point => reserved.add(indexOf(floor, point.x, point.y)))
+    floor.items.push(reward)
+    caves.push({ id: `frost-cave:${floor.seed}:${caves.length}`, kind: 'frost-cave', approach: { ...candidate.approach }, entry, chamber, reward, depth })
+  }
+  if (caves.length !== desired) throw new Error(`failed Frost cave generation: expected ${desired}, found ${caves.length}`)
+  const costly = macro.edges.find(edge => edge.modes.includes('costly') && edge.modes.includes('optional'))
+  const safe = macro.edges.find(edge => edge.modes.includes('safe'))
+  if (!costly || !safe) throw new Error(`missing Frost layout: ${macro.recipeId}`)
+  floor.sideSpaces = caves
+  floor.frostLayout = { shelves: floor.tiles.flatMap((tile, index) => tile.kind === 'ice' ? [pointAt(floor, index)] : []).slice(0, 20 + floor.index % 4 * 8), cracks: [costly.cells.filter(point => getTile(floor, point.x, point.y)?.kind === 'frostRime')], shelters: safe.cells.filter(point => getTile(floor, point.x, point.y)?.kind === 'floor').slice(0, desired) } satisfies FrostLayout
 }
 
 const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void => {

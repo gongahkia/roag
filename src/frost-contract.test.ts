@@ -35,6 +35,25 @@ describe('Frost Basin generation contract', () => {
     }
   }, 30_000)
 
+  it('escalates under-ice caves and refuge shelves from F1 through F4', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'frostReliquary', areaFloor, 3))
+    expect(floors.map(floor => floor.sideSpaces?.length)).toEqual([1, 2, 3, 4])
+    for (const floor of floors) {
+      expect(floor.frostLayout).toMatchObject({ shelves: expect.any(Array), cracks: expect.any(Array), shelters: expect.any(Array) })
+      expect(floor.frostLayout!.shelves.length).toBeGreaterThan(8)
+      expect(floor.frostLayout!.shelters.length).toBeGreaterThan(0)
+      for (const cave of floor.sideSpaces ?? []) {
+        expect(cave.kind).toBe('frost-cave')
+        if (cave.kind !== 'frost-cave') throw new Error('missing frost cave')
+        expect(getTile(floor, cave.entry.x, cave.entry.y)?.kind).toBe('breakwall')
+        expect(cave.chamber.length).toBeGreaterThan(8)
+        expect(cave.chamber.some(point => getTile(floor, point.x, point.y)?.kind === 'ice')).toBe(true)
+      }
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+  }, 30_000)
+
   it('places fast ice pursuers and telegraphed whiteout artillery on every ordinary floor', () => {
     for (let areaFloor = 0; areaFloor < 3; areaFloor++) {
       const floor = generateAreaFloor(42, 'frostReliquary', areaFloor, 3)

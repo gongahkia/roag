@@ -126,7 +126,9 @@ export interface CliffLayout { lowRoute: Point[]; midLedges: Point[]; highRidge:
 export interface BurialCrypt { id: string; kind: 'burial-crypt'; approach: Point; entry: Point; approaches: Point[]; entries: Point[]; chamber: Point[]; reward: GroundItem; depth: number }
 export interface BurialLayout { mounds: Point[]; processions: Point[][]; shelters: Point[] }
 export interface SaltMirage { id: string; marker: Point; cells: Point[]; revealed: boolean }
-export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace | CliffAlcove | BurialCrypt
+export interface FrostCave { id: string; kind: 'frost-cave'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; depth: number }
+export interface FrostLayout { shelves: Point[]; cracks: Point[][]; shelters: Point[] }
+export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace | CliffAlcove | BurialCrypt | FrostCave
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -188,6 +190,7 @@ export interface Floor {
   cliffLayout?: CliffLayout
   burialLayout?: BurialLayout
   saltMirages?: SaltMirage[]
+  frostLayout?: FrostLayout
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]
