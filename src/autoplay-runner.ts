@@ -42,7 +42,7 @@ const fingerprint = (state: RunState): string => JSON.stringify({
 })
 
 const exitPathState = (state: RunState): AutoplayFinalState['exitPath'] => {
-  const blocked = new Set(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'])
+  const blocked = new Set(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall', 'cliffWall'])
   const key = (x: number, y: number) => `${x},${y}`
   const reachesExit = (blockActors: boolean): boolean => {
     const start = { x: state.hero.x, y: state.hero.y }
