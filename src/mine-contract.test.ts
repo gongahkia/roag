@@ -46,6 +46,10 @@ describe('Obsidian Pass generation contract', () => {
         expect(getTile(floor, room.entry.x, room.entry.y)?.kind).toBe('breakwall')
         expect(reachable.has(room.chamber[0]!.y * floor.width + room.chamber[0]!.x)).toBe(false)
         expect(floor.items).toContainEqual(room.reward)
+        getTile(floor, room.entry.x, room.entry.y)!.kind = 'floor'
+        const opened = reachableFloorIndexes(floor)
+        expect(room.chamber.every(point => opened.has(point.y * floor.width + point.x))).toBe(true)
+        getTile(floor, room.entry.x, room.entry.y)!.kind = 'breakwall'
       }
       expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
       expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
