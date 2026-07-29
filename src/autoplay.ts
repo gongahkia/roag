@@ -37,7 +37,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason === 'survey terrain route' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('clear telegraph source:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason === 'survey terrain route' || reason.startsWith('survey objective route:') || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('clear telegraph source:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -1287,6 +1287,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   let hasObjectiveRoute = false
   if (objective.status !== 'complete') {
     const availableTargets = needsOffering ? [] : objectiveTargets(state, mode)
+    const surveyedTarget = !availableTargets.length && !needsOffering && mode === 'visible' ? objectiveTargets(state, 'omniscient').map(target => terrainRouteMove(state, objectiveRouteTargets(state, target))).find((route): route is Candidate => Boolean(route)) : undefined
     context.objectiveTargetCount = availableTargets.length
     if (context.objectiveTarget && !availableTargets.some(target => pointKey(target) === context.objectiveTarget)) context.objectiveTarget = undefined
     // Pin every objective target until it is resolved or proven unreachable; otherwise agility can alternate between nearby caches forever.
@@ -1324,6 +1325,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
       candidates.push({ command: predictive?.commands[0] ?? detour?.command ?? route.route.command, reason: predictive ? `predictive objective route:${objective.kind}` : detour ? `avoid route telegraph:${objective.kind}` : route.blocked ? `clear objective route:${objective.kind}` : `objective:${objective.kind}`, routePlan: predictive && predictive.commands.length > 1 ? { kind: 'objective', targetKey, commands: predictive.commands.slice(1) } : undefined, score: criticalRoute ? Math.min(routeScore, 80) : routeScore })
       const weapon = state.hero.equipment.mainHand
       if (route.blocked && weapon && (state.hero.cooldowns?.[weapon] ?? 0) > 0 && !telegraphDanger(state, state.hero)) candidates.push({ command: 'l', reason: 'wait weapon cooldown', score: 185 })
+    } else if (surveyedTarget) {
+      candidates.push({ ...surveyedTarget, reason: `survey objective route:${objective.kind}`, score: 126 })
     } else if (pinTarget && context.objectiveTarget) {
       context.rejectedObjectiveTargets.add(context.objectiveTarget)
       context.objectiveTarget = undefined
