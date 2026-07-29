@@ -37,12 +37,14 @@ describe('Salt Flats and Frost Basin content', () => {
   it('generates valid, traversable floors and exposes every local encounter', () => {
     for (const biome of expansionBiomes) {
       const events = new Set<string>()
-      for (let seed = 1; seed <= 24; seed++) {
+      for (let seed = 1; seed <= 52; seed++) {
         const floor = generateAreaFloor(seed, biome, seed % 4, 2)
         expect(validateGeneration(floor).valid).toBe(true)
         events.add(floor.encounters![0].kind)
       }
-      expect(events.size).toBe(6)
+      expect(events).toEqual(new Set(biome === 'saltFlats'
+        ? ['sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'saltPact', 'saltKami', 'wayfarer']
+        : ['iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', 'frostPact', 'frostKami', 'wayfarer']))
     }
   }, 20_000)
 

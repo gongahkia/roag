@@ -150,7 +150,7 @@ const validPersistedRun = (run: RunState): boolean => {
 }
 
 export const migrateRunRecord = (value: unknown): RunState | undefined => {
-  const run = isRunState(value) ? { ...value } : isLegacyRunState(value) ? migrateLegacyRun(value) : undefined
+  const run = isRunState(value) ? { ...value } : isLegacyRunState(value) && value.version < 5 ? migrateLegacyRun(value) : undefined
   if (!run || !validPersistedRun(run)) return undefined
   if (run.encyclopedia) run.encyclopedia = { ...run.encyclopedia, legacyRecords: copyLegacyRecords(run.encyclopedia.legacyRecords) }
   const telemetry = run.telemetry ??= createRunTelemetry(run)

@@ -10,7 +10,7 @@ describe('Geode Wyrm encounter', () => {
     state.floor.actors = [wyrm]
     advance(state, [])
     expect(wyrm.guardianPhase).toBe('pressure')
-    expect(state.floor.tiles.some(tile => tile.kind === 'gas')).toBe(true)
+    expect(state.floor.tiles.some(tile => tile.kind === 'current')).toBe(true)
     expect(state.floor.telegraphs).toMatchObject([{ actionId: 'geode-fissure', sourceId: 'geode-1' }])
 
     moveHero(state, 's')
@@ -22,6 +22,6 @@ describe('Geode Wyrm encounter', () => {
     cataclysm.floor.actors = [wounded]
     advance(cataclysm, [])
     expect(wounded.guardianPhase).toBe('cataclysm')
-    expect(cataclysm.floor.tiles.some(tile => tile.kind === 'lava')).toBe(true)
+    expect(cataclysm.floor.tiles.some(tile => tile.kind === 'deepWater')).toBe(true)
   })
 })

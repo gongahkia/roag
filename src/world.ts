@@ -36,12 +36,12 @@ export const isPassable = (floor: Floor, x: number, y: number): boolean => {
 const toolDirections = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const
 const toolHazards = new Set<TileKind>(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'brine', 'frostRime'])
 const drillableToolTerrain = new Set<TileKind>(['wall', 'rubble', 'bramble', 'boulder'])
-export const primaryToolUseAvailable = (floor: Floor): boolean => {
+export const primaryToolUseAvailable = (floor: Floor, reachable = reachableFloorIndexes(floor)): boolean => {
   const offer = floor.rewardOffers?.find(candidate => candidate.milestoneId === 'waycache')
   if (offer?.kind !== 'waycache') return false
   const tool = offer.choices[0]?.id as TraversalToolId | undefined
   if (!tool) return false
-  for (const index of reachableFloorIndexes(floor)) {
+  for (const index of reachable) {
     const origin = pointAt(floor, index)
     if (!isPassable(floor, origin.x, origin.y)) continue
     for (const [dx, dy] of toolDirections) {
@@ -143,10 +143,13 @@ export const difficultyFor = (routePosition: number, areaFloor: number): Difficu
 
 const assertGenerationPhase = (floor: Floor, campaignSeed: number, contract: ReturnType<typeof generateRouteContract>, phase: string): void => {
   const targets = [floor.exit, ...objectiveTargets(floor)]
+  const trace = traverseFloor(floor)
+  const reachable = (point: Point): boolean => inBounds(floor, point.x, point.y) && trace.reachable.has(indexOf(floor, point.x, point.y))
   for (const target of targets) {
-    const trace = traverseFloor(floor, floor.start, { target })
-    const reachable = target.x === floor.exit.x && target.y === floor.exit.y ? Boolean(trace.path) : canReachObjectiveWithProps(floor, target)
-    if (reachable) continue
+    const targetReachable = target.x === floor.exit.x && target.y === floor.exit.y
+      ? reachable(target)
+      : [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => reachable({ x: target.x + x, y: target.y + y }))
+    if (targetReachable) continue
     const node = contract.nodes.find(candidate => candidate.kind === (target.x === floor.exit.x && target.y === floor.exit.y ? (floor.index % 4 === 3 ? 'boss' : 'exit') : 'objective'))
     throw new Error(`generation failure seed=${campaignSeed} biome=${floor.biome} recipe=${floor.layoutId} phase=${phase} contractNode=${node?.id ?? 'unknown'} target=${target.x},${target.y} reached=${trace.reachable.size} blockers=${trace.blockers.join('|')}`)
   }
@@ -199,12 +202,14 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintEscalationLandmark(floor, rooms)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
   restoreMacroNodeTransit(floor, macro)
+  imprintMineRailServiceRoute(floor, macro)
   imprintRuinsRitualCenter(floor, macro)
   placeEvents(floor, rooms, placements)
   placeDoorsAndLocks(floor, rngFor(runSeed, 'gates', index), rooms)
   openMandatoryLocks(floor)
   placeContainers(floor, rngFor(runSeed, 'loot', index, 'containers'), rooms, reservedMacroCells)
   restoreMacroConnectors(floor, macro, reservedMacroCells)
+  placements.reachable = undefined
   imprintCavernTideRoute(floor, macro)
   imprintWildsPressureRoute(floor, macro)
   imprintRuinsWardRoute(floor, macro)
@@ -223,7 +228,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   assertGenerationPhase(floor, runSeed, routeContract, 'ecology')
   placeItems(floor, rngFor(runSeed, 'loot', index, 'items'), rooms, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'loot')
-  placeProps(floor, reachableIndexes(floor), reservedMacroCells, placements)
+  placeProps(floor, reservedMacroCells, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'props')
   placeMilestones(floor, placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'milestones')
@@ -750,6 +755,14 @@ const restoreMacroNodeTransit = (floor: Floor, macro: MacroRecipeDebug): void =>
   }
 }
 
+const imprintMineRailServiceRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
+  if (floor.biome !== 'mine') return
+  const landmark = macro.nodes.find(node => node.kind === 'landmark')
+  if (!landmark || landmark.footprint.width < 4) throw new Error(`missing Mine rail service route: ${macro.recipeId}`)
+  const y = landmark.footprint.y + Math.floor(landmark.footprint.height / 2)
+  for (let x = landmark.footprint.x + 1; x < landmark.footprint.x + landmark.footprint.width - 1; x++) setKind(floor, x, y, 'rail')
+}
+
 const imprintRuinsRitualCenter = (floor: Floor, macro: MacroRecipeDebug): void => {
   if (floor.biome !== 'ruins') return
   const node = macro.nodes.find(candidate => candidate.kind === 'objective')
@@ -1015,7 +1028,7 @@ function connectRooms(floor: Floor, rooms: Room[]): void {
   }
 }
 
-interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[] }
+interface PlacementRuntime { macro: MacroRecipeDebug; pilot: boolean; diagnostics: PlacementDebug[]; reachable?: Set<number> }
 const nativeActorTerrain: Record<Biome, readonly TileKind[]> = {
   mine: ['rail', 'support'], wilds: ['water', 'web'], caverns: ['water', 'current', 'darkness'], ruins: ['altar', 'dart'], furnace: ['smoke', 'lift'], floodedRuins: ['current', 'anchor'], cliffs: ['ledge', 'rope'], burial: ['graveSoil', 'spiritPath'], saltFlats: ['saltMirror', 'brine'], frostReliquary: ['ice', 'frostRime']
 }
@@ -1048,14 +1061,15 @@ const placementContext = (floor: Floor, runtime: PlacementRuntime, eligible: (po
     edgeModesAt: point => edgeModes.get(pointKey(point)) ?? []
   }
 }
+const placementReachability = (floor: Floor, runtime: PlacementRuntime): Set<number> => runtime.reachable ??= reachableFloorIndexes(floor)
 const choosePlacement = (floor: Floor, runtime: PlacementRuntime, contract: PlacementContract, eligible?: (point: Point) => boolean): Point | undefined => {
-  const reachable = reachableFloorIndexes(floor)
+  const reachable = placementReachability(floor, runtime)
   const selection = selectPlacement(contract, placementContext(floor, runtime, point => reachable.has(indexOf(floor, point.x, point.y)) && (eligible?.(point) ?? true)))
   runtime.diagnostics.push(selection.debug)
   return selection.point
 }
 
-function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: ReadonlySet<number>, runtime: PlacementRuntime): void {
+function placeProps(floor: Floor, reserved: ReadonlySet<number>, runtime: PlacementRuntime): void {
   const links: Partial<Record<Prop['kind'], Prop['kind']>> = {
     'mine.lanternPost': 'mine.warningMarker',
     'mine.brokenCart': 'mine.discardedParcel',
@@ -1065,6 +1079,7 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
   }
   const companions = new Set(Object.values(links))
   const definitions = [...propDefinitionsFor(floor.biome)].sort((left, right) => Number(companions.has(left.id)) - Number(companions.has(right.id)))
+  let reachable = placementReachability(floor, runtime)
   const anchors = new Map<Prop['kind'], Point>()
   const occupied = new Set<number>([
     indexOf(floor, floor.start.x, floor.start.y),
@@ -1082,12 +1097,13 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
       continue
     }
     const tags = new Set(definition.tags)
+    const cart = definition.id === 'mine.brokenCart'
     const requirements: PlacementContract = {
       id: `prop:${definition.id}`,
       requirements: {
         terrain: [...definition.terrain],
         minDistance: tags.has('cache') ? 8 : 5,
-        ...(runtime.pilot && tags.has('route') ? { edgeModes: ['main'] as RouteEdgeMode[] } : {}),
+        ...(runtime.pilot && tags.has('route') ? cart ? { nodeKinds: ['landmark'] as RouteNodeKind[] } : { edgeModes: ['main'] as RouteEdgeMode[] } : {}),
         ...(runtime.pilot && tags.has('cache') ? { nodeKinds: ['optionalReward'] as RouteNodeKind[] } : {}),
         ...(anchor ? { near: anchor, nearDistance: 10 } : {})
       }
@@ -1117,6 +1133,10 @@ function placeProps(floor: Floor, reachable: ReadonlySet<number>, reserved: Read
     }
     floor.props.push(prop)
     occupied.add(indexOf(floor, point.x, point.y))
+    if (isBlockingProp(prop)) {
+      runtime.reachable = undefined
+      reachable = placementReachability(floor, runtime)
+    }
     if (links[definition.id]) anchors.set(definition.id, point)
   }
 }
@@ -1765,6 +1785,8 @@ const objectiveTargets = (floor: Floor): Point[] => {
 }
 
 const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: target.x + x, y: target.y + y }))
+const containsReachable = (floor: Floor, reachable: ReadonlySet<number>, point: Point): boolean => inBounds(floor, point.x, point.y) && reachable.has(indexOf(floor, point.x, point.y))
+const reachesObjective = (floor: Floor, reachable: ReadonlySet<number>, targets: readonly Point[]): boolean => targets.some(target => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => containsReachable(floor, reachable, { x: target.x + x, y: target.y + y })))
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
@@ -1785,9 +1807,9 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (tile.flow.hazard && !squall && downstream?.kind !== 'current' && downstream?.kind !== 'deepWater' && downstream?.kind !== 'brine') errors.push(`unmarked flow outlet at ${pointKey(point)}`)
   }
   const reachable = reachableIndexes(floor)
-  if (!hasPassablePath(floor, floor.start, floor.exit)) errors.push('exit unreachable')
+  if (!containsReachable(floor, reachable, floor.exit)) errors.push('exit unreachable')
   const targets = objectiveTargets(floor)
-  if (!targets.length || !targets.some(target => canReachObjectiveWithProps(floor, target))) errors.push(`objective unreachable: ${floor.objective.kind}`)
+  if (!targets.length || !reachesObjective(floor, reachable, targets)) errors.push(`objective unreachable: ${floor.objective.kind}`)
   if (floor.milestones.length < 5 || floor.milestones.length > 6) errors.push('invalid milestone count')
   const rewardOffers = floor.rewardOffers ?? []
   const expectedRewardOffers: Array<[string, string]> = [['waycache', 'waycache'], ['boon-teach', 'boon'], ['boon-test', 'boon'], ['boon-payoff', 'boon']]
@@ -1796,19 +1818,19 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (!offer || offer.kind !== kind || offer.choices.length !== 3 || new Set(offer.choices.map(choice => choice.role)).size !== 3) errors.push(`invalid reward offer: ${milestoneId}`)
     if (!floor.milestones.some(milestone => milestone.rewardKey === milestoneId && milestone.kind === kind)) errors.push(`missing reward milestone: ${milestoneId}`)
   }
-  if (!primaryToolUseAvailable(floor)) errors.push('unusable primary Waycache tool')
+  if (!primaryToolUseAvailable(floor, reachable)) errors.push('unusable primary Waycache tool')
   if ((floor.encounters?.length ?? 0) !== 1) errors.push('invalid encounter count')
   const milestoneLocations = new Set<string>()
   for (const milestone of floor.milestones) {
     const key = pointKey(milestone)
     const tile = getTile(floor, milestone.x, milestone.y)
-    if (!milestone.id || !['waycache', 'boon', 'augment', 'relic'].includes(milestone.kind) || !tile || !passable(tile.kind) || (tile.kind === 'exit' && milestone.kind !== 'relic') || !hasPassablePath(floor, floor.start, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
+    if (!milestone.id || !['waycache', 'boon', 'augment', 'relic'].includes(milestone.kind) || !tile || !passable(tile.kind) || (tile.kind === 'exit' && milestone.kind !== 'relic') || !containsReachable(floor, reachable, milestone)) errors.push(`unreachable milestone: ${milestone.id}`)
     if (milestoneLocations.has(key)) errors.push(`overlapping milestone: ${key}`)
     milestoneLocations.add(key)
   }
   for (const encounter of floor.encounters ?? []) {
     const tile = getTile(floor, encounter.x, encounter.y)
-    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction', 'sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', 'minePact', 'mineKami', 'wildsPact', 'wildsKami', 'cavernsPact', 'cavernsKami', 'ruinsPact', 'ruinsKami', 'furnacePact', 'furnaceKami', 'floodedPact', 'floodedKami', 'cliffsPact', 'cliffsKami', 'burialPact', 'burialKami', 'saltPact', 'saltKami', 'frostPact', 'frostKami'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !hasPassablePath(floor, floor.start, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
+    if (!encounter.id || !['wayfarer', 'bloodBargain', 'shiftingChamber', 'stormCache', 'ancestorDebt', 'cursedObject', 'oathwell', 'windTrial', 'tombAuction', 'sunTribute', 'mirageMarket', 'brineOath', 'glassTrial', 'whiteRoad', 'saltCache', 'iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', 'minePact', 'mineKami', 'wildsPact', 'wildsKami', 'cavernsPact', 'cavernsKami', 'ruinsPact', 'ruinsKami', 'furnacePact', 'furnaceKami', 'floodedPact', 'floodedKami', 'cliffsPact', 'cliffsKami', 'burialPact', 'burialKami', 'saltPact', 'saltKami', 'frostPact', 'frostKami'].includes(encounter.kind) || !tile || !passable(tile.kind) || tile.kind === 'exit' || !containsReachable(floor, reachable, encounter)) errors.push(`unreachable encounter: ${encounter.id}`)
   }
   for (const ecology of floor.ecology ?? []) {
     const tile = getTile(floor, ecology.target.x, ecology.target.y)
@@ -1818,7 +1840,8 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     tile.kind = ecology.effect
     if (ecology.effectFlow) tile.flow = { ...ecology.effectFlow }
     else delete tile.flow
-    const solvable = hasPassablePath(floor, floor.start, floor.exit) && objectiveTargets(floor).some(target => canReachObjectiveWithProps(floor, target))
+    const afterEcology = reachableIndexes(floor)
+    const solvable = containsReachable(floor, afterEcology, floor.exit) && reachesObjective(floor, afterEcology, objectiveTargets(floor))
     tile.kind = previousKind
     if (previousFlow) tile.flow = previousFlow
     else delete tile.flow
@@ -1849,7 +1872,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (!tile || !passable(tile.kind) || tile.kind === 'lockedDoor' || !definition.terrain.includes(tile.kind)) errors.push(`illegal prop placement: ${prop.id}`)
     if (!hasPropContext(floor, prop.kind, prop)) errors.push(`invalid prop context: ${prop.id}`)
     else if (isBlockingProp(prop)) {
-      const reachableSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: prop.x + x, y: prop.y + y }))
+      const reachableSide = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => containsReachable(floor, reachable, { x: prop.x + x, y: prop.y + y }))
       if (!reachableSide) errors.push(`unreachable prop: ${prop.id}`)
     } else if (!reachable.has(indexOf(floor, prop.x, prop.y))) errors.push(`unreachable prop: ${prop.id}`)
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
