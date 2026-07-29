@@ -1177,7 +1177,8 @@ const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undef
     const point = floorPoint(state.floor, index)
     return adjacentCells(point).some(next => getTile(state.floor, next.x, next.y) && !getTile(state.floor, next.x, next.y)!.explored) ? [point] : []
   })
-  for (const point of [...frontier].sort((a, b) => chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)) {
+  const boundary = (point: Point): number => adjacentCells(point).filter(next => Boolean(getTile(state.floor, next.x, next.y) && !getTile(state.floor, next.x, next.y)!.explored)).length
+  for (const point of [...frontier].sort((a, b) => boundary(b) - boundary(a) || chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)) {
     const route = stepTo(state, mode, [point])
     if (!route) continue
     return { command: route.command, reason: 'reach frontier', score: 24 }
@@ -1360,7 +1361,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const terrainFrontier = !frontier && mode === 'visible' && state.floor.biome !== 'mine' && (context.noProgressTurns >= 12 || breaksPositionCycle(context) || context.loopRecoveries > 0)
       ? terrainRouteMove(state, state.floor.tiles.flatMap((tile, index) => !tile.explored && passable(state, 'omniscient', floorPoint(state.floor, index), false, false) ? [floorPoint(state.floor, index)] : []))
       : undefined
-    if (frontier || terrainFrontier) candidates.push(frontier ?? { ...terrainFrontier!, reason: 'survey frontier', score: 24 })
+    if (frontier || terrainFrontier) candidates.push(frontier ? { ...frontier, score: mode === 'visible' && !hasObjectiveRoute ? 220 : 24 } : { ...terrainFrontier!, reason: 'survey frontier', score: mode === 'visible' && !hasObjectiveRoute ? 220 : 24 })
   }
   return candidates
 }
