@@ -5,7 +5,6 @@ import type { Alignment, Biome, LegacyRecord, RunState } from './types'
 
 export const TYPEWRITER_INTERVAL = 28
 
-export interface AsciiAnimation { frames: string[]; frameMs: number }
 export type LoreVignette = 'opening' | 'succession' | 'ending'
 export interface LoreScene { title: string; pages: string[]; vignette: LoreVignette }
 export interface StoryState { scene: LoreScene; page: number; pageStartedAt: number; complete?: boolean }
@@ -16,14 +15,6 @@ export interface LoadingState {
   fromBiome?: Biome
   toBiome?: Biome
 }
-
-export const loadingAnimation: AsciiAnimation = { frameMs: 140, frames: [
-  '  [=     ]  \n  /|  .  |\\ \n /_|_____|_\\\n    / \\',
-  '  [==    ]  \n  /| . . |\\ \n /_|_____|_\\\n    / \\',
-  '  [===   ]  \n  /|.   .|\\ \n /_|_____|_\\\n    / \\',
-  '  [====  ]  \n  /| . . |\\ \n /_|_____|_\\\n    / \\',
-  '  [===== ]  \n  /|  .  |\\ \n /_|_____|_\\\n    / \\'
-] }
 
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]
 const characters = (value: string): string[] => Array.from(value)
@@ -80,8 +71,6 @@ export const storyPage = (story: StoryState): string => story.scene.pages[story.
 export const storyProgress = (story: StoryState, now: number): number => story.complete ? characters(storyPage(story)).length : Math.min(characters(storyPage(story)).length, Math.floor(Math.max(0, now - story.pageStartedAt) / TYPEWRITER_INTERVAL))
 export const storyText = (story: StoryState, now: number): string => characters(storyPage(story)).slice(0, storyProgress(story, now)).join('')
 export const isStoryPageComplete = (story: StoryState, now: number): boolean => storyProgress(story, now) === characters(storyPage(story)).length
-export const animationFrame = (animation: AsciiAnimation | undefined, now: number): string => !animation?.frames.length ? '' : animation.frames[Math.floor(now / animation.frameMs) % animation.frames.length]
-
 export const advanceStory = (story: StoryState, now: number): { story?: StoryState; finished: boolean } => {
   if (!isStoryPageComplete(story, now)) return { story: { ...story, complete: true }, finished: false }
   if (story.page + 1 < story.scene.pages.length) return { story: { ...story, page: story.page + 1, pageStartedAt: now, complete: false }, finished: false }

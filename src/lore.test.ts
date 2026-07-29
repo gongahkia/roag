@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { animationFrame, advanceStory, createStory, endingLore, isStoryPageComplete, loadingAnimation, openingLore, shrineChiefName, storyText, successionLore, TYPEWRITER_INTERVAL, villageElderName } from './lore'
+import { advanceStory, createStory, endingLore, isStoryPageComplete, openingLore, shrineChiefName, storyText, successionLore, TYPEWRITER_INTERVAL, villageElderName } from './lore'
 import { createLegacy, createRun } from './test/factories'
 
 describe('delivery lore', () => {
@@ -18,12 +18,6 @@ describe('delivery lore', () => {
     const next = advanceStory(story, TYPEWRITER_INTERVAL * 3)
     expect(next.story).toMatchObject({ page: 1 })
     expect(advanceStory(next.story!, TYPEWRITER_INTERVAL * 5)).toEqual({ finished: true })
-  })
-
-  it('cycles fixed-width ASCII animation frames deterministically', () => {
-    expect(animationFrame(loadingAnimation, 0)).toBe(loadingAnimation.frames[0])
-    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs)).toBe(loadingAnimation.frames[1])
-    expect(animationFrame(loadingAnimation, loadingAnimation.frameMs * loadingAnimation.frames.length)).toBe(loadingAnimation.frames[0])
   })
 
   it('names the elder and shrine chief in the opening', () => {

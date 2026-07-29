@@ -10,10 +10,10 @@ import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cameraFrame
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { isTelegraphVisible, presentTelegraph } from './renderer/telegraphs'
 import { flowGlyph, showMotionAt, terrainInspection, terminalGlyph, terminalTileGlyph, terrainVisual, visualIdentitySnapshot, type VisualIdentityState } from './renderer/visual-grammar'
-import { animationFrame, isStoryPageComplete, loadingAnimation, storyText, type LoadingState, type StoryState } from './lore'
+import { isStoryPageComplete, storyText, type LoadingState, type StoryState } from './lore'
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
-import { mineSeason } from './season'
+import { mineSeason, seasonLabel } from './season'
 import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
 import { rewardOfferFor } from './reward-contract'
@@ -55,9 +55,9 @@ const courierOrigins = {
   tidebound: { label: 'UMI NO KO', description: 'A coast-road courier who turns current and rain into a way forward.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
 } as const
 const courierCallings = {
-  trailguard: { label: 'MICHI MAMORI', description: 'Carry a woven guard. Hold the road when the way closes.', kit: 'Courier Cord · Woven Guard · tonic' },
-  pathmaker: { label: 'MICHI TSUKURI', description: 'Carry fire-ash and rope. Make a road through bad ground.', kit: 'Courier Cord · 6 bombs · 6 ropes · map' },
-  spiritbearer: { label: 'KAMI MAMORI', description: 'Carry a focus tonic and a Sight Charm for the unseen road.', kit: 'Courier Cord · focus tonic · Sight Charm' }
+  trailguard: { label: 'MICHI MAMORI', description: 'Carry a woven guard. Hold the road when the way closes.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: 'Woven Guard', effect: 'extra defence' }, { name: 'Vital Tonic', effect: 'restore health' }] },
+  pathmaker: { label: 'MICHI TSUKURI', description: 'Carry fire-ash and rope. Make a road through bad ground.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: '6 Fire-ash', effect: 'clear obstacles' }, { name: '6 Ropes', effect: 'cross pits' }, { name: 'Trail Map', effect: 'reveal floor' }] },
+  spiritbearer: { label: 'KAMI MAMORI', description: 'Carry a focus tonic and a Sight Charm for the unseen road.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: 'Focus Tonic', effect: 'restore focus' }, { name: 'Sight Charm', effect: 'reveal surroundings' }] }
 } as const
 
 export class TerminalRenderer {
@@ -269,7 +269,6 @@ export class TerminalRenderer {
     const calling = courierCallings[draft.calling]
     const death = draft.deathMode === 'checkpoint' ? ['LODGE REST', 'Death returns you to the last cleared lodge.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery and generation.']
     this.box(6, 3, 84, 53, 'CREATE COURIER')
-    this.text(10, 7, 'A courier takes the warning from the village road.', colors.text)
     const name = draft.name.trim()
     this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
     this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
@@ -282,7 +281,8 @@ export class TerminalRenderer {
       this.text(40, 24 + index, `${stat.slice(0, 3).toUpperCase()} ${value}  ${'█'.repeat(value)}${'░'.repeat(4 - value)}`, colors.text)
     })
     this.wrap(calling.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 30 + index, line, colors.text))
-    this.text(40, 35, `KIT  ${calling.kit}`, colors.gold)
+    this.text(40, 35, 'KIT', colors.gold)
+    calling.kit.forEach((item, index) => this.text(40, 36 + index, `· ${item.name} — ${item.effect}`, colors.text))
     this.text(40, 41, death[1], colors.text)
     this.text(10, 51, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
@@ -291,7 +291,7 @@ export class TerminalRenderer {
     this.text(x, y, label, colors.gold)
     this.text(x, y + 2, `${focus ? '>' : ' '} `, focus ? colors.green : colors.text)
     this.text(x + 2, y + 2, value, placeholder ? 'rgba(150, 211, 139, .45)' : focus ? colors.green : colors.text)
-    if (cursor) this.text(x + 2 + value.length, y + 2, '_', colors.green)
+    if (cursor) this.text(x + 2 + (placeholder ? 0 : value.length), y + (placeholder ? 3 : 2), '_', colors.green)
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {
@@ -301,7 +301,7 @@ export class TerminalRenderer {
     this.box(x, y, 90, 56, story?.scene.title ?? 'VILLAGE TRAILHEAD')
     if (!story) {
       this.drawOutpostViewport(24, 5, { x: 24, y: 29 }, () => this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false))
-      this.text(x + 5, 44, season.name.toUpperCase(), season.color)
+      this.text(x + 5, 44, seasonLabel(season), season.color)
       this.text(x + 5, 47, 'The village entrusts you with a coastal warning.', colors.text)
       this.text(x + 5, 50, season.scene, colors.text)
       this.text(x + 5, 54, `ENTER continue · ESC title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
@@ -313,7 +313,7 @@ export class TerminalRenderer {
         ? story.page === 2 ? { x: 24, y: 27 } : { x: 21, y: 17 }
         : { x: 24, y: 16 }
     this.drawOutpostViewport(24, 5, hero, () => this.drawOutpostScene(24, 5, hero, story.scene.vignette, story.page, now < this.hubAnimationUntil))
-    this.text(x + 5, 42, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}  ${season.name.toUpperCase()}`, season.color)
+    this.text(x + 5, 42, `${String(story.page + 1).padStart(2, '0')}/${String(story.scene.pages.length).padStart(2, '0')}  ${seasonLabel(season)}`, season.color)
     this.wrap(storyText(story, now), 76).slice(0, 4).forEach((line, index) => this.text(x + 5, 44 + index * 2, line, colors.text))
     const storyControls = isStoryPageComplete(story, now) ? 'ANY KEY continue · SPACE skip · ESC return' : 'ANY KEY reveal · SPACE skip · ESC return'
     this.text(x + 5, 54, `${storyControls} · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
@@ -339,10 +339,9 @@ export class TerminalRenderer {
     const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'Village Outpost'
     const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'MARKING THE NEXT ROUTE'
     this.box(27, 13, 42, 25, title)
-    this.ascii(33, 19, animationFrame(loadingAnimation, now), colors.gold)
-    this.text(48 - Math.floor(message.length / 2), 28, message, colors.text)
-    this.text(48 - Math.floor((biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.').length / 2), 31, biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.', colors.dim)
-    this.text(48 - Math.floor('Please stand by.'.length / 2), 34, 'Please stand by.', colors.dim)
+    this.text(48 - Math.floor(message.length / 2), 24, message, colors.text)
+    this.text(48 - Math.floor((biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.').length / 2), 27, biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.', colors.dim)
+    this.text(48 - Math.floor('Please stand by.'.length / 2), 30, 'Please stand by.', colors.dim)
   }
 
   private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {
