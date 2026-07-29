@@ -87,6 +87,7 @@ type TelegraphRoute = { sourceId: string; from: string; to: string }
 type TargetAction = Extract<Modal, { kind: 'target' }>['action']
 type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number; routeGained: boolean }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
+type CandidateLookaheadBaseline = { fingerprint: string; hasStrategicRoute: boolean }
 export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
 export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
@@ -968,7 +969,7 @@ const resolveCandidateSequence = (state: RunState, mode: AutoplayMode, candidate
   return simulated
 }
 
-const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, candidate: Candidate, context: AutoplayContext): number => {
+const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, candidate: Candidate, context: AutoplayContext, baseline?: CandidateLookaheadBaseline): number => {
   if (candidate.command === 'q' && getTile(state.floor, state.hero.x, state.hero.y)?.kind === 'exit' && state.floor.objective.status === 'complete' && state.floor.guardianDefeated) return 260
   const health = state.hero.health
   const enemyHealth = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((total, actor) => total + actor.health, 0)
@@ -977,7 +978,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
   const gold = state.hero.gold
   const inventory = state.hero.inventory.length
   const turn = state.turn
-  const hadStrategicRoute = hasStrategicRoute(state, mode)
+  const hadStrategicRoute = baseline?.hasStrategicRoute ?? hasStrategicRoute(state, mode)
   const simulated = candidate.intent || candidate.command === 'b'
     ? resolveCandidateSequence(state, mode, candidate)
     : planningClone(state)
@@ -992,7 +993,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
     return healthAdjustment
   }
   const transitioned = simulated.floor.index !== state.floor.index || simulated.areaFloor !== state.areaFloor
-  if (simulated.turn === turn && !transitioned && simulated.floor.objective.status === state.floor.objective.status && autoplayStateFingerprint(simulated) === autoplayStateFingerprint(state)) return Number.NEGATIVE_INFINITY
+  if (simulated.turn === turn && !transitioned && simulated.floor.objective.status === state.floor.objective.status && autoplayStateFingerprint(simulated) === (baseline?.fingerprint ?? autoplayStateFingerprint(state))) return Number.NEGATIVE_INFINITY
   if (transitioned) return 260 + healthAdjustment
   if (hadStrategicRoute && !hasStrategicRoute(simulated, mode)) return Number.NEGATIVE_INFINITY
   const remainingHealth = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((total, actor) => total + actor.health, 0)
@@ -1364,12 +1365,13 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   return candidates
 }
 
-const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, context: AutoplayContext): Candidate[] => {
+const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, context: AutoplayContext, fingerprint: string): Candidate[] => {
   const candidates = immediateCandidates(state, mode, policy, context)
     .map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
+  const baseline = { fingerprint, hasStrategicRoute: hasStrategicRoute(state, mode) }
   return candidates
-    .map(candidate => ({ ...candidate, score: candidate.score + candidateLookahead(state, mode, policy, candidate, context) }))
+    .map(candidate => ({ ...candidate, score: candidate.score + candidateLookahead(state, mode, policy, candidate, context, baseline) }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
 }
 
@@ -1466,7 +1468,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
   }
-  const candidates = scoredAutoplayCandidates(state, mode, policy, context).filter(candidate => Number.isFinite(candidate.score))
+  const candidates = scoredAutoplayCandidates(state, mode, policy, context, fingerprint).filter(candidate => Number.isFinite(candidate.score))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
   const fallback = !selected || selected.score < -500 ? executableMovementFallback(state, mode) : undefined
   if (!selected && !fallback || selected && selected.score < -500 && !fallback) {
