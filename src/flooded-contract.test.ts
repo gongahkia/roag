@@ -61,4 +61,16 @@ describe('Tidal Floodlands generation contract', () => {
     expect(hasPassablePath(state.floor, state.floor.start, state.floor.exit)).toBe(true)
     expect(validateGeneration(state.floor)).toEqual({ valid: true, errors: [] })
   }, 30_000)
+
+  it('scales anchored undertow whirlpools from F1 through F4', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'floodedRuins', areaFloor, 3))
+    expect(floors.map(floor => floor.whirlpools?.length)).toEqual([1, 2, 3, 4])
+    for (const floor of floors) for (const whirlpool of floor.whirlpools ?? []) {
+      expect(getTile(floor, whirlpool.center.x, whirlpool.center.y)?.kind).toBe('deepWater')
+      expect(getTile(floor, whirlpool.anchor.x, whirlpool.anchor.y)?.kind).toBe('anchor')
+      expect(whirlpool.cells.every(point => getTile(floor, point.x, point.y)?.flow?.hazard === 'undertow')).toBe(true)
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+  }, 30_000)
 })

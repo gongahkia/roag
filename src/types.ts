@@ -120,6 +120,7 @@ export interface RitualHiddenChamber { id: string; kind: 'ritual-hidden-chamber'
 export interface RitualLayout { approach: Point; center: Point; outerRing: Point[]; innerRing: Point[]; annex: Point[] }
 export interface FurnaceServiceSpace { id: string; kind: 'furnace-service-space'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
 export interface FurnaceLayout { kiln: Point; heatNetwork: Point[]; liftLane: Point[] }
+export interface Whirlpool { id: string; center: Point; radius: number; cells: Point[]; anchor: Point }
 export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
@@ -178,6 +179,7 @@ export interface Floor {
   sideSpaces?: SideSpace[]
   ritualLayout?: RitualLayout
   furnaceLayout?: FurnaceLayout
+  whirlpools?: Whirlpool[]
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]

@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -240,6 +240,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintCavernHiddenChambers(floor, rngFor(runSeed, 'generation', index, 'cavern-hidden-chambers'))
   imprintRuinsHiddenChambers(floor, macro, rngFor(runSeed, 'generation', index, 'ritual-hidden-chambers'))
   imprintFurnaceServiceSpaces(floor, macro, rngFor(runSeed, 'generation', index, 'furnace-service-spaces'))
+  imprintFloodedWhirlpools(floor, macro, rngFor(runSeed, 'generation', index, 'flooded-whirlpools'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -1161,6 +1162,32 @@ const imprintFloodedCurrentNetwork = (floor: Floor, macro: MacroRecipeDebug): vo
   if (bank) setKind(floor, bank.x, bank.y, 'anchor')
   const island = { x: refuge.footprint.x + Math.floor(refuge.footprint.width / 2), y: refuge.footprint.y + Math.floor(refuge.footprint.height / 2) }
   if (getTile(floor, island.x, island.y)?.kind === 'floor') setKind(floor, island.x, island.y, 'anchor')
+}
+
+const imprintFloodedWhirlpools = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'floodedRuins') return
+  const desired = 1 + floor.index % 4
+  const radius = floor.index % 4 > 1 ? 2 : 1
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  const centers = rng.shuffle(floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [pointAt(floor, index)] : []))
+  const whirlpools: Whirlpool[] = []
+  for (const center of centers) {
+    if (whirlpools.length === desired) break
+    const cells = [] as Point[]
+    for (let y = center.y - radius; y <= center.y + radius; y++) for (let x = center.x - radius; x <= center.x + radius; x++) if (x !== center.x || y !== center.y) cells.push({ x, y })
+    const anchor = { x: center.x + radius + 1, y: center.y }
+    if (getTile(floor, center.x, center.y)?.kind !== 'floor' || getTile(floor, anchor.x, anchor.y)?.kind !== 'floor' || [center, anchor, ...cells].some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'floor' || macroCells.has(indexOf(floor, point.x, point.y)) || whirlpools.some(whirlpool => whirlpool.cells.some(cell => cell.x === point.x && cell.y === point.y) || whirlpool.center.x === point.x && whirlpool.center.y === point.y))) continue
+    setKind(floor, center.x, center.y, 'deepWater')
+    for (const point of cells) {
+      const tile = getTile(floor, point.x, point.y)!
+      tile.kind = 'current'
+      tile.flow = { direction: flowDirection(center.x - point.x, center.y - point.y), hazard: 'undertow' }
+    }
+    setKind(floor, anchor.x, anchor.y, 'anchor')
+    whirlpools.push({ id: `whirlpool:${floor.seed}:${whirlpools.length}`, center, radius, cells, anchor })
+  }
+  if (whirlpools.length !== desired) throw new Error(`failed Flooded whirlpool generation: expected ${desired}, found ${whirlpools.length}`)
+  floor.whirlpools = whirlpools
 }
 
 const imprintCliffHeightGraph = (floor: Floor, macro: MacroRecipeDebug): void => {
