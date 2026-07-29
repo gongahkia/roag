@@ -890,7 +890,7 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
   const currentPressure = hostilePressure(state, mode, state.hero)
   const standingInTelegraph = telegraphDanger(state, state.hero)
   const canPressGuardianObjective = policy === 'clear' && state.hero.health * 2 >= state.hero.maxHealth && state.floor.objective.kind === 'defeatGuardian'
-  if (!standingInTelegraph && (currentPressure < 100 || canPressGuardianObjective)) return undefined
+  if (!standingInTelegraph && (currentPressure < (mode === 'visible' ? 25 : 100) || canPressGuardianObjective)) return undefined
   const options = directions.map(([direction, delta]) => ({ direction, point: { x: state.hero.x + delta.x, y: state.hero.y + delta.y } }))
     .filter(option => passable(state, mode, option.point, true) && !telegraphDanger(state, option.point))
     .map(option => ({ ...option, pressure: hostilePressure(state, mode, option.point), repeats: context.recentPositions.filter(key => key === pointKey(option.point)).length }))
