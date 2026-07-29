@@ -115,7 +115,8 @@ export type RewardMilestoneId = 'waycache' | 'boon-teach' | 'boon-test' | 'boon-
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean; rewardKey?: RewardMilestoneId }
 export interface MineBreachRoom { id: string; kind: 'mine-breach-room'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; rareTransition?: { kind: 'floorSkip' | 'biomeRift'; targetBiome: Biome; targetFloor: number } }
 export interface WildsCave { id: string; kind: 'wilds-cave'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
-export type SideSpace = MineBreachRoom | WildsCave
+export interface CavernHiddenChamber { id: string; kind: 'cavern-hidden-chamber'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; waterHint: Point }
+export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }

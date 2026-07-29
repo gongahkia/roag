@@ -3,7 +3,7 @@ import { advance } from './engine/combat'
 import { newRun } from './engine'
 import { measureGeneration } from './generation-metrics'
 import { fieldReadout } from './engine/readout'
-import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from './world'
+import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, reachableFloorIndexes, routeContractDebug, validateGeneration } from './world'
 
 const shapeSeeds = [0, 1, 3]
 
@@ -45,5 +45,28 @@ describe('Sea Caves generation contract', () => {
     expect(floor.actors.some(actor => actor.kind === 'geode' && actor.role === 'guardian')).toBe(true)
     expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
     expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+  })
+
+  it('makes irregular caverns, water-to-wall clues, and hidden chambers escalate by floor', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'caverns', areaFloor, 3))
+    expect(floors[3]!.tiles.filter(tile => tile.kind === 'current').length).toBeGreaterThan(floors[0]!.tiles.filter(tile => tile.kind === 'current').length)
+    for (const [areaFloor, floor] of floors.entries()) {
+      const chambers = floor.sideSpaces ?? []
+      expect(floor.tiles.filter(tile => tile.kind === 'wall').length).toBeGreaterThan(floor.tiles.length * .45)
+      expect(chambers).toHaveLength(1 + Math.floor(areaFloor / 2))
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      const reachable = reachableFloorIndexes(floor)
+      for (const chamber of chambers) {
+        expect(chamber.kind).toBe('cavern-hidden-chamber')
+        if (chamber.kind !== 'cavern-hidden-chamber') throw new Error('expected cavern hidden chamber')
+        expect(getTile(floor, chamber.entry.x, chamber.entry.y)?.kind).toBe('breakwall')
+        expect(getTile(floor, chamber.waterHint.x, chamber.waterHint.y)).toMatchObject({ kind: 'current', flow: { direction: getTile(floor, chamber.waterHint.x, chamber.waterHint.y)?.flow?.direction } })
+        expect(reachable.has(chamber.reward.y * floor.width + chamber.reward.x)).toBe(false)
+        getTile(floor, chamber.entry.x, chamber.entry.y)!.kind = 'floor'
+        expect(reachableFloorIndexes(floor).has(chamber.reward.y * floor.width + chamber.reward.x)).toBe(true)
+        getTile(floor, chamber.entry.x, chamber.entry.y)!.kind = 'breakwall'
+      }
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
   })
 })
