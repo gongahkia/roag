@@ -34,6 +34,26 @@ describe('Salt Expanse generation contract', () => {
     }
   }, 30_000)
 
+  it('scales false horizons and reveals their brine when approached', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'saltFlats', areaFloor, 3))
+    expect(floors.map(floor => floor.saltMirages?.length)).toEqual([1, 2, 3, 4])
+    for (const floor of floors) {
+      for (const mirage of floor.saltMirages ?? []) expect(mirage.cells.every(point => getTile(floor, point.x, point.y)?.kind === 'saltMirror')).toBe(true)
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+    const state = newRun(91, 'saltFlats')
+    state.floor.actors = []
+    const mirage = state.floor.saltMirages![0]!
+    state.hero.x = mirage.marker.x - 2
+    state.hero.y = mirage.marker.y
+    getTile(state.floor, state.hero.x, state.hero.y)!.kind = 'floor'
+    moveHero(state, 'e')
+    expect(mirage.revealed).toBe(true)
+    expect(mirage.cells.every(point => getTile(state.floor, point.x, point.y)?.kind === 'brine')).toBe(true)
+    expect(state.messages.some(message => message.includes('false horizon'))).toBe(true)
+  }, 30_000)
+
   it('places a mirage skirmisher on a reflective horizon on every ordinary floor', () => {
     for (let areaFloor = 0; areaFloor < 3; areaFloor++) {
       const floor = generateAreaFloor(42, 'saltFlats', areaFloor, 3)

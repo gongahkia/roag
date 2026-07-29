@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type SaltMirage, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -243,6 +243,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintFloodedWhirlpools(floor, macro, rngFor(runSeed, 'generation', index, 'flooded-whirlpools'))
   imprintCliffAlcoves(floor, macro, rngFor(runSeed, 'generation', index, 'cliff-alcoves'))
   imprintBurialCrypts(floor, macro, rngFor(runSeed, 'generation', index, 'burial-crypts'))
+  imprintSaltMirages(floor, macro, rngFor(runSeed, 'generation', index, 'salt-mirages'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -1354,6 +1355,23 @@ const imprintBurialCrypts = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): v
   const shelters = spiritRoute.filter((_, index) => index % Math.max(1, Math.floor(spiritRoute.length / desired)) === 0).slice(0, desired)
   floor.sideSpaces = crypts
   floor.burialLayout = { mounds: floor.tiles.flatMap((tile, index) => tile.kind === 'cairn' ? [pointAt(floor, index)] : []).slice(0, 24 + areaFloor * 8), processions, shelters } satisfies BurialLayout
+}
+
+const imprintSaltMirages = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'saltFlats') return
+  const desired = 1 + floor.index % 4
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  const mirages: SaltMirage[] = []
+  const candidates = rng.shuffle(floor.tiles.flatMap((tile, index) => tile.kind === 'floor' ? [pointAt(floor, index)] : []))
+  for (const marker of candidates) {
+    if (mirages.length === desired) break
+    const cells = [{ x: marker.x, y: marker.y }, { x: marker.x + 1, y: marker.y }, { x: marker.x, y: marker.y + 1 }, { x: marker.x + 1, y: marker.y + 1 }]
+    if (distance(marker, floor.start) < 8 || cells.some(point => getTile(floor, point.x, point.y)?.kind !== 'floor' || macroCells.has(indexOf(floor, point.x, point.y)) || mirages.some(mirage => mirage.cells.some(cell => cell.x === point.x && cell.y === point.y)))) continue
+    cells.forEach(point => setKind(floor, point.x, point.y, 'saltMirror'))
+    mirages.push({ id: `salt-mirage:${floor.seed}:${mirages.length}`, marker, cells, revealed: false })
+  }
+  if (mirages.length !== desired) throw new Error(`failed Salt mirage generation: expected ${desired}, found ${mirages.length}`)
+  floor.saltMirages = mirages
 }
 
 const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void => {

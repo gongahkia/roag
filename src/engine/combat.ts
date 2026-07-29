@@ -68,6 +68,11 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   state.hero.x = destination.x
   state.hero.y = destination.y
   const events: ActionResult = [event('move')]
+  for (const mirage of state.floor.saltMirages ?? []) if (!mirage.revealed && Math.max(Math.abs(state.hero.x - mirage.marker.x), Math.abs(state.hero.y - mirage.marker.y)) <= 3) {
+    mirage.revealed = true
+    mirage.cells.forEach(point => { const falseHorizon = getTile(state.floor, point.x, point.y); if (falseHorizon?.kind === 'saltMirror') falseHorizon.kind = 'brine' })
+    log(state, 'The false horizon ripples away into a brine basin.')
+  }
   if (tile.kind === 'spikes' || tile.kind === 'dart' || tile.kind === 'fireVent') events.push(...damageHero(state, tile.kind === 'spikes' ? 3 : 4, 'a trap', true))
   if (tile.kind === 'lava') events.push(...damageHero(state, 8, 'lava', true))
   if (tile.kind === 'gas') events.push(...damageHero(state, 2, 'poison gas', true))

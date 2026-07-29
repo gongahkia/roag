@@ -125,6 +125,7 @@ export interface CliffAlcove { id: string; kind: 'cliff-alcove'; approach: Point
 export interface CliffLayout { lowRoute: Point[]; midLedges: Point[]; highRidge: Point[]; windCorridors: Point[][]; shelteredPockets: Point[] }
 export interface BurialCrypt { id: string; kind: 'burial-crypt'; approach: Point; entry: Point; approaches: Point[]; entries: Point[]; chamber: Point[]; reward: GroundItem; depth: number }
 export interface BurialLayout { mounds: Point[]; processions: Point[][]; shelters: Point[] }
+export interface SaltMirage { id: string; marker: Point; cells: Point[]; revealed: boolean }
 export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace | CliffAlcove | BurialCrypt
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
@@ -186,6 +187,7 @@ export interface Floor {
   whirlpools?: Whirlpool[]
   cliffLayout?: CliffLayout
   burialLayout?: BurialLayout
+  saltMirages?: SaltMirage[]
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]
