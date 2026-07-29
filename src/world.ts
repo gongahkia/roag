@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -239,6 +239,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintWildsCaves(floor, rngFor(runSeed, 'generation', index, 'wilds-caves'))
   imprintCavernHiddenChambers(floor, rngFor(runSeed, 'generation', index, 'cavern-hidden-chambers'))
   imprintRuinsHiddenChambers(floor, macro, rngFor(runSeed, 'generation', index, 'ritual-hidden-chambers'))
+  imprintFurnaceServiceSpaces(floor, macro, rngFor(runSeed, 'generation', index, 'furnace-service-spaces'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -995,6 +996,37 @@ const imprintRuinsHiddenChambers = (floor: Floor, macro: MacroRecipeDebug, rng: 
   floor.sideSpaces = chambers
 }
 
+const imprintFurnaceServiceSpaces = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'furnace') return
+  const desired = 1 + Math.floor((floor.index % 4) / 2)
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  const candidates = rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))
+  const spaces: FurnaceServiceSpace[] = []
+  const reserved = new Set<number>()
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  for (const candidate of candidates) {
+    if (spaces.length === desired) break
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    const chamber = [] as Point[]
+    for (let forward = 2; forward < 4; forward++) for (let lateral = -1; lateral <= 1; lateral++) chamber.push({ x: candidate.approach.x + candidate.direction.x * forward + candidate.direction.cross.x * lateral, y: candidate.approach.y + candidate.direction.y * forward + candidate.direction.cross.y * lateral })
+    const chamberIndexes = new Set(chamber.map(point => indexOf(floor, point.x, point.y)))
+    const barrier = chamber.flatMap(point => pathOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y }))).filter(point => !chamberIndexes.has(indexOf(floor, point.x, point.y)) && (point.x !== entry.x || point.y !== entry.y)).filter((point, index, points) => points.findIndex(other => other.x === point.x && other.y === point.y) === index)
+    const changed = [entry, ...chamber, ...barrier]
+    if (changed.some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'floor' || reserved.has(indexOf(floor, point.x, point.y)) || macroCells.has(indexOf(floor, point.x, point.y)))) continue
+    const before = changed.map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
+    barrier.forEach(point => setKind(floor, point.x, point.y, 'wall'))
+    setKind(floor, entry.x, entry.y, 'breakwall')
+    if (!hasPassablePath(floor, floor.start, floor.exit)) { before.forEach(({ point, kind }) => setKind(floor, point.x, point.y, kind)); continue }
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: spaces.length % 2 ? 'breachCharge' : 'sootFilter', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    changed.forEach(point => reserved.add(indexOf(floor, point.x, point.y)))
+    floor.items.push(reward)
+    spaces.push({ id: `furnace-service:${floor.seed}:${spaces.length}`, kind: 'furnace-service-space', approach: { ...candidate.approach }, entry, chamber, reward })
+  }
+  if (spaces.length !== desired) throw new Error(`failed Furnace service-space generation: expected ${desired}, found ${spaces.length}`)
+  floor.sideSpaces = spaces
+}
+
 const imprintRuinsRitualCenter = (floor: Floor, macro: MacroRecipeDebug): void => {
   if (floor.biome !== 'ruins') return
   const node = macro.nodes.find(candidate => candidate.kind === 'objective')
@@ -1089,6 +1121,17 @@ const imprintFurnaceFiringRoute = (floor: Floor, macro: MacroRecipeDebug): void 
   const lower = firingLane.find(point => getTile(floor, point.x, point.y)?.kind === 'smoke')!
   const upper = liftLane.find(point => getTile(floor, point.x, point.y)?.kind === 'lift')!
   floor.climbLinks = [{ id: `lift:${floor.index}:${lower.x}:${lower.y}:${upper.x}:${upper.y}`, lower, upper, anchored: true }]
+  const heatNetwork = [...firingLane]
+  for (let index = 0; index < (floor.index % 4) * 4; index++) {
+    const anchor = firingLane[index % firingLane.length]!
+    const point = cardinalOffsets.map(([x, y]) => ({ x: anchor.x + x, y: anchor.y + y })).find(candidate => getTile(floor, candidate.x, candidate.y)?.kind === 'floor' && !heatNetwork.some(existing => existing.x === candidate.x && existing.y === candidate.y))
+    if (!point) continue
+    getTile(floor, point.x, point.y)!.kind = index % 2 ? 'smoke' : 'fireVent'
+    heatNetwork.push(point)
+  }
+  const kiln = macro.nodes.find(node => node.kind === 'objective')
+  if (!kiln) throw new Error(`missing Furnace kiln core: ${macro.recipeId}`)
+  floor.furnaceLayout = { kiln: { x: kiln.footprint.x + Math.floor(kiln.footprint.width / 2), y: kiln.footprint.y + Math.floor(kiln.footprint.height / 2) }, heatNetwork, liftLane: [...liftLane] } satisfies FurnaceLayout
 }
 
 const imprintFloodedCurrentNetwork = (floor: Floor, macro: MacroRecipeDebug): void => {

@@ -245,7 +245,10 @@ function renderAudit(preview: LevelPreview): void {
     floor.escalation ? floor.escalation.phase + ' · ' + floor.escalation.promise + ' · payoff: ' + floor.escalation.payoff : 'none',
     '',
     'ritual layout',
-    floor.ritualLayout ? 'approach ' + coordinate(floor.ritualLayout.approach) + ' · center ' + coordinate(floor.ritualLayout.center) + ' · outer arc ' + floor.ritualLayout.outerRing.length + ' · inner arc ' + floor.ritualLayout.innerRing.length + ' · annex ' + floor.ritualLayout.annex.length : 'none'
+    floor.ritualLayout ? 'approach ' + coordinate(floor.ritualLayout.approach) + ' · center ' + coordinate(floor.ritualLayout.center) + ' · outer arc ' + floor.ritualLayout.outerRing.length + ' · inner arc ' + floor.ritualLayout.innerRing.length + ' · annex ' + floor.ritualLayout.annex.length : 'none',
+    '',
+    'furnace layout',
+    floor.furnaceLayout ? 'kiln ' + coordinate(floor.furnaceLayout.kiln) + ' · heat network ' + floor.furnaceLayout.heatNetwork.length + ' · lifts ' + floor.furnaceLayout.liftLane.length : 'none'
   ].join('\n')
   validationOutput.textContent = [
     'generation validation: ' + (validation.valid ? 'PASS' : 'FAIL'),

@@ -4,7 +4,7 @@ import { advanceGuardianPhase } from './engine/guardians'
 import { newRun } from './engine'
 import { measureGeneration } from './generation-metrics'
 import { fieldReadout } from './engine/readout'
-import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from './world'
+import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, reachableFloorIndexes, routeContractDebug, validateGeneration } from './world'
 
 const shapeSeeds = [0, 1, 9]
 
@@ -56,5 +56,23 @@ describe('Kiln Terraces generation contract', () => {
     expect(advanceGuardianPhase(state, guardian)).toMatchObject({ to: 'cataclysm', tile: 'fireVent' })
     expect(hasPassablePath(state.floor, state.floor.start, state.floor.exit)).toBe(true)
     expect(validateGeneration(state.floor)).toEqual({ valid: true, errors: [] })
+  }, 30_000)
+
+  it('scales connected kiln heat and sealed service spaces from F1 through F4', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'furnace', areaFloor, 3))
+    expect(floors[3]!.furnaceLayout!.heatNetwork.length).toBeGreaterThan(floors[0]!.furnaceLayout!.heatNetwork.length)
+    for (const [areaFloor, floor] of floors.entries()) {
+      const spaces = floor.sideSpaces ?? []
+      expect(floor.furnaceLayout?.liftLane.length).toBeGreaterThan(2)
+      expect(spaces).toHaveLength(1 + Math.floor(areaFloor / 2))
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      const reachable = reachableFloorIndexes(floor)
+      for (const space of spaces) {
+        expect(space.kind).toBe('furnace-service-space')
+        expect(getTile(floor, space.entry.x, space.entry.y)?.kind).toBe('breakwall')
+        expect(reachable.has(space.reward.y * floor.width + space.reward.x)).toBe(false)
+      }
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
   }, 30_000)
 })

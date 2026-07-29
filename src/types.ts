@@ -118,7 +118,9 @@ export interface WildsCave { id: string; kind: 'wilds-cave'; approach: Point; en
 export interface CavernHiddenChamber { id: string; kind: 'cavern-hidden-chamber'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; waterHint: Point }
 export interface RitualHiddenChamber { id: string; kind: 'ritual-hidden-chamber'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
 export interface RitualLayout { approach: Point; center: Point; outerRing: Point[]; innerRing: Point[]; annex: Point[] }
-export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber
+export interface FurnaceServiceSpace { id: string; kind: 'furnace-service-space'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
+export interface FurnaceLayout { kiln: Point; heatNetwork: Point[]; liftLane: Point[] }
+export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -175,6 +177,7 @@ export interface Floor {
   milestones: FloorMilestone[]
   sideSpaces?: SideSpace[]
   ritualLayout?: RitualLayout
+  furnaceLayout?: FurnaceLayout
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]
