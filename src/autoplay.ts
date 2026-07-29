@@ -1033,7 +1033,7 @@ const combatMove = (state: RunState, mode: AutoplayMode): Candidate | undefined 
   }
   const exitThreat = objectiveComplete && state.floor.biome !== 'ruins' ? foes.find(foe => foe.ai === 'ranged') : undefined
   const threatRoute = exitThreat ? stepTo(state, mode, adjacentCells(exitThreat), false, false) : undefined
-  if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 600 }
+  if (threatRoute) return { command: threatRoute.command, reason: `clear exit threat:${exitThreat!.id}`, score: 78 }
   const guardian = foes.find(foe => foe.role === 'guardian')
   const route = guardian ? stepTo(state, mode, attackStances(state, guardian), false, false) : undefined
   if (route) return { command: route.command, reason: `approach guardian:${guardian!.id}`, score: 58 }
