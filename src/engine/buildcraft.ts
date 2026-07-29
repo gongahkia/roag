@@ -174,7 +174,7 @@ export const boonChoices = (state: RunState, milestone: FloorMilestone): Boon[] 
   return [...local.slice(0, 2), ...global].slice(0, 3)
 }
 
-const milestoneAtReach = (state: RunState): FloorMilestone | undefined => state.floor.milestones.find(milestone => !milestone.claimed && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 1)
+const milestoneAtReach = (state: RunState): FloorMilestone | undefined => state.floor.milestones.find(milestone => !milestone.claimed && (milestone.kind !== 'augment' || Object.values(state.hero.boons ?? {}).some(rank => rank > 0)) && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 1)
 
 export function openMilestone(state: RunState): ActionResult | undefined {
   const milestone = milestoneAtReach(state)
