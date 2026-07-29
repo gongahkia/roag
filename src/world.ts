@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -235,6 +235,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintFrostRouteContract(floor, macro)
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
+  imprintMineBreachRooms(floor, rngFor(runSeed, 'generation', index, 'mine-breach-rooms'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -775,6 +776,63 @@ const imprintMineRailServiceRoute = (floor: Floor, macro: MacroRecipeDebug): voi
   if (!landmark || landmark.footprint.width < 4) throw new Error(`missing Mine rail service route: ${macro.recipeId}`)
   const y = landmark.footprint.y + Math.floor(landmark.footprint.height / 2)
   for (let x = landmark.footprint.x + 1; x < landmark.footprint.x + landmark.footprint.width - 1; x++) setKind(floor, x, y, 'rail')
+}
+
+const mineBreachDirections = [
+  { x: 0, y: -1, cross: { x: 1, y: 0 } },
+  { x: 1, y: 0, cross: { x: 0, y: 1 } },
+  { x: 0, y: 1, cross: { x: 1, y: 0 } },
+  { x: -1, y: 0, cross: { x: 0, y: 1 } }
+] as const
+
+const breachChamber = (floor: Floor, approach: Point, direction: typeof mineBreachDirections[number], depth: number, width: number): Point[] | undefined => {
+  const entry = { x: approach.x + direction.x, y: approach.y + direction.y }
+  const radius = Math.floor(width / 2)
+  const chamber: Point[] = []
+  for (let forward = 2; forward < depth + 2; forward++) for (let lateral = -radius; lateral <= radius; lateral++) {
+    const point = { x: approach.x + direction.x * forward + direction.cross.x * lateral, y: approach.y + direction.y * forward + direction.cross.y * lateral }
+    if (!getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'wall') return undefined
+    chamber.push(point)
+  }
+  const chamberIndexes = new Set(chamber.map(point => indexOf(floor, point.x, point.y)))
+  for (const point of chamber) for (const [x, y] of pathOffsets) {
+    const neighbor = { x: point.x + x, y: point.y + y }
+    if (neighbor.x === entry.x && neighbor.y === entry.y) continue
+    const tile = getTile(floor, neighbor.x, neighbor.y)
+    if (!tile || (!chamberIndexes.has(indexOf(floor, neighbor.x, neighbor.y)) && tile.kind !== 'wall')) return undefined
+  }
+  return chamber
+}
+
+const imprintMineBreachRooms = (floor: Floor, rng: Rng): void => {
+  if (floor.biome !== 'mine') return
+  const areaFloor = floor.index % 4
+  const desired = areaFloor + 1
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  const candidates = rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))
+  const reserved = new Set<number>()
+  const sideSpaces: MineBreachRoom[] = []
+  for (const candidate of candidates) {
+    if (sideSpaces.length === desired) break
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    if (getTile(floor, entry.x, entry.y)?.kind !== 'wall' || reserved.has(indexOf(floor, entry.x, entry.y))) continue
+    const chamber = breachChamber(floor, candidate.approach, candidate.direction, 2 + Math.floor((areaFloor + sideSpaces.length) / 2), 3 + (areaFloor > 1 ? 2 : 0))
+    if (!chamber || chamber.some(point => reserved.has(indexOf(floor, point.x, point.y)))) continue
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: sideSpaces.length % 2 ? 'ropeBundle' : 'bombPack', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    const transition = areaFloor > 0 && sideSpaces.length === desired - 1 && rng.chance(30)
+      ? areaFloor === 1
+        ? { kind: 'floorSkip' as const, targetBiome: 'mine' as const, targetFloor: 3 }
+        : { kind: 'biomeRift' as const, targetBiome: 'wilds' as const, targetFloor: 0 }
+      : undefined
+    getTile(floor, entry.x, entry.y)!.kind = 'breakwall'
+    chamber.forEach(point => { getTile(floor, point.x, point.y)!.kind = 'floor'; reserved.add(indexOf(floor, point.x, point.y)) })
+    reserved.add(indexOf(floor, entry.x, entry.y))
+    floor.items.push(reward)
+    sideSpaces.push({ id: `mine-breach:${floor.seed}:${sideSpaces.length}`, kind: 'mine-breach-room', approach: { ...candidate.approach }, entry, chamber, reward, ...(transition ? { rareTransition: transition } : {}) })
+  }
+  if (sideSpaces.length !== desired) throw new Error(`failed Mine breach-room generation: expected ${desired}, found ${sideSpaces.length}`)
+  floor.sideSpaces = sideSpaces
 }
 
 const imprintRuinsRitualCenter = (floor: Floor, macro: MacroRecipeDebug): void => {

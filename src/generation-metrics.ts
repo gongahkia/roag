@@ -21,6 +21,7 @@ export interface GenerationMetrics {
   terrain: Count[]
   encounters: { events: Count[]; actors: Count[]; tactical: Count[] }
   ecology: Count[]
+  sideSpaces: { total: number; kinds: Count[]; rewards: Count[]; transitions: Count[] }
   boonTiming: { milestones: Count[]; boonDistances: number[]; averageBoonDistance: number }
   validation: GenerationValidation
   acceptance: { valid: boolean; errors: string[] }
@@ -112,6 +113,7 @@ export const measureGeneration = ({ floor, route, macro, placements = [], valida
     terrain: count(floor.tiles.map(tile => tile.kind)),
     encounters: { events: count((floor.encounters ?? []).map(encounter => encounter.kind)), actors: count(floor.actors.map(actor => actor.kind)), tactical: count(floor.actors.flatMap(actor => actor.encounter?.leader ? [actor.encounter.archetype] : [])) },
     ecology: count((floor.ecology ?? []).map(ecology => ecology.kind)),
+    sideSpaces: { total: floor.sideSpaces?.length ?? 0, kinds: count((floor.sideSpaces ?? []).map(space => space.kind)), rewards: count((floor.sideSpaces ?? []).map(space => space.reward.id)), transitions: count((floor.sideSpaces ?? []).flatMap(space => space.rareTransition ? [space.rareTransition.kind] : [])) },
     boonTiming: { milestones: count(floor.milestones.map(milestone => milestone.kind)), boonDistances, averageBoonDistance: boonDistances.length ? Number((boonDistances.reduce((sum, distance) => sum + distance, 0) / boonDistances.length).toFixed(2)) : 0 },
     validation,
     acceptance: acceptance(validation, macro, measuredTopology)
