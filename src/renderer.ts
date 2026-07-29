@@ -291,7 +291,12 @@ export class TerminalRenderer {
     this.text(x, y, label, colors.gold)
     this.text(x, y + 2, `${focus ? '>' : ' '} `, focus ? colors.green : colors.text)
     this.text(x + 2, y + 2, value, placeholder ? 'rgba(150, 211, 139, .45)' : focus ? colors.green : colors.text)
-    if (cursor) this.text(x + 2 + (placeholder ? 0 : value.length), y + (placeholder ? 3 : 2), '_', colors.green)
+    if (cursor) {
+      const cursorX = x + 2 + (placeholder ? 0 : value.length)
+      const cursorY = y + (placeholder ? 3 : 2)
+      this.ctx.fillStyle = colors.green
+      this.ctx.fillText('_', cursorX * CW, cursorY * CH - (placeholder ? 2 : 0))
+    }
   }
 
   private approach(route: ScreenRoute, story: StoryState | undefined, now: number): void {

@@ -33,6 +33,7 @@ let confirmingCourierDelete = false
 let inheritedCampaign: CampaignRouteState | undefined
 let successorParentId: string | undefined
 let createAfterStory = false
+let courierCreationPending = false
 let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }
 let recordedEnd = false
 let route: ScreenRoute = initialRoute()
@@ -299,26 +300,40 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
 }
 
 function createCourierFromDraft(): void {
-  if (!courierDraft) return
+  if (!courierDraft || courierCreationPending) return
   const name = courierDraft.name.trim()
   if (!name || name.toLowerCase() === 'unnamed courier') { redraw(); return }
-  const id = crypto.randomUUID()
-  const identity = { id, name, origin: courierDraft.origin, calling: courierDraft.calling, deathMode: courierDraft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
-  const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
-  const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
-  couriers = [...couriers, courier]
-  activeCourier = courier
-  selectedCourierId = id
-  records = courier.records
-  campaign = courier.campaign
-  heir = structuredClone(courier.heir)
+  const draft = { ...courierDraft, name }
+  const startedAt = performance.now()
+  courierCreationPending = true
   courierDraft = undefined
-  inheritedCampaign = undefined
-  successorParentId = undefined
-  beginTrailheadAfterLoading(seed, openingLore(seed, courier.identity.name), heir)
-  persistCourier(courier, id)
+  route = { screen: 'loading', biome: campaign.selectedBiome }
+  loading = { kind: 'trailhead', phase: 'loading', startedAt }
   audio.play([event('menu')])
   redraw()
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    const id = crypto.randomUUID()
+    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
+    const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
+    const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
+    const nextHeir = structuredClone(courier.heir)
+    couriers = [...couriers, courier]
+    activeCourier = courier
+    selectedCourierId = id
+    records = courier.records
+    campaign = courier.campaign
+    heir = nextHeir
+    inheritedCampaign = undefined
+    successorParentId = undefined
+    persistCourier(courier, id)
+    window.setTimeout(() => {
+      if (!courierCreationPending) return
+      courierCreationPending = false
+      loading = undefined
+      beginTrailhead(seed, openingLore(seed, courier.identity.name), nextHeir)
+      redraw()
+    }, Math.max(0, 2000 - (performance.now() - startedAt)))
+  }))
 }
 
 function resumeCourier(): void {

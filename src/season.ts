@@ -12,7 +12,7 @@ const visuals: Omit<SeasonVisual, 'year' | 'era'>[] = [
 ]
 
 export const mineSeason = (heirSeed: number): SeasonVisual => {
-  const calendar = streamSeed(heirSeed, 'lore', 'mine-calendar')
+  const calendar = streamSeed(heirSeed, 'legacy', 'mine-calendar')
   return {
     ...visuals[streamSeed(heirSeed, 'generation', 'mine-approach') % visuals.length],
     era: calendar % 7 === 0 ? 'BC' : 'AD',
