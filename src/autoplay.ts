@@ -37,7 +37,7 @@ const directions = (Object.entries(DIRECTIONS) as Array<[Direction, Point]>).fil
 const pointKey = (point: Point): string => `${point.x},${point.y}`
 const chebyshev = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 const propFingerprint = (prop: Prop): string => `${prop.id}:${prop.kind}:${prop.x},${prop.y}:${prop.state}:${prop.tags.join(',')}:${prop.hooks?.join(',') ?? '-'}:${prop.effectCells?.map(pointKey).sort().join(',') ?? '-'}:${prop.expiresAt ?? '-'}`
-const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('clear telegraph source:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
+const isStrategicRouteReason = (reason: string | undefined): boolean => Boolean(reason && (reason === 'reach exit' || reason === 'operate objective' || reason === 'survey terrain route' || reason.startsWith('objective:') || reason.startsWith('predictive objective route:') || reason.startsWith('predictive exit route') || reason.startsWith('continue predictive objective route:') || reason.startsWith('continue predictive exit route') || reason.startsWith('clear objective route:') || reason.startsWith('clear telegraph source:') || reason.startsWith('prop route:') || reason.startsWith('secure prop route:')))
 const planningClone = (state: RunState): RunState => {
   const cloneConditions = <T extends { conditions?: Array<{ kind: string; duration: number; potency: number }> }>(target: T): T => ({ ...target, conditions: target.conditions?.map(condition => ({ ...condition })) })
   const floor = state.floor
@@ -905,7 +905,8 @@ const evadeThreat = (state: RunState, mode: AutoplayMode, context: AutoplayConte
     const point = floorPoint(state.floor, index)
     return known(state, mode, point) && passable(state, mode, point, true) && !telegraphDanger(state, point) && hostilePressure(state, mode, point) < 25 && chebyshev(state.hero, point) >= 2 ? [point] : []
   })
-  const refuge = stepTo(state, mode, refuges)
+  const refugeTarget = refuges.sort((a, b) => hostilePressure(state, mode, a) - hostilePressure(state, mode, b) || chebyshev(state.hero, b) - chebyshev(state.hero, a) || a.y - b.y || a.x - b.x)[0]
+  const refuge = refugeTarget ? stepTo(state, mode, [refugeTarget]) : undefined
   if (refuge) return { command: refuge.command, reason: standingInTelegraph ? 'withdraw telegraph' : 'withdraw threat', score: 152 }
   const fallback = options.filter(option => standingInTelegraph || option.pressure < currentPressure)
     .sort((a, b) => a.pressure - b.pressure || a.repeats - b.repeats || a.direction.localeCompare(b.direction))
