@@ -251,7 +251,10 @@ function renderAudit(preview: LevelPreview): void {
     floor.furnaceLayout ? 'kiln ' + coordinate(floor.furnaceLayout.kiln) + ' · heat network ' + floor.furnaceLayout.heatNetwork.length + ' · lifts ' + floor.furnaceLayout.liftLane.length : 'none',
     '',
     'whirlpools',
-    (floor.whirlpools ?? []).map(whirlpool => coordinate(whirlpool.center) + ' r' + whirlpool.radius + ' · anchor ' + coordinate(whirlpool.anchor)).join('\n') || 'none'
+    (floor.whirlpools ?? []).map(whirlpool => coordinate(whirlpool.center) + ' r' + whirlpool.radius + ' · anchor ' + coordinate(whirlpool.anchor)).join('\n') || 'none',
+    '',
+    'cliff layout',
+    floor.cliffLayout ? 'low ' + floor.cliffLayout.lowRoute.length + ' · mid ' + floor.cliffLayout.midLedges.length + ' · high ' + floor.cliffLayout.highRidge.length + ' · wind corridors ' + floor.cliffLayout.windCorridors.length + ' · shelters ' + floor.cliffLayout.shelteredPockets.length : 'none'
   ].join('\n')
   validationOutput.textContent = [
     'generation validation: ' + (validation.valid ? 'PASS' : 'FAIL'),

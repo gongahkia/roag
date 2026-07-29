@@ -22,13 +22,12 @@ describe('Windcut Escarpment generation contract', () => {
       expect(report.acceptance).toEqual({ valid: true, errors: [] })
       expect(floor.tiles.filter(tile => tile.kind === 'cliffWall')).not.toHaveLength(0)
       expect(safe.cells.some(point => getTile(floor, point.x, point.y)?.kind === 'rope')).toBe(true)
-      expect(safe.cells.every(point => ['floor', 'rope'].includes(getTile(floor, point.x, point.y)?.kind ?? 'wall'))).toBe(true)
+      expect(safe.cells.every(point => ['floor', 'rope', 'ledge'].includes(getTile(floor, point.x, point.y)?.kind ?? 'wall'))).toBe(true)
       expect(costly.cells.some(point => getTile(floor, point.x, point.y)?.kind === 'ledge')).toBe(true)
       expect(floor.climbLinks).toHaveLength(2)
       for (const link of floor.climbLinks!) {
         expect(link.anchored).toBe(false)
-        expect(getTile(floor, link.lower.x, link.lower.y)?.elevation).toBe(0)
-        expect(getTile(floor, link.upper.x, link.upper.y)?.elevation).toBe(1)
+        expect(getTile(floor, link.lower.x, link.lower.y)?.elevation).toBeLessThan(getTile(floor, link.upper.x, link.upper.y)?.elevation ?? 0)
       }
       expect(floor.ecology?.[0]).toMatchObject({ kind: 'wind', route: 'costly', effectFlow: { hazard: 'squall' }, state: 'waiting' })
       expect(placementDebug(floor).find(entry => entry.id === 'ecology:wind')).toMatchObject({ usedFallback: false })
@@ -37,11 +36,37 @@ describe('Windcut Escarpment generation contract', () => {
     }
   }, 30_000)
 
+  it('escalates from one rope decision to a multi-altitude wind network with cliff alcoves', () => {
+    const floors = Array.from({ length: 4 }, (_, areaFloor) => generateAreaFloor(91, 'cliffs', areaFloor, 3))
+    expect(floors.map(floor => floor.climbLinks?.length)).toEqual([2, 3, 4, 5])
+    expect(floors.map(floor => floor.sideSpaces?.length)).toEqual([1, 2, 3, 4])
+    expect(floors.map(floor => floor.cliffLayout?.windCorridors.length)).toEqual([0, 1, 2, 3])
+    for (const floor of floors) {
+      expect(new Set(floor.tiles.map(tile => tile.elevation).filter((elevation): elevation is 0 | 1 | 2 => elevation !== undefined))).toEqual(new Set([0, 1, 2]))
+      expect(floor.cliffLayout).toMatchObject({ lowRoute: expect.any(Array), midLedges: expect.any(Array), highRidge: expect.any(Array), shelteredPockets: expect.any(Array) })
+      expect(floor.cliffLayout!.lowRoute.length).toBeGreaterThan(3)
+      expect(floor.cliffLayout!.midLedges.length).toBeGreaterThan(3)
+      expect(floor.cliffLayout!.highRidge.length).toBeGreaterThan(3)
+      for (const corridor of floor.cliffLayout!.windCorridors) {
+        expect(corridor).toHaveLength(3)
+        expect(corridor.slice(0, -1).every(point => getTile(floor, point.x, point.y)?.flow?.hazard === 'squall')).toBe(true)
+        expect(getTile(floor, corridor.at(-1)!.x, corridor.at(-1)!.y)?.kind).toBe('rope')
+      }
+      for (const alcove of floor.sideSpaces ?? []) {
+        expect(alcove.kind).toBe('cliff-alcove')
+        expect(getTile(floor, alcove.entry.x, alcove.entry.y)?.kind).toBe('rope')
+        expect(alcove.chamber.every(point => getTile(floor, point.x, point.y)?.kind === 'ledge')).toBe(true)
+      }
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
+  }, 30_000)
+
   it('places an exposed high-perch flyer in the foothill encounter group', () => {
     const floor = generateAreaFloor(42, 'cliffs', 0, 3)
     const stormCrow = floor.actors.find(actor => actor.kind === 'stormCrow' && actor.terrainAffinity?.includes(getTile(floor, actor.x, actor.y)?.kind ?? 'wall'))
     expect(stormCrow).toBeDefined()
-    expect(getTile(floor, stormCrow!.x, stormCrow!.y)).toMatchObject({ kind: 'ledge', elevation: 1 })
+    expect(getTile(floor, stormCrow!.x, stormCrow!.y)).toMatchObject({ kind: 'ledge', elevation: 2 })
     expect(stormCrow?.encounter?.answer).toContain('anchored high route')
     expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
   }, 30_000)

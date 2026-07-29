@@ -1212,6 +1212,7 @@ const imprintFloodedWhirlpools = (floor: Floor, macro: MacroRecipeDebug, rng: Rn
 
 const imprintCliffHeightGraph = (floor: Floor, macro: MacroRecipeDebug): void => {
   if (floor.biome !== 'cliffs') return
+  const areaFloor = floor.index % 4
   const safe = macro.edges.find(candidate => candidate.modes.includes('safe'))
   const costly = macro.edges.find(candidate => candidate.modes.includes('costly') && candidate.modes.includes('optional'))
   if (!safe || !costly) throw new Error(`missing Cliffs height routes: ${macro.recipeId}`)
@@ -1219,28 +1220,93 @@ const imprintCliffHeightGraph = (floor: Floor, macro: MacroRecipeDebug): void =>
   const highRoute = transit(safe.cells)
   const lowRoute = transit(costly.cells)
   if (highRoute.length < 4 || lowRoute.length < 4) throw new Error(`short Cliffs height routes: ${macro.recipeId}`)
+  const occupied = new Set([...highRoute, ...lowRoute].map(point => indexOf(floor, point.x, point.y)))
+  const midLedges = macro.edges.flatMap(edge => transit(edge.cells)).filter(point => !occupied.has(indexOf(floor, point.x, point.y)))
+  if (midLedges.length < 4) throw new Error(`short Cliffs mid ledges: ${macro.recipeId}`)
   for (let index = 0; index < highRoute.length; index++) {
     const point = highRoute[index]
     const tile = getTile(floor, point.x, point.y)!
-    tile.elevation = 1
-    if (index % 3 === 1) tile.kind = 'rope'
+    tile.elevation = 2
+    tile.kind = index % 3 === 1 ? 'rope' : 'floor'
   }
   for (const point of lowRoute) {
     const tile = getTile(floor, point.x, point.y)!
     tile.elevation = 0
     tile.kind = 'ledge'
   }
+  for (let index = 0; index < midLedges.length; index++) {
+    const tile = getTile(floor, midLedges[index]!.x, midLedges[index]!.y)!
+    tile.elevation = 1
+    if (index % 4 === 0) tile.kind = 'rope'
+  }
   const overlook = macro.nodes.find(candidate => candidate.kind === 'optionalReward')
   const perch = overlook && Array.from({ length: overlook.footprint.width * overlook.footprint.height }, (_, index) => ({ x: overlook.footprint.x + index % overlook.footprint.width, y: overlook.footprint.y + Math.floor(index / overlook.footprint.width) })).find(point => getTile(floor, point.x, point.y)?.kind === 'floor')
   if (!perch) throw new Error(`missing Cliffs exposed overlook: ${macro.recipeId}`)
   const perchTile = getTile(floor, perch.x, perch.y)!
-  perchTile.elevation = 1
+  perchTile.elevation = 2
   perchTile.kind = 'ledge'
-  const links = [
-    { lower: lowRoute[1], upper: highRoute[1] },
-    { lower: lowRoute[lowRoute.length - 2], upper: highRoute[highRoute.length - 2] }
-  ]
+  const nearest = (lower: readonly Point[], upper: readonly Point[], used: Set<number>): { lower: Point; upper: Point } | undefined => lower.flatMap(from => upper.map(to => ({ lower: from, upper: to }))).filter(link => !used.has(indexOf(floor, link.lower.x, link.lower.y)) && !used.has(indexOf(floor, link.upper.x, link.upper.y))).sort((left, right) => distance(left.lower, left.upper) - distance(right.lower, right.upper))[0]
+  const pools = [[lowRoute, midLedges], [midLedges, highRoute], [lowRoute, highRoute]] as const
+  const links = [] as Array<{ lower: Point; upper: Point }>
+  const used = new Set<number>()
+  for (let index = 0; index < 2 + areaFloor; index++) {
+    const pair = pools[index % pools.length]
+    const link = nearest(pair[0], pair[1], used)
+    if (!link) throw new Error(`short Cliffs climb network: ${macro.recipeId}`)
+    links.push(link)
+    used.add(indexOf(floor, link.lower.x, link.lower.y))
+    used.add(indexOf(floor, link.upper.x, link.upper.y))
+  }
   floor.climbLinks = links.map(({ lower, upper }, index) => ({ id: `cliff:${floor.index}:${index}:${lower.x}:${lower.y}:${upper.x}:${upper.y}`, lower, upper, anchored: false }))
+  const windCorridors: Point[][] = []
+  for (let index = 0; index < areaFloor; index++) {
+    const route = lowRoute
+    const start = Math.min(route.length - 3, 1 + index * 3)
+    const corridor = route.slice(start, start + 3)
+    if (corridor.length < 2) continue
+    for (let step = 0; step < corridor.length - 1; step++) {
+      const point = corridor[step]!
+      const next = corridor[step + 1]!
+      const tile = getTile(floor, point.x, point.y)!
+      tile.kind = 'ledge'
+      tile.flow = { direction: flowDirection(next.x - point.x, next.y - point.y), hazard: 'squall' }
+    }
+    const tieOff = getTile(floor, corridor.at(-1)!.x, corridor.at(-1)!.y)!
+    tieOff.kind = 'rope'
+    delete tieOff.flow
+    windCorridors.push(corridor)
+  }
+  const shelteredPockets = floor.tiles.flatMap((tile, index) => tile.kind === 'floor' && cardinalOffsets.some(([x, y]) => getTile(floor, index % floor.width + x, Math.floor(index / floor.width) + y)?.kind === 'cliffWall') ? [pointAt(floor, index)] : []).slice(0, 1 + areaFloor)
+  floor.cliffLayout = { lowRoute: [...lowRoute], midLedges, highRidge: [...highRoute], windCorridors, shelteredPockets } satisfies CliffLayout
+}
+
+const imprintCliffAlcoves = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'cliffs') return
+  const desired = 1 + floor.index % 4
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  const reserved = new Set<number>()
+  const alcoves: CliffAlcove[] = []
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  for (const candidate of rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))) {
+    if (alcoves.length === desired) break
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    const chamber = [] as Point[]
+    for (let forward = 2; forward < 4; forward++) for (let lateral = -1; lateral <= 1; lateral++) chamber.push({ x: candidate.approach.x + candidate.direction.x * forward + candidate.direction.cross.x * lateral, y: candidate.approach.y + candidate.direction.y * forward + candidate.direction.cross.y * lateral })
+    const changed = [entry, ...chamber]
+    if (getTile(floor, entry.x, entry.y)?.kind !== 'cliffWall' || changed.some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'cliffWall' || macroCells.has(indexOf(floor, point.x, point.y)) || reserved.has(indexOf(floor, point.x, point.y)))) continue
+    const elevation = alcoves.length % 2 ? 1 : 2
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: alcoves.length % 2 ? 'cliffSpool' : 'skyMap', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    const entryTile = getTile(floor, entry.x, entry.y)!
+    entryTile.kind = 'rope'
+    entryTile.elevation = elevation
+    chamber.forEach(point => { const tile = getTile(floor, point.x, point.y)!; tile.kind = 'ledge'; tile.elevation = elevation; reserved.add(indexOf(floor, point.x, point.y)) })
+    reserved.add(indexOf(floor, entry.x, entry.y))
+    floor.items.push(reward)
+    alcoves.push({ id: `cliff-alcove:${floor.seed}:${alcoves.length}`, kind: 'cliff-alcove', approach: { ...candidate.approach }, entry, chamber, reward, elevation })
+  }
+  if (alcoves.length !== desired) throw new Error(`failed Cliffs alcove generation: expected ${desired}, found ${alcoves.length}`)
+  floor.sideSpaces = alcoves
 }
 
 const imprintBurialRitualRoutes = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -2058,11 +2124,15 @@ function placeEcology(floor: Floor, runtime: PlacementRuntime): void {
   const route = runtime.pilot ? runtime.macro.edges.find(edge => edge.cells.some(cell => cell.x === point.x && cell.y === point.y))?.modes[0] : undefined
   const ecology = ecologyEventFor(floor, point, source?.id ?? `${floor.biome}:${profile.kind}`, node, route)
   if (floor.biome === 'cliffs' && runtime.pilot) {
-    const squall = [{ direction: 'n' as const, x: 0, y: -1 }, { direction: 'e' as const, x: 1, y: 0 }, { direction: 's' as const, x: 0, y: 1 }, { direction: 'w' as const, x: -1, y: 0 }].find(delta => passable(getTile(floor, point.x + delta.x, point.y + delta.y)?.kind ?? 'wall'))
+    const squall = [{ direction: 'n' as const, x: 0, y: -1 }, { direction: 'e' as const, x: 1, y: 0 }, { direction: 's' as const, x: 0, y: 1 }, { direction: 'w' as const, x: -1, y: 0 }].find(delta => {
+      const target = getTile(floor, point.x + delta.x, point.y + delta.y)
+      return passable(target?.kind ?? 'wall') && !target?.flow
+    })
     if (!squall) throw new Error(`missing Cliffs squall landing: ${floor.layoutId}`)
     const tieOff = getTile(floor, point.x + squall.x, point.y + squall.y)!
     tieOff.kind = 'rope'
     tieOff.elevation = getTile(floor, point.x, point.y)?.elevation
+    delete tieOff.flow
     ecology.effectFlow = { direction: squall.direction, hazard: 'squall' }
   }
   if (floor.escalation) {
