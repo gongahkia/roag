@@ -1386,7 +1386,7 @@ const executableMovementFallback = (state: RunState, mode: Exclude<AutoplayMode,
   return [{ command: directionCommands[direction], reason: 'recover executable movement', score: 80 - damage * 32 - pressure / 5 - telegraph }]
 }).sort((a, b) => b.score - a.score || a.command.localeCompare(b.command))[0]
 
-export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context)
+export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context, autoplayStateFingerprint(state))
   .map(({ command, reason, score }) => ({ command, reason, score }))
 
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayDecision | undefined => {
