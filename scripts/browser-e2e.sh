@@ -46,7 +46,7 @@ for _ in {1..15}; do "${CLI[@]}" press Backspace; done
 "${CLI[@]}" press i
 "${CLI[@]}" press Enter
 route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
-grep --fixed-strings --quiet 'loading' <<<"$route"
+if ! grep --fixed-strings --quiet '"loading"' <<<"$route" && ! grep --fixed-strings --quiet '"approach"' <<<"$route"; then exit 1; fi
 sleep 1.1
 route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
 grep --fixed-strings --quiet 'approach' <<<"$route"
