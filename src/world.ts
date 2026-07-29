@@ -820,7 +820,7 @@ const imprintMineBreachRooms = (floor: Floor, rng: Rng): void => {
     if (!chamber || chamber.some(point => reserved.has(indexOf(floor, point.x, point.y)))) continue
     const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
     const reward = { id: sideSpaces.length % 2 ? 'ropeBundle' : 'bombPack', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
-    const transition = areaFloor > 0 && sideSpaces.length === desired - 1 && rng.chance(30)
+    const transition = sideSpaces.length === desired - 1 && (areaFloor === 3 || areaFloor === 1 && rng.chance(30))
       ? areaFloor === 1
         ? { kind: 'floorSkip' as const, targetBiome: 'mine' as const, targetFloor: 3 }
         : { kind: 'biomeRift' as const, targetBiome: 'wilds' as const, targetFloor: 0 }

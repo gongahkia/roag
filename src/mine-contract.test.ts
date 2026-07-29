@@ -55,8 +55,7 @@ describe('Obsidian Pass generation contract', () => {
   })
 
   it('records deterministic rare breach transitions in generation audits', () => {
-    const transitions = Array.from({ length: 32 }, (_, seed) => generateAreaFloor(seed, 'mine', 3, 3).sideSpaces ?? []).flatMap(rooms => rooms.flatMap(room => room.rareTransition ? [room.rareTransition] : []))
-    expect(transitions.length).toBeGreaterThan(0)
-    expect(transitions.every(transition => transition.targetBiome === 'wilds' && transition.targetFloor === 0)).toBe(true)
+    const transitions = (generateAreaFloor(7, 'mine', 3, 3).sideSpaces ?? []).flatMap(room => room.rareTransition ? [room.rareTransition] : [])
+    expect(transitions).toEqual([{ kind: 'biomeRift', targetBiome: 'wilds', targetFloor: 0 }])
   })
 })
