@@ -18,6 +18,7 @@
     "test:campaign": "npm run autoplay:campaign",
     "balance:report": "tsx scripts/balance-report.ts",
     "autoplay:benchmark": "tsx scripts/autoplay-benchmark.ts",
+    "autoplay:coverage": "tsx scripts/autoplay-coverage.ts",
     "autoplay:diagnose": "tsx scripts/autoplay-diagnose.ts",
     "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs",
     "test:generation-sweep": "tsx scripts/generation-sweep.ts",
