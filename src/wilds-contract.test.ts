@@ -3,7 +3,7 @@ import { advance } from './engine/combat'
 import { newRun } from './engine'
 import { measureGeneration } from './generation-metrics'
 import { fieldReadout } from './engine/readout'
-import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from './world'
+import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, reachableFloorIndexes, routeContractDebug, validateGeneration } from './world'
 
 const shapeSeeds = [0, 4, 7]
 
@@ -18,8 +18,8 @@ describe('River Wilds generation contract', () => {
       const costly = macro.edges.find(edge => edge.modes.includes('costly') && edge.modes.includes('optional'))!
       const report = measureGeneration({ floor, route: routeContractDebug(floor), macro, validation: validateGeneration(floor) })
       expect(report.acceptance).toEqual({ valid: true, errors: [] })
-      expect(floor.tiles.filter(tile => tile.kind !== 'wall').length).toBeGreaterThan(floor.tiles.length * 0.7)
-      expect(floor.tiles.map(tile => tile.kind)).toEqual(expect.arrayContaining(['water', 'bramble', 'web']))
+      expect(floor.tiles.filter(tile => tile.kind === 'wall').length).toBeGreaterThan(floor.tiles.length * .45)
+      expect(floor.tiles.map(tile => tile.kind)).toEqual(expect.arrayContaining(['water', 'bramble', 'boulder', 'web']))
       expect(safe.cells.every(point => getTile(floor, point.x, point.y)?.kind === 'floor')).toBe(true)
       expect(costly.cells.some(point => ['water', 'web'].includes(getTile(floor, point.x, point.y)?.kind ?? 'wall'))).toBe(true)
       expect(floor.ecology?.[0]).toMatchObject({ kind: 'nesting', route: 'costly', state: 'waiting' })
@@ -47,5 +47,29 @@ describe('River Wilds generation contract', () => {
     expect(floor.actors.some(actor => actor.kind === 'heartwood' && actor.role === 'guardian')).toBe(true)
     expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
     expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+  }, 30_000)
+
+  it('builds deterministic canopy caves and rope shortcuts without removing a natural route', () => {
+    for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
+      const floor = generateAreaFloor(91, 'wilds', areaFloor, 3)
+      const caves = floor.sideSpaces ?? []
+      expect(caves).toHaveLength(1 + Math.floor(areaFloor / 2))
+      expect(floor.climbLinks).toHaveLength(1)
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      const reachable = reachableFloorIndexes(floor)
+      for (const cave of caves) {
+        expect(cave.kind).toBe('wilds-cave')
+        expect(cave.chamber).toHaveLength(3)
+        expect(getTile(floor, cave.entry.x, cave.entry.y)?.kind).toBe('breakwall')
+        expect(reachable.has(cave.reward.y * floor.width + cave.reward.x)).toBe(false)
+        getTile(floor, cave.entry.x, cave.entry.y)!.kind = 'floor'
+        expect(reachableFloorIndexes(floor).has(cave.reward.y * floor.width + cave.reward.x)).toBe(true)
+        getTile(floor, cave.entry.x, cave.entry.y)!.kind = 'breakwall'
+      }
+      const link = floor.climbLinks![0]
+      expect(getTile(floor, link.lower.x, link.lower.y)?.elevation).toBe(0)
+      expect(getTile(floor, link.upper.x, link.upper.y)?.elevation).toBe(1)
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
   }, 30_000)
 })

@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -236,6 +236,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintCavernSetpieceContext(floor, macro)
   repairMandatoryPath(floor)
   imprintMineBreachRooms(floor, rngFor(runSeed, 'generation', index, 'mine-breach-rooms'))
+  imprintWildsCaves(floor, rngFor(runSeed, 'generation', index, 'wilds-caves'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -445,14 +446,25 @@ const carveRouteContractLayout = (floor: Floor, contract: ReturnType<typeof gene
 const carveWildsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, rng: Rng): Room[] => {
   if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
   if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
-  carveRect(floor, { x: 1, y: 1, w: floor.width - 2, h: floor.height - 2 })
-  const variant = floor.layoutId.replace('-remix', '')
-  if (variant === 'root-maze') for (let x = 11; x < floor.width - 8; x += 10) wallBand(floor, true, x, rng.int(4, floor.height - 5), 2)
-  if (variant === 'wetland-causeways') for (let y = 9; y < floor.height - 7; y += 9) wallBand(floor, false, y, rng.int(5, floor.width - 6), 3)
   const toRoom = (node: MacroRecipeDebug['nodes'][number]): Room => ({ x: node.footprint.x, y: node.footprint.y, w: node.footprint.width, h: node.footprint.height })
   const rooms = macro.nodes.map(toRoom)
-  rooms.forEach(room => carveRect(floor, room))
-  macroConnectorPoints(macro).forEach(point => setKind(floor, point.x, point.y, 'floor'))
+  const carveClearing = (room: Room) => {
+    const center = { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) }
+    const radiusX = room.w / 2 + 2
+    const radiusY = room.h / 2 + 2
+    for (let y = room.y - 2; y < room.y + room.h + 2; y++) for (let x = room.x - 2; x < room.x + room.w + 2; x++) {
+      const distance = ((x - center.x) / radiusX) ** 2 + ((y - center.y) / radiusY) ** 2
+      if (distance < 1 + (rng.chance(22) ? .18 : -.08)) setKind(floor, x, y, 'floor')
+    }
+    carveRect(floor, room)
+  }
+  const carveTrail = (point: Point) => {
+    setKind(floor, point.x, point.y, 'floor')
+    for (const [x, y] of cardinalOffsets) if (rng.chance(62)) setKind(floor, point.x + x, point.y + y, 'floor')
+    if (rng.chance(28)) for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) setKind(floor, point.x + x, point.y + y, 'floor')
+  }
+  rooms.forEach(carveClearing)
+  macroConnectorPoints(macro).forEach(carveTrail)
   const byKind = new Map(macro.nodes.map(node => [node.kind, toRoom(node)]))
   const ordered: RouteNodeKind[] = ['start', 'landmark', 'fork', 'optionalReward', 'objective', floor.index % 4 === 3 ? 'boss' : 'exit']
   return ordered.map(kind => byKind.get(kind)).filter((room): room is Room => Boolean(room))
@@ -835,6 +847,31 @@ const imprintMineBreachRooms = (floor: Floor, rng: Rng): void => {
   floor.sideSpaces = sideSpaces
 }
 
+const imprintWildsCaves = (floor: Floor, rng: Rng): void => {
+  if (floor.biome !== 'wilds') return
+  const desired = 1 + Math.floor((floor.index % 4) / 2)
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  const candidates = rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))
+  const caves: WildsCave[] = []
+  const reserved = new Set<number>()
+  for (const candidate of candidates) {
+    if (caves.length === desired) break
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    if (getTile(floor, entry.x, entry.y)?.kind !== 'wall' || reserved.has(indexOf(floor, entry.x, entry.y))) continue
+    const chamber = breachChamber(floor, candidate.approach, candidate.direction, 1, 3)
+    if (!chamber || chamber.some(point => reserved.has(indexOf(floor, point.x, point.y)))) continue
+    const rewardPoint = chamber[1]!
+    const reward = { id: caves.length % 2 ? 'ropeBundle' : 'focusTonic', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    getTile(floor, entry.x, entry.y)!.kind = 'breakwall'
+    reserved.add(indexOf(floor, entry.x, entry.y))
+    chamber.forEach(point => { getTile(floor, point.x, point.y)!.kind = 'floor'; reserved.add(indexOf(floor, point.x, point.y)) })
+    floor.items.push(reward)
+    caves.push({ id: `wilds-cave:${floor.seed}:${caves.length}`, kind: 'wilds-cave', approach: { ...candidate.approach }, entry, chamber, reward })
+  }
+  if (caves.length !== desired) throw new Error(`failed Wilds cave generation: expected ${desired}, found ${caves.length}`)
+  floor.sideSpaces = caves
+}
+
 const imprintRuinsRitualCenter = (floor: Floor, macro: MacroRecipeDebug): void => {
   if (floor.biome !== 'ruins') return
   const node = macro.nodes.find(candidate => candidate.kind === 'objective')
@@ -874,6 +911,14 @@ const imprintWildsPressureRoute = (floor: Floor, macro: MacroRecipeDebug): void 
   const route = cells.slice(start, start + 7)
   if (route.length < 3) throw new Error(`short Wilds pressure route: ${macro.recipeId}`)
   for (let index = 0; index < route.length; index++) setKind(floor, route[index].x, route[index].y, index % 2 === 0 ? 'water' : 'web')
+  const safe = macro.edges.find(candidate => candidate.modes.includes('safe'))
+  const safeRoute = safe?.cells.slice(3, -3).filter(point => getTile(floor, point.x, point.y)?.kind === 'floor') ?? []
+  const lower = safeRoute[1]
+  const upper = route.at(-2)
+  if (!lower || !upper) throw new Error(`missing Wilds climb route: ${macro.recipeId}`)
+  getTile(floor, lower.x, lower.y)!.elevation = 0
+  getTile(floor, upper.x, upper.y)!.elevation = 1
+  floor.climbLinks = [{ id: `wilds-climb:${floor.index}:${lower.x}:${lower.y}:${upper.x}:${upper.y}`, lower, upper, anchored: false }]
 }
 
 const imprintRuinsWardRoute = (floor: Floor, macro: MacroRecipeDebug): void => {
@@ -1333,7 +1378,8 @@ function decorateWilds(floor: Floor, rng: Rng): void {
   }
   paint('water', 9, true)
   if (floor.layoutId.includes('river-clearings') || floor.layoutId.includes('wetland')) carveFlowChannel(floor, rng, false)
-  paint('bramble', 8, true)
+  paint('bramble', 12, true)
+  paint('boulder', 7, true)
   paint('web', 10)
 }
 
