@@ -3,6 +3,7 @@ import { advance } from './engine/combat'
 import { newRun } from './engine'
 import { measureGeneration } from './generation-metrics'
 import { fieldReadout } from './engine/readout'
+import { biomeName } from './content'
 import { generateAreaFloor, getTile, hasPassablePath, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from './world'
 
 const shapeSeeds = [0, 1, 4]
@@ -56,5 +57,25 @@ describe('Ceremonial Ruins generation contract', () => {
     expect(boss.actors.some(actor => actor.kind === 'regent' && actor.role === 'guardian')).toBe(true)
     expect(hasPassablePath(boss, boss.start, boss.exit)).toBe(true)
     expect(validateGeneration(boss)).toEqual({ valid: true, errors: [] })
+  }, 30_000)
+
+  it('names and audits a ceremonial precinct with central arcs and hidden inner chambers', () => {
+    expect(biomeName.ruins).toBe('Ceremonial Precinct')
+    for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
+      const floor = generateAreaFloor(91, 'ruins', areaFloor, 3)
+      const layout = floor.ritualLayout!
+      const chambers = floor.sideSpaces ?? []
+      expect(layout.outerRing.length).toBeGreaterThan(30)
+      expect(layout.innerRing.length).toBeGreaterThan(16)
+      expect(layout.annex.length).toBeGreaterThan(10)
+      expect(getTile(floor, layout.center.x, layout.center.y)?.kind).toBe('altar')
+      expect(chambers).toHaveLength(1 + Math.floor(areaFloor / 2))
+      expect(hasPassablePath(floor, floor.start, floor.exit)).toBe(true)
+      for (const chamber of chambers) {
+        expect(chamber.kind).toBe('ritual-hidden-chamber')
+        expect(getTile(floor, chamber.entry.x, chamber.entry.y)?.kind).toBe('breakwall')
+      }
+      expect(validateGeneration(floor)).toEqual({ valid: true, errors: [] })
+    }
   }, 30_000)
 })

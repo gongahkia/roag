@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -238,6 +238,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintMineBreachRooms(floor, rngFor(runSeed, 'generation', index, 'mine-breach-rooms'))
   imprintWildsCaves(floor, rngFor(runSeed, 'generation', index, 'wilds-caves'))
   imprintCavernHiddenChambers(floor, rngFor(runSeed, 'generation', index, 'cavern-hidden-chambers'))
+  imprintRuinsHiddenChambers(floor, macro, rngFor(runSeed, 'generation', index, 'ritual-hidden-chambers'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -506,6 +507,29 @@ const carveRuinsRing = (floor: Floor, center: Point, halfWidth: number, halfHeig
   for (let y = center.y - halfHeight + 1; y < center.y + halfHeight; y++) for (const x of [center.x - halfWidth, center.x + halfWidth]) if (!gateKeys.has(pointKey({ x, y }))) setKind(floor, x, y, 'wall')
 }
 
+const carveRitualArc = (floor: Floor, center: Point, radiusX: number, radiusY: number, gapAngle: number): Point[] => {
+  const ring: Point[] = []
+  for (let y = center.y - radiusY - 1; y <= center.y + radiusY + 1; y++) for (let x = center.x - radiusX - 1; x <= center.x + radiusX + 1; x++) {
+    const dx = (x - center.x) / radiusX
+    const dy = (y - center.y) / radiusY
+    const distance = dx * dx + dy * dy
+    const angle = Math.atan2(dy, dx)
+    if (distance < .8 || distance > 1.22 || Math.abs(angle - gapAngle) < .22 || Math.abs(Math.abs(angle) - Math.PI) < .16) continue
+    setKind(floor, x, y, 'wall')
+    ring.push({ x, y })
+  }
+  return ring
+}
+
+const carveRitualAnnex = (floor: Floor, center: Point): Point[] => {
+  const points: Point[] = []
+  for (let offset = 0; offset < 7; offset++) for (const point of [{ x: center.x + 9 + offset, y: center.y - 3 + offset }, { x: center.x + 9 + offset, y: center.y + 3 - offset }, { x: center.x + 15, y: center.y - 3 + offset }]) {
+    setKind(floor, point.x, point.y, 'wall')
+    points.push(point)
+  }
+  return points
+}
+
 const carveRuinsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof generateRouteContract>, macro: MacroRecipeDebug, _rng: Rng): Room[] => {
   if (contract.biome !== floor.biome) throw new Error(`route contract ${contract.id} biome does not match floor biome`)
   if (contract.recipeId !== floor.layoutId) throw new Error(`route contract ${contract.id} recipe does not match floor layout`)
@@ -514,6 +538,12 @@ const carveRuinsRouteContractLayout = (floor: Floor, contract: ReturnType<typeof
   const ritualNode = macro.nodes.find(node => node.kind === 'objective')
   if (!ritualNode) throw new Error(`missing Ruins ritual node: ${macro.recipeId}`)
   const ritual = center(toRoom(ritualNode))
+  const approachNode = macro.nodes.find(node => node.kind === 'landmark')
+  const approach = approachNode ? center(toRoom(approachNode)) : ritual
+  const outerRing = carveRitualArc(floor, ritual, 13, 9, -Math.PI / 2)
+  const innerRing = carveRitualArc(floor, ritual, 6, 4, 0)
+  const annex = carveRitualAnnex(floor, ritual)
+  floor.ritualLayout = { approach, center: ritual, outerRing, innerRing, annex } satisfies RitualLayout
   const variant = floor.layoutId.replace('-remix', '')
   if (variant === 'circular-precinct') carveRuinsRing(floor, ritual, 9, 7, [{ x: ritual.x, y: ritual.y - 7 }, { x: ritual.x + 9, y: ritual.y }, { x: ritual.x, y: ritual.y + 7 }, { x: ritual.x - 9, y: ritual.y }])
   if (variant === 'broken-processional-loop') {
@@ -928,6 +958,40 @@ const imprintCavernHiddenChambers = (floor: Floor, rng: Rng): void => {
     chambers.push({ id: `cavern-hidden:${floor.seed}:${chambers.length}`, kind: 'cavern-hidden-chamber', approach: { ...candidate.approach }, entry, chamber, reward, waterHint })
   }
   if (chambers.length !== desired) throw new Error(`failed Cavern hidden-chamber generation: expected ${desired}, found ${chambers.length}`)
+  floor.sideSpaces = chambers
+}
+
+const imprintRuinsHiddenChambers = (floor: Floor, macro: MacroRecipeDebug, rng: Rng): void => {
+  if (floor.biome !== 'ruins') return
+  const desired = 1 + Math.floor((floor.index % 4) / 2)
+  const reachable = [...reachableFloorIndexes(floor)].map(index => pointAt(floor, index))
+  const candidates = rng.shuffle(reachable.flatMap(approach => mineBreachDirections.map(direction => ({ approach, direction }))))
+  const chambers: RitualHiddenChamber[] = []
+  const reserved = new Set<number>()
+  const macroCells = new Set(macroConnectorPoints(macro).map(point => indexOf(floor, point.x, point.y)))
+  for (const candidate of candidates) {
+    if (chambers.length === desired) break
+    const entry = { x: candidate.approach.x + candidate.direction.x, y: candidate.approach.y + candidate.direction.y }
+    const chamber = [] as Point[]
+    for (let forward = 2; forward < 4; forward++) for (let lateral = -1; lateral <= 1; lateral++) chamber.push({ x: candidate.approach.x + candidate.direction.x * forward + candidate.direction.cross.x * lateral, y: candidate.approach.y + candidate.direction.y * forward + candidate.direction.cross.y * lateral })
+    const chamberIndexes = new Set(chamber.map(point => indexOf(floor, point.x, point.y)))
+    const barrier = chamber.flatMap(point => pathOffsets.map(([x, y]) => ({ x: point.x + x, y: point.y + y }))).filter(point => !chamberIndexes.has(indexOf(floor, point.x, point.y)) && (point.x !== entry.x || point.y !== entry.y)).filter((point, index, points) => points.findIndex(other => other.x === point.x && other.y === point.y) === index)
+    const changed = [entry, ...chamber, ...barrier]
+    if (changed.some(point => !getTile(floor, point.x, point.y) || getTile(floor, point.x, point.y)?.kind !== 'floor' || reserved.has(indexOf(floor, point.x, point.y)) || macroCells.has(indexOf(floor, point.x, point.y)))) continue
+    const before = changed.map(point => ({ point, kind: getTile(floor, point.x, point.y)!.kind }))
+    barrier.forEach(point => setKind(floor, point.x, point.y, 'wall'))
+    setKind(floor, entry.x, entry.y, 'breakwall')
+    if (!hasPassablePath(floor, floor.start, floor.exit)) {
+      before.forEach(({ point, kind }) => setKind(floor, point.x, point.y, kind))
+      continue
+    }
+    const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
+    const reward = { id: chambers.length % 2 ? 'sunseal' : 'wardScript', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
+    changed.forEach(point => reserved.add(indexOf(floor, point.x, point.y)))
+    floor.items.push(reward)
+    chambers.push({ id: `ritual-hidden:${floor.seed}:${chambers.length}`, kind: 'ritual-hidden-chamber', approach: { ...candidate.approach }, entry, chamber, reward })
+  }
+  if (chambers.length !== desired) throw new Error(`failed ritual hidden-chamber generation: expected ${desired}, found ${chambers.length}`)
   floor.sideSpaces = chambers
 }
 

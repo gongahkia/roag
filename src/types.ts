@@ -116,7 +116,9 @@ export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augme
 export interface MineBreachRoom { id: string; kind: 'mine-breach-room'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; rareTransition?: { kind: 'floorSkip' | 'biomeRift'; targetBiome: Biome; targetFloor: number } }
 export interface WildsCave { id: string; kind: 'wilds-cave'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
 export interface CavernHiddenChamber { id: string; kind: 'cavern-hidden-chamber'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; waterHint: Point }
-export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber
+export interface RitualHiddenChamber { id: string; kind: 'ritual-hidden-chamber'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
+export interface RitualLayout { approach: Point; center: Point; outerRing: Point[]; innerRing: Point[]; annex: Point[] }
+export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -172,6 +174,7 @@ export interface Floor {
   objective: FloorObjective
   milestones: FloorMilestone[]
   sideSpaces?: SideSpace[]
+  ritualLayout?: RitualLayout
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]

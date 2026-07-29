@@ -242,7 +242,10 @@ function renderAudit(preview: LevelPreview): void {
     metrics.boonTiming.boonDistances.join(', ') || 'none',
     '',
     'escalation',
-    floor.escalation ? floor.escalation.phase + ' · ' + floor.escalation.promise + ' · payoff: ' + floor.escalation.payoff : 'none'
+    floor.escalation ? floor.escalation.phase + ' · ' + floor.escalation.promise + ' · payoff: ' + floor.escalation.payoff : 'none',
+    '',
+    'ritual layout',
+    floor.ritualLayout ? 'approach ' + coordinate(floor.ritualLayout.approach) + ' · center ' + coordinate(floor.ritualLayout.center) + ' · outer arc ' + floor.ritualLayout.outerRing.length + ' · inner arc ' + floor.ritualLayout.innerRing.length + ' · annex ' + floor.ritualLayout.annex.length : 'none'
   ].join('\n')
   validationOutput.textContent = [
     'generation validation: ' + (validation.valid ? 'PASS' : 'FAIL'),

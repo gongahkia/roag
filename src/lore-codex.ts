@@ -23,7 +23,7 @@ export const LORE_CODEX_PAGES: readonly LoreCodexPage[] = [
     'Both answers can stand together. Neither is a score or a faction meter.'
   ] },
   { title: 'THE ROADS', lines: [
-    'Obsidian Mine · Moss Wilds · Echo Caverns · Stone Ruins · Cinder Furnace.',
+    'Obsidian Mine · Moss Wilds · Echo Caverns · Ceremonial Precinct · Cinder Furnace.',
     'Flooded Ruins · Wind Cliffs · Burial Grounds · Salt Flats · Frost Reliquary.',
     'Each road is a fictional place shaped by the land, tools, and travel of this world.'
   ] },

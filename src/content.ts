@@ -242,7 +242,7 @@ const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Reco
 export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Stone Circle', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields', saltFlats: 'Mirror Salt Flats', frostReliquary: 'Frost Basin' }
+export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Ceremonial Precinct', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields', saltFlats: 'Mirror Salt Flats', frostReliquary: 'Frost Basin' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'grappleLine', 'portableWinch', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'grappleLine', 'bridgeKit', 'cordmarkTalisman', 'reedstepBoots'],
