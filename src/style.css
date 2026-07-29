@@ -37,9 +37,10 @@ body.level-preview-page main.level-preview { display: block; width: min(1760px,1
 .level-preview-header h1 { margin: 0; font-size: clamp(22px,3vw,32px); line-height: 1.05; }
 .level-preview-header p:not(.level-preview-kicker) { margin: 7px 0 0; color: #8da0b8; font-size: 13px; }
 .level-preview-kicker { margin: 0 0 6px; color: #8fb8ed; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
-.level-preview-header-stack { display: grid; width: min(1320px,100%); gap: 12px; }
-.level-preview-game-link { justify-self: start; padding: 9px 11px; border: 1px solid #596c86; color: #d6dce8; font-size: 12px; text-decoration: none; }
-.level-preview-share { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 9px; width: 100%; padding: 8px 10px; border: 1px solid #29394f; color: #8da0b8; font-size: 10px; }
+.level-preview-header-stack { display: flex; align-items: stretch; flex-wrap: wrap; gap: 12px; width: 100%; }
+.level-preview-header-stack .level-preview-controls { flex: 0 0 auto; width: auto; }
+.level-preview-game-link { display: grid; flex: 0 0 auto; place-items: center; padding: 9px 11px; border: 1px solid #596c86; color: #d6dce8; font-size: 12px; text-decoration: none; }
+.level-preview-share { display: grid; grid-template-columns: auto minmax(0,1fr); flex: 1 1 260px; align-content: center; gap: 9px; min-width: 0; padding: 8px 10px; border: 1px solid #29394f; color: #8da0b8; font-size: 10px; }
 .level-preview-share > span { color: #8fb8ed; letter-spacing: .08em; white-space: nowrap; }.level-preview-share code { min-width: 0; overflow-wrap: anywhere; color: #c4d9f0; font: inherit; }
 .level-preview-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 10px 14px; width: 100%; margin: 0; padding: 13px; border: 1px solid #29394f; background: #101722; }
 .level-preview-controls label { display: grid; gap: 5px; color: #8da0b8; font-size: 10px; letter-spacing: .08em; }
