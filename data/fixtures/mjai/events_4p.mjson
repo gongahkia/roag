@@ -1,0 +1,11 @@
+{"type":"start_game","names":["player_0","player_1","player_2","player_3"],"kyoku_first":0,"aka_flag":true}
+{"type":"start_kyoku","bakaze":"E","kyoku":1,"honba":0,"kyotaku":0,"oya":0,"scores":[25000,25000,25000,25000],"tehais":[["1m","2m","3m","4m","5mr","6m","7m","8m","9m","2p","3p","4p","5pr"],["1m","2m","3m","4m","5m","6m","7m","8m","9m","1p","1p","2p","4p"],["1m","2m","3m","4m","5m","6m","7m","8m","9m","2p","3p","4p","5p"],["1m","2m","3m","4m","5m","6m","7m","8m","9m","1p","2p","3p","4p"]],"dora_marker":"1s"}
+{"type":"reach","actor":0}
+{"type":"reach_accepted","actor":0,"scores":[24000,25000,25000,25000]}
+{"type":"tsumo","actor":0,"pai":"1p"}
+{"type":"dahai","actor":0,"pai":"1p","tsumogiri":true}
+{"type":"pon","actor":1,"consumed":["1p","1p"],"target":0,"pai":"1p"}
+{"type":"dahai","actor":1,"pai":"4p","tsumogiri":false}
+{"type":"hora","actor":2,"target":1,"pai":"4p","hora_points":[30,1000],"yakus":[1,1],"dora_markers":["1s"],"uradora_markers":["1s"]}
+{"type":"end_kyoku"}
+{"type":"end_game"}

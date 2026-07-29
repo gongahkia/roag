@@ -1,0 +1,302 @@
+"""Stable public API for embedding Kenjaku parsing, examples, models, and reports."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterable, Sequence
+from pathlib import Path
+from typing import Any
+
+import kenjaku.io as _io
+import kenjaku.models as _models
+import kenjaku.training as _training
+import kenjaku.training.decision_snapshots as _decision_snapshots
+import kenjaku.training.interpretability_overlay as _interpretability_overlay
+from kenjaku.artifact_registry import LocalArtifactRegistry as _LocalArtifactRegistry
+from kenjaku.decision_rationale import (
+    build_decision_counterfactuals as _build_decision_counterfactuals,
+)
+from kenjaku.decision_rationale import extract_heuristic_rationale as _extract_heuristic_rationale
+from kenjaku.decision_rationale import render_decision_rationale as _render_decision_rationale
+from kenjaku.evaluator import DefenseRiskPotential as _DefenseRiskPotential
+from kenjaku.evaluator import HandValuePotential as _HandValuePotential
+from kenjaku.evaluator import PlacementEndgamePotential as _PlacementEndgamePotential
+from kenjaku.evaluator import ShantenUkeire as _ShantenUkeire
+from kenjaku.evaluator import evaluate_defense_risk as _evaluate_defense_risk
+from kenjaku.evaluator import evaluate_hand_value_potential as _evaluate_hand_value_potential
+from kenjaku.evaluator import evaluate_legal_defense_risks as _evaluate_legal_defense_risks
+from kenjaku.evaluator import evaluate_placement_endgame as _evaluate_placement_endgame
+from kenjaku.evaluator import evaluate_shanten_ukeire as _evaluate_shanten_ukeire
+from kenjaku.heuristics import EvaluatorFactorAblation as _EvaluatorFactorAblation
+from kenjaku.heuristics import HeuristicActionCandidate as _HeuristicActionCandidate
+from kenjaku.heuristics import HeuristicCallCandidate as _HeuristicCallCandidate
+from kenjaku.heuristics import HeuristicDiscardCandidate as _HeuristicDiscardCandidate
+from kenjaku.heuristics import HeuristicFactor as _HeuristicFactor
+from kenjaku.heuristics import rank_call_pass_heuristic as _rank_call_pass_heuristic
+from kenjaku.heuristics import rank_discard_heuristic as _rank_discard_heuristic
+from kenjaku.heuristics import rank_special_action_heuristic as _rank_special_action_heuristic
+from kenjaku.schema import OBSERVATION_V1_TENSOR_DIM as _OBSERVATION_V1_TENSOR_DIM
+from kenjaku.schema import OBSERVATION_V1_TENSOR_KIND as _OBSERVATION_V1_TENSOR_KIND
+from kenjaku.schema import ActionV1 as _ActionV1
+from kenjaku.schema import CheckpointManifestV1 as _CheckpointManifestV1
+from kenjaku.schema import ConformanceFixtureV1 as _ConformanceFixtureV1
+from kenjaku.schema import DecisionCounterfactualsV1 as _DecisionCounterfactualsV1
+from kenjaku.schema import DecisionCounterfactualV1 as _DecisionCounterfactualV1
+from kenjaku.schema import DecisionResultV1 as _DecisionResultV1
+from kenjaku.schema import LegalActionMaskV1 as _LegalActionMaskV1
+from kenjaku.schema import ObservationV1 as _ObservationV1
+from kenjaku.schema import observation_v1_tensor as _observation_v1_tensor
+from kenjaku.simulation import LegalActionOracleV1 as _LegalActionOracleV1
+from kenjaku.simulation import legal_action_oracle_v1 as _legal_action_oracle_v1
+
+TenhouGame = _io.TenhouGame  # stable since 0.2.0
+TenhouParseFailure = _io.TenhouParseFailure  # stable since 0.2.0
+DiscardExample = _training.DiscardExample  # stable since 0.2.0
+CallExample = _training.CallExample  # stable since 0.2.0
+RiichiExample = _training.RiichiExample  # stable since 0.2.0
+iter_discard_examples = _training.iter_discard_examples  # stable since 0.2.0
+iter_call_examples = _training.iter_call_examples  # stable since 0.2.0
+iter_riichi_examples = _training.iter_riichi_examples  # stable since 0.2.0
+RISK_CONTEXT_FEATURE_PROFILE = _models.RISK_CONTEXT_FEATURE_PROFILE  # stable since 0.2.0
+DEFENSE_CONTEXT_FEATURE_PROFILE = _models.DEFENSE_CONTEXT_FEATURE_PROFILE  # stable since 0.2.0
+SHANTEN_FEATURE_PROFILE = _models.SHANTEN_FEATURE_PROFILE  # stable since 0.2.0
+RAW_COUNT_FEATURE_PROFILE = _models.RAW_COUNT_FEATURE_PROFILE  # stable since 0.2.0
+CALL_LINEAR_V1_FEATURE_PROFILE = _models.CALL_LINEAR_V1_FEATURE_PROFILE  # stable since 0.2.0
+DiscardLinearModel = _models.DiscardLinearModel  # stable since 0.2.0
+CallLinearModel = _models.CallLinearModel  # stable since 0.2.0
+RiichiLinearModel = _models.RiichiLinearModel  # stable since 0.2.0
+DealInLinearModel = _models.DealInLinearModel  # stable since 0.2.0
+DiscardFrequencyBaseline = _models.DiscardFrequencyBaseline  # stable since 0.2.0
+RiichiFrequencyBaseline = _models.RiichiFrequencyBaseline  # stable since 0.2.0
+CallFrequencyBaseline = _models.CallFrequencyBaseline  # stable since 0.2.0
+ActionV1 = _ActionV1  # stable since 0.2.0
+CheckpointManifestV1 = _CheckpointManifestV1  # stable since 0.2.0
+ConformanceFixtureV1 = _ConformanceFixtureV1  # stable since 0.2.0
+DecisionResultV1 = _DecisionResultV1  # stable since 0.2.0
+DecisionCounterfactualsV1 = _DecisionCounterfactualsV1  # stable since 0.2.0
+DecisionCounterfactualV1 = _DecisionCounterfactualV1  # stable since 0.2.0
+LegalActionMaskV1 = _LegalActionMaskV1  # stable since 0.2.0
+LegalActionOracleV1 = _LegalActionOracleV1  # stable since 0.2.0
+LocalArtifactRegistry = _LocalArtifactRegistry  # stable since 0.2.0
+ObservationV1 = _ObservationV1  # stable since 0.2.0
+OBSERVATION_V1_TENSOR_DIM = _OBSERVATION_V1_TENSOR_DIM  # stable since 0.2.0
+OBSERVATION_V1_TENSOR_KIND = _OBSERVATION_V1_TENSOR_KIND  # stable since 0.2.0
+observation_v1_tensor = _observation_v1_tensor  # stable since 0.2.0
+legal_action_oracle_v1 = _legal_action_oracle_v1  # stable since 0.2.0
+ShantenUkeire = _ShantenUkeire  # stable since 0.2.0
+evaluate_shanten_ukeire = _evaluate_shanten_ukeire  # stable since 0.2.0
+HandValuePotential = _HandValuePotential  # stable since 0.2.0
+evaluate_hand_value_potential = _evaluate_hand_value_potential  # stable since 0.2.0
+DefenseRiskPotential = _DefenseRiskPotential  # stable since 0.2.0
+evaluate_defense_risk = _evaluate_defense_risk  # stable since 0.2.0
+evaluate_legal_defense_risks = _evaluate_legal_defense_risks  # stable since 0.2.0
+PlacementEndgamePotential = _PlacementEndgamePotential  # stable since 0.2.0
+evaluate_placement_endgame = _evaluate_placement_endgame  # stable since 0.2.0
+HeuristicFactor = _HeuristicFactor  # stable since 0.2.0
+EvaluatorFactorAblation = _EvaluatorFactorAblation  # stable since 0.2.0
+HeuristicDiscardCandidate = _HeuristicDiscardCandidate  # stable since 0.2.0
+rank_discard_heuristic = _rank_discard_heuristic  # stable since 0.2.0
+HeuristicCallCandidate = _HeuristicCallCandidate  # stable since 0.2.0
+rank_call_pass_heuristic = _rank_call_pass_heuristic  # stable since 0.2.0
+HeuristicActionCandidate = _HeuristicActionCandidate  # stable since 0.2.0
+rank_special_action_heuristic = _rank_special_action_heuristic  # stable since 0.2.0
+extract_heuristic_rationale = _extract_heuristic_rationale  # stable since 0.2.0
+render_decision_rationale = _render_decision_rationale  # stable since 0.2.0
+build_decision_counterfactuals = _build_decision_counterfactuals  # stable since 0.2.0
+
+
+def parse_tenhou_xml_file(path: str | Path) -> TenhouGame:  # stable since 0.2.0
+    """Parse one Tenhou XML file into a TenhouGame."""
+    return _io.parse_tenhou_xml_file(path)
+
+
+def parse_tenhou_xml_dataset(  # stable since 0.2.0
+    paths: Sequence[str | Path],
+    *,
+    skip_errors: bool = False,
+    parse_cache_dir: str | Path | None = None,
+    jobs: int = 1,
+) -> _io.TenhouDataset:
+    """Parse Tenhou XML files into one dataset object."""
+    return _io.parse_tenhou_xml_dataset(
+        paths,
+        skip_errors=skip_errors,
+        parse_cache_dir=parse_cache_dir,
+        jobs=jobs,
+    )
+
+
+def build_interpretability_overlay(  # stable since 0.2.0
+    snapshots: Iterable[dict[str, Any]],
+    *,
+    title: str = "Kenjaku Interpretability Overlay",
+    min_decisions: int = 0,
+) -> dict[str, Any]:
+    """Build an in-memory discard interpretability report."""
+    return _interpretability_overlay.build_interpretability_overlay(
+        snapshots,
+        title=title,
+        min_decisions=min_decisions,
+    )
+
+
+API_EXPORT_DOCS = {
+    "parse_tenhou_xml_file": "Parse one Tenhou XML file into a TenhouGame.",
+    "parse_tenhou_xml_dataset": "Parse a sequence of Tenhou XML paths into one dataset object.",
+    "TenhouGame": "Parsed Tenhou game container.",
+    "TenhouParseFailure": "Parse failure record for tolerant dataset loading.",
+    "DiscardExample": "Reconstructed supervised discard decision example.",
+    "CallExample": "Reconstructed supervised call/pass decision example.",
+    "RiichiExample": "Reconstructed supervised riichi/pass decision example.",
+    "iter_discard_examples": "Yield discard examples from a parsed game.",
+    "iter_call_examples": "Yield call/pass examples from a parsed game.",
+    "iter_riichi_examples": "Yield riichi/pass examples from a parsed game.",
+    "RISK_CONTEXT_FEATURE_PROFILE": "Risk-context discard linear feature profile.",
+    "DEFENSE_CONTEXT_FEATURE_PROFILE": "Defense-context discard linear feature profile.",
+    "SHANTEN_FEATURE_PROFILE": "Shanten-aware discard linear feature profile.",
+    "RAW_COUNT_FEATURE_PROFILE": "Raw-count discard linear feature profile.",
+    "CALL_LINEAR_V1_FEATURE_PROFILE": "Additive call/pass linear feature profile.",
+    "DiscardLinearModel": "Dependency-free linear discard classifier.",
+    "CallLinearModel": "Dependency-free linear call/pass classifier.",
+    "RiichiLinearModel": "Dependency-free linear riichi/pass classifier.",
+    "DealInLinearModel": "Dependency-free deal-in probability estimator.",
+    "DiscardFrequencyBaseline": "Frequency baseline for discard decisions.",
+    "RiichiFrequencyBaseline": "Frequency baseline for riichi/pass decisions.",
+    "CallFrequencyBaseline": "Frequency baseline for call/pass decisions.",
+    "ActionV1": "Versioned ruleset-specific policy action.",
+    "CheckpointManifestV1": "Versioned checkpoint identity and compatibility contract.",
+    "ConformanceFixtureV1": "Versioned deterministic synthetic rule scenario.",
+    "DecisionResultV1": "Versioned selected action with structured rationale.",
+    "DecisionCounterfactualsV1": "Versioned scored alternatives for one selected decision.",
+    "DecisionCounterfactualV1": "One scored alternative action and rationale.",
+    "LegalActionMaskV1": "Versioned shared fixed-width legal-action mask.",
+    "LegalActionOracleV1": "Versioned legal-action set and mask for one sandbox seat.",
+    "LocalArtifactRegistry": "Local-only checkpoint, report, and ONNX artifact registry.",
+    "ObservationV1": "Versioned actor-private/public-table policy observation.",
+    "OBSERVATION_V1_TENSOR_DIM": "Fixed width of the ObservationV1 tensor encoder.",
+    "OBSERVATION_V1_TENSOR_KIND": "Version identifier for the ObservationV1 tensor layout.",
+    "observation_v1_tensor": "Encode ObservationV1 into a fixed-width float tuple.",
+    "legal_action_oracle_v1": "Compute legal public v1 actions for one sandbox seat.",
+    "ShantenUkeire": "Exact shanten and remaining-copy ukeire result.",
+    "evaluate_shanten_ukeire": "Evaluate shanten and improving draw availability.",
+    "HandValuePotential": "Visible bonus and structural yaku-potential features.",
+    "evaluate_hand_value_potential": "Evaluate visible hand-value potential features.",
+    "DefenseRiskPotential": "Heuristic, uncalibrated defense-risk features.",
+    "evaluate_defense_risk": "Evaluate defense risk for one discard candidate.",
+    "evaluate_legal_defense_risks": "Rank legal discard candidates by defense risk.",
+    "PlacementEndgamePotential": "Current placement and endgame-pressure features.",
+    "evaluate_placement_endgame": "Evaluate ruleset-specific placement and endgame features.",
+    "HeuristicFactor": "One signed heuristic-ranking factor.",
+    "EvaluatorFactorAblation": "Independent evaluator-factor-family ablation switches.",
+    "HeuristicDiscardCandidate": "One structured discard-ranking candidate.",
+    "rank_discard_heuristic": "Rank legal discard types with structured factors.",
+    "HeuristicCallCandidate": "One structured call/pass-ranking candidate.",
+    "rank_call_pass_heuristic": "Rank pass and legal calls with structured proxy factors.",
+    "HeuristicActionCandidate": "One structured special-action ranking candidate.",
+    "rank_special_action_heuristic": "Rank legal riichi, kan, Kita, hora, and pass actions.",
+    "extract_heuristic_rationale": "Convert heuristic factors into a versioned rationale.",
+    "render_decision_rationale": "Render a structured rationale as human-readable text.",
+    "build_decision_counterfactuals": "Build sorted scored alternatives for one decision.",
+    "export_decision_snapshots": "Build decision snapshots and optionally write JSONL.",
+    "load_decision_snapshots": "Load decision snapshot JSONL rows.",
+    "build_interpretability_overlay": "Build an in-memory discard interpretability report.",
+}
+
+
+def export_decision_snapshots(  # stable since 0.2.0
+    game: TenhouGame,
+    path: str | Path | None = None,
+    *,
+    decision_types: Sequence[str] = _decision_snapshots.DECISION_SNAPSHOT_TYPES,
+    limit: int | None = None,
+    source: dict[str, str | None] | None = None,
+    input_paths: Sequence[Path] = (),
+    xml_file_count: int | None = None,
+    include_outcome: bool = False,
+) -> list[dict[str, Any]]:
+    """Build decision snapshots and optionally write them to JSONL."""
+    snapshots = _decision_snapshots.build_decision_snapshots(
+        game,
+        decision_types=decision_types,
+        limit=limit,
+        source=source,
+        input_paths=input_paths,
+        xml_file_count=xml_file_count,
+        include_outcome=include_outcome,
+    )
+    if path is not None:
+        _decision_snapshots.write_decision_snapshots_jsonl(path, snapshots)
+    return snapshots
+
+
+def load_decision_snapshots(path: str | Path) -> list[dict[str, Any]]:  # stable since 0.2.0
+    """Load decision snapshots from a JSONL file."""
+    snapshots: list[dict[str, Any]] = []
+    with Path(path).open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                snapshots.append(json.loads(line))
+    return snapshots
+
+
+__all__ = [
+    "parse_tenhou_xml_file",
+    "parse_tenhou_xml_dataset",
+    "TenhouGame",
+    "TenhouParseFailure",
+    "DiscardExample",
+    "CallExample",
+    "RiichiExample",
+    "iter_discard_examples",
+    "iter_call_examples",
+    "iter_riichi_examples",
+    "RISK_CONTEXT_FEATURE_PROFILE",
+    "DEFENSE_CONTEXT_FEATURE_PROFILE",
+    "SHANTEN_FEATURE_PROFILE",
+    "RAW_COUNT_FEATURE_PROFILE",
+    "CALL_LINEAR_V1_FEATURE_PROFILE",
+    "DiscardLinearModel",
+    "CallLinearModel",
+    "RiichiLinearModel",
+    "DealInLinearModel",
+    "DiscardFrequencyBaseline",
+    "RiichiFrequencyBaseline",
+    "CallFrequencyBaseline",
+    "ActionV1",
+    "CheckpointManifestV1",
+    "ConformanceFixtureV1",
+    "DecisionResultV1",
+    "DecisionCounterfactualsV1",
+    "DecisionCounterfactualV1",
+    "LegalActionMaskV1",
+    "LegalActionOracleV1",
+    "LocalArtifactRegistry",
+    "ObservationV1",
+    "OBSERVATION_V1_TENSOR_DIM",
+    "OBSERVATION_V1_TENSOR_KIND",
+    "observation_v1_tensor",
+    "legal_action_oracle_v1",
+    "ShantenUkeire",
+    "evaluate_shanten_ukeire",
+    "HandValuePotential",
+    "evaluate_hand_value_potential",
+    "DefenseRiskPotential",
+    "evaluate_defense_risk",
+    "evaluate_legal_defense_risks",
+    "PlacementEndgamePotential",
+    "evaluate_placement_endgame",
+    "HeuristicFactor",
+    "EvaluatorFactorAblation",
+    "HeuristicDiscardCandidate",
+    "rank_discard_heuristic",
+    "HeuristicCallCandidate",
+    "rank_call_pass_heuristic",
+    "HeuristicActionCandidate",
+    "rank_special_action_heuristic",
+    "extract_heuristic_rationale",
+    "render_decision_rationale",
+    "build_decision_counterfactuals",
+    "export_decision_snapshots",
+    "load_decision_snapshots",
+    "build_interpretability_overlay",
+]

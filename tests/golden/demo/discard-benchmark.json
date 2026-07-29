@@ -1,0 +1,304 @@
+{
+  "ablation": {
+    "defense_context_eval_accuracy_lift_over_risk_context": null,
+    "defense_context_train_accuracy_lift_over_risk_context": null,
+    "defense_context_v1_eval_accuracy_lift_over_defense_context": null,
+    "defense_context_v1_train_accuracy_lift_over_defense_context": null,
+    "eval_accuracy_lift_over_raw_count": null,
+    "risk_context_eval_accuracy_lift_over_linear": null,
+    "risk_context_train_accuracy_lift_over_linear": null,
+    "train_accuracy_lift_over_raw_count": null
+  },
+  "call_examples": 1,
+  "calls": 1,
+  "discard_examples": 4,
+  "discard_examples_total": 4,
+  "discard_shanten": {
+    "average_after": 0.5,
+    "average_before": 0.25,
+    "average_delta": 0.25,
+    "examples": 4,
+    "preserved": 3,
+    "worsened": 1
+  },
+  "discards": 4,
+  "draws": 3,
+  "example_limit": null,
+  "exhaustive_draws": 2,
+  "input_paths": [
+    "data/fixtures/tenhou"
+  ],
+  "kind": "kenjaku-discard-benchmark-report-v0",
+  "models": {
+    "frequency": {
+      "eval_analysis": {
+        "by_active_opponent_riichi": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_genbutsu": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_kabe": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_one_chance": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_seen_after_riichi": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_seen_before_riichi": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_actual_discard_suji": {
+          "no": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "yes": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_round_event_phase": {
+          "early": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "late": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          },
+          "middle": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_seat_turn_phase": {
+          "early": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "late": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          },
+          "middle": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_shanten_delta": {
+          "improved": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          },
+          "preserved": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "worsened": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "by_tile_family": {
+          "honor": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          },
+          "man": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          },
+          "pin": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "examples": 1
+          },
+          "sou": {
+            "accuracy": null,
+            "correct": 0,
+            "examples": 0
+          }
+        },
+        "overall": {
+          "accuracy": 0.0,
+          "correct": 0,
+          "examples": 1
+        }
+      },
+      "metrics": {
+        "eval_accuracy": 0.0,
+        "eval_action_recall": {
+          "1m": null,
+          "1p": null,
+          "1s": null,
+          "2m": null,
+          "2p": null,
+          "2s": null,
+          "3m": null,
+          "3p": null,
+          "3s": null,
+          "4m": null,
+          "4p": 0.0,
+          "4s": null,
+          "5m": null,
+          "5p": null,
+          "5s": null,
+          "6m": null,
+          "6p": null,
+          "6s": null,
+          "7m": null,
+          "7p": null,
+          "7s": null,
+          "8m": null,
+          "8p": null,
+          "8s": null,
+          "9m": null,
+          "9p": null,
+          "9s": null,
+          "C": null,
+          "E": null,
+          "F": null,
+          "N": null,
+          "P": null,
+          "S": null,
+          "W": null
+        },
+        "eval_balanced_accuracy": 0.0,
+        "eval_examples": 1,
+        "eval_loss": 1.0,
+        "eval_macro_recall": 0.0,
+        "loss_kind": "zero_one",
+        "train_accuracy": 0.6666666666666666,
+        "train_action_recall": {
+          "1m": null,
+          "1p": 1.0,
+          "1s": null,
+          "2m": null,
+          "2p": null,
+          "2s": null,
+          "3m": null,
+          "3p": null,
+          "3s": null,
+          "4m": null,
+          "4p": 1.0,
+          "4s": null,
+          "5m": null,
+          "5p": null,
+          "5s": null,
+          "6m": null,
+          "6p": null,
+          "6s": null,
+          "7m": null,
+          "7p": 0.0,
+          "7s": null,
+          "8m": null,
+          "8p": null,
+          "8s": null,
+          "9m": null,
+          "9p": null,
+          "9s": null,
+          "C": null,
+          "E": null,
+          "F": null,
+          "N": null,
+          "P": null,
+          "S": null,
+          "W": null
+        },
+        "train_balanced_accuracy": 0.6666666666666666,
+        "train_examples": 3,
+        "train_loss": 0.33333333333333337,
+        "train_macro_recall": 0.6666666666666666
+      }
+    }
+  },
+  "parse_failures": {
+    "count": 0,
+    "items": []
+  },
+  "reaches": 2,
+  "rounds": 3,
+  "source": {
+    "command": "kenjaku demo --output-dir runs/demo",
+    "date": "fixture-demo-v0",
+    "label": "fixture-demo"
+  },
+  "split": {
+    "eval_examples": 1,
+    "eval_fraction": 0.2,
+    "seed": "kenjaku-demo-v0",
+    "train_examples": 3
+  },
+  "wins": 1,
+  "xml_file_count": 3
+}
