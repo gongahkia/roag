@@ -58,7 +58,7 @@ export const primaryToolUseAvailable = (floor: Floor, reachable = reachableFloor
 }
 
 const pathOffsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
-export interface TraversalOptions { target?: Point; ignoreBlockingProps?: boolean }
+export interface TraversalOptions { target?: Point; ignoreBlockingProps?: boolean; collectBlockers?: boolean }
 export interface TraversalResult { reachable: Set<number>; path?: Point[]; blockers: string[] }
 const traversalBlocker = (floor: Floor, point: Point, options: TraversalOptions): string | undefined => {
   const current = getTile(floor, point.x, point.y)
@@ -71,35 +71,48 @@ const traversalBlocker = (floor: Floor, point: Point, options: TraversalOptions)
 const isPathPassable = (floor: Floor, point: Point, ignoreBlockingProps = false): boolean => !traversalBlocker(floor, point, { ignoreBlockingProps })
 
 export const traverseFloor = (floor: Floor, start = floor.start, options: TraversalOptions = {}): TraversalResult => {
-  if (traversalBlocker(floor, start, options)) return { reachable: new Set(), blockers: [`start:${traversalBlocker(floor, start, options)}`] }
+  const startBlocker = traversalBlocker(floor, start, options)
+  if (startBlocker) return { reachable: new Set(), blockers: [`start:${startBlocker}`] }
+  const collectBlockers = options.collectBlockers ?? true
+  const propsByIndex = options.ignoreBlockingProps ? undefined : new Map<number, Prop>()
+  if (propsByIndex) for (const prop of floor.props) {
+    const index = indexOf(floor, prop.x, prop.y)
+    if (prop.state !== 'destroyed' && !propsByIndex.has(index)) propsByIndex.set(index, prop)
+  }
   const initial = indexOf(floor, start.x, start.y)
   const seen = new Set<number>([initial])
   const queue = [initial]
-  const previous = new Map<number, number | undefined>([[initial, undefined]])
-  const blockers = new Set<string>()
+  const previous = options.target ? new Map<number, number | undefined>([[initial, undefined]]) : undefined
+  const blockers = collectBlockers ? new Set<string>() : undefined
   for (let cursor = 0; cursor < queue.length; cursor++) {
-    const current = queue[cursor]
+    const current = queue[cursor]!
     const point = pointAt(floor, current)
     if (options.target && point.x === options.target.x && point.y === options.target.y) {
       const path: Point[] = []
-      for (let index: number | undefined = current; index !== undefined; index = previous.get(index)) path.push(pointAt(floor, index))
-      return { reachable: seen, path: path.reverse(), blockers: [...blockers].sort() }
+      for (let index: number | undefined = current; index !== undefined; index = previous!.get(index)) path.push(pointAt(floor, index))
+      return { reachable: seen, path: path.reverse(), blockers: blockers ? [...blockers].sort() : [] }
     }
     for (const [x, y] of pathOffsets) {
-      const next = { x: point.x + x, y: point.y + y }
-      if (!inBounds(floor, next.x, next.y)) continue
-      const blocker = traversalBlocker(floor, next, options)
-      if (blocker) { blockers.add(`${next.x},${next.y}:${blocker}`); continue }
-      const nextIndex = indexOf(floor, next.x, next.y)
-      if (!seen.has(nextIndex)) { seen.add(nextIndex); previous.set(nextIndex, current); queue.push(nextIndex) }
+      const nextX = point.x + x
+      const nextY = point.y + y
+      if (!inBounds(floor, nextX, nextY)) continue
+      const nextIndex = indexOf(floor, nextX, nextY)
+      const nextTile = floor.tiles[nextIndex]!
+      const blocker = !passable(nextTile.kind) || nextTile.kind === 'lockedDoor'
+        ? `terrain:${nextTile.kind}`
+        : !options.ignoreBlockingProps && isBlockingProp(propsByIndex?.get(nextIndex))
+          ? `prop:${propsByIndex!.get(nextIndex)!.id}`
+          : undefined
+      if (blocker) { blockers?.add(`${nextX},${nextY}:${blocker}`); continue }
+      if (!seen.has(nextIndex)) { seen.add(nextIndex); previous?.set(nextIndex, current); queue.push(nextIndex) }
     }
   }
-  return { reachable: seen, blockers: [...blockers].sort() }
+  return { reachable: seen, blockers: blockers ? [...blockers].sort() : [] }
 }
 
-export const reachableFloorIndexes = (floor: Floor, start = floor.start, ignoreBlockingProps = false): Set<number> => traverseFloor(floor, start, { ignoreBlockingProps }).reachable
-export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => Boolean(traverseFloor(floor, start, { target: destination, ignoreBlockingProps: true }).path)
-export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => Boolean(traverseFloor(floor, start, { target: destination }).path)
+export const reachableFloorIndexes = (floor: Floor, start = floor.start, ignoreBlockingProps = false): Set<number> => traverseFloor(floor, start, { ignoreBlockingProps, collectBlockers: false }).reachable
+export const hasPassableTerrainPath = (floor: Floor, start: Point, destination: Point): boolean => Boolean(traverseFloor(floor, start, { target: destination, ignoreBlockingProps: true, collectBlockers: false }).path)
+export const hasPassablePath = (floor: Floor, start: Point, destination: Point): boolean => Boolean(traverseFloor(floor, start, { target: destination, collectBlockers: false }).path)
 export const macroRecipeDebug = (floor: Floor): MacroRecipeDebug | undefined => macroDebugs.get(floor)
 export const placementDebug = (floor: Floor): readonly PlacementDebug[] => placementDebugs.get(floor) ?? []
 export const routeContractDebug = (floor: Floor): RouteContract | undefined => routeContractDebugs.get(floor)
@@ -143,14 +156,15 @@ export const difficultyFor = (routePosition: number, areaFloor: number): Difficu
 
 const assertGenerationPhase = (floor: Floor, campaignSeed: number, contract: ReturnType<typeof generateRouteContract>, phase: string): void => {
   const targets = [floor.exit, ...objectiveTargets(floor)]
-  const trace = traverseFloor(floor)
-  const reachable = (point: Point): boolean => inBounds(floor, point.x, point.y) && trace.reachable.has(indexOf(floor, point.x, point.y))
+  const reachableIndexes = reachableFloorIndexes(floor)
+  const reachable = (point: Point): boolean => inBounds(floor, point.x, point.y) && reachableIndexes.has(indexOf(floor, point.x, point.y))
   for (const target of targets) {
     const targetReachable = target.x === floor.exit.x && target.y === floor.exit.y
       ? reachable(target)
       : [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => reachable({ x: target.x + x, y: target.y + y }))
     if (targetReachable) continue
     const node = contract.nodes.find(candidate => candidate.kind === (target.x === floor.exit.x && target.y === floor.exit.y ? (floor.index % 4 === 3 ? 'boss' : 'exit') : 'objective'))
+    const trace = traverseFloor(floor)
     throw new Error(`generation failure seed=${campaignSeed} biome=${floor.biome} recipe=${floor.layoutId} phase=${phase} contractNode=${node?.id ?? 'unknown'} target=${target.x},${target.y} reached=${trace.reachable.size} blockers=${trace.blockers.join('|')}`)
   }
 }

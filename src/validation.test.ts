@@ -7,8 +7,7 @@ import { FLOOR_COUNT, type Biome, type Hero } from './types'
 import { generateFloor, validateGeneration } from './world'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
-const floorFingerprint = (seed: number, index: number) => {
-  const floor = generateFloor(seed, index)
+const floorFingerprint = (floor: ReturnType<typeof generateFloor>) => {
   return { tiles: floor.tiles.map(tile => tile.kind), actors: floor.actors.map(actor => `${actor.id}:${actor.kind}:${actor.x},${actor.y}`), props: floor.props, puzzleIds: floor.puzzleIds }
 }
 
@@ -31,8 +30,9 @@ describe('release validation suite', () => {
     const started = performance.now()
     expect(() => validateContent(CONTENT)).not.toThrow()
     for (const seed of [7]) for (let floor = 0; floor < FLOOR_COUNT; floor++) {
-      expect(floorFingerprint(seed, floor)).toEqual(floorFingerprint(seed, floor))
-      expect(validateGeneration(generateFloor(seed, floor))).toEqual({ valid: true, errors: [] })
+      const first = generateFloor(seed, floor)
+      expect(floorFingerprint(first)).toEqual(floorFingerprint(generateFloor(seed, floor)))
+      expect(validateGeneration(first)).toEqual({ valid: true, errors: [] })
     }
     expect(performance.now() - started).toBeLessThan(30_000)
   }, 60_000)

@@ -494,7 +494,7 @@ describe('autoplay', () => {
     ]
     state.floor.objective = { id: 'guardian-objective', kind: 'defeatGuardian', label: 'Pass the trail guardian', status: 'active' }
     const context = createAutoplayContext()
-    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'p', reason: 'objective:defeatGuardian' })
+    expect(autoplayDecision(state, 'omniscient', 'clear', context)).toMatchObject({ command: 'e', reason: 'tactical equip:whip' })
   })
 
   it('routes around non-hostile actors instead of issuing a blocked move', () => {
