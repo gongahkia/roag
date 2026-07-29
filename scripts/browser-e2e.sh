@@ -60,6 +60,13 @@ grep --fixed-strings --quiet 'ascii' <<<"$visual"
 "${CLI[@]}" snapshot
 route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
 grep --fixed-strings --quiet 'hub' <<<"$route"
+"${CLI[@]}" press f
+"${CLI[@]}" press Escape
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'title' <<<"$route"
+"${CLI[@]}" press Enter
+route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+grep --fixed-strings --quiet 'hub' <<<"$route"
 ascii_frame="$(canvas_hash)"
 "${CLI[@]}" press v
 visual="$("${CLI[@]}" eval "localStorage.getItem('jomon-visual-mode')")"

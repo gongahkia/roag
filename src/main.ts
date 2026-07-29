@@ -118,6 +118,10 @@ window.addEventListener('keydown', keyboardEvent => {
   const command = commandForKey(keyboardEvent.key, settings)
   if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
+  if (canAutoplay() && (keyboardEvent.key === 'Escape' || keyboardEvent.key === '`')) {
+    settings = { ...settings, autoplayMode: 'off' }
+    saveSettings(settings)
+  }
   if (canAutoplay()) { keyboardEvent.preventDefault(); return }
   if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
   if (route.screen === 'analysis') {
@@ -748,6 +752,10 @@ function finish(won: boolean): void {
   if (state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   if (state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
   finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
+  if (settings.autoplayMode !== 'off') {
+    settings = { ...settings, autoplayMode: 'off' }
+    saveSettings(settings)
+  }
   recordedEnd = true
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
   if (!won && !checkpointDeath) {
