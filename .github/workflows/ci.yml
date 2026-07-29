@@ -19,6 +19,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: MAX_WORKERS=4 npm run test:ci
+      - run: npm run test:ci
       - run: npm run build
       - run: npm run test:e2e
