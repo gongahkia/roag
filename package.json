@@ -1,0 +1,40 @@
+{
+  "name": "jomon",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "debug:levels": "vite --open '/?debug=levels'",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "SKIP_CAMPAIGN_MATRIX=1 ./scripts/test-ci.sh",
+    "test:ci": "./scripts/test-ci.sh",
+    "test:e2e": "./scripts/browser-e2e.sh",
+    "smoke:autoplay": "tsx scripts/autoplay-smoke.ts",
+    "smoke:autoplay:strict": "AUTOPLAY_REQUIRE_COMPLETION=1 tsx scripts/autoplay-smoke.ts",
+    "autoplay:headless": "tsx scripts/autoplay-headless.ts",
+    "autoplay:campaign": "tsx scripts/autoplay-campaign.ts",
+    "test:campaign": "npm run autoplay:campaign",
+    "balance:report": "tsx scripts/balance-report.ts",
+    "autoplay:benchmark": "tsx scripts/autoplay-benchmark.ts",
+    "autoplay:coverage": "tsx scripts/autoplay-coverage.ts",
+    "autoplay:diagnose": "tsx scripts/autoplay-diagnose.ts",
+    "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs",
+    "test:generation-sweep": "tsx scripts/generation-sweep.ts",
+    "test:generation-sweep:ci": "GENERATION_SWEEP_SEEDS=2 tsx scripts/generation-sweep.ts",
+    "campaign:composition": "tsx scripts/campaign-composition-report.ts",
+    "generation:report": "tsx scripts/generation-report.ts",
+    "test:combat-readability": "tsx scripts/combat-readability.ts",
+    "playtest:check": "tsx scripts/check-playtests.ts",
+    "playtest:check:complete": "PLAYTEST_REQUIRE_COMPLETE=1 tsx scripts/check-playtests.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "fast-check": "^4.9.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.10"
+  }
+}

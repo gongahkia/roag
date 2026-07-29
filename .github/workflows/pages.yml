@@ -1,66 +1,36 @@
-name: Browser Pages
+name: Deploy static site
 
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/pages.yml"
-      - "scripts/verify_browser_model_assets.py"
-      - "web/**"
-  pull_request:
-    paths:
-      - ".github/workflows/pages.yml"
-      - "scripts/verify_browser_model_assets.py"
-      - "web/**"
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install browser dependencies
-        run: npm ci
-        working-directory: web
-      - name: Test browser app
-        run: npm test
-        working-directory: web
-      - name: Build browser app
-        run: npm run build
-        working-directory: web
-      - name: Verify model assets
-        run: python3 scripts/verify_browser_model_assets.py web/dist
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v5
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: web/dist
-
   deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    permissions:
-      pages: write
-      id-token: write
+    runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
       - id: deployment
-        name: Deploy Pages artifact
         uses: actions/deploy-pages@v4

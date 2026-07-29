@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "biome": "mine",
+      "targetThesis": "A hazardous rail quarry where warnings, cover, and movable carts make the safest line legible.",
+      "sourceGrounded": { "note": "Obsidian was transported in Jomon exchange; this is not evidence for a Jomon mine.", "url": "https://jomon-japan.jp/en/learn/jomon-culture" },
+      "fantasyInvention": "The subterranean quarry, rail network, and cave-in guardian are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "wilds",
+      "targetThesis": "A living forest where growth opens, blocks, and bends routes around a visible objective.",
+      "sourceGrounded": { "note": "Northern Jomon environments included broad-leaved forests with nut-bearing trees and settlement resource use.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Animated roots, charms, and the heartwood guardian are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "caverns",
+      "targetThesis": "A sea cave where light, current, anchors, and dry shelves make movement decisions explicit.",
+      "sourceGrounded": { "note": "Jomon sites include inland bays, lakes, and rivers; fishing and shellfish gathering used specific water settings.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Sea caves, tide magic, eel tunnels, and Tidemaw are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "ruins",
+      "targetThesis": "A ceremonial remnant where collapsed links and ritual fixtures force deliberate route recovery.",
+      "sourceGrounded": { "note": "The property includes settlements, burial areas, ritual and ceremonial sites, stone circles, and earthworks.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Ancient ruins, hostile regents, and magic wards are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "furnace",
+      "targetThesis": "A pressured industrial corridor where smoke, lifts, heat, and breach points trade speed for safety.",
+      "sourceGrounded": { "note": "Jomon pottery was heat-treated for cooking and storage; this does not establish an industrial furnace landscape.", "url": "https://jomon-japan.jp/en/learn/jomon-culture" },
+      "fantasyInvention": "The furnace complex, mechanical lifts, and Kilnheart are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "floodedRuins",
+      "targetThesis": "A drowned precinct where current direction, anchors, and floodgates make the route change in readable ways.",
+      "sourceGrounded": { "note": "Jomon communities adapted to warming, cooling, and marine transgression/regression near bays, lakes, and rivers.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Flooded architecture, controllable floodgates, and the drowned regent are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "cliffs",
+      "targetThesis": "A vertical escarpment where ledges, wind, and anchors make elevation and exposure the route puzzle.",
+      "sourceGrounded": { "note": "The World Heritage property spans mountain and hill landforms as well as lowlands and water settings.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Cliff traversal systems, sky shrines, and Sky Warden are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "burial",
+      "targetThesis": "A grave landscape where cairns, spirit paths, and sealed tombs distinguish respectful detours from dangerous shortcuts.",
+      "sourceGrounded": { "note": "Jomon sites include graves, burial areas, ritual deposits, and ceremonial places; burial layouts changed over time.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Spirits, ancestor magic, and the Barrow King are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "saltFlats",
+      "targetThesis": "An exposed white expanse where mirrors, brine, shelter, and long sightlines make orientation and risk visible.",
+      "sourceGrounded": { "note": "Jomon settlements selected tidal areas for brackish shellfish gathering; this is not evidence for salt-flat settlements.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "Salt mirrors, mirages, caravan husks, and the Salt Sovereign are fictional.",
+      "sessions": []
+    },
+    {
+      "biome": "frostReliquary",
+      "targetThesis": "A frozen reliquary where whiteout, ice, wards, and thaw points make visibility and timing the decisive choices.",
+      "sourceGrounded": { "note": "UNESCO records adaptation to climate warming and cooling across the long Jomon sequence; it does not establish a frozen reliquary.", "url": "https://whc.unesco.org/en/list/1632" },
+      "fantasyInvention": "The frozen reliquary, ice magic, duel rites, and Reliquary Warden are fictional.",
+      "sessions": []
+    }
+  ]
+}

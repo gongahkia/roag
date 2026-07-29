@@ -1,0 +1,843 @@
+import { DIRECTIONS, floorPoint, type Point, type Prop, type PropEffectKind, type RunState, type Telegraph } from '../types'
+import { isBlockingProp, propAt, propDefinition } from '../props'
+import { actorAt, getTile, hasPassablePath, isPassable, preservesExitPath, spawnMonster } from '../world'
+import { damageHero, explode, resolveDefeatedActors } from './combat'
+import { addCondition, modifyIncomingDamage } from './conditions'
+import { event, log, type ActionResult } from './shared'
+
+const pointKey = (point: Point): string => `${point.x},${point.y}`
+const mineProp = (prop: Prop): boolean => prop.biome === 'mine' && prop.kind.startsWith('mine.')
+const wildsProp = (prop: Prop): boolean => prop.biome === 'wilds' && prop.kind.startsWith('wilds.')
+const cavernProp = (prop: Prop): boolean => prop.biome === 'caverns' && prop.kind.startsWith('caverns.')
+const ruinsProp = (prop: Prop): boolean => prop.biome === 'ruins' && prop.kind.startsWith('ruins.')
+const furnaceProp = (prop: Prop): boolean => prop.biome === 'furnace' && prop.kind.startsWith('furnace.')
+const floodedProp = (prop: Prop): boolean => prop.biome === 'floodedRuins' && prop.kind.startsWith('floodedRuins.')
+const cardinal = (point: Point): boolean => Math.abs(point.x) + Math.abs(point.y) === 1
+const hazardKinds = new Set(['spikes', 'dart', 'fireVent', 'crumble', 'boulder', 'gas', 'lava', 'pit'])
+
+const reward = (state: RunState, prop: Prop, id: string, count = 1): void => {
+  state.floor.items.push({ id, x: prop.x, y: prop.y, count, visibleInFog: true })
+}
+
+const nearbyPoints = (point: Point, radius = 1): Point[] => {
+  const points: Point[] = []
+  for (let y = point.y - radius; y <= point.y + radius; y++) for (let x = point.x - radius; x <= point.x + radius; x++) if (x !== point.x || y !== point.y) points.push({ x, y })
+  return points.sort((first, second) => Math.max(Math.abs(first.x - point.x), Math.abs(first.y - point.y)) - Math.max(Math.abs(second.x - point.x), Math.abs(second.y - point.y)) || first.y - second.y || first.x - second.x)
+}
+
+const revealLocal = (state: RunState, point: Point, radius = 3): number => {
+  let revealed = 0
+  for (const candidate of nearbyPoints(point, radius)) {
+    const tile = getTile(state.floor, candidate.x, candidate.y)
+    if (!tile || tile.explored) continue
+    tile.explored = true
+    revealed++
+  }
+  return revealed
+}
+
+const clearBramble = (state: RunState, point: Point): boolean => {
+  const candidate = nearbyPoints(point, 2).find(current => getTile(state.floor, current.x, current.y)?.kind === 'bramble')
+  if (!candidate) return false
+  getTile(state.floor, candidate.x, candidate.y)!.kind = 'floor'
+  return true
+}
+
+const growBramble = (state: RunState, point: Point): Point[] => {
+  const grown: Point[] = []
+  for (const candidate of nearbyPoints(point)) {
+    const tile = getTile(state.floor, candidate.x, candidate.y)
+    if (!tile || tile.kind !== 'floor' || actorAt(state.floor, candidate.x, candidate.y) || (state.hero.x === candidate.x && state.hero.y === candidate.y)) continue
+    if (!preservesExitPath(state.floor, state.floor.start, candidate, 'bramble')) continue
+    tile.kind = 'bramble'
+    grown.push(candidate)
+    if (grown.length === 2) break
+  }
+  return grown
+}
+
+const clearEffectCells = (state: RunState, prop: Prop): void => {
+  for (const point of prop.effectCells ?? []) {
+    const tile = getTile(state.floor, point.x, point.y)
+    if (tile?.kind === 'bramble') tile.kind = 'floor'
+    if (prop.kind === 'caverns.barnacledShrine' && tile?.kind === 'water') tile.kind = 'floor'
+  }
+  prop.effectCells = undefined
+}
+
+const floodBrine = (state: RunState, point: Point): Point[] => {
+  const flooded: Point[] = []
+  for (const candidate of nearbyPoints(point)) {
+    const tile = getTile(state.floor, candidate.x, candidate.y)
+    if (!tile || tile.kind !== 'floor' || actorAt(state.floor, candidate.x, candidate.y) || (state.hero.x === candidate.x && state.hero.y === candidate.y)) continue
+    tile.kind = 'water'
+    flooded.push(candidate)
+    if (flooded.length === 2) break
+  }
+  return flooded
+}
+
+const disturbEelTunnel = (state: RunState, prop: Prop): boolean => {
+  const candidate = nearbyPoints(prop, 3).find(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) > 1 && isPassable(state.floor, point.x, point.y) && !actorAt(state.floor, point.x, point.y))
+  if (!candidate) return false
+  state.floor.actors.push(spawnMonster('fumeeel', candidate, `${prop.id}:eel`))
+  return true
+}
+
+const destroyCrystal = (state: RunState, prop: Prop, source: 'pickaxe' | 'blast'): void => {
+  prop.state = 'destroyed'
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (tile?.kind === 'floor' && preservesExitPath(state.floor, state.floor.start, prop, 'rubble')) tile.kind = 'rubble'
+  reward(state, prop, 'rock', 2)
+  log(state, source === 'pickaxe' ? 'You mine crystal shards and leave safe rubble.' : 'The blast shatters the crystal into safe rubble.')
+}
+
+const consumeCavernCacheKey = (state: RunState): 'key' | 'bomb' | 'sunseal' | 'wardScript' | undefined => {
+  if (state.hero.keys > 0) { state.hero.keys--; return 'key' }
+  if (state.hero.bombs > 0) { state.hero.bombs--; return 'bomb' }
+  if (state.hero.equipment.charm === 'sunseal') { state.hero.equipment.charm = undefined; return 'sunseal' }
+  const ward = state.hero.inventory.indexOf('wardScript')
+  if (ward >= 0) { state.hero.inventory.splice(ward, 1); return 'wardScript' }
+  return undefined
+}
+
+const canSealEelTunnel = (state: RunState, tunnel: Prop): boolean => {
+  const previous = tunnel.state
+  tunnel.state = 'activated'
+  const safe = hasPassablePath(state.floor, state.hero, state.floor.exit) && hasPassablePath(state.floor, state.floor.start, state.floor.exit)
+  tunnel.state = previous
+  return safe
+}
+
+const armMonolith = (state: RunState, prop: Prop, source: string): void => {
+  prop.state = 'activated'
+  prop.effectCells = [{ x: prop.x, y: prop.y }, ...nearbyPoints(prop, 2)].map(point => ({ ...point }))
+  prop.expiresAt = state.turn + 4
+  addCondition(state.hero, { kind: 'marked', duration: 3, potency: 1 })
+  log(state, `${source} arms the monolith's unstable local ward for four turns.`)
+}
+
+const consumeRuinsCacheKey = (state: RunState): 'key' | 'bomb' | 'sunseal' | 'wardScript' | undefined => consumeCavernCacheKey(state)
+
+const disturbNest = (state: RunState, prop: Prop): boolean => {
+  const candidate = nearbyPoints(prop, 3).find(point => Math.max(Math.abs(point.x - state.hero.x), Math.abs(point.y - state.hero.y)) > 1 && isPassable(state.floor, point.x, point.y) && !actorAt(state.floor, point.x, point.y))
+  if (!candidate) return false
+  state.floor.actors.push(spawnMonster('startledBirds', candidate, `${prop.id}:flock`))
+  return true
+}
+
+const consumeWildsCharm = (state: RunState): 'root' | 'mend' | 'wardScript' | undefined => {
+  const id = state.hero.inventory.find(item => item === 'root' || item === 'mend' || item === 'wardScript') as 'root' | 'mend' | 'wardScript' | undefined
+  if (!id) return undefined
+  state.hero.inventory.splice(state.hero.inventory.indexOf(id), 1)
+  return id
+}
+
+const nearbyProp = (state: RunState): Prop | undefined => {
+  const points = [{ x: state.hero.x, y: state.hero.y }, ...Object.values(DIRECTIONS).filter(delta => delta.x || delta.y).map(delta => ({ x: state.hero.x + delta.x, y: state.hero.y + delta.y }))]
+  return points.map(point => propAt(state.floor.props, point.x, point.y)).find((prop): prop is Prop => Boolean(prop))
+}
+
+const inspect = (state: RunState, prop: Prop, followup: string): PropOperation => {
+  prop.state = 'inspected'
+  const definition = propDefinition(prop.kind)
+  log(state, `You examine the ${definition.name}: ${definition.description} ${followup}`)
+  return { kind: 'examined', events: [] }
+}
+
+const cartCandidates = (state: RunState, cart: Prop, previous: Point | undefined): Point[] => {
+  const choices = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }]
+    .map(delta => ({ x: cart.x + delta.x, y: cart.y + delta.y }))
+    .filter(point => getTile(state.floor, point.x, point.y)?.kind === 'rail')
+    .filter(point => !previous || point.x !== previous.x || point.y !== previous.y)
+    .filter(point => !isBlockingProp(propAt(state.floor.props, point.x, point.y)))
+  return choices
+}
+
+const triggerCartHazards = (state: RunState, cart: Prop): ActionResult => {
+  const events: ActionResult = []
+  for (const delta of Object.values(DIRECTIONS)) {
+    const tile = getTile(state.floor, cart.x + delta.x, cart.y + delta.y)
+    if (tile?.kind !== 'dart' && tile?.kind !== 'fireVent') continue
+    const hazard = tile.kind
+    tile.kind = 'floor'
+    log(state, `The cart triggers the ${hazard === 'dart' ? 'dart' : 'fire'} trap.`)
+    events.push(event('danger'))
+  }
+  return events
+}
+
+const moveCart = (state: RunState, cart: Prop, first: Point): ActionResult => {
+  const events: ActionResult = []
+  if (!cardinal(first) || getTile(state.floor, cart.x + first.x, cart.y + first.y)?.kind !== 'rail') { log(state, 'The cart has no rail in that direction.'); return [] }
+  let direction = { ...first }
+  let previous = { x: cart.x, y: cart.y }
+  while (true) {
+    const next = { x: cart.x + direction.x, y: cart.y + direction.y }
+    if (getTile(state.floor, next.x, next.y)?.kind !== 'rail' || isBlockingProp(propAt(state.floor.props, next.x, next.y))) break
+    const actor = actorAt(state.floor, next.x, next.y)
+    if (actor) {
+      if (!actor.hostile) {
+        log(state, `The cart is blocked by ${actor.name}.`)
+        break
+      }
+      actor.health -= modifyIncomingDamage(actor, 8)
+      log(state, `The cart crushes ${actor.name}.`)
+      events.push(event('hit'))
+      break
+    }
+    if (state.hero.x === next.x && state.hero.y === next.y) {
+      events.push(...damageHero(state, 8, 'The rail cart', true))
+      break
+    }
+    cart.x = next.x
+    cart.y = next.y
+    if (!events.some(entry => entry.type === 'move')) events.push(event('move'))
+    events.push(...triggerCartHazards(state, cart))
+    const options = cartCandidates(state, cart, previous)
+    const straight = options.find(point => point.x - cart.x === direction.x && point.y - cart.y === direction.y)
+    if (straight) {
+      previous = { x: cart.x, y: cart.y }
+      continue
+    }
+    if (options.length !== 1) break
+    direction = { x: options[0].x - cart.x, y: options[0].y - cart.y }
+    previous = { x: cart.x, y: cart.y }
+  }
+  resolveDefeatedActors(state)
+  log(state, 'The cart grinds to a halt.')
+  return events
+}
+
+const revealWarnings = (state: RunState, prop: Prop, skull: boolean): number => {
+  const points = state.floor.tiles.flatMap((tile, index) => hazardKinds.has(tile.kind) ? [{ ...floorPoint(state.floor, index), priority: 0 }] : [])
+  if (skull) points.push(...state.floor.actors.filter(actor => actor.hostile && actor.health > 0).map(actor => ({ x: actor.x, y: actor.y, priority: 1 })))
+  const warnings = points
+    .filter(point => Math.max(Math.abs(point.x - prop.x), Math.abs(point.y - prop.y)) <= 5)
+    .sort((first, second) => first.priority - second.priority || Math.max(Math.abs(first.x - prop.x), Math.abs(first.y - prop.y)) - Math.max(Math.abs(second.x - prop.x), Math.abs(second.y - prop.y)) || first.y - second.y || first.x - second.x)
+    .slice(0, 3)
+  for (const point of warnings) getTile(state.floor, point.x, point.y)!.explored = true
+  return warnings.length
+}
+
+const operateMineProp = (state: RunState, prop: Prop): PropOperation | undefined => {
+  if (prop.kind === 'mine.oreVein') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Equip a pickaxe, then press C to mine it.')
+    if (prop.state !== 'inspected') { log(state, 'The vein has already been worked.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand !== 'pickaxe') { log(state, 'A pickaxe is required to work this vein.'); return { kind: 'examined', events: [] } }
+    prop.state = 'destroyed'
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (tile) tile.kind = 'rubble'
+    reward(state, prop, 'rock', 2)
+    log(state, 'You chip ore free and leave a mound of rubble.')
+    return { kind: 'activated', events: [event('pickup'), event('boom')] }
+  }
+  if (prop.kind === 'mine.lanternPost') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'An Ember Charm or Fire Jar can relight it.')
+    log(state, prop.state === 'activated' ? 'The lantern post burns with a steady local glow.' : 'The lantern needs flame, not a hand.')
+    return { kind: 'examined', events: [] }
+  }
+  if (prop.kind === 'mine.brokenCart') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Stand beside it on a rail, then press C to push it.')
+    const direction = { x: Math.sign(prop.x - state.hero.x), y: Math.sign(prop.y - state.hero.y) }
+    if (!cardinal(direction)) { log(state, 'Stand on a cardinal side of the cart to push it.'); return { kind: 'examined', events: [] } }
+    const events = moveCart(state, prop, direction)
+    if (!events.length) return { kind: 'examined', events }
+    prop.state = 'activated'
+    return { kind: 'moved', events }
+  }
+  if (prop.kind === 'mine.warningMarker' || prop.kind === 'mine.skullMarker') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to trace its local warning.')
+    if (prop.state === 'activated') { log(state, 'The warning has already been traced.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    const count = revealWarnings(state, prop, prop.kind === 'mine.skullMarker')
+    log(state, count ? `The marker exposes ${count} nearby danger${count === 1 ? '' : 's'}.` : 'The marker points to no nearby danger.')
+    return { kind: 'activated', events: [event('danger')] }
+  }
+  if (prop.kind === 'mine.discardedParcel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to recover it, or leave it untouched.')
+    if (prop.state === 'activated') { log(state, 'The parcel has already been recovered.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, propDefinition(prop.kind).activationReward)
+    log(state, 'You recover the parcel before its charge can flare.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  return undefined
+}
+
+const operateWildsProp = (state: RunState, prop: Prop): PropOperation | undefined => {
+  if (prop.kind === 'wilds.mushrooms') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Harvest them with C, burn them for flame, or crush them to release spores.')
+    if (prop.state === 'activated') { log(state, 'The mushroom patch has already been harvested.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'tonic')
+    log(state, 'You harvest a vital tonic and leave the spores undisturbed.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'wilds.danglingCharm') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to take its ward, or use a Brush Blade, Root, or fire to cut the nearby growth.')
+    if (prop.state === 'activated') { log(state, 'The branch hangs bare.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand === 'machete') {
+      prop.state = 'destroyed'
+      const cleared = clearBramble(state, prop)
+      log(state, cleared ? 'You cut the charm loose and clear a bramble choke point.' : 'You cut the charm loose before its curse can take hold.')
+      return { kind: 'activated', events: [event('move')] }
+    }
+    prop.state = 'activated'
+    reward(state, prop, 'wardScript')
+    log(state, 'You take the charm as a ward and leave the roots untouched.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'wilds.birdNest') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to loot it, or throw or burn it to startle the flock.')
+    if (prop.state === 'activated') { log(state, 'The nest is empty.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'tonic')
+    log(state, 'You take a tonic without disturbing the nest.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'wilds.rootShrine') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Offer a Root, Mending, or Ward Charm with C to raise a short-lived thorn screen.')
+    if (prop.state === 'activated') { log(state, 'The shrine has spent its roots.'); return { kind: 'examined', events: [] } }
+    const charm = consumeWildsCharm(state)
+    if (!charm) { log(state, 'The shrine answers only Root, Mending, or Ward Charms.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    const grown = growBramble(state, prop)
+    prop.effectCells = grown.map(point => ({ ...point }))
+    prop.expiresAt = state.turn + 4
+    if (charm === 'mend') state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 6)
+    if (charm === 'wardScript') addCondition(state.hero, { kind: 'shielded', duration: 4, potency: 1 })
+    log(state, `The ${charm === 'wardScript' ? 'ward' : charm} charm raises ${grown.length || 'a'} thorn screen beside the shrine.`)
+    return { kind: 'activated', events: [event('spell')] }
+  }
+  if (prop.kind === 'wilds.lostParcel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to recover rope and cut a nearby bramble route, or leave the parcel for later.')
+    if (prop.state === 'activated') { log(state, 'The lost parcel has already been recovered.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'ropeBundle')
+    const cleared = clearBramble(state, prop)
+    log(state, cleared ? 'You recover rope and uncover a clear alternate trail.' : 'You recover rope from the lost parcel.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'wilds.rootArch') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Use a Brush Blade with C, Root to open a living detour, or burn through the arch.')
+    if (prop.state === 'activated') { log(state, 'The roots hold open a clear passage.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand !== 'machete') { log(state, 'A Brush Blade, Root Charm, or flame can open the living arch.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    log(state, 'You cut a bounded passage through the living roots.')
+    return { kind: 'activated', events: [event('move')] }
+  }
+  return undefined
+}
+
+const operateCavernProp = (state: RunState, prop: Prop): PropOperation | undefined => {
+  if (prop.kind === 'caverns.crystalCluster') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Mine it with an Obsidian Axe, blast it for shards, or use force to refract line effects.')
+    if (prop.state === 'activated') { log(state, 'The crystal refracts sight and line effects through its opened facets.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand !== 'pickaxe') { log(state, 'An Obsidian Axe is required to mine the crystal safely.'); return { kind: 'examined', events: [] } }
+    destroyCrystal(state, prop, 'pickaxe')
+    return { kind: 'activated', events: [event('pickup'), event('boom')] }
+  }
+  if (prop.kind === 'caverns.glowingFungus') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Harvest it with C to lose its light, wet it to brighten the cave, or burn it to release spores.')
+    if (prop.state === 'activated') { log(state, 'The soaked fungus spills a broad, cold local glow.'); return { kind: 'examined', events: [] } }
+    prop.state = 'destroyed'
+    reward(state, prop, 'focusTonic')
+    log(state, 'You harvest the fungus for focus and extinguish its local glow.')
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'caverns.barnacledShrine') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Offer a Vital or Focus Tonic with C for a temporary brine ward, or wet the shrine directly.')
+    if (prop.state === 'activated') { log(state, 'The brine ward still shimmers around the shrine.'); return { kind: 'examined', events: [] } }
+    const offering = state.hero.inventory.find(item => item === 'tonic' || item === 'focusTonic')
+    if (!offering) { log(state, 'The shrine asks for a Vital or Focus Tonic.'); return { kind: 'examined', events: [] } }
+    state.hero.inventory.splice(state.hero.inventory.indexOf(offering), 1)
+    prop.state = 'activated'
+    const flooded = floodBrine(state, prop)
+    prop.effectCells = flooded.map(point => ({ ...point }))
+    prop.expiresAt = state.turn + 4
+    addCondition(state.hero, { kind: 'shielded', duration: 4, potency: 1 })
+    log(state, `The brine offering raises a ward and floods ${flooded.length || 'a'} nearby channel.`)
+    return { kind: 'activated', events: [event('spell')] }
+  }
+  if (prop.kind === 'caverns.brokenBoat') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press R beside the boat to spend a rope and anchor this water crossing.')
+    if (prop.state === 'activated') { log(state, 'The anchored boat holds a safe crossing.'); return { kind: 'examined', events: [] } }
+    log(state, 'The boat is ready for a rope anchor.')
+    return { kind: 'examined', events: [] }
+  }
+  if (prop.kind === 'caverns.eelTunnel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'The open tunnel is a shortcut and a fume-eel origin. Press C again with a bomb to seal it; force reopens it.')
+    if (prop.state === 'activated') { log(state, 'The eel tunnel is sealed; force can reopen the shortcut.'); return { kind: 'examined', events: [] } }
+    if (state.hero.bombs < 1) { log(state, 'A bomb is required to seal the eel tunnel.'); return { kind: 'examined', events: [] } }
+    if (!canSealEelTunnel(state, prop)) { log(state, 'Sealing this tunnel would close the required trail.'); return { kind: 'examined', events: [] } }
+    state.hero.bombs--
+    prop.state = 'activated'
+    log(state, 'You seal the eel tunnel and close its shortcut.')
+    return { kind: 'activated', events: [event('boom')] }
+  }
+  if (prop.kind === 'caverns.sealedParcel') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to spend a key, bomb, Sunstone Seal, or Ward Charm and open the cache.')
+    if (prop.state === 'activated') { log(state, 'The sealed parcel has already been opened.'); return { kind: 'examined', events: [] } }
+    const key = consumeCavernCacheKey(state)
+    if (!key) { log(state, 'The wax seal resists: bring a key, bomb, Sunstone Seal, or Ward Charm.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'focusTonic')
+    log(state, `You spend ${key === 'wardScript' ? 'a Ward Charm' : key === 'sunseal' ? 'the Sunstone Seal' : `a ${key}`} to open the parcel.`)
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  return undefined
+}
+
+const operateRuinsProp = (state: RunState, prop: Prop): PropOperation | undefined => {
+  if (prop.kind === 'ruins.brokenStatue') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C to topple it into sight-blocking cover, use force to shove it, or blast it into safe rubble.')
+    if (prop.state === 'activated') { log(state, 'The toppled statue still blocks line effects as cover.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    log(state, 'You topple the statue into a line-blocking cover position.')
+    return { kind: 'activated', events: [event('move')] }
+  }
+  if (prop.kind === 'ruins.ritualBrazier') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Fuel it with an Ember Charm using C, quench it with water, or target it with Ward or Gate; each spell exposes a local cost.')
+    if (prop.state === 'activated') { log(state, 'The ritual brazier burns with a warded local flame.'); return { kind: 'examined', events: [] } }
+    const ember = state.hero.inventory.indexOf('ember')
+    if (ember < 0) { log(state, 'An Ember Charm is required to fuel the brazier.'); return { kind: 'examined', events: [] } }
+    state.hero.inventory.splice(ember, 1)
+    prop.state = 'activated'
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (tile?.kind === 'floor') tile.kind = 'fireVent'
+    log(state, 'You fuel the brazier; its flame is now a visible local hazard.')
+    return { kind: 'activated', events: [event('spell')] }
+  }
+  if (prop.kind === 'ruins.glyphTablet') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to read nearby telegraph timing and the floor puzzle rule.')
+    if (prop.state === 'activated') { log(state, 'The tablet has already yielded its tactical warning.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    const threats = (state.floor.telegraphs ?? []).filter(telegraph => Math.max(Math.abs(telegraph.cells[0]?.x - prop.x), Math.abs(telegraph.cells[0]?.y - prop.y)) <= 6)
+    const timing = threats.length ? threats.map(telegraph => `${telegraph.actionId} in ${Math.max(0, telegraph.resolveTurn - state.turn)}`).join(', ') : 'no active nearby telegraphs'
+    const puzzle = state.floor.puzzleIds?.join(', ') || 'no floor puzzle marker'
+    log(state, `Glyph tablet: ${timing}; puzzle rule: ${puzzle}.`)
+    return { kind: 'activated', events: [event('danger')] }
+  }
+  if (prop.kind === 'ruins.collapsedArch') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Use an Obsidian Axe with C, a bomb, or a rope brace to open this blocked route.')
+    if (prop.state === 'activated') { log(state, 'The collapsed arch is braced open.'); return { kind: 'examined', events: [] } }
+    if (state.hero.equipment.mainHand !== 'pickaxe') { log(state, 'An Obsidian Axe, bomb, or rope can open the collapsed arch.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    log(state, 'You cut a stable passage through the collapsed arch.')
+    return { kind: 'activated', events: [event('boom')] }
+  }
+  if (prop.kind === 'ruins.sealedCache') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to spend a key, bomb, Sunstone Seal, or Ward Charm on this visible lock.')
+    if (prop.state === 'activated') { log(state, 'The sealed cache has already been opened.'); return { kind: 'examined', events: [] } }
+    const key = consumeRuinsCacheKey(state)
+    if (!key) { log(state, 'The cache lock needs a key, bomb, Sunstone Seal, or Ward Charm.'); return { kind: 'examined', events: [] } }
+    prop.state = 'activated'
+    reward(state, prop, 'sunseal')
+    log(state, `You spend ${key === 'wardScript' ? 'a Ward Charm' : key === 'sunseal' ? 'the Sunstone Seal' : `a ${key}`} and claim the sealed cache.`)
+    return { kind: 'activated', events: [event('pickup')] }
+  }
+  if (prop.kind === 'ruins.monolith') {
+    if (prop.state === 'dormant') return inspect(state, prop, 'Spend 2 focus with C to arm a four-turn ward that absorbs one nearby telegraph but marks you.')
+    if (prop.state === 'activated') { log(state, 'The monolith is armed; its ward will absorb one local telegraph at a cost.'); return { kind: 'examined', events: [] } }
+    if (state.hero.focus < 2) { log(state, 'The monolith requires 2 focus to invoke.'); return { kind: 'examined', events: [] } }
+    state.hero.focus -= 2
+    armMonolith(state, prop, 'Focus')
+    return { kind: 'activated', events: [event('spell'), event('danger')] }
+  }
+  return undefined
+}
+
+export interface PropOperation { kind: 'examined' | 'activated' | 'moved'; events: ActionResult }
+
+export const operateProp = (state: RunState): PropOperation | undefined => {
+  const prop = nearbyProp(state)
+  if (!prop || !prop.hooks?.includes('operate')) return undefined
+  if (mineProp(prop)) return operateMineProp(state, prop)
+  if (wildsProp(prop)) return operateWildsProp(state, prop)
+  if (cavernProp(prop)) return operateCavernProp(state, prop)
+  if (ruinsProp(prop)) return operateRuinsProp(state, prop)
+  const definition = propDefinition(prop.kind)
+  if (prop.state === 'dormant') return inspect(state, prop, 'Press C again to activate it.')
+  if (prop.state === 'activated') {
+    log(state, `The ${definition.name} has already been activated.`)
+    return { kind: 'examined', events: [] }
+  }
+  if (prop.state !== 'inspected') return undefined
+  prop.state = 'activated'
+  reward(state, prop, definition.activationReward)
+  log(state, `You study the ${definition.name} and recover ${definition.activationReward}.`)
+  return { kind: 'activated', events: [event('pickup')] }
+}
+
+export const moveCartByForce = (state: RunState, point: Point, pull: boolean): ActionResult | undefined => {
+  const cart = propAt(state.floor.props, point.x, point.y)
+  if (cart?.kind !== 'mine.brokenCart' || cart.state === 'destroyed') return undefined
+  const away = { x: Math.sign(cart.x - state.hero.x), y: Math.sign(cart.y - state.hero.y) }
+  const direction = pull ? { x: -away.x, y: -away.y } : away
+  if (!cardinal(direction)) { log(state, 'The cart cannot find a rail-aligned force path.'); return [] }
+  const events = moveCart(state, cart, direction)
+  if (events.length) cart.state = 'activated'
+  return events
+}
+
+export const releaseCartWithRope = (state: RunState): ActionResult | undefined => {
+  const cart = Object.values(DIRECTIONS)
+    .filter(cardinal)
+    .map(delta => propAt(state.floor.props, state.hero.x + delta.x, state.hero.y + delta.y))
+    .find((prop): prop is Prop => prop?.kind === 'mine.brokenCart' && prop.state !== 'destroyed')
+  if (!cart) return undefined
+  if (cart.state === 'dormant') { log(state, 'Examine the cart before rigging it with a rope.'); return [] }
+  const direction = { x: Math.sign(cart.x - state.hero.x), y: Math.sign(cart.y - state.hero.y) }
+  const events = moveCart(state, cart, direction)
+  if (events.length) cart.state = 'activated'
+  return events
+}
+
+export const anchorBoatWithRope = (state: RunState): ActionResult | undefined => {
+  const boat = Object.values(DIRECTIONS)
+    .filter(cardinal)
+    .map(delta => propAt(state.floor.props, state.hero.x + delta.x, state.hero.y + delta.y))
+    .find((prop): prop is Prop => prop?.kind === 'caverns.brokenBoat' && prop.state !== 'destroyed')
+  if (!boat) return undefined
+  if (boat.state === 'dormant') { log(state, 'Examine the boat before anchoring it.'); return [] }
+  if (boat.state === 'activated') { log(state, 'The boat is already anchored.'); return [] }
+  boat.state = 'activated'
+  log(state, 'The rope draws the boat into a stable crossing.')
+  return [event('move')]
+}
+
+export const secureCollapsedArchWithRope = (state: RunState): ActionResult | undefined => {
+  const arch = Object.values(DIRECTIONS)
+    .filter(cardinal)
+    .map(delta => propAt(state.floor.props, state.hero.x + delta.x, state.hero.y + delta.y))
+    .find((prop): prop is Prop => prop?.kind === 'ruins.collapsedArch' && prop.state !== 'destroyed')
+  if (!arch) return undefined
+  if (arch.state === 'dormant') { log(state, 'Examine the collapsed arch before bracing it.'); return [] }
+  if (arch.state === 'activated') { log(state, 'The collapsed arch is already braced.'); return [] }
+  arch.state = 'activated'
+  log(state, 'The rope braces a safe route through the collapsed arch.')
+  return [event('move')]
+}
+
+const destroyProp = (state: RunState, prop: Prop, effect: PropEffectKind): void => {
+  const definition = propDefinition(prop.kind)
+  prop.state = 'destroyed'
+  reward(state, prop, definition.effectReward)
+  log(state, `The ${effect} breaks the ${definition.name}; it leaves ${definition.effectReward}.`)
+}
+
+export const expirePropEffects = (state: RunState): void => {
+  for (const prop of state.floor.props) {
+    if (prop.expiresAt === undefined || prop.expiresAt > state.turn) continue
+    clearEffectCells(state, prop)
+    prop.expiresAt = undefined
+    if (prop.kind === 'wilds.rootShrine') log(state, 'The shrine\'s thorn screen withers away.')
+    if (prop.kind === 'caverns.barnacledShrine') log(state, 'The brine channels drain and the ward recedes.')
+    if (prop.kind === 'ruins.monolith') log(state, 'The monolith\'s unstable ward expires without a telegraph.')
+    if (prop.kind === 'wilds.birdNest') {
+      state.floor.actors = state.floor.actors.filter(actor => actor.id !== `${prop.id}:flock`)
+      log(state, 'The startled birds scatter back into the canopy.')
+    }
+  }
+}
+
+const applyWildsEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  if (prop.kind === 'wilds.mushrooms') {
+    const tile = getTile(state.floor, prop.x, prop.y)
+    prop.state = effect === 'water' ? 'activated' : 'destroyed'
+    if (effect === 'water') { const revealed = revealLocal(state, prop); log(state, `The wet mushrooms glow and reveal ${revealed} nearby tiles.`) }
+    else if (effect === 'fire') { if (tile?.kind === 'floor' || tile?.kind === 'web') tile.kind = 'fireVent'; log(state, 'The mushrooms flare into a visible fire patch.') }
+    else { if (tile?.kind === 'floor' || tile?.kind === 'web') tile.kind = 'gas'; log(state, 'The mushrooms burst and release a visible spore cloud.') }
+    return true
+  }
+  if (prop.kind === 'wilds.danglingCharm') {
+    prop.state = 'destroyed'
+    const cleared = clearBramble(state, prop)
+    log(state, cleared ? 'The severed charm pulls a bramble choke point apart.' : 'The dangling charm unravels into harmless roots.')
+    return true
+  }
+  if (prop.kind === 'wilds.birdNest') {
+    if (prop.state !== 'activated') {
+      prop.state = 'activated'
+      const disturbed = disturbNest(state, prop)
+      if (disturbed) prop.expiresAt = state.turn + 4
+      log(state, disturbed ? 'The disturbed nest draws startled birds into the path.' : 'The startled flock scatters beyond the trail.')
+    }
+    return true
+  }
+  if (prop.kind === 'wilds.rootShrine') {
+    if (effect === 'root') {
+      prop.state = 'activated'
+      const grown = growBramble(state, prop)
+      prop.effectCells = grown.map(point => ({ ...point }))
+      prop.expiresAt = state.turn + 4
+      log(state, `The shrine sends up ${grown.length || 'a'} thorn screen.`)
+    } else {
+      clearEffectCells(state, prop)
+      prop.state = 'destroyed'
+      log(state, 'The shrine\'s roots char and fall away.')
+    }
+    return true
+  }
+  if (prop.kind === 'wilds.lostParcel') {
+    prop.state = 'destroyed'
+    const cleared = clearBramble(state, prop)
+    log(state, cleared ? 'The parcel bursts open and clears a bramble route.' : 'The lost parcel bursts into scattered trail gear.')
+    return true
+  }
+  if (prop.kind === 'wilds.rootArch') {
+    prop.state = effect === 'fire' ? 'destroyed' : 'activated'
+    log(state, effect === 'fire' ? 'Flame burns a passage through the root arch.' : 'The living roots fold aside into a detour.')
+    return true
+  }
+  return false
+}
+
+const applyCavernEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  if (prop.kind === 'caverns.crystalCluster') {
+    if (effect === 'force') {
+      prop.state = 'activated'
+      log(state, 'Force angles the crystal facets and refracts line effects through them.')
+    } else destroyCrystal(state, prop, 'blast')
+    return true
+  }
+  if (prop.kind === 'caverns.glowingFungus') {
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (effect === 'water') {
+      prop.state = 'activated'
+      const revealed = revealLocal(state, prop, 4)
+      log(state, `The soaked fungus brightens and reveals ${revealed} nearby tiles.`)
+    } else if (effect === 'fire') {
+      prop.state = 'destroyed'
+      if (tile?.kind === 'floor' || tile?.kind === 'darkness') tile.kind = 'fireVent'
+      log(state, 'The fungus burns into a visible fire patch.')
+    } else {
+      prop.state = 'destroyed'
+      if (tile?.kind === 'floor' || tile?.kind === 'darkness') tile.kind = 'gas'
+      log(state, 'The fungus bursts into a visible spore cloud.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.barnacledShrine') {
+    if (effect === 'water') {
+      prop.state = 'activated'
+      const flooded = floodBrine(state, prop)
+      prop.effectCells = flooded.map(point => ({ ...point }))
+      prop.expiresAt = state.turn + 4
+      addCondition(state.hero, { kind: 'shielded', duration: 4, potency: 1 })
+      log(state, 'The shrine answers the tide with a brief brine ward.')
+    } else {
+      clearEffectCells(state, prop)
+      prop.state = 'destroyed'
+      log(state, 'The barnacled shrine cracks and its brine ward fails.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.brokenBoat') {
+    if (effect === 'water' || effect === 'force') {
+      prop.state = 'activated'
+      log(state, 'The current settles the boat into a stable water crossing.')
+    } else {
+      prop.state = 'destroyed'
+      log(state, 'The boat breaks apart, leaving the water route open but unanchored.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.eelTunnel') {
+    if (effect === 'force') {
+      if (prop.state !== 'activated' && !canSealEelTunnel(state, prop)) { log(state, 'The tunnel resists a seal that would close the required trail.'); return true }
+      prop.state = prop.state === 'activated' ? 'dormant' : 'activated'
+      log(state, prop.state === 'activated' ? 'Force seals the eel tunnel.' : 'Force pulls the eel tunnel open as a shortcut.')
+    } else if (effect === 'fire' && prop.state !== 'activated') {
+      log(state, disturbEelTunnel(state, prop) ? 'Flame draws a fume eel from the open tunnel.' : 'The open tunnel hisses, but no eel reaches the path.')
+    } else {
+      if (canSealEelTunnel(state, prop)) { prop.state = 'activated'; log(state, 'The eel tunnel seals shut.') }
+      else log(state, 'The tunnel cannot seal without closing the required trail.')
+    }
+    return true
+  }
+  if (prop.kind === 'caverns.sealedParcel') {
+    prop.state = 'activated'
+    reward(state, prop, 'focusTonic')
+    log(state, 'The impact cracks the wax seal and opens the parcel cache.')
+    return true
+  }
+  return false
+}
+
+const applyRuinsEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  if (prop.kind === 'ruins.brokenStatue') {
+    if (effect === 'force') {
+      prop.state = 'activated'
+      log(state, 'Force topples the statue into line-blocking cover.')
+    } else {
+      prop.state = 'destroyed'
+      const tile = getTile(state.floor, prop.x, prop.y)
+      if (tile?.kind === 'floor' && preservesExitPath(state.floor, state.floor.start, prop, 'rubble')) tile.kind = 'rubble'
+      reward(state, prop, 'rock')
+      log(state, 'The statue breaks into safe rubble and stone shards.')
+    }
+    return true
+  }
+  if (prop.kind === 'ruins.ritualBrazier') {
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (effect === 'water') {
+      prop.state = 'dormant'
+      if (tile?.kind === 'fireVent') tile.kind = 'floor'
+      log(state, 'Water extinguishes the brazier and removes its fire hazard.')
+    } else if (effect === 'ward') {
+      prop.state = 'activated'
+      addCondition(state.hero, { kind: 'shielded', duration: 3, potency: 1 })
+      addCondition(state.hero, { kind: 'marked', duration: 2, potency: 1 })
+      log(state, 'Ward binds the brazier: gain a brief shield, but ritual marks expose the cost.')
+    } else if (effect === 'gate') {
+      prop.state = 'activated'
+      addCondition(state.hero, { kind: 'marked', duration: 3, potency: 1 })
+      log(state, 'Gate wakes the brazier; the exit opens, but the ritual marks you.')
+    } else {
+      prop.state = 'activated'
+      if (tile?.kind === 'floor') tile.kind = 'fireVent'
+      log(state, 'The brazier catches and creates a visible local fire hazard.')
+    }
+    return true
+  }
+  if (prop.kind === 'ruins.glyphTablet') {
+    prop.state = 'destroyed'
+    log(state, 'The tablet fractures after its glyphs discharge.')
+    return true
+  }
+  if (prop.kind === 'ruins.collapsedArch') {
+    prop.state = effect === 'bomb' ? 'destroyed' : 'activated'
+    const tile = getTile(state.floor, prop.x, prop.y)
+    if (tile?.kind === 'rubble') tile.kind = 'floor'
+    log(state, effect === 'bomb' ? 'The blast clears the collapsed arch route.' : 'Force opens a route through the collapsed arch.')
+    return true
+  }
+  if (prop.kind === 'ruins.sealedCache') {
+    prop.state = 'activated'
+    reward(state, prop, 'sunseal')
+    log(state, 'The impact breaks the cache lock and reveals a Sunstone Seal.')
+    return true
+  }
+  if (prop.kind === 'ruins.monolith') {
+    if (effect === 'ward') {
+      armMonolith(state, prop, 'Ward')
+      addCondition(state.hero, { kind: 'shielded', duration: 3, potency: 1 })
+    } else if (effect === 'gate') armMonolith(state, prop, 'Gate')
+    else {
+      prop.state = 'destroyed'
+      prop.effectCells = undefined
+      prop.expiresAt = undefined
+      log(state, 'The monolith shatters before it can answer another ritual.')
+    }
+    return true
+  }
+  return false
+}
+
+const applyFurnaceEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (prop.kind === 'furnace.bellows' || prop.kind === 'furnace.smokeStack') {
+    prop.state = effect === 'water' ? 'dormant' : 'activated'
+    if (tile && effect !== 'water') tile.kind = effect === 'fire' ? 'fireVent' : 'smoke'
+    if (tile && effect === 'water') tile.kind = 'floor'
+    log(state, effect === 'water' ? 'Water settles the furnace smoke.' : 'The furnace stack changes the local air.')
+    return true
+  }
+  if (prop.kind === 'furnace.liftConsole') {
+    prop.state = 'activated'
+    for (const point of nearbyPoints(prop)) if (getTile(state.floor, point.x, point.y)?.kind === 'floor') { getTile(state.floor, point.x, point.y)!.kind = 'lift'; break }
+    log(state, 'The console raises a nearby lift route.')
+    return true
+  }
+  if (prop.kind === 'furnace.breakwall') {
+    prop.state = effect === 'bomb' ? 'destroyed' : 'activated'
+    if (tile) tile.kind = 'floor'
+    log(state, 'The scored wall opens into a hot alternate route.')
+    return true
+  }
+  if (prop.kind === 'furnace.forgeIdol') {
+    prop.state = 'activated'
+    if (effect === 'fire') addCondition(state.hero, { kind: 'burning', duration: 2, potency: 1 })
+    else addCondition(state.hero, { kind: 'shielded', duration: 2, potency: 1 })
+    log(state, 'The forge idol answers with power and a cost.')
+    return true
+  }
+  return false
+}
+
+const applyFloodedEffect = (state: RunState, prop: Prop, effect: PropEffectKind): boolean => {
+  const tile = getTile(state.floor, prop.x, prop.y)
+  if (prop.kind === 'floodedRuins.anchorPost' || prop.kind === 'floodedRuins.currentBell') {
+    prop.state = 'activated'
+    for (const point of nearbyPoints(prop, 2)) if (getTile(state.floor, point.x, point.y)?.kind === 'current') { getTile(state.floor, point.x, point.y)!.kind = effect === 'water' ? 'water' : 'anchor'; break }
+    log(state, 'The anchor changes the current around the route.')
+    return true
+  }
+  if (prop.kind === 'floodedRuins.floodgate') {
+    prop.state = 'activated'
+    if (tile) tile.kind = effect === 'bomb' ? 'floor' : 'current'
+    log(state, effect === 'bomb' ? 'The floodgate breaks into a dry route.' : 'The floodgate sends a current through the chamber.')
+    return true
+  }
+  if (prop.kind === 'floodedRuins.tideShrine') {
+    prop.state = 'activated'
+    addCondition(state.hero, { kind: 'shielded', duration: 3, potency: 1 })
+    log(state, 'The tide shrine gives a brief brine ward.')
+    return true
+  }
+  return false
+}
+
+export const resolveMonolithTelegraphs = (state: RunState, telegraphs: readonly Telegraph[]): Telegraph[] => {
+  const monolith = state.floor.props.find(prop => prop.kind === 'ruins.monolith' && prop.state === 'activated' && prop.expiresAt !== undefined && prop.expiresAt > state.turn)
+  if (!monolith) return [...telegraphs]
+  const field = new Set((monolith.effectCells ?? []).map(pointKey))
+  const absorbed = telegraphs.filter(telegraph => telegraph.cells.some(point => field.has(pointKey(point))))
+  if (!absorbed.length) return [...telegraphs]
+  monolith.state = 'destroyed'
+  monolith.effectCells = undefined
+  monolith.expiresAt = undefined
+  log(state, `The monolith absorbs ${absorbed.length} nearby telegraph${absorbed.length === 1 ? '' : 's'} and cracks apart.`)
+  return telegraphs.filter(telegraph => !absorbed.includes(telegraph))
+}
+
+export const applyPropEffects = (state: RunState, points: readonly Point[], effects: readonly PropEffectKind[]): string[] => {
+  const targets = new Set(points.map(pointKey))
+  const changed: string[] = []
+  for (const prop of state.floor.props) {
+    if (prop.state === 'destroyed' || !targets.has(pointKey(prop))) continue
+    const effect = effects.find(candidate => prop.hooks?.includes(candidate))
+    if (!effect) continue
+    if (wildsProp(prop) && applyWildsEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (cavernProp(prop) && applyCavernEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (ruinsProp(prop) && applyRuinsEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (furnaceProp(prop) && applyFurnaceEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (floodedProp(prop) && applyFloodedEffect(state, prop, effect)) { changed.push(prop.id); continue }
+    if (prop.kind === 'mine.lanternPost') {
+      if (effect === 'fire') { prop.state = 'activated'; log(state, 'The lantern post catches and spills local light.'); changed.push(prop.id); continue }
+      if (effect === 'water' || effect === 'hazard') { prop.state = 'dormant'; log(state, 'The lantern post gutters out.'); changed.push(prop.id); continue }
+    }
+    if (prop.kind === 'mine.oreVein' && effect === 'bomb') {
+      prop.state = 'destroyed'
+      const tile = getTile(state.floor, prop.x, prop.y)
+      if (tile) tile.kind = 'floor'
+      reward(state, prop, 'rock', 2)
+      log(state, 'The blast clears the ore vein and scatters rock.');
+      changed.push(prop.id)
+      continue
+    }
+    if (prop.kind === 'mine.brokenCart' && effect === 'force') continue
+    if (prop.kind === 'mine.discardedParcel') {
+      prop.state = 'destroyed'
+      log(state, 'The abandoned parcel bursts into a noisy blast.')
+      changed.push(prop.id)
+      explode(state, prop.x, prop.y, 5, ['bomb'], 'the discarded parcel')
+      continue
+    }
+    destroyProp(state, prop, effect)
+    changed.push(prop.id)
+  }
+  return changed
+}
