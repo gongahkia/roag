@@ -337,7 +337,7 @@ const projectedMove = (state: RunState, mode: AutoplayMode, from: Point, directi
   return destination
 }
 
-const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], allowTargetOccupied = false, avoidThreats = true, ignoreActors = false): { command: string; target: Point } | undefined => {
+const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], allowTargetOccupied = false, avoidThreats = true, ignoreActors = false, unsafeFallback = true): { command: string; target: Point } | undefined => {
   if (!targets.length) return undefined
   const targetKeys = new Set(targets.map(pointKey))
   const firstMoveUnsafe = (direction: Direction): boolean => commandForecastsTelegraph(state, directionCommands[direction])
@@ -363,14 +363,14 @@ const stepTo = (state: RunState, mode: AutoplayMode, targets: readonly Point[], 
         const target = targetKeys.has(nextKey)
         if (!(target && allowTargetOccupied) && !passable(state, mode, point, avoidHazards, ignoreActors)) continue
         if (target && allowTargetOccupied && !known(state, mode, point)) continue
-        if (avoidHostiles && !target && hostilePressure(state, mode, point) >= 100) continue
+        if (avoidHostiles && !target && hostilePressure(state, mode, point) >= (mode === 'visible' ? 25 : 100)) continue
         seen.add(nextKey)
         queue.push({ point, first: current.first ?? direction })
       }
     }
     return unsafeFallback
   }
-  return route(true, avoidThreats) ?? route(true, false) ?? route(false, false)
+  return route(true, avoidThreats) ?? (unsafeFallback ? route(true, false) ?? route(false, false) : undefined)
 }
 
 const terrainRouteMove = (state: RunState, targets: readonly Point[]): Candidate | undefined => {
@@ -1179,7 +1179,7 @@ const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undef
   })
   const boundary = (point: Point): number => adjacentCells(point).filter(next => Boolean(getTile(state.floor, next.x, next.y) && !getTile(state.floor, next.x, next.y)!.explored)).length
   for (const point of [...frontier].sort((a, b) => boundary(b) - boundary(a) || chebyshev(state.hero, a) - chebyshev(state.hero, b) || a.y - b.y || a.x - b.x)) {
-    const route = stepTo(state, mode, [point])
+    const route = stepTo(state, mode, [point], false, true, false, false)
     if (!route) continue
     return { command: route.command, reason: 'reach frontier', score: 24 }
   }
@@ -1361,7 +1361,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     const terrainFrontier = !frontier && mode === 'visible' && state.floor.biome !== 'mine' && (context.noProgressTurns >= 12 || breaksPositionCycle(context) || context.loopRecoveries > 0)
       ? terrainRouteMove(state, state.floor.tiles.flatMap((tile, index) => !tile.explored && passable(state, 'omniscient', floorPoint(state.floor, index), false, false) ? [floorPoint(state.floor, index)] : []))
       : undefined
-    if (frontier || terrainFrontier) candidates.push(frontier ? { ...frontier, score: mode === 'visible' && !hasObjectiveRoute ? 220 : 24 } : { ...terrainFrontier!, reason: 'survey frontier', score: mode === 'visible' && !hasObjectiveRoute ? 220 : 24 })
+    if (frontier || terrainFrontier) candidates.push(frontier ? { ...frontier, score: 24 } : { ...terrainFrontier!, reason: 'survey frontier', score: 24 })
   }
   return candidates
 }
