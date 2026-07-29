@@ -657,7 +657,11 @@ export class TerminalRenderer {
     ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${ITEM[item.id]?.glyph ?? '*'} ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, ITEM[item.id]?.color ?? colors.text))
     this.text(50, 37, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
-    foes.forEach((foe, i) => this.text(50, 38 + i, `${foe.glyph} ${foe.name.slice(0, 33).padEnd(33)} ${Math.max(0, foe.health)}`, foe.color))
+    foes.forEach((foe, i) => {
+      const y = 38 + i
+      this.text(50, y, `${foe.glyph} ${foe.name.slice(0, 18).padEnd(18)}`, foe.color)
+      this.meter(71, y, 24, foe.health, foe.maxHealth, foe.color)
+    })
     const telegraphs = (state.floor.telegraphs ?? []).filter(telegraph => isTelegraphVisible(state.floor, telegraph)).slice(0, Math.max(0, 3 - foes.length))
     telegraphs.forEach((telegraph, i) => {
       const source = state.floor.actors.find(actor => actor.id === telegraph.sourceId)?.name ?? telegraph.sourceId
