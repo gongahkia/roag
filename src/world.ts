@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -241,6 +241,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintRuinsHiddenChambers(floor, macro, rngFor(runSeed, 'generation', index, 'ritual-hidden-chambers'))
   imprintFurnaceServiceSpaces(floor, macro, rngFor(runSeed, 'generation', index, 'furnace-service-spaces'))
   imprintFloodedWhirlpools(floor, macro, rngFor(runSeed, 'generation', index, 'flooded-whirlpools'))
+  imprintCliffAlcoves(floor, macro, rngFor(runSeed, 'generation', index, 'cliff-alcoves'))
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -618,20 +619,39 @@ const carveFloodedRouteContractLayout = (floor: Floor, contract: ReturnType<type
 
 const cliffBand = (floor: Floor, vertical: boolean, at: number, gap: number, span = 2): void => {
   const limit = vertical ? floor.height - 1 : floor.width - 1
-  for (let offset = 1; offset < limit; offset++) if (Math.abs(offset - gap) > span) setKind(floor, vertical ? at : offset, vertical ? offset : at, 'cliffWall')
+  for (let offset = 1; offset < limit; offset++) if (Math.abs(offset - gap) > span) for (let depth = -1; depth <= 1; depth++) setKind(floor, vertical ? at + depth + (offset % 5 === 0 ? 1 : 0) : offset, vertical ? offset : at + depth + (offset % 5 === 0 ? 1 : 0), 'cliffWall')
+}
+
+const cliffRidge = (floor: Floor, points: readonly Point[], width = 1): void => {
+  for (let index = 1; index < points.length; index++) {
+    const from = points[index - 1]!
+    const to = points[index]!
+    const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y))
+    for (let step = 0; step <= steps; step++) {
+      const x = Math.round(from.x + (to.x - from.x) * step / steps)
+      const y = Math.round(from.y + (to.y - from.y) * step / steps)
+      for (let lateral = -width; lateral <= width; lateral++) setKind(floor, x + lateral, y, 'cliffWall')
+    }
+  }
 }
 
 const carveCliffContours = (floor: Floor, variant: string): void => {
+  const areaFloor = floor.index % 4
   if (variant === 'switchback-face') {
-    const terraces = [[10, 12], [20, 43], [30, 12], [40, 43]]
+    const terraces = [[9, 12], [18, 43], [28, 12], [38, 43], [47, 26]].slice(0, 3 + areaFloor)
     terraces.forEach(([y, gap]) => cliffBand(floor, false, y, gap))
   } else if (variant === 'ravine-bridge-loop') {
-    cliffBand(floor, true, 18, 12, 3)
-    cliffBand(floor, true, 37, 39, 3)
-    cliffBand(floor, false, 26, 28, 3)
+    cliffRidge(floor, [{ x: 13, y: 2 }, { x: 18, y: 13 }, { x: 15, y: 25 }, { x: 21, y: 38 }, { x: 17, y: floor.height - 3 }], 2)
+    cliffRidge(floor, [{ x: 42, y: 2 }, { x: 36, y: 14 }, { x: 40, y: 27 }, { x: 34, y: 39 }, { x: 39, y: floor.height - 3 }], 2)
+    for (const [y, gap] of [[15, 28], [29, 25], [41, 31]].slice(0, areaFloor)) cliffBand(floor, false, y, gap, 3)
   } else {
-    const faces = [{ x: 15, y: 8, w: 4, h: 9 }, { x: 31, y: 20, w: 5, h: 10 }, { x: 17, y: 34, w: 5, h: 7 }]
-    faces.forEach(face => carveRect(floor, face, 'cliffWall'))
+    const spines = [
+      [{ x: 7, y: 7 }, { x: 20, y: 11 }, { x: 16, y: 22 }, { x: 29, y: 27 }],
+      [{ x: 47, y: 9 }, { x: 34, y: 16 }, { x: 40, y: 29 }, { x: 28, y: 38 }],
+      [{ x: 8, y: 38 }, { x: 19, y: 34 }, { x: 26, y: 44 }, { x: 39, y: 47 }],
+      [{ x: 27, y: 3 }, { x: 31, y: 15 }, { x: 25, y: 27 }, { x: 31, y: 42 }]
+    ]
+    spines.slice(0, 2 + areaFloor).forEach(points => cliffRidge(floor, points, 2))
   }
 }
 

@@ -64,7 +64,7 @@ export interface Tile {
   kind: TileKind
   explored: boolean
   visible: boolean
-  elevation?: 0 | 1
+  elevation?: 0 | 1 | 2
   flow?: { direction: Exclude<Direction, 'wait'>; hazard?: 'undertow' | 'squall' }
 }
 export interface ConditionState { kind: ConditionKind; duration: number; potency: number }
@@ -121,7 +121,9 @@ export interface RitualLayout { approach: Point; center: Point; outerRing: Point
 export interface FurnaceServiceSpace { id: string; kind: 'furnace-service-space'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem }
 export interface FurnaceLayout { kiln: Point; heatNetwork: Point[]; liftLane: Point[] }
 export interface Whirlpool { id: string; center: Point; radius: number; cells: Point[]; anchor: Point }
-export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace
+export interface CliffAlcove { id: string; kind: 'cliff-alcove'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; elevation: 1 | 2 }
+export interface CliffLayout { lowRoute: Point[]; midLedges: Point[]; highRidge: Point[]; windCorridors: Point[][]; shelteredPockets: Point[] }
+export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace | CliffAlcove
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -180,6 +182,7 @@ export interface Floor {
   ritualLayout?: RitualLayout
   furnaceLayout?: FurnaceLayout
   whirlpools?: Whirlpool[]
+  cliffLayout?: CliffLayout
   rewardOffers?: RewardOffer[]
   escalation?: FloorEscalation
   ecology?: EcologyEvent[]
