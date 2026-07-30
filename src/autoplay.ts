@@ -13,6 +13,7 @@ import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices, toolCooldo
 import { relicChoices } from './engine/relics'
 import { encounterOptions } from './engine/encounters'
 import { autoplayHeuristicProfile, type AutoplayHeuristicProfile } from './autoplay-heuristics'
+import { autoplayDirectCompanionIds, autoplayPartyCandidateScore } from './autoplay-party'
 import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayOptionalAssessment, type AutoplayPolicy, type AutoplayResourceAction, type AutoplayResourceAssessment, type AutoplayToolAssessment, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type SideSpace, type TileKind, type TraversalToolId } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -78,6 +79,7 @@ const planningClone = (state: RunState): RunState => {
       puzzleIds: floor.puzzleIds ? [...floor.puzzleIds] : undefined
     },
     rescuedNpcs: state.rescuedNpcs?.map(npc => ({ ...npc })),
+    companions: state.companions?.map(companion => ({ ...companion, recruitment: { ...companion.recruitment }, abilityState: { cooldowns: { ...companion.abilityState.cooldowns }, retired: [...companion.abilityState.retired] }, toolState: { ...companion.toolState } })),
     lineageEvents: state.lineageEvents?.map(event => ({ ...event })),
     encyclopedia: state.encyclopedia ? { ...state.encyclopedia, enemies: [...state.encyclopedia.enemies], telegraphs: [...state.encyclopedia.telegraphs], tags: [...state.encyclopedia.tags], gates: [...state.encyclopedia.gates], legacyRecords: state.encyclopedia.legacyRecords.map(record => ({ ...record })) } : undefined
   }
@@ -814,7 +816,7 @@ const toolPlanDecision = (state: RunState, context: AutoplayContext): Candidate 
 const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
   const modal = state.modal
   if (!modal) return undefined
-  if (modal.kind === 'companionCommand') return { command: 'Enter', reason: 'direct companion wait', score: 200 }
+  if (modal.kind === 'companionCommand') return undefined
   if (modal.kind === 'trailcraft') return { command: 'Escape', reason: 'skip trailcraft', score: 200 }
   if (modal.kind === 'boon') {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
@@ -1023,7 +1025,7 @@ const candidateLookahead = (state: RunState, mode: AutoplayMode, policy: Autopla
   if (hadStrategicRoute && !hasStrategicRoute(simulated, mode)) return Number.NEGATIVE_INFINITY
   const remainingHealth = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).reduce((total, actor) => total + actor.health, 0)
   const remainingEnemies = simulated.floor.actors.filter(actor => actor.hostile && actor.health > 0).length
-  let adjustment = healthAdjustment + (enemyHealth - remainingHealth) * 9 + (enemies - remainingEnemies) * 48
+  let adjustment = healthAdjustment + (enemyHealth - remainingHealth) * 9 + (enemies - remainingEnemies) * 48 + autoplayPartyCandidateScore(state, simulated)
   if (objective !== simulated.floor.objective.status) adjustment += 140
   adjustment += Math.max(0, simulated.hero.gold - gold) * 2
   if (simulated.hero.inventory.length > inventory && simulated.hero.inventory.length >= 12) adjustment -= 18
@@ -1627,6 +1629,7 @@ export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<Auto
 
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext(), heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
+  if (autoplayDirectCompanionIds(state).length) { context.lastReason = 'unsupported direct companion control'; return undefined }
   if (!state.modal) context.toolPlan = undefined
   context.resourceDiagnostics = []
   context.optionalDiagnostics = []

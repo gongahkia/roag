@@ -11,7 +11,7 @@ export interface PolicyProfile { version: typeof POLICY_PROFILE_VERSION; id: str
 export interface PolicyProfileInput { policy: AutoplayPolicy; informationMode: PolicyInformationMode; requestedInputs?: readonly PolicyInputCapability[] }
 export interface PolicyScore { campaignClears: number; deaths: number; stalls: number; explorationValue: number; resourceEfficiency: number }
 export interface PolicyRunMetadata { profile: PolicyProfile; seed: number; turnBudget: number; score: PolicyScore; scoreTuple: PolicyScoreTuple }
-export interface PolicyScoreInput { campaignComplete: boolean; outcome: 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'; exploredTiles: number; metrics: RunTelemetry; retainedResources: number }
+export interface PolicyScoreInput { campaignComplete: boolean; outcome: 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'unsupported' | 'error'; exploredTiles: number; metrics: RunTelemetry; retainedResources: number }
 export interface RankedPolicyEvaluation { score: PolicyScore; seed: number; profile: Pick<PolicyProfile, 'id' | 'informationMode' | 'policy'> }
 
 const inputsForMode: Record<PolicyInformationMode, readonly PolicyInputCapability[]> = {

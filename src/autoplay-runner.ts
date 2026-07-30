@@ -3,17 +3,18 @@ import { newRun, perform } from './engine'
 import { AREA_ORDER, nextArea } from './engine/campaign'
 import { createPolicyProfile, createPolicyRunMetadata, scorePolicyEpisode, type PolicyRunMetadata } from './autoplay-policy'
 import { autoplayHeuristicProfile, autoplayHeuristicProfileRef, parseAutoplayHeuristicProfile, type AutoplayHeuristicProfile, type AutoplayHeuristicProfileRef } from './autoplay-heuristics'
+import { autoplayDirectCompanionIds, createAutoplayPartyOutcomes, recordAutoplayPartyOutcome } from './autoplay-party'
 import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHistoryEntry } from './autoplay-features'
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { eventLabel } from './engine/shared'
 import { getTile } from './world'
-import { DIRECTIONS, type AutoplayMode, type AutoplayOptionalOutcomes, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
+import { DIRECTIONS, type AutoplayMode, type AutoplayOptionalOutcomes, type AutoplayPartyOutcomes, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
-export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
+export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'unsupported' | 'error'
 export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfile; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean; chainFloors?: boolean; captureTrace?: boolean; traceLimit?: number; includeState?: boolean; includeDebug?: boolean }
 export interface AutoplayFinalState { status: RunState['status']; areaFloor: number; hero: { x: number; y: number; health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }; exit: { x: number; y: number }; objective: RunState['floor']['objective']; guardianDefeated: boolean; exitPath: 'clear' | 'actor-blocked' | 'terrain-blocked'; hostiles: Array<{ id: string; x: number; y: number; health: number; ai?: string }>; modal?: string }
-export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; resourceOutcomes: AutoplayResourceOutcomes; toolOutcomes: AutoplayToolOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
+export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; resourceOutcomes: AutoplayResourceOutcomes; toolOutcomes: AutoplayToolOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; partyOutcomes: AutoplayPartyOutcomes; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; unsupported?: { kind: 'direct-companion-control'; companionIds: string[]; message: string }; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
 
 export const isCompleteCampaign = (outcome: AutoplayOutcome, completedAreas: readonly Biome[], areaOrder: readonly Biome[] = AREA_ORDER): boolean => outcome === 'complete' && completedAreas.length === areaOrder.length && completedAreas.every((biome, index) => biome === areaOrder[index])
 
@@ -96,6 +97,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const resourceOutcomes: AutoplayResourceOutcomes = { selected: 0, deferred: 0, rejected: 0, projectedRouteGains: 0, criticalRouteSelections: 0 }
   const toolOutcomes: AutoplayToolOutcomes = { selected: 0, deferred: 0, rejected: 0, uses: 0, retirements: 0 }
   const optionalOutcomes: AutoplayOptionalOutcomes = { pursued: 0, deferred: 0, declined: 0, secrets: 0, shortcuts: 0 }
+  const partyOutcomes = createAutoplayPartyOutcomes(state)
   const traceEpisode = createAutoplayTraceEpisode(policyProfile, state.seed, turnLimit, heuristicProfile)
   let featureHistory: PolicyFeatureHistoryEntry[] = []
   let context = createAutoplayContext()
@@ -104,6 +106,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   let stall: AutoplayStall | undefined
   let outcome: AutoplayOutcome = 'turn-limit'
   let error: string | undefined
+  let unsupported: AutoplayReport['unsupported']
   const stallSnapshot = (): AutoplayStall => {
     const stateFingerprint = autoplayStateFingerprint(state)
     const recoveryKey = autoplayRecoveryFingerprint(state)
@@ -121,8 +124,15 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
     while (state.status === 'playing' && state.turn < turnLimit) {
       const decision = autoplayDecision(state, mode, policy, context, heuristicProfile)
       if (!decision) {
-        stall = stallSnapshot()
-        outcome = context.lastReason?.startsWith('turn guard:') ? 'turn-limit' : 'stalled'
+        const companionIds = autoplayDirectCompanionIds(state)
+        if (companionIds.length) {
+          partyOutcomes.directModeRefused = true
+          unsupported = { kind: 'direct-companion-control', companionIds, message: 'Autoplay does not issue direct companion commands.' }
+          outcome = 'unsupported'
+        } else {
+          stall = stallSnapshot()
+          outcome = context.lastReason?.startsWith('turn guard:') ? 'turn-limit' : 'stalled'
+        }
         break
       }
       const command = decision.command
@@ -137,6 +147,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         if (assessment.disposition === 'pursue') optionalOutcomes[assessment.kind === 'shortcut' ? 'shortcuts' : 'secrets']++
       }
       const before = telemetrySnapshot(state)
+      const partyBefore = structuredClone(state)
       const transition = snapshotAutoplayTransition(state)
       const beforeTools = [...(state.hero.traversalTools ?? [])]
       const beforeResources = { health: state.hero.health, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys }
@@ -144,6 +155,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const traceObservation = captureTraceDocument ? observeAutoplayTrace(state, mode) : undefined
       const traceFeatures = captureTraceDocument ? encodePolicyFeatures(state, mode, featureHistory) : undefined
       const events = perform(state, command)
+      recordAutoplayPartyOutcome(partyOutcomes, partyBefore, state, events)
       if (decision.reason.startsWith('confirm tool:')) {
         toolOutcomes.uses++
         if (beforeTools.some(tool => !(state.hero.traversalTools ?? []).includes(tool))) toolOutcomes.retirements++
@@ -221,5 +233,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const retainedResources = state.hero.bombs + state.hero.ropes + state.hero.keys
   const policyMetadata = createPolicyRunMetadata(policyProfile, state.seed, turnLimit, scorePolicyEpisode({ campaignComplete, outcome, exploredTiles, metrics, retainedResources }))
   const traceDocument = captureTraceDocument ? createAutoplayTraceDocument(traceEpisode, traceRecords, { outcome, reason: error ?? stall?.lastReason ?? (outcome === 'complete' ? 'complete' : outcome), turns: state.turn, campaignComplete, finalFingerprint: autoplayTraceFingerprint(state) }) : undefined
-  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, resourceOutcomes, toolOutcomes, optionalOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, resourceOutcomes, toolOutcomes, optionalOutcomes, partyOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(unsupported ? { unsupported } : {}), ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }

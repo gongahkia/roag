@@ -6,7 +6,7 @@ const TRACE_LIMIT = 600
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>
 
 const store = (): StorageLike | undefined => { try { return typeof localStorage === 'undefined' ? undefined : localStorage } catch { return undefined } }
-const validOutcome = (value: unknown): value is AutoplayTerminal => ['complete', 'dead', 'stalled', 'turn-limit', 'manual'].includes(String(value))
+const validOutcome = (value: unknown): value is AutoplayTerminal => ['complete', 'dead', 'stalled', 'turn-limit', 'unsupported', 'manual'].includes(String(value))
 
 export const loadAutoplayDiagnostics = (storage = store()): AutoplayDiagnostic[] => {
   if (!storage) return []

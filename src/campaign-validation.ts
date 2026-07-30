@@ -8,7 +8,7 @@ const biomes: readonly Biome[] = BIOME_POOL
 export const CAMPAIGN_CLEARANCE_TURN_LIMIT = 19_200
 export const CAMPAIGN_SEED_RETRY_LIMIT = 32
 
-export type CampaignValidationKind = 'clear' | 'generation-invalid' | 'dead' | 'stalled' | 'turn-limit' | 'error'
+export type CampaignValidationKind = 'clear' | 'generation-invalid' | 'dead' | 'stalled' | 'turn-limit' | 'unsupported' | 'error'
 export interface CampaignValidation {
   requestedSeed: number
   seed: number

@@ -626,7 +626,7 @@ function resetAutoplaySession(): void {
 }
 
 function finalizeAutoplay(outcome: AutoplayTerminal, reason: string): void {
-  if (autoplayLogged || !autoplayTrace.length || !state || settings.autoplayMode === 'off') return
+  if (autoplayLogged || !state || settings.autoplayMode === 'off' || !autoplayTrace.length && outcome !== 'unsupported') return
   autoplayLogged = true
   autoplayDiagnostic = { id: `${state.seed}:${state.floor.seed}:${Date.now()}`, date: new Date().toISOString(), seed: state.seed, biome: state.area ?? state.floor.biome, floor: (state.areaFloor ?? state.floor.index % 4) + 1, mode: settings.autoplayMode, policy: settings.autoplayPolicy, outcome, turns: state.turn, reason, trace: structuredClone(autoplayTrace) }
   saveAutoplayDiagnostic(autoplayDiagnostic)
@@ -675,10 +675,11 @@ function syncAutoplay(): void {
     const decision = autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, autoplayContext)
     if (!decision) {
       const reason = autoplayContext.lastReason ?? 'no legal progress action'
-      finalizeAutoplay('stalled', reason)
+      const unsupported = reason === 'unsupported direct companion control'
+      finalizeAutoplay(unsupported ? 'unsupported' : 'stalled', reason)
       settings = { ...settings, autoplayMode: 'off' }
       saveSettings(settings)
-      state.messages.unshift(`Autoplay halted (${reason}); trace saved locally.`)
+      state.messages.unshift(unsupported ? 'Autoplay unavailable: direct companion control needs player commands.' : `Autoplay halted (${reason}); trace saved locally.`)
       redraw()
       return
     }

@@ -45,11 +45,11 @@ describe('direct companion command phase', () => {
     expect(state.modal).toBeUndefined()
   })
 
-  it('persists mid-phase safely and replays direct companions as explicit waits', () => {
+  it('persists mid-phase safely and refuses direct companion autoplay', () => {
     const state = commandPhase(2)
     expect(migrateRunRecord(JSON.parse(JSON.stringify(state)))?.modal).toEqual(state.modal)
     const report = runAutoplay(newRun(882, 'mine', 0, undefined, [], [], undefined, undefined, [companion('mika')]), { mode: 'visible', policy: 'clear', turnLimit: 2, captureTrace: true })
-    expect(report.trace.some(entry => entry.events.some(event => event.includes('companion:companion:rescue:mika:wait')))).toBe(true)
+    expect(report).toMatchObject({ outcome: 'unsupported', commands: [], partyOutcomes: { controlMode: 'direct', directModeRefused: true }, unsupported: { kind: 'direct-companion-control', companionIds: ['companion:rescue:mika'] } })
     expect(replayAutoplayTrace(report.traceDocument!)).toMatchObject({ valid: true })
   })
 })
