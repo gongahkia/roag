@@ -1,11 +1,11 @@
 import { streamSeed } from '../rng'
 import { ITEM, shopStock } from '../content'
-import type { Biome, CampaignCycle, Hero, HubState, ItemId, Point } from '../types'
+import type { Biome, CampaignCycle, Companion, Hero, HubState, ItemId, Point } from '../types'
 import { purchaseBlocker } from './economy'
 
 export type HubAction = 'routes' | 'roster' | 'shop' | 'outfitter' | 'continuation'
-export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string; position?: Point; cycle?: CampaignCycle }
-export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string; position?: Point; cycle?: CampaignCycle }
+export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string; position?: Point; cycle?: CampaignCycle; companions?: Companion[] }
+export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string; position?: Point; cycle?: CampaignCycle; companions?: Companion[] }
 export interface HubMutation { changed: boolean; message: string }
 
 const packLimit = 12
@@ -19,7 +19,8 @@ export const hubView = (courierName: string, state: HubState, options: HubOption
   ...(options.hero ? { hero: options.hero, stock: hubStock(options.biome ?? 'mine'), equipment: hubEquipment(options.hero) } : {}),
   ...(options.notice ? { notice: options.notice } : {}),
   ...(options.position ? { position: options.position } : {}),
-  ...(options.cycle ? { cycle: { ...options.cycle, completedTiers: [...options.cycle.completedTiers], events: options.cycle.events.map(event => ({ ...event })) } } : {})
+  ...(options.cycle ? { cycle: { ...options.cycle, completedTiers: [...options.cycle.completedTiers], events: options.cycle.events.map(event => ({ ...event })) } } : {}),
+  ...(options.companions ? { companions: structuredClone(options.companions) } : {})
 })
 
 export const buyHubItem = (hero: Hero, id: ItemId): HubMutation => {

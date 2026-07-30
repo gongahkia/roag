@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { buyHubItem, campaignContinuationPending, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCompanionRoster, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -580,7 +580,7 @@ function persistRescuedRoster(): void {
   if (!state?.rescuedNpcs?.length) return
   const rescuedNpcs = [...campaign.rescuedNpcs]
   for (const npc of state.rescuedNpcs) if (!rescuedNpcs.some(existing => existing.id === npc.id)) rescuedNpcs.push({ ...npc })
-  campaign = { ...campaign, rescuedNpcs }
+  campaign = { ...campaign, rescuedNpcs, companions: addCompanionLeads(campaign.companions, rescuedNpcs) }
   hub = { ...hub, rescued: rescuedNpcs }
   if (state.status === 'playing') persistActiveCourier()
 }
@@ -685,7 +685,7 @@ function redraw(): void {
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, companions: campaign.companions }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
@@ -714,11 +714,32 @@ function handleHubInput(key: string, run = false): boolean {
       hubNotice = 'ENTER / E continues. C / ESC stays at the outpost.'
       return true
     }
+    if (action === 'roster') {
+      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined, companionAction: undefined }; return true }
+      const pending = route.companionAction
+      if (pending) {
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
+        const result = changeCompanionRoster(campaign.companions, campaign.rescuedNpcs, pending.id, pending.action)
+        campaign = { ...campaign, companions: result.companions }
+        hubNotice = result.message
+        route = { ...route, companionAction: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+      const choice = Number(key) - 1
+      const companion = campaign.companions[choice]
+      if (!Number.isInteger(choice) || !companion || choice > 4) { hubNotice = 'Choose a listed companion (1-5).'; return true }
+      const next = companionRosterAction(companion)
+      if (!next || companion.injury !== 'healthy') { hubNotice = `${companion.name} is unavailable (${companion.permanentlyLost ? 'permanently lost' : companion.injury}).`; return true }
+      route = { ...route, companionAction: { id: companion.id, action: next } }
+      hubNotice = undefined
+      return true
+    }
     if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
     const choice = Number(key) - 1
     if (!heir || !activeCourier) { hubNotice = 'Courier record is unavailable.'; return true }
     if (!Number.isInteger(choice) || choice < 0 || choice > 5) { hubNotice = 'Choose a listed option (1-6).'; return true }
-    if (action === 'roster') { hubNotice = 'No companion action is available here.'; return true }
     const result = action === 'shop'
       ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
       : action === 'outfitter'

@@ -359,7 +359,7 @@ export class TerminalRenderer {
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
     this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
-    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub)
+    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.companionAction)
     this.hubLog(hub, nearby, routeSteps)
   }
 
@@ -449,7 +449,7 @@ export class TerminalRenderer {
     this.cell(x + hero.x, y + hero.y, this.runeMode ? '☉' : '@', colors.text)
   }
 
-  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView): void {
+  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction']): void {
     this.box(53, 22, 40, 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : action === 'continuation' ? 'CONTINUE CAMPAIGN' : 'COMPANION LODGE')
     if (action === 'continuation') {
       const next = hub?.cycle?.currentTier === 'base' ? 'NG+' : 'NG++'
@@ -459,7 +459,22 @@ export class TerminalRenderer {
       return
     }
     if (action === 'roster') {
-      this.wrap(hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} · ${biomeName[npc.biome]}`).join(', ') : 'No companions have joined you.', 34).slice(0, 5).forEach((line, index) => this.text(56, 26 + index * 2, line, colors.text))
+      const companions = hub?.companions ?? []
+      const selected = companionAction ? companions.find(companion => companion.id === companionAction.id) : undefined
+      if (selected && companionAction) {
+        this.text(56, 26, `${companionAction.action.toUpperCase()} ${selected.name}`.slice(0, 32), colors.gold)
+        this.text(56, 28, `${selected.role.toUpperCase()} · ${selected.rosterStatus.toUpperCase()}`, colors.text)
+        this.text(56, 30, `${biomeName[selected.recruitment.biome]} stage ${selected.recruitment.floor + 1}`, colors.dim)
+        this.text(56, 33, companionAction.action === 'recruit' ? 'Free · status becomes BENCHED.' : companionAction.action === 'activate' ? 'Joins active party if capacity allows.' : 'Returns to the lodge bench.', colors.text)
+        this.text(56, 36, 'ENTER confirm · C / ESC cancel', colors.green)
+        return
+      }
+      if (!companions.length) { this.text(56, 27, hub?.state.rescued.length ? 'Rescues are being logged as leads.' : 'No rescue leads are available.', colors.dim); return }
+      companions.slice(0, 5).forEach((companion, index) => {
+        const status = companion.permanentlyLost ? 'UNAVAILABLE' : companion.injury !== 'healthy' ? companion.injury.toUpperCase() : companion.rosterStatus.toUpperCase()
+        this.text(56, 26 + index * 2, `${index + 1}. ${companion.name.slice(0, 12).padEnd(12)} ${companion.role.slice(0, 5).padEnd(5)} ${status}`.slice(0, 34), companion.permanentlyLost || companion.injury !== 'healthy' ? colors.dim : companion.rosterStatus === 'active' ? colors.green : colors.text)
+      })
+      this.text(56, 36, `1-${Math.min(5, companions.length)} review · C / ESC close`, colors.green)
       return
     }
     const ids = action === 'shop' ? hub?.stock ?? [] : hub?.equipment ?? []
