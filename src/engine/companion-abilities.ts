@@ -20,7 +20,7 @@ const signTargets = (state: RunState): Point[] => ordered(state, [
 const hazardTargets = (state: RunState): Point[] => ordered(state, state.floor.tiles.flatMap((tile, index) => tile.visible && hazards.has(tile.kind) ? [{ x: index % state.floor.width, y: Math.floor(index / state.floor.width) }] : []), rangeFor('mark'))
 const targetLabel = (state: RunState, point: Point): string => samePoint(state.hero, point) ? 'courier' : state.floor.actors.find(actor => actor.health > 0 && samePoint(actor, point))?.name ?? state.floor.props.find(prop => prop.state !== 'destroyed' && samePoint(prop, point))?.id ?? state.floor.milestones.find(milestone => samePoint(milestone, point))?.id ?? getTile(state.floor, point.x, point.y)?.kind ?? 'ground'
 
-export type CompanionAbilityReason = 'ready' | 'illegal-action' | 'cooldown' | 'no-visible-target' | 'target-unseen' | 'target-out-of-range' | 'target-invalid' | 'source-out-of-range' | 'friendly-fire'
+export type CompanionAbilityReason = 'ready' | 'illegal-action' | 'cooldown' | 'no-visible-target' | 'target-unseen' | 'target-out-of-range' | 'target-invalid' | 'target-protected' | 'target-occupied' | 'route-blocked' | 'source-out-of-range' | 'friendly-fire'
 export interface CompanionAbilityAssessment { action: CompanionActionCategory; ready: boolean; reason: CompanionAbilityReason; target?: Point; targetLabel?: string; range: number; cooldown: number; cost: 'companion cooldown'; effect: string }
 
 export const companionAbilityTarget = (state: RunState, _companion: Companion, _actor: Actor, action: CompanionActionCategory): Point | undefined => {
@@ -64,5 +64,5 @@ export const assessCompanionAbility = (state: RunState, companion: Companion, ac
     return resolvePartySupport(state, actor.id, [{ x: state.hero.x, y: state.hero.y }]).resolved ? { ...base, ready: true, reason: 'ready' } : { ...base, ready: false, reason: 'friendly-fire' }
   }
   const terrain = companionTerrainMutationAssessment(state, action as CompanionTerrainAction, target)
-  return terrain.ready ? { ...base, ready: true, reason: 'ready' } : { ...base, ready: false, reason: terrain.reason === 'target-unseen' ? 'target-unseen' : terrain.reason === 'target-invalid' ? 'target-invalid' : 'friendly-fire' }
+  return terrain.ready ? { ...base, ready: true, reason: 'ready' } : { ...base, ready: false, reason: terrain.reason }
 }

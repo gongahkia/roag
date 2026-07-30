@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, createRun } from '../test/factories'
 import { companionLeadForRescue } from './companions'
 import { companionActorId, synchronizePartyActors } from './party'
-import { partyActionOrder, removeDefeatedPartyActors, resolvePartyMove, resolvePartyTargets } from './party-resolution'
+import { partyActionOrder, removeDefeatedPartyActors, resolvePartyMove, resolvePartySupport, resolvePartyTargets } from './party-resolution'
 
 const companion = (id: string) => {
   const value = companionLeadForRescue({ id: `rescue:${id}`, name: id, biome: 'mine', floor: 1 })
@@ -33,6 +33,16 @@ describe('party action resolution', () => {
     state.floor.actors.push(createEnemy({ id: 'enemy', x: 3, y: 1 }))
     expect(resolvePartyTargets(state, 'courier', 'line', [{ x: actor.x, y: actor.y }, { x: actor.x, y: actor.y }])).toMatchObject({ resolved: false, reason: 'friendly-fire', targets: [] })
     expect(resolvePartyTargets(state, 'courier', 'area', [{ x: 3, y: 1 }, { x: 3, y: 1 }])).toEqual({ sourceId: 'courier', kind: 'area', resolved: true, reason: 'resolved', targets: ['enemy'] })
+  })
+
+  it('resolves companion support only onto the courier or party', () => {
+    const ally = companion('mika')
+    const state = createRun({ companions: [ally] })
+    synchronizePartyActors(state, 'spawn')
+    const actor = state.floor.actors.find(candidate => candidate.id === companionActorId(ally.id))!
+    state.floor.actors.push(createEnemy({ id: 'enemy', x: 3, y: 1 }))
+    expect(resolvePartySupport(state, actor.id, [{ x: state.hero.x, y: state.hero.y }])).toEqual({ sourceId: actor.id, kind: 'support', resolved: true, reason: 'resolved', targets: ['courier'] })
+    expect(resolvePartySupport(state, actor.id, [{ x: 3, y: 1 }])).toMatchObject({ resolved: false, reason: 'friendly-fire', targets: [] })
   })
 
   it('removes defeated actors only after sequential resolution', () => {
