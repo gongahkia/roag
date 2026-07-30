@@ -71,6 +71,8 @@ Every non-clear campaign episode includes `failure.code` (`stall`, `death`, `ill
 
 Export AP-03 policy traces as stable, versioned JSONL with `npm run autoplay:dataset:development -- --output <path>` or `npm run autoplay:dataset:held-out -- --output <path>`. Add `--seed <seed>` to audit one corpus seed. Records expose decision-time observation, bounded history, legal actions, chosen action, transition/resource reward components, terminal outcome, and field provenance. Visible records omit replay/layout/route metadata and hidden-map fields; the exporter has no Python or ML dependency.
 
+Runtime inference remains disabled by default. `src/autoplay-inference.ts` accepts only held-out-promoted visible-policy artifacts, masks outputs to the heuristic's legal candidates, records shadow disagreements, and deterministically retains the compatibility heuristic on disabled, missing, malformed, or illegal inference.
+
 ## Controls
 
 | Key | Action |
