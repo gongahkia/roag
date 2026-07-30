@@ -13,7 +13,7 @@ import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices } from './e
 import { relicChoices } from './engine/relics'
 import { encounterOptions } from './engine/encounters'
 import { autoplayHeuristicProfile, type AutoplayHeuristicProfile } from './autoplay-heuristics'
-import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
+import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type AutoplayResourceAction, type AutoplayResourceAssessment, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
@@ -86,14 +86,14 @@ type Intent = { kind: 'use' | 'throw' | 'equip' | 'drop'; item: string }
 type RoutePlan = { kind: 'objective' | 'exit'; targetKey: string; commands: string[] }
 type TelegraphRoute = { sourceId: string; from: string; to: string }
 type TargetAction = Extract<Modal, { kind: 'target' }>['action']
-type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number; routeGained: boolean }
+type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number; routeGained: boolean; observedRouteGained: boolean; harm: number; kills: number }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute }
 type CandidateLookaheadBaseline = { fingerprint: string; hasStrategicRoute: boolean }
-export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[]; resourceDiagnostics: AutoplayResourceAssessment[] }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; resourceDiagnostics: AutoplayResourceAssessment[]; intent?: Intent; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
-export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
+export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], resourceDiagnostics: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
@@ -580,12 +580,13 @@ const propRouteCandidate = (state: RunState, mode: AutoplayMode): Candidate | un
 
 const propRopeCandidate = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   if (state.hero.ropes < 1) return undefined
-  const prop = nearbyProps(state).find(candidate => candidate.state === 'inspected' && canOpenPropWithRope(state, candidate))
+  const prop = nearbyProps(state).find(candidate => known(state, mode, candidate) && candidate.state === 'inspected' && canOpenPropWithRope(state, candidate))
   if (!prop) return undefined
   const simulated = planningClone(state)
   perform(simulated, 'r')
   const next = simulated.floor.props.find(candidate => candidate.id === prop.id)
-  const routeGained = !hasStrategicRoute(state, mode) && hasStrategicRoute(simulated, mode)
+  const beforeRoute = mode === 'visible' ? observedStrategicRoute(state, mode) : hasStrategicRoute(state, mode)
+  const routeGained = !beforeRoute && (mode === 'visible' ? observedStrategicRoute(simulated, mode) : hasStrategicRoute(simulated, mode))
   if (!next || !routeGained || (isBlockingProp(next) && prop.kind !== 'mine.brokenCart') || simulated.hero.ropes !== state.hero.ropes - 1) return undefined
   return { command: 'r', reason: `secure prop route:${prop.kind}`, score: 190, propPlanId: prop.id }
 }
@@ -1111,7 +1112,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
   const beforeExplored = state.floor.tiles.filter(tile => tile.explored).length
   const beforeHazards = state.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length
   const beforeBlocked = state.floor.tiles.filter(tile => blockedTiles.has(tile.kind)).length
-  const beforeRoute = hasStrategicRoute(state, mode)
+  const beforeRoute = mode === 'visible' ? observedStrategicRoute(state, mode) : hasStrategicRoute(state, mode)
   const effects = targetEffects(modal.action, modal.item)
   const canChangeLines = effects.includes('root') || effects.includes('force')
   const beforeDefense = canChangeLines ? projectileDefense(state, mode) : 0
@@ -1136,7 +1137,9 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const terrainCleared = Math.max(0, beforeBlocked - simulated.floor.tiles.filter(tile => blockedTiles.has(tile.kind)).length)
     const base = targetDirection(state, mode, modal.action, modal.item)?.direction === direction ? 30 : 0
     const changedProps = simulated.floor.props.filter(prop => beforeProps.get(prop.id) !== propFingerprint(prop))
-    const routeGained = !beforeRoute && hasStrategicRoute(simulated, mode)
+    const routeAfter = mode === 'visible' ? observedStrategicRoute(simulated, mode) : hasStrategicRoute(simulated, mode)
+    const routeGained = !beforeRoute && routeAfter
+    const observedRouteGained = !observedStrategicRoute(state, mode) && observedStrategicRoute(simulated, mode)
     const itemGain = Math.max(0, simulated.floor.items.length + simulated.hero.inventory.length - beforeItems)
     const exploredGain = Math.max(0, simulated.floor.tiles.filter(tile => tile.explored).length - beforeExplored)
     const hazardsAdded = Math.max(0, simulated.floor.tiles.filter(tile => hazardTiles.has(tile.kind)).length - beforeHazards)
@@ -1146,7 +1149,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     const protectedTelegraph = changedProps.some(prop => (prop.effectCells ?? []).some(cell => imminentTelegraphs.some(telegraph => telegraph.cells.some(target => pointKey(target) === pointKey(cell)))))
     const changedDefensiveProp = changedProps.some(prop => prop.kind === 'wilds.rootShrine' || prop.kind === 'ruins.brokenStatue')
     const changedCrystal = changedProps.some(prop => prop.kind === 'caverns.crystalCluster' && prop.state === 'activated')
-    const routePreserved = !(changedDefensiveProp || changedCrystal) || !beforeRoute || hasStrategicRoute(simulated, mode)
+    const routePreserved = !(changedDefensiveProp || changedCrystal) || !beforeRoute || routeAfter
     const defensiveCover = changedDefensiveProp && projectileDefense(simulated, mode) < beforeDefense && routePreserved
     const refractedLine = changedCrystal && playerRangedLineTargets(simulated, mode) > beforePlayerLines && liveProjectileExposure(simulated, mode) <= beforeLiveExposure && routePreserved
     const tacticalShield = shieldGain && (pressure >= 100 || telegraphDanger(state, state.hero) || protectedTelegraph)
@@ -1161,7 +1164,7 @@ const targetOutcome = (state: RunState, mode: AutoplayMode, modal: Extract<NonNu
     if ((modal.action === 'throw' || modal.action === 'spell') && damage < 1 && base === 0 && propValue < 1) return []
     if ((modal.action === 'drill' || modal.action === 'glide' || modal.action === 'grapple' || modal.action === 'bridge' || modal.action === 'dash' || modal.action === 'winch') && !routeGained) return []
     if (harm >= Math.max(8, Math.floor(health / 2)) && (state.floor.biome === 'ruins' || kills < 1)) return []
-    return [{ direction, score, mobilityGain, terrainCleared, routeGained }]
+    return [{ direction, score, mobilityGain, terrainCleared, routeGained, observedRouteGained, harm, kills }]
   }).sort((a, b) => b.score - a.score || a.direction.localeCompare(b.direction))
   return scored[0]
 }
@@ -1173,6 +1176,96 @@ const usableTarget = (state: RunState, mode: AutoplayMode, action: TargetAction,
   else return undefined
   return targetOutcome(simulated, mode, simulated.modal)
 }
+
+type ResourceOpportunity = { action: AutoplayResourceAction; item?: string; available: boolean; projectedRouteGain: boolean; survivalGain: boolean; survivalProbability: number; resourceDelta: AutoplayResourceAssessment['resourceDelta'] }
+const kitActions = new Set<TargetAction>(['drill', 'glide', 'grapple', 'bridge', 'dash', 'winch'])
+const remainingFloorNeed = (state: RunState): number => Math.max(1, 4 - (state.areaFloor ?? state.floor.index % 4))
+const criticalTargetKnown = (state: RunState, mode: AutoplayMode): boolean => {
+  const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
+  if (objectiveComplete) {
+    const exit = getTile(state.floor, state.floor.exit.x, state.floor.exit.y)
+    return Boolean(mode === 'omniscient' || exit?.explored)
+  }
+  return objectiveTargets(state, mode).length > 0
+}
+const knownPassablePath = (state: RunState, mode: AutoplayMode, start: Point, destination: Point): boolean => {
+  const queue = [start]
+  const seen = new Set([pointKey(start)])
+  const offsets = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }]
+  for (let index = 0; index < queue.length; index++) {
+    const point = queue[index]!
+    if (point.x === destination.x && point.y === destination.y) return true
+    for (const offset of offsets) {
+      const next = { x: point.x + offset.x, y: point.y + offset.y }
+      const tile = getTile(state.floor, next.x, next.y)
+      if (!tile || !known(state, mode, next) || blockedTiles.has(tile.kind) || tile.kind === 'lockedDoor' || isBlockingProp(propAt(state.floor.props, next.x, next.y))) continue
+      const key = pointKey(next)
+      if (!seen.has(key)) { seen.add(key); queue.push(next) }
+    }
+  }
+  return false
+}
+const physicalStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => {
+  const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
+  if (objectiveComplete) return knownPassablePath(state, mode, state.hero, state.floor.exit)
+  return objectiveTargets(state, mode).some(target => objectiveRouteTargets(state, target).some(point => knownPassablePath(state, mode, state.hero, point)))
+}
+const observedStrategicRoute = (state: RunState, mode: AutoplayMode): boolean => criticalTargetKnown(state, mode) && physicalStrategicRoute(state, mode)
+const knownCriticalRoute = (state: RunState, mode: AutoplayMode): boolean => criticalTargetKnown(state, mode) && !physicalStrategicRoute(state, mode)
+const knownReplacementAvailability = (state: RunState, mode: AutoplayMode, action: AutoplayResourceAction): number => state.floor.items
+  .filter(item => isKnownItem(state, mode, item, Boolean(item.visibleInFog)))
+  .filter(item => action === 'bomb' ? ITEM[item.id]?.use === 'bomb' : action === 'rope' ? ITEM[item.id]?.use === 'rope' : kitActions.has(ITEM[item.id]?.use as TargetAction))
+  .reduce((count, item) => count + item.count, 0)
+const resourceAssessment = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile, opportunity: ResourceOpportunity): AutoplayResourceAssessment => {
+  const critical = knownCriticalRoute(state, mode)
+  const replacementAvailability = knownReplacementAvailability(state, mode, opportunity.action)
+  const reserve = opportunity.action === 'bomb' || opportunity.action === 'rope' ? resourceReserve(heuristics, policy) : 0
+  const remainingNeed = remainingFloorNeed(state)
+  const available = opportunity.action === 'bomb' ? state.hero.bombs : opportunity.action === 'rope' ? state.hero.ropes : Number(Boolean(opportunity.item && state.hero.inventory.includes(opportunity.item)))
+  const after = available + (opportunity.action === 'bomb' ? opportunity.resourceDelta.bombs : opportunity.action === 'rope' ? opportunity.resourceDelta.ropes : opportunity.resourceDelta.kit)
+  const survivalProbability = Math.max(0, Math.min(1, opportunity.survivalProbability))
+  const utilityScore = (opportunity.projectedRouteGain ? 300 : 0) + Math.round(survivalProbability * 100) + replacementAvailability * 20 + (critical ? 100 : 0) - remainingNeed * (reserve > 0 ? 12 : 6)
+  const base = { action: opportunity.action, ...(opportunity.item ? { item: opportunity.item } : {}), projectedRouteGain: opportunity.projectedRouteGain, survivalGain: opportunity.survivalGain, survivalProbability, replacementAvailability, remainingFloorNeed: remainingNeed, utilityScore, knownCriticalRoute: critical, resourceDelta: { ...opportunity.resourceDelta }, rejectedAlternatives: [] }
+  if (!opportunity.available || available < 1) return { ...base, disposition: 'reject', rationale: 'resource unavailable' }
+  if (opportunity.projectedRouteGain && survivalProbability < 1) return { ...base, disposition: 'reject', rationale: 'unsafe shortcut' }
+  if (critical && !opportunity.projectedRouteGain && !opportunity.survivalGain) return { ...base, disposition: 'defer', rationale: 'reserve for known critical route' }
+  if (!opportunity.projectedRouteGain && !opportunity.survivalGain) return { ...base, disposition: 'reject', rationale: 'no projected route or survival gain' }
+  if (!opportunity.projectedRouteGain && opportunity.survivalGain && critical) return { ...base, disposition: 'select', rationale: 'safe survival action exceeds route reserve' }
+  if (!opportunity.projectedRouteGain && after < reserve && replacementAvailability === 0) return { ...base, disposition: 'defer', rationale: 'retain remaining route reserve' }
+  if (opportunity.projectedRouteGain && critical) return { ...base, disposition: 'select', rationale: 'unlocks known critical route' }
+  if (opportunity.projectedRouteGain && after < reserve && replacementAvailability === 0) return { ...base, disposition: 'defer', rationale: 'optional route would exhaust reserve' }
+  return { ...base, disposition: 'select', rationale: opportunity.projectedRouteGain ? 'safe route gain with replacement coverage' : 'safe survival action' }
+}
+const ropeOpportunity = (state: RunState, mode: AutoplayMode): ResourceOpportunity => {
+  const current = getTile(state.floor, state.hero.x, state.hero.y)
+  const below = getTile(state.floor, state.hero.x, state.hero.y + 1)
+  const knownAnchor = Boolean((current && known(state, mode, state.hero) && current.kind === 'pit') || (below && known(state, mode, { x: state.hero.x, y: state.hero.y + 1 }) && below.kind === 'pit'))
+  const prop = nearbyProps(state).find(candidate => known(state, mode, candidate) && candidate.state === 'inspected' && canOpenPropWithRope(state, candidate))
+  if ((!knownAnchor && !prop) || state.hero.ropes < 1) return { action: 'rope', available: state.hero.ropes > 0, projectedRouteGain: false, survivalGain: false, survivalProbability: 0, resourceDelta: { bombs: 0, ropes: -1, kit: 0 } }
+  const propRoute = prop ? propRopeCandidate(state, mode) : undefined
+  const simulated = planningClone(state)
+  const beforeRoute = observedStrategicRoute(state, mode)
+  const health = simulated.hero.health
+  const threatened = telegraphDanger(state, state.hero) || hostilePressure(state, mode, state.hero) >= 25
+  perform(simulated, 'r')
+  const safe = simulated.hero.health >= health && !telegraphDanger(simulated, simulated.hero)
+  return { action: 'rope', available: simulated.hero.ropes === state.hero.ropes - 1, projectedRouteGain: Boolean(propRoute) || (!beforeRoute && observedStrategicRoute(simulated, mode)), survivalGain: threatened && safe, survivalProbability: safe ? 1 : 0, resourceDelta: { bombs: 0, ropes: -1, kit: 0 } }
+}
+const resourceAssessments = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): AutoplayResourceAssessment[] => {
+  const pressure = hostilePressure(state, mode, state.hero)
+  const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
+  const bomb = resourceAssessment(state, mode, policy, heuristics, { action: 'bomb', available: state.hero.bombs > 0, projectedRouteGain: knownCriticalRoute(state, mode) && Boolean(bombTarget?.observedRouteGained), survivalGain: Boolean(bombTarget && bombTarget.harm === 0 && (bombTarget.kills > 0 || pressure >= 25 || telegraphDanger(state, state.hero))), survivalProbability: bombTarget ? Math.max(0, (state.hero.health - bombTarget.harm) / state.hero.health) : 0, resourceDelta: { bombs: -1, ropes: 0, kit: 0 } })
+  const rope = resourceAssessment(state, mode, policy, heuristics, ropeOpportunity(state, mode))
+  const kits = state.hero.inventory.flatMap(item => {
+    const action = ITEM[item]?.use as TargetAction | undefined
+    if (!action || !kitActions.has(action)) return []
+    const target = usableTarget(state, mode, action, item)
+    return [resourceAssessment(state, mode, policy, heuristics, { action: 'kit', item, available: true, projectedRouteGain: knownCriticalRoute(state, mode) && Boolean(target?.observedRouteGained), survivalGain: Boolean(target && target.harm === 0 && (target.kills > 0 || telegraphDanger(state, state.hero))), survivalProbability: target ? Math.max(0, (state.hero.health - target.harm) / state.hero.health) : 0, resourceDelta: { bombs: 0, ropes: 0, kit: -1 } })]
+  })
+  const assessments = [bomb, rope, ...kits]
+  return assessments.map(current => ({ ...current, rejectedAlternatives: assessments.filter(other => other !== current && other.disposition !== 'select').map(other => `${other.action}${other.item ? `:${other.item}` : ''}:${other.rationale}`).sort() }))
+}
+export const autoplayResourceDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayResourceAssessment[] => resourceAssessments(state, mode, policy, heuristics)
 
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   const frontier = state.floor.tiles.flatMap((tile, index) => {
@@ -1191,6 +1284,8 @@ const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undef
 
 const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate[] => {
   const candidates: Candidate[] = []
+  context.resourceDiagnostics = state.hero.bombs > 0 || state.hero.ropes > 0 || state.hero.inventory.some(item => kitActions.has(ITEM[item]?.use as TargetAction)) ? resourceAssessments(state, mode as Exclude<AutoplayMode, 'off'>, policy, heuristics) : []
+  const resourceDecision = (action: AutoplayResourceAction, item?: string): AutoplayResourceAssessment | undefined => context.resourceDiagnostics.find(candidate => candidate.action === action && candidate.item === item)
   const heroPoint = { x: state.hero.x, y: state.hero.y }
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
   const needsOffering = state.floor.objective.kind === 'invokeAltar' && state.hero.gold < 75
@@ -1216,13 +1311,14 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const bombEmergency = state.hero.health * 2 <= state.hero.maxHealth && pressure >= 25
   const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
+  const bombDecision = resourceDecision('bomb')
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
   const guardianRouteBomb = Boolean(bombTarget && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && state.hero.bombs > resourceReserve(heuristics, policy) && bombTarget.terrainCleared > 0 && bombTarget.mobilityGain > 0)
   const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
   const propBomb = Boolean(bombTarget && bombTarget.score >= 180 && propTargetCount(state, 'bomb', bombTarget.direction) > 0)
   const tacticalBomb = (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted))
   const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || guardianRouteBomb || ((state.hero.bombs > resourceReserve(heuristics, policy) || bombEmergency) && tacticalBomb)
-  if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : guardianRouteBomb ? 'clear guardian route' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : guardianRouteBomb ? 275 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
+  if (bombTarget && bombTarget.score > 0 && bombAllowed && bombDecision?.disposition === 'select') candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : guardianRouteBomb ? 'clear guardian route' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : guardianRouteBomb ? 275 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
   const safeThrowTarget = throwable ? usableTarget(state, mode, 'throw', throwable) : undefined
@@ -1234,7 +1330,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
     if (!action) return []
     const target = targetDirection(state, mode, action, id)
     const resolved = usableTarget(state, mode, action, id)
-    return target && resolved?.routeGained ? [{ id, action, target, resolved }] : []
+    return target && resolved?.routeGained && resourceDecision('kit', id)?.disposition === 'select' ? [{ id, action, target, resolved }] : []
   }).sort((a, b) => b.resolved.score - a.resolved.score || b.target.score - a.target.score || a.id.localeCompare(b.id))[0]
   if (traversal) candidates.push({ command: 'u', reason: `${traversal.action} route:${traversal.id}`, score: 258 + traversal.resolved.score / 8, intent: { kind: 'use', item: traversal.id } })
   const spell = state.hero.inventory.filter(id => ITEM[id]?.use === 'spell').map(id => ({ id, target: targetDirection(state, mode, 'spell', id), resolved: usableTarget(state, mode, 'spell', id), profile: scriptCastProfile(state.hero, id) }))
@@ -1259,9 +1355,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   else if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
   if (nearMerchant && bestShopItem(state, policy, heuristics)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
-  if (state.hero.ropes > resourceReserve(heuristics, policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
+  const ropeDecision = resourceDecision('rope')
   const propRope = propRopeCandidate(state, mode)
-  if (propRope) candidates.push(propRope)
+  if (ropeDecision?.disposition === 'select' && ropeDecision.projectedRouteGain) candidates.push(propRope ?? { command: 'r', reason: ropeDecision.knownCriticalRoute ? 'secure critical rope route' : 'bridge pit', score: ropeDecision.knownCriticalRoute ? 240 : 122 })
   const propInteraction = propInteractionCandidate(state, mode, policy, context, heuristics)
   if (propInteraction) candidates.push(propInteraction)
   const propRoute = propRouteCandidate(state, mode)
@@ -1398,6 +1494,7 @@ export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<Auto
 
 export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext(), heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
+  context.resourceDiagnostics = []
   context.startedTurn ??= state.turn
   const turnBudget = autoplayTurnBudget(state)
   if (state.turn - context.startedTurn >= turnBudget) {
@@ -1409,7 +1506,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     return undefined
   }
   const modal = modalDecision(state, mode, policy, context, heuristics)
-  if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
+  if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal], resourceDiagnostics: [] }
   const routePlan = context.routePlan
   if (routePlan) {
     const validTarget = routePlan.kind === 'objective'
@@ -1426,7 +1523,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         if (!routePlan.commands.length) context.routePlan = undefined
         const candidate = { command, reason: routePlan.kind === 'exit' ? 'continue predictive exit route' : `continue predictive objective route:${state.floor.objective.kind}`, score: 205 }
         context.lastReason = candidate.reason
-        return { command, reason: candidate.reason, candidates: [candidate] }
+        return { command, reason: candidate.reason, candidates: [candidate], resourceDiagnostics: [] }
       }
       context.routePlan = undefined
     }
@@ -1472,7 +1569,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       if (recovery.routePlan) context.routePlan = recovery.routePlan
       if (recovery.telegraphRoute) context.lastTelegraphRoute = recovery.telegraphRoute
       context.lastReason = recovery.reason
-      return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
+      return { command: recovery.command, reason: recovery.reason, candidates: [recovery], resourceDiagnostics: structuredClone(context.resourceDiagnostics) }
     }
   }
   const candidates = scoredAutoplayCandidates(state, mode, policy, context, fingerprint, heuristics).filter(candidate => Number.isFinite(candidate.score))
@@ -1488,7 +1585,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if (choice.routePlan) context.routePlan = choice.routePlan
   if (choice.telegraphRoute) context.lastTelegraphRoute = choice.telegraphRoute
   context.lastReason = choice.reason
-  return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
+  return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })), resourceDiagnostics: structuredClone(context.resourceDiagnostics) }
 }
 
 export const autoplayCommand = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context?: AutoplayContext, heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): string | undefined => autoplayDecision(state, mode, policy, context, heuristics)?.command

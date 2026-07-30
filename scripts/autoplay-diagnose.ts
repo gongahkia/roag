@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayObjectiveRouteDiagnostics, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
+import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayObjectiveRouteDiagnostics, autoplayResourceDiagnostics, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
 import { autoplayHeuristicProfile } from '../src/autoplay-heuristics'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
@@ -145,6 +145,7 @@ console.log(JSON.stringify({
   loopRecoveries: context.loopRecoveries,
   lastReason: context.lastReason,
   nextDecision,
+  resourceDiagnostics: autoplayResourceDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, heuristicProfile),
   candidateDiagnostics,
   objectiveRoutes: autoplayObjectiveRouteDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy),
   candidateTransitions,

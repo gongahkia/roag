@@ -76,5 +76,6 @@ describe('campaign autoplay baseline', () => {
     expect(compact.failure).toMatchObject({ replay: { seed: 7, biome: 'mine', areaFloor: 0, floorIndex: 0, layoutId: expect.any(String), macroRecipeId: expect.any(String), routeContractId: expect.any(String), objectiveId: expect.any(String), escalation: expect.any(String) } })
     expect(compact.failure?.trace).toHaveLength(1)
     expect(compact.failure?.trace[0]?.replay).toEqual(compact.failure?.replay)
+    expect(compact.evaluation?.resourceOutcomes).toEqual(report.resourceOutcomes)
   })
 })

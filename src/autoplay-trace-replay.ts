@@ -37,6 +37,7 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
     const decision = autoplayDecision(state, document.episode.informationMode, document.episode.policy, context, heuristicProfile)
     if (!decision) return failure(record, 'candidate-legality', record.chosen, undefined)
     if (!same(record.legalCandidates, decision.candidates)) return failure(record, 'legal-candidates', record.legalCandidates, decision.candidates)
+    if (record.resourceDiagnostics && !same(record.resourceDiagnostics, decision.resourceDiagnostics)) return failure(record, 'resource-diagnostics', record.resourceDiagnostics, decision.resourceDiagnostics)
     if (record.chosen.command !== decision.command || record.chosen.reason !== decision.reason) return failure(record, 'chosen-command', record.chosen, { command: decision.command, reason: decision.reason })
     const before = telemetrySnapshot(state)
     const beforeResources = { health: state.hero.health, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys }

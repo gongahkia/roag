@@ -274,6 +274,10 @@ export interface RunMetricSample { turn: number; floor: number; health: number; 
 export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
 export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; relicPicks: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; deathCauses: Record<string, number>; terrainInteractions: Record<string, number>; bossPhases: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
 export interface AutoplayCandidate { command: string; reason: string; score: number }
+export type AutoplayResourceAction = 'bomb' | 'rope' | 'kit'
+export type AutoplayResourceDisposition = 'select' | 'defer' | 'reject'
+export interface AutoplayResourceAssessment { action: AutoplayResourceAction; item?: string; disposition: AutoplayResourceDisposition; rationale: string; projectedRouteGain: boolean; survivalGain: boolean; survivalProbability: number; replacementAvailability: number; remainingFloorNeed: number; utilityScore: number; knownCriticalRoute: boolean; resourceDelta: { bombs: number; ropes: number; kit: number }; rejectedAlternatives: string[] }
+export interface AutoplayResourceOutcomes { selected: number; deferred: number; rejected: number; projectedRouteGains: number; criticalRouteSelections: number }
 export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string }
 export interface AutoplayTraceEntry {
   turn: number
@@ -282,6 +286,7 @@ export interface AutoplayTraceEntry {
   command: string
   reason: string
   candidates: AutoplayCandidate[]
+  resourceDiagnostics?: AutoplayResourceAssessment[]
   events: string[]
   nextFingerprint: string
   before: { x: number; y: number; health: number; focus: number; bombs: number; ropes: number; objective: string }

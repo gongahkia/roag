@@ -20,7 +20,8 @@ const run = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[number], o
     policyMetadata: createPolicyRunMetadata(createPolicyProfile({ policy: profile.policy, informationMode: profile.mode }), seed, 100, currentScore),
     explorationValue: currentScore.explorationValue,
     resourcesSpent: 3,
-    resourcesRetained: 5
+    resourcesRetained: 5,
+    resourceOutcomes: { selected: 0, deferred: 0, rejected: 0, projectedRouteGains: 0, criticalRouteSelections: 0 }
   }
 })
 
