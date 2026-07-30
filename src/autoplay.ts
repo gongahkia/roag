@@ -72,6 +72,7 @@ const planningClone = (state: RunState): RunState => {
       exit: { ...floor.exit },
       objective: { ...floor.objective },
       milestones: floor.milestones.map(milestone => ({ ...milestone })),
+      secretRooms: floor.secretRooms?.map(room => ({ ...room, approach: { ...room.approach }, entries: room.entries.map(entry => ({ ...entry })), chamber: room.chamber.map(point => ({ ...point })), discovery: room.discovery ? { ...room.discovery } : undefined })),
       transientTerrain: floor.transientTerrain?.map(terrain => ({ ...terrain })),
       telegraphs: floor.telegraphs?.map(telegraph => ({ ...telegraph, cells: telegraph.cells.map(cell => ({ ...cell })), collision: telegraph.collision ? { ...telegraph.collision, point: { ...telegraph.collision.point } } : undefined })),
       puzzleIds: floor.puzzleIds ? [...floor.puzzleIds] : undefined
@@ -1329,30 +1330,32 @@ export const autoplayToolDiagnostics = (state: RunState, mode: Exclude<AutoplayM
 
 type OptionalRouteAssessment = { assessment: AutoplayOptionalAssessment; space: SideSpace; entryBlocked: boolean }
 const optionalReward = (state: RunState, space: SideSpace) => state.floor.items.find(item => item.x === space.reward.x && item.y === space.reward.y && item.id === space.reward.id) ?? space.reward
-const optionalEvidenceVisible = (state: RunState, space: SideSpace): boolean => visible(state, space.approach) && visible(state, space.entry) && visible(state, optionalReward(state, space))
-const optionalThreat = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace): number => {
-  const points = [space.approach, space.entry, optionalReward(state, space)]
+const optionalThreat = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace, discovered: boolean): number => {
+  const points = discovered ? [space.approach, space.entry] : [space.approach, space.entry, optionalReward(state, space)]
   const hostile = hostileKnown(state, mode).filter(actor => points.some(point => chebyshev(actor, point) <= 2)).reduce((total, actor) => total + Math.max(24, actor.attack * 8), 0)
   const telegraph = points.some(point => telegraphDanger(state, point)) ? 80 : 0
   return hostile + telegraph
 }
-const optionalEscapeRoute = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace): boolean => {
+const optionalEscapeRoute = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace, discovered: boolean): boolean => {
   const simulated = planningClone(state)
   const entry = getTile(simulated.floor, space.entry.x, space.entry.y)
   if (entry?.kind === 'breakwall') entry.kind = 'floor'
-  return knownPassablePath(simulated, mode, optionalReward(simulated, space), simulated.hero)
+  return knownPassablePath(simulated, mode, discovered ? simulated.hero : optionalReward(simulated, space), discovered ? space.approach : simulated.hero)
 }
 const optionalRouteAssessments = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): OptionalRouteAssessment[] => {
-  const assessments = (state.floor.sideSpaces ?? []).map(space => {
-    const shortcut = space.kind === 'mine-breach-room' && space.rareTransition?.kind === 'floorSkip' && space.rareTransition.targetBiome === state.floor.biome
-    const evidence = mode === 'visible' ? optionalEvidenceVisible(state, space) : true
+  const rooms = new Map((state.floor.secretRooms ?? []).map(room => [room.sourceId, room]))
+  const assessments = (state.floor.sideSpaces ?? []).filter(space => mode !== 'visible' || rooms.get(space.id)?.discovery !== undefined).map(space => {
+    const room = rooms.get(space.id)
+    const discovered = mode === 'visible' && room?.discovery !== undefined
+    const shortcut = !discovered && space.kind === 'mine-breach-room' && space.rareTransition?.kind === 'floorSkip' && space.rareTransition.targetBiome === state.floor.biome
+    const evidence = mode !== 'visible' || discovered
     const entryBlocked = getTile(state.floor, space.entry.x, space.entry.y)?.kind === 'breakwall'
-    const target = entryBlocked ? space.approach : optionalReward(state, space)
-    const payoff = (ITEM[optionalReward(state, space).id]?.value ?? 40) * optionalReward(state, space).count + (shortcut ? 220 : 0)
+    const target = entryBlocked || discovered ? space.approach : optionalReward(state, space)
+    const payoff = discovered ? room!.rewardClass === 'shortcut' ? 220 : room!.rewardClass === 'ritual' ? 120 : 100 : (ITEM[optionalReward(state, space).id]?.value ?? 40) * optionalReward(state, space).count + (shortcut ? 220 : 0)
     const pathCost = chebyshev(state.hero, target)
     const resourceCost = { bombs: Number(entryBlocked), ropes: 0 }
-    const threat = optionalThreat(state, mode, space)
-    const escapeRoute = optionalEscapeRoute(state, mode, space)
+    const threat = optionalThreat(state, mode, space, discovered)
+    const escapeRoute = optionalEscapeRoute(state, mode, space, discovered)
     const remainingObjective = state.floor.objective.status === 'complete' && state.floor.guardianDefeated ? 0 : Math.min(99, strategicDistance(state))
     const expectedValue = payoff + (escapeRoute ? 45 : -160) - threat - pathCost * 12 - resourceCost.bombs * 60 - remainingObjective * 8
     const base = { id: space.id, kind: shortcut ? 'shortcut' as const : 'secret' as const, evidence: mode === 'visible' ? 'visible' as const : 'omniscient-diagnostic' as const, payoff, threat, pathCost, resourceCost, escapeRoute, remainingObjective, expectedValue, target: { ...target }, rejectedAlternatives: [] }

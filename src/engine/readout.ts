@@ -7,6 +7,7 @@ import { planEnemyIntent } from './intents'
 import { distance } from './shared'
 import { ecologyReadout } from '../ecology'
 import { toolFor } from './buildcraft'
+import { secretInteractionHint } from '../secrets'
 
 export interface FieldReadout { brief: string; lines: string[] }
 
@@ -45,6 +46,8 @@ export const fieldReadout = (state: RunState): FieldReadout => {
     const horizontal = milestone.x < state.hero.x ? 'west' : milestone.x > state.hero.x ? 'east' : ''
     lines.push(`MARK: ${milestone.kind === 'waycache' ? 'Waycache' : 'Boon site'} ${distance(milestone, state.hero)} tiles ${[vertical, horizontal].filter(Boolean).join('-') || 'here'}.`)
   }
+  const secret = (state.floor.secretRooms ?? []).filter(room => room.discovery).sort((first, second) => distance(first.approach, state.hero) - distance(second.approach, state.hero) || first.id.localeCompare(second.id))[0]
+  if (secret) lines.push(`SECRET: ${secret.discoveryClue} (${secret.discovery!.channel}) — ${secretInteractionHint(secret)}`)
   const encounter = state.floor.encounters?.find(current => current.state === 'dormant' && getTile(state.floor, current.x, current.y)?.visible)
   if (encounter) lines.push(`OPTION C: inspect ${encounter.kind === 'wayfarer' ? 'a wandering wayfarer' : encounter.kind === 'bloodBargain' ? 'a sealed bargain' : 'a shifting chamber'}`)
   const ground = state.floor.items.filter(item => item.x === state.hero.x && item.y === state.hero.y)

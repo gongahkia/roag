@@ -1,7 +1,7 @@
 import { isItemId, isMonsterId, isSkillId } from './content'
 import { objectiveForFloor } from './objectives'
 import { ECOLOGY_EVENT_KINDS, FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, MONSTER_ROLES, TACTICAL_ENCOUNTERS, floorIndex, inFloorBounds } from './types'
-import type { Actor, Alignment, AreaArcState, Biome, CampaignRouteState, ClimbLink, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, CurseState, DeathMode, DifficultyContext, EncounterKind, EncyclopediaState, Floor, FloorEncounter, FloorEscalation, FloorMilestone, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, OathState, Point, Prop, Records, RelicId, RescuedNpc, RewardOffer, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunTelemetry, SecretRoom, SecretRoute, SocialContract, SocialReputation, Telegraph, Tile, TransientTerrain, TraversalToolId } from './types'
+import type { Actor, Alignment, AreaArcState, Biome, CampaignRouteState, ClimbLink, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, CurseState, DeathMode, DifficultyContext, EncounterKind, EncyclopediaState, Floor, FloorEncounter, FloorEscalation, FloorMilestone, GroundItem, Hero, LegacyRecord, LineageEvent, Modal, OathState, Point, Prop, Records, RelicId, RescuedNpc, RewardOffer, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunTelemetry, SecretClueChannel, SecretRoom, SecretRoute, SocialContract, SocialReputation, Telegraph, Tile, TransientTerrain, TraversalToolId } from './types'
 import { createRunTelemetry } from './telemetry'
 import { PROP_IDS } from './props'
 import { DEFAULT_AREA_ORDER, LEGACY_AREA_ORDER, initialCampaignRoute, isCampaignAreaOrder, isLegacyCampaignAreaOrder } from './engine/campaign'
@@ -69,7 +69,7 @@ const isRewardOffer = (value: unknown): value is RewardOffer => isRecord(value) 
 const isExpeditionPhase = (value: unknown): value is FloorEscalation['phase'] => oneOf(value, ['survey', 'pressure', 'counterroute', 'climax'])
 const isFloorEscalation = (value: unknown): value is FloorEscalation => isRecord(value) && isString(value.arcId) && isExpeditionPhase(value.phase) && ['topology', 'landmark', 'encounter', 'ecology', 'promise', 'payoff'].every(key => isString(value[key])) && isNonNegativeInteger(value.encounterOffset) && Array.isArray(value.carried) && value.carried.every(isExpeditionPhase)
 const isAreaArcState = (value: unknown): value is AreaArcState => isRecord(value) && oneOf(value.biome, BIOMES) && isString(value.arcId) && Array.isArray(value.clearedPhases) && value.clearedPhases.every(isExpeditionPhase)
-const isSecretRoom = (value: unknown): value is SecretRoom => isRecord(value) && value.version === 1 && isString(value.id) && isString(value.sourceId) && oneOf(value.kind, ['hidden-room', 'side-pocket']) && isPoint(value.approach) && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(isPoint) && Array.isArray(value.chamber) && value.chamber.length > 0 && value.chamber.every(isPoint) && oneOf(value.entryCondition, ['sealed-breakwall', 'anchored-rope']) && isString(value.discoveryClue) && oneOf(value.accessMethod, ['breach', 'climb']) && oneOf(value.rewardClass, ['supplies', 'ritual', 'shortcut']) && oneOf(value.risk, ['dust', 'undertow', 'ward', 'smoke', 'fall', 'spirits', 'cold']) && value.safeFallback === true
+const isSecretRoom = (value: unknown): value is SecretRoom => isRecord(value) && value.version === 1 && isString(value.id) && isString(value.sourceId) && oneOf(value.kind, ['hidden-room', 'side-pocket']) && isPoint(value.approach) && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(isPoint) && Array.isArray(value.chamber) && value.chamber.length > 0 && value.chamber.every(isPoint) && oneOf(value.entryCondition, ['sealed-breakwall', 'anchored-rope']) && isString(value.discoveryClue) && oneOf(value.clueChannel, ['sight', 'sound', 'prop', 'terrain', 'ritual']) && (value.discovery === undefined || (isRecord(value.discovery) && oneOf(value.discovery.channel, ['sight', 'sound', 'prop', 'terrain', 'ritual']) && isNonNegativeInteger(value.discovery.turn))) && oneOf(value.accessMethod, ['breach', 'climb']) && oneOf(value.rewardClass, ['supplies', 'ritual', 'shortcut']) && oneOf(value.risk, ['dust', 'undertow', 'ward', 'smoke', 'fall', 'spirits', 'cold']) && value.safeFallback === true
 const isSecretRoute = (value: unknown): value is SecretRoute => isRecord(value) && value.version === 1 && isString(value.id) && isString(value.roomId) && oneOf(value.kind, ['concealed-passage', 'rare-transition']) && isPoint(value.from) && isPoint(value.entry) && oneOf(value.entryCondition, ['sealed-breakwall', 'anchored-rope']) && isString(value.discoveryClue) && oneOf(value.accessMethod, ['breach', 'climb']) && oneOf(value.rewardClass, ['supplies', 'ritual', 'shortcut']) && oneOf(value.risk, ['dust', 'undertow', 'ward', 'smoke', 'fall', 'spirits', 'cold']) && value.safeFallback === true && (value.destination === undefined || (isRecord(value.destination) && oneOf(value.destination.biome, BIOMES) && isNonNegativeInteger(value.destination.floor) && value.destination.floor < 4))
 const isObjective = (value: unknown): boolean => isRecord(value) && isString(value.id) && oneOf(value.kind, ['recoverSupplies', 'rescueScout', 'invokeAltar', 'defeatGuardian']) && oneOf(value.status, ['active', 'complete']) && isString(value.label)
 const isRescuedNpc = (value: unknown): value is RescuedNpc => isRecord(value) && isString(value.id) && isString(value.name) && oneOf(value.biome, BIOMES) && isNumber(value.floor)
@@ -141,6 +141,11 @@ const migrateLegacyRun = (legacy: LegacyRunState): RunState => ({
 })
 
 const pointOnMap = (floor: Floor, point: Point): boolean => isInteger(point.x) && isInteger(point.y) && inFloorBounds(floor, point.x, point.y)
+const secretClueChannelFor = (sourceId: string): SecretClueChannel => sourceId.startsWith('wilds-cave:') || sourceId.startsWith('cliff-alcove:') ? 'sight' : sourceId.startsWith('cavern-hidden:') || sourceId.startsWith('furnace-service:') ? 'sound' : sourceId.startsWith('burial-crypt:') ? 'prop' : sourceId.startsWith('ritual-hidden:') ? 'ritual' : 'terrain'
+const migrateSecretClueChannels = (value: unknown): unknown => {
+  if (!isRecord(value) || !isRecord(value.floor) || !Array.isArray(value.floor.secretRooms)) return value
+  return { ...value, floor: { ...value.floor, secretRooms: value.floor.secretRooms.map(room => isRecord(room) && isString(room.sourceId) && room.clueChannel === undefined ? { ...room, clueChannel: secretClueChannelFor(room.sourceId) } : room) } }
+}
 const validPersistedRun = (run: RunState): boolean => {
   const floor = run.floor
   if (!isNonNegativeInteger(run.turn) || floor.index < 0 || floor.index >= FLOOR_COUNT) return false
@@ -152,7 +157,8 @@ const validPersistedRun = (run: RunState): boolean => {
 }
 
 export const migrateRunRecord = (value: unknown): RunState | undefined => {
-  const run = isRunState(value) ? { ...value } : isLegacyRunState(value) && value.version < 5 ? migrateLegacyRun(value) : undefined
+  const migrated = migrateSecretClueChannels(value)
+  const run = isRunState(migrated) ? { ...migrated } : isLegacyRunState(migrated) && migrated.version < 5 ? migrateLegacyRun(migrated) : undefined
   if (!run || !validPersistedRun(run)) return undefined
   if (run.encyclopedia) run.encyclopedia = { ...run.encyclopedia, legacyRecords: copyLegacyRecords(run.encyclopedia.legacyRecords) }
   const telemetry = run.telemetry ??= createRunTelemetry(run)

@@ -547,6 +547,8 @@ export class TerminalRenderer {
     }
     const milestone = state.floor.milestones.find(current => current.x === x && current.y === y && current.discovered && !current.claimed)
     if (milestone) this.cell(x, y, milestone.kind === 'waycache' ? 'W' : milestone.kind === 'augment' ? '!' : milestone.kind === 'relic' ? 'R' : this.runeMode ? '✦' : '*', milestone.kind === 'waycache' || milestone.kind === 'relic' ? colors.gold : milestone.kind === 'augment' ? colors.red : colors.purple)
+    const secret = state.floor.secretRooms?.find(room => room.discovery && room.entries.some(entry => entry.x === x && entry.y === y))
+    if (secret) this.cell(x, y, '?', colors.gold)
     const encounter = state.floor.encounters?.find(current => current.x === x && current.y === y && current.state === 'dormant')
     if (encounter && !this.spriteMode) this.cell(x, y, encounter.kind === 'wayfarer' ? '&' : encounter.kind === 'bloodBargain' ? '$' : '≈', encounter.kind === 'bloodBargain' ? colors.red : encounter.kind === 'shiftingChamber' ? colors.blue : colors.green)
     if (item) this.drawItem(item, x, y)
@@ -677,9 +679,10 @@ export class TerminalRenderer {
     const objective = state.floor.objective
     this.wrap(readout.lines[0], 45).slice(0, 1).forEach(line => this.text(50, 44, line, objective.status === 'complete' ? colors.green : colors.gold))
     const milestones = state.floor.milestones.filter(current => current.discovered && !current.claimed)
+    const secrets = state.floor.secretRooms?.filter(room => room.discovery) ?? []
     const terrain = getTile(state.floor, hero.x, hero.y)
     if (terrain) this.text(50, 45, terrainInspection(biome, terrain.kind), colors.dim)
-    this.text(50, 46, `MARKS ${milestones.length} seen`, colors.dim)
+    this.text(50, 46, `MARKS ${milestones.length} seen · SECRETS ${secrets.length} found`, colors.dim)
     this.boonRelicLists(hero, 48)
   }
 

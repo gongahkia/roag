@@ -2,6 +2,7 @@ import { type RunState } from '../types'
 import { getTile } from '../world'
 import { observeEncyclopedia } from './encyclopedia'
 import { isBlockingProp, isSightBlockingProp, propAt } from '../props'
+import { revealSecretClues } from './secret-discovery'
 
 export function refreshFov(state: RunState): void {
   for (const tile of state.floor.tiles) tile.visible = false
@@ -25,6 +26,9 @@ export function refreshFov(state: RunState): void {
     }
   }
   for (const milestone of state.floor.milestones) if (getTile(state.floor, milestone.x, milestone.y)?.visible || (state.hero.boons?.watchfulStep ?? 0) > 0 && Math.max(Math.abs(milestone.x - state.hero.x), Math.abs(milestone.y - state.hero.y)) <= 4 + (state.hero.boons?.watchfulStep ?? 0)) milestone.discovered = true
+  revealSecretClues(state, 'sight')
+  revealSecretClues(state, 'sound')
+  revealSecretClues(state, 'terrain')
   observeEncyclopedia(state)
 }
 

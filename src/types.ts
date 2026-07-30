@@ -135,7 +135,9 @@ export type SecretEntryCondition = 'sealed-breakwall' | 'anchored-rope'
 export type SecretAccessMethod = 'breach' | 'climb'
 export type SecretRewardClass = 'supplies' | 'ritual' | 'shortcut'
 export type SecretRisk = 'dust' | 'undertow' | 'ward' | 'smoke' | 'fall' | 'spirits' | 'cold'
-export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
+export type SecretClueChannel = 'sight' | 'sound' | 'prop' | 'terrain' | 'ritual'
+export interface SecretDiscovery { channel: SecretClueChannel; turn: number }
+export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; clueChannel: SecretClueChannel; discovery?: SecretDiscovery; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
 export interface SecretRoute { version: 1; id: string; roomId: string; kind: SecretRouteKind; from: Point; entry: Point; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true; destination?: { biome: Biome; floor: number } }
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }

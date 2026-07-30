@@ -5,6 +5,7 @@ import { resolveDisplacement } from './displacement'
 import { intellectWardBonus } from './intellect'
 import { log } from './shared'
 import { applyPropEffects, moveCartByForce } from './props'
+import { revealSecretClues } from './secret-discovery'
 
 type AstralSpell = 'sight' | 'blink' | 'gust' | 'pull' | 'ward' | 'gate'
 
@@ -25,4 +26,5 @@ export const castAstral = (state: RunState, spell: AstralSpell, point: Point): v
   if (spell === 'ward') { const potency = 1 + intellectWardBonus(state.hero); state.hero.maxHealth += 2 + intellectWardBonus(state.hero); addCondition(state.hero, { kind: 'shielded', duration: 3, potency }); applyPropEffects(state, [point], ['ward']) }
   if (spell === 'gate') { applyPropEffects(state, [point], ['gate']); state.hero.x = state.floor.exit.x; state.hero.y = state.floor.exit.y }
   if (spell === 'blink' && (state.hero.x !== point.x || state.hero.y !== point.y)) log(state, 'The blink has no safe destination.')
+  revealSecretClues(state, 'ritual')
 }

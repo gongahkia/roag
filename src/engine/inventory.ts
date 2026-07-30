@@ -29,6 +29,7 @@ import { recordTelemetryCount } from '../telemetry'
 import { consumeRelicSpell } from './relics'
 import { armRelicMove, armRelicWaterCrossing } from './relics'
 import { openEncounter } from './encounters'
+import { revealSecretClues } from './secret-discovery'
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
@@ -108,7 +109,11 @@ export function operate(state: RunState): ActionResult {
   }
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
   const propOperation = operateProp(state)
-  if (propOperation) return propOperation.events.length ? advance(state, propOperation.events) : []
+  if (propOperation) {
+    revealSecretClues(state, 'prop')
+    return propOperation.events.length ? advance(state, propOperation.events) : []
+  }
+  if (revealSecretClues(state, 'prop').length) return [event('menu')]
   log(state, 'Nothing answers.')
   return []
 }

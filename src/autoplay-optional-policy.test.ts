@@ -15,6 +15,7 @@ const optionalSecret = () => {
   const reward = { id: 'sunblade', x: 3, y: 1, count: 1, visibleInFog: true }
   state.floor.items = [reward]
   state.floor.sideSpaces = [{ id: 'secret', kind: 'mine-breach-room', approach: { x: 1, y: 1 }, entry: { x: 2, y: 1 }, chamber: [{ x: 3, y: 1 }], reward }]
+  state.floor.secretRooms = [{ version: 1, id: 'secret-room:secret', sourceId: 'secret', kind: 'hidden-room', approach: { x: 1, y: 1 }, entries: [{ x: 2, y: 1 }], chamber: [{ x: 3, y: 1 }], entryCondition: 'sealed-breakwall', discoveryClue: 'fractured rail stone', clueChannel: 'terrain', discovery: { channel: 'terrain', turn: 0 }, accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true }]
   return state
 }
 
@@ -49,12 +50,13 @@ describe('autoplay optional-secret expected value policy', () => {
     expect(autoplayOptionalDiagnostics(shortcut, 'omniscient', 'explore')).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'secret', kind: 'shortcut', disposition: 'pursue', evidence: 'omniscient-diagnostic', rationale: 'profitable same-biome shortcut' })]))
     expect(autoplayDecision(shortcut, 'omniscient', 'explore', createAutoplayContext())).toMatchObject({ command: 'b', reason: 'open optional shortcut:secret' })
     const hidden = optionalSecret()
+    hidden.floor.secretRooms![0]!.discovery = undefined
     for (const point of [{ x: 2, y: 1 }, { x: 3, y: 1 }]) {
       const tile = hidden.floor.tiles[indexOf(point.x, point.y)]!
       tile.explored = false
       tile.visible = false
     }
-    expect(autoplayOptionalDiagnostics(hidden, 'visible', 'explore')).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'secret', disposition: 'decline', rationale: 'visible payoff or risk evidence required' })]))
+    expect(autoplayOptionalDiagnostics(hidden, 'visible', 'explore')).toEqual([])
     expect(autoplayDecision(hidden, 'visible', 'explore', createAutoplayContext())?.reason).not.toMatch(/^pursue optional|^open optional/)
   })
 })
