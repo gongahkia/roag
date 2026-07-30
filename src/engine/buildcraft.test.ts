@@ -65,6 +65,20 @@ describe('buildcraft', () => {
     expect(state.hero.traversalTools).toEqual([])
   })
 
+  it('burns only adjacent unoccupied vegetation into deterministic smoke', () => {
+    const state = createRun({ hero: createHero({ traversalTools: ['resinFireBasket'] }) })
+    state.floor.tiles[indexOf(2, 1)].kind = 'web'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('smoke')
+    expect(state.hero.cooldowns?.['tool:resinFireBasket']).toBeGreaterThan(0)
+    expect(state.messages[0]).toContain('smoking')
+    state.hero.cooldowns = {}
+    state.floor.tiles[indexOf(2, 1)].kind = 'wall'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('wall')
+    expect(state.messages[0]).toContain('needs an unoccupied')
+  })
+
   it('stacks Boons and rewinds position without restoring world state', () => {
     const state = createRun({ hero: createHero({ boons: { timeKnot: 1 }, safePositions: [{ x: 1, y: 1 }, { x: 3, y: 1 }], x: 3, y: 1 }) })
     state.floor.tiles[indexOf(2, 1)].kind = 'lava'
