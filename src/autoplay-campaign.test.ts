@@ -79,5 +79,8 @@ describe('campaign autoplay baseline', () => {
     expect(compact.failure?.trace).toHaveLength(1)
     expect(compact.failure?.trace[0]?.replay).toEqual(compact.failure?.replay)
     expect(compact.evaluation?.resourceOutcomes).toEqual(report.resourceOutcomes)
+    expect(compact.evaluation?.partyOutcomes).toEqual(report.partyOutcomes)
+    expect(compact.failure?.partyOutcomes).toEqual(report.partyOutcomes)
+    expect(compact.failure?.diagnosis.party).toEqual(report.partyOutcomes)
   })
 })

@@ -7,7 +7,7 @@ import { assertAutoplayScoreboard, createAutoplayScoreboard, type AutoplayScoreb
 import { assertAutoplayFailureDiagnosis, diagnoseAutoplayFailure, type AutoplayFailureCode, type AutoplayFailureDiagnosis } from './autoplay-failure-diagnosis'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
-import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayTraceEntry, Biome } from './types'
+import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPartyOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayTraceEntry, Biome } from './types'
 
 export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = autoplaySeedCorpusPartition('development').map(entry => entry.seed)
 export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = autoplaySeedCorpusPartition('development')[0]!.turnBudget
@@ -18,8 +18,8 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
-export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; partition: AutoplaySeedCorpusPartition; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; turnLimit: number; code: AutoplayFailureCode; diagnosis: AutoplayFailureDiagnosis; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
-export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; resourceOutcomes: AutoplayResourceOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; traceHash?: string }
+export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; partition: AutoplaySeedCorpusPartition; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; turnLimit: number; code: AutoplayFailureCode; diagnosis: AutoplayFailureDiagnosis; partyOutcomes?: AutoplayPartyOutcomes; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
+export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; resourceOutcomes: AutoplayResourceOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; partyOutcomes?: AutoplayPartyOutcomes; traceHash?: string }
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfileRef; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; evaluation?: CampaignAutoplayEvaluation; traceDocument?: AutoplayTraceDocument; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
@@ -38,13 +38,14 @@ export const campaignAutoplayRunMatchesCorpus = (entry: AutoplaySeedCorpusEntry,
 const assertCampaignAutoplayEvaluation = (run: CampaignAutoplayRun): void => {
   const evaluation = run.evaluation
   if (!evaluation) return
-  const { policyMetadata, explorationValue, resourcesSpent, resourcesRetained, resourceOutcomes, optionalOutcomes } = evaluation
+  const { policyMetadata, explorationValue, resourcesSpent, resourcesRetained, resourceOutcomes, optionalOutcomes, partyOutcomes } = evaluation
   const score = policyMetadata.score
   const integer = (value: number) => Number.isSafeInteger(value) && value >= 0
   if (policyMetadata.seed !== run.seed || policyMetadata.profile.id !== `${run.mode}-${run.policy}` || policyMetadata.profile.informationMode !== run.mode || policyMetadata.profile.policy !== run.policy) throw new Error('campaign autoplay evaluation policy metadata does not match its run')
   if (!integer(explorationValue) || !integer(resourcesSpent) || !integer(resourcesRetained) || !integer(score.campaignClears) || !integer(score.deaths) || !integer(score.stalls) || !integer(score.explorationValue) || !Number.isSafeInteger(score.resourceEfficiency)) throw new Error('campaign autoplay evaluation has invalid metrics')
   if (!integer(resourceOutcomes.selected) || !integer(resourceOutcomes.deferred) || !integer(resourceOutcomes.rejected) || !integer(resourceOutcomes.projectedRouteGains) || !integer(resourceOutcomes.criticalRouteSelections)) throw new Error('campaign autoplay evaluation has invalid resource outcomes')
   if (!integer(optionalOutcomes.pursued) || !integer(optionalOutcomes.deferred) || !integer(optionalOutcomes.declined) || !integer(optionalOutcomes.secrets) || !integer(optionalOutcomes.shortcuts)) throw new Error('campaign autoplay evaluation has invalid optional outcomes')
+  if (partyOutcomes && (!['none', 'autonomous', 'direct'].includes(partyOutcomes.controlMode) || !partyOutcomes.roster.every(entry => typeof entry.id === 'string' && ['guard', 'scout', 'pathmaker', 'ritualist'].includes(entry.role) && ['autonomous', 'direct'].includes(entry.controlMode) && ['lead', 'benched', 'active', 'lost'].includes(entry.rosterStatus) && ['healthy', 'injured', 'recovering'].includes(entry.injury) && typeof entry.permanentlyLost === 'boolean') || !partyOutcomes.activeCompanionIds.every(id => typeof id === 'string') || !partyOutcomes.injuries.every(id => typeof id === 'string') || !partyOutcomes.losses.every(id => typeof id === 'string') || !integer(partyOutcomes.intercepts) || !integer(partyOutcomes.traversalAssists) || !integer(partyOutcomes.blockedTurns) || !integer(partyOutcomes.finiteResourceConsents) || typeof partyOutcomes.directModeRefused !== 'boolean' || !Object.values(partyOutcomes.actions).every(integer) || !Object.values(partyOutcomes.actionsByCompanion).every(actions => Object.values(actions).every(integer)))) throw new Error('campaign autoplay evaluation has invalid party outcomes')
   if (explorationValue !== score.explorationValue || policyMetadata.scoreTuple.some((value, index) => value !== policyScoreTuple(score)[index])) throw new Error('campaign autoplay evaluation score tuple is inconsistent')
   if (score.campaignClears !== (run.campaignComplete ? 1 : 0) || score.deaths !== (run.outcome === 'dead' ? 1 : 0) || score.stalls !== (run.outcome === 'stalled' || run.outcome === 'turn-limit' ? 1 : 0)) throw new Error('campaign autoplay evaluation score does not match its run')
   const traceDocument = run.traceDocument ?? run.failure?.traceDocument
@@ -83,9 +84,9 @@ export const summarizeCampaignAutoplay = (runs: readonly CampaignAutoplayRun[]):
 
 const failure = (report: AutoplayReport, partition: AutoplaySeedCorpusPartition): CampaignAutoplayFailure => {
   const trace = report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] }))
-  const reason = report.stall?.lastReason ?? report.error
-  const diagnosis = diagnoseAutoplayFailure({ seed: report.seed, partition, mode: report.mode, policy: report.policy, heuristicProfile: report.heuristicProfile, turnLimit: report.policyMetadata.turnBudget, outcome: report.outcome === 'complete' ? 'stalled' : report.outcome, replay: report.replay, exitPath: report.final.exitPath, trace, resources: { ...report.resourceOutcomes, bombsUsed: report.metrics.bombsUsed, ropesUsed: report.metrics.ropesUsed }, tools: report.toolOutcomes, optional: report.optionalOutcomes, ...(reason ? { reason } : {}), ...(report.error ? { error: report.error } : {}), ...(report.traceDocument ? { traceDocument: report.traceDocument } : {}) })
-  return { outcome: report.outcome, finalBiome: report.finalBiome, floor: report.floor, completedAreas: [...report.completedAreas], replay: { ...report.replay }, partition, mode: report.mode, policy: report.policy, heuristicProfile: { ...report.heuristicProfile }, turnLimit: report.policyMetadata.turnBudget, code: diagnosis.code, diagnosis, ...(reason ? { reason } : {}), trace, ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {}) }
+  const reason = report.stall?.lastReason ?? report.error ?? report.unsupported?.message
+  const diagnosis = diagnoseAutoplayFailure({ seed: report.seed, partition, mode: report.mode, policy: report.policy, heuristicProfile: report.heuristicProfile, turnLimit: report.policyMetadata.turnBudget, outcome: report.outcome === 'complete' ? 'stalled' : report.outcome, replay: report.replay, exitPath: report.final.exitPath, trace, resources: { ...report.resourceOutcomes, bombsUsed: report.metrics.bombsUsed, ropesUsed: report.metrics.ropesUsed }, tools: report.toolOutcomes, optional: report.optionalOutcomes, party: report.partyOutcomes, ...(reason ? { reason } : {}), ...(report.error ? { error: report.error } : {}), ...(report.traceDocument ? { traceDocument: report.traceDocument } : {}) })
+  return { outcome: report.outcome, finalBiome: report.finalBiome, floor: report.floor, completedAreas: [...report.completedAreas], replay: { ...report.replay }, partition, mode: report.mode, policy: report.policy, heuristicProfile: { ...report.heuristicProfile }, turnLimit: report.policyMetadata.turnBudget, code: diagnosis.code, diagnosis, partyOutcomes: structuredClone(report.partyOutcomes), ...(reason ? { reason } : {}), trace, ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {}) }
 }
 
 const evaluation = (report: AutoplayReport): CampaignAutoplayEvaluation => {
@@ -99,6 +100,7 @@ const evaluation = (report: AutoplayReport): CampaignAutoplayEvaluation => {
     resourcesRetained: report.final.hero.bombs + report.final.hero.ropes + report.final.hero.keys,
     resourceOutcomes: { ...report.resourceOutcomes },
     optionalOutcomes: { ...report.optionalOutcomes },
+    partyOutcomes: structuredClone(report.partyOutcomes),
     ...(report.traceDocument ? { traceHash: report.traceDocument.hash } : {})
   }
 }

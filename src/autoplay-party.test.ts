@@ -23,7 +23,7 @@ describe('autoplay party planning', () => {
     autoplayCandidateDiagnostics(state, 'visible', 'clear')
     expect(state.companions).toEqual(before)
     const report = runAutoplay(state, { mode: 'visible', policy: 'clear', turnLimit: 1, captureTrace: true })
-    expect(report.partyOutcomes).toMatchObject({ controlMode: 'autonomous', activeCompanionIds: [guard.id], directModeRefused: false, finiteResourceConsents: 0 })
+    expect(report.partyOutcomes).toMatchObject({ controlMode: 'autonomous', roster: [{ id: guard.id, role: 'guard', controlMode: 'autonomous', rosterStatus: 'active', injury: 'healthy', permanentlyLost: false }], activeCompanionIds: [guard.id], directModeRefused: false, finiteResourceConsents: 0 })
     expect(report.traceDocument).toBeDefined()
   })
 
@@ -35,7 +35,7 @@ describe('autoplay party planning', () => {
     injureCompanion(afterGuard)
     const outcomes = createAutoplayPartyOutcomes(before)
     recordAutoplayPartyOutcome(outcomes, before, after, [event('companion', guard.id, 'intercept:1,1:shield'), event('companion', guard.id, 'stabilizeTerrain:2,1:route'), event('companion', guard.id, 'wait:self:waited:the follow path is blocked')])
-    expect(outcomes).toMatchObject({ actions: { intercept: 1, stabilizeTerrain: 1 }, intercepts: 1, traversalAssists: 1, injuries: [guard.id], blockedTurns: 1 })
+    expect(outcomes).toMatchObject({ actions: { intercept: 1, stabilizeTerrain: 1 }, actionsByCompanion: { [guard.id]: { intercept: 1, stabilizeTerrain: 1, wait: 1 } }, intercepts: 1, traversalAssists: 1, injuries: [guard.id], blockedTurns: 1 })
     expect(autoplayPartyCandidateScore(before, after)).toBeLessThan(0)
   })
 })

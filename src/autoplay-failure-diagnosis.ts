@@ -1,6 +1,6 @@
 import { replayAutoplayTrace, type AutoplayTraceReplayResult } from './autoplay-trace-replay'
 import type { AutoplayHeuristicProfileRef } from './autoplay-heuristics'
-import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayToolOutcomes, AutoplayTraceEntry } from './types'
+import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPartyOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayToolOutcomes, AutoplayTraceEntry } from './types'
 import type { AutoplayOutcome } from './autoplay-runner'
 import type { AutoplayTraceDocument } from './autoplay-trace'
 import type { AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
@@ -23,6 +23,7 @@ export interface AutoplayFailureDiagnosticInput {
   resources: AutoplayResourceOutcomes & { bombsUsed: number; ropesUsed: number }
   tools: AutoplayToolOutcomes
   optional: AutoplayOptionalOutcomes
+  party?: AutoplayPartyOutcomes
   reason?: string
   error?: string
   traceDocument?: AutoplayTraceDocument
@@ -35,6 +36,7 @@ export interface AutoplayFailureDiagnosis {
   finalDecisions: AutoplayFailureTrace
   resources: AutoplayFailureDiagnosticInput['resources']
   traversal: { tools: AutoplayToolOutcomes; optional: AutoplayOptionalOutcomes }
+  party?: AutoplayPartyOutcomes
 }
 
 const failedReplay = (traceDocument: AutoplayTraceDocument | undefined): AutoplayTraceReplayResult | undefined => traceDocument ? replayAutoplayTrace(traceDocument) : undefined
@@ -44,6 +46,7 @@ export const diagnoseAutoplayFailure = (input: AutoplayFailureDiagnosticInput): 
   const finalReason = input.reason ?? input.trace.at(-1)?.reason
   const finiteResources = input.resources.bombsUsed + input.resources.ropesUsed
   const evidence = [`outcome=${input.outcome}`, ...(finalReason ? [`reason=${finalReason}`] : []), `exitPath=${input.exitPath}`]
+  if (input.party) evidence.push(`system=party-autoplay roster=${input.party.roster.map(entry => `${entry.id}:${entry.role}:${entry.controlMode}`).join(',') || 'none'} active=${input.party.activeCompanionIds.join(',') || 'none'} actions=${Object.entries(input.party.actionsByCompanion).map(([id, actions]) => `${id}:${Object.entries(actions).map(([action, count]) => `${action}=${count}`).join('+')}`).join(',') || 'none'} injuries=${input.party.injuries.join(',') || 'none'} losses=${input.party.losses.join(',') || 'none'} resourceConsents=${input.party.finiteResourceConsents}`)
   let code: AutoplayFailureCode
   if (replay && !replay.valid) {
     code = 'replay-divergence'
@@ -71,7 +74,8 @@ export const diagnoseAutoplayFailure = (input: AutoplayFailureDiagnosticInput): 
     reproduction: { seed: input.seed, partition: input.partition, mode: input.mode, policy: input.policy, ...(input.heuristicProfile ? { heuristicProfile: { ...input.heuristicProfile } } : {}), turnLimit: input.turnLimit, replay: { ...input.replay } },
     finalDecisions: input.trace.map(entry => ({ ...entry, replay: { ...entry.replay }, events: [...entry.events] })),
     resources: { ...input.resources },
-    traversal: { tools: { ...input.tools }, optional: { ...input.optional } }
+    traversal: { tools: { ...input.tools }, optional: { ...input.optional } },
+    ...(input.party ? { party: structuredClone(input.party) } : {})
   }
 }
 

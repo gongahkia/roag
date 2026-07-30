@@ -8,7 +8,8 @@ export const autoplayDirectCompanionIds = (state: RunState): string[] => (state.
 export const createAutoplayPartyOutcomes = (state: RunState): AutoplayPartyOutcomes => {
   const activeCompanionIds = autoplayActiveCompanionIds(state)
   const controlMode = !activeCompanionIds.length ? 'none' : autoplayDirectCompanionIds(state).length ? 'direct' : 'autonomous'
-  return { controlMode, activeCompanionIds, actions: {}, injuries: [], losses: [], intercepts: 0, traversalAssists: 0, blockedTurns: 0, finiteResourceConsents: 0, directModeRefused: false }
+  const roster = (state.companions ?? []).map(({ id, role, controlMode, rosterStatus, injury, permanentlyLost }) => ({ id, role, controlMode, rosterStatus, injury, permanentlyLost })).sort((left, right) => left.id.localeCompare(right.id))
+  return { controlMode, roster, activeCompanionIds, actions: {}, actionsByCompanion: {}, injuries: [], losses: [], intercepts: 0, traversalAssists: 0, blockedTurns: 0, finiteResourceConsents: 0, directModeRefused: false }
 }
 
 const add = (values: string[], id: string): void => { if (!values.includes(id)) values.push(id); values.sort() }
@@ -24,6 +25,7 @@ export const recordAutoplayPartyOutcome = (outcomes: AutoplayPartyOutcomes, befo
     if (event.type !== 'companion' || !event.reason) continue
     const action = event.reason.split(':', 1)[0]!
     outcomes.actions[action] = (outcomes.actions[action] ?? 0) + 1
+    if (event.id) outcomes.actionsByCompanion[event.id] = { ...outcomes.actionsByCompanion[event.id], [action]: (outcomes.actionsByCompanion[event.id]?.[action] ?? 0) + 1 }
     if (action === 'intercept') outcomes.intercepts++
     if (action === 'traverse' || action === 'stabilizeTerrain' || action === 'stabilizeHazard') outcomes.traversalAssists++
     if (event.reason.includes('follow path is blocked') || event.reason.includes('no safe follow position')) outcomes.blockedTurns++

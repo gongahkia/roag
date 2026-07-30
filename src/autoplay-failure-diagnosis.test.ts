@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { assertAutoplayFailureDiagnosis, diagnoseAutoplayFailure, summarizeAutoplayFailureCodes, type AutoplayFailureDiagnosticInput } from './autoplay-failure-diagnosis'
 import { runAutoplay } from './autoplay-runner'
+import { companionLeadForRescue } from './engine/companions'
+import { synchronizePartyActors } from './engine/party'
 import { createRun } from './test/factories'
 
 const input = (overrides: Partial<AutoplayFailureDiagnosticInput> = {}): AutoplayFailureDiagnosticInput => {
@@ -40,6 +42,18 @@ describe('autoplay failure diagnosis', () => {
     const diagnosis = diagnoseAutoplayFailure({ ...diagnosticInput, traceDocument })
     expect(diagnosis).toMatchObject({ code: 'replay-divergence', reproduction: { seed: diagnosticInput.seed, partition: 'development', mode: 'omniscient', policy: 'clear', turnLimit: diagnosticInput.turnLimit }, finalDecisions: expect.any(Array), resources: diagnosticInput.resources, traversal: { tools: diagnosticInput.tools, optional: diagnosticInput.optional } })
     expect(() => assertAutoplayFailureDiagnosis(diagnosis)).not.toThrow()
+  })
+
+  it('attributes party failures to the companion actor and replay seed', () => {
+    const state = createRun({ seed: 901 })
+    const guard = companionLeadForRescue({ id: 'rescue:guard', name: 'Guard', biome: 'mine', floor: 1 })
+    guard.rosterStatus = 'active'
+    state.companions = [guard]
+    synchronizePartyActors(state, 'spawn')
+    const report = runAutoplay(state, { mode: 'visible', policy: 'clear', turnLimit: 1, captureTrace: true })
+    const diagnosis = diagnoseAutoplayFailure(input({ seed: report.seed, mode: report.mode, policy: report.policy, replay: report.replay, party: report.partyOutcomes }))
+    expect(diagnosis).toMatchObject({ reproduction: { seed: 901 }, party: { roster: [{ id: guard.id, role: 'guard' }] } })
+    expect(diagnosis.evidence.some(entry => entry.includes(`system=party-autoplay roster=${guard.id}:guard:autonomous`))).toBe(true)
   })
 
   it('summarizes every failure code deterministically', () => {
