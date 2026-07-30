@@ -41,6 +41,7 @@ export { buyHubItem, createHubState, equipHubItem, hubEquipment, hubStock, hubVi
 export type { HubAction, HubMutation, HubOptions, HubView } from './engine/hub'
 export { AREA_ORDER, advanceCampaignTier, appendLegacyRecord, assertCampaignCycle, campaignContinuationPending, campaignCycleErrors, campaignOrderForSeed, CAMPAIGN_TIERS, cloneCampaignCycle, completeCampaignArea, completeCampaignTier, continueCampaignRoute, initialCampaignCycle, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea, unlockNextArea } from './engine/campaign'
 export { recordRescue } from './engine/rescue'
+export { assertCompanion, cloneCompanion, cloneCompanions, companionErrors, companionLeadForRescue, companionLeadsForRescues, loseCompanionForRescue } from './engine/companions'
 export { legacyRecordForDeath, recordDeath } from './engine/legacy'
 export { AREA_GATES, gateForArea, gateForRun, gateModalLines, resolveAreaGate } from './engine/gates'
 export type { AreaGate, GateAlternative, GateCost, GateDestination, GateResolution } from './engine/gates'

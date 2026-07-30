@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { appendLegacyRecord, campaignOrderForSeed, completeCampaignArea, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
+import { companionLeadsForRescues } from './companions'
 import { descend } from './inventory'
 import { newRun } from './run'
 
@@ -47,9 +48,10 @@ describe('four-area campaign flow', () => {
   })
 
   it('removes a sacrificed NPC and retains its lineage event once', () => {
-    const route = { ...initialCampaignRoute(), rescuedNpcs: [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine' as const, floor: 1 }] }
+    const rescuedNpcs = [{ id: 'scout-1', name: 'Lost Scout', biome: 'mine' as const, floor: 1 }]
+    const route = { ...initialCampaignRoute(), rescuedNpcs, companions: companionLeadsForRescues(rescuedNpcs) }
     const event = { id: 'sacrifice:mine-wilds-pass:scout-1', kind: 'npcSacrifice' as const, npcId: 'scout-1', npcName: 'Lost Scout', biome: 'mine' as const, floor: 1, gateId: 'mine-wilds-pass', seed: 702 }
-    expect(recordCampaignSacrifice(recordCampaignSacrifice(route, event), event)).toMatchObject({ rescuedNpcs: [], lineageEvents: [event] })
+    expect(recordCampaignSacrifice(recordCampaignSacrifice(route, event), event)).toMatchObject({ rescuedNpcs: [], companions: [{ rosterStatus: 'lost', permanentlyLost: true }], lineageEvents: [event] })
   })
 
   it('keeps the latest twelve death records', () => {

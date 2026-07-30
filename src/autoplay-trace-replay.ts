@@ -27,7 +27,7 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
     if (document.episode.heuristicProfile && heuristicProfile.version !== document.episode.heuristicProfile.version) return failure(first, 'heuristic-profile', document.episode.heuristicProfile, { id: heuristicProfile.id, version: heuristicProfile.version })
   }
   catch (error) { return failure(first, 'heuristic-profile', document.episode.heuristicProfile, error instanceof Error ? error.message : String(error)) }
-  let state = newRun(first.replay.seed, first.replay.biome, first.replay.areaFloor, undefined, [], [], undefined, first.replay.campaignCycle)
+  let state = newRun(first.replay.seed, first.replay.biome, first.replay.areaFloor, undefined, [], [], undefined, first.replay.campaignCycle, first.replay.companions)
   let context = createAutoplayContext()
   let history: PolicyFeatureHistoryEntry[] = []
   for (const record of document.records) {

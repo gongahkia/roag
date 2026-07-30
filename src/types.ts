@@ -269,6 +269,27 @@ export interface HubState {
 }
 
 export interface RescuedNpc { id: string; name: string; biome: Biome; floor: number }
+export type CompanionRole = 'guard' | 'scout' | 'pathmaker' | 'ritualist'
+export type CompanionRosterStatus = 'lead' | 'benched' | 'active' | 'lost'
+export type CompanionControlMode = 'autonomous' | 'direct'
+export type CompanionInjuryState = 'healthy' | 'injured' | 'recovering'
+export interface CompanionRecruitmentSource { kind: 'rescue'; rescueId: string; biome: Biome; floor: number }
+export interface CompanionAbilityState { cooldowns: Record<string, number>; retired: string[] }
+export interface CompanionToolState { equipped?: TraversalToolId; cooldown: number; retired: boolean }
+export interface Companion {
+  version: 1
+  id: string
+  templateId: string
+  name: string
+  role: CompanionRole
+  recruitment: CompanionRecruitmentSource
+  rosterStatus: CompanionRosterStatus
+  controlMode: CompanionControlMode
+  injury: CompanionInjuryState
+  abilityState: CompanionAbilityState
+  toolState: CompanionToolState
+  permanentlyLost: boolean
+}
 export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string; npcName: string; biome: Biome; floor: number; gateId: string; seed: number }
 export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
 export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
@@ -276,7 +297,7 @@ export type SocialReputation = Record<SocialFaction, number>
 export type CampaignTier = 'base' | 'ngPlus' | 'ngPlusPlus'
 export interface CampaignCycleEvent { sequence: number; tier: CampaignTier; kind: 'entered' | 'victory' }
 export interface CampaignCycle { version: 1; currentTier: CampaignTier; completedTiers: CampaignTier[]; events: CampaignCycleEvent[]; completedCap: boolean }
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
 
 export interface LegacyRecord {
   id: string
@@ -308,7 +329,7 @@ export type AutoplayOptionalKind = 'secret' | 'shortcut'
 export type AutoplayOptionalDisposition = 'pursue' | 'defer' | 'decline'
 export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptionalKind; disposition: AutoplayOptionalDisposition; rationale: string; evidence: 'visible' | 'omniscient-diagnostic'; payoff: number; threat: number; pathCost: number; resourceCost: { bombs: number; ropes: number }; escapeRoute: boolean; remainingObjective: number; expectedValue: number; target: Point; rejectedAlternatives: string[] }
 export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
-export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle }
+export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; companions?: Companion[] }
 export interface AutoplayTraceEntry {
   turn: number
   replay: AutoplayReplayMetadata
@@ -354,6 +375,7 @@ export interface RunState {
   telemetry?: RunTelemetry
   shortcutReturn?: ShortcutReturn
   campaignCycle?: CampaignCycle
+  companions?: Companion[]
 }
 
 export type Modal =
