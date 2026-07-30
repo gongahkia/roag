@@ -6,6 +6,7 @@ import { autoplayHeuristicProfile, autoplayHeuristicProfileRef, parseAutoplayHeu
 import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHistoryEntry } from './autoplay-features'
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
+import { eventLabel } from './engine/shared'
 import { getTile } from './world'
 import { DIRECTIONS, type AutoplayMode, type AutoplayOptionalOutcomes, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
@@ -155,14 +156,14 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}),
         ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}),
         ...(decision.optionalDiagnostics.length ? { optionalDiagnostics: structuredClone(decision.optionalDiagnostics) } : {}),
-        events: events.map(event => event.type),
+        events: events.map(eventLabel),
         nextFingerprint: autoplayTraceFingerprint(state),
         before: { x: beforeTrace!.x, y: beforeTrace!.y, health: beforeTrace!.health, focus: beforeTrace!.focus, bombs: beforeTrace!.bombs, ropes: beforeTrace!.ropes, objective: beforeTrace!.objective },
         after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
       })
       const resourceDelta = { health: state.hero.health - beforeResources.health, focus: state.hero.focus - beforeResources.focus, gold: state.hero.gold - beforeResources.gold, bombs: state.hero.bombs - beforeResources.bombs, ropes: state.hero.ropes - beforeResources.ropes, keys: state.hero.keys - beforeResources.keys }
-      if (traceObservation && traceFeatures) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, features: traceFeatures, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}), ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}), ...(decision.optionalDiagnostics.length ? { optionalDiagnostics: structuredClone(decision.optionalDiagnostics) } : {}), chosen: { command, reason: decision.reason }, outcome: { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta, previousHash: traceRecords.at(-1)?.hash ?? null }))
-      featureHistory = appendPolicyFeatureHistory(featureHistory, { turn: before.turn, command, reason: decision.reason, events: events.map(event => event.type), resourceDelta })
+      if (traceObservation && traceFeatures) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, features: traceFeatures, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}), ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}), ...(decision.optionalDiagnostics.length ? { optionalDiagnostics: structuredClone(decision.optionalDiagnostics) } : {}), chosen: { command, reason: decision.reason }, outcome: { events: events.map(eventLabel), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta, previousHash: traceRecords.at(-1)?.hash ?? null }))
+      featureHistory = appendPolicyFeatureHistory(featureHistory, { turn: before.turn, command, reason: decision.reason, events: events.map(eventLabel), resourceDelta })
       if (traceLimit !== undefined && trace.length > traceLimit) trace.splice(0, trace.length - traceLimit)
       commands.push(command)
       if (events.some(event => event.type === 'floor')) {

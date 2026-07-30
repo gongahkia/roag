@@ -1,14 +1,19 @@
 import { DIRECTIONS, type Modal, type RunState } from '../types'
 import { actionCells } from './geometry'
 import { resolveLineEffect } from './line-effect'
+import { isTerrainMutationTool, terrainMutationAssessment, type TerrainMutationAssessment } from './terrain-mutations'
 
-export interface TargetPreview { path: { x: number; y: number }[]; cells: { x: number; y: number }[] }
+export interface TargetPreview { path: { x: number; y: number }[]; cells: { x: number; y: number }[]; mutation?: TerrainMutationAssessment }
 
 export const targetPreview = (state: RunState, modal: Extract<Modal, { kind: 'target' }>): TargetPreview => {
   if (!modal.direction) return { path: [], cells: [] }
   const delta = DIRECTIONS[modal.direction]
   const origin = state.hero
   const bounds = { width: state.floor.width, height: state.floor.height }
+  if (modal.tool && isTerrainMutationTool(modal.tool)) {
+    const mutation = terrainMutationAssessment(state, modal.tool, modal.direction, modal.overdrive)
+    return { path: mutation.affected, cells: mutation.affected, mutation }
+  }
   if (modal.action === 'drill' || modal.action === 'bridge' || modal.action === 'winch' || modal.action === 'stoneWedge' || modal.action === 'antlerPrybar' || modal.action === 'stoneAdze' || modal.action === 'resinFireBasket' || modal.action === 'woodenLeverRoller') {
     const point = { x: origin.x + delta.x, y: origin.y + delta.y }
     return { path: [point], cells: [point] }

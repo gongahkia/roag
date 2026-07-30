@@ -4,6 +4,7 @@ import { createPolicyProfile } from './autoplay-policy'
 import { autoplayHeuristicProfile } from './autoplay-heuristics'
 import { newRun, perform } from './engine'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
+import { eventLabel } from './engine/shared'
 import { assertAutoplayTraceDocument, type AutoplayTraceDocument } from './autoplay-trace'
 
 export interface AutoplayTraceDivergence { turn: number; field: string; expected: unknown; actual: unknown; command?: string }
@@ -49,7 +50,7 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
     recordAutoplayTransitionSnapshot(context, transition, record.chosen.command, state)
     const resourceDelta = { health: state.hero.health - beforeResources.health, focus: state.hero.focus - beforeResources.focus, gold: state.hero.gold - beforeResources.gold, bombs: state.hero.bombs - beforeResources.bombs, ropes: state.hero.ropes - beforeResources.ropes, keys: state.hero.keys - beforeResources.keys }
     if (!same(record.resourceDelta, resourceDelta)) return failure(record, 'resource-delta', record.resourceDelta, resourceDelta)
-    const outcome = { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }
+    const outcome = { events: events.map(eventLabel), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }
     if (!same(record.outcome, outcome)) return failure(record, 'state-outcome', record.outcome, outcome)
     history = appendPolicyFeatureHistory(history, { turn: record.turn, command: record.chosen.command, reason: record.chosen.reason, events: outcome.events, resourceDelta })
   }

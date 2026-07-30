@@ -965,11 +965,13 @@ export class TerminalRenderer {
   }
 
   private target(state: RunState, modal: Extract<Modal, { kind: 'target' }>): void {
-    this.box(16, 16, 48, 12, 'CHOOSE DIRECTION')
+    this.box(16, 15, 48, 14, 'CHOOSE DIRECTION')
     const action = modal.tool ? `${toolFor(modal.tool).name}${modal.overdrive ? ' OVERDRIVE' : ''}` : modal.action === 'bomb' ? 'place bomb' : modal.action === 'spell' ? 'use charm' : modal.action === 'drill' ? 'breach blocked ground' : modal.action === 'glide' ? 'cross hazardous ground' : modal.action === 'grapple' ? 'grapple across a gap' : modal.action === 'bridge' ? 'deploy a bridge' : modal.action === 'dash' ? 'dash through smoke, gas, fire, or current' : modal.action === 'winch' ? 'reel through an obstruction' : 'throw item'
     const preview = targetPreview(state, modal)
-    this.text(21, 20, modal.direction ? `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, colors.text)
-    this.text(21, 23, modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
+    const mutation = preview.mutation
+    this.text(21, 20, modal.direction ? mutation ? `${mutation.tool} · ${mutation.ready ? 'READY' : mutation.reason.toUpperCase()}` : `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, mutation?.ready ? colors.green : colors.text)
+    this.text(21, 23, mutation ? `TILES ${mutation.affected.length} · ${mutation.risk ? `RISK ${mutation.risk.toUpperCase()} · ` : ''}${mutation.cooldown ? `RECOVERS ${mutation.cooldown}T` : 'READY'}` : modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
+    this.text(21, 26, modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
   }
 
   private analysis(analysis: RunAnalysis): void {

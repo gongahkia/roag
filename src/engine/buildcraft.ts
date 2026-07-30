@@ -8,6 +8,7 @@ import { refreshFov } from './visibility'
 import { recordTelemetryCount } from '../telemetry'
 import { armRelicTraversal, consumeRelicTool, relicAlignment, relicChoices, relicFor } from './relics'
 import { tend } from './alignment'
+import { isTerrainMutationTool, terrainMutationAssessment, type TerrainMutationReason } from './terrain-mutations'
 
 export interface TraversalTool { id: TraversalToolId; name: string; glyph: string; cooldown: number; text: string; overdrive: string }
 export type BoonFamily = 'traversal' | 'combat' | 'recovery' | 'scouting' | 'spellcraft' | 'economy' | 'terrain' | 'consumable'
@@ -354,7 +355,7 @@ export function chooseToolUse(state: RunState, command: string): boolean {
   const tool = state.hero.traversalTools?.[Number(command) - 1]
   if (!tool) return false
   const cooldown = toolCooldown(state, tool)
-  if (cooldown) { log(state, `${toolFor(tool).name} recovers in ${cooldown} turn${cooldown === 1 ? '' : 's'}.`); return false }
+  if (cooldown && !isTerrainMutationTool(tool)) { log(state, `${toolFor(tool).name} recovers in ${cooldown} turn${cooldown === 1 ? '' : 's'}.`); return false }
   state.modal = { kind: 'target', action: tool, tool }
   return true
 }
@@ -364,10 +365,15 @@ const point = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wai
 const passableLanding = (state: RunState, target: { x: number; y: number }) => isPassable(state.floor, target.x, target.y)
 
 export function useTool(state: RunState, tool: TraversalToolId, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive = false): ActionResult {
-  if (!(state.hero.traversalTools ?? []).includes(tool)) { log(state, 'That ritual tool is no longer bound.'); return [] }
-  if (toolCooldown(state, tool)) { log(state, `${toolFor(tool).name} is still recovering.`); return [] }
+  const mutation = isTerrainMutationTool(tool) ? terrainMutationAssessment(state, tool, direction, overdrive) : undefined
+  const terrainRejectionMessage = (reason: string): string => reason === 'unbound' ? 'That ritual tool is no longer bound.' : reason === 'cooldown' ? `${toolFor(tool).name} is still recovering.` : reason === 'target-unseen' ? 'That terrain target is not visible.' : reason === 'destination-unseen' ? 'That terrain destination is not visible.' : tool === 'stoneAdze' ? 'Stone Adze cuts only an adjacent wooden barrier or weakened route.' : tool === 'resinFireBasket' ? 'Resin Fire Basket needs an unoccupied adjacent bramble or web.' : tool === 'antlerPrybar' ? reason === 'destination-blocked' ? 'Antler Prybar needs an empty legal destination beyond the target.' : 'Antler Prybar needs an adjacent boulder or breakwall.' : reason === 'destination-blocked' ? 'Wooden Lever and Roller needs an empty legal destination.' : 'Wooden Lever and Roller needs an adjacent movable prop.'
+  const terrainRejected = (reason: TerrainMutationReason): ActionResult => { log(state, `terrain:${tool}:attempted`); log(state, `terrain:${tool}:rejected:${reason}`); log(state, terrainRejectionMessage(reason)); return [event('terrain', tool, 'attempted'), event('terrain', tool, `rejected:${reason}`)] }
+  if (!(state.hero.traversalTools ?? []).includes(tool)) { if (mutation) return terrainRejected('unbound'); log(state, 'That ritual tool is no longer bound.'); return [] }
+  if (toolCooldown(state, tool)) { if (mutation) return terrainRejected('cooldown'); log(state, `${toolFor(tool).name} is still recovering.`); return [] }
+  if (mutation && !mutation.ready) return terrainRejected(mutation.reason)
+  if (mutation) log(state, `terrain:${tool}:attempted`)
   const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : tool === 'antlerPrybar' ? useAntlerPrybar(state, direction) : tool === 'stoneAdze' ? useStoneAdze(state, direction) : tool === 'resinFireBasket' ? useResinFireBasket(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : useWoodenLeverRoller(state, direction)
-  if (!result) return []
+  if (!result) return mutation ? terrainRejected('execution-failed') : []
   const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
   const focus = boonRank(state, 'cordTempo')
@@ -385,8 +391,12 @@ export function useTool(state: RunState, tool: TraversalToolId, direction: Exclu
     const relay = boonRank(state, 'relayStep')
     if (relay && cooldown) state.hero.cooldowns![`tool:${tool}`] = Math.max(1, cooldown - relay)
   }
+  if (mutation) {
+    log(state, `terrain:${tool}:resolved:${mutation.reason}`)
+    if (mutation.risk) log(state, `terrain:${tool}:hazard:${mutation.risk}`)
+  }
   refreshFov(state)
-  return advance(state, [event('spell')])
+  return advance(state, [event('spell'), ...(mutation ? [event('terrain', tool, 'attempted'), event('terrain', tool, 'resolved'), ...(mutation.risk ? [event('terrain', tool, `hazard:${mutation.risk}`)] : []), ...(overdrive ? [event('terrain', tool, 'retired')] : [])] : [])])
 }
 
 const useStoneWedge = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive: boolean): boolean => {

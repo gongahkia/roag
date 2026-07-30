@@ -46,7 +46,7 @@ describe('buildcraft', () => {
     const turn = state.turn
     perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
     expect(state.turn).toBe(turn)
-    expect(state.messages[0]).toContain('recovers')
+    expect(state.messages[0]).toContain('recovering')
   })
 
   it('cuts only weak-route targets with Stone Adze and retires on overdrive', () => {
