@@ -369,10 +369,7 @@ export class TerminalRenderer {
 
   private hubSidebar(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
     const hero = hub?.hero
-    const cycle = hub?.cycle
-    const pending = Boolean(cycle && !cycle.completedCap && cycle.completedTiers.includes(cycle.currentTier))
-    const completed = Boolean(cycle?.completedCap)
-    const tier = cycle?.currentTier === 'ngPlus' ? 'NG+' : cycle?.currentTier === 'ngPlusPlus' ? 'NG++' : 'BASE'
+    const campaign = hub?.campaign
     this.text(50, 1, 'OUTPOST', colors.gold)
     this.text(50, 2, 'VILLAGE TRAILHEAD', colors.text)
     this.ruleHorizontal(50, 3, 45)
@@ -380,11 +377,13 @@ export class TerminalRenderer {
     else this.text(50, 6, 'Courier record unavailable.', colors.red)
     this.text(50, 32, 'OPEN TRAILS', colors.gold)
     this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
-    this.text(50, 36, `CYCLE: ${tier}`, completed ? colors.gold : pending ? colors.green : colors.dim)
-    this.text(50, 37, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
-    this.text(50, 38, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
-    this.text(50, 44, completed ? 'COMPLETED: NG++ CAP REACHED.' : pending ? `VICTORY: ${tier} COMPLETE.` : nearby?.destination === 'routes' ? 'OBJECTIVE: READY — Choose a trail.' : 'OBJECTIVE: Reach the route board.', completed ? colors.gold : colors.green)
-    this.text(50, 45, completed ? 'NOW: no further escalation.' : pending && nearby?.destination === 'routes' ? 'NOW: C / ENTER reviews continuation.' : pending ? `NOW: reach route board · ↑ ${routeSteps}.` : nearby?.destination === 'routes' ? 'NOW: C / ENTER opens delivery trails.' : `NOW: ↑ ${routeSteps} tile${routeSteps === 1 ? '' : 's'} · C interacts.`, colors.text)
+    this.text(50, 36, `CAMPAIGN: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, campaign?.terminal ? colors.gold : campaign?.continuationPending ? colors.green : colors.dim)
+    this.text(50, 37, `HISTORY: ${campaign?.historyLabel ?? 'BASE ACTIVE'}`.slice(0, 45), colors.text)
+    this.text(50, 38, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
+    campaign?.difficultyLines.forEach((line, index) => this.text(50, 39 + index, line, colors.text))
+    this.text(50, 42, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
+    this.text(50, 44, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
+    this.text(50, 45, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
     this.text(50, 47, `AUTOPILOT: ${autoplayModeLabel(this.lastAutoplayMode)}`, this.lastAutoplayMode === 'off' ? colors.dim : colors.green)
     if (hero) this.boonRelicLists(hero, 49)
   }
@@ -454,14 +453,32 @@ export class TerminalRenderer {
   }
 
   private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
-    this.box(53, action === 'roster' ? 19 : 22, 40, action === 'roster' ? 23 : 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : action === 'continuation' ? 'CONTINUE CAMPAIGN' : 'COMPANION LODGE')
     if (action === 'continuation') {
-      const next = hub?.cycle?.currentTier === 'base' ? 'NG+' : 'NG++'
-      this.text(56, 26, `Begin ${next} from the route board.`, colors.gold)
-      this.wrap('Your courier, supplies, companions, and legacy remain. The tier route resets only after confirmation.', 34).forEach((line, index) => this.text(56, 28 + index * 2, line, colors.text))
-      this.text(56, 35, 'ENTER / E continue · C / ESC stay', colors.green)
+      const campaign = hub?.campaign
+      const carryover = hub?.carryover
+      this.box(49, 3, 46, 46, 'CONTINUE CAMPAIGN')
+      let y = 6
+      const text = (value: string, color = colors.text) => { this.text(52, y++, value.slice(0, 40), color) }
+      const wrapped = (value: string, color = colors.text) => this.wrap(value, 40).forEach(line => text(line, color))
+      text(`CURRENT: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, colors.gold)
+      wrapped(`HISTORY: ${campaign?.historyLabel ?? 'BASE ACTIVE'}`, colors.dim)
+      text(`FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
+      campaign?.difficultyLines.forEach(line => text(line))
+      wrapped(campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', colors.green)
+      y++
+      text('READ-ONLY CARRYOVER — NO RESET', colors.gold)
+      text(`CASH: ${carryover?.currency ?? 0}`, colors.text)
+      wrapped(`ITEMS: ${carryover?.items.join(', ') || 'none'}`)
+      wrapped(`TOOLS: ${carryover?.tools.join(', ') || 'none'}`)
+      wrapped(`ROSTER: ${carryover?.roster.map(entry => `${entry.name} ${entry.status}`).join(', ') || 'none'}`)
+      wrapped(`INJURIES: ${carryover?.injuries.join(', ') || 'none'}`)
+      wrapped(`LOSSES: ${carryover?.losses.join(', ') || 'none'}`)
+      y++
+      text('Currency, items, tools, and roster remain.', colors.dim)
+      text('ENTER / E continue · C / ESC stay', colors.green)
       return
     }
+    this.box(53, action === 'roster' ? 19 : 22, 40, action === 'roster' ? 23 : 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : 'COMPANION LODGE')
     if (action === 'roster') {
       const companions = hub?.companions ?? []
       if (companionControlMode) {
@@ -501,10 +518,15 @@ export class TerminalRenderer {
   }
 
   private area(route: ScreenRoute): void {
-    this.box(21, 18, 54, 24, 'DELIVERY TRAIL')
+    const campaign = this.lastHub?.campaign
+    this.box(21, 16, 54, 26, 'DELIVERY TRAIL')
     this.text(27, 23, `${biomeName[route.biome]} — stage 01/04`, colors.gold)
-    this.text(27, 27, 'E / ENTER  travel', colors.green)
-    this.text(27, 30, 'ESC        return to hub', colors.dim)
+    this.text(27, 25, `CAMPAIGN: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, colors.text)
+    this.text(27, 27, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
+    campaign?.difficultyLines.forEach((line, index) => this.text(27, 28 + index, line, colors.text))
+    this.text(27, 32, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
+    this.text(27, 35, campaign?.terminal ? 'No active next-tier control.' : 'E / ENTER  travel', campaign?.terminal ? colors.dim : colors.green)
+    this.text(27, 38, 'ESC        return to hub', colors.dim)
   }
 
   private stage(state: RunState): void {
@@ -1141,10 +1163,17 @@ export class TerminalRenderer {
   private end(state: RunState, won: boolean): void {
     this.ctx.fillStyle = '#05070bdd'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    this.box(17, 14, 46, 16, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
-    this.text(23, 19, won ? 'The coastal warning reaches the shrine chief.' : 'The road ends for this courier.', won ? colors.gold : colors.red)
-    this.text(23, 22, `cash ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
-    this.text(23, 26, won ? 'N starts a new delivery.' : 'ANY KEY continues the trail.', colors.green)
+    const campaign = this.lastHub?.campaign
+    this.box(17, 12, 62, 21, won ? 'DELIVERY COMPLETE' : 'DELIVERY LOST')
+    this.text(23, 17, won ? 'The coastal warning reaches the shrine chief.' : 'The road ends for this courier.', won ? colors.gold : colors.red)
+    this.text(23, 20, `cash ${state.hero.gold} · depth ${state.floor.index + 1} · level ${state.hero.level}`, colors.text)
+    if (won) {
+      this.text(23, 22, `CAMPAIGN: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, colors.gold)
+      this.text(23, 24, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.text)
+      campaign?.difficultyLines.forEach((line, index) => this.text(23, 25 + index, line, colors.text))
+      this.text(23, 29, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
+    }
+    this.text(23, 31, won ? 'N starts a new delivery.' : 'ANY KEY continues the trail.', colors.green)
   }
 
   private box(x: number, y: number, width: number, height: number, title: string): void {

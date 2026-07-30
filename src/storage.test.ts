@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { changeCampaignCompanionControlMode, initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
+import { advanceCampaignTier, changeCampaignCompanionControlMode, completeCampaignTier, hubCampaignStatus, initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
 import { deleteCourier, flushCourierWrites, loadCouriers, migrateCampaignRoute, migrateRunRecord, saveCourier, selectCourier } from './storage'
 import type { CourierSave, Records } from './types'
 
@@ -315,5 +315,17 @@ describe('courier persistence', () => {
     await saveCourier(saved, 'mika')
     const loaded = (await loadCouriers()).couriers[0]!
     expect(loaded.campaign).toMatchObject({ companionControlMode: 'direct', companionControlHistory: [{ sequence: 0, mode: 'autonomous', source: 'migration' }, { sequence: 1, mode: 'direct', source: 'lodge' }], companions: [{ version: 1, rosterStatus: 'lead', controlMode: 'direct', recruitment: { rescueId: 'rescue:mine:1:mika' } }] })
+  })
+
+  it('reloads campaign tier status from the persisted cycle', async () => {
+    const saved = courier('tiered', 3)
+    const cycle = advanceCampaignTier(completeCampaignTier(initialCampaignCycle()))
+    saved.campaign = { ...saved.campaign, cycle }
+    saved.run!.campaignCycle = structuredClone(cycle)
+    saved.checkpoint!.campaignCycle = structuredClone(cycle)
+    await saveCourier(saved, 'tiered')
+    const loaded = (await loadCouriers()).couriers[0]!
+    expect(loaded.campaign.cycle).toEqual(cycle)
+    expect(hubCampaignStatus(loaded.campaign.cycle)).toMatchObject({ tier: 'ngPlus', completedTiers: ['base'], continuationPending: false, terminal: false })
   })
 })
