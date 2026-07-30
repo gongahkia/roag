@@ -1,4 +1,5 @@
 import { rngFor } from './rng'
+import { optionalTerrainToolFor } from './traversal-tool-distribution'
 import type { Biome, BoonId, BoonRewardChoice, Floor, RewardContext, RewardMilestoneId, RewardOffer, TileKind, ToolRewardChoice, TraversalToolId } from './types'
 
 export interface RewardContractInput { campaignSeed: number; floorIndex: number; biome: Biome; recipeId: string; escalationVariant: string }
@@ -24,6 +25,8 @@ const toolChoice = (id: TraversalToolId, template: RewardTemplate, role: RewardC
 export const rewardOffersFor = (input: RewardContractInput): RewardOffer[] => {
   const template = templates[input.biome]
   const rng = rngFor(input.campaignSeed, 'generation', input.floorIndex, 'reward-offers', input.biome, input.recipeId, input.escalationVariant)
+  const optionalTool = optionalTerrainToolFor({ seed: input.campaignSeed, floorIndex: input.floorIndex, biome: input.biome, recipeId: input.recipeId, source: 'waycache' })
+  const tools = optionalTool ? [template.tools[0], template.tools[1], optionalTool] : template.tools
   const boonOffer = (milestoneId: 'boon-teach' | 'boon-test' | 'boon-payoff', route: RewardContext['route']): RewardOffer => ({
     id: `reward:${input.floorIndex}:${milestoneId}`,
     milestoneId,
@@ -31,7 +34,7 @@ export const rewardOffersFor = (input: RewardContractInput): RewardOffer[] => {
     choices: [boonChoice(rng.pick(template.safe), template, 'safe', route, 'local'), boonChoice(rng.pick(template.risky), template, 'risky', route, 'local'), boonChoice(rng.pick(template.sidegrade), template, 'sidegrade', route, 'global')]
   })
   return [
-    { id: `reward:${input.floorIndex}:waycache`, milestoneId: 'waycache', kind: 'waycache', choices: [toolChoice(template.tools[0], template, 'safe', 'safe', 'local'), toolChoice(template.tools[1], template, 'risky', 'costly', 'local'), toolChoice(template.tools[2], template, 'sidegrade', 'optional', 'global')] },
+    { id: `reward:${input.floorIndex}:waycache`, milestoneId: 'waycache', kind: 'waycache', choices: [toolChoice(tools[0], template, 'safe', 'safe', 'local'), toolChoice(tools[1], template, 'risky', 'costly', 'local'), toolChoice(tools[2], template, 'sidegrade', 'optional', 'global')] },
     boonOffer('boon-teach', 'safe'), boonOffer('boon-test', 'costly'), boonOffer('boon-payoff', 'optional')
   ]
 }

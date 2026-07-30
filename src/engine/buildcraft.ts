@@ -142,6 +142,15 @@ const drillable = new Set(['wall', 'rubble', 'bramble', 'boulder'])
 const hazardous = new Set(['pit', 'water', 'lava', 'spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'brine', 'frostRime'])
 
 export const toolFor = (id: TraversalToolId): TraversalTool => toolById[id]
+export const acquireOptionalTraversalTool = (state: RunState, tool: TraversalToolId): { result: 'bound' | 'duplicate' | 'replaced'; replaced?: TraversalToolId } => {
+  const tools = [...(state.hero.traversalTools ?? [])]
+  if (tools.includes(tool)) return { result: 'duplicate' }
+  if (tools.length < 2) { state.hero.traversalTools = [...tools, tool]; return { result: 'bound' } }
+  const replaced = tools.shift()!
+  state.hero.traversalTools = [...tools, tool]
+  delete state.hero.cooldowns?.[`tool:${replaced}`]
+  return { result: 'replaced', replaced }
+}
 export const boonFor = (id: BoonId): Boon => boonById[id]
 export const boonRank = (state: RunState, id: BoonId): number => {
   const boon = boonById[id]

@@ -24,7 +24,7 @@ import { contextualReward, merchantStock } from './rewards'
 import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } from './economy'
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
-import { boonRank, openMilestone } from './buildcraft'
+import { acquireOptionalTraversalTool, boonRank, openMilestone, toolFor } from './buildcraft'
 import { recordTelemetryCount } from '../telemetry'
 import { consumeRelicSpell } from './relics'
 import { armRelicMove, armRelicWaterCrossing } from './relics'
@@ -33,6 +33,12 @@ import { openEncounter } from './encounters'
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
+  if (item.tool) {
+    const acquired = acquireOptionalTraversalTool(state, item.tool)
+    state.floor.items = state.floor.items.filter(current => current !== item)
+    log(state, acquired.result === 'bound' ? `You bind the ${toolFor(item.tool).name}.` : acquired.result === 'duplicate' ? `You already carry the ${toolFor(item.tool).name}; leave its duplicate behind.` : `You replace ${toolFor(acquired.replaced!).name} with the ${toolFor(item.tool).name}.`)
+    return advance(state, [event('pickup')])
+  }
   if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} cash.`); return advance(state, [event('pickup')]) }
   if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take a carved key.'); return advance(state, [event('pickup')]) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }

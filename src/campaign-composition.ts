@@ -6,13 +6,14 @@ import { BIOME_POOL, isCampaignAreaOrder } from './engine/campaign'
 import { generateRouteContract, validateRouteContract } from './route-contract'
 import { visualIdentitySnapshot } from './renderer/visual-grammar'
 import type { Biome } from './types'
-import { areaFloorIndex, layoutFor } from './world'
+import { areaFloorIndex, generateAreaFloor, layoutFor } from './world'
 
 export interface CampaignCompositionReport {
   orders: number
   transitions: Record<string, number>
   repeatedRecipeEscalations: string[]
   weakDiversity: string[]
+  toolOpportunities: string[]
   errors: string[]
 }
 
@@ -31,9 +32,10 @@ export const campaignAreaOrders = (length = 4): Biome[][] => {
   return orders
 }
 
-interface BiomeCompositionSignature { visual: string; route: string; ecology: string; recipeEscalations: string[]; errors: string[] }
+interface BiomeCompositionSignature { visual: string; route: string; ecology: string; recipeEscalations: string[]; toolOpportunities: string[]; errors: string[] }
 const signatureFor = (seed: number, biome: Biome): BiomeCompositionSignature => {
   const recipeEscalations: string[] = []
+  const toolOpportunities: string[] = []
   const errors: string[] = []
   let route = ''
   for (const areaFloor of range(4)) {
@@ -43,6 +45,8 @@ const signatureFor = (seed: number, biome: Biome): BiomeCompositionSignature => 
     const validation = validateRouteContract(contract)
     if (!validation.valid) errors.push(...validation.errors.map(error => `${biome}:${areaFloor + 1}:${error}`))
     errors.push(...contract.rewardOffers.flatMap(offer => offer.choices.filter(choice => !choice.problem || !choice.payoff || !choice.terrain || (choice.role !== 'sidegrade' && choice.biomeFit !== 'local')).map(choice => `${biome}:${areaFloor + 1}:${offer.milestoneId}:${choice.id}: uncontextualized reward`)))
+    const floor = generateAreaFloor(seed, biome, areaFloor)
+    toolOpportunities.push(...(floor.rewardOffers ?? []).flatMap(offer => offer.kind === 'waycache' ? offer.choices.filter(choice => ['antlerPrybar', 'stoneAdze', 'resinFireBasket', 'woodenLeverRoller'].includes(choice.id)).map(choice => `${biome}:${areaFloor + 1}:waycache:${choice.id}`) : []), ...floor.items.flatMap(item => item.tool ? [`${biome}:${areaFloor + 1}:loot:${item.tool}`] : []), ...(floor.encounters ?? []).flatMap(encounter => encounter.toolOffer ? [`${biome}:${areaFloor + 1}:${encounter.social ? 'social' : 'encounter'}:${encounter.toolOffer}`] : []))
     recipeEscalations.push(`${biome}:${recipeId}:${escalation.arcId}:${escalation.phase}`)
     if (areaFloor === 0) {
       const fork = contract.nodes.find(node => node.kind === 'fork')!
@@ -50,7 +54,7 @@ const signatureFor = (seed: number, biome: Biome): BiomeCompositionSignature => 
     }
   }
   const ecology = ecologyProfileFor(biome)
-  return { visual: visualIdentitySnapshot(biome, 'normal').line, route, ecology: [ecology.kind, ecology.effect, ...ecology.terrain].join('/'), recipeEscalations, errors }
+  return { visual: visualIdentitySnapshot(biome, 'normal').line, route, ecology: [ecology.kind, ecology.effect, ...ecology.terrain].join('/'), recipeEscalations, toolOpportunities, errors }
 }
 
 export const sweepCampaignComposition = (seed: number, orders = campaignAreaOrders()): CampaignCompositionReport => {
@@ -90,5 +94,5 @@ export const sweepCampaignComposition = (seed: number, orders = campaignAreaOrde
       if (current.visual === next.visual || current.route === next.route || current.ecology === next.ecology) weakDiversity.add(`${transition}: visual=${current.visual === next.visual} route=${current.route === next.route} ecology=${current.ecology === next.ecology}`)
     }
   }
-  return { orders: orders.length, transitions, repeatedRecipeEscalations: [...repeatedRecipeEscalations].sort(), weakDiversity: [...weakDiversity].sort(), errors }
+  return { orders: orders.length, transitions, repeatedRecipeEscalations: [...repeatedRecipeEscalations].sort(), weakDiversity: [...weakDiversity].sort(), toolOpportunities: [...new Set([...signatures.values()].flatMap(signature => signature.toolOpportunities))].sort(), errors }
 }

@@ -12,6 +12,7 @@ import { definitionForEncounter, encounterPlansFor, membersForEncounter } from '
 import { ecologyEventFor, ecologyProfileFor } from './ecology'
 import { escalationFor } from './escalation'
 import { socialContractFor } from './social-contract'
+import { optionalTerrainToolFor } from './traversal-tool-distribution'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -1676,7 +1677,8 @@ function placeEncounters(floor: Floor, rng: Rng, runtime: PlacementRuntime): voi
         : floor.biome === 'frostReliquary' ? ['iceDuel', 'winterTithe', 'rimeContract', 'frostCache', 'whiteout', 'reliquaryTrial', ...aligned.frostReliquary]
           : ['wayfarer', 'bloodBargain', 'shiftingChamber', 'oathwell', 'cursedObject', ...aligned[floor.biome]]
   const social = socialContractFor({ seed: floor.seed, floorIndex: floor.index, biome: floor.biome, recipeId: floor.layoutId, arcId: floor.escalation?.arcId })
-  floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: social ? 'wayfarer' : rng.pick(kinds), ...point, state: 'dormant', ...(social ? { social } : {}) }]
+  const toolOffer = optionalTerrainToolFor({ seed: floor.seed, floorIndex: floor.index, biome: floor.biome, recipeId: floor.layoutId, source: social ? 'social' : 'encounter' })
+  floor.encounters = [{ id: `encounter:${floor.index}:${point.x}:${point.y}`, kind: social ? 'wayfarer' : rng.pick(kinds), ...point, state: 'dormant', ...(social ? { social } : {}), ...(toolOffer ? { toolOffer } : {}) }]
 }
 
 const carveH = (floor: Floor, from: number, to: number, y: number) => { for (let x = Math.min(from, to); x <= Math.max(from, to); x++) setKind(floor, x, y, 'floor') }
@@ -2257,14 +2259,15 @@ function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRu
   const eligible = ITEMS.filter(item => item.findable !== false && item.value <= valueCap && (!item.slot || rng.chance(30 + (floor.difficulty?.routePosition ?? 0) * 8)))
   const loot = eligible.length ? eligible : ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
   const count = 10 + floor.index % 4 * 2 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)
+  const tool = optionalTerrainToolFor({ seed: floor.seed, floorIndex: floor.index, biome: floor.biome, recipeId: floor.layoutId, source: 'loot' })
   for (let i = 0; i < count; i++) {
     const contract: PlacementContract = runtime.pilot && i > 0
       ? { id: `loot:${i}`, requirements: { nodeKinds: ['optionalReward'], minDistance: 7 }, fallback: { terrain: ['floor'], minDistance: 4 } }
       : { id: `loot:${i}`, requirements: { terrain: ['floor'], minDistance: 4 } }
     const point = choosePlacement(floor, runtime, contract, candidate => candidate.x !== floor.exit.x || candidate.y !== floor.exit.y)
     if (!point) throw new Error(`failed placement ${contract.id}: ${runtime.diagnostics.at(-1)?.diagnostics.join('; ')}`)
-    const id = i === 0 && floor.index % 4 === 0 ? 'key' : rng.pick(loot).id
-    floor.items.push({ id, x: point.x, y: point.y, count: 1 })
+    const id = i === 0 && floor.index % 4 === 0 ? 'key' : tool && i === count - 1 ? 'rock' : rng.pick(loot).id
+    floor.items.push({ id, x: point.x, y: point.y, count: 1, ...(tool && i === count - 1 ? { tool } : {}) })
   }
 }
 

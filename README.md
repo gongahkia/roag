@@ -75,6 +75,8 @@ Runtime inference remains disabled by default. `src/autoplay-inference.ts` accep
 
 Traversal tools share the `Y` loadout control: select a ready tool, choose a target direction, then confirm with `Enter`; `O` toggles its one-use overdrive. Antler Prybar moves eligible terrain, Stone Adze cuts only weak wooden/crumble routes, Resin Fire Basket leaves risky smoke from vegetation/web, and Wooden Lever and Roller moves eligible props. Every tool logs disabled-target reasons, records cooldowns in saves/traces, and removes itself after overdrive.
 
+New terrain tools appear only as seeded optional Waycache sidegrades, loose tool caches, and encounter/social offers. Duplicate finds remain unbound; a full two-tool loadout replaces its oldest slot. Their material language follows the [traversal content brief](docs/traversal-content-brief.md).
+
 ## Controls
 
 | Key | Action |

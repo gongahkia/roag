@@ -6,6 +6,7 @@ import { getTile } from '../world'
 import { planEnemyIntent } from './intents'
 import { distance } from './shared'
 import { ecologyReadout } from '../ecology'
+import { toolFor } from './buildcraft'
 
 export interface FieldReadout { brief: string; lines: string[] }
 
@@ -47,7 +48,7 @@ export const fieldReadout = (state: RunState): FieldReadout => {
   const encounter = state.floor.encounters?.find(current => current.state === 'dormant' && getTile(state.floor, current.x, current.y)?.visible)
   if (encounter) lines.push(`OPTION C: inspect ${encounter.kind === 'wayfarer' ? 'a wandering wayfarer' : encounter.kind === 'bloodBargain' ? 'a sealed bargain' : 'a shifting chamber'}`)
   const ground = state.floor.items.filter(item => item.x === state.hero.x && item.y === state.hero.y)
-  for (const item of ground.slice(0, 2)) lines.push(`OPTION G: take ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`)
+  for (const item of ground.slice(0, 2)) lines.push(`OPTION G: take ${item.tool ? toolFor(item.tool).name : ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`)
   for (const prop of nearbyProps(state).slice(0, 2)) {
     const definition = propDefinition(prop.kind)
     lines.push(`OPTION C: ${prop.state === 'dormant' ? 'inspect' : 'work'} ${definition.name} [${definition.hooks.join(', ')}]`)

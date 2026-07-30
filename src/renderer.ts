@@ -572,7 +572,7 @@ export class TerminalRenderer {
 
   private drawItem(item: GroundItem, x: number, y: number, clip = false): void {
     if (this.spriteMode) drawItemSprite(this.ctx, item.id, x, y, clip)
-    else this.cell(x, y, this.runeMode ? ITEM[item.id]?.glyph ?? '*' : terminalGlyph(ITEM[item.id]?.glyph ?? '*', '*'), ITEM[item.id]?.color ?? colors.gold)
+    else this.cell(x, y, item.tool ? toolFor(item.tool).glyph : this.runeMode ? ITEM[item.id]?.glyph ?? '*' : terminalGlyph(ITEM[item.id]?.glyph ?? '*', '*'), item.tool ? colors.green : ITEM[item.id]?.color ?? colors.gold)
   }
 
   private spriteFog(state: RunState): void {
@@ -658,7 +658,7 @@ export class TerminalRenderer {
     const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
     this.text(50, 32, 'ON GROUND', colors.gold)
     if (!ground.length) this.text(50, 33, 'none', colors.dim)
-    ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${ITEM[item.id]?.glyph ?? '*'} ${ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, ITEM[item.id]?.color ?? colors.text))
+    ground.slice(0, 3).forEach((item, index) => this.text(50, 33 + index, `${item.tool ? toolFor(item.tool).glyph : ITEM[item.id]?.glyph ?? '*'} ${item.tool ? toolFor(item.tool).name : ITEM[item.id]?.name ?? item.id}${item.count > 1 ? ` ×${item.count}` : ''}`, item.tool ? colors.green : ITEM[item.id]?.color ?? colors.text))
     this.text(50, 37, 'VISIBLE THREATS', colors.gold)
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
     foes.forEach((foe, i) => {

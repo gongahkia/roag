@@ -95,7 +95,7 @@ export interface Actor {
   guardianPhase?: GuardianPhase
 }
 
-export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean }
+export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean; tool?: TraversalToolId }
 export interface Prop {
   id: string
   kind: PropId
@@ -109,7 +109,7 @@ export interface Prop {
   expiresAt?: number
 }
 export interface SocialContract { id: string; faction: SocialFaction; role: SocialRole; goal: string; visibility: 'visible' | 'rumored'; offer: SocialOffer; consequence: SocialConsequence; disposition: SocialDisposition }
-export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState; social?: SocialContract }
+export interface FloorEncounter { id: string; kind: EncounterKind; x: number; y: number; state: EncounterState; social?: SocialContract; toolOffer?: TraversalToolId }
 export interface FloorObjective { id: string; kind: ObjectiveKind; status: ObjectiveStatus; label: string }
 export type RewardMilestoneId = 'waycache' | 'boon-teach' | 'boon-test' | 'boon-payoff'
 export interface FloorMilestone { id: string; kind: 'waycache' | 'boon' | 'augment' | 'relic'; x: number; y: number; discovered: boolean; claimed: boolean; rewardKey?: RewardMilestoneId }

@@ -20,6 +20,7 @@ export interface GenerationMetrics {
   placements: { total: number; selected: number; fallbacks: number; rejected: number; roles: Array<{ id: string; selected: boolean; fallback: boolean; ranked: number; diagnostics: string[] }> }
   terrain: Count[]
   encounters: { events: Count[]; actors: Count[]; tactical: Count[] }
+  traversalTools: { opportunities: Count[]; sources: Count[] }
   ecology: Count[]
   sideSpaces: { total: number; kinds: Count[]; rewards: Count[]; transitions: Count[] }
   boonTiming: { milestones: Count[]; boonDistances: number[]; averageBoonDistance: number }
@@ -41,6 +42,12 @@ const count = (ids: readonly string[]): Count[] => {
   for (const id of ids) values.set(id, (values.get(id) ?? 0) + 1)
   return [...values].map(([id, value]) => ({ id, count: value })).sort((left, right) => left.id.localeCompare(right.id))
 }
+const optionalTools = new Set(['antlerPrybar', 'stoneAdze', 'resinFireBasket', 'woodenLeverRoller'])
+const traversalToolOpportunities = (floor: Floor): Array<{ source: string; tool: string }> => [
+  ...(floor.rewardOffers ?? []).flatMap(offer => offer.kind === 'waycache' ? offer.choices.filter(choice => optionalTools.has(choice.id)).map(choice => ({ source: 'waycache', tool: choice.id })) : []),
+  ...floor.items.flatMap(item => item.tool ? [{ source: 'loot', tool: item.tool }] : []),
+  ...(floor.encounters ?? []).flatMap(encounter => encounter.toolOffer ? [{ source: encounter.social ? 'social' : 'encounter', tool: encounter.toolOffer }] : [])
+]
 
 const distanceTo = (floor: Floor, point: Point): number | undefined => {
   const path = traverseFloor(floor, floor.start, { target: point }).path
@@ -106,12 +113,14 @@ const acceptance = (validation: GenerationValidation, macro: MacroRecipeDebug | 
 export const measureGeneration = ({ floor, route, macro, placements = [], validation }: GenerationMetricInput): GenerationMetrics => {
   const measuredTopology = topology(macro)
   const boonDistances = floor.milestones.filter(milestone => milestone.kind === 'boon').map(distance => distanceTo(floor, distance)).filter((distance): distance is number => distance !== undefined).sort((left, right) => left - right)
+  const toolOpportunities = traversalToolOpportunities(floor)
   return {
     trace: { seed: route?.campaignSeed ?? floor.seed, biome: floor.biome, floor: floor.index % 4, recipe: floor.layoutId, ...(route ? { contract: route.id } : {}) },
     topology: measuredTopology,
     placements: { total: placements.length, selected: placements.filter(placement => placement.selected).length, fallbacks: placements.filter(placement => placement.usedFallback).length, rejected: placements.filter(placement => !placement.selected).length, roles: placements.map(placement => ({ id: placement.id, selected: Boolean(placement.selected), fallback: placement.usedFallback, ranked: placement.ranked, diagnostics: [...placement.diagnostics] })) },
     terrain: count(floor.tiles.map(tile => tile.kind)),
     encounters: { events: count((floor.encounters ?? []).map(encounter => encounter.kind)), actors: count(floor.actors.map(actor => actor.kind)), tactical: count(floor.actors.flatMap(actor => actor.encounter?.leader ? [actor.encounter.archetype] : [])) },
+    traversalTools: { opportunities: count(toolOpportunities.map(opportunity => opportunity.tool)), sources: count(toolOpportunities.map(opportunity => opportunity.source)) },
     ecology: count((floor.ecology ?? []).map(ecology => ecology.kind)),
     sideSpaces: { total: floor.sideSpaces?.length ?? 0, kinds: count((floor.sideSpaces ?? []).map(space => space.kind)), rewards: count((floor.sideSpaces ?? []).map(space => space.reward.id)), transitions: count((floor.sideSpaces ?? []).flatMap(space => space.kind === 'mine-breach-room' && space.rareTransition ? [space.rareTransition.kind] : [])) },
     boonTiming: { milestones: count(floor.milestones.map(milestone => milestone.kind)), boonDistances, averageBoonDistance: boonDistances.length ? Number((boonDistances.reduce((sum, distance) => sum + distance, 0) / boonDistances.length).toFixed(2)) : 0 },

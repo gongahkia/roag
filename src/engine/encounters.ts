@@ -5,7 +5,7 @@ import { advance } from './combat'
 import { grantGold } from './economy'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
-import { boonRank } from './buildcraft'
+import { acquireOptionalTraversalTool, boonRank, toolFor } from './buildcraft'
 import { settleCurseAfterEncounter } from './curses'
 import { addCondition } from './conditions'
 import { tend } from './alignment'
@@ -80,6 +80,11 @@ const grantItem = (state: RunState, id: string): void => {
 }
 const grantContextGold = (state: RunState, amount: number): void => { grantGold(state, amount + (state.floor.difficulty?.threat ?? 0) * 5) }
 const contextualCost = (state: RunState, amount: number): number => amount + (state.floor.difficulty?.threat ?? 0) * 3
+const bindOptionalTool = (state: RunState, tool: NonNullable<FloorEncounter['toolOffer']>): void => {
+  const acquired = acquireOptionalTraversalTool(state, tool)
+  log(state, acquired.result === 'bound' ? `You bind the ${toolFor(tool).name}.` : acquired.result === 'duplicate' ? `You already carry the ${toolFor(tool).name}; leave its duplicate behind.` : `You replace ${toolFor(acquired.replaced!).name} with the ${toolFor(tool).name}.`)
+}
+const toolOfferDetail = (tool: NonNullable<FloorEncounter['toolOffer']>): string => `Optional tool: ${toolFor(tool).name}; duplicates stay unbound and a full loadout replaces its oldest slot.`
 const socialOfferDetail = (source: FloorEncounter): string => source.social?.offer === 'supplyCache' ? 'Gain a rope bundle and mark the cache.' : source.social?.offer === 'shortcut' ? 'Open one nearby locked route, if present.' : 'Reveal the remaining route.'
 const applySocialOffer = (state: RunState, source: FloorEncounter): void => {
   if (source.social?.offer === 'supplyCache') grantItem(state, 'ropeBundle')
@@ -116,11 +121,16 @@ export const encounterOptions = (state: RunState, source: FloorEncounter): Encou
     const disposition = socialDispositionFor(state.reputation, source.social.faction)
     const ally = disposition === 'hostile' ? 'MAKE AMENDS' : 'HONOR THE OFFER'
     return [
-      { label: ally, detail: `${source.social.goal}; ${socialOfferDetail(source)}`, available: true },
+      { label: ally, detail: `${source.social.goal}; ${socialOfferDetail(source)}${source.toolOffer ? ` ${toolOfferDetail(source.toolOffer)}` : ''}`, available: true },
       { label: 'PRESS THE CLAIM', detail: `Lose standing with ${source.social.faction}; they become hostile.`, available: true },
       { label: 'LEAVE', detail: 'Leave this local concern untouched.', available: true }
     ]
   }
+  if (source.toolOffer) return [
+    { label: 'TAKE TOOL', detail: toolOfferDetail(source.toolOffer), available: true },
+    { label: 'MAP ROUTE', detail: 'Reveal the floor without taking the tool.', available: true },
+    { label: 'LEAVE', detail: 'Leave the optional cache untouched.', available: true }
+  ]
   const alignment = alignmentProfileFor(source.kind)
   if (alignment) {
     const cost = alignment.cost === 'health' ? `Lose ${alignment.value} HP` : alignment.cost === 'focus' ? `Spend ${alignment.value} focus` : `Spend ${alignment.value} cash`
@@ -282,6 +292,7 @@ const resolveSocialEncounter = (state: RunState, source: FloorEncounter, index: 
     source.social = { ...social, disposition: 'allied' }
     state.reputation = adjustSocialReputation(state.reputation, social.faction, 1)
     applySocialOffer(state, source)
+    if (source.toolOffer) bindOptionalTool(state, source.toolOffer)
     log(state, `${social.faction} marks a route for you.`)
     return resolve(state, source, 'allied', advance(state, [event('pickup')]))
   }
@@ -304,6 +315,11 @@ export const chooseEncounter = (state: RunState, encounterId: string, command: s
   if (!option.available) { log(state, 'You cannot meet that cost.'); return [event('menu')] }
   const social = resolveSocialEncounter(state, source, index)
   if (social) return social
+  if (source.toolOffer) {
+    if (index === 0) { bindOptionalTool(state, source.toolOffer); return resolve(state, source, 'tool', advance(state, [event('pickup')])) }
+    if (index === 1) { state.floor.tiles.forEach(tile => { tile.explored = true }); refreshFov(state); return resolve(state, source, 'route', [event('menu')]) }
+    return resolve(state, source, 'leave', [event('menu')])
+  }
   const alignment = resolveAlignmentEncounter(state, source, index)
   if (alignment) return alignment
   const expansion = resolveExpansionEncounter(state, source, index)
