@@ -10,8 +10,8 @@ const traced = (mode: 'visible' | 'omniscient' = 'visible') => runAutoplay(newRu
 describe('autoplay decision trace', () => {
   it('emits the versioned golden record with a stable hash', () => {
     const document = traced().traceDocument
-    expect(document).toMatchObject({ version: 1, episode: { seed: 7, policy: 'clear', informationMode: 'visible', policyVersion: 1, objectiveVersion: 1, heuristicProfile: { id: 'compatibility', version: 1 }, turnBudget: 1 }, terminal: { outcome: 'turn-limit', reason: 'turn-limit', turns: 1 }, hash: 'fnv1a32:97db50dc' })
-    expect(document?.records).toMatchObject([{ version: 1, sequence: 0, replay: { campaignCycle: { version: 1, currentTier: 'base' } }, features: { version: 1, informationMode: 'visible', history: [] }, chosen: { command: 'p', reason: 'survey objective route:recoverSupplies' }, legalCandidates: [{ command: 'p', reason: 'survey objective route:recoverSupplies', score: 126 }, { command: 'p', reason: 'reach frontier', score: 24 }], resourceDelta: { health: 0, focus: 0, gold: 0, bombs: 0, ropes: 0, keys: 0 }, previousHash: null, hash: 'fnv1a32:bc8dcbd5' }])
+    expect(document).toMatchObject({ version: 1, episode: { seed: 7, policy: 'clear', informationMode: 'visible', policyVersion: 1, objectiveVersion: 1, heuristicProfile: { id: 'compatibility', version: 1 }, turnBudget: 1 }, terminal: { outcome: 'turn-limit', reason: 'turn-limit', turns: 1 }, hash: 'fnv1a32:93c8a268' })
+    expect(document?.records).toMatchObject([{ version: 1, sequence: 0, replay: { campaignCycle: { version: 1, currentTier: 'base' }, difficultyPackage: { id: 'base-v1', version: 1 } }, features: { version: 1, informationMode: 'visible', history: [] }, chosen: { command: 'p', reason: 'survey objective route:recoverSupplies' }, legalCandidates: [{ command: 'p', reason: 'survey objective route:recoverSupplies', score: 126 }, { command: 'p', reason: 'reach frontier', score: 24 }], resourceDelta: { health: 0, focus: 0, gold: 0, bombs: 0, ropes: 0, keys: 0 }, previousHash: null, hash: 'fnv1a32:f337ba20' }])
     assertAutoplayTraceDocument(document!)
   })
 

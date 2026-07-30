@@ -41,6 +41,8 @@ export { buyHubItem, createHubState, equipHubItem, hubEquipment, hubStock, hubVi
 export type { HubAction, HubMutation, HubOptions, HubView } from './engine/hub'
 export { AREA_ORDER, advanceCampaignTier, appendLegacyRecord, assertCampaignCycle, campaignContinuationPending, campaignCycleErrors, campaignOrderForSeed, CAMPAIGN_TIERS, changeCampaignCompanionControlMode, cloneCampaignCycle, completeCampaignArea, completeCampaignTier, continueCampaignRoute, initialCampaignCycle, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea, unlockNextArea } from './engine/campaign'
 export type { CompanionControlModeChangeContext, CompanionControlModeMutation } from './engine/campaign'
+export { CAMPAIGN_DIFFICULTY_PACKAGES, CAMPAIGN_DIFFICULTY_PACKAGE_VERSION, campaignDifficultyPackageForCycle, campaignDifficultyPackageMetadata, resolveCampaignDifficulty } from './campaign-difficulty'
+export type { CampaignDifficultyModifiers, CampaignDifficultyPackage } from './campaign-difficulty'
 export { recordRescue } from './engine/rescue'
 export { addCompanionLeads, assertCompanion, beginCompanionRecovery, changeCompanionRoster, cloneCompanion, cloneCompanions, companionErrors, companionLeadForRescue, companionLeadsForRescues, companionLodgeAction, companionRosterAction, completeCompanionRecovery, COMPANION_ACTIVE_CAPACITY, COMPANION_RECOVERY_COST, COMPANION_RECOVERY_FLOORS, injureCompanion, loseCompanion, loseCompanionForRescue, progressCompanionRecovery } from './engine/companions'
 export type { CompanionLodgeAction, CompanionRecoveryMutation, CompanionRosterAction, CompanionRosterMutation } from './engine/companions'

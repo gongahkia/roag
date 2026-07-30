@@ -156,7 +156,10 @@ export type ExpeditionPhase = 'survey' | 'pressure' | 'counterroute' | 'climax'
 export interface FloorEscalation { arcId: string; phase: ExpeditionPhase; topology: string; landmark: string; encounter: string; ecology: string; promise: string; payoff: string; encounterOffset: number; carried: ExpeditionPhase[] }
 export interface AreaArcState { biome: Biome; arcId: string; clearedPhases: ExpeditionPhase[] }
 export interface ClimbLink { id: string; lower: Point; upper: Point; anchored: boolean }
-export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number }
+export type CampaignTier = 'base' | 'ngPlus' | 'ngPlusPlus'
+export type CampaignDifficultyPackageId = 'base-v1' | 'ng-plus-v1' | 'ng-plus-plus-v1'
+export interface CampaignDifficultyPackageMetadata { version: 1; id: CampaignDifficultyPackageId; tier: CampaignTier; name: string; rationale: string }
+export interface DifficultyContext { routePosition: number; threat: number; healthMultiplier: number; attackBonus: number; defenseBonus: number; eliteChance: number; guardianPattern: number; hazardMultiplier?: number; rewardMultiplier?: number; campaignTier?: CampaignTier; difficultyPackage?: CampaignDifficultyPackageMetadata }
 export interface TransientTerrain { x: number; y: number; original: TileKind; originalFlow?: Tile['flow']; expiresAt: number }
 export const ECOLOGY_EVENT_KINDS = ['tide', 'wind', 'smoke', 'collapse', 'fire', 'migration', 'nesting', 'visibility'] as const
 export type EcologyEventKind = typeof ECOLOGY_EVENT_KINDS[number]
@@ -300,7 +303,6 @@ export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string;
 export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
 export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
 export type SocialReputation = Record<SocialFaction, number>
-export type CampaignTier = 'base' | 'ngPlus' | 'ngPlusPlus'
 export interface CampaignCycleEvent { sequence: number; tier: CampaignTier; kind: 'entered' | 'victory' }
 export interface CampaignCycle { version: 1; currentTier: CampaignTier; completedTiers: CampaignTier[]; events: CampaignCycleEvent[]; completedCap: boolean }
 export interface CampaignCarryoverInventoryDiagnostic { before: ItemId[]; after: ItemId[]; added: ItemId[]; removed: ItemId[] }
@@ -340,7 +342,7 @@ export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptional
 export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
 export interface AutoplayPartyRosterEntry { id: string; role: CompanionRole; controlMode: CompanionControlMode; rosterStatus: CompanionRosterStatus; injury: CompanionInjuryState; permanentlyLost: boolean }
 export interface AutoplayPartyOutcomes { controlMode: 'none' | 'autonomous' | 'direct'; roster: AutoplayPartyRosterEntry[]; activeCompanionIds: string[]; actions: Record<string, number>; actionsByCompanion: Record<string, Record<string, number>>; injuries: string[]; losses: string[]; intercepts: number; traversalAssists: number; blockedTurns: number; finiteResourceConsents: number; directModeRefused: boolean }
-export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; companions?: Companion[]; companionDeathMode?: CompanionDeathMode }
+export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; difficultyPackage?: CampaignDifficultyPackageMetadata; companions?: Companion[]; companionDeathMode?: CompanionDeathMode }
 export interface AutoplayTraceEntry {
   turn: number
   replay: AutoplayReplayMetadata

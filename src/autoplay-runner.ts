@@ -8,6 +8,7 @@ import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHis
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { eventLabel } from './engine/shared'
+import { campaignDifficultyPackageMetadata } from './campaign-difficulty'
 import { getTile } from './world'
 import { DIRECTIONS, type AutoplayMode, type AutoplayOptionalOutcomes, type AutoplayPartyOutcomes, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
@@ -23,6 +24,7 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
   const areaFloor = state.areaFloor ?? floor.index % 4
   const escalation = floor.escalation ? `${floor.escalation.arcId}:${floor.escalation.phase}` : undefined
   const recipeId = floor.layoutId.replace(/-remix$/, '')
+  const difficultyPackage = state.campaignCycle ? campaignDifficultyPackageMetadata(state.campaignCycle) : undefined
   return {
     seed: state.seed,
     biome: floor.biome,
@@ -34,6 +36,7 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
     objectiveId: floor.objective.id,
     ...(escalation ? { escalation } : {}),
     ...(state.campaignCycle ? { campaignCycle: structuredClone(state.campaignCycle) } : {}),
+    ...(difficultyPackage ? { difficultyPackage } : {}),
     ...(state.companions?.length ? { companions: structuredClone(state.companions) } : {}),
     companionDeathMode: state.companionDeathMode ?? 'injury'
   }
