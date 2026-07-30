@@ -18,6 +18,7 @@
     "autoplay:campaign": "tsx scripts/autoplay-campaign.ts --partition development",
     "autoplay:campaign:development": "tsx scripts/autoplay-campaign.ts --partition development",
     "autoplay:campaign:held-out": "tsx scripts/autoplay-campaign.ts --partition held-out",
+    "autoplay:baseline:update": "tsx scripts/autoplay-campaign.ts --partition development --approve-baseline",
     "autoplay:scoreboard": "tsx scripts/autoplay-scoreboard.ts",
     "test:campaign": "npm run autoplay:campaign:development",
     "balance:report": "tsx scripts/balance-report.ts",

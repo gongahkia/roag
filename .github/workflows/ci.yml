@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run test:ci
+      - run: SKIP_CAMPAIGN_MATRIX=1 npm run test:ci
+      - run: npm run autoplay:campaign:development
       - run: npm run build
       - run: npm run test:e2e
