@@ -52,6 +52,8 @@ export { directCompanionControls, performDirectCompanionCommand } from './engine
 export { partyActionOrder, partyTeam, removeDefeatedPartyActors, resolvePartyMove, resolvePartyTargets } from './engine/party-resolution'
 export type { PartyActorTeam, PartyResolution, PartyResolutionReason, PartyTarget } from './engine/party-resolution'
 export { COMPANION_ROLE_CONTRACTS, companionRoleContract, companionRoleContractErrors, isLegalCompanionRoleAction } from './engine/companion-roles'
+export { applyCompanionTerrainMutation, companionTerrainMutationAssessment, companionTerrainTargets, COMPANION_RESOURCE_OWNERSHIP } from './engine/companion-traversal'
+export type { CompanionTerrainAction, CompanionTerrainMutationAssessment, CompanionTerrainMutationReason } from './engine/companion-traversal'
 export { cloneCarryoverDiagnostics, snapshotCampaignCarryover, transferCampaignCarryover } from './engine/carryover'
 export type { CampaignCarryoverTransfer } from './engine/carryover'
 export { legacyRecordForDeath, recordDeath } from './engine/legacy'

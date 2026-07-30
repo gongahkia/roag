@@ -3,13 +3,13 @@ import { getTile, isPassable } from '../world'
 import { addCondition } from './conditions'
 import { isLegalCompanionRoleAction } from './companion-roles'
 import { activeCompanionRoster, isCompanionActor } from './party'
+import { applyCompanionTerrainMutation, companionTerrainMutationAssessment, companionTerrainTargets, type CompanionTerrainAction } from './companion-traversal'
 import { log } from './shared'
 
 export type AutonomousCompanionAction = CompanionActionCategory | 'follow' | 'wait'
 export interface AutonomousCompanionCommand { companionId: string; action: AutonomousCompanionAction; rationale: string; target?: Point }
 
 const hazards = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'crumble', 'boulder', 'bramble', 'rubble', 'water', 'deepWater', 'lava', 'pit', 'brine', 'frostRime'])
-const terrainBlockers = new Set<TileKind>(['rubble', 'bramble', 'boulder'])
 const hazardDistance = (left: Point, right: Point): number => Math.max(Math.abs(left.x - right.x), Math.abs(left.y - right.y))
 const pointCompare = (left: Point, right: Point): number => left.y - right.y || left.x - right.x
 const companionIdForActor = (actor: Actor): string | undefined => actor.status?.find(status => status.startsWith('companion:'))?.slice('companion:'.length)
@@ -43,13 +43,14 @@ export const autonomousCompanionDecision = (state: RunState, companion: Companio
   if (companion.role === 'pathmaker') {
     const heroTile = getTile(state.floor, state.hero.x, state.hero.y)
     if (heroTile?.visible && hazards.has(heroTile.kind) && usable(companion, 'traverse')) return { companionId: companion.id, action: 'traverse', rationale: 'the courier is crossing visible hazardous terrain', target: { x: state.hero.x, y: state.hero.y } }
-    const terrain = visibleHazardsByHero(state).find(point => terrainBlockers.has(getTile(state.floor, point.x, point.y)!.kind) && nearby(state, point, 2))
+    const terrain = companionTerrainTargets(state, 'stabilizeTerrain').find(point => nearby(state, point, 2))
     if (terrain && usable(companion, 'stabilizeTerrain')) return { companionId: companion.id, action: 'stabilizeTerrain', rationale: 'a visible route blocker is near the courier', target: terrain }
   }
   if (companion.role === 'ritualist') {
     const ritual = state.floor.tiles.flatMap((tile, index) => tile.kind === 'altar' && tile.visible && tile.explored ? [{ x: index % state.floor.width, y: Math.floor(index / state.floor.width) }] : [])[0]
     if (ritual && usable(companion, 'ward')) return { companionId: companion.id, action: 'ward', rationale: 'an explored ritual marker can shield the courier', target: ritual }
-    if (hazard && nearby(state, hazard, 2) && usable(companion, 'stabilizeHazard')) return { companionId: companion.id, action: 'stabilizeHazard', rationale: 'a visible hazard threatens the route', target: hazard }
+    const stabilizableHazard = companionTerrainTargets(state, 'stabilizeHazard').find(point => nearby(state, point, 2))
+    if (stabilizableHazard && usable(companion, 'stabilizeHazard')) return { companionId: companion.id, action: 'stabilizeHazard', rationale: 'a visible hazard threatens the route', target: stabilizableHazard }
   }
   return followDecision(state, companion, actor, hostiles)
 }
@@ -86,21 +87,24 @@ export const tickCompanionCooldowns = (companions: readonly Companion[]): void =
     else companion.abilityState.cooldowns[action] = turns - 1
   }
 }
-export const executeCompanionRoleAction = (state: RunState, companion: Companion, actor: Actor, action: CompanionActionCategory, target: Point | undefined, rationale: string): void => {
+export const executeCompanionRoleAction = (state: RunState, companion: Companion, actor: Actor, action: CompanionActionCategory, target: Point | undefined, rationale: string): boolean => {
   if (!isLegalCompanionRoleAction(companion.role, action)) throw new Error(`illegal companion action ${action} for ${companion.role}`)
+  if ((action === 'stabilizeTerrain' || action === 'stabilizeHazard')) {
+    if (!target) { log(state, `${companion.name} cannot ${action}: target-invalid.`); return false }
+    const assessment = companionTerrainMutationAssessment(state, action as CompanionTerrainAction, target)
+    if (!assessment.ready) { log(state, `${companion.name} cannot ${action}: ${assessment.reason}.`); return false }
+    applyCompanionTerrainMutation(state, assessment)
+  }
   companion.abilityState.cooldowns[action] = 2
   if (action === 'intercept') actor.status = [...(actor.status ?? []).filter(status => !status.startsWith('intercept:')), `intercept:${state.turn}`]
   if (action === 'protect' || action === 'intercept' || action === 'ward') addCondition(state.hero, { kind: 'shielded', duration: 1, potency: 1 })
-  if ((action === 'stabilizeTerrain' || action === 'stabilizeHazard') && target) {
-    const tile = getTile(state.floor, target.x, target.y)
-    if (tile?.visible && hazards.has(tile.kind)) tile.kind = 'floor'
-  }
   log(state, `${companion.name}: ${rationale}.`)
+  return true
 }
-const execute = (state: RunState, companion: Companion, actor: Actor, command: AutonomousCompanionCommand): void => {
-  if (command.action === 'follow') { if (command.target) { actor.x = command.target.x; actor.y = command.target.y }; return }
-  if (command.action === 'wait') return
-  executeCompanionRoleAction(state, companion, actor, command.action, command.target, command.rationale)
+const execute = (state: RunState, companion: Companion, actor: Actor, command: AutonomousCompanionCommand): boolean => {
+  if (command.action === 'follow') { if (command.target) { actor.x = command.target.x; actor.y = command.target.y }; return true }
+  if (command.action === 'wait') return true
+  return executeCompanionRoleAction(state, companion, actor, command.action, command.target, command.rationale)
 }
 
 export const resolveAutonomousCompanions = (state: RunState): AutonomousCompanionCommand[] => {
@@ -112,8 +116,7 @@ export const resolveAutonomousCompanions = (state: RunState): AutonomousCompanio
     const actor = state.floor.actors.find(candidate => isCompanionActor(candidate) && companionIdForActor(candidate) === roster.id)
     if (!companion || !actor || companion.controlMode !== 'autonomous') continue
     const command = autonomousCompanionDecision(state, companion, actor)
-    execute(state, companion, actor, command)
-    commands.push(command)
+    if (execute(state, companion, actor, command)) commands.push(command)
   }
   return commands
 }
