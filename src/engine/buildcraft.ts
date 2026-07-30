@@ -17,7 +17,8 @@ export const TOOLS: readonly TraversalTool[] = [
   { id: 'stoneWedge', name: 'Stone Wedge', glyph: 'W', cooldown: 6, text: 'Breach one adjacent blocker.', overdrive: 'Breach a three-tile wedge, then retire.' },
   { id: 'reedwing', name: 'Reedwing', glyph: '^', cooldown: 5, text: 'Cross one hazardous tile to a clear landing.', overdrive: 'Cross up to two hazards, then retire.' },
   { id: 'cordAnchor', name: 'Cord Anchor', glyph: '⌁', cooldown: 5, text: 'Pull two tiles to a clear landing.', overdrive: 'Pull four tiles, then retire.' },
-  { id: 'ashwayRites', name: 'Ashway Rites', glyph: '≈', cooldown: 8, text: 'Make a two-tile temporary safe path.', overdrive: 'Make a three-tile path, then retire.' }
+  { id: 'ashwayRites', name: 'Ashway Rites', glyph: '≈', cooldown: 8, text: 'Make a two-tile temporary safe path.', overdrive: 'Make a three-tile path, then retire.' },
+  { id: 'antlerPrybar', name: 'Antler Prybar', glyph: '⌐', cooldown: 4, text: 'Shift one adjacent boulder or breakwall forward.', overdrive: 'Shift once with a louder exposed footing risk, then retire.' }
 ]
 
 export const BOONS: readonly Boon[] = [
@@ -353,7 +354,7 @@ const passableLanding = (state: RunState, target: { x: number; y: number }) => i
 export function useTool(state: RunState, tool: TraversalToolId, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive = false): ActionResult {
   if (!(state.hero.traversalTools ?? []).includes(tool)) { log(state, 'That ritual tool is no longer bound.'); return [] }
   if (toolCooldown(state, tool)) { log(state, `${toolFor(tool).name} is still recovering.`); return [] }
-  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : useAshway(state, direction, overdrive)
+  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : useAntlerPrybar(state, direction)
   if (!result) return []
   const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
@@ -420,6 +421,21 @@ const useAshway = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 
     delete tile.flow
   })
   log(state, 'Warm ash settles into a temporary route.')
+  return true
+}
+
+const useAntlerPrybar = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>): boolean => {
+  const target = point(state, direction, 1)
+  const destination = point(state, direction, 2)
+  const tile = getTile(state.floor, target.x, target.y)
+  const landing = getTile(state.floor, destination.x, destination.y)
+  const protectedDestination = destination.x === state.floor.start.x && destination.y === state.floor.start.y || destination.x === state.floor.exit.x && destination.y === state.floor.exit.y || state.floor.actors.some(actor => actor.health > 0 && actor.x === destination.x && actor.y === destination.y) || state.floor.milestones.some(milestone => !milestone.claimed && milestone.x === destination.x && milestone.y === destination.y)
+  if (!tile || !['boulder', 'breakwall'].includes(tile.kind)) { log(state, 'Antler Prybar needs an adjacent boulder or breakwall.'); return false }
+  if (!landing || landing.kind !== 'floor' || protectedDestination || state.floor.props.some(prop => prop.state !== 'destroyed' && prop.x === destination.x && prop.y === destination.y)) { log(state, 'Antler Prybar needs an empty legal destination beyond the target.'); return false }
+  landing.kind = tile.kind
+  tile.kind = 'floor'
+  state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'marked', duration: 2, potency: 1 }]
+  log(state, 'The Antler Prybar shifts the barrier; the noise leaves you exposed.')
   return true
 }
 

@@ -34,6 +34,21 @@ describe('buildcraft', () => {
     expect(state.messages[0]).toContain('burns out')
   })
 
+  it('shifts eligible terrain with Antler Prybar without consuming invalid uses', () => {
+    const state = createRun({ hero: createHero({ traversalTools: ['antlerPrybar'] }) })
+    state.floor.tiles[indexOf(2, 1)].kind = 'boulder'
+    state.floor.tiles[indexOf(3, 1)].kind = 'floor'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
+    expect(state.floor.tiles[indexOf(3, 1)].kind).toBe('boulder')
+    expect(state.hero.cooldowns?.['tool:antlerPrybar']).toBeGreaterThan(0)
+    expect(state.hero.conditions).toContainEqual({ kind: 'marked', duration: 1, potency: 1 })
+    const turn = state.turn
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.turn).toBe(turn)
+    expect(state.messages[0]).toContain('recovers')
+  })
+
   it('stacks Boons and rewinds position without restoring world state', () => {
     const state = createRun({ hero: createHero({ boons: { timeKnot: 1 }, safePositions: [{ x: 1, y: 1 }, { x: 3, y: 1 }], x: 3, y: 1 }) })
     state.floor.tiles[indexOf(2, 1)].kind = 'lava'
