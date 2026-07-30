@@ -782,13 +782,14 @@ export class TerminalRenderer {
     const party = partyHud(state)
     const order = party.order.map((_, index) => index === 0 ? '@' : String(index)).join('>')
     this.text(50, y, `PARTY ${party.controlMode === 'direct' ? 'DIRECT' : 'AUTO'} · ORDER ${order}`, party.controlMode === 'direct' ? colors.green : colors.gold)
-    party.entries.slice(0, 5).forEach((entry, index) => {
+    party.entries.slice(0, 11).forEach((entry, index) => {
       const status = entry.status === 'recovering' ? `REC ${state.companions?.find(companion => companion.id === entry.id)?.recoveryFloors ?? 0}F` : entry.status.toUpperCase()
       const health = entry.health ? `HP ${entry.health.current}/${entry.health.maximum}` : status
       const conditions = entry.conditions.map(condition => condition.toUpperCase()).join('/')
       const cooldowns = entry.cooldowns.map(cooldown => `${cooldown.action.slice(0, 3).toUpperCase()}${cooldown.turns}`).join('/')
       const orderMark = entry.focused ? '>' : entry.turnOrder ? String(entry.turnOrder) : '-'
-      const line = `${orderMark} ${entry.glyph} ${entry.name.slice(0, 11).padEnd(11)} ${health}${conditions ? ` ${conditions}` : ''}${cooldowns ? ` ${cooldowns}` : ''}`.slice(0, 45)
+      const role = entry.role === 'pathmaker' ? 'PATH' : entry.role === 'ritualist' ? 'RITE' : entry.role.toUpperCase()
+      const line = `${orderMark} ${entry.glyph} ${role.padEnd(5)} ${entry.name.slice(0, 9).padEnd(9)} ${health}${conditions ? ` ${conditions}` : ''}${cooldowns ? ` ${cooldowns}` : ''}`.slice(0, 45)
       this.text(50, y + 1 + index, line, entry.focused ? colors.green : entry.status === 'lost' || entry.status === 'injured' || entry.status === 'recovering' ? colors.dim : entry.color)
     })
   }
