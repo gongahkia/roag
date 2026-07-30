@@ -67,6 +67,18 @@ export const advanceCampaignTier = (cycle: CampaignCycle): CampaignCycle => {
   if (!next) throw new Error('cannot advance campaign tier: NG++ completed cap reached')
   return cloneCampaignCycle({ version: 1, currentTier: next, completedTiers: [...cycle.completedTiers], events: [...cycle.events, { sequence: cycle.events.length, tier: next, kind: 'entered' }], completedCap: false })
 }
+export const campaignContinuationPending = (cycle: CampaignCycle): boolean => {
+  assertCampaignCycle(cycle)
+  return !cycle.completedCap && cycle.completedTiers.includes(cycle.currentTier)
+}
+export const continueCampaignRoute = (state: CampaignRouteState): CampaignRouteState => {
+  const cycle = cloneCampaignCycle(state.cycle)
+  if (cycle.completedCap) throw new Error('cannot continue campaign: NG++ completed cap reached')
+  if (!campaignContinuationPending(cycle)) return { ...state, areaOrder: [...state.areaOrder], completedAreas: [...state.completedAreas], unlockedAreas: [...state.unlockedAreas], rescuedNpcs: state.rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: state.lineageEvents.map(event => ({ ...event })), legacyRecords: state.legacyRecords.map(record => ({ ...record })), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle }
+  const selectedBiome = state.areaOrder[0]
+  if (!selectedBiome) throw new Error('cannot continue campaign: missing area order')
+  return { ...state, areaOrder: [...state.areaOrder], completedAreas: [], unlockedAreas: [selectedBiome], selectedBiome, rescuedNpcs: state.rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: state.lineageEvents.map(event => ({ ...event })), legacyRecords: state.legacyRecords.map(record => ({ ...record })), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle: advanceCampaignTier(cycle) }
+}
 
 export const initialCampaignRoute = (seed?: number): CampaignRouteState => {
   const areaOrder = seed === undefined ? [...DEFAULT_AREA_ORDER] : campaignOrderForSeed(seed)

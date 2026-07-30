@@ -365,6 +365,10 @@ export class TerminalRenderer {
 
   private hubSidebar(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
     const hero = hub?.hero
+    const cycle = hub?.cycle
+    const pending = Boolean(cycle && !cycle.completedCap && cycle.completedTiers.includes(cycle.currentTier))
+    const completed = Boolean(cycle?.completedCap)
+    const tier = cycle?.currentTier === 'ngPlus' ? 'NG+' : cycle?.currentTier === 'ngPlusPlus' ? 'NG++' : 'BASE'
     this.text(50, 1, 'OUTPOST', colors.gold)
     this.text(50, 2, 'VILLAGE TRAILHEAD', colors.text)
     this.ruleHorizontal(50, 3, 45)
@@ -372,10 +376,11 @@ export class TerminalRenderer {
     else this.text(50, 6, 'Courier record unavailable.', colors.red)
     this.text(50, 32, 'OPEN TRAILS', colors.gold)
     this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
+    this.text(50, 36, `CYCLE: ${tier}`, completed ? colors.gold : pending ? colors.green : colors.dim)
     this.text(50, 37, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
     this.text(50, 38, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
-    this.text(50, 44, nearby?.destination === 'routes' ? 'OBJECTIVE: READY — Choose a trail.' : 'OBJECTIVE: Reach the route board.', colors.green)
-    this.text(50, 45, nearby?.destination === 'routes' ? 'NOW: C / ENTER opens delivery trails.' : `NOW: ↑ ${routeSteps} tile${routeSteps === 1 ? '' : 's'} · C interacts.`, colors.text)
+    this.text(50, 44, completed ? 'COMPLETED: NG++ CAP REACHED.' : pending ? `VICTORY: ${tier} COMPLETE.` : nearby?.destination === 'routes' ? 'OBJECTIVE: READY — Choose a trail.' : 'OBJECTIVE: Reach the route board.', completed ? colors.gold : colors.green)
+    this.text(50, 45, completed ? 'NOW: no further escalation.' : pending && nearby?.destination === 'routes' ? 'NOW: C / ENTER reviews continuation.' : pending ? `NOW: reach route board · ↑ ${routeSteps}.` : nearby?.destination === 'routes' ? 'NOW: C / ENTER opens delivery trails.' : `NOW: ↑ ${routeSteps} tile${routeSteps === 1 ? '' : 's'} · C interacts.`, colors.text)
     this.text(50, 47, `AUTOPILOT: ${autoplayModeLabel(this.lastAutoplayMode)}`, this.lastAutoplayMode === 'off' ? colors.dim : colors.green)
     if (hero) this.boonRelicLists(hero, 49)
   }
@@ -445,7 +450,14 @@ export class TerminalRenderer {
   }
 
   private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView): void {
-    this.box(53, 22, 40, 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : 'COMPANION LODGE')
+    this.box(53, 22, 40, 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : action === 'continuation' ? 'CONTINUE CAMPAIGN' : 'COMPANION LODGE')
+    if (action === 'continuation') {
+      const next = hub?.cycle?.currentTier === 'base' ? 'NG+' : 'NG++'
+      this.text(56, 26, `Begin ${next} from the route board.`, colors.gold)
+      this.wrap('Your courier, supplies, companions, and legacy remain. The tier route resets only after confirmation.', 34).forEach((line, index) => this.text(56, 28 + index * 2, line, colors.text))
+      this.text(56, 35, 'ENTER / E continue · C / ESC stay', colors.green)
+      return
+    }
     if (action === 'roster') {
       this.wrap(hub?.state.rescued.length ? hub.state.rescued.map(npc => `${npc.name} · ${biomeName[npc.biome]}`).join(', ') : 'No companions have joined you.', 34).slice(0, 5).forEach((line, index) => this.text(56, 26 + index * 2, line, colors.text))
       return

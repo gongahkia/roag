@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { autoplayReplayMetadata } from '../autoplay-runner'
 import { migrateCampaignRoute } from '../storage'
-import type { CampaignCycle } from '../types'
-import { advanceCampaignTier, assertCampaignCycle, campaignCycleErrors, cloneCampaignCycle, completeCampaignTier, initialCampaignCycle } from './campaign'
+import type { CampaignCycle, CampaignRouteState } from '../types'
+import { advanceCampaignTier, assertCampaignCycle, campaignContinuationPending, campaignCycleErrors, cloneCampaignCycle, completeCampaignTier, continueCampaignRoute, initialCampaignCycle, initialCampaignRoute } from './campaign'
 import { newRun } from './run'
 
 describe('three-tier campaign cycle', () => {
@@ -39,5 +39,34 @@ describe('three-tier campaign cycle', () => {
     const plus = advanceCampaignTier(completeCampaignTier(initialCampaignCycle()))
     const state = newRun(7, 'mine', 0, undefined, [], [], ['mine'], plus)
     expect(autoplayReplayMetadata(state).campaignCycle).toEqual(plus)
+  })
+
+  it('cancels and retries pending continuation, preserves carry state, and caps NG++', () => {
+    const baseVictory = completeCampaignTier(initialCampaignCycle())
+    const route: CampaignRouteState = {
+      ...initialCampaignRoute(),
+      completedAreas: ['mine', 'wilds', 'caverns', 'ruins'],
+      unlockedAreas: ['mine', 'wilds', 'caverns', 'ruins'],
+      selectedBiome: 'ruins',
+      rescuedNpcs: [{ id: 'scout', name: 'Scout', biome: 'mine' as const, floor: 2 }],
+      legacyRecords: [{ id: 'legacy', heirName: 'Ari', biome: 'mine' as const, floor: 1, seed: 7 }],
+      cycle: baseVictory
+    }
+    expect(campaignContinuationPending(route.cycle)).toBe(true)
+    const cancelled = structuredClone(route)
+    expect(cancelled).toEqual(route)
+    expect(campaignContinuationPending(cancelled.cycle)).toBe(true)
+    const plus = continueCampaignRoute(cancelled)
+    expect(plus).toMatchObject({ completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: route.rescuedNpcs, legacyRecords: route.legacyRecords, cycle: { currentTier: 'ngPlus', completedTiers: ['base'], completedCap: false } })
+    expect(campaignContinuationPending(plus.cycle)).toBe(false)
+    expect(continueCampaignRoute(plus)).toEqual(plus)
+    expect(migrateCampaignRoute(JSON.parse(JSON.stringify(plus)))).toEqual(plus)
+
+    const plusVictory = completeCampaignTier(plus.cycle)
+    const plusPlus = continueCampaignRoute({ ...plus, cycle: plusVictory })
+    expect(plusPlus.cycle.currentTier).toBe('ngPlusPlus')
+    const capped = completeCampaignTier(plusPlus.cycle)
+    expect(campaignContinuationPending(capped)).toBe(false)
+    expect(() => continueCampaignRoute({ ...plusPlus, cycle: capped })).toThrow('NG++ completed cap reached')
   })
 })

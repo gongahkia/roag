@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { buyHubItem, completeCampaignArea, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { buyHubItem, campaignContinuationPending, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -48,7 +48,7 @@ let storyExit: 'hub' | 'analysis' = 'hub'
 let loading: LoadingState | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
-let analysisNext: 'checkpoint' | 'succession' | 'session' | undefined
+let analysisNext: 'checkpoint' | 'succession' | 'session' | 'victory' | undefined
 let autoplayTimer: number | undefined
 let autoplayContext: AutoplayContext = createAutoplayContext()
 let autoplayTrace: AutoplayTraceEntry[] = []
@@ -420,6 +420,8 @@ function handleSettingsInput(key: string): void {
 
 function start(): void {
   if (!activeCourier) return
+  if (campaign.cycle.completedCap) { hubNotice = 'NG++ is complete. No further escalation is available.'; route = { ...route, screen: 'hub' }; return }
+  if (campaignContinuationPending(campaign.cycle)) { hubNotice = 'Confirm the next campaign tier at the route board first.'; route = { ...route, screen: 'hub' }; return }
   campaign = { ...campaign, selectedBiome: route.biome }
   hubNotice = undefined
   state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle)
@@ -560,24 +562,8 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
     })
     return 'transitioning'
   }
-  if (settings.autoplayMode !== 'off') {
-    persistActiveCourier()
-    return 'finished'
-  }
-  const courier = activeCourier
-  if (!courier) return 'returned'
-  beginBiomeTransition(completed, undefined, () => {
-    saved = undefined
-    courier.run = undefined
-    courier.checkpoint = undefined
-    courier.campaign = campaign
-    courier.heir = structuredClone(heir)
-    state = undefined
-    persistActiveCourier()
-    hubPosition = outpostSpawn()
-    route = { ...route, screen: 'hub', biome: campaign.selectedBiome }
-  })
-  return 'transitioning'
+  persistActiveCourier()
+  return 'finished'
 }
 
 function unlockGateDestination(): void {
@@ -699,13 +685,28 @@ function redraw(): void {
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
 function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
+    if (action === 'continuation') {
+      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined }; return true }
+      if (key === 'Enter' || key.toLowerCase() === 'e') {
+        const before = campaign.cycle.currentTier
+        campaign = continueCampaignRoute(campaign)
+        if (campaign.cycle.currentTier === before) { hubNotice = 'No campaign continuation is pending.'; route = { ...route, hubAction: undefined }; return true }
+        hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+        hubNotice = `${campaign.cycle.currentTier === 'ngPlus' ? 'NG+' : 'NG++'} continuation recorded. Press E / ENTER to travel.`
+        route = { screen: 'area', biome: campaign.selectedBiome }
+        persistActiveCourier()
+        return true
+      }
+      hubNotice = 'ENTER / E continues. C / ESC stays at the outpost.'
+      return true
+    }
     if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
     const choice = Number(key) - 1
     if (!heir || !activeCourier) { hubNotice = 'Courier record is unavailable.'; return true }
@@ -725,7 +726,9 @@ function handleHubInput(key: string, run = false): boolean {
     const interaction = outpostInteraction(hubPosition)
     if (!interaction) { hubNotice = 'No service is within reach.'; return true }
     hubNotice = undefined
-    if (interaction.destination === 'routes') route = { ...route, screen: 'area' }
+    if (interaction.destination === 'routes' && campaign.cycle.completedCap) hubNotice = 'NG++ is complete. No further escalation is available.'
+    else if (interaction.destination === 'routes' && campaignContinuationPending(campaign.cycle)) route = { ...route, hubAction: 'continuation' }
+    else if (interaction.destination === 'routes') route = { ...route, screen: 'area' }
     else route = { ...route, hubAction: interaction.destination }
     return true
   }
@@ -751,6 +754,11 @@ function finish(won: boolean): void {
   if (!state) return
   if (state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   if (state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
+  if (won) {
+    heir = structuredClone(state.hero)
+    if (activeCourier) activeCourier.heir = structuredClone(heir)
+    if (!campaign.cycle.completedTiers.includes(campaign.cycle.currentTier)) campaign = { ...campaign, cycle: completeCampaignTier(campaign.cycle) }
+  }
   finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
   if (settings.autoplayMode !== 'off') {
     settings = { ...settings, autoplayMode: 'off' }
@@ -774,7 +782,7 @@ function finish(won: boolean): void {
   analysis = analysisFor(state, won ? 'complete' : 'lost')
   records.analyses.unshift(analysis)
   records.analyses = records.analyses.slice(0, 20)
-  analysisNext = won ? 'session' : checkpointDeath ? 'checkpoint' : 'succession'
+  analysisNext = won ? 'victory' : checkpointDeath ? 'checkpoint' : 'succession'
   if (checkpointDeath && activeCourier?.checkpoint) saved = structuredClone(activeCourier.checkpoint)
   else saved = undefined
   if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
@@ -889,6 +897,15 @@ function continueAnalysis(): void {
     persistActiveCourier()
     route = { screen: 'level', biome: campaign.selectedBiome }
     recordedEnd = false
+    redraw()
+    return
+  }
+  if (next === 'victory') {
+    state = undefined
+    saved = undefined
+    hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+    hubPosition = outpostSpawn()
+    route = { screen: 'hub', biome: campaign.selectedBiome }
     redraw()
     return
   }
