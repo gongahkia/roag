@@ -84,7 +84,7 @@ export const placeSecretMetadata = (floor: Floor): void => {
     const room = roomFor.get(space.id)!
     const access = room.entries.map((entry, index) => ({ version: 1 as const, id: `secret-route:${room.id}:access:${index}`, roomId: room.id, kind: 'concealed-passage' as const, from: { ...room.approach }, entry: { ...entry }, entryCondition: room.entryCondition, discoveryClue: room.discoveryClue, accessMethod: room.accessMethod, rewardClass: room.rewardClass, risk: room.risk, safeFallback: true as const }))
     if (space.kind !== 'mine-breach-room' || !space.rareTransition) return access
-    return [...access, { version: 1 as const, id: `secret-route:${room.id}:transition`, roomId: room.id, kind: 'rare-transition' as const, from: { ...room.approach }, entry: { ...space.entry }, entryCondition: room.entryCondition, discoveryClue: room.discoveryClue, accessMethod: room.accessMethod, rewardClass: 'shortcut' as const, risk: room.risk, safeFallback: true as const, destination: { biome: space.rareTransition.targetBiome, floor: space.rareTransition.targetFloor } }]
+    return [...access, { version: 1 as const, id: `secret-route:${room.id}:transition`, roomId: room.id, kind: 'rare-transition' as const, from: { ...room.approach }, entry: { ...space.entry }, entryCondition: room.entryCondition, discoveryClue: room.discoveryClue, accessMethod: room.accessMethod, rewardClass: 'shortcut' as const, risk: room.risk, safeFallback: true as const, destination: { biome: space.rareTransition.targetBiome, floor: space.rareTransition.targetFloor }, direction: 'one-way' as const, arrival: 'floor-start' as const, returnSemantics: 'no-return' as const }]
   })
   floor.secretRooms = rooms
   floor.secretRoutes = routes
@@ -132,3 +132,4 @@ export const claimSecretReward = (state: RunState, secretId: string): SecretRewa
   return { room, resolution }
 }
 export const secretResolutionMessage = (room: SecretRoom): string => `Secret resolved — ${room.rewardProfile.label} (+${room.rewardProfile.value} exploration). Risk: ${room.riskProfile.label}; ${room.riskProfile.detail}`
+export const secretShortcutReport = (route: SecretRoute): string => route.destination ? `${route.direction === 'two-way' ? 'two-way' : 'one-way'} ${route.destination.biome} shortcut to floor ${route.destination.floor + 1}, arrival at floor start; ${route.returnSemantics === 'return-link' ? 'return link available' : 'no return'}` : 'shortcut destination unavailable'

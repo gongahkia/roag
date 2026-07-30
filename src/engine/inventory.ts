@@ -31,6 +31,7 @@ import { armRelicMove, armRelicWaterCrossing } from './relics'
 import { openEncounter } from './encounters'
 import { revealSecretClues } from './secret-discovery'
 import { claimSecretReward, secretResolutionMessage } from '../secrets'
+import { takeSecretShortcut } from './shortcuts'
 
 const resolveSecretPickup = (state: RunState, item: GroundItem): void => {
   if (!item.secretId) return
@@ -126,6 +127,8 @@ export function operate(state: RunState): ActionResult {
     return [event('menu')]
   }
   if (friend?.role === 'merchant') { state.modal = { kind: 'shop', merchantId: friend.id }; return [event('menu')] }
+  const shortcut = takeSecretShortcut(state)
+  if (shortcut) return shortcut
   const propOperation = operateProp(state)
   if (propOperation) {
     revealSecretClues(state, 'prop')

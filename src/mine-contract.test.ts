@@ -59,7 +59,7 @@ describe('Obsidian Pass generation contract', () => {
   })
 
   it('records deterministic rare breach transitions in generation audits', () => {
-    const transitions = (generateAreaFloor(7, 'mine', 3, 3).sideSpaces ?? []).flatMap(room => room.kind === 'mine-breach-room' && room.rareTransition ? [room.rareTransition] : [])
-    expect(transitions).toEqual([{ kind: 'biomeRift', targetBiome: 'wilds', targetFloor: 0 }])
+    const transitions = (generateAreaFloor(7, 'mine', 1, 3).sideSpaces ?? []).flatMap(room => room.kind === 'mine-breach-room' && room.rareTransition ? [room.rareTransition] : [])
+    expect(transitions).toEqual([{ kind: 'floorSkip', targetBiome: 'mine', targetFloor: 3 }])
   })
 })

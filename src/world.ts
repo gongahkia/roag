@@ -913,11 +913,7 @@ const imprintMineBreachRooms = (floor: Floor, rng: Rng): void => {
     if (!chamber || chamber.some(point => reserved.has(indexOf(floor, point.x, point.y)))) continue
     const rewardPoint = chamber[Math.floor(chamber.length / 2)]!
     const reward = { id: sideSpaces.length % 2 ? 'ropeBundle' : 'bombPack', x: rewardPoint.x, y: rewardPoint.y, count: 1, visibleInFog: true }
-    const transition = sideSpaces.length === desired - 1 && (areaFloor === 3 || areaFloor === 1 && rng.chance(30))
-      ? areaFloor === 1
-        ? { kind: 'floorSkip' as const, targetBiome: 'mine' as const, targetFloor: 3 }
-        : { kind: 'biomeRift' as const, targetBiome: 'wilds' as const, targetFloor: 0 }
-      : undefined
+    const transition = sideSpaces.length === desired - 1 && areaFloor === 1 ? { kind: 'floorSkip' as const, targetBiome: floor.biome, targetFloor: 3 } : undefined
     getTile(floor, entry.x, entry.y)!.kind = 'breakwall'
     chamber.forEach(point => { getTile(floor, point.x, point.y)!.kind = 'floor'; reserved.add(indexOf(floor, point.x, point.y)) })
     reserved.add(indexOf(floor, entry.x, entry.y))
@@ -2334,7 +2330,7 @@ export const validateSecretRoutes = (floor: Floor, reachable = reachableIndexes(
     const room = rooms.find(candidate => candidate.id === route.roomId)
     if (!room || route.version !== 1 || !route.safeFallback || !route.discoveryClue || !inBounds(floor, route.from.x, route.from.y) || !inBounds(floor, route.entry.x, route.entry.y)) errors.push(`invalid secret route: ${route.id}`)
     if (room && (route.from.x !== room.approach.x || route.from.y !== room.approach.y || route.entryCondition !== room.entryCondition || route.discoveryClue !== room.discoveryClue || route.accessMethod !== room.accessMethod || route.risk !== room.risk)) errors.push(`mismatched secret route: ${route.id}`)
-    if (route.kind === 'rare-transition' && (!route.destination || route.destination.floor < 0 || route.destination.floor > 3)) errors.push(`invalid secret transition: ${route.id}`)
+    if (route.kind === 'rare-transition' && (!route.destination || route.destination.biome !== floor.biome || route.destination.floor < 0 || route.destination.floor > 3 || route.direction !== 'one-way' && route.direction !== 'two-way' || route.arrival !== 'floor-start' || (route.direction === 'one-way' ? route.returnSemantics !== 'no-return' : route.returnSemantics !== 'return-link'))) errors.push(`invalid secret transition: ${route.id}`)
     if (route.kind === 'concealed-passage' && (!room || !room.entries.some(point => point.x === route.entry.x && point.y === route.entry.y))) errors.push(`unmatched secret route: ${route.id}`)
     if (route.kind === 'rare-transition' && (!room || !floor.sideSpaces?.some(space => space.kind === 'mine-breach-room' && space.id === room.sourceId && space.rareTransition?.targetBiome === route.destination?.biome && space.rareTransition?.targetFloor === route.destination?.floor))) errors.push(`unmatched secret transition: ${route.id}`)
   }

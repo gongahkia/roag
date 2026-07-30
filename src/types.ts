@@ -143,7 +143,8 @@ export interface SecretRewardProfile { kind: SecretRewardKind; label: string; va
 export interface SecretRiskProfile { kind: SecretRiskKind; label: string; detail: string }
 export interface SecretResolution { turn: number; rewardKind: SecretRewardKind; rewardValue: number; riskKind: SecretRiskKind }
 export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; clueChannel: SecretClueChannel; discovery?: SecretDiscovery; rewardProfile: SecretRewardProfile; riskProfile: SecretRiskProfile; resolution?: SecretResolution; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
-export interface SecretRoute { version: 1; id: string; roomId: string; kind: SecretRouteKind; from: Point; entry: Point; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true; destination?: { biome: Biome; floor: number } }
+export type SecretShortcutDirection = 'one-way' | 'two-way'
+export interface SecretRoute { version: 1; id: string; roomId: string; kind: SecretRouteKind; from: Point; entry: Point; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true; destination?: { biome: Biome; floor: number }; direction?: SecretShortcutDirection; arrival?: 'floor-start'; returnSemantics?: 'no-return' | 'return-link' }
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -324,6 +325,8 @@ export interface AutoplayDiagnostic { id: string; date: string; seed: number; bi
 export type RunOutcome = 'lost' | 'complete' | 'suspended'
 export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcome: RunOutcome; date: string; metrics: RunTelemetry }
 
+export interface ShortcutReturn { version: 1; routeId: string; floor: Floor; areaFloor: number; arrival: Point }
+
 export interface RunState {
   version: 4 | 5
   seed: number
@@ -344,6 +347,7 @@ export interface RunState {
   reputation?: SocialReputation
   encyclopedia?: EncyclopediaState
   telemetry?: RunTelemetry
+  shortcutReturn?: ShortcutReturn
 }
 
 export type Modal =
