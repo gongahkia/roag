@@ -278,6 +278,9 @@ export type AutoplayResourceAction = 'bomb' | 'rope' | 'kit'
 export type AutoplayResourceDisposition = 'select' | 'defer' | 'reject'
 export interface AutoplayResourceAssessment { action: AutoplayResourceAction; item?: string; disposition: AutoplayResourceDisposition; rationale: string; projectedRouteGain: boolean; survivalGain: boolean; survivalProbability: number; replacementAvailability: number; remainingFloorNeed: number; utilityScore: number; knownCriticalRoute: boolean; resourceDelta: { bombs: number; ropes: number; kit: number }; rejectedAlternatives: string[] }
 export interface AutoplayResourceOutcomes { selected: number; deferred: number; rejected: number; projectedRouteGains: number; criticalRouteSelections: number }
+export type AutoplayToolDisposition = 'select' | 'defer' | 'reject'
+export interface AutoplayToolAssessment { tool: TraversalToolId; disposition: AutoplayToolDisposition; rationale: string; cooldown: number; overdrive: boolean; retires: boolean; projectedRouteGain: boolean; survivalGain: boolean; legalDirections: Exclude<Direction, 'wait'>[]; rejectedAlternatives: string[] }
+export interface AutoplayToolOutcomes { selected: number; deferred: number; rejected: number; uses: number; retirements: number }
 export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string }
 export interface AutoplayTraceEntry {
   turn: number
@@ -287,6 +290,7 @@ export interface AutoplayTraceEntry {
   reason: string
   candidates: AutoplayCandidate[]
   resourceDiagnostics?: AutoplayResourceAssessment[]
+  toolDiagnostics?: AutoplayToolAssessment[]
   events: string[]
   nextFingerprint: string
   before: { x: number; y: number; health: number; focus: number; bombs: number; ropes: number; objective: string }
