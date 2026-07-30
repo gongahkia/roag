@@ -49,7 +49,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   if (inheritedHero && areaFloor === 0 && routePosition > 0) hero.gold = Math.min(500, hero.gold + (hero.boons?.windfall ?? 0) * 20)
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaArc, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), companions: cloneCompanions(companions), companionDeathMode, lineageEvents: [], alignment: { kami: 0, villagePact: 0 }, reputation: emptySocialReputation(), campaignCycle: cloneCampaignCycle(cycle) }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaArc, areaOrder: [...areaOrder], ...(inheritedHero ? { replayHero: structuredClone(inheritedHero) } : {}), rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), companions: cloneCompanions(companions), companionDeathMode, lineageEvents: [], alignment: { kami: 0, villagePact: 0 }, reputation: emptySocialReputation(), campaignCycle: cloneCampaignCycle(cycle) }
   synchronizePartyActors(state, 'spawn')
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)

@@ -19,7 +19,7 @@ export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]
 
 export const isCompleteCampaign = (outcome: AutoplayOutcome, completedAreas: readonly Biome[], areaOrder: readonly Biome[] = AREA_ORDER): boolean => outcome === 'complete' && completedAreas.length === areaOrder.length && completedAreas.every((biome, index) => biome === areaOrder[index])
 
-export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata => {
+export const autoplayReplayMetadata = (state: RunState, initialHero = state.replayHero): AutoplayReplayMetadata => {
   const floor = state.floor
   const areaFloor = state.areaFloor ?? floor.index % 4
   const escalation = floor.escalation ? `${floor.escalation.arcId}:${floor.escalation.phase}` : undefined
@@ -38,6 +38,7 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
     ...(state.campaignCycle ? { campaignCycle: structuredClone(state.campaignCycle) } : {}),
     ...(difficultyPackage ? { difficultyPackage } : {}),
     ...(floor.difficulty ? { difficulty: structuredClone(floor.difficulty) } : {}),
+    ...(initialHero ? { initialHero: structuredClone(initialHero), areaOrder: [...(state.areaOrder ?? [])] } : {}),
     ...(state.companions?.length ? { companions: structuredClone(state.companions) } : {}),
     companionDeathMode: state.companionDeathMode ?? 'injury'
   }
@@ -84,6 +85,7 @@ const exitPathState = (state: RunState): AutoplayFinalState['exitPath'] => {
 
 export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): AutoplayReport => {
   let state = structuredClone(input)
+  const initialHero = state.replayHero ? structuredClone(state.replayHero) : undefined
   const startBiome = state.area ?? state.floor.biome
   const areaOrder = state.areaOrder ?? [...AREA_ORDER]
   const mode = options.mode ?? 'omniscient'
@@ -155,7 +157,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const transition = snapshotAutoplayTransition(state)
       const beforeTools = [...(state.hero.traversalTools ?? [])]
       const beforeResources = { health: state.hero.health, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys }
-      const beforeTrace = captureTrace ? { turn: state.turn, replay: autoplayReplayMetadata(state), fingerprint: autoplayTraceFingerprint(state), x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, objective: state.floor.objective.status } : undefined
+      const beforeTrace = captureTrace ? { turn: state.turn, replay: autoplayReplayMetadata(state, initialHero), fingerprint: autoplayTraceFingerprint(state), x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, objective: state.floor.objective.status } : undefined
       const traceObservation = captureTraceDocument ? observeAutoplayTrace(state, mode) : undefined
       const traceFeatures = captureTraceDocument ? encodePolicyFeatures(state, mode, featureHistory) : undefined
       const events = perform(state, command)
@@ -237,5 +239,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const retainedResources = state.hero.bombs + state.hero.ropes + state.hero.keys
   const policyMetadata = createPolicyRunMetadata(policyProfile, state.seed, turnLimit, scorePolicyEpisode({ campaignComplete, outcome, exploredTiles, metrics, retainedResources }))
   const traceDocument = captureTraceDocument ? createAutoplayTraceDocument(traceEpisode, traceRecords, { outcome, reason: error ?? stall?.lastReason ?? (outcome === 'complete' ? 'complete' : outcome), turns: state.turn, campaignComplete, finalFingerprint: autoplayTraceFingerprint(state) }) : undefined
-  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, resourceOutcomes, toolOutcomes, optionalOutcomes, partyOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(unsupported ? { unsupported } : {}), ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state, initialHero), metrics, resourceOutcomes, toolOutcomes, optionalOutcomes, partyOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(unsupported ? { unsupported } : {}), ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }

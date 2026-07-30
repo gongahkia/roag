@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { runAutoplay } from './autoplay-runner'
 import { createAutoplayTraceDocument, createAutoplayTraceRecord, type AutoplayTraceDocument } from './autoplay-trace'
 import { replayAutoplayTrace } from './autoplay-trace-replay'
-import { newRun } from './engine'
+import { advanceCampaignTier, completeCampaignTier, initialCampaignCycle, newHero, newRun } from './engine'
 import { companionLeadForRescue } from './engine/companions'
 
 const trace = (): AutoplayTraceDocument => runAutoplay(newRun(7), { mode: 'visible', policy: 'clear', turnLimit: 2, captureTrace: true }).traceDocument!
@@ -26,6 +26,18 @@ describe('autoplay trace replay', () => {
     const companion = companionLeadForRescue({ id: 'rescue:mine:1:mika', name: 'Mika', biome: 'mine', floor: 1 })
     companion.rosterStatus = 'active'
     const document = runAutoplay(newRun(71, 'mine', 0, undefined, [], [], undefined, undefined, [companion]), { mode: 'visible', policy: 'clear', turnLimit: 1, captureTrace: true }).traceDocument!
+    expect(replayAutoplayTrace(document)).toMatchObject({ valid: true })
+  })
+
+  it('replays a carried New Game+ hero and route order', () => {
+    const hero = newHero({ name: 'Ari', origin: 'tidebound', calling: 'pathmaker', deathMode: 'checkpoint' })
+    hero.gold = 173
+    hero.inventory.push('focusTonic')
+    hero.traversalTools = ['stoneWedge', 'cordAnchor']
+    const cycle = advanceCampaignTier(completeCampaignTier(initialCampaignCycle()))
+    const areaOrder = ['furnace', 'mine', 'wilds', 'caverns'] as const
+    const document = runAutoplay(newRun(71, areaOrder[0], 0, hero, [], [], areaOrder, cycle), { mode: 'visible', policy: 'clear', turnLimit: 1, captureTrace: true }).traceDocument!
+    expect(document.records[0]?.replay).toMatchObject({ initialHero: { name: 'Ari', gold: 173, traversalTools: ['stoneWedge', 'cordAnchor'] }, areaOrder, difficulty: { campaignTier: 'ngPlus' } })
     expect(replayAutoplayTrace(document)).toMatchObject({ valid: true })
   })
 

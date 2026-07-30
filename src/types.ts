@@ -342,7 +342,7 @@ export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptional
 export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
 export interface AutoplayPartyRosterEntry { id: string; role: CompanionRole; controlMode: CompanionControlMode; rosterStatus: CompanionRosterStatus; injury: CompanionInjuryState; permanentlyLost: boolean }
 export interface AutoplayPartyOutcomes { controlMode: 'none' | 'autonomous' | 'direct'; roster: AutoplayPartyRosterEntry[]; activeCompanionIds: string[]; actions: Record<string, number>; actionsByCompanion: Record<string, Record<string, number>>; injuries: string[]; losses: string[]; intercepts: number; traversalAssists: number; blockedTurns: number; finiteResourceConsents: number; directModeRefused: boolean }
-export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; difficultyPackage?: CampaignDifficultyPackageMetadata; difficulty?: DifficultyContext; companions?: Companion[]; companionDeathMode?: CompanionDeathMode }
+export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; difficultyPackage?: CampaignDifficultyPackageMetadata; difficulty?: DifficultyContext; initialHero?: Hero; areaOrder?: Biome[]; companions?: Companion[]; companionDeathMode?: CompanionDeathMode }
 export interface AutoplayTraceEntry {
   turn: number
   replay: AutoplayReplayMetadata
@@ -388,6 +388,7 @@ export interface RunState {
   telemetry?: RunTelemetry
   shortcutReturn?: ShortcutReturn
   campaignCycle?: CampaignCycle
+  replayHero?: Hero
   companions?: Companion[]
   companionDeathMode?: CompanionDeathMode
 }

@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: SKIP_CAMPAIGN_MATRIX=1 npm run test:ci
       - run: npm run test:new-game-plus:full
+      - run: npm run test:new-game-plus:lifecycle:full
       - run: npm run autoplay:campaign:development
       - run: npm run build
       - run: npm run test:e2e
