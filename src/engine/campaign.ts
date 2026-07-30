@@ -1,10 +1,11 @@
-import type { Alignment, Biome, CampaignRouteState, LegacyRecord, LineageEvent } from '../types'
+import type { Alignment, Biome, CampaignCycle, CampaignRouteState, CampaignTier, LegacyRecord, LineageEvent } from '../types'
 import { rngFor } from '../rng'
 
 export const BIOME_POOL = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const satisfies readonly Biome[]
 export const AREA_ORDER = BIOME_POOL
 export const LEGACY_AREA_ORDER = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'] as const satisfies readonly Biome[]
 export const DEFAULT_AREA_ORDER = ['mine', 'wilds', 'caverns', 'ruins'] as const satisfies readonly Biome[]
+export const CAMPAIGN_TIERS = ['base', 'ngPlus', 'ngPlusPlus'] as const satisfies readonly CampaignTier[]
 export const isCampaignAreaOrder = (value: readonly Biome[]): boolean => value.length === 4 && value.every(area => BIOME_POOL.includes(area)) && new Set(value).size === 4
 export const isLegacyCampaignAreaOrder = (value: readonly Biome[]): boolean => value.length === LEGACY_AREA_ORDER.length && value.every(area => (LEGACY_AREA_ORDER as readonly Biome[]).includes(area)) && new Set(value).size === LEGACY_AREA_ORDER.length
 export const campaignOrderForSeed = (seed: number): Biome[] => {
@@ -17,12 +18,62 @@ export const unlockNextArea = (unlocked: readonly Biome[], completed: Biome, are
   return next && !unlocked.includes(next) ? [...unlocked, next] : [...unlocked]
 }
 
+const tierIndex = (tier: CampaignTier): number => CAMPAIGN_TIERS.indexOf(tier)
+const expectedCycleEvents = (currentTier: CampaignTier, completedTiers: readonly CampaignTier[]): CampaignCycle['events'] => {
+  const current = tierIndex(currentTier)
+  const events: CampaignCycle['events'] = [{ sequence: 0, tier: 'base', kind: 'entered' }]
+  for (let index = 0; index < completedTiers.length; index++) {
+    const tier = CAMPAIGN_TIERS[index]!
+    events.push({ sequence: events.length, tier, kind: 'victory' })
+    if (index + 1 <= current) events.push({ sequence: events.length, tier: CAMPAIGN_TIERS[index + 1]!, kind: 'entered' })
+  }
+  return events
+}
+export const campaignCycleErrors = (cycle: CampaignCycle): string[] => {
+  const errors: string[] = []
+  const current = tierIndex(cycle.currentTier)
+  if (cycle.version !== 1) errors.push('unsupported cycle version')
+  if (current < 0) errors.push('invalid current tier')
+  const expectedCompleted = CAMPAIGN_TIERS.slice(0, cycle.completedTiers.length)
+  if (cycle.completedTiers.length > CAMPAIGN_TIERS.length || cycle.completedTiers.some((tier, index) => tier !== expectedCompleted[index])) errors.push('completed tiers must be an ordered prefix')
+  if (current >= 0 && cycle.completedTiers.length !== current && cycle.completedTiers.length !== current + 1) errors.push('current tier is inconsistent with completed tiers')
+  const completedCap = cycle.completedTiers.length === CAMPAIGN_TIERS.length
+  if (cycle.completedCap !== completedCap || cycle.completedCap && cycle.currentTier !== 'ngPlusPlus') errors.push('invalid completed cap')
+  const expectedEvents = expectedCycleEvents(cycle.currentTier, cycle.completedTiers)
+  if (cycle.events.length !== expectedEvents.length || cycle.events.some((event, index) => event.sequence !== index || event.tier !== expectedEvents[index]?.tier || event.kind !== expectedEvents[index]?.kind)) errors.push('invalid cycle event history')
+  return errors
+}
+export const assertCampaignCycle = (cycle: CampaignCycle): CampaignCycle => {
+  const errors = campaignCycleErrors(cycle)
+  if (errors.length) throw new Error(`invalid campaign cycle: ${errors.join('; ')}`)
+  return cycle
+}
+export const initialCampaignCycle = (): CampaignCycle => ({ version: 1, currentTier: 'base', completedTiers: [], events: [{ sequence: 0, tier: 'base', kind: 'entered' }], completedCap: false })
+export const cloneCampaignCycle = (cycle: CampaignCycle): CampaignCycle => {
+  assertCampaignCycle(cycle)
+  return { version: 1, currentTier: cycle.currentTier, completedTiers: [...cycle.completedTiers], events: cycle.events.map(event => ({ ...event })), completedCap: cycle.completedCap }
+}
+export const completeCampaignTier = (cycle: CampaignCycle): CampaignCycle => {
+  assertCampaignCycle(cycle)
+  if (cycle.completedTiers.includes(cycle.currentTier)) throw new Error(`cannot complete campaign tier ${cycle.currentTier}: victory already recorded`)
+  const completedTiers = [...cycle.completedTiers, cycle.currentTier]
+  return cloneCampaignCycle({ version: 1, currentTier: cycle.currentTier, completedTiers, events: [...cycle.events, { sequence: cycle.events.length, tier: cycle.currentTier, kind: 'victory' }], completedCap: cycle.currentTier === 'ngPlusPlus' })
+}
+export const advanceCampaignTier = (cycle: CampaignCycle): CampaignCycle => {
+  assertCampaignCycle(cycle)
+  if (cycle.completedCap) throw new Error('cannot advance campaign tier: NG++ completed cap reached')
+  if (!cycle.completedTiers.includes(cycle.currentTier)) throw new Error(`cannot advance campaign tier ${cycle.currentTier}: victory not recorded`)
+  const next = CAMPAIGN_TIERS[tierIndex(cycle.currentTier) + 1]
+  if (!next) throw new Error('cannot advance campaign tier: NG++ completed cap reached')
+  return cloneCampaignCycle({ version: 1, currentTier: next, completedTiers: [...cycle.completedTiers], events: [...cycle.events, { sequence: cycle.events.length, tier: next, kind: 'entered' }], completedCap: false })
+}
+
 export const initialCampaignRoute = (seed?: number): CampaignRouteState => {
   const areaOrder = seed === undefined ? [...DEFAULT_AREA_ORDER] : campaignOrderForSeed(seed)
-  return { version: 5, areaOrder, completedAreas: [], unlockedAreas: [areaOrder[0]], selectedBiome: areaOrder[0], rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 } }
+  return { version: 5, areaOrder, completedAreas: [], unlockedAreas: [areaOrder[0]], selectedBiome: areaOrder[0], rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 }, cycle: initialCampaignCycle() }
 }
-export const completeCampaignArea = (state: CampaignRouteState, completed: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: state.completedAreas.includes(completed) ? [...state.completedAreas] : [...state.completedAreas, completed], unlockedAreas: [...state.unlockedAreas], selectedBiome: completed, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 } })
-export const unlockCampaignArea = (state: CampaignRouteState, biome: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: [...state.completedAreas], unlockedAreas: state.unlockedAreas.includes(biome) ? [...state.unlockedAreas] : [...state.unlockedAreas, biome], selectedBiome: biome, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 } })
-export const recordCampaignSacrifice = (state: CampaignRouteState, event: LineageEvent): CampaignRouteState => ({ ...state, rescuedNpcs: state.rescuedNpcs.filter(npc => npc.id !== event.npcId), lineageEvents: state.lineageEvents.some(existing => existing.id === event.id) ? [...state.lineageEvents] : [...state.lineageEvents, event].slice(-12), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 } })
-export const appendLegacyRecord = (state: CampaignRouteState, record: LegacyRecord): CampaignRouteState => ({ ...state, legacyRecords: [...state.legacyRecords, { ...record }].slice(-12), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 } })
-export const addAlignment = (state: CampaignRouteState, alignment: Alignment): CampaignRouteState => ({ ...state, alignment: { ...state.alignment, [alignment]: state.alignment[alignment] + 1 } })
+export const completeCampaignArea = (state: CampaignRouteState, completed: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: state.completedAreas.includes(completed) ? [...state.completedAreas] : [...state.completedAreas, completed], unlockedAreas: [...state.unlockedAreas], selectedBiome: completed, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle: cloneCampaignCycle(state.cycle) })
+export const unlockCampaignArea = (state: CampaignRouteState, biome: Biome): CampaignRouteState => ({ ...state, areaOrder: [...state.areaOrder], completedAreas: [...state.completedAreas], unlockedAreas: state.unlockedAreas.includes(biome) ? [...state.unlockedAreas] : [...state.unlockedAreas, biome], selectedBiome: biome, rescuedNpcs: [...state.rescuedNpcs], lineageEvents: [...state.lineageEvents], legacyRecords: [...state.legacyRecords], alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle: cloneCampaignCycle(state.cycle) })
+export const recordCampaignSacrifice = (state: CampaignRouteState, event: LineageEvent): CampaignRouteState => ({ ...state, rescuedNpcs: state.rescuedNpcs.filter(npc => npc.id !== event.npcId), lineageEvents: state.lineageEvents.some(existing => existing.id === event.id) ? [...state.lineageEvents] : [...state.lineageEvents, event].slice(-12), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle: cloneCampaignCycle(state.cycle) })
+export const appendLegacyRecord = (state: CampaignRouteState, record: LegacyRecord): CampaignRouteState => ({ ...state, legacyRecords: [...state.legacyRecords, { ...record }].slice(-12), alignment: { ...state.alignment }, reputation: { trailfolk: state.reputation?.trailfolk ?? 0, kami: state.reputation?.kami ?? 0 }, cycle: cloneCampaignCycle(state.cycle) })
+export const addAlignment = (state: CampaignRouteState, alignment: Alignment): CampaignRouteState => ({ ...state, alignment: { ...state.alignment, [alignment]: state.alignment[alignment] + 1 }, cycle: cloneCampaignCycle(state.cycle) })

@@ -273,7 +273,10 @@ export interface LineageEvent { id: string; kind: 'npcSacrifice'; npcId: string;
 export interface OathState { id: 'noHealing' | 'noBombs' | 'noCharms'; remainingFloors: number }
 export interface CurseState { itemId: ItemId; name: string; condition: string; remainingEncounters: number; lethal: boolean; failed?: boolean }
 export type SocialReputation = Record<SocialFaction, number>
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation }
+export type CampaignTier = 'base' | 'ngPlus' | 'ngPlusPlus'
+export interface CampaignCycleEvent { sequence: number; tier: CampaignTier; kind: 'entered' | 'victory' }
+export interface CampaignCycle { version: 1; currentTier: CampaignTier; completedTiers: CampaignTier[]; events: CampaignCycleEvent[]; completedCap: boolean }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
 
 export interface LegacyRecord {
   id: string
@@ -305,7 +308,7 @@ export type AutoplayOptionalKind = 'secret' | 'shortcut'
 export type AutoplayOptionalDisposition = 'pursue' | 'defer' | 'decline'
 export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptionalKind; disposition: AutoplayOptionalDisposition; rationale: string; evidence: 'visible' | 'omniscient-diagnostic'; payoff: number; threat: number; pathCost: number; resourceCost: { bombs: number; ropes: number }; escapeRoute: boolean; remainingObjective: number; expectedValue: number; target: Point; rejectedAlternatives: string[] }
 export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
-export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string }
+export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle }
 export interface AutoplayTraceEntry {
   turn: number
   replay: AutoplayReplayMetadata
@@ -350,6 +353,7 @@ export interface RunState {
   encyclopedia?: EncyclopediaState
   telemetry?: RunTelemetry
   shortcutReturn?: ShortcutReturn
+  campaignCycle?: CampaignCycle
 }
 
 export type Modal =

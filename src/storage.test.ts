@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { initialCampaignRoute, newHero, newRun } from './engine'
+import { initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
 import { deleteCourier, flushCourierWrites, loadCouriers, migrateCampaignRoute, migrateRunRecord, saveCourier, selectCourier } from './storage'
 import type { CourierSave, Records } from './types'
 
@@ -233,15 +233,15 @@ describe('run persistence migration', () => {
 
   it('keeps only route progression when loading campaign state', () => {
     const route = migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', hero: { gold: 999 } })
-    expect(route).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 } })
-    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 } })
+    expect(route).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: ['mine'], unlockedAreas: ['mine', 'wilds'], selectedBiome: 'wilds', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 }, cycle: initialCampaignCycle() })
+    expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 }, cycle: initialCampaignCycle() })
     const order = ['furnace', 'mine', 'wilds', 'caverns', 'ruins', 'floodedRuins'] as const
     expect(migrateCampaignRoute({ version: 3, areaOrder: order, completedAreas: [], unlockedAreas: ['furnace'], selectedBiome: 'furnace' })).toMatchObject({ version: 5, areaOrder: order, selectedBiome: 'furnace' })
   })
 
   it('migrates v1 death records to the journal schema', () => {
     const legacy = { id: 'legacy-1', heirName: 'Ari', cause: 'defeated' as const, biome: 'mine' as const, floor: 2, seed: 9, lineage: ['Ari'], location: { x: 4, y: 6 }, cache: { gold: 30, items: ['tonic'] }, encounter: { kind: 'cache' as const, resolved: false } }
-    expect(migrateCampaignRoute({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', legacyRecords: [legacy], legacyEncounterAreas: ['mine'] })).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [{ id: 'legacy-1', heirName: 'Ari', biome: 'mine', floor: 2, seed: 9 }], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 } })
+    expect(migrateCampaignRoute({ version: 1, completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', legacyRecords: [legacy], legacyEncounterAreas: ['mine'] })).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], lineageEvents: [], legacyRecords: [{ id: 'legacy-1', heirName: 'Ari', biome: 'mine', floor: 2, seed: 9 }], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 }, cycle: initialCampaignCycle() })
   })
 })
 

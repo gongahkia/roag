@@ -31,7 +31,8 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
     macroRecipeId: `${floor.biome}:${recipeId}`,
     routeContractId: `route:${floor.biome}:${floor.index}:${floor.layoutId}:${escalation ?? 'legacy'}`,
     objectiveId: floor.objective.id,
-    ...(escalation ? { escalation } : {})
+    ...(escalation ? { escalation } : {}),
+    ...(state.campaignCycle ? { campaignCycle: structuredClone(state.campaignCycle) } : {})
   }
 }
 
@@ -176,7 +177,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         completedAreas.push(completed)
         const successor = options.chainAreas === false ? undefined : nextArea(completed, areaOrder)
         if (!successor) { outcome = 'complete'; break }
-        const next = newRun(state.seed, successor, 0, state.hero, state.rescuedNpcs, [], areaOrder)
+        const next = newRun(state.seed, successor, 0, state.hero, state.rescuedNpcs, [], areaOrder, state.campaignCycle)
         next.turn = state.turn
         next.lineageEvents = structuredClone(state.lineageEvents ?? [])
         next.telemetry = structuredClone(state.telemetry!)

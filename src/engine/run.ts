@@ -1,11 +1,11 @@
 import { biomeName } from '../content'
 import { generateAreaFloor } from '../world'
-import type { Biome, CourierCalling, CourierOrigin, DeathMode, Hero, LegacyRecord, RescuedNpc, RunState } from '../types'
+import type { Biome, CampaignCycle, CourierCalling, CourierOrigin, DeathMode, Hero, LegacyRecord, RescuedNpc, RunState } from '../types'
 import { refreshFov } from './visibility'
 import { hydrateEncyclopediaLegacy } from './encyclopedia'
 import { createRunTelemetry } from '../telemetry'
 import { recordSafePosition } from './buildcraft'
-import { DEFAULT_AREA_ORDER, campaignOrderForSeed } from './campaign'
+import { cloneCampaignCycle, DEFAULT_AREA_ORDER, initialCampaignCycle, campaignOrderForSeed } from './campaign'
 import { applyAreaArcState, areaArcStateFor } from '../escalation'
 import { emptySocialReputation } from '../social-contract'
 
@@ -38,7 +38,7 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
   }
 }
 
-export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER): RunState {
+export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER, cycle: CampaignCycle = initialCampaignCycle()): RunState {
   const routePosition = Math.max(0, areaOrder.indexOf(area))
   const floor = generateAreaFloor(seed, area, areaFloor, routePosition)
   const areaArc = areaArcStateFor(seed, area)
@@ -47,7 +47,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   if (inheritedHero && areaFloor === 0 && routePosition > 0) hero.gold = Math.min(500, hero.gold + (hero.boons?.windfall ?? 0) * 20)
   hero.x = floor.start.x
   hero.y = floor.start.y
-  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaArc, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [], alignment: { kami: 0, villagePact: 0 }, reputation: emptySocialReputation() }
+  const state: RunState = { version: 5, seed, floor, hero, messages: [`A route marker names ${biomeName[area]}.`, 'The lodge ledger lists H for help.'], status: 'playing', turn: 0, area, areaFloor, areaArc, areaOrder: [...areaOrder], rescuedNpcs: rescuedNpcs.map(npc => ({ ...npc })), lineageEvents: [], alignment: { kami: 0, villagePact: 0 }, reputation: emptySocialReputation(), campaignCycle: cloneCampaignCycle(cycle) }
   hydrateEncyclopediaLegacy(state, legacyRecords)
   state.telemetry = createRunTelemetry(state)
   refreshFov(state)
@@ -57,5 +57,5 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
 
 export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = []): RunState => {
   const areaOrder = campaignOrderForSeed(seed)
-  return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder)
+  return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, initialCampaignCycle())
 }

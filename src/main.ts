@@ -422,7 +422,7 @@ function start(): void {
   if (!activeCourier) return
   campaign = { ...campaign, selectedBiome: route.biome }
   hubNotice = undefined
-  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
+  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle)
   state.alignment = { ...campaign.alignment }
   state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
   renderer.setHeroFacingLeft(false)
@@ -545,7 +545,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
     campaign = unlockCampaignArea(campaign, successor)
     hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
     beginBiomeTransition(completed, successor, () => {
-      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder)
+      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle)
       next.turn = completedState.turn
       next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
       next.telemetry = structuredClone(completedState.telemetry!)
