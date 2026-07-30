@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CAMPAIGN_AUTOPLAY_PROFILES, CAMPAIGN_AUTOPLAY_SEEDS, assertCampaignAutoplaySuite, campaignAutoplayDelta, campaignAutoplaySuite, compactCampaignAutoplayRun, summarizeCampaignAutoplay, type CampaignAutoplayRun, type CampaignAutoplaySuite } from './autoplay-campaign'
+import { createAutoplayScoreboard } from './autoplay-scoreboard'
 import { isCompleteCampaign, runAutoplay } from './autoplay-runner'
 import { newRun, newSeededCampaignRun } from './engine'
 import { BIOME_POOL, campaignOrderForSeed } from './engine/campaign'
@@ -18,16 +19,19 @@ const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean)
   completedAreas: campaignComplete ? ['mine', 'wilds', 'caverns', 'ruins'] : []
 })
 
-const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
-  version: 3,
-  corpusVersion: 1,
-  partition: 'development',
-  seeds: [7],
-  turnLimit: 19_200,
-  profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
-  runs,
-  summary: summarizeCampaignAutoplay(runs)
-})
+const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => {
+  const current = {
+    version: 4 as const,
+    corpusVersion: 1 as const,
+    partition: 'development' as const,
+    seeds: [7],
+    turnLimit: 19_200,
+    profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
+    runs,
+    summary: summarizeCampaignAutoplay(runs)
+  }
+  return { ...current, scoreboard: createAutoplayScoreboard(current) }
+}
 
 describe('campaign autoplay baseline', () => {
   it('covers every randomized biome in the multi-seed suite', () => {

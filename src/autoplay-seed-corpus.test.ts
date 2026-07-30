@@ -48,7 +48,7 @@ describe('autoplay seed corpus', () => {
     for (const partition of ['development', 'held-out'] as const) {
       const entries = autoplaySeedCorpusPartition(partition)
       const runs: CampaignAutoplayRun[] = entries.flatMap(entry => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ seed: entry.seed, profile: profile.id, mode: profile.mode, policy: profile.policy, areaOrder: [...entry.routeConfiguration.areaOrder], campaignComplete: false, outcome: 'turn-limit', turns: 0, finalBiome: entry.routeConfiguration.areaOrder[0]!, floor: 1, completedAreas: [] })))
-      expect(campaignAutoplaySuite(runs, partition)).toMatchObject({ version: 3, corpusVersion: 1, partition, seeds: entries.map(entry => entry.seed) })
+      expect(campaignAutoplaySuite(runs, partition)).toMatchObject({ version: 4, corpusVersion: 1, partition, seeds: entries.map(entry => entry.seed) })
     }
   })
 })
