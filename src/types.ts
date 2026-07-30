@@ -297,7 +297,10 @@ export type SocialReputation = Record<SocialFaction, number>
 export type CampaignTier = 'base' | 'ngPlus' | 'ngPlusPlus'
 export interface CampaignCycleEvent { sequence: number; tier: CampaignTier; kind: 'entered' | 'victory' }
 export interface CampaignCycle { version: 1; currentTier: CampaignTier; completedTiers: CampaignTier[]; events: CampaignCycleEvent[]; completedCap: boolean }
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
+export interface CampaignCarryoverInventoryDiagnostic { before: ItemId[]; after: ItemId[]; added: ItemId[]; removed: ItemId[] }
+export interface CampaignCarryoverRosterDiagnostic { before: Companion[]; after: Companion[]; added: string[]; removed: string[]; changed: string[] }
+export interface CampaignCarryoverDiagnostic { version: 1; fromTier: CampaignTier; toTier: CampaignTier; inventory: CampaignCarryoverInventoryDiagnostic; roster: CampaignCarryoverRosterDiagnostic }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; carryoverDiagnostics: CampaignCarryoverDiagnostic[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
 
 export interface LegacyRecord {
   id: string
@@ -399,6 +402,7 @@ export type Modal =
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }
+export interface CampaignCarryoverSnapshot { version: 1; fromTier: CampaignTier; hero: Hero; companions: Companion[]; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation: SocialReputation; records: Records }
 
 export const DIRECTIONS: Record<Direction, Point> = {
   nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 },

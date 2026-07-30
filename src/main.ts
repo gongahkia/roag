@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { buyHubItem, campaignContinuationPending, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, unlockCampaignArea, type ScreenRoute } from './engine'
+import { buyHubItem, campaignContinuationPending, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -695,9 +695,16 @@ function handleHubInput(key: string, run = false): boolean {
     if (action === 'continuation') {
       if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined }; return true }
       if (key === 'Enter' || key.toLowerCase() === 'e') {
+        if (!heir || !activeCourier) { hubNotice = 'Courier carryover is unavailable.'; return true }
         const before = campaign.cycle.currentTier
-        campaign = continueCampaignRoute(campaign)
-        if (campaign.cycle.currentTier === before) { hubNotice = 'No campaign continuation is pending.'; route = { ...route, hubAction: undefined }; return true }
+        const snapshot = snapshotCampaignCarryover(heir, campaign, records)
+        const advanced = continueCampaignRoute(campaign)
+        if (advanced.cycle.currentTier === before) { hubNotice = 'No campaign continuation is pending.'; route = { ...route, hubAction: undefined }; return true }
+        const transfer = transferCampaignCarryover(advanced, snapshot)
+        campaign = transfer.campaign
+        heir = transfer.hero
+        records = transfer.records
+        activeCourier.heir = structuredClone(heir)
         hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
         hubNotice = `${campaign.cycle.currentTier === 'ngPlus' ? 'NG+' : 'NG++'} continuation recorded. Press E / ENTER to travel.`
         route = { screen: 'area', biome: campaign.selectedBiome }
