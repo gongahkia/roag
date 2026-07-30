@@ -1,5 +1,6 @@
 import { runAutoplay, type AutoplayOutcome, type AutoplayReport } from './autoplay-runner'
 import { AUTOPLAY_SEED_CORPUS_VERSION, autoplaySeedCorpusPartition, type AutoplaySeedCorpusEntry, type AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
+import type { AutoplayTraceDocument } from './autoplay-trace'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
 import type { AutoplayMode, AutoplayPolicy, AutoplayReplayMetadata, AutoplayTraceEntry, Biome } from './types'
@@ -13,7 +14,7 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
-export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>> }
+export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
@@ -58,7 +59,8 @@ const failure = (report: AutoplayReport): CampaignAutoplayFailure => ({
   completedAreas: [...report.completedAreas],
   replay: { ...report.replay },
   ...(report.stall?.lastReason ? { reason: report.stall.lastReason } : report.error ? { reason: report.error } : {}),
-  trace: report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] }))
+  trace: report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] })),
+  ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {})
 })
 
 export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutoplayProfile, report: AutoplayReport): CampaignAutoplayRun => ({
