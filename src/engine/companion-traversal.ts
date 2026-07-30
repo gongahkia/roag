@@ -20,7 +20,7 @@ export type CompanionTerrainMutationReason = 'ready' | 'target-unseen' | 'target
 export interface CompanionTerrainMutationAssessment { action: CompanionTerrainAction; target: Point; ready: boolean; reason: CompanionTerrainMutationReason }
 
 const allowedTerrain = (action: CompanionTerrainAction): ReadonlySet<TileKind> => action === 'stabilizeTerrain' ? pathmakerTerrain : ritualistHazards
-export const companionTerrainTargets = (state: RunState, action: CompanionTerrainAction): Point[] => state.floor.tiles.flatMap((tile, index) => tile.visible && tile.explored && allowedTerrain(action).has(tile.kind) ? [{ x: index % state.floor.width, y: Math.floor(index / state.floor.width) }] : []).sort((left, right) => distanceFromHero(state, left) - distanceFromHero(state, right) || pointCompare(left, right))
+export const companionTerrainTargets = (state: RunState, action: CompanionTerrainAction): Point[] => state.floor.tiles.flatMap((tile, index) => tile.visible && tile.explored && allowedTerrain(action).has(tile.kind) ? [{ x: index % state.floor.width, y: Math.floor(index / state.floor.width) }] : []).sort((left, right) => distanceFromHero(state, left) - distanceFromHero(state, right) || pointCompare(left, right)).filter(target => companionTerrainMutationAssessment(state, action, target).ready)
 
 export const companionTerrainMutationAssessment = (state: RunState, action: CompanionTerrainAction, target: Point): CompanionTerrainMutationAssessment => {
   const base = { action, target: { ...target } }
