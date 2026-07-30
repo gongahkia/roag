@@ -57,6 +57,8 @@ npm run generation:report
 
 Visible policy features contain only current FOV, explored terrain, visible entities/items, courier kit, and the latest eight action/outcome entries; omniscient diagnostic features use the same typed schema with full-map visibility.
 
+Replay a captured trace with `npm run autoplay:replay -- TRACE.json`; divergence exits non-zero and reports its turn, field, expected value, actual value, and command.
+
 ## Controls
 
 | Key | Action |

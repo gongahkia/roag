@@ -14,6 +14,7 @@
     "smoke:autoplay": "tsx scripts/autoplay-smoke.ts",
     "smoke:autoplay:strict": "AUTOPLAY_REQUIRE_COMPLETION=1 tsx scripts/autoplay-smoke.ts",
     "autoplay:headless": "tsx scripts/autoplay-headless.ts",
+    "autoplay:replay": "tsx scripts/autoplay-trace-replay.ts",
     "autoplay:campaign": "tsx scripts/autoplay-campaign.ts --partition development",
     "autoplay:campaign:development": "tsx scripts/autoplay-campaign.ts --partition development",
     "autoplay:campaign:held-out": "tsx scripts/autoplay-campaign.ts --partition held-out",
