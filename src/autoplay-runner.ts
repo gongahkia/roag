@@ -2,6 +2,7 @@ import { AUTOPLAY_MAX_TURNS, autoplayDecision, autoplayRecoveryFingerprint, auto
 import { newRun, perform } from './engine'
 import { AREA_ORDER, nextArea } from './engine/campaign'
 import { createPolicyProfile, createPolicyRunMetadata, scorePolicyEpisode, type PolicyRunMetadata } from './autoplay-policy'
+import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHistoryEntry } from './autoplay-features'
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { getTile } from './world'
@@ -86,6 +87,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const trace: AutoplayTraceEntry[] = []
   const traceRecords: AutoplayTraceRecord[] = []
   const traceEpisode = createAutoplayTraceEpisode(policyProfile, state.seed, turnLimit)
+  let featureHistory: PolicyFeatureHistoryEntry[] = []
   let context = createAutoplayContext()
   const completedAreas: Biome[] = []
   let stalled = 0
@@ -116,8 +118,10 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
       const command = decision.command
       const before = telemetrySnapshot(state)
       const transition = snapshotAutoplayTransition(state)
+      const beforeResources = { health: state.hero.health, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys }
       const beforeTrace = captureTrace ? { turn: state.turn, replay: autoplayReplayMetadata(state), fingerprint: autoplayTraceFingerprint(state), x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys, objective: state.floor.objective.status } : undefined
       const traceObservation = captureTraceDocument ? observeAutoplayTrace(state, mode) : undefined
+      const traceFeatures = captureTraceDocument ? encodePolicyFeatures(state, mode, featureHistory) : undefined
       const events = perform(state, command)
       observeTelemetryTurn(state, before, events, command)
       recordAutoplayTransitionSnapshot(context, transition, command, state)
@@ -133,7 +137,9 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         before: { x: beforeTrace!.x, y: beforeTrace!.y, health: beforeTrace!.health, focus: beforeTrace!.focus, bombs: beforeTrace!.bombs, ropes: beforeTrace!.ropes, objective: beforeTrace!.objective },
         after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
       })
-      if (traceObservation) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), chosen: { command, reason: decision.reason }, outcome: { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta: { health: state.hero.health - beforeTrace!.health, focus: state.hero.focus - beforeTrace!.focus, gold: state.hero.gold - before.gold, bombs: state.hero.bombs - beforeTrace!.bombs, ropes: state.hero.ropes - beforeTrace!.ropes, keys: state.hero.keys - beforeTrace!.keys }, previousHash: traceRecords.at(-1)?.hash ?? null }))
+      const resourceDelta = { health: state.hero.health - beforeResources.health, focus: state.hero.focus - beforeResources.focus, gold: state.hero.gold - beforeResources.gold, bombs: state.hero.bombs - beforeResources.bombs, ropes: state.hero.ropes - beforeResources.ropes, keys: state.hero.keys - beforeResources.keys }
+      if (traceObservation && traceFeatures) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, features: traceFeatures, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), chosen: { command, reason: decision.reason }, outcome: { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta, previousHash: traceRecords.at(-1)?.hash ?? null }))
+      featureHistory = appendPolicyFeatureHistory(featureHistory, { turn: before.turn, command, reason: decision.reason, events: events.map(event => event.type), resourceDelta })
       if (traceLimit !== undefined && trace.length > traceLimit) trace.splice(0, trace.length - traceLimit)
       commands.push(command)
       if (events.some(event => event.type === 'floor')) {

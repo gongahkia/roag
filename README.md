@@ -55,6 +55,8 @@ npm run generation:report
 
 `src/autoplay-seed-corpus.json` contains fixed 48-seed development and held-out campaign partitions. Tune profiles only with `npm run autoplay:campaign:development`; use `npm run autoplay:campaign:held-out` solely for frozen evaluation. Held-out runs cannot update the campaign baseline.
 
+Visible policy features contain only current FOV, explored terrain, visible entities/items, courier kit, and the latest eight action/outcome entries; omniscient diagnostic features use the same typed schema with full-map visibility.
+
 ## Controls
 
 | Key | Action |
