@@ -1,9 +1,9 @@
 import { DIRECTIONS, type Actor, type Companion, type Direction, type Modal, type RunState } from '../types'
-import { isPassable } from '../world'
 import { executeCompanionRoleAction } from './companion-autonomy'
 import { companionRoleContract } from './companion-roles'
 import { isCompanionActor } from './party'
 import { resolveTurnAfterParty } from './combat'
+import { resolvePartyMove } from './party-resolution'
 import { event, log, type ActionResult } from './shared'
 
 const companionIdForActor = (actor: Actor): string | undefined => actor.status?.find(status => status.startsWith('companion:'))?.slice('companion:'.length)
@@ -39,9 +39,8 @@ export const performDirectCompanionCommand = (state: RunState, modal: Extract<Mo
   if (direction && direction !== 'wait') {
     const delta = DIRECTIONS[direction]
     const target = { x: actor.x + delta.x, y: actor.y + delta.y }
-    if (target.x === state.hero.x && target.y === state.hero.y || !isPassable(state.floor, target.x, target.y)) { log(state, `${companion.name}'s move is blocked.`); return [] }
-    actor.x = target.x
-    actor.y = target.y
+    const resolution = resolvePartyMove(state, actor.id, target)
+    if (!resolution.resolved) { log(state, `${companion.name}'s move is blocked (${resolution.reason}).`); return [] }
     log(state, `${companion.name} moves.`)
     return next(state, modal, companion, 'move')
   }
