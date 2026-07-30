@@ -69,6 +69,8 @@ Replay a captured trace with `npm run autoplay:replay -- TRACE.json`; traces rec
 
 Every non-clear campaign episode includes `failure.code` (`stall`, `death`, `illegal-action`, `hidden-route-miss`, `resource-waste`, `timeout`, or `replay-divergence`) and `failure.diagnosis`: evidence, the replay/partition/seed/profile/heuristic/turn-limit reproduction tuple, final decisions, and resource/traversal context. Reproduce a corpus seed with `npm run autoplay:campaign -- --partition <partition> --seed <seed>`. Tune only on `npm run autoplay:campaign:development`, inspect each failure diagnosis, then run `npm run autoplay:campaign:held-out` for human review; do not promote or update a baseline from held-out output.
 
+Export AP-03 policy traces as stable, versioned JSONL with `npm run autoplay:dataset:development -- --output <path>` or `npm run autoplay:dataset:held-out -- --output <path>`. Add `--seed <seed>` to audit one corpus seed. Records expose decision-time observation, bounded history, legal actions, chosen action, transition/resource reward components, terminal outcome, and field provenance. Visible records omit replay/layout/route metadata and hidden-map fields; the exporter has no Python or ML dependency.
+
 ## Controls
 
 | Key | Action |
