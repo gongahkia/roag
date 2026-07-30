@@ -79,6 +79,22 @@ describe('buildcraft', () => {
     expect(state.messages[0]).toContain('needs an unoccupied')
   })
 
+  it('moves props, not terrain, with Wooden Lever and Roller', () => {
+    const state = createRun({ hero: createHero({ traversalTools: ['woodenLeverRoller'] }) })
+    state.floor.props = [{ id: 'cart', kind: 'mine.brokenCart', biome: 'mine', x: 2, y: 1, state: 'dormant', tags: ['route'], hooks: ['operate'] }]
+    state.floor.tiles[indexOf(2, 1)].kind = 'floor'
+    state.floor.tiles[indexOf(3, 1)].kind = 'floor'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.props[0]).toMatchObject({ x: 3, y: 1 })
+    expect(state.hero.cooldowns?.['tool:woodenLeverRoller']).toBeGreaterThan(0)
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
+    state.hero.cooldowns = {}
+    state.floor.actors.push({ id: 'blocker', role: 'monster', kind: 'mole', name: 'blocker', x: 4, y: 1, health: 1, maxHealth: 1, attack: 1, defense: 0, speed: 1, energy: 1, glyph: 'm', color: '#fff', hostile: true })
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.props[0]).toMatchObject({ x: 3, y: 1 })
+    expect(state.messages[0]).toContain('empty legal destination')
+  })
+
   it('stacks Boons and rewinds position without restoring world state', () => {
     const state = createRun({ hero: createHero({ boons: { timeKnot: 1 }, safePositions: [{ x: 1, y: 1 }, { x: 3, y: 1 }], x: 3, y: 1 }) })
     state.floor.tiles[indexOf(2, 1)].kind = 'lava'

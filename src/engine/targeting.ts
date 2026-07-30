@@ -9,7 +9,7 @@ export const targetPreview = (state: RunState, modal: Extract<Modal, { kind: 'ta
   const delta = DIRECTIONS[modal.direction]
   const origin = state.hero
   const bounds = { width: state.floor.width, height: state.floor.height }
-  if (modal.action === 'drill' || modal.action === 'bridge' || modal.action === 'winch' || modal.action === 'stoneWedge' || modal.action === 'antlerPrybar' || modal.action === 'stoneAdze' || modal.action === 'resinFireBasket') {
+  if (modal.action === 'drill' || modal.action === 'bridge' || modal.action === 'winch' || modal.action === 'stoneWedge' || modal.action === 'antlerPrybar' || modal.action === 'stoneAdze' || modal.action === 'resinFireBasket' || modal.action === 'woodenLeverRoller') {
     const point = { x: origin.x + delta.x, y: origin.y + delta.y }
     return { path: [point], cells: [point] }
   }

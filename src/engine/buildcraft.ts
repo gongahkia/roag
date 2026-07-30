@@ -20,7 +20,8 @@ export const TOOLS: readonly TraversalTool[] = [
   { id: 'ashwayRites', name: 'Ashway Rites', glyph: '≈', cooldown: 8, text: 'Make a two-tile temporary safe path.', overdrive: 'Make a three-tile path, then retire.' },
   { id: 'antlerPrybar', name: 'Antler Prybar', glyph: '⌐', cooldown: 4, text: 'Shift one adjacent boulder or breakwall forward.', overdrive: 'Shift once with a louder exposed footing risk, then retire.' },
   { id: 'stoneAdze', name: 'Stone Adze', glyph: '⌟', cooldown: 5, text: 'Cut one adjacent crate or crumble route.', overdrive: 'Cut once, then retire.' },
-  { id: 'resinFireBasket', name: 'Resin Fire Basket', glyph: '♨', cooldown: 6, text: 'Burn adjacent bramble or web into smoke.', overdrive: 'Burn once with stronger smoke, then retire.' }
+  { id: 'resinFireBasket', name: 'Resin Fire Basket', glyph: '♨', cooldown: 6, text: 'Burn adjacent bramble or web into smoke.', overdrive: 'Burn once with stronger smoke, then retire.' },
+  { id: 'woodenLeverRoller', name: 'Wooden Lever and Roller', glyph: '↔', cooldown: 5, text: 'Push one adjacent movable prop forward.', overdrive: 'Push once, then retire.' }
 ]
 
 export const BOONS: readonly Boon[] = [
@@ -356,7 +357,7 @@ const passableLanding = (state: RunState, target: { x: number; y: number }) => i
 export function useTool(state: RunState, tool: TraversalToolId, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive = false): ActionResult {
   if (!(state.hero.traversalTools ?? []).includes(tool)) { log(state, 'That ritual tool is no longer bound.'); return [] }
   if (toolCooldown(state, tool)) { log(state, `${toolFor(tool).name} is still recovering.`); return [] }
-  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : tool === 'antlerPrybar' ? useAntlerPrybar(state, direction) : tool === 'stoneAdze' ? useStoneAdze(state, direction) : useResinFireBasket(state, direction, overdrive)
+  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : tool === 'antlerPrybar' ? useAntlerPrybar(state, direction) : tool === 'stoneAdze' ? useStoneAdze(state, direction) : tool === 'resinFireBasket' ? useResinFireBasket(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : useWoodenLeverRoller(state, direction)
   if (!result) return []
   const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
@@ -457,6 +458,20 @@ const useResinFireBasket = (state: RunState, direction: Exclude<keyof typeof DIR
   tile.kind = 'smoke'
   state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'burning', duration: overdrive ? 3 : 2, potency: 1 }]
   log(state, overdrive ? 'The resin flares wide; smoke and heat cling to you.' : 'The resin burns the growth into a smoking, risky crossing.')
+  return true
+}
+
+const useWoodenLeverRoller = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>): boolean => {
+  const target = point(state, direction, 1)
+  const destination = point(state, direction, 2)
+  const prop = state.floor.props.find(candidate => candidate.x === target.x && candidate.y === target.y && candidate.state !== 'destroyed' && ['mine.brokenCart', 'caverns.brokenBoat', 'ruins.collapsedArch'].includes(candidate.kind))
+  const tile = getTile(state.floor, destination.x, destination.y)
+  const protectedDestination = destination.x === state.floor.start.x && destination.y === state.floor.start.y || destination.x === state.floor.exit.x && destination.y === state.floor.exit.y || state.floor.actors.some(actor => actor.health > 0 && actor.x === destination.x && actor.y === destination.y) || state.floor.milestones.some(milestone => !milestone.claimed && milestone.x === destination.x && milestone.y === destination.y) || state.floor.props.some(candidate => candidate.state !== 'destroyed' && candidate.x === destination.x && candidate.y === destination.y)
+  if (!prop) { log(state, 'Wooden Lever and Roller needs an adjacent movable prop.'); return false }
+  if (!tile || tile.kind !== 'floor' || protectedDestination) { log(state, 'Wooden Lever and Roller needs an empty legal destination.'); return false }
+  prop.x = destination.x
+  prop.y = destination.y
+  log(state, 'The lever rolls the prop forward, changing the route.')
   return true
 }
 
