@@ -27,6 +27,7 @@ import { armRelicIce, armRelicMirror, armRelicMove, armRelicWaterCrossing, consu
 import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 import { advanceEcology } from '../ecology'
+import { isCompanionActor } from './party'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -56,6 +57,8 @@ export function moveHero(state: RunState, direction: Direction): ActionResult {
   if (tile.kind === 'bramble' && weapon?.weapon?.tags.includes('cleave')) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You cut through the bramble.'); return advance(state, [event('move')]) }
   if (tile.kind === 'rubble' && canBreakRubble(state.hero)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You break through the rubble.'); return advance(state, [event('boom'), event('move')]) }
   if (tile.kind === 'breakwall' && (weapon?.weapon?.tags.includes('breakwall') || weapon?.weapon?.tags.includes('hammer') || state.hero.bombs > 0)) { tile.kind = 'floor'; state.hero.x = x; state.hero.y = y; log(state, 'You open the scored breakwall.'); return advance(state, [event('boom'), event('move')]) }
+  const occupant = actorAt(state.floor, x, y)
+  if (occupant && isCompanionActor(occupant)) { log(state, `${occupant.name} occupies that tile.`); return [] }
   if (!isPassable(state.floor, x, y)) { log(state, 'The way is blocked.'); return [] }
   let destination = { x, y }
   for (let step = 1; ['floor', 'spiritPath', 'saltMirror', 'ice'].includes(tile.kind) && step < agilityMoveDistance(state.hero); step++) {

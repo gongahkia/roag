@@ -13,6 +13,7 @@ import { tend } from './alignment'
 import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
+import { synchronizePartyActors } from './party'
 import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
 import { scriptCastProfile } from './scripts'
@@ -162,6 +163,7 @@ export function descend(state: RunState): ActionResult {
   state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 4 + vitalityRecovery(state.hero))
   state.hero.focus = state.hero.maxFocus
   state.hero.oaths = (state.hero.oaths ?? []).flatMap(oath => oath.remainingFloors <= 1 ? [] : [{ ...oath, remainingFloors: oath.remainingFloors - 1 }])
+  synchronizePartyActors(state, 'floorTransition')
   state.modal = { kind: 'trailcraft' }
   log(state, `You continue through ${biomeName[state.floor.biome]}.`)
   log(state, 'Trail cleared: choose a trailcraft.')

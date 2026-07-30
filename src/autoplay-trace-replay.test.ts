@@ -3,6 +3,7 @@ import { runAutoplay } from './autoplay-runner'
 import { createAutoplayTraceDocument, createAutoplayTraceRecord, type AutoplayTraceDocument } from './autoplay-trace'
 import { replayAutoplayTrace } from './autoplay-trace-replay'
 import { newRun } from './engine'
+import { companionLeadForRescue } from './engine/companions'
 
 const trace = (): AutoplayTraceDocument => runAutoplay(newRun(7), { mode: 'visible', policy: 'clear', turnLimit: 2, captureTrace: true }).traceDocument!
 const rehashed = (document: AutoplayTraceDocument, patch: (record: AutoplayTraceDocument['records'][number]) => AutoplayTraceDocument['records'][number], episode = document.episode): AutoplayTraceDocument => {
@@ -19,6 +20,13 @@ const rehashed = (document: AutoplayTraceDocument, patch: (record: AutoplayTrace
 describe('autoplay trace replay', () => {
   it('replays a valid trace to its terminal state', () => {
     expect(replayAutoplayTrace(trace())).toMatchObject({ valid: true, terminal: { outcome: 'turn-limit', turns: 2 } })
+  })
+
+  it('replays a trace with deterministic active-party placement', () => {
+    const companion = companionLeadForRescue({ id: 'rescue:mine:1:mika', name: 'Mika', biome: 'mine', floor: 1 })
+    companion.rosterStatus = 'active'
+    const document = runAutoplay(newRun(71, 'mine', 0, undefined, [], [], undefined, undefined, [companion]), { mode: 'visible', policy: 'clear', turnLimit: 1, captureTrace: true }).traceDocument!
+    expect(replayAutoplayTrace(document)).toMatchObject({ valid: true })
   })
 
   it('reports tampered action, seed, mode, and resource delta precisely', () => {

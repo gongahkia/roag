@@ -6,6 +6,7 @@ import { recordGeneratedOptionalContent, recordOptionalContent } from '../teleme
 import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
+import { synchronizePartyActors } from './party'
 
 const at = (left: { x: number; y: number }, right: { x: number; y: number }): boolean => left.x === right.x && left.y === right.y
 const routeAtHero = (state: RunState): SecretRoute | undefined => (state.floor.secretRoutes ?? []).find(route => route.kind === 'rare-transition' && at(route.entry, state.hero) && isPassable(state.floor, route.entry.x, route.entry.y) && state.floor.secretRooms?.find(room => room.id === route.roomId)?.discovery)
@@ -21,6 +22,7 @@ export const takeSecretShortcut = (state: RunState): ActionResult | undefined =>
     state.hero.x = returning.arrival.x
     state.hero.y = returning.arrival.y
     delete state.shortcutReturn
+    synchronizePartyActors(state, 'shortcut')
     refreshFov(state)
     recordOptionalContent(state, 'used', `shortcut-return:${returning.routeId}`)
     log(state, 'You follow the return link to the opened secret entry.')
@@ -41,6 +43,7 @@ export const takeSecretShortcut = (state: RunState): ActionResult | undefined =>
   state.areaFloor = route.destination.floor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y
+  synchronizePartyActors(state, 'shortcut')
   refreshFov(state)
   recordOptionalContent(state, 'used', `shortcut:${route.id}`)
   log(state, `Shortcut taken: ${secretShortcutReport(route)}.`)
