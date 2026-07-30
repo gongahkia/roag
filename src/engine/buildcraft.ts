@@ -5,7 +5,7 @@ import { getTile, isPassable } from '../world'
 import { advance } from './combat'
 import { event, log, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
-import { recordTelemetryCount } from '../telemetry'
+import { recordInteraction, recordTelemetryCount } from '../telemetry'
 import { armRelicTraversal, consumeRelicTool, relicAlignment, relicChoices, relicFor } from './relics'
 import { tend } from './alignment'
 import { isTerrainMutationTool, terrainMutationAssessment, type TerrainMutationReason } from './terrain-mutations'
@@ -367,13 +367,14 @@ const passableLanding = (state: RunState, target: { x: number; y: number }) => i
 export function useTool(state: RunState, tool: TraversalToolId, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive = false): ActionResult {
   const mutation = isTerrainMutationTool(tool) ? terrainMutationAssessment(state, tool, direction, overdrive) : undefined
   const terrainRejectionMessage = (reason: string): string => reason === 'unbound' ? 'That ritual tool is no longer bound.' : reason === 'cooldown' ? `${toolFor(tool).name} is still recovering.` : reason === 'target-unseen' ? 'That terrain target is not visible.' : reason === 'destination-unseen' ? 'That terrain destination is not visible.' : tool === 'stoneAdze' ? 'Stone Adze cuts only an adjacent wooden barrier or weakened route.' : tool === 'resinFireBasket' ? 'Resin Fire Basket needs an unoccupied adjacent bramble or web.' : tool === 'antlerPrybar' ? reason === 'destination-blocked' ? 'Antler Prybar needs an empty legal destination beyond the target.' : 'Antler Prybar needs an adjacent boulder or breakwall.' : reason === 'destination-blocked' ? 'Wooden Lever and Roller needs an empty legal destination.' : 'Wooden Lever and Roller needs an adjacent movable prop.'
-  const terrainRejected = (reason: TerrainMutationReason): ActionResult => { log(state, `terrain:${tool}:attempted`); log(state, `terrain:${tool}:rejected:${reason}`); log(state, terrainRejectionMessage(reason)); return [event('terrain', tool, 'attempted'), event('terrain', tool, `rejected:${reason}`)] }
+  const terrainRejected = (reason: TerrainMutationReason): ActionResult => { recordInteraction(state, 'rejectedInteractions', `terrain:${tool}:${reason}`); if (mutation?.routeBlocked) recordInteraction(state, 'routeFailures', `terrain:${tool}:mandatory-route`); log(state, `terrain:${tool}:attempted`); log(state, `terrain:${tool}:rejected:${reason}`); log(state, terrainRejectionMessage(reason)); return [event('terrain', tool, 'attempted'), event('terrain', tool, `rejected:${reason}`)] }
   if (!(state.hero.traversalTools ?? []).includes(tool)) { if (mutation) return terrainRejected('unbound'); log(state, 'That ritual tool is no longer bound.'); return [] }
   if (toolCooldown(state, tool)) { if (mutation) return terrainRejected('cooldown'); log(state, `${toolFor(tool).name} is still recovering.`); return [] }
   if (mutation && !mutation.ready) return terrainRejected(mutation.reason)
   if (mutation) log(state, `terrain:${tool}:attempted`)
   const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : tool === 'antlerPrybar' ? useAntlerPrybar(state, direction) : tool === 'stoneAdze' ? useStoneAdze(state, direction) : tool === 'resinFireBasket' ? useResinFireBasket(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : useWoodenLeverRoller(state, direction)
   if (!result) return mutation ? terrainRejected('execution-failed') : []
+  recordInteraction(state, 'terrainToolUses', `${state.floor.biome}:${tool}`)
   const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
   const focus = boonRank(state, 'cordTempo')

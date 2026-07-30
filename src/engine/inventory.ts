@@ -25,7 +25,7 @@ import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } fro
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
 import { acquireOptionalTraversalTool, boonRank, openMilestone, toolFor } from './buildcraft'
-import { recordSecretValue, recordTelemetryCount } from '../telemetry'
+import { recordGeneratedOptionalContent, recordOptionalContent, recordSecretValue, recordTelemetryCount } from '../telemetry'
 import { consumeRelicSpell } from './relics'
 import { armRelicMove, armRelicWaterCrossing } from './relics'
 import { openEncounter } from './encounters'
@@ -38,6 +38,7 @@ const resolveSecretPickup = (state: RunState, item: GroundItem): void => {
   const claim = claimSecretReward(state, item.secretId)
   if (!claim || claim === 'already-resolved') return
   recordSecretValue(state, claim.resolution.rewardValue)
+  recordOptionalContent(state, 'used', `secret-resolution:${claim.room.id}:${claim.resolution.rewardKind}`)
   recordTelemetryCount(state, 'eventOutcomes', `secret-reward:${claim.resolution.rewardKind}`)
   recordTelemetryCount(state, 'eventOutcomes', `secret-risk:${claim.resolution.riskKind}`)
   log(state, secretResolutionMessage(claim.room))
@@ -154,6 +155,7 @@ export function descend(state: RunState): ActionResult {
   const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(biome))
   state.floor = generateAreaFloor(state.seed, biome, nextAreaFloor, routePosition)
   applyAreaArcState(state.floor, areaArc)
+  recordGeneratedOptionalContent(state)
   state.areaFloor = nextAreaFloor
   state.hero.x = state.floor.start.x
   state.hero.y = state.floor.start.y

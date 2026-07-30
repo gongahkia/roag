@@ -1,10 +1,10 @@
 import { DIRECTIONS, type Direction, type RunState, type TraversalToolId } from '../types'
-import { getTile } from '../world'
+import { getTile, hasMandatoryCompletionRoute } from '../world'
 
 export const terrainMutationTools = ['antlerPrybar', 'stoneAdze', 'resinFireBasket', 'woodenLeverRoller'] as const satisfies readonly TraversalToolId[]
 export type TerrainMutationTool = typeof terrainMutationTools[number]
 export type TerrainMutationReason = 'ready' | 'unbound' | 'cooldown' | 'target-unseen' | 'destination-unseen' | 'target-invalid' | 'target-occupied' | 'target-protected' | 'destination-blocked' | 'execution-failed'
-export interface TerrainMutationAssessment { tool: TerrainMutationTool; target: { x: number; y: number }; affected: { x: number; y: number }[]; ready: boolean; reason: TerrainMutationReason; cooldown: number; overdrive: boolean; risk?: 'marked' | 'burning' }
+export interface TerrainMutationAssessment { tool: TerrainMutationTool; target: { x: number; y: number }; affected: { x: number; y: number }[]; ready: boolean; reason: TerrainMutationReason; cooldown: number; overdrive: boolean; risk?: 'marked' | 'burning'; routeBlocked?: boolean }
 
 export const isTerrainMutationTool = (tool: TraversalToolId): tool is TerrainMutationTool => terrainMutationTools.includes(tool as TerrainMutationTool)
 const protectedPoint = (state: RunState, point: { x: number; y: number }): boolean => (point.x === state.floor.start.x && point.y === state.floor.start.y) || (point.x === state.floor.exit.x && point.y === state.floor.exit.y) || state.floor.milestones.some(milestone => !milestone.claimed && milestone.x === point.x && milestone.y === point.y)
@@ -27,6 +27,10 @@ export const terrainMutationAssessment = (state: RunState, tool: TerrainMutation
   if (tool === 'antlerPrybar') {
     if (!['boulder', 'breakwall'].includes(targetTile.kind)) return { ...base, affected, ready: false, reason: 'target-invalid' }
     if (destinationTile!.kind !== 'floor' || protectedPoint(state, destination) || occupiedPoint(state, destination) || state.floor.props.some(prop => prop.state !== 'destroyed' && prop.x === destination.x && prop.y === destination.y)) return { ...base, affected, ready: false, reason: 'destination-blocked' }
+    const mutated = structuredClone(state.floor)
+    getTile(mutated, destination.x, destination.y)!.kind = targetTile.kind
+    getTile(mutated, target.x, target.y)!.kind = 'floor'
+    if (hasMandatoryCompletionRoute(state.floor) && !hasMandatoryCompletionRoute(mutated)) return { ...base, affected, ready: false, reason: 'destination-blocked', routeBlocked: true }
   }
   if (tool === 'stoneAdze' && !['crate', 'crumble'].includes(targetTile.kind)) return { ...base, affected, ready: false, reason: 'target-invalid' }
   if (tool === 'resinFireBasket') {

@@ -24,6 +24,7 @@ describe('secret discovery clues', () => {
     refreshFov(sight)
     expect(sight.floor.secretRooms![0]!.discovery).toEqual({ channel: 'sight', turn: 0 })
     expect(sight.messages[0]).toContain('Secret found by sight')
+    expect(sight.telemetry?.optionalContent?.discovered).toMatchObject({ [`secret:${sight.floor.secretRooms![0]!.id}`]: 1 })
 
     const sound = fixture('sound')
     refreshFov(sound)

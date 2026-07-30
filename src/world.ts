@@ -2307,8 +2307,12 @@ const objectiveTargets = (floor: Floor): Point[] => {
 const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => hasPassablePath(floor, floor.start, { x: target.x + x, y: target.y + y }))
 const containsReachable = (floor: Floor, reachable: ReadonlySet<number>, point: Point): boolean => inBounds(floor, point.x, point.y) && reachable.has(indexOf(floor, point.x, point.y))
 const reachesObjective = (floor: Floor, reachable: ReadonlySet<number>, targets: readonly Point[]): boolean => targets.some(target => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => containsReachable(floor, reachable, { x: target.x + x, y: target.y + y })))
+export const hasMandatoryCompletionRoute = (floor: Floor): boolean => {
+  const reachable = reachableIndexes(floor)
+  return containsReachable(floor, reachable, floor.exit) && reachesObjective(floor, reachable, objectiveTargets(floor))
+}
 
-export const validateSecretRoutes = (floor: Floor, reachable = reachableIndexes(floor)): string[] => {
+export const validateSecretRoutes = (floor: Floor): string[] => {
   const errors: string[] = []
   const rooms = floor.secretRooms ?? []
   const routes = floor.secretRoutes ?? []
@@ -2337,27 +2341,33 @@ export const validateSecretRoutes = (floor: Floor, reachable = reachableIndexes(
   for (const room of rooms) for (const [index, entry] of room.entries.entries()) if (!routes.some(route => route.id === `secret-route:${room.id}:access:${index}` && route.kind === 'concealed-passage' && route.entry.x === entry.x && route.entry.y === entry.y)) errors.push(`missing secret route: ${room.id}:${index}`)
   for (const space of spaces) if (space.kind === 'mine-breach-room' && space.rareTransition && !routes.some(route => route.id === `secret-route:secret-room:${space.id}:transition` && route.kind === 'rare-transition' && route.destination?.biome === space.rareTransition?.targetBiome && route.destination?.floor === space.rareTransition?.targetFloor)) errors.push(`missing secret transition: ${space.id}`)
   const secretCells = rooms.flatMap(room => [...room.entries, ...room.chamber])
-  if (secretCells.some(point => containsReachable(floor, reachable, point))) {
-    const sealed = new Map<number, { kind: TileKind; flow?: Tile['flow'] }>()
-    for (const point of secretCells) {
-      const current = getTile(floor, point.x, point.y)
-      if (!current) continue
-      const index = indexOf(floor, point.x, point.y)
-      if (!sealed.has(index)) sealed.set(index, { kind: current.kind, ...(current.flow ? { flow: { ...current.flow } } : {}) })
-      current.kind = 'wall'
-      delete current.flow
-    }
-    const primary = reachableIndexes(floor)
-    if (!containsReachable(floor, primary, floor.exit) || !reachesObjective(floor, primary, objectiveTargets(floor))) errors.push('secret dependency on campaign completion')
-    for (const [index, original] of sealed) {
-      const current = floor.tiles[index]!
-      current.kind = original.kind
-      if (original.flow) current.flow = original.flow
-      else delete current.flow
-    }
+  if (!secretCells.length) return errors
+  const sealed = new Map<number, { kind: TileKind; flow?: Tile['flow'] }>()
+  for (const point of secretCells) {
+    const current = getTile(floor, point.x, point.y)
+    if (!current) continue
+    const index = indexOf(floor, point.x, point.y)
+    if (!sealed.has(index)) sealed.set(index, { kind: current.kind, ...(current.flow ? { flow: { ...current.flow } } : {}) })
+    current.kind = 'wall'
+    delete current.flow
+  }
+  if (!hasMandatoryCompletionRoute(floor)) errors.push('secret dependency on campaign completion')
+  for (const [index, original] of sealed) {
+    const current = floor.tiles[index]!
+    current.kind = original.kind
+    if (original.flow) current.flow = original.flow
+    else delete current.flow
   }
   return errors
 }
+
+export const validateShortcutLandings = (floor: Floor): string[] => (floor.secretRoutes ?? []).flatMap(route => {
+  if (route.kind !== 'rare-transition' || !route.destination || route.destination.biome !== floor.biome || route.destination.floor < 0 || route.destination.floor > 3) return []
+  try {
+    const landing = generateAreaFloor(floor.seed, route.destination.biome, route.destination.floor)
+    return isPassable(landing, landing.start.x, landing.start.y) && hasMandatoryCompletionRoute(landing) ? [] : [`unsafe shortcut landing: ${route.id}`]
+  } catch { return [`unsafe shortcut landing: ${route.id}`] }
+})
 
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
@@ -2449,9 +2459,17 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }
-  errors.push(...validateSecretRoutes(floor, reachable))
+  errors.push(...validateSecretRoutes(floor), ...validateShortcutLandings(floor))
   for (const error of validateAreaGate(gateForArea(floor.biome))) errors.push(`impossible gate: ${error}`)
   return { valid: errors.length === 0, errors }
 }
+
+export interface GenerationValidationFailure { seed: number; biome: Floor['biome']; floor: number; routeNode: string; invariant: string }
+const routeNodeForFailure = (floor: Floor, invariant: string): string => {
+  const route = routeContractDebug(floor)
+  const kind = invariant.includes('secret') || invariant.includes('shortcut') ? 'optionalReward' : invariant.includes('objective') ? 'objective' : invariant.includes('exit') ? 'exit' : invariant.includes('start') ? 'start' : 'fork'
+  return route?.nodes.find(node => node.kind === kind)?.id ?? `floor:${floor.index % 4}:${kind}`
+}
+export const generationValidationFailures = (floor: Floor, validation = validateGeneration(floor)): GenerationValidationFailure[] => validation.errors.map(invariant => ({ seed: floor.seed, biome: floor.biome, floor: floor.index % 4, routeNode: routeNodeForFailure(floor, invariant), invariant }))
 
 export const validateFloor = (floor: Floor): boolean => validateGeneration(floor).valid

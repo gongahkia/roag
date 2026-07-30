@@ -1,6 +1,6 @@
 import { generateRouteContract } from '../src/route-contract'
 import { escalationFor } from '../src/escalation'
-import { areaFloorIndex, generateAreaFloor, layoutFor, validateGeneration } from '../src/world'
+import { areaFloorIndex, generateAreaFloor, generationValidationFailures, layoutFor, validateGeneration } from '../src/world'
 import type { Biome } from '../src/types'
 
 const seedCount = Number(process.env.GENERATION_SWEEP_SEEDS ?? 1000)
@@ -18,8 +18,9 @@ for (const biome of migratedBiomes) for (let seed = startSeed; seed < startSeed 
   const escalation = escalationFor(seed, biome, areaFloor)
   const contract = generateRouteContract({ campaignSeed: seed, floorIndex: areaFloorIndex(biome, areaFloor), biome, areaFloor, recipeId: recipe, escalationVariant: `${escalation.arcId}:${escalation.phase}` })
   try {
-    const validation = validateGeneration(generateAreaFloor(seed, biome, areaFloor))
-    if (!validation.valid) throw new Error(validation.errors.join('; '))
+    const floor = generateAreaFloor(seed, biome, areaFloor)
+    const validation = validateGeneration(floor)
+    if (!validation.valid) throw new Error(generationValidationFailures(floor, validation).map(failure => `route=${failure.routeNode} invariant=${failure.invariant}`).join('; '))
   } catch (error) {
     throw new Error(`generation sweep failed seed=${seed} biome=${biome} floor=${areaFloor} recipe=${recipe} contract=${contract.id}: ${error instanceof Error ? error.message : String(error)}`)
   }

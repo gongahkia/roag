@@ -29,6 +29,7 @@ describe('secret reward and risk rules', () => {
     pickUp(state)
     expect(room.resolution).toMatchObject({ rewardKind: room.rewardProfile.kind, rewardValue: room.rewardProfile.value, riskKind: room.riskProfile.kind })
     expect(state.telemetry?.secretValue).toBe(room.rewardProfile.value)
+    expect(state.telemetry?.optionalContent?.used).toMatchObject({ [`secret-resolution:${room.id}:${room.rewardProfile.kind}`]: 1 })
     expect(state.messages.join('\n')).toContain('Secret resolved')
     state.floor.items = [{ ...item }]
     pickUp(state)

@@ -3,7 +3,7 @@ import { newRun } from './engine'
 import { fieldReadout } from './engine/readout'
 import { takeSecretShortcut } from './engine/shortcuts'
 import { measureGeneration } from './generation-metrics'
-import { getTile, hasPassablePath, validateGeneration, validateSecretRoutes } from './world'
+import { getTile, hasPassablePath, validateGeneration, validateSecretRoutes, validateShortcutLandings } from './world'
 
 const shortcutFixture = () => {
   const state = newRun(7, 'mine', 1)
@@ -26,6 +26,7 @@ describe('same-biome secret shortcuts', () => {
     expect(state.floor).toMatchObject({ biome: 'mine', index: 3 })
     expect(state.hero).toMatchObject(state.floor.start)
     expect(hasPassablePath(state.floor, state.floor.start, state.floor.exit)).toBe(true)
+    expect(state.telemetry?.optionalContent).toMatchObject({ generated: { [`shortcut:${route.id}`]: 1 }, used: { [`shortcut:${route.id}`]: 1 } })
   })
 
   it('requires discovery and an opened entry before traversal', () => {
@@ -60,6 +61,7 @@ describe('same-biome secret shortcuts', () => {
     expect(takeSecretShortcut(state)).toEqual([])
     expect(state.floor.biome).toBe('mine')
     expect(state.messages[0]).toContain('cannot leave its biome')
+    expect(state.telemetry?.optionalContent?.failed).toMatchObject({ [`shortcut:${route.id}:invalid-landing`]: 1 })
     expect(validateSecretRoutes(state.floor)).toEqual(expect.arrayContaining([`invalid secret transition: ${route.id}`]))
   })
 
@@ -72,6 +74,7 @@ describe('same-biome secret shortcuts', () => {
     const { state } = shortcutFixture()
     const metrics = measureGeneration({ floor: state.floor, validation: validateGeneration(state.floor) })
 
+    expect(validateShortcutLandings(state.floor)).toEqual([])
     expect(metrics.sideSpaces.shortcuts).toEqual([expect.objectContaining({
       report: 'one-way mine shortcut to floor 4, arrival at floor start; no return',
       entryCondition: 'sealed-breakwall'

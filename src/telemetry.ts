@@ -1,11 +1,13 @@
 import type { ActionResult } from './engine/shared'
-import type { RunAnalysis, RunFloorMetrics, RunMetricSample, RunOutcome, RunState, RunTelemetry } from './types'
+import type { InteractionTelemetry, OptionalContentTelemetry, RunAnalysis, RunFloorMetrics, RunMetricSample, RunOutcome, RunState, RunTelemetry } from './types'
 
 export interface TelemetrySnapshot { turn: number; floor: number; hero: { x: number; y: number }; health: number; focus: number; gold: number; xp: number; bombs: number; ropes: number; hostiles: Map<string, number>; guardians: Map<string, string> }
 export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'relicPicks' | 'purchases' | 'enemyKills' | 'eventOutcomes' | 'deathCauses' | 'terrainInteractions' | 'bossPhases'
 
 const emptyActions = () => ({ moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 })
 const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {}, terrainInteractions: {}, bossPhases: {} })
+const emptyOptionalContent = (): OptionalContentTelemetry => ({ generated: {}, discovered: {}, used: {}, failed: {} })
+const emptyInteractions = (): InteractionTelemetry => ({ terrainToolUses: {}, rejectedInteractions: {}, routeFailures: {} })
 const floorMetrics = (floor: number): RunFloorMetrics => ({ floor, turns: 0, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, secretValue: 0 })
 
 export const telemetrySnapshot = (state: RunState): TelemetrySnapshot => ({
@@ -35,8 +37,13 @@ const sampleFor = (state: RunState, metrics: RunTelemetry): RunMetricSample => (
   damageTaken: metrics.damageTaken
 })
 
+const generatedOptionalContent = (state: RunState): OptionalContentTelemetry['generated'] => ({
+  ...Object.fromEntries((state.floor.secretRooms ?? []).map(room => [`secret:${room.id}`, 1])),
+  ...Object.fromEntries((state.floor.secretRoutes ?? []).filter(route => route.kind === 'rare-transition').map(route => [`shortcut:${route.id}`, 1]))
+})
+
 export const createRunTelemetry = (state: RunState): RunTelemetry => {
-  const metrics: RunTelemetry = { turns: state.turn, actions: emptyActions(), kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, secretValue: 0, ...emptyCounters(), samples: [], floors: [floorMetrics(state.floor.index + 1)] }
+  const metrics: RunTelemetry = { turns: state.turn, actions: emptyActions(), kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, secretValue: 0, ...emptyCounters(), optionalContent: { ...emptyOptionalContent(), generated: generatedOptionalContent(state) }, interactions: emptyInteractions(), samples: [], floors: [floorMetrics(state.floor.index + 1)] }
   metrics.samples.push(sampleFor(state, metrics))
   return metrics
 }
@@ -46,6 +53,8 @@ const normalizeTelemetry = (metrics: RunTelemetry): RunTelemetry => {
   metrics.secretValue ??= 0
   for (const floor of metrics.floors) floor.secretValue ??= 0
   Object.assign(metrics, Object.fromEntries(Object.entries(emptyCounters()).filter(([key]) => !metrics[key as TelemetryCounter])))
+  metrics.optionalContent ??= emptyOptionalContent()
+  metrics.interactions ??= emptyInteractions()
   return metrics
 }
 
@@ -56,6 +65,14 @@ export const recordTelemetryCount = (state: RunState, counter: TelemetryCounter,
   const metrics = telemetryFor(state)
   metrics[counter][key] = (metrics[counter][key] ?? 0) + amount
 }
+
+const record = (counter: Record<string, number>, key: string): void => { if (key) counter[key] = (counter[key] ?? 0) + 1 }
+export const recordOptionalContent = (state: RunState, phase: keyof OptionalContentTelemetry, key: string): void => record(telemetryFor(state).optionalContent![phase], key)
+export const recordGeneratedOptionalContent = (state: RunState): void => {
+  const generated = telemetryFor(state).optionalContent!.generated
+  for (const [key, count] of Object.entries(generatedOptionalContent(state))) generated[key] = (generated[key] ?? 0) + count
+}
+export const recordInteraction = (state: RunState, kind: keyof InteractionTelemetry, key: string): void => record(telemetryFor(state).interactions![kind], key)
 
 export const recordTelemetryKill = (state: RunState, enemyId: string): void => {
   const metrics = telemetryFor(state)

@@ -44,12 +44,14 @@ describe('generation metrics', () => {
     expect(report.placements).toMatchObject({ selected: 1, fallbacks: 0 })
     expect(report.terrain.find(entry => entry.id === 'floor')?.count).toBeGreaterThan(0)
     expect(report.boonTiming.boonDistances).toHaveLength(3)
+    expect(report.validationFailures).toEqual([])
   })
 
   it('rejects an open macrograph and confirms recipe variance across the focused sweep', () => {
     const report = measureGeneration(input)
     const open = measureGeneration({ ...input, macro: { ...macro, edges: [] } })
     expect(open.acceptance.errors).toContain('route choices below threshold: 0')
+    expect(measureGeneration({ ...input, validation: { valid: false, errors: ['exit unreachable'] } }).validationFailures).toEqual([expect.objectContaining({ seed: 42, biome: 'mine', floor: 0, routeNode: 'floor:0:exit', invariant: 'exit unreachable' })])
     expect(summarizeGenerationMetrics([report, { ...report, trace: { ...report.trace, recipe: 'alternate-recipe' }, topology: { ...report.topology, topology: 'broad' } }]).acceptance).toEqual({ valid: true, errors: [] })
   })
 })

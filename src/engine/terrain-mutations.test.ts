@@ -72,6 +72,27 @@ describe('terrain mutation diagnostics', () => {
     expect(rejected.messages).toContain('terrain:stoneAdze:attempted')
     expect(rejected.messages).toContain('terrain:stoneAdze:rejected:target-invalid')
     expect(burning.messages).toContain('terrain:resinFireBasket:hazard:burning')
+    expect(burning.telemetry?.interactions).toMatchObject({ terrainToolUses: { 'mine:resinFireBasket': 1 } })
+    expect(rejected.telemetry?.interactions).toMatchObject({ rejectedInteractions: { 'terrain:stoneAdze:target-invalid': 1 } })
+  })
+
+  it('rejects a mutation that would close the mandatory completion route', () => {
+    const state = createRun({ hero: createHero({ traversalTools: ['antlerPrybar'] }) })
+    state.floor.tiles.forEach(tile => { tile.kind = 'wall'; tile.visible = true })
+    state.floor.start = { x: 1, y: 1 }
+    state.floor.exit = { x: 4, y: 1 }
+    state.floor.objective = { id: 'altar', kind: 'invokeAltar', status: 'active', label: 'Invoke the altar.' }
+    state.hero.x = 1
+    state.hero.y = 1
+    state.floor.tiles[indexOf(1, 1)]!.kind = 'floor'
+    state.floor.tiles[indexOf(2, 1)]!.kind = 'breakwall'
+    state.floor.tiles[indexOf(3, 1)]!.kind = 'floor'
+    state.floor.tiles[indexOf(4, 1)]!.kind = 'exit'
+    state.floor.tiles[indexOf(1, 2)]!.kind = 'altar'
+    state.floor.tiles[indexOf(2, 2)]!.kind = 'floor'
+    expect(targetPreview(state, { kind: 'target', action: 'antlerPrybar', tool: 'antlerPrybar', direction: 'e' }).mutation).toMatchObject({ ready: false, reason: 'destination-blocked', routeBlocked: true })
+    expect(useTool(state, 'antlerPrybar', 'e').map(eventLabel)).toEqual(['terrain:antlerPrybar:attempted', 'terrain:antlerPrybar:rejected:destination-blocked'])
+    expect(state.telemetry?.interactions).toMatchObject({ routeFailures: { 'terrain:antlerPrybar:mandatory-route': 1 } })
   })
 
   it('preserves terrain identifiers in replay divergence fixtures', () => {

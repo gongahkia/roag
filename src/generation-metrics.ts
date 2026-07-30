@@ -2,9 +2,9 @@ import type { MacroRecipeDebug } from './macro-recipe'
 import type { PlacementDebug } from './placement-contract'
 import type { RouteContract } from './route-contract'
 import type { Floor, Point } from './types'
-import type { GenerationValidation } from './world'
+import type { GenerationValidation, GenerationValidationFailure } from './world'
 import { secretShortcutReport } from './secrets'
-import { traverseFloor } from './world'
+import { generationValidationFailures, traverseFloor } from './world'
 
 export interface GenerationMetricInput {
   floor: Floor
@@ -26,6 +26,7 @@ export interface GenerationMetrics {
   sideSpaces: { total: number; kinds: Count[]; rewards: Count[]; transitions: Count[]; shortcuts: Array<{ id: string; report: string; entryCondition: string }> }
   boonTiming: { milestones: Count[]; boonDistances: number[]; averageBoonDistance: number }
   validation: GenerationValidation
+  validationFailures: GenerationValidationFailure[]
   acceptance: { valid: boolean; errors: string[] }
 }
 
@@ -126,6 +127,7 @@ export const measureGeneration = ({ floor, route, macro, placements = [], valida
     sideSpaces: { total: floor.sideSpaces?.length ?? 0, kinds: count((floor.sideSpaces ?? []).map(space => space.kind)), rewards: count((floor.sideSpaces ?? []).map(space => space.reward.id)), transitions: count((floor.sideSpaces ?? []).flatMap(space => space.kind === 'mine-breach-room' && space.rareTransition ? [space.rareTransition.kind] : [])), shortcuts: (floor.secretRoutes ?? []).filter(route => route.kind === 'rare-transition').map(route => ({ id: route.id, report: secretShortcutReport(route), entryCondition: route.entryCondition })).sort((left, right) => left.id.localeCompare(right.id)) },
     boonTiming: { milestones: count(floor.milestones.map(milestone => milestone.kind)), boonDistances, averageBoonDistance: boonDistances.length ? Number((boonDistances.reduce((sum, distance) => sum + distance, 0) / boonDistances.length).toFixed(2)) : 0 },
     validation,
+    validationFailures: generationValidationFailures(floor, validation),
     acceptance: acceptance(validation, macro, measuredTopology)
   }
 }

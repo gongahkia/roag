@@ -217,7 +217,7 @@ describe('run persistence migration', () => {
   it('adds telemetry when loading a pre-telemetry run', () => {
     const run = newRun(790)
     delete run.telemetry
-    expect(migrateRunRecord(run)).toMatchObject({ telemetry: { turns: 0, samples: [{ turn: 0 }], floors: [{ floor: 1 }] } })
+    expect(migrateRunRecord(run)).toMatchObject({ telemetry: { turns: 0, optionalContent: { generated: expect.any(Object), discovered: {}, used: {}, failed: {} }, interactions: { terrainToolUses: {}, rejectedInteractions: {}, routeFailures: {} }, samples: [{ turn: 0 }], floors: [{ floor: 1 }] } })
   })
 
   it('preserves social reputation in run and campaign migrations', () => {
