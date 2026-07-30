@@ -6,7 +6,7 @@ import { assertAutoplayTraceDocument, type AutoplayTraceDocument } from './autop
 import { assertAutoplayScoreboard, createAutoplayScoreboard, type AutoplayScoreboard } from './autoplay-scoreboard'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
-import type { AutoplayMode, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayTraceEntry, Biome } from './types'
+import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayTraceEntry, Biome } from './types'
 
 export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = autoplaySeedCorpusPartition('development').map(entry => entry.seed)
 export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = autoplaySeedCorpusPartition('development')[0]!.turnBudget
@@ -18,7 +18,7 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
 export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
-export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; resourceOutcomes: AutoplayResourceOutcomes; traceHash?: string }
+export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; resourceOutcomes: AutoplayResourceOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; traceHash?: string }
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfileRef; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; evaluation?: CampaignAutoplayEvaluation; traceDocument?: AutoplayTraceDocument; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
@@ -37,12 +37,13 @@ export const campaignAutoplayRunMatchesCorpus = (entry: AutoplaySeedCorpusEntry,
 const assertCampaignAutoplayEvaluation = (run: CampaignAutoplayRun): void => {
   const evaluation = run.evaluation
   if (!evaluation) return
-  const { policyMetadata, explorationValue, resourcesSpent, resourcesRetained, resourceOutcomes } = evaluation
+  const { policyMetadata, explorationValue, resourcesSpent, resourcesRetained, resourceOutcomes, optionalOutcomes } = evaluation
   const score = policyMetadata.score
   const integer = (value: number) => Number.isSafeInteger(value) && value >= 0
   if (policyMetadata.seed !== run.seed || policyMetadata.profile.id !== `${run.mode}-${run.policy}` || policyMetadata.profile.informationMode !== run.mode || policyMetadata.profile.policy !== run.policy) throw new Error('campaign autoplay evaluation policy metadata does not match its run')
   if (!integer(explorationValue) || !integer(resourcesSpent) || !integer(resourcesRetained) || !integer(score.campaignClears) || !integer(score.deaths) || !integer(score.stalls) || !integer(score.explorationValue) || !Number.isSafeInteger(score.resourceEfficiency)) throw new Error('campaign autoplay evaluation has invalid metrics')
   if (!integer(resourceOutcomes.selected) || !integer(resourceOutcomes.deferred) || !integer(resourceOutcomes.rejected) || !integer(resourceOutcomes.projectedRouteGains) || !integer(resourceOutcomes.criticalRouteSelections)) throw new Error('campaign autoplay evaluation has invalid resource outcomes')
+  if (!integer(optionalOutcomes.pursued) || !integer(optionalOutcomes.deferred) || !integer(optionalOutcomes.declined) || !integer(optionalOutcomes.secrets) || !integer(optionalOutcomes.shortcuts)) throw new Error('campaign autoplay evaluation has invalid optional outcomes')
   if (explorationValue !== score.explorationValue || policyMetadata.scoreTuple.some((value, index) => value !== policyScoreTuple(score)[index])) throw new Error('campaign autoplay evaluation score tuple is inconsistent')
   if (score.campaignClears !== (run.campaignComplete ? 1 : 0) || score.deaths !== (run.outcome === 'dead' ? 1 : 0) || score.stalls !== (run.outcome === 'stalled' || run.outcome === 'turn-limit' ? 1 : 0)) throw new Error('campaign autoplay evaluation score does not match its run')
   const traceDocument = run.traceDocument ?? run.failure?.traceDocument
@@ -96,6 +97,7 @@ const evaluation = (report: AutoplayReport): CampaignAutoplayEvaluation => {
     resourcesSpent: report.metrics.bombsUsed + report.metrics.ropesUsed,
     resourcesRetained: report.final.hero.bombs + report.final.hero.ropes + report.final.hero.keys,
     resourceOutcomes: { ...report.resourceOutcomes },
+    optionalOutcomes: { ...report.optionalOutcomes },
     ...(report.traceDocument ? { traceHash: report.traceDocument.hash } : {})
   }
 }

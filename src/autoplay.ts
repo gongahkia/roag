@@ -13,7 +13,7 @@ import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices, toolCooldo
 import { relicChoices } from './engine/relics'
 import { encounterOptions } from './engine/encounters'
 import { autoplayHeuristicProfile, type AutoplayHeuristicProfile } from './autoplay-heuristics'
-import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type AutoplayResourceAction, type AutoplayResourceAssessment, type AutoplayToolAssessment, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind, type TraversalToolId } from './types'
+import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayOptionalAssessment, type AutoplayPolicy, type AutoplayResourceAction, type AutoplayResourceAssessment, type AutoplayToolAssessment, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type SideSpace, type TileKind, type TraversalToolId } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
 
@@ -90,11 +90,11 @@ type TargetAction = Extract<Modal, { kind: 'target' }>['action']
 type TargetOutcome = { direction: Exclude<Direction, 'wait'>; score: number; mobilityGain: number; terrainCleared: number; routeGained: boolean; observedRouteGained: boolean; harm: number; kills: number }
 type Candidate = AutoplayCandidate & { intent?: Intent; routePlan?: RoutePlan; propPlanId?: string; telegraphRoute?: TelegraphRoute; toolPlan?: ToolPlan }
 type CandidateLookaheadBaseline = { fingerprint: string; hasStrategicRoute: boolean }
-export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[]; resourceDiagnostics: AutoplayResourceAssessment[]; toolDiagnostics: AutoplayToolAssessment[] }
-export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; resourceDiagnostics: AutoplayResourceAssessment[]; toolDiagnostics: AutoplayToolAssessment[]; intent?: Intent; toolPlan?: ToolPlan; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
+export interface AutoplayDecision { command: string; reason: string; candidates: AutoplayCandidate[]; resourceDiagnostics: AutoplayResourceAssessment[]; toolDiagnostics: AutoplayToolAssessment[]; optionalDiagnostics: AutoplayOptionalAssessment[] }
+export interface AutoplayContext { visits: Map<string, number>; strategicVisits: Map<string, number>; failed: Map<string, number>; recoveryVisits: Map<string, number>; closedMerchants: Set<string>; rejectedObjectiveTargets: Set<string>; recentPositions: string[]; resourceDiagnostics: AutoplayResourceAssessment[]; toolDiagnostics: AutoplayToolAssessment[]; optionalDiagnostics: AutoplayOptionalAssessment[]; intent?: Intent; toolPlan?: ToolPlan; objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; propPlanId?: string; routePlan?: RoutePlan; lastTelegraphRoute?: TelegraphRoute; bestStrategicDistance?: number; startedTurn?: number; shopTurns: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; lastReason?: string }
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
-export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], resourceDiagnostics: [], toolDiagnostics: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
+export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], resourceDiagnostics: [], toolDiagnostics: [], optionalDiagnostics: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
 export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
 export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
 export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
@@ -1327,6 +1327,64 @@ const toolAssessments = (state: RunState, mode: Exclude<AutoplayMode, 'off'>): A
 }
 export const autoplayToolDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>): AutoplayToolAssessment[] => toolAssessments(state, mode)
 
+type OptionalRouteAssessment = { assessment: AutoplayOptionalAssessment; space: SideSpace; entryBlocked: boolean }
+const optionalReward = (state: RunState, space: SideSpace) => state.floor.items.find(item => item.x === space.reward.x && item.y === space.reward.y && item.id === space.reward.id) ?? space.reward
+const optionalEvidenceVisible = (state: RunState, space: SideSpace): boolean => visible(state, space.approach) && visible(state, space.entry) && visible(state, optionalReward(state, space))
+const optionalThreat = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace): number => {
+  const points = [space.approach, space.entry, optionalReward(state, space)]
+  const hostile = hostileKnown(state, mode).filter(actor => points.some(point => chebyshev(actor, point) <= 2)).reduce((total, actor) => total + Math.max(24, actor.attack * 8), 0)
+  const telegraph = points.some(point => telegraphDanger(state, point)) ? 80 : 0
+  return hostile + telegraph
+}
+const optionalEscapeRoute = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, space: SideSpace): boolean => {
+  const simulated = planningClone(state)
+  const entry = getTile(simulated.floor, space.entry.x, space.entry.y)
+  if (entry?.kind === 'breakwall') entry.kind = 'floor'
+  return knownPassablePath(simulated, mode, optionalReward(simulated, space), simulated.hero)
+}
+const optionalRouteAssessments = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): OptionalRouteAssessment[] => {
+  const assessments = (state.floor.sideSpaces ?? []).map(space => {
+    const shortcut = space.kind === 'mine-breach-room' && space.rareTransition?.kind === 'floorSkip' && space.rareTransition.targetBiome === state.floor.biome
+    const evidence = mode === 'visible' ? optionalEvidenceVisible(state, space) : true
+    const entryBlocked = getTile(state.floor, space.entry.x, space.entry.y)?.kind === 'breakwall'
+    const target = entryBlocked ? space.approach : optionalReward(state, space)
+    const payoff = (ITEM[optionalReward(state, space).id]?.value ?? 40) * optionalReward(state, space).count + (shortcut ? 220 : 0)
+    const pathCost = chebyshev(state.hero, target)
+    const resourceCost = { bombs: Number(entryBlocked), ropes: 0 }
+    const threat = optionalThreat(state, mode, space)
+    const escapeRoute = optionalEscapeRoute(state, mode, space)
+    const remainingObjective = state.floor.objective.status === 'complete' && state.floor.guardianDefeated ? 0 : Math.min(99, strategicDistance(state))
+    const expectedValue = payoff + (escapeRoute ? 45 : -160) - threat - pathCost * 12 - resourceCost.bombs * 60 - remainingObjective * 8
+    const base = { id: space.id, kind: shortcut ? 'shortcut' as const : 'secret' as const, evidence: mode === 'visible' ? 'visible' as const : 'omniscient-diagnostic' as const, payoff, threat, pathCost, resourceCost, escapeRoute, remainingObjective, expectedValue, target: { ...target }, rejectedAlternatives: [] }
+    const reservedBomb = resourceCost.bombs > 0 && knownCriticalRoute(state, mode) && state.hero.bombs - resourceCost.bombs < resourceReserve(heuristics, policy)
+    if (!evidence) return { assessment: { ...base, disposition: 'decline' as const, rationale: 'visible payoff or risk evidence required' }, space, entryBlocked }
+    if (!knownPassablePath(state, mode, state.hero, space.approach)) return { assessment: { ...base, disposition: 'defer' as const, rationale: 'no known route to optional approach' }, space, entryBlocked }
+    if (!escapeRoute) return { assessment: { ...base, disposition: 'decline' as const, rationale: 'no verified escape route' }, space, entryBlocked }
+    if (threat >= state.hero.health * 6) return { assessment: { ...base, disposition: 'decline' as const, rationale: 'lethal optional threat' }, space, entryBlocked }
+    if (resourceCost.bombs > state.hero.bombs) return { assessment: { ...base, disposition: 'defer' as const, rationale: 'optional resource unavailable' }, space, entryBlocked }
+    if (reservedBomb) return { assessment: { ...base, disposition: 'defer' as const, rationale: 'reserved critical resource required' }, space, entryBlocked }
+    if (policy !== 'explore') return { assessment: { ...base, disposition: 'defer' as const, rationale: 'policy prioritizes campaign objective' }, space, entryBlocked }
+    if (remainingObjective > 0) return { assessment: { ...base, disposition: 'defer' as const, rationale: 'complete current objective first' }, space, entryBlocked }
+    if (expectedValue < 40) return { assessment: { ...base, disposition: 'decline' as const, rationale: 'expected value below survival threshold' }, space, entryBlocked }
+    return { assessment: { ...base, disposition: 'pursue' as const, rationale: shortcut ? 'profitable same-biome shortcut' : 'profitable optional secret' }, space, entryBlocked }
+  })
+  return assessments.map(current => ({ ...current, assessment: { ...current.assessment, rejectedAlternatives: assessments.filter(other => other !== current && other.assessment.disposition !== 'pursue').map(other => `${other.assessment.kind}:${other.assessment.id}:${other.assessment.rationale}`).sort() } }))
+}
+export const autoplayOptionalDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayOptionalAssessment[] => optionalRouteAssessments(state, mode, policy, heuristics).map(entry => entry.assessment)
+
+const optionalRouteCandidate = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
+  const selected = optionalRouteAssessments(state, mode, policy, heuristics).filter(entry => entry.assessment.disposition === 'pursue').sort((left, right) => right.assessment.expectedValue - left.assessment.expectedValue || left.assessment.id.localeCompare(right.assessment.id))[0]
+  if (!selected) return undefined
+  const { assessment, space, entryBlocked } = selected
+  if (entryBlocked && chebyshev(state.hero, space.entry) <= 1) {
+    const direction = directions.find(([, delta]) => state.hero.x + delta.x === space.entry.x && state.hero.y + delta.y === space.entry.y)?.[0]
+    const target = direction ? usableTarget(state, mode, 'bomb') : undefined
+    if (direction && target && target.terrainCleared > 0 && target.harm === 0 && state.hero.bombs > 0) return { command: 'b', reason: `open optional ${assessment.kind}:${assessment.id}`, score: 250 + assessment.expectedValue / 8 }
+  }
+  const route = stepTo(state, mode, [assessment.target], false, true)
+  return route ? { command: route.command, reason: `pursue optional ${assessment.kind}:${assessment.id}`, score: 230 + assessment.expectedValue / 8 } : undefined
+}
+
 const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undefined => {
   const frontier = state.floor.tiles.flatMap((tile, index) => {
     if (!tile.explored || blockedTiles.has(tile.kind)) return []
@@ -1346,6 +1404,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const candidates: Candidate[] = []
   context.resourceDiagnostics = state.hero.bombs > 0 || state.hero.ropes > 0 || state.hero.inventory.some(item => kitActions.has(ITEM[item]?.use as TargetAction)) ? resourceAssessments(state, mode as Exclude<AutoplayMode, 'off'>, policy, heuristics) : []
   context.toolDiagnostics = (state.hero.traversalTools?.length ?? 0) ? toolAssessments(state, mode as Exclude<AutoplayMode, 'off'>) : []
+  context.optionalDiagnostics = policy === 'explore' ? optionalRouteAssessments(state, mode as Exclude<AutoplayMode, 'off'>, policy, heuristics).map(entry => entry.assessment) : []
   const resourceDecision = (action: AutoplayResourceAction, item?: string): AutoplayResourceAssessment | undefined => context.resourceDiagnostics.find(candidate => candidate.action === action && candidate.item === item)
   const selectedTool = context.toolDiagnostics.filter(candidate => candidate.disposition === 'select').sort((left, right) => Number(left.overdrive) - Number(right.overdrive) || left.tool.localeCompare(right.tool))[0]
   const waitingTool = context.toolDiagnostics.filter(candidate => candidate.disposition === 'defer').sort((left, right) => left.cooldown - right.cooldown || left.tool.localeCompare(right.tool))[0]
@@ -1354,6 +1413,8 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const needsOffering = state.floor.objective.kind === 'invokeAltar' && state.hero.gold < 75
   const tile = getTile(state.floor, heroPoint.x, heroPoint.y)
   const rooted = Boolean(state.hero.conditions?.some(condition => condition.kind === 'rooted'))
+  const optionalRoute = policy === 'explore' ? optionalRouteCandidate(state, mode as Exclude<AutoplayMode, 'off'>, policy, heuristics) : undefined
+  if (optionalRoute) candidates.push(optionalRoute)
   if (tile?.kind === 'exit' && objectiveComplete) return [{ command: 'q', reason: 'descend', score: 180 }]
   const canPick = (item: { id: string }): boolean => item.id === 'gold' || item.id === 'key' || state.hero.inventory.length < 12
   const groundItems = objectiveComplete ? [] : state.floor.items.filter(current => current.x === heroPoint.x && current.y === heroPoint.y && isKnownItem(state, mode, current, Boolean(current.visibleInFog)))
@@ -1561,6 +1622,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if (mode === 'off' || state.status !== 'playing') return undefined
   if (!state.modal) context.toolPlan = undefined
   context.resourceDiagnostics = []
+  context.optionalDiagnostics = []
   if (!context.toolPlan) context.toolDiagnostics = []
   context.startedTurn ??= state.turn
   const turnBudget = autoplayTurnBudget(state)
@@ -1573,9 +1635,9 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     return undefined
   }
   const plannedTool = toolPlanDecision(state, context)
-  if (plannedTool) return { command: plannedTool.command, reason: plannedTool.reason, candidates: [plannedTool], resourceDiagnostics: [], toolDiagnostics: structuredClone(context.toolDiagnostics) }
+  if (plannedTool) return { command: plannedTool.command, reason: plannedTool.reason, candidates: [plannedTool], resourceDiagnostics: [], toolDiagnostics: structuredClone(context.toolDiagnostics), optionalDiagnostics: [] }
   const modal = modalDecision(state, mode, policy, context, heuristics)
-  if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal], resourceDiagnostics: [], toolDiagnostics: [] }
+  if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal], resourceDiagnostics: [], toolDiagnostics: [], optionalDiagnostics: [] }
   const routePlan = context.routePlan
   if (routePlan) {
     const validTarget = routePlan.kind === 'objective'
@@ -1592,7 +1654,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
         if (!routePlan.commands.length) context.routePlan = undefined
         const candidate = { command, reason: routePlan.kind === 'exit' ? 'continue predictive exit route' : `continue predictive objective route:${state.floor.objective.kind}`, score: 205 }
         context.lastReason = candidate.reason
-        return { command, reason: candidate.reason, candidates: [candidate], resourceDiagnostics: [], toolDiagnostics: [] }
+        return { command, reason: candidate.reason, candidates: [candidate], resourceDiagnostics: [], toolDiagnostics: [], optionalDiagnostics: [] }
       }
       context.routePlan = undefined
     }
@@ -1638,7 +1700,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       if (recovery.routePlan) context.routePlan = recovery.routePlan
       if (recovery.telegraphRoute) context.lastTelegraphRoute = recovery.telegraphRoute
       context.lastReason = recovery.reason
-      return { command: recovery.command, reason: recovery.reason, candidates: [recovery], resourceDiagnostics: structuredClone(context.resourceDiagnostics), toolDiagnostics: structuredClone(context.toolDiagnostics) }
+      return { command: recovery.command, reason: recovery.reason, candidates: [recovery], resourceDiagnostics: structuredClone(context.resourceDiagnostics), toolDiagnostics: structuredClone(context.toolDiagnostics), optionalDiagnostics: structuredClone(context.optionalDiagnostics) }
     }
   }
   const candidates = scoredAutoplayCandidates(state, mode, policy, context, fingerprint, heuristics).filter(candidate => Number.isFinite(candidate.score))
@@ -1655,7 +1717,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   if (choice.routePlan) context.routePlan = choice.routePlan
   if (choice.telegraphRoute) context.lastTelegraphRoute = choice.telegraphRoute
   context.lastReason = choice.reason
-  return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })), resourceDiagnostics: structuredClone(context.resourceDiagnostics), toolDiagnostics: structuredClone(context.toolDiagnostics) }
+  return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })), resourceDiagnostics: structuredClone(context.resourceDiagnostics), toolDiagnostics: structuredClone(context.toolDiagnostics), optionalDiagnostics: structuredClone(context.optionalDiagnostics) }
 }
 
 export const autoplayCommand = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context?: AutoplayContext, heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): string | undefined => autoplayDecision(state, mode, policy, context, heuristics)?.command

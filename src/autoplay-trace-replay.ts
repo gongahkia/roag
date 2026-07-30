@@ -39,6 +39,7 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
     if (!same(record.legalCandidates, decision.candidates)) return failure(record, 'legal-candidates', record.legalCandidates, decision.candidates)
     if (record.resourceDiagnostics && !same(record.resourceDiagnostics, decision.resourceDiagnostics)) return failure(record, 'resource-diagnostics', record.resourceDiagnostics, decision.resourceDiagnostics)
     if (record.toolDiagnostics && !same(record.toolDiagnostics, decision.toolDiagnostics)) return failure(record, 'tool-diagnostics', record.toolDiagnostics, decision.toolDiagnostics)
+    if (record.optionalDiagnostics && !same(record.optionalDiagnostics, decision.optionalDiagnostics)) return failure(record, 'optional-diagnostics', record.optionalDiagnostics, decision.optionalDiagnostics)
     if (record.chosen.command !== decision.command || record.chosen.reason !== decision.reason) return failure(record, 'chosen-command', record.chosen, { command: decision.command, reason: decision.reason })
     const before = telemetrySnapshot(state)
     const beforeResources = { health: state.hero.health, focus: state.hero.focus, gold: state.hero.gold, bombs: state.hero.bombs, ropes: state.hero.ropes, keys: state.hero.keys }

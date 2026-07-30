@@ -21,7 +21,8 @@ const run = (seed: number, profile: typeof CAMPAIGN_AUTOPLAY_PROFILES[number], o
     explorationValue: currentScore.explorationValue,
     resourcesSpent: 3,
     resourcesRetained: 5,
-    resourceOutcomes: { selected: 0, deferred: 0, rejected: 0, projectedRouteGains: 0, criticalRouteSelections: 0 }
+    resourceOutcomes: { selected: 0, deferred: 0, rejected: 0, projectedRouteGains: 0, criticalRouteSelections: 0 },
+    optionalOutcomes: { pursued: 0, deferred: 0, declined: 0, secrets: 0, shortcuts: 0 }
   }
 })
 
@@ -53,6 +54,13 @@ describe('autoplay evaluation scoreboard', () => {
     ], [1]))
     expect(scoreboard.byProfile.map(entry => entry.scoreTuple)).toEqual([[1, 0, 0, 10, 2], [1, 0, 0, 10, 2]])
     expect(scoreboard.winner).toBeUndefined()
+  })
+
+  it('separates optional exploration outcomes from campaign clears', () => {
+    const optional = run(1, CAMPAIGN_AUTOPLAY_PROFILES[1], 'stalled', score(0, 0, 1, 8, 1))
+    optional.evaluation!.optionalOutcomes = { pursued: 2, deferred: 1, declined: 3, secrets: 1, shortcuts: 1 }
+    const scoreboard = createAutoplayScoreboard(input([optional], [1]))
+    expect(scoreboard.overall).toMatchObject({ clearCount: 0, optionalOutcomes: { pursued: 2, deferred: 1, declined: 3, secrets: 1, shortcuts: 1 } })
   })
 
   it('rejects a scoreboard that differs from its episode data', () => {

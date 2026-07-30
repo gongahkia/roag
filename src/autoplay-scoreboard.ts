@@ -1,13 +1,13 @@
 import { comparePolicyScores, policyScoreTuple, type PolicyScore, type PolicyScoreTuple } from './autoplay-policy'
 import { assertAutoplayTraceDocument } from './autoplay-trace'
-import type { AutoplayMode, AutoplayPolicy } from './types'
+import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPolicy } from './types'
 import type { CampaignAutoplayProfile, CampaignAutoplayProfileId, CampaignAutoplayRun } from './autoplay-campaign'
 import type { AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
 
 export const AUTOPLAY_SCOREBOARD_VERSION = 1 as const
 export type AutoplayScoreboardEpisodeStatus = 'complete' | 'failed' | 'incomplete' | 'missing'
-export interface AutoplayScoreboardEpisode { seed: number; profile: CampaignAutoplayProfileId; policy: AutoplayPolicy; informationMode: Exclude<AutoplayMode, 'off'>; status: AutoplayScoreboardEpisodeStatus; outcome?: CampaignAutoplayRun['outcome']; turns?: number; score?: PolicyScore; scoreTuple?: PolicyScoreTuple; explorationValue?: number; resourcesSpent?: number; resourcesRetained?: number; traceHash?: string }
-export interface AutoplayScoreboardAggregate { expected: number; observed: number; missing: number; incomplete: number; failed: number; clearCount: number; clearRate: number; deaths: number; stalls: number; turns: number; explorationValue: number; resourcesSpent: number; resourcesRetained: number; score: PolicyScore; scoreTuple: PolicyScoreTuple }
+export interface AutoplayScoreboardEpisode { seed: number; profile: CampaignAutoplayProfileId; policy: AutoplayPolicy; informationMode: Exclude<AutoplayMode, 'off'>; status: AutoplayScoreboardEpisodeStatus; outcome?: CampaignAutoplayRun['outcome']; turns?: number; score?: PolicyScore; scoreTuple?: PolicyScoreTuple; explorationValue?: number; resourcesSpent?: number; resourcesRetained?: number; optionalOutcomes?: AutoplayOptionalOutcomes; traceHash?: string }
+export interface AutoplayScoreboardAggregate { expected: number; observed: number; missing: number; incomplete: number; failed: number; clearCount: number; clearRate: number; deaths: number; stalls: number; turns: number; explorationValue: number; resourcesSpent: number; resourcesRetained: number; optionalOutcomes: AutoplayOptionalOutcomes; score: PolicyScore; scoreTuple: PolicyScoreTuple }
 export interface AutoplayScoreboardProfileAggregate extends AutoplayScoreboardAggregate { profile: CampaignAutoplayProfileId; policy: AutoplayPolicy; informationMode: Exclude<AutoplayMode, 'off'> }
 export interface AutoplayScoreboardPolicyAggregate extends AutoplayScoreboardAggregate { policy: AutoplayPolicy }
 export interface AutoplayScoreboardModeAggregate extends AutoplayScoreboardAggregate { informationMode: Exclude<AutoplayMode, 'off'> }
@@ -18,6 +18,8 @@ export interface AutoplayScoreboardInput { partition: AutoplaySeedCorpusPartitio
 
 const scoreZero = (): PolicyScore => ({ campaignClears: 0, deaths: 0, stalls: 0, explorationValue: 0, resourceEfficiency: 0 })
 const addScore = (total: PolicyScore, score: PolicyScore): PolicyScore => ({ campaignClears: total.campaignClears + score.campaignClears, deaths: total.deaths + score.deaths, stalls: total.stalls + score.stalls, explorationValue: total.explorationValue + score.explorationValue, resourceEfficiency: total.resourceEfficiency + score.resourceEfficiency })
+const optionalZero = (): AutoplayOptionalOutcomes => ({ pursued: 0, deferred: 0, declined: 0, secrets: 0, shortcuts: 0 })
+const addOptional = (total: AutoplayOptionalOutcomes, outcomes: AutoplayOptionalOutcomes): AutoplayOptionalOutcomes => ({ pursued: total.pursued + outcomes.pursued, deferred: total.deferred + outcomes.deferred, declined: total.declined + outcomes.declined, secrets: total.secrets + outcomes.secrets, shortcuts: total.shortcuts + outcomes.shortcuts })
 const compareText = (left: string, right: string): number => left.localeCompare(right)
 
 const assertTrace = (run: CampaignAutoplayRun): void => {
@@ -38,12 +40,13 @@ const episode = (seed: number, profile: CampaignAutoplayProfile, run?: CampaignA
   const scoreTuple = policyScoreTuple(score)
   if (evaluation.explorationValue !== score.explorationValue || evaluation.policyMetadata.scoreTuple.some((value, index) => value !== scoreTuple[index])) throw new Error('autoplay scoreboard evaluation score tuple is inconsistent')
   if (score.campaignClears !== (run.campaignComplete ? 1 : 0) || score.deaths !== (run.outcome === 'dead' ? 1 : 0) || score.stalls !== (run.outcome === 'stalled' || run.outcome === 'turn-limit' ? 1 : 0)) throw new Error('autoplay scoreboard evaluation score does not match its run')
-  return { seed, profile: profile.id, policy: profile.policy, informationMode: profile.mode, status: run.campaignComplete ? 'complete' : 'failed', outcome: run.outcome, turns: run.turns, score, scoreTuple, explorationValue: evaluation.explorationValue, resourcesSpent: evaluation.resourcesSpent, resourcesRetained: evaluation.resourcesRetained, ...(evaluation.traceHash ? { traceHash: evaluation.traceHash } : {}) }
+  return { seed, profile: profile.id, policy: profile.policy, informationMode: profile.mode, status: run.campaignComplete ? 'complete' : 'failed', outcome: run.outcome, turns: run.turns, score, scoreTuple, explorationValue: evaluation.explorationValue, resourcesSpent: evaluation.resourcesSpent, resourcesRetained: evaluation.resourcesRetained, optionalOutcomes: { ...evaluation.optionalOutcomes }, ...(evaluation.traceHash ? { traceHash: evaluation.traceHash } : {}) }
 }
 
 const aggregate = (episodes: readonly AutoplayScoreboardEpisode[]): AutoplayScoreboardAggregate => {
   const observed = episodes.filter(entry => entry.score)
   const score = observed.reduce<PolicyScore>((total, entry) => addScore(total, entry.score!), scoreZero())
+  const optionalOutcomes = observed.reduce<AutoplayOptionalOutcomes>((total, entry) => addOptional(total, entry.optionalOutcomes ?? optionalZero()), optionalZero())
   const clearCount = observed.reduce((total, entry) => total + entry.score!.campaignClears, 0)
   return {
     expected: episodes.length,
@@ -59,6 +62,7 @@ const aggregate = (episodes: readonly AutoplayScoreboardEpisode[]): AutoplayScor
     explorationValue: score.explorationValue,
     resourcesSpent: observed.reduce((total, entry) => total + entry.resourcesSpent!, 0),
     resourcesRetained: observed.reduce((total, entry) => total + entry.resourcesRetained!, 0),
+    optionalOutcomes,
     score,
     scoreTuple: policyScoreTuple(score)
   }
@@ -107,6 +111,6 @@ export const assertAutoplayScoreboard = (scoreboard: AutoplayScoreboard, input: 
 
 export const formatAutoplayScoreboard = (scoreboard: AutoplayScoreboard): string => [
   `partition=${scoreboard.partition} clear=${scoreboard.overall.clearCount}/${scoreboard.overall.expected} missing=${scoreboard.overall.missing} incomplete=${scoreboard.overall.incomplete} failed=${scoreboard.overall.failed}`,
-  ...scoreboard.byProfile.map(entry => `profile=${entry.profile} clear=${entry.clearCount}/${entry.expected} deaths=${entry.deaths} stalls=${entry.stalls} turns=${entry.turns} exploration=${entry.explorationValue} spent=${entry.resourcesSpent} retained=${entry.resourcesRetained} score=${entry.scoreTuple.join(',')}`),
+  ...scoreboard.byProfile.map(entry => `profile=${entry.profile} clear=${entry.clearCount}/${entry.expected} deaths=${entry.deaths} stalls=${entry.stalls} turns=${entry.turns} exploration=${entry.explorationValue} optional=${entry.optionalOutcomes.pursued}/${entry.optionalOutcomes.deferred}/${entry.optionalOutcomes.declined} spent=${entry.resourcesSpent} retained=${entry.resourcesRetained} score=${entry.scoreTuple.join(',')}`),
   `winner=${scoreboard.winner?.profile ?? 'none'}`
 ].join('\n')

@@ -281,6 +281,10 @@ export interface AutoplayResourceOutcomes { selected: number; deferred: number; 
 export type AutoplayToolDisposition = 'select' | 'defer' | 'reject'
 export interface AutoplayToolAssessment { tool: TraversalToolId; disposition: AutoplayToolDisposition; rationale: string; cooldown: number; overdrive: boolean; retires: boolean; projectedRouteGain: boolean; survivalGain: boolean; legalDirections: Exclude<Direction, 'wait'>[]; rejectedAlternatives: string[] }
 export interface AutoplayToolOutcomes { selected: number; deferred: number; rejected: number; uses: number; retirements: number }
+export type AutoplayOptionalKind = 'secret' | 'shortcut'
+export type AutoplayOptionalDisposition = 'pursue' | 'defer' | 'decline'
+export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptionalKind; disposition: AutoplayOptionalDisposition; rationale: string; evidence: 'visible' | 'omniscient-diagnostic'; payoff: number; threat: number; pathCost: number; resourceCost: { bombs: number; ropes: number }; escapeRoute: boolean; remainingObjective: number; expectedValue: number; target: Point; rejectedAlternatives: string[] }
+export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
 export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string }
 export interface AutoplayTraceEntry {
   turn: number
@@ -291,6 +295,7 @@ export interface AutoplayTraceEntry {
   candidates: AutoplayCandidate[]
   resourceDiagnostics?: AutoplayResourceAssessment[]
   toolDiagnostics?: AutoplayToolAssessment[]
+  optionalDiagnostics?: AutoplayOptionalAssessment[]
   events: string[]
   nextFingerprint: string
   before: { x: number; y: number; health: number; focus: number; bombs: number; ropes: number; objective: string }

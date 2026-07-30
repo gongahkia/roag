@@ -7,12 +7,12 @@ import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHis
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { getTile } from './world'
-import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
+import { DIRECTIONS, type AutoplayMode, type AutoplayOptionalOutcomes, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayResourceOutcomes, type AutoplayToolOutcomes, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
 export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
 export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfile; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean; chainFloors?: boolean; captureTrace?: boolean; traceLimit?: number; includeState?: boolean; includeDebug?: boolean }
 export interface AutoplayFinalState { status: RunState['status']; areaFloor: number; hero: { x: number; y: number; health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }; exit: { x: number; y: number }; objective: RunState['floor']['objective']; guardianDefeated: boolean; exitPath: 'clear' | 'actor-blocked' | 'terrain-blocked'; hostiles: Array<{ id: string; x: number; y: number; health: number; ai?: string }>; modal?: string }
-export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; resourceOutcomes: AutoplayResourceOutcomes; toolOutcomes: AutoplayToolOutcomes; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
+export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; resourceOutcomes: AutoplayResourceOutcomes; toolOutcomes: AutoplayToolOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
 
 export const isCompleteCampaign = (outcome: AutoplayOutcome, completedAreas: readonly Biome[], areaOrder: readonly Biome[] = AREA_ORDER): boolean => outcome === 'complete' && completedAreas.length === areaOrder.length && completedAreas.every((biome, index) => biome === areaOrder[index])
 
@@ -90,6 +90,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const traceRecords: AutoplayTraceRecord[] = []
   const resourceOutcomes: AutoplayResourceOutcomes = { selected: 0, deferred: 0, rejected: 0, projectedRouteGains: 0, criticalRouteSelections: 0 }
   const toolOutcomes: AutoplayToolOutcomes = { selected: 0, deferred: 0, rejected: 0, uses: 0, retirements: 0 }
+  const optionalOutcomes: AutoplayOptionalOutcomes = { pursued: 0, deferred: 0, declined: 0, secrets: 0, shortcuts: 0 }
   const traceEpisode = createAutoplayTraceEpisode(policyProfile, state.seed, turnLimit, heuristicProfile)
   let featureHistory: PolicyFeatureHistoryEntry[] = []
   let context = createAutoplayContext()
@@ -126,6 +127,10 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         if (assessment.disposition === 'select' && assessment.knownCriticalRoute) resourceOutcomes.criticalRouteSelections++
       }
       if (decision.reason.startsWith('tool:') || decision.reason.startsWith('wait tool cooldown:')) for (const assessment of decision.toolDiagnostics) toolOutcomes[assessment.disposition === 'select' ? 'selected' : assessment.disposition === 'defer' ? 'deferred' : 'rejected']++
+      if (decision.reason.startsWith('pursue optional') || decision.reason.startsWith('open optional')) for (const assessment of decision.optionalDiagnostics) {
+        optionalOutcomes[assessment.disposition === 'pursue' ? 'pursued' : assessment.disposition === 'defer' ? 'deferred' : 'declined']++
+        if (assessment.disposition === 'pursue') optionalOutcomes[assessment.kind === 'shortcut' ? 'shortcuts' : 'secrets']++
+      }
       const before = telemetrySnapshot(state)
       const transition = snapshotAutoplayTransition(state)
       const beforeTools = [...(state.hero.traversalTools ?? [])]
@@ -149,13 +154,14 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         candidates: decision.candidates,
         ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}),
         ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}),
+        ...(decision.optionalDiagnostics.length ? { optionalDiagnostics: structuredClone(decision.optionalDiagnostics) } : {}),
         events: events.map(event => event.type),
         nextFingerprint: autoplayTraceFingerprint(state),
         before: { x: beforeTrace!.x, y: beforeTrace!.y, health: beforeTrace!.health, focus: beforeTrace!.focus, bombs: beforeTrace!.bombs, ropes: beforeTrace!.ropes, objective: beforeTrace!.objective },
         after: { x: state.hero.x, y: state.hero.y, health: state.hero.health, focus: state.hero.focus, bombs: state.hero.bombs, ropes: state.hero.ropes, objective: state.floor.objective.status, ...(state.modal ? { modal: state.modal.kind } : {}) }
       })
       const resourceDelta = { health: state.hero.health - beforeResources.health, focus: state.hero.focus - beforeResources.focus, gold: state.hero.gold - beforeResources.gold, bombs: state.hero.bombs - beforeResources.bombs, ropes: state.hero.ropes - beforeResources.ropes, keys: state.hero.keys - beforeResources.keys }
-      if (traceObservation && traceFeatures) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, features: traceFeatures, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}), ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}), chosen: { command, reason: decision.reason }, outcome: { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta, previousHash: traceRecords.at(-1)?.hash ?? null }))
+      if (traceObservation && traceFeatures) traceRecords.push(createAutoplayTraceRecord({ sequence: traceRecords.length, episode: traceEpisode, turn: beforeTrace!.turn, replay: beforeTrace!.replay, observation: traceObservation, features: traceFeatures, legalCandidates: decision.candidates.map(candidate => ({ ...candidate })), ...(decision.resourceDiagnostics.length ? { resourceDiagnostics: structuredClone(decision.resourceDiagnostics) } : {}), ...(decision.toolDiagnostics.length ? { toolDiagnostics: structuredClone(decision.toolDiagnostics) } : {}), ...(decision.optionalDiagnostics.length ? { optionalDiagnostics: structuredClone(decision.optionalDiagnostics) } : {}), chosen: { command, reason: decision.reason }, outcome: { events: events.map(event => event.type), nextFingerprint: autoplayTraceFingerprint(state), status: state.status }, resourceDelta, previousHash: traceRecords.at(-1)?.hash ?? null }))
       featureHistory = appendPolicyFeatureHistory(featureHistory, { turn: before.turn, command, reason: decision.reason, events: events.map(event => event.type), resourceDelta })
       if (traceLimit !== undefined && trace.length > traceLimit) trace.splice(0, trace.length - traceLimit)
       commands.push(command)
@@ -210,5 +216,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const retainedResources = state.hero.bombs + state.hero.ropes + state.hero.keys
   const policyMetadata = createPolicyRunMetadata(policyProfile, state.seed, turnLimit, scorePolicyEpisode({ campaignComplete, outcome, exploredTiles, metrics, retainedResources }))
   const traceDocument = captureTraceDocument ? createAutoplayTraceDocument(traceEpisode, traceRecords, { outcome, reason: error ?? stall?.lastReason ?? (outcome === 'complete' ? 'complete' : outcome), turns: state.turn, campaignComplete, finalFingerprint: autoplayTraceFingerprint(state) }) : undefined
-  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, resourceOutcomes, toolOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, resourceOutcomes, toolOutcomes, optionalOutcomes, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }
