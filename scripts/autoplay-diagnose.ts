@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { autoplayCandidateDiagnostics, autoplayDecision, autoplayHasStrategicRoute, autoplayObjectiveRouteDiagnostics, autoplayStateFingerprint, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransition } from '../src/autoplay'
+import { autoplayHeuristicProfile } from '../src/autoplay-heuristics'
 import { perform } from '../src/engine'
 import { newRun } from '../src/engine/run'
 import { DIRECTIONS, MAP_WIDTH, type AutoplayMode, type AutoplayPolicy, type Biome, type Point, type RunState, type TileKind } from '../src/types'
@@ -20,6 +21,7 @@ if (!policies.includes(policyValue as AutoplayPolicy)) throw new Error(`invalid 
 if (!Number.isInteger(seed) || seed < 0) throw new Error(`invalid SEED: ${process.env.SEED}`)
 if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid AREA_FLOOR: ${process.env.AREA_FLOOR}`)
 if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURNS: ${process.env.TURNS}`)
+const heuristicProfile = autoplayHeuristicProfile(process.env.HEURISTIC_PROFILE)
 
 const blocked = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall'])
 const directionPoints = Object.entries(DIRECTIONS).filter(([direction]) => direction !== 'wait').map(([, point]) => point)
@@ -93,7 +95,7 @@ const trace: Array<{ turn: number; command: string; reason: string; candidates: 
 let outcome: 'complete' | 'dead' | 'stalled' | 'turn-limit' = 'turn-limit'
 let halt = 'turn-limit'
 while (state.status === 'playing' && state.turn < turnLimit) {
-  const decision = autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, context)
+  const decision = autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, context, heuristicProfile)
   if (!decision) {
     const strategicVisits = Math.max(0, ...context.strategicVisits.values())
     halt = context.loopRecoveries >= 8 ? 'loop-recovery-limit' : (context.visits.get(autoplayStateFingerprint(state)) ?? 0) >= 6 ? 'visit-limit' : strategicVisits >= 3 ? 'strategic-visit-limit' : context.noProgressTurns >= 32 ? 'no-progress-limit' : 'no-viable-candidate'
@@ -107,8 +109,8 @@ while (state.status === 'playing' && state.turn < turnLimit) {
   if (events.some(event => event.type === 'areaComplete')) { outcome = 'complete'; halt = 'area-complete'; break }
 }
 if (state.status === 'dead') { outcome = 'dead'; halt = 'hero-dead' }
-const nextDecision = state.status === 'playing' ? autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, structuredClone(context)) : undefined
-const candidateDiagnostics = state.status === 'playing' ? autoplayCandidateDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, createAutoplayContext()) : []
+const nextDecision = state.status === 'playing' ? autoplayDecision(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, structuredClone(context), heuristicProfile) : undefined
+const candidateDiagnostics = state.status === 'playing' ? autoplayCandidateDiagnostics(state, modeValue as Exclude<AutoplayMode, 'off'>, policyValue as AutoplayPolicy, createAutoplayContext(), heuristicProfile) : []
 const candidateTransitions = candidateDiagnostics.map(candidate => {
   const simulated = structuredClone(state)
   const before = { turn: simulated.turn, health: simulated.hero.health, x: simulated.hero.x, y: simulated.hero.y }
@@ -128,6 +130,7 @@ console.log(JSON.stringify({
   areaFloor,
   mode: modeValue,
   policy: policyValue,
+  heuristicProfile: heuristicProfile.id,
   initialValidation,
   outcome,
   halt,

@@ -2,6 +2,7 @@ import { AUTOPLAY_MAX_TURNS, autoplayDecision, autoplayRecoveryFingerprint, auto
 import { newRun, perform } from './engine'
 import { AREA_ORDER, nextArea } from './engine/campaign'
 import { createPolicyProfile, createPolicyRunMetadata, scorePolicyEpisode, type PolicyRunMetadata } from './autoplay-policy'
+import { autoplayHeuristicProfile, autoplayHeuristicProfileRef, parseAutoplayHeuristicProfile, type AutoplayHeuristicProfile, type AutoplayHeuristicProfileRef } from './autoplay-heuristics'
 import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHistoryEntry } from './autoplay-features'
 import { createAutoplayTraceDocument, createAutoplayTraceEpisode, createAutoplayTraceRecord, observeAutoplayTrace, type AutoplayTraceDocument, type AutoplayTraceRecord } from './autoplay-trace'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
@@ -9,9 +10,9 @@ import { getTile } from './world'
 import { DIRECTIONS, type AutoplayMode, type AutoplayPolicy, type AutoplayReplayMetadata, type AutoplayStall, type AutoplayTraceEntry, type Biome, type RunTelemetry, type RunState } from './types'
 
 export type AutoplayOutcome = 'complete' | 'dead' | 'stalled' | 'turn-limit' | 'error'
-export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean; chainFloors?: boolean; captureTrace?: boolean; traceLimit?: number; includeState?: boolean; includeDebug?: boolean }
+export interface AutoplayRunOptions { mode?: Exclude<AutoplayMode, 'off'>; policy?: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfile; turnLimit?: number; stalledLimit?: number; chainAreas?: boolean; chainFloors?: boolean; captureTrace?: boolean; traceLimit?: number; includeState?: boolean; includeDebug?: boolean }
 export interface AutoplayFinalState { status: RunState['status']; areaFloor: number; hero: { x: number; y: number; health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }; exit: { x: number; y: number }; objective: RunState['floor']['objective']; guardianDefeated: boolean; exitPath: 'clear' | 'actor-blocked' | 'terrain-blocked'; hostiles: Array<{ id: string; x: number; y: number; health: number; ai?: string }>; modal?: string }
-export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
+export interface AutoplayReport { seed: number; biome: Biome; areaOrder: Biome[]; finalBiome: Biome; floor: number; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; policyMetadata: PolicyRunMetadata; outcome: AutoplayOutcome; turns: number; commands: string[]; trace: AutoplayTraceEntry[]; traceDocument?: AutoplayTraceDocument; replay: AutoplayReplayMetadata; metrics: RunTelemetry; fingerprint: string; final: AutoplayFinalState; completedAreas: Biome[]; campaignComplete: boolean; state?: RunState; debug?: { objectiveId?: string; objectiveTarget?: string; objectiveTargetCount: number; rejectedObjectiveTargets: string[]; bestStrategicDistance?: number; noProgressTurns: number; noTurnCommands: number; loopRecoveries: number; recentPositions: string[] }; stall?: AutoplayStall; error?: string }
 
 export const isCompleteCampaign = (outcome: AutoplayOutcome, completedAreas: readonly Biome[], areaOrder: readonly Biome[] = AREA_ORDER): boolean => outcome === 'complete' && completedAreas.length === areaOrder.length && completedAreas.every((biome, index) => biome === areaOrder[index])
 
@@ -77,6 +78,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const areaOrder = state.areaOrder ?? [...AREA_ORDER]
   const mode = options.mode ?? 'omniscient'
   const policy = options.policy ?? 'clear'
+  const heuristicProfile = options.heuristicProfile ? parseAutoplayHeuristicProfile(options.heuristicProfile) : autoplayHeuristicProfile()
   const turnLimit = options.turnLimit ?? AUTOPLAY_MAX_TURNS * AREA_ORDER.length * 12
   const policyProfile = createPolicyProfile({ policy, informationMode: mode })
   const stalledLimit = options.stalledLimit ?? 12
@@ -86,7 +88,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const commands: string[] = []
   const trace: AutoplayTraceEntry[] = []
   const traceRecords: AutoplayTraceRecord[] = []
-  const traceEpisode = createAutoplayTraceEpisode(policyProfile, state.seed, turnLimit)
+  const traceEpisode = createAutoplayTraceEpisode(policyProfile, state.seed, turnLimit, heuristicProfile)
   let featureHistory: PolicyFeatureHistoryEntry[] = []
   let context = createAutoplayContext()
   const completedAreas: Biome[] = []
@@ -109,7 +111,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   }
   try {
     while (state.status === 'playing' && state.turn < turnLimit) {
-      const decision = autoplayDecision(state, mode, policy, context)
+      const decision = autoplayDecision(state, mode, policy, context, heuristicProfile)
       if (!decision) {
         stall = stallSnapshot()
         outcome = context.lastReason?.startsWith('turn guard:') ? 'turn-limit' : 'stalled'
@@ -193,5 +195,5 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
   const retainedResources = state.hero.bombs + state.hero.ropes + state.hero.keys
   const policyMetadata = createPolicyRunMetadata(policyProfile, state.seed, turnLimit, scorePolicyEpisode({ campaignComplete, outcome, exploredTiles, metrics, retainedResources }))
   const traceDocument = captureTraceDocument ? createAutoplayTraceDocument(traceEpisode, traceRecords, { outcome, reason: error ?? stall?.lastReason ?? (outcome === 'complete' ? 'complete' : outcome), turns: state.turn, campaignComplete, finalFingerprint: autoplayTraceFingerprint(state) }) : undefined
-  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
+  return { seed: state.seed, biome: startBiome, areaOrder: [...areaOrder], finalBiome, floor: state.floor.index + 1, mode, policy, heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile), policyMetadata, outcome, turns: state.turn, commands, trace, ...(traceDocument ? { traceDocument } : {}), replay: autoplayReplayMetadata(state), metrics, fingerprint: fingerprint(state), final, completedAreas, campaignComplete, ...(options.includeState ? { state: structuredClone(state) } : {}), ...(options.includeDebug ? { debug } : {}), ...(stall ? { stall } : {}), ...(error ? { error } : {}) }
 }

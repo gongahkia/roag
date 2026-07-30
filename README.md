@@ -57,6 +57,8 @@ npm run generation:report
 
 Campaign JSON includes a deterministic `current.scoreboard` with per-seed rows and profile, policy, and information-mode aggregates. Render a saved report with `npm run autoplay:scoreboard -- REPORT.json`; add `--json` for the standalone scoreboard. Missing or incomplete rows remain visible, and a winner is emitted only when the AP-01 comparator has a non-tied, fully observed profile matrix.
 
+Autoplay heuristic profiles are versioned, named configurations. `compatibility` is the default and retains existing behavior; `conservative` raises resource and irreversible-action reserves. Select one with `HEURISTIC_PROFILE=conservative` before `autoplay:headless`, `autoplay:campaign`, `autoplay:benchmark`, `autoplay:coverage`, or `autoplay:diagnose`; invalid names or out-of-range profile data fail fast.
+
 Visible policy features contain only current FOV, explored terrain, visible entities/items, courier kit, and the latest eight action/outcome entries; omniscient diagnostic features use the same typed schema with full-map visibility.
 
 Replay a captured trace with `npm run autoplay:replay -- TRACE.json`; divergence exits non-zero and reports its turn, field, expected value, actual value, and command.

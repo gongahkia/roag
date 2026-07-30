@@ -1,4 +1,5 @@
 import { runAutoplay } from '../src/autoplay-runner'
+import { autoplayHeuristicProfile } from '../src/autoplay-heuristics'
 import { newRun } from '../src/engine'
 import type { AutoplayMode, AutoplayPolicy, Biome } from '../src/types'
 
@@ -25,6 +26,7 @@ if (!Number.isInteger(turnLimit) || turnLimit < 1) throw new Error(`invalid TURN
 const biome = biomeValue as Biome
 const mode = modeValue as Exclude<AutoplayMode, 'off'>
 const policy = policyValue as AutoplayPolicy
-const report = runAutoplay(newRun(seed, biome, areaFloor), { mode, policy, turnLimit, chainAreas, chainFloors, captureTrace, includeState, includeDebug })
+const heuristicProfile = autoplayHeuristicProfile(process.env.HEURISTIC_PROFILE)
+const report = runAutoplay(newRun(seed, biome, areaFloor), { mode, policy, heuristicProfile, turnLimit, chainAreas, chainFloors, captureTrace, includeState, includeDebug })
 
 console.log(JSON.stringify(report, null, 2))

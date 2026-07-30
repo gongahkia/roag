@@ -1,5 +1,6 @@
 import { runAutoplay, type AutoplayOutcome, type AutoplayReport } from './autoplay-runner'
 import { policyScoreTuple, type PolicyRunMetadata, type PolicyScore, type PolicyScoreTuple } from './autoplay-policy'
+import { autoplayHeuristicProfile, type AutoplayHeuristicProfile, type AutoplayHeuristicProfileRef } from './autoplay-heuristics'
 import { AUTOPLAY_SEED_CORPUS_VERSION, autoplaySeedCorpusPartition, type AutoplaySeedCorpusEntry, type AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
 import { assertAutoplayTraceDocument, type AutoplayTraceDocument } from './autoplay-trace'
 import { assertAutoplayScoreboard, createAutoplayScoreboard, type AutoplayScoreboard } from './autoplay-scoreboard'
@@ -18,12 +19,12 @@ export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
 export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
 export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; traceHash?: string }
-export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; evaluation?: CampaignAutoplayEvaluation; traceDocument?: AutoplayTraceDocument; failure?: CampaignAutoplayFailure }
+export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfileRef; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; evaluation?: CampaignAutoplayEvaluation; traceDocument?: AutoplayTraceDocument; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
 export interface CampaignAutoplaySuite { version: 4; corpusVersion: typeof AUTOPLAY_SEED_CORPUS_VERSION; partition: AutoplaySeedCorpusPartition; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary; scoreboard: AutoplayScoreboard }
 export interface CampaignAutoplayDelta { overall: number; byProfile: Record<CampaignAutoplayProfileId, number> }
-export interface CampaignAutoplaySuiteOptions { partition?: AutoplaySeedCorpusPartition; captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
+export interface CampaignAutoplaySuiteOptions { partition?: AutoplaySeedCorpusPartition; captureTrace?: boolean; heuristicProfile?: AutoplayHeuristicProfile; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
 
 export const campaignAutoplayEntries = (partition: AutoplaySeedCorpusPartition = 'development'): AutoplaySeedCorpusEntry[] => autoplaySeedCorpusPartition(partition)
 
@@ -102,6 +103,7 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   profile: profile.id,
   mode: profile.mode,
   policy: profile.policy,
+  heuristicProfile: { ...report.heuristicProfile },
   areaOrder: [...report.areaOrder],
   campaignComplete: report.campaignComplete,
   outcome: report.outcome,
@@ -134,11 +136,12 @@ export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[], partition: Au
 
 export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions = {}): CampaignAutoplaySuite => {
   const partition = options.partition ?? 'development'
+  const heuristicProfile = options.heuristicProfile ?? autoplayHeuristicProfile()
   const entries = campaignAutoplayEntries(partition)
   const runs: CampaignAutoplayRun[] = []
   const total = entries.length * CAMPAIGN_AUTOPLAY_PROFILES.length
   for (const entry of entries) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
-    const report = runAutoplay(newSeededCampaignRun(entry.seed), { mode: profile.mode, policy: profile.policy, turnLimit: entry.turnBudget, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
+    const report = runAutoplay(newSeededCampaignRun(entry.seed), { mode: profile.mode, policy: profile.policy, heuristicProfile, turnLimit: entry.turnBudget, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
     const current = compactCampaignAutoplayRun(entry.seed, profile, report)
     if (!campaignAutoplayRunMatchesCorpus(entry, current)) throw new Error(`campaign autoplay corpus validation failed for ${entry.seed}/${profile.id}`)
     runs.push(current)

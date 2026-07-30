@@ -1,9 +1,10 @@
 import type { PolicyProfile } from './autoplay-policy'
 import type { PolicyFeatureVector } from './autoplay-features'
+import { autoplayHeuristicProfile, autoplayHeuristicProfileRef, type AutoplayHeuristicProfile, type AutoplayHeuristicProfileRef } from './autoplay-heuristics'
 import { MAP_WIDTH, type AutoplayCandidate, type AutoplayMode, type AutoplayReplayMetadata, type RunState, type TileKind } from './types'
 
 export const AUTOPLAY_TRACE_VERSION = 1 as const
-export interface AutoplayTraceEpisode { version: typeof AUTOPLAY_TRACE_VERSION; seed: number; policy: PolicyProfile['policy']; informationMode: PolicyProfile['informationMode']; policyVersion: PolicyProfile['version']; objectiveVersion: PolicyProfile['objectiveVersion']; turnBudget: number }
+export interface AutoplayTraceEpisode { version: typeof AUTOPLAY_TRACE_VERSION; seed: number; policy: PolicyProfile['policy']; informationMode: PolicyProfile['informationMode']; policyVersion: PolicyProfile['version']; objectiveVersion: PolicyProfile['objectiveVersion']; heuristicProfile?: AutoplayHeuristicProfileRef; turnBudget: number }
 export interface AutoplayTraceObservation { hero: { x: number; y: number; health: number; maxHealth: number; focus: number; gold: number; bombs: number; ropes: number; keys: number; inventory: string[]; cooldowns: Record<string, number> }; objective: { id: string; kind: string; status: string }; modal?: string; tiles: Array<{ x: number; y: number; kind: TileKind; explored: boolean }>; actors: Array<{ id: string; role: string; hostile: boolean; x: number; y: number; health: number }>; items: Array<{ id: string; x: number; y: number; count: number }> }
 export interface AutoplayTraceResourceDelta { health: number; focus: number; gold: number; bombs: number; ropes: number; keys: number }
 export interface AutoplayTraceRecord { version: typeof AUTOPLAY_TRACE_VERSION; sequence: number; episode: AutoplayTraceEpisode; turn: number; replay: AutoplayReplayMetadata; observation: AutoplayTraceObservation; features: PolicyFeatureVector; legalCandidates: AutoplayCandidate[]; chosen: { command: string; reason: string }; outcome: { events: string[]; nextFingerprint: string; status: RunState['status'] }; resourceDelta: AutoplayTraceResourceDelta; previousHash: string | null; hash: string }
@@ -21,7 +22,7 @@ const traceRecordValue = (record: Omit<AutoplayTraceRecord, 'hash'>): Omit<Autop
 const traceDocumentValue = (document: Omit<AutoplayTraceDocument, 'hash'>): Omit<AutoplayTraceDocument, 'hash'> => ({ version: document.version, episode: document.episode, records: document.records, terminal: document.terminal })
 const visibleAt = (state: RunState, x: number, y: number): boolean => state.floor.tiles[y * MAP_WIDTH + x]?.visible === true
 
-export const createAutoplayTraceEpisode = (profile: PolicyProfile, seed: number, turnBudget: number): AutoplayTraceEpisode => ({ version: AUTOPLAY_TRACE_VERSION, seed, policy: profile.policy, informationMode: profile.informationMode, policyVersion: profile.version, objectiveVersion: profile.objectiveVersion, turnBudget })
+export const createAutoplayTraceEpisode = (profile: PolicyProfile, seed: number, turnBudget: number, heuristicProfile?: AutoplayHeuristicProfile): AutoplayTraceEpisode => ({ version: AUTOPLAY_TRACE_VERSION, seed, policy: profile.policy, informationMode: profile.informationMode, policyVersion: profile.version, objectiveVersion: profile.objectiveVersion, ...(heuristicProfile ? { heuristicProfile: autoplayHeuristicProfileRef(heuristicProfile) } : {}), turnBudget })
 
 export const observeAutoplayTrace = (state: RunState, mode: Exclude<AutoplayMode, 'off'>): AutoplayTraceObservation => {
   const visible = (x: number, y: number): boolean => mode === 'omniscient' || visibleAt(state, x, y)
@@ -47,6 +48,10 @@ export const createAutoplayTraceDocument = (episode: AutoplayTraceEpisode, recor
 
 export const assertAutoplayTraceDocument = (document: AutoplayTraceDocument): void => {
   if (document.version !== AUTOPLAY_TRACE_VERSION || document.episode.version !== AUTOPLAY_TRACE_VERSION) throw new Error('unsupported autoplay trace version')
+  if (document.episode.heuristicProfile) {
+    const profile = autoplayHeuristicProfile(document.episode.heuristicProfile.id)
+    if (profile.version !== document.episode.heuristicProfile.version) throw new Error('unsupported autoplay trace heuristic profile version')
+  }
   let previousHash: string | null = null
   for (const [sequence, record] of document.records.entries()) {
     if (record.version !== AUTOPLAY_TRACE_VERSION || record.sequence !== sequence || record.previousHash !== previousHash) throw new Error(`invalid autoplay trace record ${sequence}`)

@@ -1,6 +1,7 @@
 import { autoplayDecision, autoplayTraceFingerprint, createAutoplayContext, recordAutoplayTransitionSnapshot, snapshotAutoplayTransition } from './autoplay'
 import { appendPolicyFeatureHistory, encodePolicyFeatures, type PolicyFeatureHistoryEntry } from './autoplay-features'
 import { createPolicyProfile } from './autoplay-policy'
+import { autoplayHeuristicProfile } from './autoplay-heuristics'
 import { newRun, perform } from './engine'
 import { observeTelemetryTurn, telemetrySnapshot } from './telemetry'
 import { assertAutoplayTraceDocument, type AutoplayTraceDocument } from './autoplay-trace'
@@ -19,6 +20,12 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
   const profile = createPolicyProfile({ policy: document.episode.policy, informationMode: document.episode.informationMode })
   if (profile.version !== document.episode.policyVersion || profile.objectiveVersion !== document.episode.objectiveVersion) return failure(first, 'policy-metadata', { policyVersion: document.episode.policyVersion, objectiveVersion: document.episode.objectiveVersion }, { policyVersion: profile.version, objectiveVersion: profile.objectiveVersion })
   if (document.episode.seed !== first.replay.seed) return failure(first, 'seed', document.episode.seed, first.replay.seed)
+  let heuristicProfile
+  try {
+    heuristicProfile = autoplayHeuristicProfile(document.episode.heuristicProfile?.id)
+    if (document.episode.heuristicProfile && heuristicProfile.version !== document.episode.heuristicProfile.version) return failure(first, 'heuristic-profile', document.episode.heuristicProfile, { id: heuristicProfile.id, version: heuristicProfile.version })
+  }
+  catch (error) { return failure(first, 'heuristic-profile', document.episode.heuristicProfile, error instanceof Error ? error.message : String(error)) }
   let state = newRun(first.replay.seed, first.replay.biome, first.replay.areaFloor)
   let context = createAutoplayContext()
   let history: PolicyFeatureHistoryEntry[] = []
@@ -27,7 +34,7 @@ export const replayAutoplayTrace = (document: AutoplayTraceDocument): AutoplayTr
     if (record.features.informationMode !== document.episode.informationMode) return failure(record, 'information-mode', document.episode.informationMode, record.features.informationMode)
     const features = encodePolicyFeatures(state, document.episode.informationMode, history)
     if (!same(record.features, features)) return failure(record, 'features', record.features, features)
-    const decision = autoplayDecision(state, document.episode.informationMode, document.episode.policy, context)
+    const decision = autoplayDecision(state, document.episode.informationMode, document.episode.policy, context, heuristicProfile)
     if (!decision) return failure(record, 'candidate-legality', record.chosen, undefined)
     if (!same(record.legalCandidates, decision.candidates)) return failure(record, 'legal-candidates', record.legalCandidates, decision.candidates)
     if (record.chosen.command !== decision.command || record.chosen.reason !== decision.reason) return failure(record, 'chosen-command', record.chosen, { command: decision.command, reason: decision.reason })

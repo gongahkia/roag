@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { runAutoplay } from '../src/autoplay-runner'
+import { autoplayHeuristicProfile } from '../src/autoplay-heuristics'
 import { newRun } from '../src/engine'
 import type { Biome } from '../src/types'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
 const seeds = (process.env.SEEDS ?? '7,42,999').split(',').filter(Boolean).map(Number)
 const minimum = Number(process.env.MIN_COVERAGE ?? .7)
+const heuristicProfile = autoplayHeuristicProfile(process.env.HEURISTIC_PROFILE)
 if (!seeds.length || seeds.some(seed => !Number.isInteger(seed) || seed < 0)) throw new Error(`invalid SEEDS: ${process.env.SEEDS}`)
 if (!Number.isFinite(minimum) || minimum <= 0 || minimum > 1) throw new Error(`invalid MIN_COVERAGE: ${process.env.MIN_COVERAGE}`)
 
@@ -23,7 +25,7 @@ const configured = (seed: number, biome: Biome, floor: number) => {
 const profiles = [{ id: 'visible', mode: 'visible' as const, policy: 'explore' as const }, { id: 'full-map', mode: 'omniscient' as const, policy: 'clear' as const }]
 const failures: string[] = []
 for (const profile of profiles) for (const biome of biomes) {
-  const reports = seeds.flatMap(seed => [0, 1, 2, 3].map(floor => runAutoplay(configured(seed, biome, floor), { mode: profile.mode, policy: profile.policy, turnLimit: 15_000, chainAreas: false, chainFloors: false, captureTrace: false })))
+  const reports = seeds.flatMap(seed => [0, 1, 2, 3].map(floor => runAutoplay(configured(seed, biome, floor), { mode: profile.mode, policy: profile.policy, heuristicProfile, turnLimit: 15_000, chainAreas: false, chainFloors: false, captureTrace: false })))
   const completed = reports.filter(report => report.outcome === 'complete').length
   const coverage = completed / reports.length
   console.log(`${profile.id}/${biome}: ${completed}/${reports.length} ${(coverage * 100).toFixed(1)}%`)

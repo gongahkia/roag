@@ -12,6 +12,7 @@ import { trailcraftTags } from './engine/trailcraft'
 import { augmentChoices, boonChoices, boonFor, boonRank, toolChoices } from './engine/buildcraft'
 import { relicChoices } from './engine/relics'
 import { encounterOptions } from './engine/encounters'
+import { autoplayHeuristicProfile, type AutoplayHeuristicProfile } from './autoplay-heuristics'
 import { DIRECTIONS, floorPoint, type AutoplayCandidate, type AutoplayMode, type AutoplayPolicy, type Direction, type Modal, type Point, type Prop, type PropEffectKind, type RunState, type TileKind } from './types'
 import { actorAt, getTile, hasPassablePath } from './world'
 import { isBlockingProp, propAt } from './props'
@@ -242,7 +243,7 @@ const passable = (state: RunState, mode: AutoplayMode, point: Point, avoidHazard
 const isKnownItem = (state: RunState, mode: AutoplayMode, point: Point, visibleInFog = false): boolean => mode === 'omniscient' || visible(state, point) || visibleInFog
 const adjacentCells = (point: Point): Point[] => directions.map(([, delta]) => ({ x: point.x + delta.x, y: point.y + delta.y }))
 const hostileKnown = (state: RunState, mode: AutoplayMode) => state.floor.actors.filter(actor => actor.hostile && actor.health > 0 && (mode === 'omniscient' || visible(state, actor)))
-const resourceReserve = (policy: AutoplayPolicy): number => policy === 'clear' ? 1 : policy === 'survival' ? 1 : 2
+const resourceReserve = (heuristics: AutoplayHeuristicProfile, policy: AutoplayPolicy): number => heuristics.resourceReserve[policy]
 
 const heroAttackProfile = (state: RunState) => {
   const weapon = state.hero.equipment.mainHand ? ITEM[state.hero.equipment.mainHand] : undefined
@@ -525,7 +526,7 @@ const shouldInspectProp = (state: RunState, prop: Prop): boolean => isBlockingPr
 const canOpenPropWithOperate = (state: RunState, prop: Prop): boolean => (prop.kind === 'wilds.rootArch' && state.hero.equipment.mainHand === 'machete') || (prop.kind === 'ruins.collapsedArch' && state.hero.equipment.mainHand === 'pickaxe')
 const canOpenPropWithRope = (state: RunState, prop: Prop): boolean => state.hero.ropes > 0 && (prop.kind === 'mine.brokenCart' || prop.kind === 'caverns.brokenBoat' || prop.kind === 'ruins.collapsedArch')
 
-const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
+const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
   const props = nearbyProps(state)
   const planned = context.propPlanId ? props.find(prop => prop.id === context.propPlanId) : undefined
   const prop = planned ?? props.find(candidate => candidate.state === 'dormant' && shouldInspectProp(state, candidate))
@@ -563,7 +564,7 @@ const propInteractionCandidate = (state: RunState, mode: AutoplayMode, policy: A
   const useful = routeUnlocked || routeGained || itemGain > 0 || healthGain > 0 || shieldGain || defensiveCover
   if (!useful || (createsHazard && !routeUnlocked)) { if (planned) context.propPlanId = undefined; return undefined }
   if (charmSpent > 0 && !defensiveCover && healthGain < 1 && !shieldGain) { if (planned) context.propPlanId = undefined; return undefined }
-  if (resourceSpend > 0 && !routeUnlocked && !routeGained && (policy === 'survival' || (beforeBombs > simulated.hero.bombs && simulated.hero.bombs < resourceReserve(policy)) || (beforeKeys > simulated.hero.keys && simulated.hero.keys < 1))) { if (planned) context.propPlanId = undefined; return undefined }
+  if (resourceSpend > 0 && !routeUnlocked && !routeGained && (policy === 'survival' || (beforeBombs > simulated.hero.bombs && simulated.hero.bombs < resourceReserve(heuristics, policy)) || (beforeKeys > simulated.hero.keys && simulated.hero.keys < 1))) { if (planned) context.propPlanId = undefined; return undefined }
   const score = routeUnlocked || routeGained ? 180 : defensiveCover ? 210 : shieldGain && urgentNear(state, prop) ? 130 : healthGain > 0 ? 112 : 96
   return { command: 'c', reason: `operate prop:${prop.kind}`, score, propPlanId: prop.id }
 }
@@ -724,7 +725,7 @@ const tacticalEquip = (state: RunState, mode: AutoplayMode): string | undefined 
   }).filter(choice => choice.targets > 0).sort((a, b) => b.targets - a.targets || b.damage - a.damage || a.id.localeCompare(b.id))[0]?.id
 }
 
-const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): string | undefined => {
+const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): string | undefined => {
   const items = state.hero.inventory
   const underImmediateDanger = telegraphDanger(state, state.hero) || hostilePressure(state, mode, state.hero) >= 100
   const heal = items.find(id => ITEM[id]?.use === 'heal')
@@ -734,9 +735,9 @@ const bestUse = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy): s
   const map = items.find(id => ITEM[id]?.use === 'map')
   if (map && mode === 'visible' && state.floor.tiles.some(tile => !tile.explored)) return map
   const bomb = items.find(id => ITEM[id]?.use === 'bomb')
-  if (bomb && state.hero.bombs <= resourceReserve(policy) && !underImmediateDanger) return bomb
+  if (bomb && state.hero.bombs <= resourceReserve(heuristics, policy) && !underImmediateDanger) return bomb
   const rope = items.find(id => ITEM[id]?.use === 'rope')
-  if (rope && state.hero.ropes <= resourceReserve(policy) && !underImmediateDanger) return rope
+  if (rope && state.hero.ropes <= resourceReserve(heuristics, policy) && !underImmediateDanger) return rope
   const key = items.find(id => ITEM[id]?.use === 'key')
   if (key && state.floor.tiles.some(tile => tile.kind === 'lockedDoor')) return key
   return undefined
@@ -746,19 +747,19 @@ const offeringDiscard = (state: RunState): string | undefined => state.hero.inve
   .filter((id, index, items) => items.indexOf(id) !== index)
   .sort((a, b) => ITEM[a].value - ITEM[b].value || a.localeCompare(b))[0]
 
-const bestShopItem = (state: RunState, policy: AutoplayPolicy): string | undefined => {
-  const reserve = policy === 'clear' ? 0 : policy === 'survival' ? 20 : 45
+const bestShopItem = (state: RunState, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): string | undefined => {
+  const reserve = heuristics.merchantGoldReserve[policy]
   return merchantStock(state).filter(id => state.hero.gold - ITEM[id].value >= reserve && state.hero.inventory.length < 12).filter(id => {
     const item = ITEM[id]
     if (item.use === 'heal') return !state.hero.inventory.some(held => ITEM[held]?.use === 'heal')
-    if (item.use === 'bomb') return state.hero.bombs <= resourceReserve(policy)
-    if (item.use === 'rope') return state.hero.ropes <= resourceReserve(policy)
+    if (item.use === 'bomb') return state.hero.bombs <= resourceReserve(heuristics, policy)
+    if (item.use === 'rope') return state.hero.ropes <= resourceReserve(heuristics, policy)
     if (!item.slot) return false
     return bestEquip({ ...state, hero: { ...state.hero, inventory: [...state.hero.inventory, id] } }) === id
   }).sort((a, b) => ITEM[b].value - ITEM[a].value)[0]
 }
 
-const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined => {
+const gateChoice = (state: RunState, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): number | undefined => {
   const gate = gateForRun(state)
   if (!gate) return undefined
   const choices = gate.tagAlternatives.map((option, index) => {
@@ -766,41 +767,41 @@ const gateChoice = (state: RunState, policy: AutoplayPolicy): number | undefined
     const resolution = resolveAreaGate(clone, gate, index)
     if (!resolution.resolved) return { index, score: Number.NEGATIVE_INFINITY }
     const cost = option.cost ?? gate.cost
-    const irreversible = option.kind === 'npc' ? (policy === 'legacy' ? 1000 : policy === 'survival' ? 300 : 45) : option.kind === 'bomb' ? (policy === 'legacy' ? 180 : policy === 'survival' ? 80 : 20) : 0
+    const irreversible = option.kind === 'npc' ? heuristics.gateNpcPenalty[policy] : option.kind === 'bomb' ? heuristics.gateBombPenalty[policy] : 0
     return { index, score: 1000 - cost.gold - cost.items.reduce((sum, id) => sum + ITEM[id].value, 0) - irreversible }
   }).filter(choice => Number.isFinite(choice.score)).sort((a, b) => b.score - a.score || a.index - b.index)
   return choices[0]?.index
 }
 
-const boonPriority = (state: RunState, id: Parameters<typeof boonFor>[0], policy: AutoplayPolicy): number => {
+const boonPriority = (state: RunState, id: Parameters<typeof boonFor>[0], policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): number => {
   const boon = boonFor(id)
   const family = policy === 'explore'
-    ? boon.family === 'scouting' ? 34 : boon.family === 'traversal' ? 28 : boon.family === 'recovery' ? 24 : 18
-    : boon.family === 'recovery' ? 26 : boon.family === 'combat' ? 22 : 18
-  return boonRank(state, id) * 3 + family
+    ? boon.family === 'scouting' ? heuristics.boonExploreFamily.scouting : boon.family === 'traversal' ? heuristics.boonExploreFamily.traversal : boon.family === 'recovery' ? heuristics.boonExploreFamily.recovery : heuristics.boonExploreFamily.other
+    : boon.family === 'recovery' ? heuristics.boonStandardFamily.recovery : boon.family === 'combat' ? heuristics.boonStandardFamily.combat : heuristics.boonStandardFamily.other
+  return boonRank(state, id) * heuristics.boonRankWeight + family
 }
 
-const augmentChoice = (state: RunState, modal: Extract<Modal, { kind: 'augment' }>, policy: AutoplayPolicy): Candidate | undefined => {
+const augmentChoice = (state: RunState, modal: Extract<Modal, { kind: 'augment' }>, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
   if (!modal.mode) {
     const owned = augmentChoices(state, modal.milestoneId, 'evolve')
     return owned.length ? { command: '1', reason: 'augment:evolve', score: 200 } : { command: 'Escape', reason: 'skip empty build-up', score: 200 }
   }
   const choices = augmentChoices(state, modal.milestoneId, modal.mode)
-  const best = choices.map((boon, index) => ({ boon, index, score: boonPriority(state, boon.id, policy) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
+  const best = choices.map((boon, index) => ({ boon, index, score: boonPriority(state, boon.id, policy, heuristics) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
   return best ? { command: String(best.index + 1), reason: `augment:${modal.mode}:${best.boon.id}`, score: 200 } : { command: 'Escape', reason: 'skip empty build-up', score: 200 }
 }
 
-const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate | undefined => {
+const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
   const modal = state.modal
   if (!modal) return undefined
   if (modal.kind === 'trailcraft') return { command: 'Escape', reason: 'skip trailcraft', score: 200 }
   if (modal.kind === 'boon') {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
     if (!milestone) return { command: 'Escape', reason: 'stale boon', score: 200 }
-    const choice = boonChoices(state, milestone).map((boon, index) => ({ index, boon, score: (state.hero.boons?.[boon.id] ?? 0) * 3 + (policy === 'explore' ? boon.family === 'scouting' ? 34 : boon.family === 'traversal' ? 28 : boon.family === 'recovery' ? 24 : 18 : boon.family === 'recovery' ? 26 : boon.family === 'combat' ? 22 : 18) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
+    const choice = boonChoices(state, milestone).map((boon, index) => ({ index, boon, score: boonPriority(state, boon.id, policy, heuristics) })).sort((a, b) => b.score - a.score || a.boon.id.localeCompare(b.boon.id))[0]
     return { command: String((choice?.index ?? 0) + 1), reason: `boon:${choice?.boon.id ?? 'none'}`, score: 200 }
   }
-  if (modal.kind === 'augment') return augmentChoice(state, modal, policy)
+  if (modal.kind === 'augment') return augmentChoice(state, modal, policy, heuristics)
   if (modal.kind === 'tool') {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
     if (!milestone) return { command: 'Escape', reason: 'stale Waycache', score: 200 }
@@ -825,13 +826,14 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   if (modal.kind === 'tools') return { command: 'Escape', reason: 'close tools', score: 200 }
   if (modal.kind === 'skills') {
     const choices = skillChoices(state)
-    const discipline = choices.map((choice, index) => ({ index, choice, score: policy === 'clear' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 25 : choice.stat === 'intellect' ? 18 : 8 : policy === 'survival' ? choice.stat === 'strength' ? 30 : choice.stat === 'vitality' ? 24 : choice.stat === 'intellect' ? 18 : 8 : choice.stat === 'intellect' ? 30 : choice.stat === 'strength' ? 24 : choice.stat === 'vitality' ? 18 : 8 }))
+    const group = policy === 'clear' ? 'clear' : policy === 'survival' ? 'survival' : 'other'
+    const discipline = choices.map((choice, index) => ({ index, choice, score: heuristics.skillPriority[group][choice.stat === 'strength' || choice.stat === 'vitality' || choice.stat === 'intellect' ? choice.stat : 'other'] }))
       .sort((a, b) => b.score - a.score || a.choice.id.localeCompare(b.choice.id))[0]
     return { command: discipline ? String(discipline.index + 1) : 'Escape', reason: discipline ? `discipline:${discipline.choice.id}` : 'close discipline', score: 200 }
   }
   if (modal.kind === 'inventory') {
     if (modal.mode === 'use') {
-      const id = context.intent?.kind === 'use' ? context.intent.item : bestUse(state, mode, policy)
+      const id = context.intent?.kind === 'use' ? context.intent.item : bestUse(state, mode, policy, heuristics)
       context.intent = undefined
       const index = id ? state.hero.inventory.indexOf(id) : -1
       return { command: index >= 0 && safeInventoryChoice(state, String(index + 1)) ? String(index + 1) : 'Escape', reason: index >= 0 && id ? `use:${id}` : 'close inventory', score: 200 }
@@ -861,14 +863,14 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
   if (modal.kind === 'shop') {
     const maxTurns = policy === 'clear' ? 2 : 1
     if (context.shopTurns >= maxTurns) { context.closedMerchants.add(modal.merchantId); return { command: 'Escape', reason: 'leave merchant', score: 200 } }
-    const desired = bestShopItem(state, policy)
+    const desired = bestShopItem(state, policy, heuristics)
     const index = desired ? merchantStock(state).indexOf(desired) : -1
     if (index < 0) context.closedMerchants.add(modal.merchantId)
     return { command: index >= 0 ? String(index + 1) : 'Escape', reason: desired ? `buy:${desired}` : 'leave merchant', score: 200 }
   }
   if (modal.kind === 'gate') {
     if (modal.choice === undefined) {
-      const choice = gateChoice(state, policy)
+      const choice = gateChoice(state, policy, heuristics)
       return { command: choice === undefined ? 'Escape' : String(choice + 1), reason: choice === undefined ? 'no viable gate' : 'gate alternative', score: 200 }
     }
     return { command: 'Enter', reason: modal.confirming ? 'confirm gate' : 'review gate', score: 200 }
@@ -1187,7 +1189,7 @@ const explorationMove = (state: RunState, mode: AutoplayMode): Candidate | undef
   return undefined
 }
 
-const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext): Candidate[] => {
+const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate[] => {
   const candidates: Candidate[] = []
   const heroPoint = { x: state.hero.x, y: state.hero.y }
   const objectiveComplete = state.floor.objective.status === 'complete' && state.floor.guardianDefeated
@@ -1203,7 +1205,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   if (item && canPick(item) && (hostilePressure(state, mode, state.hero) < 100 || urgentOfferingPickup || uncoverOfferingCash)) candidates.push({ command: 'g', reason: `pickup:${item.id}`, score: urgentOfferingPickup || uncoverOfferingCash ? 200 : 160 })
   const discard = needsOffering && item && !canPick(item) && groundItems.some(current => current.id === 'gold') && state.hero.health * 2 >= state.hero.maxHealth && !telegraphDanger(state, state.hero) ? offeringDiscard(state) : undefined
   if (discard) candidates.push({ command: 'd', reason: `discard for offering:${discard}`, score: 210, intent: { kind: 'drop', item: discard } })
-  const use = bestUse(state, mode, policy)
+  const use = bestUse(state, mode, policy, heuristics)
   if (use && usableInventoryIntent(state, 'use', use)) candidates.push({ command: 'u', reason: `use:${use}`, score: ITEM[use].use === 'heal' ? state.hero.health * 2 <= state.hero.maxHealth ? 220 : hostilePressure(state, mode, state.hero) > 0 ? 180 : 150 : 118, intent: { kind: 'use', item: use } })
   const equip = bestEquip(state)
   if (equip && usableInventoryIntent(state, 'equip', equip)) candidates.push({ command: 'e', reason: `equip:${equip}`, score: 88, intent: { kind: 'equip', item: equip } })
@@ -1215,11 +1217,11 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const bomb = state.hero.bombs > 0 ? targetDirection(state, mode, 'bomb') : undefined
   const bombTarget = state.hero.bombs > 0 ? usableTarget(state, mode, 'bomb') : undefined
   const guardianBomb = Boolean(bomb && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && actionCells('burst', state.hero, bomb.direction, 2).some(point => actorAt(state.floor, point.x, point.y)?.role === 'guardian'))
-  const guardianRouteBomb = Boolean(bombTarget && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && state.hero.bombs > resourceReserve(policy) && bombTarget.terrainCleared > 0 && bombTarget.mobilityGain > 0)
+  const guardianRouteBomb = Boolean(bombTarget && state.floor.objective.kind === 'defeatGuardian' && state.floor.objective.status !== 'complete' && state.hero.bombs > resourceReserve(heuristics, policy) && bombTarget.terrainCleared > 0 && bombTarget.mobilityGain > 0)
   const telegraphCounterBomb = Boolean(standingInTelegraph && bomb && bomb.score >= 70)
   const propBomb = Boolean(bombTarget && bombTarget.score >= 180 && propTargetCount(state, 'bomb', bombTarget.direction) > 0)
   const tacticalBomb = (bomb?.score ?? 0) >= 140 || ((bomb?.score ?? 0) >= 70 && (pressure >= 100 || bombEmergency || rooted))
-  const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || guardianRouteBomb || ((state.hero.bombs > resourceReserve(policy) || bombEmergency) && tacticalBomb)
+  const bombAllowed = propBomb || telegraphCounterBomb || guardianBomb || guardianRouteBomb || ((state.hero.bombs > resourceReserve(heuristics, policy) || bombEmergency) && tacticalBomb)
   if (bombTarget && bombTarget.score > 0 && bombAllowed) candidates.push({ command: 'b', reason: rooted ? 'break root: bomb' : propBomb ? 'bomb prop route' : telegraphCounterBomb ? 'bomb telegraph source' : guardianBomb ? 'bomb guardian' : guardianRouteBomb ? 'clear guardian route' : bombEmergency ? 'bomb emergency' : 'bomb tactical cluster', score: (rooted ? 360 : propBomb ? 240 : telegraphCounterBomb ? 310 : guardianBomb ? 290 : guardianRouteBomb ? 275 : bombEmergency ? 285 : pressure > 0 ? 185 : 110) + bombTarget.score / 10 })
   const throwable = state.hero.inventory.find(id => id === 'fireJar' || id === 'rock' || (id === 'spear' && state.hero.equipment.mainHand !== 'spear'))
   const throwTarget = throwable ? targetDirection(state, mode, 'throw', throwable) : undefined
@@ -1248,7 +1250,7 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   const friendly = state.floor.actors.some(actor => actor.role === 'ally' && chebyshev(actor, state.hero) <= 1)
   const unlockedByKey = nearLockedDoor && state.hero.keys > 0
   const preserveOffering = state.floor.objective.kind === 'invokeAltar' && state.floor.objective.status !== 'complete' && state.hero.gold < 150
-  const viableGate = nearLockedDoor && !unlockedByKey && !preserveOffering && gateChoice(state, policy) !== undefined
+  const viableGate = nearLockedDoor && !unlockedByKey && !preserveOffering && gateChoice(state, policy, heuristics) !== undefined
   const nearbyObjective = nearbyContainer || tile?.kind === 'rescue' || tile?.kind === 'altar' || friendly
   const standingObjective = tile?.kind === 'rescue' || (tile?.kind === 'altar' && state.hero.gold >= 75)
   if (nearbyEncounter) candidates.push({ command: 'c', reason: 'inspect encounter', score: 142 })
@@ -1256,11 +1258,11 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   else if (policy === 'explore' && nearbyMilestone) candidates.push({ command: 'c', reason: 'claim milestone', score: 280 })
   else if (nearbyObjective && (tile?.kind !== 'altar' || state.hero.gold >= 75)) candidates.push({ command: 'c', reason: 'operate objective', score: 135 })
   else if (unlockedByKey || viableGate) candidates.push({ command: 'c', reason: viableGate ? 'gate' : 'unlock door', score: 135 })
-  if (nearMerchant && bestShopItem(state, policy)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
-  if (state.hero.ropes > resourceReserve(policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
+  if (nearMerchant && bestShopItem(state, policy, heuristics)) candidates.push({ command: 'c', reason: 'merchant', score: 82 })
+  if (state.hero.ropes > resourceReserve(heuristics, policy) && (tile?.kind === 'pit' || getTile(state.floor, heroPoint.x, heroPoint.y + 1)?.kind === 'pit')) candidates.push({ command: 'r', reason: 'bridge pit', score: 122 })
   const propRope = propRopeCandidate(state, mode)
   if (propRope) candidates.push(propRope)
-  const propInteraction = propInteractionCandidate(state, mode, policy, context)
+  const propInteraction = propInteractionCandidate(state, mode, policy, context, heuristics)
   if (propInteraction) candidates.push(propInteraction)
   const propRoute = propRouteCandidate(state, mode)
   if (propRoute) candidates.push(propRoute)
@@ -1370,9 +1372,9 @@ const immediateCandidates = (state: RunState, mode: AutoplayMode, policy: Autopl
   return candidates
 }
 
-const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, context: AutoplayContext, fingerprint: string): Candidate[] => {
-  const candidates = immediateCandidates(state, mode, policy, context)
-    .map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * 60 }))
+const scoredAutoplayCandidates = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy, context: AutoplayContext, fingerprint: string, heuristics: AutoplayHeuristicProfile): Candidate[] => {
+  const candidates = immediateCandidates(state, mode, policy, context, heuristics)
+    .map(candidate => ({ ...candidate, score: candidate.score - (context.failed.get(candidate.command) ?? 0) * heuristics.failedCommandPenalty }))
     .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
   const baseline = { fingerprint, hasStrategicRoute: hasStrategicRoute(state, mode) }
   return candidates
@@ -1391,10 +1393,10 @@ const executableMovementFallback = (state: RunState, mode: Exclude<AutoplayMode,
   return [{ command: directionCommands[direction], reason: 'recover executable movement', score: 80 - damage * 32 - pressure / 5 - telegraph }]
 }).sort((a, b) => b.score - a.score || a.command.localeCompare(b.command))[0]
 
-export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context, autoplayStateFingerprint(state))
+export const autoplayCandidateDiagnostics = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext(), heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayCandidate[] => scoredAutoplayCandidates(state, mode, policy, context, autoplayStateFingerprint(state), heuristics)
   .map(({ command, reason, score }) => ({ command, reason, score }))
 
-export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext()): AutoplayDecision | undefined => {
+export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context: AutoplayContext = createAutoplayContext(), heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): AutoplayDecision | undefined => {
   if (mode === 'off' || state.status !== 'playing') return undefined
   context.startedTurn ??= state.turn
   const turnBudget = autoplayTurnBudget(state)
@@ -1406,7 +1408,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
     context.lastReason = `non-turn guard:${AUTOPLAY_MAX_NON_TURN_COMMANDS}`
     return undefined
   }
-  const modal = modalDecision(state, mode, policy, context)
+  const modal = modalDecision(state, mode, policy, context, heuristics)
   if (modal) return { command: modal.command, reason: modal.reason, candidates: [modal] }
   const routePlan = context.routePlan
   if (routePlan) {
@@ -1456,7 +1458,7 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       const telegraphSource = clearTelegraphSource(state, context)
       const guardianAdvance = guardianApproachMove(state, mode, context)
       const guardianFinish = guardianFinishMove(state, mode, context)
-      const strategicRoute = immediateCandidates(state, mode, policy, context)
+      const strategicRoute = immediateCandidates(state, mode, policy, context, heuristics)
         .filter(candidate => isStrategicRouteReason(candidate.reason))
         .sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))
         .find(candidate => Number.isFinite(candidateLookahead(state, mode, policy, candidate, context)))
@@ -1473,10 +1475,10 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
       return { command: recovery.command, reason: recovery.reason, candidates: [recovery] }
     }
   }
-  const candidates = scoredAutoplayCandidates(state, mode, policy, context, fingerprint).filter(candidate => Number.isFinite(candidate.score))
+  const candidates = scoredAutoplayCandidates(state, mode, policy, context, fingerprint, heuristics).filter(candidate => Number.isFinite(candidate.score))
   const selected = candidates.sort((a, b) => b.score - a.score || a.command.localeCompare(b.command) || a.reason.localeCompare(b.reason))[0]
-  const fallback = !selected || selected.score < -500 ? executableMovementFallback(state, mode) : undefined
-  if (!selected && !fallback || selected && selected.score < -500 && !fallback) {
+  const fallback = !selected || selected.score < heuristics.fallbackMinimumScore ? executableMovementFallback(state, mode) : undefined
+  if (!selected && !fallback || selected && selected.score < heuristics.fallbackMinimumScore && !fallback) {
     context.lastReason = 'no viable candidate'
     return undefined
   }
@@ -1489,4 +1491,4 @@ export const autoplayDecision = (state: RunState, mode: AutoplayMode, policy: Au
   return { command: choice.command, reason: choice.reason, candidates: fallback ? [fallback] : candidates.slice(0, 8).map(({ command, reason, score }) => ({ command, reason, score })) }
 }
 
-export const autoplayCommand = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context?: AutoplayContext): string | undefined => autoplayDecision(state, mode, policy, context)?.command
+export const autoplayCommand = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy = 'survival', context?: AutoplayContext, heuristics: AutoplayHeuristicProfile = autoplayHeuristicProfile()): string | undefined => autoplayDecision(state, mode, policy, context, heuristics)?.command
