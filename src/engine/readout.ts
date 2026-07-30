@@ -33,7 +33,10 @@ const telegraphLabel = (state: RunState, id: string): string => {
 export const fieldReadout = (state: RunState): FieldReadout => {
   const telegraphs = [...(state.floor.telegraphs ?? [])].sort((first, second) => first.resolveTurn - second.resolveTurn || first.id.localeCompare(second.id))
   const foes = visibleHostiles(state)
-  const lines = [`OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`]
+  const lines = [
+    `OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`,
+    state.companionDeathMode === 'permadeath' ? 'COMPANION LOSS: PERMANENT — no Lodge recovery.' : 'COMPANION LOSS: RECOVERABLE — Lodge treatment is available.'
+  ]
   for (const companion of activeCompanionRoster(state.companions ?? []).slice(0, 3)) {
     const actor = state.floor.actors.find(candidate => isCompanionActor(candidate) && companionIdForActor(candidate) === companion.id)
     if (!actor) { lines.push(`COMPANION: ${companion.name} — unavailable on this floor.`); continue }

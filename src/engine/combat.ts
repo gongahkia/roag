@@ -28,7 +28,7 @@ import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 import { advanceEcology } from '../ecology'
 import { activeCompanionRoster, isCompanionActor } from './party'
-import { injureCompanion } from './companions'
+import { injureCompanion, loseCompanion } from './companions'
 import { resolveAutonomousCompanions, tickCompanionCooldowns } from './companion-autonomy'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
@@ -331,9 +331,11 @@ const interceptEnemyDamage = (state: RunState, source: Actor, damage: number): n
   const remaining = damage - transferred
   log(state, `${guard.name} intercepts ${source.name}: absorbs ${transferred}, courier takes ${remaining}.`)
   if (guard.health <= 0) {
-    injureCompanion(companion)
+    const permanent = state.companionDeathMode === 'permadeath'
+    if (permanent) loseCompanion(companion)
+    else injureCompanion(companion)
     state.floor.actors = state.floor.actors.filter(actor => actor !== guard)
-    log(state, `${guard.name} withdraws injured to the Lodge.`)
+    log(state, permanent ? `${guard.name} is permanently lost.` : `${guard.name} withdraws injured to the Lodge.`)
   }
   return remaining
 }

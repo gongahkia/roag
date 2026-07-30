@@ -285,7 +285,9 @@ export class TerminalRenderer {
     this.text(40, 35, 'KIT', colors.gold)
     calling.kit.forEach((item, index) => this.text(40, 36 + index, `· ${item.name} — ${item.effect}`, colors.text))
     this.text(40, 41, death[1], colors.text)
-    this.text(40, 47, draft.companionControlMode === 'autonomous' ? 'Companions follow their priorities.' : 'Command active companions in turn order.', colors.text)
+    this.creatorField(40, 43, 'COMPANION LOSS', draft.companionDeathMode === 'permadeath' ? 'PERMADEATH' : 'RECOVERABLE', draft.focus === 5)
+    this.text(40, 49, draft.companionDeathMode === 'permadeath' ? 'Loss is irreversible after creation.' : 'Loss uses Lodge injury recovery.', draft.focus === 5 ? colors.green : colors.text)
+    this.text(40, 51, draft.companionDeathMode === 'permadeath' ? draft.companionDeathConfirmed ? 'ENTER again: confirm permanent loss.' : 'ENTER: arm irreversible confirmation.' : 'This choice cannot change after creation.', draft.companionDeathMode === 'permadeath' ? colors.red : colors.dim)
     this.text(10, 54, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
 
@@ -480,7 +482,7 @@ export class TerminalRenderer {
         this.text(56, 39, 'ENTER confirm · C / ESC cancel', colors.green)
         return
       }
-      this.text(56, 23, `0. CONTROL: ${(hub?.companionControlMode ?? 'autonomous').toUpperCase()}`, colors.gold)
+      this.text(56, 23, `0. CONTROL: ${(hub?.companionControlMode ?? 'autonomous').toUpperCase()} · LOSS: ${(hub?.companionDeathMode === 'permadeath' ? 'PERMANENT' : 'RECOVERABLE')}`.slice(0, 34), colors.gold)
       if (!companions.length) { this.text(56, 26, hub?.state.rescued.length ? 'Rescues are being logged as leads.' : 'No rescue leads are available.', colors.dim); this.text(56, 39, '0 change control · C / ESC close', colors.green); return }
       companions.slice(0, 5).forEach((companion, index) => {
         const status = companion.permanentlyLost ? 'UNAVAILABLE' : companion.injury === 'recovering' ? `REC ${companion.recoveryFloors ?? 1}F` : companion.injury === 'injured' ? 'INJURED' : companion.rosterStatus.toUpperCase()

@@ -82,7 +82,19 @@ export const cloneCompanions = (companions: readonly Companion[], rescues?: read
 }
 
 export const companionLeadsForRescues = (rescues: readonly RescuedNpc[], controlMode: CompanionControlMode = 'autonomous'): Companion[] => cloneCompanions(rescues.map(rescue => companionLeadForRescue(rescue, controlMode)), rescues)
-export const loseCompanionForRescue = (companion: Companion, rescueId: string): Companion => companion.recruitment.rescueId === rescueId ? { ...cloneCompanion(companion), rosterStatus: 'lost', permanentlyLost: true } : cloneCompanion(companion)
+export const loseCompanion = (companion: Companion): boolean => {
+  if (companion.permanentlyLost) return false
+  companion.injury = 'healthy'
+  companion.rosterStatus = 'lost'
+  companion.permanentlyLost = true
+  delete companion.recoveryFloors
+  return true
+}
+export const loseCompanionForRescue = (companion: Companion, rescueId: string): Companion => {
+  const next = cloneCompanion(companion)
+  if (next.recruitment.rescueId === rescueId) loseCompanion(next)
+  return next
+}
 export const addCompanionLeads = (companions: readonly Companion[], rescues: readonly RescuedNpc[], controlMode: CompanionControlMode = 'autonomous'): Companion[] => {
   const next = cloneCompanions(companions, rescues)
   for (const rescue of rescues) if (!next.some(companion => companion.recruitment.rescueId === rescue.id)) next.push(companionLeadForRescue(rescue, controlMode))

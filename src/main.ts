@@ -254,7 +254,7 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
     const nextId = nextCourierSelection(entries, selectedCourierId, key)
     if (nextId) activateCourier(nextId)
   } else if (command === 'n') {
-    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', focus: 0 }
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', companionDeathMode: 'injury', companionDeathConfirmed: false, focus: 0 }
     inheritedCampaign = undefined
     successorParentId = undefined
     route = { ...route, screen: 'createCourier' }
@@ -280,9 +280,12 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
   if (!courierDraft) return
   const key = keyboardEvent.key
   if (key === 'Escape' || key === '`') { courierDraft = undefined; route = { ...route, screen: 'title' }; redraw(); return }
-  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 4 : 1)) % 5) as CourierDraft['focus'] }; redraw(); return }
-  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 4 : 1)) % 5) as CourierDraft['focus'] }; redraw(); return }
-  if (key === 'Enter') { createCourierFromDraft(); return }
+  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 5 : 1)) % 6) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 5 : 1)) % 6) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'Enter') {
+    if (courierDraft.companionDeathMode === 'permadeath' && !courierDraft.companionDeathConfirmed) { courierDraft = { ...courierDraft, companionDeathConfirmed: true }; redraw(); return }
+    createCourierFromDraft(); return
+  }
   if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
     const forward = key === 'ArrowRight'
     if (courierDraft.focus === 1) {
@@ -294,7 +297,8 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
       const index = options.indexOf(courierDraft.calling)
       courierDraft = { ...courierDraft, calling: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
     } else if (courierDraft.focus === 3) courierDraft = { ...courierDraft, deathMode: courierDraft.deathMode === 'checkpoint' ? 'ironTrail' : 'checkpoint' }
-    else courierDraft = { ...courierDraft, companionControlMode: courierDraft.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }
+    else if (courierDraft.focus === 4) courierDraft = { ...courierDraft, companionControlMode: courierDraft.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }
+    else courierDraft = { ...courierDraft, companionDeathMode: courierDraft.companionDeathMode === 'injury' ? 'permadeath' : 'injury', companionDeathConfirmed: false }
     redraw(); return
   }
   if (courierDraft.focus === 0) {
@@ -318,7 +322,7 @@ function createCourierFromDraft(): void {
   redraw()
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     const id = crypto.randomUUID()
-    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, companionControlMode: draft.companionControlMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
+    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, companionControlMode: draft.companionControlMode, companionDeathMode: draft.companionDeathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
     const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
     const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed, draft.companionControlMode)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
     const nextHeir = structuredClone(courier.heir)
@@ -426,7 +430,7 @@ function start(): void {
   if (campaignContinuationPending(campaign.cycle)) { hubNotice = 'Confirm the next campaign tier at the route board first.'; route = { ...route, screen: 'hub' }; return }
   campaign = { ...campaign, selectedBiome: route.biome }
   hubNotice = undefined
-  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions)
+  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier.identity.companionDeathMode)
   state.alignment = { ...campaign.alignment }
   state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
   renderer.setHeroFacingLeft(false)
@@ -520,7 +524,7 @@ function finishStory(): void {
   }
   if (createAfterStory) {
     createAfterStory = false
-    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', focus: 0 }
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', companionDeathMode: 'injury', companionDeathConfirmed: false, focus: 0 }
     route = { ...route, screen: 'createCourier' }
   } else { hubPosition = outpostSpawn(); route = { ...route, screen: 'hub', hubAction: undefined } }
   audio.play([event('menu')])
@@ -550,7 +554,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
     campaign = unlockCampaignArea(campaign, successor)
     hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
     beginBiomeTransition(completed, successor, () => {
-      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions)
+      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, completedState.companionDeathMode ?? activeCourier?.identity.companionDeathMode ?? 'injury')
       next.turn = completedState.turn
       next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
       next.telemetry = structuredClone(completedState.telemetry!)
@@ -688,7 +692,7 @@ function redraw(): void {
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, companions: campaign.companions, companionControlMode: campaign.companionControlMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 

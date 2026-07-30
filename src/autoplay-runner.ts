@@ -33,7 +33,8 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
     objectiveId: floor.objective.id,
     ...(escalation ? { escalation } : {}),
     ...(state.campaignCycle ? { campaignCycle: structuredClone(state.campaignCycle) } : {}),
-    ...(state.companions?.length ? { companions: structuredClone(state.companions) } : {})
+    ...(state.companions?.length ? { companions: structuredClone(state.companions) } : {}),
+    companionDeathMode: state.companionDeathMode ?? 'injury'
   }
 }
 
@@ -45,6 +46,7 @@ const fingerprint = (state: RunState): string => JSON.stringify({
   objective: state.floor.objective,
   guardianDefeated: state.floor.guardianDefeated,
   actors: state.floor.actors.filter(actor => actor.health > 0).map(actor => ({ id: actor.id, x: actor.x, y: actor.y, health: actor.health })).sort((a, b) => a.id.localeCompare(b.id)),
+  companionDeathMode: state.companionDeathMode ?? 'injury',
   items: state.floor.items.map(item => ({ id: item.id, x: item.x, y: item.y, count: item.count })).sort((a, b) => `${a.x},${a.y},${a.id}`.localeCompare(`${b.x},${b.y},${b.id}`))
 })
 
@@ -178,7 +180,7 @@ export const runAutoplay = (input: RunState, options: AutoplayRunOptions = {}): 
         completedAreas.push(completed)
         const successor = options.chainAreas === false ? undefined : nextArea(completed, areaOrder)
         if (!successor) { outcome = 'complete'; break }
-        const next = newRun(state.seed, successor, 0, state.hero, state.rescuedNpcs, [], areaOrder, state.campaignCycle, state.companions)
+        const next = newRun(state.seed, successor, 0, state.hero, state.rescuedNpcs, [], areaOrder, state.campaignCycle, state.companions, state.companionDeathMode ?? 'injury')
         next.turn = state.turn
         next.lineageEvents = structuredClone(state.lineageEvents ?? [])
         next.telemetry = structuredClone(state.telemetry!)

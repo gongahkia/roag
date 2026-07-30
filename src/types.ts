@@ -254,11 +254,11 @@ export interface Hero {
   curse?: CurseState
 }
 
-export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; createdAt: string; parentId?: string }
+export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; companionDeathMode: CompanionDeathMode; createdAt: string; parentId?: string }
 export interface CourierSave { version: 1; identity: CourierIdentity; run?: RunState; checkpoint?: RunState; heir?: Hero; campaign: CampaignRouteState; records: Records; archived?: boolean }
 export interface CourierMenuEntry { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; area?: Biome; floor?: number; turn?: number; archived?: boolean }
 export interface CourierMenuView { entries: CourierMenuEntry[]; selectedId?: string; confirmingDelete?: boolean }
-export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; focus: 0 | 1 | 2 | 3 | 4 }
+export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; companionDeathMode: CompanionDeathMode; companionDeathConfirmed: boolean; focus: 0 | 1 | 2 | 3 | 4 | 5 }
 
 export interface HubState {
   season: number
@@ -272,6 +272,7 @@ export interface RescuedNpc { id: string; name: string; biome: Biome; floor: num
 export type CompanionRole = 'guard' | 'scout' | 'pathmaker' | 'ritualist'
 export type CompanionRosterStatus = 'lead' | 'benched' | 'active' | 'lost'
 export type CompanionControlMode = 'autonomous' | 'direct'
+export type CompanionDeathMode = 'injury' | 'permadeath'
 export interface CompanionControlModeEvent { sequence: number; mode: CompanionControlMode; source: 'creation' | 'migration' | 'lodge' }
 export type CompanionInjuryState = 'healthy' | 'injured' | 'recovering'
 export type CompanionActionCategory = 'intercept' | 'protect' | 'observe' | 'mark' | 'traverse' | 'stabilizeTerrain' | 'ward' | 'stabilizeHazard'
@@ -337,7 +338,7 @@ export type AutoplayOptionalKind = 'secret' | 'shortcut'
 export type AutoplayOptionalDisposition = 'pursue' | 'defer' | 'decline'
 export interface AutoplayOptionalAssessment { id: string; kind: AutoplayOptionalKind; disposition: AutoplayOptionalDisposition; rationale: string; evidence: 'visible' | 'omniscient-diagnostic'; payoff: number; threat: number; pathCost: number; resourceCost: { bombs: number; ropes: number }; escapeRoute: boolean; remainingObjective: number; expectedValue: number; target: Point; rejectedAlternatives: string[] }
 export interface AutoplayOptionalOutcomes { pursued: number; deferred: number; declined: number; secrets: number; shortcuts: number }
-export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; companions?: Companion[] }
+export interface AutoplayReplayMetadata { seed: number; biome: Biome; areaFloor: number; floorIndex: number; layoutId: string; macroRecipeId: string; routeContractId: string; objectiveId: string; escalation?: string; campaignCycle?: CampaignCycle; companions?: Companion[]; companionDeathMode?: CompanionDeathMode }
 export interface AutoplayTraceEntry {
   turn: number
   replay: AutoplayReplayMetadata
@@ -384,6 +385,7 @@ export interface RunState {
   shortcutReturn?: ShortcutReturn
   campaignCycle?: CampaignCycle
   companions?: Companion[]
+  companionDeathMode?: CompanionDeathMode
 }
 
 export type Modal =

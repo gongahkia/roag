@@ -96,7 +96,7 @@ const records = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [], an
 const courier = (id: string, turn: number): CourierSave => {
   const run = newRun(901)
   run.turn = turn
-  return { version: 1, identity: { id, name: id, origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', createdAt: '2026-01-01T00:00:00.000Z' }, run, checkpoint: structuredClone(run), heir: structuredClone(run.hero), campaign: initialCampaignRoute(), records: records() }
+  return { version: 1, identity: { id, name: id, origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', companionDeathMode: 'injury', createdAt: '2026-01-01T00:00:00.000Z' }, run, checkpoint: structuredClone(run), heir: structuredClone(run.hero), campaign: initialCampaignRoute(), records: records() }
 }
 
 const originalIndexedDB = globalThis.indexedDB
@@ -227,6 +227,12 @@ describe('run persistence migration', () => {
     expect(migrateCampaignRoute({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', reputation: { trailfolk: 3, kami: -2 } })).toMatchObject({ reputation: { trailfolk: 3, kami: -2 } })
   })
 
+  it('defaults absent companion death settings to recoverable injury', () => {
+    const run = newRun(792)
+    delete (run as { companionDeathMode?: unknown }).companionDeathMode
+    expect(migrateRunRecord(run)?.companionDeathMode).toBe('injury')
+  })
+
   it('rejects malformed records so the caller stays at title', () => {
     expect(migrateRunRecord({ version: 3, seed: 1 })).toBeUndefined()
   })
@@ -261,6 +267,19 @@ describe('run persistence migration', () => {
 })
 
 describe('courier persistence', () => {
+  it('migrates legacy courier saves to recoverable companion loss', async () => {
+    await saveCourier(courier('legacy', 3), 'legacy')
+    const stored = fakeIndexedDB.database.records.get('courier:legacy') as { identity: { companionDeathMode?: unknown }; run?: { companionDeathMode?: unknown }; checkpoint?: { companionDeathMode?: unknown } }
+    delete stored.identity.companionDeathMode
+    delete stored.run?.companionDeathMode
+    delete stored.checkpoint?.companionDeathMode
+    fakeIndexedDB.database.records.set('courier:legacy', stored)
+    const loaded = (await loadCouriers()).couriers[0]!
+    expect(loaded.identity.companionDeathMode).toBe('injury')
+    expect(loaded.run?.companionDeathMode).toBe('injury')
+    expect(loaded.checkpoint?.companionDeathMode).toBe('injury')
+  })
+
   it('snapshots and serializes overlapping saves so the newest request wins', async () => {
     const first = courier('ari', 3)
     const firstSave = saveCourier(first, 'ari')

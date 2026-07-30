@@ -1,7 +1,7 @@
 import { isItemId, isMonsterId, isSkillId } from './content'
 import { objectiveForFloor } from './objectives'
 import { ECOLOGY_EVENT_KINDS, FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, MONSTER_ROLES, TACTICAL_ENCOUNTERS, floorIndex, inFloorBounds } from './types'
-import type { Actor, Alignment, AreaArcState, Biome, CampaignCarryoverDiagnostic, CampaignCycle, CampaignRouteState, ClimbLink, Companion, CompanionControlMode, CompanionControlModeEvent, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, CurseState, DeathMode, DifficultyContext, EncounterKind, EncyclopediaState, Floor, FloorEncounter, FloorEscalation, FloorMilestone, GroundItem, Hero, InteractionTelemetry, LegacyRecord, LineageEvent, Modal, OathState, OptionalContentTelemetry, Point, Prop, Records, RelicId, RescuedNpc, RewardOffer, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunTelemetry, SecretClueChannel, SecretRoom, SecretRoute, ShortcutReturn, SocialContract, SocialReputation, Telegraph, Tile, TransientTerrain, TraversalToolId } from './types'
+import type { Actor, Alignment, AreaArcState, Biome, CampaignCarryoverDiagnostic, CampaignCycle, CampaignRouteState, ClimbLink, Companion, CompanionControlMode, CompanionControlModeEvent, CompanionDeathMode, ConditionState, CourierCalling, CourierMenuEntry, CourierOrigin, CourierSave, CurseState, DeathMode, DifficultyContext, EncounterKind, EncyclopediaState, Floor, FloorEncounter, FloorEscalation, FloorMilestone, GroundItem, Hero, InteractionTelemetry, LegacyRecord, LineageEvent, Modal, OathState, OptionalContentTelemetry, Point, Prop, Records, RelicId, RescuedNpc, RewardOffer, RunAnalysis, RunFloorMetrics, RunMetricSample, RunState, RunTelemetry, SecretClueChannel, SecretRoom, SecretRoute, ShortcutReturn, SocialContract, SocialReputation, Telegraph, Tile, TransientTerrain, TraversalToolId } from './types'
 import { createRunTelemetry } from './telemetry'
 import { secretRulesForSourceId } from './secrets'
 import { PROP_IDS } from './props'
@@ -58,6 +58,7 @@ const isCourierOrigin = (value: unknown): value is CourierOrigin => value === 'm
 const isCourierCalling = (value: unknown): value is CourierCalling => value === 'trailguard' || value === 'pathmaker' || value === 'spiritbearer'
 const isDeathMode = (value: unknown): value is DeathMode => value === 'checkpoint' || value === 'ironTrail'
 const isCompanionControlMode = (value: unknown): value is CompanionControlMode => value === 'autonomous' || value === 'direct'
+const isCompanionDeathMode = (value: unknown): value is CompanionDeathMode => value === 'injury' || value === 'permadeath'
 const oneOf = <T extends string>(value: unknown, values: readonly T[]): value is T => typeof value === 'string' && values.some(current => current === value)
 const BIOMES = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const
 const isAreaOrder = (value: unknown): value is Biome[] => Array.isArray(value) && value.every(area => oneOf(area, BIOMES)) && (isCampaignAreaOrder(value) || isLegacyCampaignAreaOrder(value))
@@ -139,7 +140,7 @@ const isModal = (value: unknown): value is Modal | undefined => {
   return value.kind === 'target' && oneOf(value.action, ['throw', 'spell', 'bomb', 'drill', 'glide', 'grapple', 'bridge', 'dash', 'winch', 'stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites', 'antlerPrybar', 'stoneAdze', 'resinFireBasket', 'woodenLeverRoller']) && (value.item === undefined || isItemId(value.item)) && (value.tool === undefined || isTraversalTool(value.tool)) && (value.overdrive === undefined || typeof value.overdrive === 'boolean')
 }
 
-const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, BIOMES)) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.areaArc === undefined || isAreaArcState(value.areaArc)) && (value.areaOrder === undefined || isAreaOrder(value.areaOrder)) && (value.gateDestination === undefined || oneOf(value.gateDestination, BIOMES)) && (value.shortcutReturn === undefined || isShortcutReturn(value.shortcutReturn)) && (value.campaignCycle === undefined || isCampaignCycle(value.campaignCycle)) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.companions === undefined || (Array.isArray(value.companions) && value.companions.every(isCompanion))) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.alignment === undefined || isAlignment(value.alignment)) && (value.reputation === undefined || isSocialReputation(value.reputation)) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia)) && (value.telemetry === undefined || isRunTelemetry(value.telemetry))
+const isRunRecord = (value: unknown): value is RunRecord => isRecord(value) && isNumber(value.version) && isNumber(value.seed) && isFloor(value.floor) && isHero(value.hero) && Array.isArray(value.messages) && value.messages.every(isString) && oneOf(value.status, ['title', 'playing', 'dead', 'victory']) && isModal(value.modal) && isNumber(value.turn) && (value.area === undefined || oneOf(value.area, BIOMES)) && (value.areaFloor === undefined || isNumber(value.areaFloor)) && (value.areaArc === undefined || isAreaArcState(value.areaArc)) && (value.areaOrder === undefined || isAreaOrder(value.areaOrder)) && (value.gateDestination === undefined || oneOf(value.gateDestination, BIOMES)) && (value.shortcutReturn === undefined || isShortcutReturn(value.shortcutReturn)) && (value.campaignCycle === undefined || isCampaignCycle(value.campaignCycle)) && (value.rescuedNpcs === undefined || (Array.isArray(value.rescuedNpcs) && value.rescuedNpcs.every(isRescuedNpc))) && (value.companions === undefined || (Array.isArray(value.companions) && value.companions.every(isCompanion))) && (value.companionDeathMode === undefined || isCompanionDeathMode(value.companionDeathMode)) && (value.lineageEvents === undefined || (Array.isArray(value.lineageEvents) && value.lineageEvents.every(isLineageEvent))) && (value.alignment === undefined || isAlignment(value.alignment)) && (value.reputation === undefined || isSocialReputation(value.reputation)) && (value.encyclopedia === undefined || isEncyclopedia(value.encyclopedia)) && (value.telemetry === undefined || isRunTelemetry(value.telemetry))
 const isRunState = (value: unknown): value is RunState => isRunRecord(value) && (value.version === 4 || value.version === 5)
 const isAlignment = (value: unknown): value is Record<Alignment, number> => isRecord(value) && isNonNegativeInteger(value.kami) && isNonNegativeInteger(value.villagePact)
 const isSocialReputation = (value: unknown): value is SocialReputation => isRecord(value) && isInteger(value.trailfolk) && isInteger(value.kami)
@@ -202,6 +203,7 @@ export const migrateRunRecord = (value: unknown): RunState | undefined => {
   run.areaOrder ??= [...DEFAULT_AREA_ORDER]
   run.campaignCycle = cloneCampaignCycle(run.campaignCycle ?? initialCampaignCycle())
   run.companions = cloneCompanions(run.companions ?? [])
+  run.companionDeathMode ??= 'injury'
   return run
 }
 
@@ -305,7 +307,7 @@ const mutateCourierIndex = (operation: (store: IDBObjectStore, index: CourierInd
 })
 const courierIdentity = (value: unknown): CourierSave['identity'] | undefined => {
   if (!isRecord(value) || !isString(value.id) || !isString(value.name) || !isCourierOrigin(value.origin) || !isCourierCalling(value.calling) || !isDeathMode(value.deathMode) || !isString(value.createdAt)) return undefined
-  return { id: value.id, name: value.name, origin: value.origin, calling: value.calling, deathMode: value.deathMode, companionControlMode: isCompanionControlMode(value.companionControlMode) ? value.companionControlMode : 'autonomous', createdAt: value.createdAt, ...(isString(value.parentId) ? { parentId: value.parentId } : {}) }
+  return { id: value.id, name: value.name, origin: value.origin, calling: value.calling, deathMode: value.deathMode, companionControlMode: isCompanionControlMode(value.companionControlMode) ? value.companionControlMode : 'autonomous', companionDeathMode: isCompanionDeathMode(value.companionDeathMode) ? value.companionDeathMode : 'injury', createdAt: value.createdAt, ...(isString(value.parentId) ? { parentId: value.parentId } : {}) }
 }
 const migrateCourier = (value: unknown): CourierSave | undefined => {
   if (!isRecord(value) || value.version !== 1) return undefined
@@ -334,7 +336,7 @@ export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selecte
   const [run, records, campaign] = await Promise.all([loadRun(), loadRecords(), loadCampaignRoute()])
   if (!run && records.runs.length === 0 && campaign.completedAreas.length === 0 && campaign.rescuedNpcs.length === 0) return { couriers: [] }
   const id = crypto.randomUUID()
-  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', companionControlMode: campaign.companionControlMode, createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run), heir: structuredClone(run.hero) } : {}), campaign, records }
+  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', companionControlMode: campaign.companionControlMode, companionDeathMode: run?.companionDeathMode ?? 'injury', createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run), heir: structuredClone(run.hero) } : {}), campaign, records }
   await saveCourier(legacy, id)
   return { couriers: [legacy], selectedId: id }
 }
