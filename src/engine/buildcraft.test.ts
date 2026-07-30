@@ -49,6 +49,22 @@ describe('buildcraft', () => {
     expect(state.messages[0]).toContain('recovers')
   })
 
+  it('cuts only weak-route targets with Stone Adze and retires on overdrive', () => {
+    const state = createRun({ hero: createHero({ traversalTools: ['stoneAdze'] }) })
+    state.floor.tiles[indexOf(2, 1)].kind = 'crate'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
+    expect(state.hero.cooldowns?.['tool:stoneAdze']).toBeGreaterThan(0)
+    state.hero.cooldowns = {}
+    state.floor.tiles[indexOf(2, 1)].kind = 'bramble'
+    perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('bramble')
+    expect(state.messages[0]).toContain('cuts only')
+    state.floor.tiles[indexOf(2, 1)].kind = 'crumble'
+    perform(state, 'y'); perform(state, '1'); perform(state, 'o'); perform(state, ';'); perform(state, 'Enter')
+    expect(state.hero.traversalTools).toEqual([])
+  })
+
   it('stacks Boons and rewinds position without restoring world state', () => {
     const state = createRun({ hero: createHero({ boons: { timeKnot: 1 }, safePositions: [{ x: 1, y: 1 }, { x: 3, y: 1 }], x: 3, y: 1 }) })
     state.floor.tiles[indexOf(2, 1)].kind = 'lava'

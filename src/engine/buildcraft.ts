@@ -18,7 +18,8 @@ export const TOOLS: readonly TraversalTool[] = [
   { id: 'reedwing', name: 'Reedwing', glyph: '^', cooldown: 5, text: 'Cross one hazardous tile to a clear landing.', overdrive: 'Cross up to two hazards, then retire.' },
   { id: 'cordAnchor', name: 'Cord Anchor', glyph: '⌁', cooldown: 5, text: 'Pull two tiles to a clear landing.', overdrive: 'Pull four tiles, then retire.' },
   { id: 'ashwayRites', name: 'Ashway Rites', glyph: '≈', cooldown: 8, text: 'Make a two-tile temporary safe path.', overdrive: 'Make a three-tile path, then retire.' },
-  { id: 'antlerPrybar', name: 'Antler Prybar', glyph: '⌐', cooldown: 4, text: 'Shift one adjacent boulder or breakwall forward.', overdrive: 'Shift once with a louder exposed footing risk, then retire.' }
+  { id: 'antlerPrybar', name: 'Antler Prybar', glyph: '⌐', cooldown: 4, text: 'Shift one adjacent boulder or breakwall forward.', overdrive: 'Shift once with a louder exposed footing risk, then retire.' },
+  { id: 'stoneAdze', name: 'Stone Adze', glyph: '⌟', cooldown: 5, text: 'Cut one adjacent crate or crumble route.', overdrive: 'Cut once, then retire.' }
 ]
 
 export const BOONS: readonly Boon[] = [
@@ -354,7 +355,7 @@ const passableLanding = (state: RunState, target: { x: number; y: number }) => i
 export function useTool(state: RunState, tool: TraversalToolId, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>, overdrive = false): ActionResult {
   if (!(state.hero.traversalTools ?? []).includes(tool)) { log(state, 'That ritual tool is no longer bound.'); return [] }
   if (toolCooldown(state, tool)) { log(state, `${toolFor(tool).name} is still recovering.`); return [] }
-  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : useAntlerPrybar(state, direction)
+  const result = tool === 'stoneWedge' ? useStoneWedge(state, direction, overdrive) : tool === 'reedwing' ? useReedwing(state, direction, overdrive) : tool === 'cordAnchor' ? useCordAnchor(state, direction, overdrive) : tool === 'ashwayRites' ? useAshway(state, direction, overdrive) : tool === 'antlerPrybar' ? useAntlerPrybar(state, direction) : useStoneAdze(state, direction)
   if (!result) return []
   const healing = boonRank(state, 'rootedResolve') + (state.hero.health * 4 <= state.hero.maxHealth ? boonRank(state, 'lastLight') * 2 : 0)
   if (healing) state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + healing)
@@ -436,6 +437,15 @@ const useAntlerPrybar = (state: RunState, direction: Exclude<keyof typeof DIRECT
   tile.kind = 'floor'
   state.hero.conditions = [...(state.hero.conditions ?? []), { kind: 'marked', duration: 2, potency: 1 }]
   log(state, 'The Antler Prybar shifts the barrier; the noise leaves you exposed.')
+  return true
+}
+
+const useStoneAdze = (state: RunState, direction: Exclude<keyof typeof DIRECTIONS, 'wait'>): boolean => {
+  const target = point(state, direction, 1)
+  const tile = getTile(state.floor, target.x, target.y)
+  if (!tile || !['crate', 'crumble'].includes(tile.kind)) { log(state, 'Stone Adze cuts only an adjacent wooden barrier or weakened route.'); return false }
+  tile.kind = 'floor'
+  log(state, 'The Stone Adze cuts a narrow route through the weakened barrier.')
   return true
 }
 

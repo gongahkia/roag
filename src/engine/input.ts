@@ -120,7 +120,7 @@ function commitTarget(state: RunState, modal: Extract<Modal, { kind: 'target' }>
   if (modal.action === 'bridge' && modal.item) return bridge(state, modal.item, direction)
   if (modal.action === 'dash' && modal.item) return dash(state, modal.item, direction)
   if (modal.action === 'winch' && modal.item) return winch(state, modal.item, direction)
-  if (modal.tool && ['stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites', 'antlerPrybar'].includes(modal.action)) return useTool(state, modal.tool, direction, modal.overdrive)
+  if (modal.tool && ['stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites', 'antlerPrybar', 'stoneAdze'].includes(modal.action)) return useTool(state, modal.tool, direction, modal.overdrive)
   return []
 }
 

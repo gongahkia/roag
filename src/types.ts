@@ -11,7 +11,7 @@ export type AutoplayMode = 'off' | 'visible' | 'omniscient'
 export type AutoplayPolicy = 'survival' | 'clear' | 'explore' | 'legacy'
 export type StatName = 'strength' | 'agility' | 'vitality' | 'intellect'
 export type TrailcraftId = 'flintTemper' | 'windKnot' | 'barkBinding' | 'spiritThread' | 'sunstride' | 'prismLedger' | 'brineGrit' | 'rimeEdge' | 'iceNerve' | 'winterVow'
-export type TraversalToolId = 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar'
+export type TraversalToolId = 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar' | 'stoneAdze'
 export type RelicId = 'ashCircuit' | 'markbreakerSeal' | 'cairnCoil' | 'tideFetter' | 'prismRelay' | 'winterSeal'
 export type BoonId = string
 export type CourierOrigin = 'mineborn' | 'mosswalker' | 'cavernSeeker' | 'tidebound'
@@ -346,7 +346,7 @@ export type Modal =
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
-  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
+  | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar' | 'stoneAdze'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }
