@@ -73,6 +73,8 @@ Export AP-03 policy traces as stable, versioned JSONL with `npm run autoplay:dat
 
 Runtime inference remains disabled by default. `src/autoplay-inference.ts` accepts only held-out-promoted visible-policy artifacts, masks outputs to the heuristic's legal candidates, records shadow disagreements, and deterministically retains the compatibility heuristic on disabled, missing, malformed, or illegal inference.
 
+Traversal tools share the `Y` loadout control: select a ready tool, choose a target direction, then confirm with `Enter`; `O` toggles its one-use overdrive. Antler Prybar moves eligible terrain, Stone Adze cuts only weak wooden/crumble routes, Resin Fire Basket leaves risky smoke from vegetation/web, and Wooden Lever and Roller moves eligible props. Every tool logs disabled-target reasons, records cooldowns in saves/traces, and removes itself after overdrive.
+
 ## Controls
 
 | Key | Action |

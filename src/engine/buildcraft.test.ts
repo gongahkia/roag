@@ -71,7 +71,7 @@ describe('buildcraft', () => {
     perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
     expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('smoke')
     expect(state.hero.cooldowns?.['tool:resinFireBasket']).toBeGreaterThan(0)
-    expect(state.messages[0]).toContain('smoking')
+    expect(state.messages).toContain('The resin burns the growth into a smoking, risky crossing.')
     state.hero.cooldowns = {}
     state.floor.tiles[indexOf(2, 1)].kind = 'wall'
     perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
@@ -89,9 +89,10 @@ describe('buildcraft', () => {
     expect(state.hero.cooldowns?.['tool:woodenLeverRoller']).toBeGreaterThan(0)
     expect(state.floor.tiles[indexOf(2, 1)].kind).toBe('floor')
     state.hero.cooldowns = {}
-    state.floor.actors.push({ id: 'blocker', role: 'monster', kind: 'mole', name: 'blocker', x: 4, y: 1, health: 1, maxHealth: 1, attack: 1, defense: 0, speed: 1, energy: 1, glyph: 'm', color: '#fff', hostile: true })
+    state.floor.props[0]!.x = 2
+    state.floor.actors.push({ id: 'blocker', role: 'monster', kind: 'mole', name: 'blocker', x: 3, y: 1, health: 1, maxHealth: 1, attack: 1, defense: 0, speed: 1, energy: 1, glyph: 'm', color: '#fff', hostile: true })
     perform(state, 'y'); perform(state, '1'); perform(state, ';'); perform(state, 'Enter')
-    expect(state.floor.props[0]).toMatchObject({ x: 3, y: 1 })
+    expect(state.floor.props[0]).toMatchObject({ x: 2, y: 1 })
     expect(state.messages[0]).toContain('empty legal destination')
   })
 

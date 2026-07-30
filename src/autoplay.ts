@@ -1285,7 +1285,7 @@ export const autoplayResourceDiagnostics = (state: RunState, mode: Exclude<Autop
 
 type ToolOutcome = { direction: Exclude<Direction, 'wait'>; score: number; projectedRouteGain: boolean; survivalGain: boolean }
 const toolPath = (state: RunState, tool: TraversalToolId, overdrive: boolean, direction: Exclude<Direction, 'wait'>): Point[] => {
-  const distance = tool === 'stoneWedge' ? 1 : tool === 'reedwing' ? (overdrive ? 3 : 2) + boonRank(state, 'reedMemory') + boonRank(state, 'updraftStep') : tool === 'cordAnchor' ? overdrive ? 4 : 2 : overdrive ? 3 : 2
+  const distance = tool === 'stoneWedge' || tool === 'stoneAdze' || tool === 'resinFireBasket' ? 1 : tool === 'reedwing' ? (overdrive ? 3 : 2) + boonRank(state, 'reedMemory') + boonRank(state, 'updraftStep') : tool === 'cordAnchor' ? overdrive ? 4 : 2 : tool === 'antlerPrybar' || tool === 'woodenLeverRoller' ? 2 : overdrive ? 3 : 2
   return Array.from({ length: distance }, (_, index) => ({ x: state.hero.x + DIRECTIONS[direction].x * (index + 1), y: state.hero.y + DIRECTIONS[direction].y * (index + 1) }))
 }
 const toolOutcomes = (state: RunState, mode: Exclude<AutoplayMode, 'off'>, tool: TraversalToolId, overdrive: boolean): ToolOutcome[] => directions.flatMap(([direction]) => {
