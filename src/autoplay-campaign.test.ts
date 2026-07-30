@@ -19,7 +19,9 @@ const run = (profile: CampaignAutoplayRun['profile'], campaignComplete: boolean)
 })
 
 const suite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => ({
-  version: 2,
+  version: 3,
+  corpusVersion: 1,
+  partition: 'development',
   seeds: [7],
   turnLimit: 19_200,
   profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),

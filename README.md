@@ -51,6 +51,10 @@ Generate deterministic spatial metrics; JSON reports default to ignored `generat
 npm run generation:report
 ```
 
+## Autoplay corpus
+
+`src/autoplay-seed-corpus.json` contains fixed 48-seed development and held-out campaign partitions. Tune profiles only with `npm run autoplay:campaign:development`; use `npm run autoplay:campaign:held-out` solely for frozen evaluation. Held-out runs cannot update the campaign baseline.
+
 ## Controls
 
 | Key | Action |

@@ -1,10 +1,11 @@
 import { runAutoplay, type AutoplayOutcome, type AutoplayReport } from './autoplay-runner'
+import { AUTOPLAY_SEED_CORPUS_VERSION, autoplaySeedCorpusPartition, type AutoplaySeedCorpusEntry, type AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
 import type { AutoplayMode, AutoplayPolicy, AutoplayReplayMetadata, AutoplayTraceEntry, Biome } from './types'
 
-export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = [7, 42, 99, 123, 256, 512, 999, 1337, 4096, 77123, 11, 17, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211]
-export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = 38_400
+export const CAMPAIGN_AUTOPLAY_SEEDS: readonly number[] = autoplaySeedCorpusPartition('development').map(entry => entry.seed)
+export const CAMPAIGN_AUTOPLAY_TURN_LIMIT = autoplaySeedCorpusPartition('development')[0]!.turnBudget
 export const CAMPAIGN_AUTOPLAY_PROFILES = [
   { id: 'omniscient-clear', mode: 'omniscient', policy: 'clear' },
   { id: 'visible-explore', mode: 'visible', policy: 'explore' }
@@ -16,16 +17,28 @@ export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome:
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
 export interface CampaignAutoplaySummary extends CampaignAutoplayRate { byProfile: Record<CampaignAutoplayProfileId, CampaignAutoplayRate> }
-export interface CampaignAutoplaySuite { version: 2; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary }
+export interface CampaignAutoplaySuite { version: 3; corpusVersion: typeof AUTOPLAY_SEED_CORPUS_VERSION; partition: AutoplaySeedCorpusPartition; seeds: number[]; turnLimit: number; profiles: CampaignAutoplayProfile[]; runs: CampaignAutoplayRun[]; summary: CampaignAutoplaySummary }
 export interface CampaignAutoplayDelta { overall: number; byProfile: Record<CampaignAutoplayProfileId, number> }
-export interface CampaignAutoplaySuiteOptions { captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
+export interface CampaignAutoplaySuiteOptions { partition?: AutoplaySeedCorpusPartition; captureTrace?: boolean; onRun?: (run: CampaignAutoplayRun, completed: number, total: number) => void }
+
+export const campaignAutoplayEntries = (partition: AutoplaySeedCorpusPartition = 'development'): AutoplaySeedCorpusEntry[] => autoplaySeedCorpusPartition(partition)
+
+export const campaignAutoplayRunMatchesCorpus = (entry: AutoplaySeedCorpusEntry, run: CampaignAutoplayRun): boolean => {
+  const profile = CAMPAIGN_AUTOPLAY_PROFILES.find(candidate => candidate.id === run.profile)
+  const expectedModes = new Set(entry.policyModes)
+  return Boolean(profile && run.seed === entry.seed && run.mode === profile.mode && run.policy === profile.policy && expectedModes.has(run.mode) && run.outcome !== 'error' && run.areaOrder.length === entry.routeConfiguration.areaOrder.length && run.areaOrder.every((biome, index) => biome === entry.routeConfiguration.areaOrder[index]))
+}
 
 export const assertCampaignAutoplaySuite = (suite: CampaignAutoplaySuite): void => {
-  const expected = new Set(CAMPAIGN_AUTOPLAY_SEEDS.flatMap(seed => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => `${seed}:${profile.id}`)))
+  const entries = campaignAutoplayEntries(suite.partition)
+  const expected = new Set(entries.flatMap(entry => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => `${entry.seed}:${profile.id}`)))
   const actual = new Set(suite.runs.map(run => `${run.seed}:${run.profile}`))
   if (suite.runs.length !== expected.size || actual.size !== expected.size || [...actual].some(key => !expected.has(key))) throw new Error('campaign autoplay suite has missing or duplicate seed/profile runs')
+  if (suite.version !== 3 || suite.corpusVersion !== AUTOPLAY_SEED_CORPUS_VERSION) throw new Error('campaign autoplay suite has an unsupported corpus version')
   if (suite.summary.total !== suite.runs.length || suite.summary.completed + suite.summary.failed !== suite.runs.length) throw new Error('campaign autoplay suite summary is inconsistent')
   if (suite.runs.some(run => !isCampaignAreaOrder(run.areaOrder))) throw new Error('campaign autoplay suite has an invalid area order')
+  const bySeed = new Map(entries.map(entry => [entry.seed, entry]))
+  if (suite.runs.some(run => !campaignAutoplayRunMatchesCorpus(bySeed.get(run.seed)!, run))) throw new Error('campaign autoplay suite has a corpus validation failure')
 }
 
 const rate = (runs: readonly CampaignAutoplayRun[]): CampaignAutoplayRate => {
@@ -63,11 +76,14 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   ...(!report.campaignComplete ? { failure: failure(report) } : {})
 })
 
-export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAutoplaySuite => {
+export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[], partition: AutoplaySeedCorpusPartition = 'development'): CampaignAutoplaySuite => {
+  const entries = campaignAutoplayEntries(partition)
   const suite = {
-    version: 2 as const,
-    seeds: [...CAMPAIGN_AUTOPLAY_SEEDS],
-    turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT,
+    version: 3 as const,
+    corpusVersion: AUTOPLAY_SEED_CORPUS_VERSION,
+    partition,
+    seeds: entries.map(entry => entry.seed),
+    turnLimit: entries[0]!.turnBudget,
     profiles: CAMPAIGN_AUTOPLAY_PROFILES.map(profile => ({ ...profile })),
     runs,
     summary: summarizeCampaignAutoplay(runs)
@@ -77,15 +93,18 @@ export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[]): CampaignAuto
 }
 
 export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions = {}): CampaignAutoplaySuite => {
+  const partition = options.partition ?? 'development'
+  const entries = campaignAutoplayEntries(partition)
   const runs: CampaignAutoplayRun[] = []
-  const total = CAMPAIGN_AUTOPLAY_SEEDS.length * CAMPAIGN_AUTOPLAY_PROFILES.length
-  for (const seed of CAMPAIGN_AUTOPLAY_SEEDS) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
-    const report = runAutoplay(newSeededCampaignRun(seed), { mode: profile.mode, policy: profile.policy, turnLimit: CAMPAIGN_AUTOPLAY_TURN_LIMIT, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
-    const current = compactCampaignAutoplayRun(seed, profile, report)
+  const total = entries.length * CAMPAIGN_AUTOPLAY_PROFILES.length
+  for (const entry of entries) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
+    const report = runAutoplay(newSeededCampaignRun(entry.seed), { mode: profile.mode, policy: profile.policy, turnLimit: entry.turnBudget, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
+    const current = compactCampaignAutoplayRun(entry.seed, profile, report)
+    if (!campaignAutoplayRunMatchesCorpus(entry, current)) throw new Error(`campaign autoplay corpus validation failed for ${entry.seed}/${profile.id}`)
     runs.push(current)
     options.onRun?.(current, runs.length, total)
   }
-  return campaignAutoplaySuite(runs)
+  return campaignAutoplaySuite(runs, partition)
 }
 
 export const campaignAutoplayDelta = (current: CampaignAutoplaySuite, baseline: CampaignAutoplaySuite): CampaignAutoplayDelta => ({
