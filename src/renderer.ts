@@ -273,7 +273,8 @@ export class TerminalRenderer {
     this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
     this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
     this.creatorField(10, 29, 'CALLING', calling.label, draft.focus === 2)
-    this.creatorField(10, 41, 'DEATH', death[0], draft.focus === 3)
+    this.creatorField(10, 39, 'DEATH', death[0], draft.focus === 3)
+    this.creatorField(10, 47, 'COMPANION CONTROL', draft.companionControlMode.toUpperCase(), draft.focus === 4)
     this.wrap(origin.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 17 + index, line, colors.text))
     this.text(40, 22, 'STATS', colors.gold)
     ;(['strength', 'agility', 'vitality', 'intellect'] as const).forEach((stat, index) => {
@@ -284,7 +285,8 @@ export class TerminalRenderer {
     this.text(40, 35, 'KIT', colors.gold)
     calling.kit.forEach((item, index) => this.text(40, 36 + index, `· ${item.name} — ${item.effect}`, colors.text))
     this.text(40, 41, death[1], colors.text)
-    this.text(10, 51, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
+    this.text(40, 47, draft.companionControlMode === 'autonomous' ? 'Companions follow their priorities.' : 'Command active companions in turn order.', colors.text)
+    this.text(10, 54, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
 
   private creatorField(x: number, y: number, label: string, value: string, focus: boolean, placeholder = false, cursor = false): void {
@@ -359,7 +361,7 @@ export class TerminalRenderer {
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
     this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
-    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.companionAction)
+    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.companionAction, route.companionControlMode)
     this.hubLog(hub, nearby, routeSteps)
   }
 
@@ -449,8 +451,8 @@ export class TerminalRenderer {
     this.cell(x + hero.x, y + hero.y, this.runeMode ? '☉' : '@', colors.text)
   }
 
-  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction']): void {
-    this.box(53, 22, 40, 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : action === 'continuation' ? 'CONTINUE CAMPAIGN' : 'COMPANION LODGE')
+  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
+    this.box(53, action === 'roster' ? 19 : 22, 40, action === 'roster' ? 23 : 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : action === 'continuation' ? 'CONTINUE CAMPAIGN' : 'COMPANION LODGE')
     if (action === 'continuation') {
       const next = hub?.cycle?.currentTier === 'base' ? 'NG+' : 'NG++'
       this.text(56, 26, `Begin ${next} from the route board.`, colors.gold)
@@ -460,21 +462,31 @@ export class TerminalRenderer {
     }
     if (action === 'roster') {
       const companions = hub?.companions ?? []
-      const selected = companionAction ? companions.find(companion => companion.id === companionAction.id) : undefined
-      if (selected && companionAction) {
-        this.text(56, 26, `${companionAction.action.toUpperCase()} ${selected.name}`.slice(0, 32), colors.gold)
-        this.text(56, 28, `${selected.role.toUpperCase()} · ${selected.rosterStatus.toUpperCase()}`, colors.text)
-        this.text(56, 30, `${biomeName[selected.recruitment.biome]} stage ${selected.recruitment.floor + 1}`, colors.dim)
-        this.text(56, 33, companionAction.action === 'recruit' ? 'Free · status becomes BENCHED.' : companionAction.action === 'activate' ? 'Joins active party if capacity allows.' : 'Returns to the lodge bench.', colors.text)
-        this.text(56, 36, 'ENTER confirm · C / ESC cancel', colors.green)
+      if (companionControlMode) {
+        const direct = companionControlMode === 'direct'
+        this.text(56, 23, `SET ${companionControlMode.toUpperCase()} CONTROL`, colors.gold)
+        this.text(56, 25, direct ? 'Turn order: courier, then companions.' : 'Turn order: companions follow priorities.', colors.text)
+        this.text(56, 28, direct ? 'Input: choose each active companion action.' : 'Input: companion commands are unavailable.', colors.text)
+        this.wrap('Switches apply only at the Lodge between floors; never during combat, autoplay, replay, or command phases.', 34).forEach((line, index) => this.text(56, 31 + index * 2, line, colors.dim))
+        this.text(56, 39, 'ENTER confirm · C / ESC cancel', colors.green)
         return
       }
-      if (!companions.length) { this.text(56, 27, hub?.state.rescued.length ? 'Rescues are being logged as leads.' : 'No rescue leads are available.', colors.dim); return }
+      const selected = companionAction ? companions.find(companion => companion.id === companionAction.id) : undefined
+      if (selected && companionAction) {
+        this.text(56, 23, `${companionAction.action.toUpperCase()} ${selected.name}`.slice(0, 32), colors.gold)
+        this.text(56, 25, `${selected.role.toUpperCase()} · ${selected.rosterStatus.toUpperCase()}`, colors.text)
+        this.text(56, 27, `${biomeName[selected.recruitment.biome]} stage ${selected.recruitment.floor + 1}`, colors.dim)
+        this.text(56, 30, companionAction.action === 'recruit' ? 'Free · status becomes BENCHED.' : companionAction.action === 'activate' ? 'Joins active party if capacity allows.' : 'Returns to the lodge bench.', colors.text)
+        this.text(56, 39, 'ENTER confirm · C / ESC cancel', colors.green)
+        return
+      }
+      this.text(56, 23, `0. CONTROL: ${(hub?.companionControlMode ?? 'autonomous').toUpperCase()}`, colors.gold)
+      if (!companions.length) { this.text(56, 26, hub?.state.rescued.length ? 'Rescues are being logged as leads.' : 'No rescue leads are available.', colors.dim); this.text(56, 39, '0 change control · C / ESC close', colors.green); return }
       companions.slice(0, 5).forEach((companion, index) => {
         const status = companion.permanentlyLost ? 'UNAVAILABLE' : companion.injury !== 'healthy' ? companion.injury.toUpperCase() : companion.rosterStatus.toUpperCase()
         this.text(56, 26 + index * 2, `${index + 1}. ${companion.name.slice(0, 12).padEnd(12)} ${companion.role.slice(0, 5).padEnd(5)} ${status}`.slice(0, 34), companion.permanentlyLost || companion.injury !== 'healthy' ? colors.dim : companion.rosterStatus === 'active' ? colors.green : colors.text)
       })
-      this.text(56, 36, `1-${Math.min(5, companions.length)} review · C / ESC close`, colors.green)
+      this.text(56, 39, `0 control · 1-${Math.min(5, companions.length)} review · C / ESC close`, colors.green)
       return
     }
     const ids = action === 'shop' ? hub?.stock ?? [] : hub?.equipment ?? []

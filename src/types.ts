@@ -254,11 +254,11 @@ export interface Hero {
   curse?: CurseState
 }
 
-export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; createdAt: string; parentId?: string }
+export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; createdAt: string; parentId?: string }
 export interface CourierSave { version: 1; identity: CourierIdentity; run?: RunState; checkpoint?: RunState; heir?: Hero; campaign: CampaignRouteState; records: Records; archived?: boolean }
 export interface CourierMenuEntry { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; area?: Biome; floor?: number; turn?: number; archived?: boolean }
 export interface CourierMenuView { entries: CourierMenuEntry[]; selectedId?: string; confirmingDelete?: boolean }
-export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; focus: 0 | 1 | 2 | 3 }
+export interface CourierDraft { name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; focus: 0 | 1 | 2 | 3 | 4 }
 
 export interface HubState {
   season: number
@@ -272,6 +272,7 @@ export interface RescuedNpc { id: string; name: string; biome: Biome; floor: num
 export type CompanionRole = 'guard' | 'scout' | 'pathmaker' | 'ritualist'
 export type CompanionRosterStatus = 'lead' | 'benched' | 'active' | 'lost'
 export type CompanionControlMode = 'autonomous' | 'direct'
+export interface CompanionControlModeEvent { sequence: number; mode: CompanionControlMode; source: 'creation' | 'migration' | 'lodge' }
 export type CompanionInjuryState = 'healthy' | 'injured' | 'recovering'
 export type CompanionActionCategory = 'intercept' | 'protect' | 'observe' | 'mark' | 'traverse' | 'stabilizeTerrain' | 'ward' | 'stabilizeHazard'
 export type CompanionInformationBoundary = 'visible-only' | 'explored-only' | 'in-world-discovery'
@@ -303,7 +304,7 @@ export interface CampaignCycle { version: 1; currentTier: CampaignTier; complete
 export interface CampaignCarryoverInventoryDiagnostic { before: ItemId[]; after: ItemId[]; added: ItemId[]; removed: ItemId[] }
 export interface CampaignCarryoverRosterDiagnostic { before: Companion[]; after: Companion[]; added: string[]; removed: string[]; changed: string[] }
 export interface CampaignCarryoverDiagnostic { version: 1; fromTier: CampaignTier; toTier: CampaignTier; inventory: CampaignCarryoverInventoryDiagnostic; roster: CampaignCarryoverRosterDiagnostic }
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; carryoverDiagnostics: CampaignCarryoverDiagnostic[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; companionControlMode: CompanionControlMode; companionControlHistory: CompanionControlModeEvent[]; carryoverDiagnostics: CampaignCarryoverDiagnostic[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
 
 export interface LegacyRecord {
   id: string
@@ -405,7 +406,7 @@ export type Modal =
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }
 export interface Records { bestDepth: number; wins: number; deaths: number; runs: RunRecord[]; analyses: RunAnalysis[] }
-export interface CampaignCarryoverSnapshot { version: 1; fromTier: CampaignTier; hero: Hero; companions: Companion[]; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation: SocialReputation; records: Records }
+export interface CampaignCarryoverSnapshot { version: 1; fromTier: CampaignTier; hero: Hero; companions: Companion[]; companionControlMode: CompanionControlMode; companionControlHistory: CompanionControlModeEvent[]; rescuedNpcs: RescuedNpc[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation: SocialReputation; records: Records }
 
 export const DIRECTIONS: Record<Direction, Point> = {
   nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 },

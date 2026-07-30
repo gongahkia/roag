@@ -1,9 +1,9 @@
-import type { Biome } from '../types'
+import type { Biome, CompanionControlMode } from '../types'
 import type { HubAction } from './hub'
 import type { CompanionRosterAction } from './companions'
 
 export type Screen = 'title' | 'splash' | 'codex' | 'createCourier' | 'approach' | 'hub' | 'area' | 'level' | 'loading' | 'analysis'
-export interface ScreenRoute { screen: Screen; biome: Biome; heirSeed?: number; hubAction?: HubAction; companionAction?: { id: string; action: CompanionRosterAction }; codexPage?: number }
+export interface ScreenRoute { screen: Screen; biome: Biome; heirSeed?: number; hubAction?: HubAction; companionAction?: { id: string; action: CompanionRosterAction }; companionControlMode?: CompanionControlMode; codexPage?: number }
 
 export const initialRoute = (): ScreenRoute => ({ screen: 'title', biome: 'mine' })
 

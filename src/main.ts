@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCompanionRoster, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -254,7 +254,7 @@ function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
     const nextId = nextCourierSelection(entries, selectedCourierId, key)
     if (nextId) activateCourier(nextId)
   } else if (command === 'n') {
-    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', focus: 0 }
     inheritedCampaign = undefined
     successorParentId = undefined
     route = { ...route, screen: 'createCourier' }
@@ -280,8 +280,8 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
   if (!courierDraft) return
   const key = keyboardEvent.key
   if (key === 'Escape' || key === '`') { courierDraft = undefined; route = { ...route, screen: 'title' }; redraw(); return }
-  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 3 : 1)) % 4) as CourierDraft['focus'] }; redraw(); return }
-  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 3 : 1)) % 4) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 4 : 1)) % 5) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 4 : 1)) % 5) as CourierDraft['focus'] }; redraw(); return }
   if (key === 'Enter') { createCourierFromDraft(); return }
   if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
     const forward = key === 'ArrowRight'
@@ -293,7 +293,8 @@ function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
       const options: CourierDraft['calling'][] = ['trailguard', 'pathmaker', 'spiritbearer']
       const index = options.indexOf(courierDraft.calling)
       courierDraft = { ...courierDraft, calling: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
-    } else courierDraft = { ...courierDraft, deathMode: courierDraft.deathMode === 'checkpoint' ? 'ironTrail' : 'checkpoint' }
+    } else if (courierDraft.focus === 3) courierDraft = { ...courierDraft, deathMode: courierDraft.deathMode === 'checkpoint' ? 'ironTrail' : 'checkpoint' }
+    else courierDraft = { ...courierDraft, companionControlMode: courierDraft.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }
     redraw(); return
   }
   if (courierDraft.focus === 0) {
@@ -317,9 +318,9 @@ function createCourierFromDraft(): void {
   redraw()
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     const id = crypto.randomUUID()
-    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
+    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, companionControlMode: draft.companionControlMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
     const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
-    const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
+    const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed, draft.companionControlMode)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
     const nextHeir = structuredClone(courier.heir)
     couriers = [...couriers, courier]
     activeCourier = courier
@@ -580,7 +581,7 @@ function persistRescuedRoster(): void {
   if (!state?.rescuedNpcs?.length) return
   const rescuedNpcs = [...campaign.rescuedNpcs]
   for (const npc of state.rescuedNpcs) if (!rescuedNpcs.some(existing => existing.id === npc.id)) rescuedNpcs.push({ ...npc })
-  campaign = { ...campaign, rescuedNpcs, companions: addCompanionLeads(campaign.companions, rescuedNpcs) }
+  campaign = { ...campaign, rescuedNpcs, companions: addCompanionLeads(campaign.companions, rescuedNpcs, campaign.companionControlMode) }
   hub = { ...hub, rescued: rescuedNpcs }
   if (state.status === 'playing') persistActiveCourier()
 }
@@ -685,7 +686,7 @@ function redraw(): void {
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, companions: campaign.companions }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, companions: campaign.companions, companionControlMode: campaign.companionControlMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
   syncAutoplay()
 }
 
@@ -715,7 +716,17 @@ function handleHubInput(key: string, run = false): boolean {
       return true
     }
     if (action === 'roster') {
-      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined, companionAction: undefined }; return true }
+      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined, companionAction: undefined, companionControlMode: undefined }; return true }
+      const pendingControlMode = route.companionControlMode
+      if (pendingControlMode) {
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
+        const result = changeCampaignCompanionControlMode(campaign, pendingControlMode, 'lodge')
+        campaign = result.state
+        hubNotice = result.message
+        route = { ...route, companionControlMode: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
       const pending = route.companionAction
       if (pending) {
         if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
@@ -727,6 +738,7 @@ function handleHubInput(key: string, run = false): boolean {
         return true
       }
       if (key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+      if (key === '0') { route = { ...route, companionControlMode: campaign.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }; hubNotice = undefined; return true }
       const choice = Number(key) - 1
       const companion = campaign.companions[choice]
       if (!Number.isInteger(choice) || !companion || choice > 4) { hubNotice = 'Choose a listed companion (1-5).'; return true }

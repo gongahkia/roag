@@ -1,4 +1,4 @@
-import type { Biome, Companion, CompanionRole, RescuedNpc } from '../types'
+import type { Biome, Companion, CompanionControlMode, CompanionRole, RescuedNpc } from '../types'
 
 const roles: readonly CompanionRole[] = ['guard', 'scout', 'pathmaker', 'ritualist']
 const traversalTools = ['stoneWedge', 'reedwing', 'cordAnchor', 'ashwayRites', 'antlerPrybar', 'stoneAdze', 'resinFireBasket', 'woodenLeverRoller'] as const
@@ -9,7 +9,7 @@ export const COMPANION_ACTIVE_CAPACITY = 3
 export type CompanionRosterAction = 'recruit' | 'activate' | 'bench'
 export interface CompanionRosterMutation { changed: boolean; message: string; companions: Companion[] }
 
-export const companionLeadForRescue = (rescue: RescuedNpc): Companion => ({
+export const companionLeadForRescue = (rescue: RescuedNpc, controlMode: CompanionControlMode = 'autonomous'): Companion => ({
   version: 1,
   id: `companion:${rescue.id}`,
   templateId: `rescue:${rescue.biome}`,
@@ -17,7 +17,7 @@ export const companionLeadForRescue = (rescue: RescuedNpc): Companion => ({
   role: roleForBiome[rescue.biome],
   recruitment: { kind: 'rescue', rescueId: rescue.id, biome: rescue.biome, floor: rescue.floor },
   rosterStatus: 'lead',
-  controlMode: 'autonomous',
+  controlMode,
   injury: 'healthy',
   abilityState: { cooldowns: {}, retired: [] },
   toolState: { cooldown: 0, retired: false },
@@ -73,12 +73,12 @@ export const cloneCompanions = (companions: readonly Companion[], rescues?: read
   return companions.map(companion => cloneCompanion(companion, rescues))
 }
 
-export const companionLeadsForRescues = (rescues: readonly RescuedNpc[]): Companion[] => cloneCompanions(rescues.map(companionLeadForRescue), rescues)
+export const companionLeadsForRescues = (rescues: readonly RescuedNpc[], controlMode: CompanionControlMode = 'autonomous'): Companion[] => cloneCompanions(rescues.map(rescue => companionLeadForRescue(rescue, controlMode)), rescues)
 export const loseCompanionForRescue = (companion: Companion, rescueId: string): Companion => companion.recruitment.rescueId === rescueId ? { ...cloneCompanion(companion), rosterStatus: 'lost', permanentlyLost: true } : cloneCompanion(companion)
-export const addCompanionLeads = (companions: readonly Companion[], rescues: readonly RescuedNpc[]): Companion[] => {
+export const addCompanionLeads = (companions: readonly Companion[], rescues: readonly RescuedNpc[], controlMode: CompanionControlMode = 'autonomous'): Companion[] => {
   const next = cloneCompanions(companions, rescues)
-  for (const rescue of rescues) if (!next.some(companion => companion.recruitment.rescueId === rescue.id)) next.push(companionLeadForRescue(rescue))
-  return cloneCompanions(next, rescues)
+  for (const rescue of rescues) if (!next.some(companion => companion.recruitment.rescueId === rescue.id)) next.push(companionLeadForRescue(rescue, controlMode))
+  return cloneCompanions(next.map(companion => ({ ...companion, controlMode })), rescues)
 }
 export const companionRosterAction = (companion: Companion): CompanionRosterAction | undefined => companion.rosterStatus === 'lead' ? 'recruit' : companion.rosterStatus === 'benched' ? 'activate' : companion.rosterStatus === 'active' ? 'bench' : undefined
 export const changeCompanionRoster = (companions: readonly Companion[], rescues: readonly RescuedNpc[], id: string, action: CompanionRosterAction): CompanionRosterMutation => {

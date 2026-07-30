@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendLegacyRecord, campaignOrderForSeed, completeCampaignArea, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
+import { appendLegacyRecord, campaignOrderForSeed, changeCampaignCompanionControlMode, completeCampaignArea, initialCampaignRoute, isCampaignAreaOrder, nextArea, recordCampaignSacrifice, unlockCampaignArea } from './campaign'
 import { companionLeadsForRescues } from './companions'
 import { descend } from './inventory'
 import { newRun } from './run'
@@ -71,5 +71,18 @@ describe('four-area campaign flow', () => {
     expect(order).toHaveLength(4)
     expect(new Set(order).size).toBe(4)
     expect(order.every(biome => ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'].includes(biome))).toBe(true)
+  })
+
+  it('uses the courier control default and permits mode changes only at the Lodge', () => {
+    const rescues = [{ id: 'rescue:mine:1:mika', name: 'Mika', biome: 'mine' as const, floor: 1 }]
+    const route = { ...initialCampaignRoute(77, 'direct'), rescuedNpcs: rescues, companions: companionLeadsForRescues(rescues) }
+    expect(route).toMatchObject({ companionControlMode: 'direct', companionControlHistory: [{ sequence: 0, mode: 'direct', source: 'creation' }] })
+    for (const context of ['floor', 'combat', 'autoplay', 'replay', 'command'] as const) {
+      const rejected = changeCampaignCompanionControlMode(route, 'autonomous', context)
+      expect(rejected).toMatchObject({ changed: false, state: { companionControlMode: 'direct', companionControlHistory: route.companionControlHistory } })
+    }
+    const changed = changeCampaignCompanionControlMode(route, 'autonomous', 'lodge')
+    expect(changed).toMatchObject({ changed: true, state: { companionControlMode: 'autonomous', companionControlHistory: [{ sequence: 0, mode: 'direct', source: 'creation' }, { sequence: 1, mode: 'autonomous', source: 'lodge' }], companions: [{ controlMode: 'autonomous' }] } })
+    expect(changed.state.companions.every(companion => companion.controlMode === changed.state.companionControlMode)).toBe(true)
   })
 })

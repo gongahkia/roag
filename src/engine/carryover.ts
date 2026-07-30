@@ -36,6 +36,8 @@ export const snapshotCampaignCarryover = (hero: Hero, campaign: CampaignRouteSta
   fromTier: campaign.cycle.currentTier,
   hero: structuredClone(hero),
   companions: cloneCompanions(campaign.companions, campaign.rescuedNpcs),
+  companionControlMode: campaign.companionControlMode,
+  companionControlHistory: campaign.companionControlHistory.map(event => ({ ...event })),
   rescuedNpcs: cloneRescues(campaign.rescuedNpcs),
   lineageEvents: cloneLineage(campaign.lineageEvents),
   legacyRecords: cloneLegacy(campaign.legacyRecords),
@@ -56,7 +58,7 @@ export const transferCampaignCarryover = (target: CampaignRouteState, snapshot: 
   return {
     hero,
     records: structuredClone(snapshot.records),
-    campaign: { ...target, rescuedNpcs: cloneRescues(snapshot.rescuedNpcs), companions, carryoverDiagnostics, lineageEvents: cloneLineage(snapshot.lineageEvents), legacyRecords: cloneLegacy(snapshot.legacyRecords), alignment: { ...snapshot.alignment }, reputation: { ...snapshot.reputation } },
+    campaign: { ...target, rescuedNpcs: cloneRescues(snapshot.rescuedNpcs), companions: companions.map(companion => ({ ...companion, controlMode: snapshot.companionControlMode })), companionControlMode: snapshot.companionControlMode, companionControlHistory: snapshot.companionControlHistory.map(event => ({ ...event })), carryoverDiagnostics, lineageEvents: cloneLineage(snapshot.lineageEvents), legacyRecords: cloneLegacy(snapshot.legacyRecords), alignment: { ...snapshot.alignment }, reputation: { ...snapshot.reputation } },
     diagnostic: existing ? cloneCarryoverDiagnostics([existing])[0]! : diagnostic
   }
 }
