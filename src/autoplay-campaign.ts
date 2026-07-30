@@ -4,6 +4,7 @@ import { autoplayHeuristicProfile, type AutoplayHeuristicProfile, type AutoplayH
 import { AUTOPLAY_SEED_CORPUS_VERSION, autoplaySeedCorpusPartition, type AutoplaySeedCorpusEntry, type AutoplaySeedCorpusPartition } from './autoplay-seed-corpus'
 import { assertAutoplayTraceDocument, type AutoplayTraceDocument } from './autoplay-trace'
 import { assertAutoplayScoreboard, createAutoplayScoreboard, type AutoplayScoreboard } from './autoplay-scoreboard'
+import { assertAutoplayFailureDiagnosis, diagnoseAutoplayFailure, type AutoplayFailureCode, type AutoplayFailureDiagnosis } from './autoplay-failure-diagnosis'
 import { newSeededCampaignRun } from './engine'
 import { isCampaignAreaOrder } from './engine/campaign'
 import type { AutoplayMode, AutoplayOptionalOutcomes, AutoplayPolicy, AutoplayReplayMetadata, AutoplayResourceOutcomes, AutoplayTraceEntry, Biome } from './types'
@@ -17,7 +18,7 @@ export const CAMPAIGN_AUTOPLAY_PROFILES = [
 
 export type CampaignAutoplayProfile = typeof CAMPAIGN_AUTOPLAY_PROFILES[number]
 export type CampaignAutoplayProfileId = CampaignAutoplayProfile['id']
-export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
+export interface CampaignAutoplayFailure { outcome: AutoplayOutcome; finalBiome: Biome; floor: number; completedAreas: Biome[]; replay: AutoplayReplayMetadata; partition: AutoplaySeedCorpusPartition; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile: AutoplayHeuristicProfileRef; turnLimit: number; code: AutoplayFailureCode; diagnosis: AutoplayFailureDiagnosis; reason?: string; trace: Array<Pick<AutoplayTraceEntry, 'turn' | 'replay' | 'command' | 'reason' | 'events'>>; traceDocument?: AutoplayTraceDocument }
 export interface CampaignAutoplayEvaluation { policyMetadata: PolicyRunMetadata; explorationValue: number; resourcesSpent: number; resourcesRetained: number; resourceOutcomes: AutoplayResourceOutcomes; optionalOutcomes: AutoplayOptionalOutcomes; traceHash?: string }
 export interface CampaignAutoplayRun { seed: number; profile: CampaignAutoplayProfileId; mode: Exclude<AutoplayMode, 'off'>; policy: AutoplayPolicy; heuristicProfile?: AutoplayHeuristicProfileRef; areaOrder: Biome[]; campaignComplete: boolean; outcome: AutoplayOutcome; turns: number; finalBiome: Biome; floor: number; completedAreas: Biome[]; evaluation?: CampaignAutoplayEvaluation; traceDocument?: AutoplayTraceDocument; failure?: CampaignAutoplayFailure }
 export interface CampaignAutoplayRate { total: number; completed: number; failed: number; failureRate: number }
@@ -53,15 +54,19 @@ const assertCampaignAutoplayEvaluation = (run: CampaignAutoplayRun): void => {
 }
 
 export const assertCampaignAutoplaySuite = (suite: CampaignAutoplaySuite): void => {
-  const entries = campaignAutoplayEntries(suite.partition)
+  const availableEntries = campaignAutoplayEntries(suite.partition)
+  if (!suite.seeds.length || new Set(suite.seeds).size !== suite.seeds.length || suite.seeds.some(seed => !availableEntries.some(entry => entry.seed === seed))) throw new Error('campaign autoplay suite has an invalid seed selection')
+  const entries = availableEntries.filter(entry => suite.seeds.includes(entry.seed))
   const expected = new Set(entries.flatMap(entry => CAMPAIGN_AUTOPLAY_PROFILES.map(profile => `${entry.seed}:${profile.id}`)))
   const actual = new Set(suite.runs.map(run => `${run.seed}:${run.profile}`))
   if (suite.runs.length !== expected.size || actual.size !== expected.size || [...actual].some(key => !expected.has(key))) throw new Error('campaign autoplay suite has missing or duplicate seed/profile runs')
   if (suite.version !== 4 || suite.corpusVersion !== AUTOPLAY_SEED_CORPUS_VERSION) throw new Error('campaign autoplay suite has an unsupported corpus version')
   if (suite.summary.total !== suite.runs.length || suite.summary.completed + suite.summary.failed !== suite.runs.length) throw new Error('campaign autoplay suite summary is inconsistent')
   if (suite.runs.some(run => !isCampaignAreaOrder(run.areaOrder))) throw new Error('campaign autoplay suite has an invalid area order')
+  if (suite.runs.some(run => !run.campaignComplete && run.evaluation && !run.failure)) throw new Error('campaign autoplay suite has an unclassified failure')
   const bySeed = new Map(entries.map(entry => [entry.seed, entry]))
   if (suite.runs.some(run => !campaignAutoplayRunMatchesCorpus(bySeed.get(run.seed)!, run))) throw new Error('campaign autoplay suite has a corpus validation failure')
+  suite.runs.flatMap(run => run.failure ? [run.failure.diagnosis] : []).forEach(assertAutoplayFailureDiagnosis)
   suite.runs.forEach(assertCampaignAutoplayEvaluation)
   assertAutoplayScoreboard(suite.scoreboard, suite)
 }
@@ -76,16 +81,12 @@ export const summarizeCampaignAutoplay = (runs: readonly CampaignAutoplayRun[]):
   return { ...rate(runs), byProfile }
 }
 
-const failure = (report: AutoplayReport): CampaignAutoplayFailure => ({
-  outcome: report.outcome,
-  finalBiome: report.finalBiome,
-  floor: report.floor,
-  completedAreas: [...report.completedAreas],
-  replay: { ...report.replay },
-  ...(report.stall?.lastReason ? { reason: report.stall.lastReason } : report.error ? { reason: report.error } : {}),
-  trace: report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] })),
-  ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {})
-})
+const failure = (report: AutoplayReport, partition: AutoplaySeedCorpusPartition): CampaignAutoplayFailure => {
+  const trace = report.trace.slice(-24).map(({ turn, replay, command, reason, events }) => ({ turn, replay: { ...replay }, command, reason, events: [...events] }))
+  const reason = report.stall?.lastReason ?? report.error
+  const diagnosis = diagnoseAutoplayFailure({ seed: report.seed, partition, mode: report.mode, policy: report.policy, heuristicProfile: report.heuristicProfile, turnLimit: report.policyMetadata.turnBudget, outcome: report.outcome === 'complete' ? 'stalled' : report.outcome, replay: report.replay, exitPath: report.final.exitPath, trace, resources: { ...report.resourceOutcomes, bombsUsed: report.metrics.bombsUsed, ropesUsed: report.metrics.ropesUsed }, tools: report.toolOutcomes, optional: report.optionalOutcomes, ...(reason ? { reason } : {}), ...(report.error ? { error: report.error } : {}), ...(report.traceDocument ? { traceDocument: report.traceDocument } : {}) })
+  return { outcome: report.outcome, finalBiome: report.finalBiome, floor: report.floor, completedAreas: [...report.completedAreas], replay: { ...report.replay }, partition, mode: report.mode, policy: report.policy, heuristicProfile: { ...report.heuristicProfile }, turnLimit: report.policyMetadata.turnBudget, code: diagnosis.code, diagnosis, ...(reason ? { reason } : {}), trace, ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {}) }
+}
 
 const evaluation = (report: AutoplayReport): CampaignAutoplayEvaluation => {
   const score: PolicyScore = structuredClone(report.policyMetadata.score)
@@ -102,7 +103,7 @@ const evaluation = (report: AutoplayReport): CampaignAutoplayEvaluation => {
   }
 }
 
-export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutoplayProfile, report: AutoplayReport): CampaignAutoplayRun => ({
+export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutoplayProfile, report: AutoplayReport, partition: AutoplaySeedCorpusPartition = 'development'): CampaignAutoplayRun => ({
   seed,
   profile: profile.id,
   mode: profile.mode,
@@ -117,11 +118,13 @@ export const compactCampaignAutoplayRun = (seed: number, profile: CampaignAutopl
   completedAreas: [...report.completedAreas],
   evaluation: evaluation(report),
   ...(report.traceDocument ? { traceDocument: structuredClone(report.traceDocument) } : {}),
-  ...(!report.campaignComplete ? { failure: failure(report) } : {})
+  ...(!report.campaignComplete ? { failure: failure(report, partition) } : {})
 })
 
-export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[], partition: AutoplaySeedCorpusPartition = 'development'): CampaignAutoplaySuite => {
-  const entries = campaignAutoplayEntries(partition)
+export const campaignAutoplaySuite = (runs: CampaignAutoplayRun[], partition: AutoplaySeedCorpusPartition = 'development', seedSelection?: readonly number[]): CampaignAutoplaySuite => {
+  const availableEntries = campaignAutoplayEntries(partition)
+  const entries = seedSelection === undefined ? availableEntries : availableEntries.filter(entry => seedSelection.includes(entry.seed))
+  if (!entries.length || new Set(entries.map(entry => entry.seed)).size !== (seedSelection?.length ?? entries.length)) throw new Error('campaign autoplay suite has an invalid seed selection')
   const suite = {
     version: 4 as const,
     corpusVersion: AUTOPLAY_SEED_CORPUS_VERSION,
@@ -146,12 +149,12 @@ export const runCampaignAutoplaySuite = (options: CampaignAutoplaySuiteOptions =
   const total = entries.length * CAMPAIGN_AUTOPLAY_PROFILES.length
   for (const entry of entries) for (const profile of CAMPAIGN_AUTOPLAY_PROFILES) {
     const report = runAutoplay(newSeededCampaignRun(entry.seed), { mode: profile.mode, policy: profile.policy, heuristicProfile, turnLimit: entry.turnBudget, captureTrace: true, traceLimit: options.captureTrace ? undefined : 24 })
-    const current = compactCampaignAutoplayRun(entry.seed, profile, report)
+    const current = compactCampaignAutoplayRun(entry.seed, profile, report, partition)
     if (!campaignAutoplayRunMatchesCorpus(entry, current)) throw new Error(`campaign autoplay corpus validation failed for ${entry.seed}/${profile.id}`)
     runs.push(current)
     options.onRun?.(current, runs.length, total)
   }
-  return campaignAutoplaySuite(runs, partition)
+  return campaignAutoplaySuite(runs, partition, entries.map(entry => entry.seed))
 }
 
 export const campaignAutoplayDelta = (current: CampaignAutoplaySuite, baseline: CampaignAutoplaySuite): CampaignAutoplayDelta => ({

@@ -67,13 +67,15 @@ describe('campaign autoplay baseline', () => {
 
   it('rejects a seed/profile matrix with missing runs', () => {
     expect(() => campaignAutoplaySuite([])).toThrow('campaign autoplay suite has missing or duplicate seed/profile runs')
-    expect(() => assertCampaignAutoplaySuite(suite([run('omniscient-clear', true), run('visible-explore', false)]))).toThrow('campaign autoplay suite has missing or duplicate seed/profile runs')
+    const incomplete = suite([run('omniscient-clear', true), run('visible-explore', false)])
+    incomplete.seeds = [...CAMPAIGN_AUTOPLAY_SEEDS]
+    expect(() => assertCampaignAutoplaySuite(incomplete)).toThrow('campaign autoplay suite has missing or duplicate seed/profile runs')
   })
 
   it('keeps a compact replay trace and floor metadata on failures', () => {
     const report = runAutoplay(newRun(7), { mode: 'omniscient', policy: 'clear', turnLimit: 1, captureTrace: true })
     const compact = compactCampaignAutoplayRun(7, CAMPAIGN_AUTOPLAY_PROFILES[0], report)
-    expect(compact.failure).toMatchObject({ replay: { seed: 7, biome: 'mine', areaFloor: 0, floorIndex: 0, layoutId: expect.any(String), macroRecipeId: expect.any(String), routeContractId: expect.any(String), objectiveId: expect.any(String), escalation: expect.any(String) } })
+    expect(compact.failure).toMatchObject({ code: 'timeout', diagnosis: { reproduction: { seed: 7, partition: 'development', mode: 'omniscient', policy: 'clear', turnLimit: 1 }, finalDecisions: expect.any(Array), evidence: expect.any(Array) }, replay: { seed: 7, biome: 'mine', areaFloor: 0, floorIndex: 0, layoutId: expect.any(String), macroRecipeId: expect.any(String), routeContractId: expect.any(String), objectiveId: expect.any(String), escalation: expect.any(String) } })
     expect(compact.failure?.trace).toHaveLength(1)
     expect(compact.failure?.trace[0]?.replay).toEqual(compact.failure?.replay)
     expect(compact.evaluation?.resourceOutcomes).toEqual(report.resourceOutcomes)
