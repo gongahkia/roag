@@ -48,6 +48,6 @@ export const performDirectCompanionCommand = (state: RunState, modal: Extract<Mo
   if (!action) { log(state, `${companion.name}: choose direction, ${directCompanionControls(companion).join(' / ')}, or Enter.`); return [] }
   if ((companion.abilityState.cooldowns[action] ?? 0) > 0) { log(state, `${companion.name}'s ${action} is recovering.`); return [] }
   const target = state.floor.actors.filter(actor => actor.hostile && actor.health > 0).sort((left, right) => Math.max(Math.abs(left.x - state.hero.x), Math.abs(left.y - state.hero.y)) - Math.max(Math.abs(right.x - state.hero.x), Math.abs(right.y - state.hero.y)) || left.id.localeCompare(right.id))[0]
-  executeCompanionRoleAction(state, companion, action, target ? { x: target.x, y: target.y } : undefined, `${action} by direct command`)
+  executeCompanionRoleAction(state, companion, actor, action, target ? { x: target.x, y: target.y } : undefined, `${action} by direct command`)
   return next(state, modal, companion, action)
 }

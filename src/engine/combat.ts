@@ -317,6 +317,27 @@ export function damageHero(state: RunState, amount: number, source: string, haza
   return [event('death')]
 }
 
+const interceptEnemyDamage = (state: RunState, source: Actor, damage: number): number => {
+  const guard = state.floor.actors.filter(actor => isCompanionActor(actor) && actor.status?.includes(`intercept:${state.turn}`) && Math.max(Math.abs(actor.x - state.hero.x), Math.abs(actor.y - state.hero.y)) <= 1).sort((left, right) => left.id.localeCompare(right.id))[0]
+  if (!guard) return damage
+  const companionId = guard.status?.find(status => status.startsWith('companion:'))?.slice('companion:'.length)
+  const companion = state.companions?.find(candidate => candidate.id === companionId && candidate.role === 'guard' && candidate.rosterStatus === 'active' && candidate.injury === 'healthy' && !candidate.permanentlyLost)
+  if (!companion) return damage
+  const transferred = Math.min(Math.ceil(damage / 2), guard.health)
+  if (!transferred) return damage
+  guard.health -= transferred
+  guard.status = guard.status?.filter(status => !status.startsWith('intercept:'))
+  const remaining = damage - transferred
+  log(state, `${guard.name} intercepts ${source.name}: absorbs ${transferred}, courier takes ${remaining}.`)
+  if (guard.health <= 0) {
+    companion.injury = 'injured'
+    companion.rosterStatus = 'benched'
+    state.floor.actors = state.floor.actors.filter(actor => actor !== guard)
+    log(state, `${guard.name} withdraws injured to the Lodge.`)
+  }
+  return remaining
+}
+
 export function explode(state: RunState, x: number, y: number, damage: number, tags: TerrainTag[] = ['bomb'], source = 'your bomb', radius = 1): void {
   const points = [] as Array<{ x: number; y: number }>
   for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
@@ -540,7 +561,7 @@ function monsterAttack(state: RunState, actor: Actor, ranged = 0): ActionResult 
   const dodge = 10 + state.hero.stats.agility + agilityEvasion(state.hero) + equipmentDefense(state.hero)
   if (rng.int(1, 20) + actor.attack < dodge) { log(state, `${actor.name} misses.`); return [event('hurt')] }
   const damage = Math.max(1, actor.attack + ranged + rng.int(0, 3) - Math.floor(state.hero.stats.vitality / 2) - equipmentDefense(state.hero))
-  return damageHero(state, damage, actor.name)
+  return damageHero(state, interceptEnemyDamage(state, actor, damage), actor.name)
 }
 
 function tickEnvironment(state: RunState, events: ActionResult): void {

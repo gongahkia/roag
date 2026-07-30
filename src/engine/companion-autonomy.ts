@@ -86,9 +86,10 @@ export const tickCompanionCooldowns = (companions: readonly Companion[]): void =
     else companion.abilityState.cooldowns[action] = turns - 1
   }
 }
-export const executeCompanionRoleAction = (state: RunState, companion: Companion, action: CompanionActionCategory, target: Point | undefined, rationale: string): void => {
+export const executeCompanionRoleAction = (state: RunState, companion: Companion, actor: Actor, action: CompanionActionCategory, target: Point | undefined, rationale: string): void => {
   if (!isLegalCompanionRoleAction(companion.role, action)) throw new Error(`illegal companion action ${action} for ${companion.role}`)
   companion.abilityState.cooldowns[action] = 2
+  if (action === 'intercept') actor.status = [...(actor.status ?? []).filter(status => !status.startsWith('intercept:')), `intercept:${state.turn}`]
   if (action === 'protect' || action === 'intercept' || action === 'ward') addCondition(state.hero, { kind: 'shielded', duration: 1, potency: 1 })
   if ((action === 'stabilizeTerrain' || action === 'stabilizeHazard') && target) {
     const tile = getTile(state.floor, target.x, target.y)
@@ -99,7 +100,7 @@ export const executeCompanionRoleAction = (state: RunState, companion: Companion
 const execute = (state: RunState, companion: Companion, actor: Actor, command: AutonomousCompanionCommand): void => {
   if (command.action === 'follow') { if (command.target) { actor.x = command.target.x; actor.y = command.target.y }; return }
   if (command.action === 'wait') return
-  executeCompanionRoleAction(state, companion, command.action, command.target, command.rationale)
+  executeCompanionRoleAction(state, companion, actor, command.action, command.target, command.rationale)
 }
 
 export const resolveAutonomousCompanions = (state: RunState): AutonomousCompanionCommand[] => {
