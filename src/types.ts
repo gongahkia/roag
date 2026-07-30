@@ -273,6 +273,9 @@ export type CompanionRole = 'guard' | 'scout' | 'pathmaker' | 'ritualist'
 export type CompanionRosterStatus = 'lead' | 'benched' | 'active' | 'lost'
 export type CompanionControlMode = 'autonomous' | 'direct'
 export type CompanionInjuryState = 'healthy' | 'injured' | 'recovering'
+export type CompanionActionCategory = 'intercept' | 'protect' | 'observe' | 'mark' | 'traverse' | 'stabilizeTerrain' | 'ward' | 'stabilizeHazard'
+export type CompanionInformationBoundary = 'visible-only' | 'explored-only' | 'in-world-discovery'
+export interface CompanionRoleContract { version: 1; role: CompanionRole; description: string; passiveInformation: string[]; informationBoundary: CompanionInformationBoundary; legalActions: CompanionActionCategory[]; cooldownOwner: 'companion'; resourceOwner: 'companion'; directActions: CompanionActionCategory[]; autonomousPriorities: string[]; prohibitedActions: string[]; fictionNote?: string; contentConstraint?: 'TR-01' }
 export interface CompanionRecruitmentSource { kind: 'rescue'; rescueId: string; biome: Biome; floor: number }
 export interface CompanionAbilityState { cooldowns: Record<string, number>; retired: string[] }
 export interface CompanionToolState { equipped?: TraversalToolId; cooldown: number; retired: boolean }
