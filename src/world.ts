@@ -13,6 +13,7 @@ import { ecologyEventFor, ecologyProfileFor } from './ecology'
 import { escalationFor } from './escalation'
 import { socialContractFor } from './social-contract'
 import { optionalTerrainToolFor } from './traversal-tool-distribution'
+import { placeSecretMetadata } from './secrets'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -246,6 +247,7 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
   imprintBurialCrypts(floor, macro, rngFor(runSeed, 'generation', index, 'burial-crypts'))
   imprintSaltMirages(floor, macro, rngFor(runSeed, 'generation', index, 'salt-mirages'))
   imprintFrostCaves(floor, macro, rngFor(runSeed, 'generation', index, 'frost-caves'))
+  placeSecretMetadata(floor)
   assertGenerationPhase(floor, runSeed, routeContract, 'geometry')
   placeActors(floor, rngFor(runSeed, 'generation', index, 'actors'), placements)
   assertGenerationPhase(floor, runSeed, routeContract, 'actors')
@@ -2310,6 +2312,57 @@ const canReachObjectiveWithProps = (floor: Floor, target: Point): boolean => [[0
 const containsReachable = (floor: Floor, reachable: ReadonlySet<number>, point: Point): boolean => inBounds(floor, point.x, point.y) && reachable.has(indexOf(floor, point.x, point.y))
 const reachesObjective = (floor: Floor, reachable: ReadonlySet<number>, targets: readonly Point[]): boolean => targets.some(target => [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]].some(([x, y]) => containsReachable(floor, reachable, { x: target.x + x, y: target.y + y })))
 
+export const validateSecretRoutes = (floor: Floor, reachable = reachableIndexes(floor)): string[] => {
+  const errors: string[] = []
+  const rooms = floor.secretRooms ?? []
+  const routes = floor.secretRoutes ?? []
+  const spaces = floor.sideSpaces ?? []
+  const roomIds = new Set<string>()
+  for (const room of rooms) {
+    if (roomIds.has(room.id)) errors.push(`duplicate secret room: ${room.id}`)
+    roomIds.add(room.id)
+    const source = spaces.find(space => space.id === room.sourceId)
+    if (!source || room.id !== `secret-room:${source.id}` || !room.safeFallback || room.version !== 1 || !room.discoveryClue || !room.entries.length || !room.chamber.length) errors.push(`invalid secret room: ${room.id}`)
+    if ([room.approach, ...room.entries, ...room.chamber].some(point => !inBounds(floor, point.x, point.y))) errors.push(`out-of-bounds secret room: ${room.id}`)
+    if (!floor.items.some(item => item.secretId === room.id)) errors.push(`untagged secret reward: ${room.id}`)
+  }
+  for (const space of spaces) if (!rooms.some(room => room.sourceId === space.id)) errors.push(`untagged secret content: ${space.id}`)
+  const routeIds = new Set<string>()
+  for (const route of routes) {
+    if (routeIds.has(route.id)) errors.push(`duplicate secret route: ${route.id}`)
+    routeIds.add(route.id)
+    const room = rooms.find(candidate => candidate.id === route.roomId)
+    if (!room || route.version !== 1 || !route.safeFallback || !route.discoveryClue || !inBounds(floor, route.from.x, route.from.y) || !inBounds(floor, route.entry.x, route.entry.y)) errors.push(`invalid secret route: ${route.id}`)
+    if (room && (route.from.x !== room.approach.x || route.from.y !== room.approach.y || route.entryCondition !== room.entryCondition || route.discoveryClue !== room.discoveryClue || route.accessMethod !== room.accessMethod || route.risk !== room.risk)) errors.push(`mismatched secret route: ${route.id}`)
+    if (route.kind === 'rare-transition' && (!route.destination || route.destination.floor < 0 || route.destination.floor > 3)) errors.push(`invalid secret transition: ${route.id}`)
+    if (route.kind === 'concealed-passage' && (!room || !room.entries.some(point => point.x === route.entry.x && point.y === route.entry.y))) errors.push(`unmatched secret route: ${route.id}`)
+    if (route.kind === 'rare-transition' && (!room || !floor.sideSpaces?.some(space => space.kind === 'mine-breach-room' && space.id === room.sourceId && space.rareTransition?.targetBiome === route.destination?.biome && space.rareTransition?.targetFloor === route.destination?.floor))) errors.push(`unmatched secret transition: ${route.id}`)
+  }
+  for (const room of rooms) for (const [index, entry] of room.entries.entries()) if (!routes.some(route => route.id === `secret-route:${room.id}:access:${index}` && route.kind === 'concealed-passage' && route.entry.x === entry.x && route.entry.y === entry.y)) errors.push(`missing secret route: ${room.id}:${index}`)
+  for (const space of spaces) if (space.kind === 'mine-breach-room' && space.rareTransition && !routes.some(route => route.id === `secret-route:secret-room:${space.id}:transition` && route.kind === 'rare-transition' && route.destination?.biome === space.rareTransition?.targetBiome && route.destination?.floor === space.rareTransition?.targetFloor)) errors.push(`missing secret transition: ${space.id}`)
+  const secretCells = rooms.flatMap(room => [...room.entries, ...room.chamber])
+  if (secretCells.some(point => containsReachable(floor, reachable, point))) {
+    const sealed = new Map<number, { kind: TileKind; flow?: Tile['flow'] }>()
+    for (const point of secretCells) {
+      const current = getTile(floor, point.x, point.y)
+      if (!current) continue
+      const index = indexOf(floor, point.x, point.y)
+      if (!sealed.has(index)) sealed.set(index, { kind: current.kind, ...(current.flow ? { flow: { ...current.flow } } : {}) })
+      current.kind = 'wall'
+      delete current.flow
+    }
+    const primary = reachableIndexes(floor)
+    if (!containsReachable(floor, primary, floor.exit) || !reachesObjective(floor, primary, objectiveTargets(floor))) errors.push('secret dependency on campaign completion')
+    for (const [index, original] of sealed) {
+      const current = floor.tiles[index]!
+      current.kind = original.kind
+      if (original.flow) current.flow = original.flow
+      else delete current.flow
+    }
+  }
+  return errors
+}
+
 export const validateGeneration = (floor: Floor): GenerationValidation => {
   const errors: string[] = []
   errors.push(...validatePuzzleTemplates(), ...validateFloorPuzzles(floor), ...propDefinitionErrors)
@@ -2400,6 +2453,7 @@ export const validateGeneration = (floor: Floor): GenerationValidation => {
     if (!['dormant', 'inspected', 'activated', 'destroyed'].includes(prop.state)) errors.push(`invalid prop state: ${prop.id}`)
     if (!prop.tags.length || !prop.hooks?.length || !prop.hooks.includes('operate')) errors.push(`invalid prop hooks: ${prop.id}`)
   }
+  errors.push(...validateSecretRoutes(floor, reachable))
   for (const error of validateAreaGate(gateForArea(floor.biome))) errors.push(`impossible gate: ${error}`)
   return { valid: errors.length === 0, errors }
 }

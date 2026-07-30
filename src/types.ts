@@ -95,7 +95,7 @@ export interface Actor {
   guardianPhase?: GuardianPhase
 }
 
-export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean; tool?: TraversalToolId }
+export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean; tool?: TraversalToolId; secretId?: string }
 export interface Prop {
   id: string
   kind: PropId
@@ -129,6 +129,14 @@ export interface SaltMirage { id: string; marker: Point; cells: Point[]; reveale
 export interface FrostCave { id: string; kind: 'frost-cave'; approach: Point; entry: Point; chamber: Point[]; reward: GroundItem; depth: number }
 export interface FrostLayout { shelves: Point[]; cracks: Point[][]; shelters: Point[] }
 export type SideSpace = MineBreachRoom | WildsCave | CavernHiddenChamber | RitualHiddenChamber | FurnaceServiceSpace | CliffAlcove | BurialCrypt | FrostCave
+export type SecretRoomKind = 'hidden-room' | 'side-pocket'
+export type SecretRouteKind = 'concealed-passage' | 'rare-transition'
+export type SecretEntryCondition = 'sealed-breakwall' | 'anchored-rope'
+export type SecretAccessMethod = 'breach' | 'climb'
+export type SecretRewardClass = 'supplies' | 'ritual' | 'shortcut'
+export type SecretRisk = 'dust' | 'undertow' | 'ward' | 'smoke' | 'fall' | 'spirits' | 'cold'
+export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
+export interface SecretRoute { version: 1; id: string; roomId: string; kind: SecretRouteKind; from: Point; entry: Point; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true; destination?: { biome: Biome; floor: number } }
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
 export interface BoonRewardChoice extends RewardContext { id: BoonId }
@@ -184,6 +192,8 @@ export interface Floor {
   objective: FloorObjective
   milestones: FloorMilestone[]
   sideSpaces?: SideSpace[]
+  secretRooms?: SecretRoom[]
+  secretRoutes?: SecretRoute[]
   ritualLayout?: RitualLayout
   furnaceLayout?: FurnaceLayout
   whirlpools?: Whirlpool[]
