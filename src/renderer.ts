@@ -805,6 +805,7 @@ export class TerminalRenderer {
     if (modal.kind === 'pause') return this.pause()
     if (modal.kind === 'shop') return this.shop(state)
     if (modal.kind === 'gate') return this.gate(state, modal)
+    if (modal.kind === 'companionCommand') return this.companionCommand(state, modal)
     if (modal.kind === 'target') return this.target(state, modal)
   }
 
@@ -1017,6 +1018,18 @@ export class TerminalRenderer {
     this.text(21, 20, modal.direction ? mutation ? `${mutation.tool} · ${mutation.ready ? 'READY' : mutation.reason.toUpperCase()}` : `${preview.path.length} path · ${preview.cells.length} cells` : `Use an 8-way direction to ${action}.`, mutation?.ready ? colors.green : colors.text)
     this.text(21, 23, mutation ? `TILES ${mutation.affected.length} · ${mutation.risk ? `RISK ${mutation.risk.toUpperCase()} · ` : ''}${mutation.cooldown ? `RECOVERS ${mutation.cooldown}T` : 'READY'}` : modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
     this.text(21, 26, modal.direction ? `${modal.tool ? 'O toggles overdrive · ' : ''}Enter confirms · direction changes preview` : 'Esc/backtick cancels.', colors.dim)
+  }
+
+  private companionCommand(state: RunState, modal: Extract<Modal, { kind: 'companionCommand' }>): void {
+    const id = modal.companionIds[modal.index]
+    const companion = state.companions?.find(candidate => candidate.id === id)
+    this.box(15, 14, 54, 18, 'COMPANION COMMAND')
+    if (!companion) { this.text(20, 21, 'Companion record is unavailable.', colors.red); this.text(20, 27, 'ENTER resolves the remaining turn.', colors.green); return }
+    const actions = companion.role === 'guard' ? ['1 INTERCEPT', '2 PROTECT'] : companion.role === 'scout' ? ['1 OBSERVE', '2 MARK'] : companion.role === 'pathmaker' ? ['1 TRAVERSE', '2 STABILIZE TERRAIN'] : ['1 WARD', '2 STABILIZE HAZARD']
+    this.text(20, 18, `${String(modal.index + 1)}/${modal.companionIds.length} · ${companion.name} · ${companion.role.toUpperCase()}`, colors.gold)
+    this.text(20, 21, actions.join(' · '), colors.text)
+    this.text(20, 24, '8-way direction moves · ENTER / L waits', colors.text)
+    this.text(20, 27, 'ESC explains cancellation · each companion acts once', colors.dim)
   }
 
   private analysis(analysis: RunAnalysis): void {

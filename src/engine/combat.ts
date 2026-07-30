@@ -27,8 +27,8 @@ import { armRelicIce, armRelicMirror, armRelicMove, armRelicWaterCrossing, consu
 import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 import { advanceEcology } from '../ecology'
-import { isCompanionActor } from './party'
-import { resolveAutonomousCompanions } from './companion-autonomy'
+import { activeCompanionRoster, isCompanionActor } from './party'
+import { resolveAutonomousCompanions, tickCompanionCooldowns } from './companion-autonomy'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -138,7 +138,18 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   expirePropEffects(state)
   expireAshways(state)
   refreshFov(state)
+  const directCompanions = activeCompanionRoster(state.companions ?? []).filter(companion => companion.controlMode === 'direct')
+  if (directCompanions.length) {
+    tickCompanionCooldowns(state.companions ?? [])
+    state.modal = { kind: 'companionCommand', companionIds: directCompanions.map(companion => companion.id), index: 0 }
+    log(state, `${directCompanions[0]!.name} awaits a command (1-2 action · direction move · Enter wait).`)
+    return events
+  }
   for (const command of resolveAutonomousCompanions(state)) events.push(event('companion', command.companionId, command.action))
+  return resolveTurnAfterParty(state, events)
+}
+
+export const resolveTurnAfterParty = (state: RunState, events: ActionResult): ActionResult => {
   const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
   for (const telegraph of resolvedTelegraphs) {
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const

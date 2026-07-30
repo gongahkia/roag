@@ -402,6 +402,7 @@ export type Modal =
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
   | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
+  | { kind: 'companionCommand'; companionIds: string[]; index: number }
   | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar' | 'stoneAdze' | 'resinFireBasket' | 'woodenLeverRoller'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
 
 export interface RunRecord { seed: number; floor: number; score: number; won: boolean; date: string }

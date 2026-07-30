@@ -9,6 +9,7 @@ import { gateForRun, resolveAreaGate } from './gates'
 import { tend } from './alignment'
 import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 import { chooseEncounter } from './encounters'
+import { performDirectCompanionCommand } from './companion-direct'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -54,6 +55,7 @@ export function directionFor(command: string): Direction | undefined {
 
 function performModal(state: RunState, command: string): ActionResult {
   const modal = state.modal!
+  if (modal.kind === 'companionCommand') return performDirectCompanionCommand(state, modal, command)
   if (command === 'Escape' || command === '`') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'help') { state.modal = undefined; return [event('menu')] }
   if (modal.kind === 'readout') { state.modal = undefined; return [event('menu')] }

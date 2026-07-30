@@ -80,28 +80,31 @@ const followDecision = (state: RunState, companion: Companion, actor: Actor, hos
   return { companionId: companion.id, action: 'follow', rationale: pressure ? 'disengaging from visible pressure' : 'returning to the courier formation', target: step }
 }
 
-const tickCooldowns = (companions: readonly Companion[]): void => {
+export const tickCompanionCooldowns = (companions: readonly Companion[]): void => {
   for (const companion of companions) for (const [action, turns] of Object.entries(companion.abilityState.cooldowns)) {
     if (turns <= 1) delete companion.abilityState.cooldowns[action]
     else companion.abilityState.cooldowns[action] = turns - 1
   }
 }
+export const executeCompanionRoleAction = (state: RunState, companion: Companion, action: CompanionActionCategory, target: Point | undefined, rationale: string): void => {
+  if (!isLegalCompanionRoleAction(companion.role, action)) throw new Error(`illegal companion action ${action} for ${companion.role}`)
+  companion.abilityState.cooldowns[action] = 2
+  if (action === 'protect' || action === 'intercept' || action === 'ward') addCondition(state.hero, { kind: 'shielded', duration: 1, potency: 1 })
+  if ((action === 'stabilizeTerrain' || action === 'stabilizeHazard') && target) {
+    const tile = getTile(state.floor, target.x, target.y)
+    if (tile?.visible && hazards.has(tile.kind)) tile.kind = 'floor'
+  }
+  log(state, `${companion.name}: ${rationale}.`)
+}
 const execute = (state: RunState, companion: Companion, actor: Actor, command: AutonomousCompanionCommand): void => {
   if (command.action === 'follow') { if (command.target) { actor.x = command.target.x; actor.y = command.target.y }; return }
   if (command.action === 'wait') return
-  if (!isLegalCompanionRoleAction(companion.role, command.action)) throw new Error(`illegal autonomous companion action ${command.action} for ${companion.role}`)
-  companion.abilityState.cooldowns[command.action] = 2
-  if (command.action === 'protect' || command.action === 'intercept' || command.action === 'ward') addCondition(state.hero, { kind: 'shielded', duration: 1, potency: 1 })
-  if ((command.action === 'stabilizeTerrain' || command.action === 'stabilizeHazard') && command.target) {
-    const tile = getTile(state.floor, command.target.x, command.target.y)
-    if (tile?.visible && hazards.has(tile.kind)) tile.kind = 'floor'
-  }
-  log(state, `${companion.name}: ${command.rationale}.`)
+  executeCompanionRoleAction(state, companion, command.action, command.target, command.rationale)
 }
 
 export const resolveAutonomousCompanions = (state: RunState): AutonomousCompanionCommand[] => {
   const companions = state.companions ?? []
-  tickCooldowns(companions)
+  tickCompanionCooldowns(companions)
   const commands: AutonomousCompanionCommand[] = []
   for (const roster of activeCompanionRoster(companions)) {
     const companion = companions.find(candidate => candidate.id === roster.id)

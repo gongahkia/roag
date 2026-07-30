@@ -813,6 +813,7 @@ const toolPlanDecision = (state: RunState, context: AutoplayContext): Candidate 
 const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPolicy, context: AutoplayContext, heuristics: AutoplayHeuristicProfile): Candidate | undefined => {
   const modal = state.modal
   if (!modal) return undefined
+  if (modal.kind === 'companionCommand') return { command: 'Enter', reason: 'direct companion wait', score: 200 }
   if (modal.kind === 'trailcraft') return { command: 'Escape', reason: 'skip trailcraft', score: 200 }
   if (modal.kind === 'boon') {
     const milestone = state.floor.milestones.find(current => current.id === modal.milestoneId)
