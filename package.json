@@ -32,6 +32,8 @@
     "clearance:local": "node scripts/autoplay-clearance-supervisor.mjs",
     "test:generation-sweep": "tsx scripts/generation-sweep.ts",
     "test:generation-sweep:ci": "GENERATION_SWEEP_SEEDS=2 tsx scripts/generation-sweep.ts",
+    "test:new-game-plus": "tsx scripts/new-game-plus-validation.ts",
+    "test:new-game-plus:full": "NEW_GAME_PLUS_VALIDATION_MODE=full tsx scripts/new-game-plus-validation.ts",
     "campaign:composition": "tsx scripts/campaign-composition-report.ts",
     "generation:report": "tsx scripts/generation-report.ts",
     "test:combat-readability": "tsx scripts/combat-readability.ts",
