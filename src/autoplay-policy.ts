@@ -73,7 +73,7 @@ export const scorePolicyEpisode = ({ campaignComplete, outcome, exploredTiles, m
     campaignClears: campaignComplete ? 1 : 0,
     deaths: outcome === 'dead' ? 1 : 0,
     stalls: outcome === 'stalled' || outcome === 'turn-limit' ? 1 : 0,
-    explorationValue: exploredTiles + metrics.pickups,
+    explorationValue: exploredTiles + metrics.pickups + (metrics.secretValue ?? 0),
     resourceEfficiency: retainedResources - metrics.bombsUsed - metrics.ropesUsed
   }
 }

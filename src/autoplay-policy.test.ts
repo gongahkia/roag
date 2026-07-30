@@ -40,10 +40,10 @@ describe('autoplay policy contract', () => {
   })
 
   it('scores resource use and incompletion without changing decisions', () => {
-    const episode = scorePolicyEpisode({ campaignComplete: false, outcome: 'turn-limit', exploredTiles: 12, metrics: { turns: 0, actions: { moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 }, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 2, bombsUsed: 1, ropesUsed: 2, itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {}, terrainInteractions: {}, bossPhases: {}, samples: [], floors: [] }, retainedResources: 8 })
-    expect(episode).toEqual(score(0, 0, 1, 14, 5))
+    const episode = scorePolicyEpisode({ campaignComplete: false, outcome: 'turn-limit', exploredTiles: 12, metrics: { turns: 0, actions: { moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 }, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 2, bombsUsed: 1, ropesUsed: 2, secretValue: 10, itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {}, terrainInteractions: {}, bossPhases: {}, samples: [], floors: [] }, retainedResources: 8 })
+    expect(episode).toEqual(score(0, 0, 1, 24, 5))
     const metadata = createPolicyRunMetadata(createPolicyProfile({ policy: 'legacy', informationMode: 'omniscient' }), 7, 3, episode)
-    expect(metadata.scoreTuple).toEqual([0, 0, 1, 14, 5])
+    expect(metadata.scoreTuple).toEqual([0, 0, 1, 24, 5])
     expect(JSON.parse(JSON.stringify(metadata))).toEqual(metadata)
     expect(() => createPolicyRunMetadata(metadata.profile, -1, 3, episode)).toThrow('invalid autoplay policy seed')
     expect(() => createPolicyRunMetadata(metadata.profile, 7, 0, episode)).toThrow('invalid autoplay policy turn budget')

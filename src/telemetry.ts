@@ -6,7 +6,7 @@ export type TelemetryCounter = 'itemsUsed' | 'boonPicks' | 'boonAugments' | 'rel
 
 const emptyActions = () => ({ moves: 0, attacks: 0, casts: 0, pickups: 0, bombs: 0, ropes: 0, rests: 0 })
 const emptyCounters = () => ({ itemsUsed: {}, boonPicks: {}, boonAugments: {}, relicPicks: {}, purchases: {}, enemyKills: {}, eventOutcomes: {}, deathCauses: {}, terrainInteractions: {}, bossPhases: {} })
-const floorMetrics = (floor: number): RunFloorMetrics => ({ floor, turns: 0, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0 })
+const floorMetrics = (floor: number): RunFloorMetrics => ({ floor, turns: 0, kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, secretValue: 0 })
 
 export const telemetrySnapshot = (state: RunState): TelemetrySnapshot => ({
   turn: state.turn,
@@ -36,13 +36,15 @@ const sampleFor = (state: RunState, metrics: RunTelemetry): RunMetricSample => (
 })
 
 export const createRunTelemetry = (state: RunState): RunTelemetry => {
-  const metrics: RunTelemetry = { turns: state.turn, actions: emptyActions(), kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, ...emptyCounters(), samples: [], floors: [floorMetrics(state.floor.index + 1)] }
+  const metrics: RunTelemetry = { turns: state.turn, actions: emptyActions(), kills: 0, damageDealt: 0, damageTaken: 0, goldGained: 0, goldSpent: 0, xpGained: 0, pickups: 0, bombsUsed: 0, ropesUsed: 0, secretValue: 0, ...emptyCounters(), samples: [], floors: [floorMetrics(state.floor.index + 1)] }
   metrics.samples.push(sampleFor(state, metrics))
   return metrics
 }
 
 const normalizeTelemetry = (metrics: RunTelemetry): RunTelemetry => {
   metrics.goldSpent ??= 0
+  metrics.secretValue ??= 0
+  for (const floor of metrics.floors) floor.secretValue ??= 0
   Object.assign(metrics, Object.fromEntries(Object.entries(emptyCounters()).filter(([key]) => !metrics[key as TelemetryCounter])))
   return metrics
 }
@@ -61,6 +63,13 @@ export const recordTelemetryKill = (state: RunState, enemyId: string): void => {
   metrics.kills++
   floor.kills++
   metrics.enemyKills[enemyId] = (metrics.enemyKills[enemyId] ?? 0) + 1
+}
+
+export const recordSecretValue = (state: RunState, value: number): void => {
+  if (!Number.isSafeInteger(value) || value < 1) return
+  const metrics = telemetryFor(state)
+  metrics.secretValue += value
+  activeFloor(metrics, state.floor.index + 1).secretValue += value
 }
 
 const activeFloor = (metrics: RunTelemetry, floor: number): RunFloorMetrics => {

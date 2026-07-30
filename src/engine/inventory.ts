@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from '../content'
-import { DIRECTIONS, floorPoint, type Direction, type Modal, type RunState } from '../types'
+import { DIRECTIONS, floorPoint, type Direction, type GroundItem, type Modal, type RunState } from '../types'
 import { actorAt, generateAreaFloor, getTile, isPassable } from '../world'
 import { applyAreaArcState, areaArcStateFor, recordAreaArcPhase } from '../escalation'
 import { advance, explode, resolveDefeatedActors } from './combat'
@@ -25,26 +25,44 @@ import { grantGold, purchaseBlocker, restoreBombs, restoreRopes, spendGold } fro
 import { anchorBoatWithRope, applyPropEffects, operateProp, releaseCartWithRope, secureCollapsedArchWithRope } from './props'
 import { trailcraftTags } from './trailcraft'
 import { acquireOptionalTraversalTool, boonRank, openMilestone, toolFor } from './buildcraft'
-import { recordTelemetryCount } from '../telemetry'
+import { recordSecretValue, recordTelemetryCount } from '../telemetry'
 import { consumeRelicSpell } from './relics'
 import { armRelicMove, armRelicWaterCrossing } from './relics'
 import { openEncounter } from './encounters'
 import { revealSecretClues } from './secret-discovery'
+import { claimSecretReward, secretResolutionMessage } from '../secrets'
+
+const resolveSecretPickup = (state: RunState, item: GroundItem): void => {
+  if (!item.secretId) return
+  const claim = claimSecretReward(state, item.secretId)
+  if (!claim || claim === 'already-resolved') return
+  recordSecretValue(state, claim.resolution.rewardValue)
+  recordTelemetryCount(state, 'eventOutcomes', `secret-reward:${claim.resolution.rewardKind}`)
+  recordTelemetryCount(state, 'eventOutcomes', `secret-risk:${claim.resolution.riskKind}`)
+  log(state, secretResolutionMessage(claim.room))
+}
 
 export function pickUp(state: RunState): ActionResult {
   const item = state.floor.items.find(current => current.x === state.hero.x && current.y === state.hero.y)
   if (!item) { log(state, 'Nothing here to take.'); return [] }
+  if (item.secretId && state.floor.secretRooms?.find(room => room.id === item.secretId)?.resolution) {
+    state.floor.items = state.floor.items.filter(current => current !== item)
+    log(state, 'This secret cache has already been claimed.')
+    return []
+  }
   if (item.tool) {
     const acquired = acquireOptionalTraversalTool(state, item.tool)
     state.floor.items = state.floor.items.filter(current => current !== item)
+    resolveSecretPickup(state, item)
     log(state, acquired.result === 'bound' ? `You bind the ${toolFor(item.tool).name}.` : acquired.result === 'duplicate' ? `You already carry the ${toolFor(item.tool).name}; leave its duplicate behind.` : `You replace ${toolFor(acquired.replaced!).name} with the ${toolFor(item.tool).name}.`)
     return advance(state, [event('pickup')])
   }
-  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); log(state, `You recover ${gained} cash.`); return advance(state, [event('pickup')]) }
-  if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); log(state, 'You take a carved key.'); return advance(state, [event('pickup')]) }
+  if (item.id === 'gold') { const gained = grantGold(state, item.count); state.floor.items = state.floor.items.filter(current => current !== item); resolveSecretPickup(state, item); log(state, `You recover ${gained} cash.`); return advance(state, [event('pickup')]) }
+  if (item.id === 'key') { state.hero.keys += item.count; state.floor.items = state.floor.items.filter(current => current !== item); resolveSecretPickup(state, item); log(state, 'You take a carved key.'); return advance(state, [event('pickup')]) }
   if (state.hero.inventory.length >= 12) { log(state, 'Your pack is full.'); return [] }
   state.hero.inventory.push(item.id)
   state.floor.items = state.floor.items.filter(current => current !== item)
+  resolveSecretPickup(state, item)
   log(state, `You take ${ITEM[item.id].name}.`)
   return advance(state, [event('pickup')])
 }

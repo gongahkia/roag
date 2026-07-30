@@ -117,10 +117,14 @@ describe('run persistence migration', () => {
     expect(migrateRunRecord(run)).toEqual(run)
   })
 
-  it('adds discovery channels to TR-10 secret metadata', () => {
+  it('adds discovery and reward rules to TR-10 secret metadata', () => {
     const run = structuredClone(newRun(123))
-    for (const room of run.floor.secretRooms ?? []) delete (room as Partial<typeof room>).clueChannel
-    expect(migrateRunRecord(run)?.floor.secretRooms?.map(room => room.clueChannel)).toEqual(newRun(123).floor.secretRooms?.map(room => room.clueChannel))
+    for (const room of run.floor.secretRooms ?? []) {
+      delete (room as Partial<typeof room>).clueChannel
+      delete (room as Partial<typeof room>).rewardProfile
+      delete (room as Partial<typeof room>).riskProfile
+    }
+    expect(migrateRunRecord(run)?.floor.secretRooms).toEqual(newRun(123).floor.secretRooms)
   })
 
   it('preserves persisted prop state in valid v3 runs', () => {

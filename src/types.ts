@@ -137,7 +137,12 @@ export type SecretRewardClass = 'supplies' | 'ritual' | 'shortcut'
 export type SecretRisk = 'dust' | 'undertow' | 'ward' | 'smoke' | 'fall' | 'spirits' | 'cold'
 export type SecretClueChannel = 'sight' | 'sound' | 'prop' | 'terrain' | 'ritual'
 export interface SecretDiscovery { channel: SecretClueChannel; turn: number }
-export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; clueChannel: SecretClueChannel; discovery?: SecretDiscovery; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
+export type SecretRewardKind = 'kit-choice' | 'lore-relic' | 'companion-lead' | 'shortcut-access' | 'high-value-resource'
+export type SecretRiskKind = 'ambush' | 'terrain-hazard' | 'tool-cooldown' | 'route-isolation' | 'resource-opportunity-cost'
+export interface SecretRewardProfile { kind: SecretRewardKind; label: string; value: number; cap: 1; duplicateRule: 'once-per-run' }
+export interface SecretRiskProfile { kind: SecretRiskKind; label: string; detail: string }
+export interface SecretResolution { turn: number; rewardKind: SecretRewardKind; rewardValue: number; riskKind: SecretRiskKind }
+export interface SecretRoom { version: 1; id: string; sourceId: string; kind: SecretRoomKind; approach: Point; entries: Point[]; chamber: Point[]; entryCondition: SecretEntryCondition; discoveryClue: string; clueChannel: SecretClueChannel; discovery?: SecretDiscovery; rewardProfile: SecretRewardProfile; riskProfile: SecretRiskProfile; resolution?: SecretResolution; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true }
 export interface SecretRoute { version: 1; id: string; roomId: string; kind: SecretRouteKind; from: Point; entry: Point; entryCondition: SecretEntryCondition; discoveryClue: string; accessMethod: SecretAccessMethod; rewardClass: SecretRewardClass; risk: SecretRisk; safeFallback: true; destination?: { biome: Biome; floor: number } }
 export type RewardRole = 'safe' | 'risky' | 'sidegrade'
 export interface RewardContext { role: RewardRole; problem: string; terrain: TileKind; route: 'safe' | 'costly' | 'optional'; payoff: string; biomeFit: 'local' | 'global' }
@@ -283,8 +288,8 @@ export type KeyBindingId = 'northwest' | 'north' | 'northeast' | 'west' | 'east'
 
 export interface RunActions { moves: number; attacks: number; casts: number; pickups: number; bombs: number; ropes: number; rests: number }
 export interface RunMetricSample { turn: number; floor: number; health: number; focus: number; gold: number; bombs: number; ropes: number; kills: number; damageDealt: number; damageTaken: number }
-export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number }
-export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; relicPicks: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; deathCauses: Record<string, number>; terrainInteractions: Record<string, number>; bossPhases: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
+export interface RunFloorMetrics { floor: number; turns: number; kills: number; damageDealt: number; damageTaken: number; goldGained: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; secretValue: number }
+export interface RunTelemetry { turns: number; actions: RunActions; kills: number; damageDealt: number; damageTaken: number; goldGained: number; goldSpent: number; xpGained: number; pickups: number; bombsUsed: number; ropesUsed: number; secretValue: number; itemsUsed: Record<string, number>; boonPicks: Record<string, number>; boonAugments: Record<string, number>; relicPicks: Record<string, number>; purchases: Record<string, number>; enemyKills: Record<string, number>; eventOutcomes: Record<string, number>; deathCauses: Record<string, number>; terrainInteractions: Record<string, number>; bossPhases: Record<string, number>; samples: RunMetricSample[]; floors: RunFloorMetrics[] }
 export interface AutoplayCandidate { command: string; reason: string; score: number }
 export type AutoplayResourceAction = 'bomb' | 'rope' | 'kit'
 export type AutoplayResourceDisposition = 'select' | 'defer' | 'reject'

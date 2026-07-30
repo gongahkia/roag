@@ -15,7 +15,7 @@ const optionalSecret = () => {
   const reward = { id: 'sunblade', x: 3, y: 1, count: 1, visibleInFog: true }
   state.floor.items = [reward]
   state.floor.sideSpaces = [{ id: 'secret', kind: 'mine-breach-room', approach: { x: 1, y: 1 }, entry: { x: 2, y: 1 }, chamber: [{ x: 3, y: 1 }], reward }]
-  state.floor.secretRooms = [{ version: 1, id: 'secret-room:secret', sourceId: 'secret', kind: 'hidden-room', approach: { x: 1, y: 1 }, entries: [{ x: 2, y: 1 }], chamber: [{ x: 3, y: 1 }], entryCondition: 'sealed-breakwall', discoveryClue: 'fractured rail stone', clueChannel: 'terrain', discovery: { channel: 'terrain', turn: 0 }, accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true }]
+  state.floor.secretRooms = [{ version: 1, id: 'secret-room:secret', sourceId: 'secret', kind: 'hidden-room', approach: { x: 1, y: 1 }, entries: [{ x: 2, y: 1 }], chamber: [{ x: 3, y: 1 }], entryCondition: 'sealed-breakwall', discoveryClue: 'fractured rail stone', clueChannel: 'terrain', discovery: { channel: 'terrain', turn: 0 }, rewardProfile: { kind: 'high-value-resource', label: 'test cache', value: 80, cap: 1, duplicateRule: 'once-per-run' }, riskProfile: { kind: 'terrain-hazard', label: 'test risk', detail: 'test detail' }, accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true }]
   return state
 }
 

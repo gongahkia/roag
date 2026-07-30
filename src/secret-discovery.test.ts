@@ -9,7 +9,7 @@ import { createRun } from './test/factories'
 import { indexOf, type SecretClueChannel, type SecretRoom } from './types'
 
 const secret = (channel: SecretClueChannel, sourceId = `secret:${channel}`): SecretRoom => ({
-  version: 1, id: `secret-room:${sourceId}`, sourceId, kind: 'hidden-room', approach: { x: 1, y: 1 }, entries: [{ x: 2, y: 1 }], chamber: [{ x: 3, y: 1 }], entryCondition: 'sealed-breakwall', discoveryClue: `${channel} clue`, clueChannel: channel, accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true
+  version: 1, id: `secret-room:${sourceId}`, sourceId, kind: 'hidden-room', approach: { x: 1, y: 1 }, entries: [{ x: 2, y: 1 }], chamber: [{ x: 3, y: 1 }], entryCondition: 'sealed-breakwall', discoveryClue: `${channel} clue`, clueChannel: channel, rewardProfile: { kind: 'high-value-resource', label: 'test cache', value: 80, cap: 1, duplicateRule: 'once-per-run' }, riskProfile: { kind: 'terrain-hazard', label: 'test risk', detail: 'test detail' }, accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true
 })
 
 const fixture = (channel: SecretClueChannel) => {

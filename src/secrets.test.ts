@@ -8,7 +8,7 @@ describe('secret metadata', () => {
     const mine = generateAreaFloor(7, 'mine', 3, 3)
     const cliffs = generateAreaFloor(7, 'cliffs', 0, 3)
     expect(mine.secretRooms).toHaveLength(4)
-    expect(mine.secretRooms).toEqual(expect.arrayContaining([expect.objectContaining({ version: 1, kind: 'hidden-room', entryCondition: 'sealed-breakwall', discoveryClue: expect.any(String), clueChannel: expect.any(String), accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true })]))
+    expect(mine.secretRooms).toEqual(expect.arrayContaining([expect.objectContaining({ version: 1, kind: 'hidden-room', entryCondition: 'sealed-breakwall', discoveryClue: expect.any(String), clueChannel: expect.any(String), rewardProfile: expect.objectContaining({ cap: 1, duplicateRule: 'once-per-run' }), riskProfile: expect.objectContaining({ kind: expect.any(String) }), accessMethod: 'breach', rewardClass: 'supplies', risk: 'dust', safeFallback: true })]))
     expect(mine.secretRoutes).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'concealed-passage' }), expect.objectContaining({ kind: 'rare-transition', rewardClass: 'shortcut', destination: { biome: 'wilds', floor: 0 } })]))
     expect(cliffs.secretRooms).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'side-pocket', entryCondition: 'anchored-rope', accessMethod: 'climb' })]))
     expect(mine.items.some(item => item.secretId === mine.secretRooms?.[0]?.id)).toBe(true)
