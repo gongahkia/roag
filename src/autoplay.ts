@@ -766,13 +766,14 @@ const bestShopItem = (state: RunState, policy: AutoplayPolicy, heuristics: Autop
 const gateChoice = (state: RunState, policy: AutoplayPolicy, heuristics: AutoplayHeuristicProfile): number | undefined => {
   const gate = gateForRun(state)
   if (!gate) return undefined
-  const choices = gate.tagAlternatives.map((option, index) => {
+  const choices = gate.tagAlternatives.flatMap((option, index) => {
+    if (option.kind === 'npc') return []
     const clone = planningClone(state)
     const resolution = resolveAreaGate(clone, gate, index)
-    if (!resolution.resolved) return { index, score: Number.NEGATIVE_INFINITY }
+    if (!resolution.resolved) return []
     const cost = option.cost ?? gate.cost
-    const irreversible = option.kind === 'npc' ? heuristics.gateNpcPenalty[policy] : option.kind === 'bomb' ? heuristics.gateBombPenalty[policy] : 0
-    return { index, score: 1000 - cost.gold - cost.items.reduce((sum, id) => sum + ITEM[id].value, 0) - irreversible }
+    const irreversible = option.kind === 'bomb' ? heuristics.gateBombPenalty[policy] : 0
+    return [{ index, score: 1000 - cost.gold - cost.items.reduce((sum, id) => sum + ITEM[id].value, 0) - irreversible }]
   }).filter(choice => Number.isFinite(choice.score)).sort((a, b) => b.score - a.score || a.index - b.index)
   return choices[0]?.index
 }
@@ -893,6 +894,7 @@ const modalDecision = (state: RunState, mode: AutoplayMode, policy: AutoplayPoli
       const choice = gateChoice(state, policy, heuristics)
       return { command: choice === undefined ? 'Escape' : String(choice + 1), reason: choice === undefined ? 'no viable gate' : 'gate alternative', score: 200 }
     }
+    if (state.floor && modal.choice !== undefined && gateForRun(state)?.tagAlternatives[modal.choice]?.kind === 'npc') return { command: 'Escape', reason: 'decline companion sacrifice', score: 200 }
     return { command: 'Enter', reason: modal.confirming ? 'confirm gate' : 'review gate', score: 200 }
   }
   if (modal.kind === 'pause') return { command: 'Enter', reason: 'resume', score: 200 }

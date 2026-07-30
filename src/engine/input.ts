@@ -5,7 +5,7 @@ import { chooseSkill } from './progression'
 import { chooseTrailcraft } from './trailcraft'
 import { event, log, type ActionResult } from './shared'
 import { hasCondition } from './conditions'
-import { gateForRun, resolveAreaGate } from './gates'
+import { gateForRun, gateSacrificeCandidates, resolveAreaGate } from './gates'
 import { tend } from './alignment'
 import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 import { chooseEncounter } from './encounters'
@@ -98,11 +98,19 @@ function performGateModal(state: RunState, modal: Extract<Modal, { kind: 'gate' 
   const choice = Number(command) - 1
   const gate = gateForRun(state)
   if (!gate) { state.modal = undefined; log(state, 'This is the final route. Cross the area to complete the delivery.'); return [] }
-  if (Number.isInteger(choice) && choice >= 0 && choice < gate.tagAlternatives.length) { state.modal = { ...modal, choice, confirming: false }; return [event('menu')] }
+  const selected = modal.choice === undefined ? undefined : gate.tagAlternatives[modal.choice]
+  if ((command === 'Backspace' || command === 'ArrowLeft') && modal.choice !== undefined) { state.modal = { kind: 'gate', gateId: modal.gateId }; return [event('menu')] }
+  if (selected?.kind === 'npc' && modal.choice !== undefined && Number.isInteger(choice)) {
+    const candidates = gateSacrificeCandidates(state)
+    if (choice >= 0 && choice < candidates.length) { state.modal = { ...modal, offeringId: candidates[choice]!.id, confirming: false }; return [event('menu')] }
+    return []
+  }
+  if (Number.isInteger(choice) && choice >= 0 && choice < gate.tagAlternatives.length) { state.modal = { ...modal, choice, offeringId: undefined, confirming: false }; return [event('menu')] }
   if (command !== 'Enter') return []
   if (modal.choice === undefined) { log(state, 'Choose a gate alternative first.'); return [] }
+  if (selected?.kind === 'npc' && !modal.offeringId) { log(state, 'Select the active companion who will hold the passage, or Esc to decline.'); return [] }
   if (!modal.confirming) { state.modal = { ...modal, confirming: true }; return [event('menu')] }
-  const resolution = resolveAreaGate(state, gate, modal.choice)
+  const resolution = resolveAreaGate(state, gate, modal.choice, modal.offeringId)
   log(state, resolution.message)
   if (!resolution.resolved) return []
   if (resolution.alignment) tend(state, resolution.alignment)

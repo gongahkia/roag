@@ -129,7 +129,7 @@ const isModal = (value: unknown): value is Modal | undefined => {
   if (value.kind === 'settings') return (value.page === undefined || isNumber(value.page)) && (value.awaiting === undefined || oneOf(value.awaiting, ['northwest', 'north', 'northeast', 'west', 'east', 'southwest', 'south', 'southeast', 'wait', 'help', 'encyclopedia', 'settings', 'use', 'drop', 'throw', 'equip', 'skills', 'bomb', 'rope', 'get', 'operate', 'descend', 'swap', 'script']))
   if (value.kind === 'inventory') return oneOf(value.mode, ['use', 'drop', 'throw', 'equip'])
   if (value.kind === 'shop') return isString(value.merchantId)
-  if (value.kind === 'gate') return isString(value.gateId) && (value.choice === undefined || isNumber(value.choice)) && (value.confirming === undefined || typeof value.confirming === 'boolean')
+  if (value.kind === 'gate') return isString(value.gateId) && (value.choice === undefined || isNumber(value.choice)) && (value.offeringId === undefined || isString(value.offeringId)) && (value.confirming === undefined || typeof value.confirming === 'boolean')
   if (value.kind === 'companionCommand') return Array.isArray(value.companionIds) && value.companionIds.every(isString) && isNonNegativeInteger(value.index) && value.index < value.companionIds.length
   if (value.kind === 'boon') return isString(value.milestoneId)
   if (value.kind === 'augment') return isString(value.milestoneId) && (value.mode === undefined || oneOf(value.mode, ['evolve', 'reforge', 'transmute'])) && (value.selected === undefined || (Array.isArray(value.selected) && value.selected.every(isString)))

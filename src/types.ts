@@ -404,7 +404,7 @@ export type Modal =
   | { kind: 'tools' }
   | { kind: 'pause' }
   | { kind: 'shop'; merchantId: string }
-  | { kind: 'gate'; gateId: string; choice?: number; confirming?: boolean }
+  | { kind: 'gate'; gateId: string; choice?: number; offeringId?: string; confirming?: boolean }
   | { kind: 'companionCommand'; companionIds: string[]; index: number }
   | { kind: 'target'; action: 'throw' | 'spell' | 'bomb' | 'drill' | 'glide' | 'grapple' | 'bridge' | 'dash' | 'winch' | 'stoneWedge' | 'reedwing' | 'cordAnchor' | 'ashwayRites' | 'antlerPrybar' | 'stoneAdze' | 'resinFireBasket' | 'woodenLeverRoller'; item?: ItemId; tool?: TraversalToolId; overdrive?: boolean; direction?: Exclude<Direction, 'wait'> }
 
