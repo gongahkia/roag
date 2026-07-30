@@ -519,7 +519,7 @@ function finishStory(): void {
   }
   if (createAfterStory) {
     createAfterStory = false
-    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', focus: 0 }
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', focus: 0 }
     route = { ...route, screen: 'createCourier' }
   } else { hubPosition = outpostSpawn(); route = { ...route, screen: 'hub', hubAction: undefined } }
   audio.play([event('menu')])

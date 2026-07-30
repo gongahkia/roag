@@ -76,7 +76,7 @@ export const campaignContinuationPending = (cycle: CampaignCycle): boolean => {
 export type CompanionControlModeChangeContext = 'lodge' | 'floor' | 'combat' | 'autoplay' | 'replay' | 'command'
 export interface CompanionControlModeMutation { changed: boolean; message: string; state: CampaignRouteState }
 const cloneCompanionControlHistory = (history: readonly CompanionControlModeEvent[]): CompanionControlModeEvent[] => history.map(event => ({ ...event }))
-const companionsForControlMode = (companions: readonly CampaignRouteState['companions'], rescues: readonly CampaignRouteState['rescuedNpcs'], mode: CompanionControlMode): CampaignRouteState['companions'] => cloneCompanions(companions, rescues).map(companion => ({ ...companion, controlMode: mode }))
+const companionsForControlMode = (companions: CampaignRouteState['companions'], rescues: CampaignRouteState['rescuedNpcs'], mode: CompanionControlMode): CampaignRouteState['companions'] => cloneCompanions(companions, rescues).map(companion => ({ ...companion, controlMode: mode }))
 const cloneCompanionControl = (state: CampaignRouteState): Pick<CampaignRouteState, 'companionControlMode' | 'companionControlHistory' | 'companions'> => ({ companionControlMode: state.companionControlMode, companionControlHistory: cloneCompanionControlHistory(state.companionControlHistory), companions: companionsForControlMode(state.companions, state.rescuedNpcs, state.companionControlMode) })
 export const changeCampaignCompanionControlMode = (state: CampaignRouteState, mode: CompanionControlMode, context: CompanionControlModeChangeContext): CompanionControlModeMutation => {
   const current = cloneCompanionControl(state)

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
+import { changeCampaignCompanionControlMode, initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
 import { deleteCourier, flushCourierWrites, loadCouriers, migrateCampaignRoute, migrateRunRecord, saveCourier, selectCourier } from './storage'
 import type { CourierSave, Records } from './types'
 
@@ -96,7 +96,7 @@ const records = (): Records => ({ bestDepth: 0, wins: 0, deaths: 0, runs: [], an
 const courier = (id: string, turn: number): CourierSave => {
   const run = newRun(901)
   run.turn = turn
-  return { version: 1, identity: { id, name: id, origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', createdAt: '2026-01-01T00:00:00.000Z' }, run, checkpoint: structuredClone(run), heir: structuredClone(run.hero), campaign: initialCampaignRoute(), records: records() }
+  return { version: 1, identity: { id, name: id, origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', createdAt: '2026-01-01T00:00:00.000Z' }, run, checkpoint: structuredClone(run), heir: structuredClone(run.hero), campaign: initialCampaignRoute(), records: records() }
 }
 
 const originalIndexedDB = globalThis.indexedDB
@@ -292,8 +292,9 @@ describe('courier persistence', () => {
   it('round-trips versioned companion leads through courier storage', async () => {
     const saved = courier('mika', 3)
     saved.campaign = migrateCampaignRoute({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [{ id: 'rescue:mine:1:mika', name: 'Mika', biome: 'mine', floor: 1 }] })
+    saved.campaign = changeCampaignCompanionControlMode(saved.campaign, 'direct', 'lodge').state
     await saveCourier(saved, 'mika')
     const loaded = (await loadCouriers()).couriers[0]!
-    expect(loaded.campaign.companions).toMatchObject([{ version: 1, rosterStatus: 'lead', recruitment: { rescueId: 'rescue:mine:1:mika' } }])
+    expect(loaded.campaign).toMatchObject({ companionControlMode: 'direct', companionControlHistory: [{ sequence: 0, mode: 'autonomous', source: 'migration' }, { sequence: 1, mode: 'direct', source: 'lodge' }], companions: [{ version: 1, rosterStatus: 'lead', controlMode: 'direct', recruitment: { rescueId: 'rescue:mine:1:mika' } }] })
   })
 })

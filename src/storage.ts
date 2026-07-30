@@ -333,7 +333,7 @@ export async function loadCouriers(): Promise<{ couriers: CourierSave[]; selecte
   const [run, records, campaign] = await Promise.all([loadRun(), loadRecords(), loadCampaignRoute()])
   if (!run && records.runs.length === 0 && campaign.completedAreas.length === 0 && campaign.rescuedNpcs.length === 0) return { couriers: [] }
   const id = crypto.randomUUID()
-  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run), heir: structuredClone(run.hero) } : {}), campaign, records }
+  const legacy: CourierSave = { version: 1, identity: { id, name: run?.hero.name ?? 'Existing Courier', origin: run?.hero.origin ?? 'mineborn', calling: run?.hero.calling ?? 'trailguard', deathMode: run?.hero.deathMode ?? 'checkpoint', companionControlMode: campaign.companionControlMode, createdAt: new Date().toISOString() }, ...(run ? { run, checkpoint: structuredClone(run), heir: structuredClone(run.hero) } : {}), campaign, records }
   await saveCourier(legacy, id)
   return { couriers: [legacy], selectedId: id }
 }
