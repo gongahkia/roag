@@ -37,6 +37,7 @@ export const autoplayReplayMetadata = (state: RunState): AutoplayReplayMetadata 
     ...(escalation ? { escalation } : {}),
     ...(state.campaignCycle ? { campaignCycle: structuredClone(state.campaignCycle) } : {}),
     ...(difficultyPackage ? { difficultyPackage } : {}),
+    ...(floor.difficulty ? { difficulty: structuredClone(floor.difficulty) } : {}),
     ...(state.companions?.length ? { companions: structuredClone(state.companions) } : {}),
     companionDeathMode: state.companionDeathMode ?? 'injury'
   }

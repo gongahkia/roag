@@ -34,7 +34,7 @@ export const takeSecretShortcut = (state: RunState): ActionResult | undefined =>
   const areaArc = state.areaArc
   if (state.floor.escalation && areaArc) recordAreaArcPhase(areaArc, state.floor.escalation.phase)
   const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(route.destination.biome))
-  const destination = generateAreaFloor(state.seed, route.destination.biome, route.destination.floor, routePosition)
+  const destination = generateAreaFloor(state.seed, route.destination.biome, route.destination.floor, routePosition, state.campaignCycle)
   if (!isPassable(destination, destination.start.x, destination.start.y)) { recordOptionalContent(state, 'failed', `shortcut:${route.id}:unsafe-landing`); log(state, 'The shortcut landing is unsafe.'); return [] }
   if (route.direction === 'two-way') state.shortcutReturn = { version: 1, routeId: route.id, floor: structuredClone(state.floor), areaFloor: state.areaFloor ?? state.floor.index % 4, arrival: { ...route.entry } }
   state.floor = destination

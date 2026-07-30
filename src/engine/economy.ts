@@ -13,6 +13,7 @@ export const validateItemPrice = (value: number): void => {
 }
 export const grantGold = (state: RunState, amount: number): number => {
   if (!Number.isInteger(amount) || amount < 0) throw new Error(`invalid gold grant: ${amount}`)
+  amount = Math.round(amount * (state.floor.difficulty?.rewardMultiplier ?? 1))
   if (state.hero.curse && (state.hero.boons?.cursedInvestment ?? 0) > 0) amount *= 1 + (state.hero.boons?.cursedInvestment ?? 0)
   state.hero.gold = Math.max(0, Math.min(MAX_GOLD, state.hero.gold))
   const gained = Math.min(amount, MAX_GOLD - state.hero.gold)

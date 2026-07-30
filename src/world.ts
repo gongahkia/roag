@@ -1,6 +1,6 @@
 import { ITEMS, MONSTERS, biomeForFloor, monsterById, monsterRoleFor, terrainAffinityFor } from './content'
 import { rngFor, streamSeed, type Rng } from './rng'
-import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FrostCave, type FrostLayout, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type SaltMirage, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
+import { FLOOR_COUNT, MAP_HEIGHT, MAP_WIDTH, type Actor, type Biome, type BurialCrypt, type BurialLayout, type CampaignCycle, type CavernHiddenChamber, type CliffAlcove, type CliffLayout, type DifficultyContext, type Direction, type Floor, type FloorEncounter, type FrostCave, type FrostLayout, type FurnaceLayout, type FurnaceServiceSpace, type MineBreachRoom, type Point, type Prop, type RitualHiddenChamber, type RitualLayout, type SaltMirage, type Tile, type TileKind, type TraversalToolId, type Whirlpool, type WildsCave, floorIndex, floorPoint, inFloorBounds } from './types'
 import { objectiveForFloor } from './objectives'
 import { gateForArea, validateAreaGate } from './area-gates'
 import { puzzleTemplatesFor, validateFloorPuzzles, validatePuzzleTemplates } from './puzzles'
@@ -14,6 +14,8 @@ import { escalationFor } from './escalation'
 import { socialContractFor } from './social-contract'
 import { optionalTerrainToolFor } from './traversal-tool-distribution'
 import { placeSecretMetadata } from './secrets'
+import { resolveCampaignDifficulty } from './campaign-difficulty'
+import { initialCampaignCycle } from './engine/campaign'
 
 const tile = (kind: Tile['kind']): Tile => ({ kind, explored: false, visible: false })
 const pointKey = (point: Point) => `${point.x},${point.y}`
@@ -273,9 +275,9 @@ export function generateFloor(runSeed: number, index: number, difficulty = diffi
 }
 
 export const areaFloorIndex = (biome: Floor['biome'], areaFloor: number): number => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const).indexOf(biome) * 4 + areaFloor
-export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number, routePosition = 0): Floor => {
+export const generateAreaFloor = (runSeed: number, biome: Floor['biome'], areaFloor: number, routePosition = 0, cycle: CampaignCycle = initialCampaignCycle()): Floor => {
   if (!Number.isInteger(areaFloor) || areaFloor < 0 || areaFloor > 3) throw new Error(`invalid area floor: ${areaFloor}`)
-  return generateFloor(runSeed, areaFloorIndex(biome, areaFloor), difficultyFor(routePosition, areaFloor))
+  return generateFloor(runSeed, areaFloorIndex(biome, areaFloor), resolveCampaignDifficulty(difficultyFor(routePosition, areaFloor), cycle))
 }
 
 interface Room { x: number; y: number; w: number; h: number }
@@ -2256,7 +2258,7 @@ function placeItems(floor: Floor, rng: Rng, _rooms: Room[], runtime: PlacementRu
   const valueCap = 105 + (floor.difficulty?.threat ?? 0) * 14
   const eligible = ITEMS.filter(item => item.findable !== false && item.value <= valueCap && (!item.slot || rng.chance(30 + (floor.difficulty?.routePosition ?? 0) * 8)))
   const loot = eligible.length ? eligible : ITEMS.filter(item => item.findable !== false && (!item.slot || rng.chance(30)))
-  const count = 10 + floor.index % 4 * 2 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)
+  const count = Math.round((10 + floor.index % 4 * 2 + Math.floor((floor.difficulty?.routePosition ?? 0) / 2)) * (floor.difficulty?.rewardMultiplier ?? 1))
   const tool = optionalTerrainToolFor({ seed: floor.seed, floorIndex: floor.index, biome: floor.biome, recipeId: floor.layoutId, source: 'loot' })
   for (let i = 0; i < count; i++) {
     const contract: PlacementContract = runtime.pilot && i > 0

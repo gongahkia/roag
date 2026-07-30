@@ -303,6 +303,7 @@ const revalidateProjectileTelegraphs = (state: RunState, telegraphs: Telegraph[]
 })
 
 export function damageHero(state: RunState, amount: number, source: string, hazard = false): ActionResult {
+  if (hazard) amount = Math.max(1, Math.round(amount * (state.floor.difficulty?.hazardMultiplier ?? 1)))
   const winterGuard = consumeRelicWinterGuard(state) ? 3 : 0
   amount = Math.max(1, modifyIncomingDamage(state.hero, amount) - strengthGuard(state.hero) - vitalityShield(state.hero) - boonRank(state, 'bridgeOfNames') * (state.hero.oaths?.length ?? 0) - (hazard ? vitalityHazardReduction(state.hero) : 0) - winterGuard)
   if (winterGuard) log(state, 'Winter Seal absorbs part of the blow.')
@@ -570,8 +571,8 @@ function tickEnvironment(state: RunState, events: ActionResult): void {
   for (const actor of state.floor.actors) {
     const tile = getTile(state.floor, actor.x, actor.y)
     if (!tile || !actor.hostile) continue
-    if (tile.kind === 'lava') actor.health -= 4
-    if (tile.kind === 'fireVent' && turnRng(state, 'combat', `vent:${actor.id}`).chance(25)) actor.health -= 3
+    if (tile.kind === 'lava') actor.health -= Math.round(4 * (state.floor.difficulty?.hazardMultiplier ?? 1))
+    if (tile.kind === 'fireVent' && turnRng(state, 'combat', `vent:${actor.id}`).chance(25)) actor.health -= Math.round(3 * (state.floor.difficulty?.hazardMultiplier ?? 1))
   }
   resolveDefeatedActors(state)
   const tile = getTile(state.floor, state.hero.x, state.hero.y)

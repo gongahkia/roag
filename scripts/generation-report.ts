@@ -3,7 +3,8 @@ import { dirname, resolve } from 'node:path'
 import { measureGeneration, summarizeGenerationMetrics } from '../src/generation-metrics'
 import { generateRouteContract } from '../src/route-contract'
 import { escalationFor } from '../src/escalation'
-import type { Biome } from '../src/types'
+import type { Biome, CampaignTier } from '../src/types'
+import { advanceCampaignTier, completeCampaignTier, initialCampaignCycle } from '../src/engine/campaign'
 import { areaFloorIndex, generateAreaFloor, layoutFor, macroRecipeDebug, placementDebug, routeContractDebug, validateGeneration } from '../src/world'
 
 const biomes: readonly Biome[] = ['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary']
@@ -22,6 +23,9 @@ const seeds = parseNumbers(process.env.GENERATION_REPORT_SEEDS, [7, 42, 999], 'G
 const floors = parseNumbers(process.env.GENERATION_REPORT_FLOORS, [0, 1, 2, 3], 'GENERATION_REPORT_FLOORS')
 if (floors.some(floor => floor > 3)) throw new Error(`invalid GENERATION_REPORT_FLOORS: ${process.env.GENERATION_REPORT_FLOORS}`)
 const selectedBiomes = parseBiomes(process.env.GENERATION_REPORT_BIOMES)
+const tier = process.env.GENERATION_REPORT_TIER ?? 'base'
+if (!['base', 'ngPlus', 'ngPlusPlus'].includes(tier)) throw new Error(`invalid GENERATION_REPORT_TIER: ${tier}`)
+const cycle = (tier === 'base' ? initialCampaignCycle() : tier === 'ngPlus' ? advanceCampaignTier(completeCampaignTier(initialCampaignCycle())) : advanceCampaignTier(completeCampaignTier(advanceCampaignTier(completeCampaignTier(initialCampaignCycle()))))) satisfies ReturnType<typeof initialCampaignCycle>
 const requestedPath = process.env.GENERATION_REPORT_PATH
 const output = resolve(requestedPath || `generation-reports/generation-${Date.now()}.json`)
 const samples = []
@@ -32,8 +36,8 @@ for (const seed of seeds) for (const biome of selectedBiomes) for (const areaFlo
   const escalation = escalationFor(seed, biome, areaFloor)
   const contract = generateRouteContract({ campaignSeed: seed, floorIndex: areaFloorIndex(biome, areaFloor), biome, areaFloor, recipeId: recipe, escalationVariant: `${escalation.arcId}:${escalation.phase}` })
   try {
-    const floor = generateAreaFloor(seed, biome, areaFloor)
-    samples.push({ ...measureGeneration({ floor, route: routeContractDebug(floor) ?? contract, macro: macroRecipeDebug(floor), placements: placementDebug(floor), validation: validateGeneration(floor) }), escalation: floor.escalation })
+    const floor = generateAreaFloor(seed, biome, areaFloor, 0, cycle)
+    samples.push({ ...measureGeneration({ floor, route: routeContractDebug(floor) ?? contract, macro: macroRecipeDebug(floor), placements: placementDebug(floor), validation: validateGeneration(floor) }), escalation: floor.escalation, difficulty: floor.difficulty })
   } catch (error) {
     failures.push({ seed, biome, floor: areaFloor, recipe, contract: contract.id, error: error instanceof Error ? error.message : String(error) })
   }
@@ -41,7 +45,7 @@ for (const seed of seeds) for (const biome of selectedBiomes) for (const areaFlo
 
 const summary = summarizeGenerationMetrics(samples)
 const acceptance = { valid: !failures.length && summary.acceptance.valid, errors: [...summary.acceptance.errors, ...failures.map(failure => `seed=${failure.seed} biome=${failure.biome} floor=${failure.floor} recipe=${failure.recipe} contract=${failure.contract}: ${failure.error}`)] }
-const report = { version: 1, config: { seeds, biomes: selectedBiomes, floors }, summary: { ...summary, acceptance }, failures, samples }
+const report = { version: 1, config: { seeds, biomes: selectedBiomes, floors, tier: tier as CampaignTier }, summary: { ...summary, acceptance }, failures, samples }
 await mkdir(dirname(output), { recursive: true })
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`)
 console.log(JSON.stringify({ report: output, samples: samples.length, acceptance }, null, 2))

@@ -31,6 +31,7 @@ export const campaignDifficultyPackageMetadata = (cycle: CampaignCycle): Campaig
 }
 
 export const resolveCampaignDifficulty = (routeDifficulty: DifficultyContext, cycle: CampaignCycle): DifficultyContext => {
+  if (routeDifficulty.difficultyPackage) throw new Error(`campaign difficulty package already applied: ${routeDifficulty.difficultyPackage.id}`)
   const current = campaignDifficultyPackageForCycle(cycle)
   if (!current) return { ...routeDifficulty }
   const { modifiers } = current

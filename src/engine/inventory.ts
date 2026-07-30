@@ -157,7 +157,7 @@ export function descend(state: RunState): ActionResult {
   if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
   const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(biome))
-  state.floor = generateAreaFloor(state.seed, biome, nextAreaFloor, routePosition)
+  state.floor = generateAreaFloor(state.seed, biome, nextAreaFloor, routePosition, state.campaignCycle)
   applyAreaArcState(state.floor, areaArc)
   recordGeneratedOptionalContent(state)
   state.areaFloor = nextAreaFloor

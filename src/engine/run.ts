@@ -42,7 +42,7 @@ export const newHero = (build: Partial<CourierBuild> = {}): Hero => {
 
 export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biome = 'mine', areaFloor = 0, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER, cycle: CampaignCycle = initialCampaignCycle(), companions: readonly Companion[] = [], companionDeathMode: CompanionDeathMode = 'injury'): RunState {
   const routePosition = Math.max(0, areaOrder.indexOf(area))
-  const floor = generateAreaFloor(seed, area, areaFloor, routePosition)
+  const floor = generateAreaFloor(seed, area, areaFloor, routePosition, cycle)
   const areaArc = areaArcStateFor(seed, area)
   applyAreaArcState(floor, areaArc)
   const hero = inheritedHero ? structuredClone(inheritedHero) : newHero()
@@ -58,7 +58,7 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   return state
 }
 
-export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = []): RunState => {
+export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], cycle: CampaignCycle = initialCampaignCycle()): RunState => {
   const areaOrder = campaignOrderForSeed(seed)
-  return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, initialCampaignCycle())
+  return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, cycle)
 }
