@@ -23,7 +23,8 @@ describe('Guard intercept', () => {
     const { state, guard } = guardState(true)
     perform(state, 'l')
     expect(state.messages.join(' ')).toContain('intercepts')
-    expect(state.companions?.find(companion => companion.id === guard.id)?.abilityState.cooldowns.intercept).toBe(2)
+    expect(state.companions?.find(companion => companion.id === guard.id)).toMatchObject({ abilityState: { cooldowns: { intercept: 2 } }, injury: 'injured', rosterStatus: 'benched' })
+    expect(state.floor.actors.some(isCompanionActor)).toBe(false)
   })
 
   it('leaves damage normal when the Guard is not adjacent or intercept is cooling down', () => {

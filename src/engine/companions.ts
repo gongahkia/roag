@@ -6,8 +6,12 @@ const roleForBiome: Record<Biome, CompanionRole> = { mine: 'guard', wilds: 'scou
 const nonEmpty = (value: string): boolean => value.trim().length > 0
 const nonNegativeInteger = (value: number): boolean => Number.isInteger(value) && value >= 0
 export const COMPANION_ACTIVE_CAPACITY = 3
+export const COMPANION_RECOVERY_COST = 10
+export const COMPANION_RECOVERY_FLOORS = 1
 export type CompanionRosterAction = 'recruit' | 'activate' | 'bench'
-export interface CompanionRosterMutation { changed: boolean; message: string; companions: Companion[] }
+export type CompanionLodgeAction = CompanionRosterAction | 'beginRecovery' | 'completeRecovery'
+export interface CompanionRosterMutation { changed: boolean; message: string; companions: Companion[]; cashSpent?: number }
+export interface CompanionRecoveryMutation extends CompanionRosterMutation { cashSpent: number }
 
 export const companionLeadForRescue = (rescue: RescuedNpc, controlMode: CompanionControlMode = 'autonomous'): Companion => ({
   version: 1,
@@ -35,6 +39,8 @@ export const companionErrors = (companion: Companion, rescues?: readonly Rescued
   if (!['lead', 'benched', 'active', 'lost'].includes(companion.rosterStatus)) errors.push('invalid roster status')
   if (!['autonomous', 'direct'].includes(companion.controlMode)) errors.push('invalid control mode')
   if (!['healthy', 'injured', 'recovering'].includes(companion.injury)) errors.push('invalid injury state')
+  if (companion.injury === 'recovering' && !nonNegativeInteger(companion.recoveryFloors ?? Number.NaN)) errors.push('recovering companion needs remaining floors')
+  if (companion.injury !== 'recovering' && companion.recoveryFloors !== undefined) errors.push('only recovering companions may track remaining floors')
   if (!Object.values(companion.abilityState.cooldowns).every(nonNegativeInteger)) errors.push('invalid ability cooldown')
   if (companion.abilityState.retired.some(id => !nonEmpty(id)) || new Set(companion.abilityState.retired).size !== companion.abilityState.retired.length) errors.push('invalid retired abilities')
   if (!nonNegativeInteger(companion.toolState.cooldown)) errors.push('invalid tool cooldown')
@@ -56,14 +62,16 @@ export const assertCompanion = (companion: Companion, rescues?: readonly Rescued
 }
 
 export const cloneCompanion = (companion: Companion, rescues?: readonly RescuedNpc[]): Companion => {
-  assertCompanion(companion, rescues)
-  return { ...companion, recruitment: { ...companion.recruitment }, abilityState: { cooldowns: { ...companion.abilityState.cooldowns }, retired: [...companion.abilityState.retired] }, toolState: { ...companion.toolState } }
+  const normalized = companion.injury === 'recovering' && companion.recoveryFloors === undefined ? { ...companion, recoveryFloors: COMPANION_RECOVERY_FLOORS } : { ...companion }
+  assertCompanion(normalized, rescues)
+  return { ...normalized, recruitment: { ...normalized.recruitment }, abilityState: { cooldowns: { ...normalized.abilityState.cooldowns }, retired: [...normalized.abilityState.retired] }, toolState: { ...normalized.toolState } }
 }
 
 export const cloneCompanions = (companions: readonly Companion[], rescues?: readonly RescuedNpc[]): Companion[] => {
   const ids = new Set<string>()
   const rescueIds = new Set<string>()
-  for (const companion of companions) {
+  for (const source of companions) {
+    const companion = source.injury === 'recovering' && source.recoveryFloors === undefined ? { ...source, recoveryFloors: COMPANION_RECOVERY_FLOORS } : source
     assertCompanion(companion, rescues)
     if (ids.has(companion.id)) throw new Error(`invalid companion roster: duplicate id ${companion.id}`)
     if (rescueIds.has(companion.recruitment.rescueId)) throw new Error(`invalid companion roster: duplicate recruitment rescue ${companion.recruitment.rescueId}`)
@@ -81,6 +89,35 @@ export const addCompanionLeads = (companions: readonly Companion[], rescues: rea
   return cloneCompanions(next.map(companion => ({ ...companion, controlMode })), rescues)
 }
 export const companionRosterAction = (companion: Companion): CompanionRosterAction | undefined => companion.rosterStatus === 'lead' ? 'recruit' : companion.rosterStatus === 'benched' ? 'activate' : companion.rosterStatus === 'active' ? 'bench' : undefined
+export const companionLodgeAction = (companion: Companion): CompanionLodgeAction | undefined => companion.permanentlyLost ? undefined : companion.injury === 'injured' ? 'beginRecovery' : companion.injury === 'recovering' ? companion.recoveryFloors === 0 ? 'completeRecovery' : undefined : companionRosterAction(companion)
+export const injureCompanion = (companion: Companion): boolean => {
+  if (companion.permanentlyLost || companion.injury !== 'healthy') return false
+  companion.injury = 'injured'
+  companion.rosterStatus = 'benched'
+  delete companion.recoveryFloors
+  return true
+}
+export const beginCompanionRecovery = (companions: readonly Companion[], rescues: readonly RescuedNpc[], id: string, cash: number): CompanionRecoveryMutation => {
+  const next = cloneCompanions(companions, rescues)
+  const companion = next.find(candidate => candidate.id === id)
+  if (!companion || companion.permanentlyLost || companion.injury !== 'injured') return { changed: false, message: 'That companion is not awaiting Lodge treatment.', companions: next, cashSpent: 0 }
+  if (cash < COMPANION_RECOVERY_COST) return { changed: false, message: `${companion.name}'s treatment needs ${COMPANION_RECOVERY_COST - cash} more cash.`, companions: next, cashSpent: 0 }
+  companion.injury = 'recovering'
+  companion.rosterStatus = 'benched'
+  companion.recoveryFloors = COMPANION_RECOVERY_FLOORS
+  return { changed: true, message: `${companion.name} begins recovery: ${COMPANION_RECOVERY_FLOORS} cleared floor remaining.`, companions: cloneCompanions(next, rescues), cashSpent: COMPANION_RECOVERY_COST }
+}
+export const progressCompanionRecovery = (companions: readonly Companion[], rescues?: readonly RescuedNpc[]): Companion[] => cloneCompanions(companions, rescues?.length ? rescues : undefined).map(companion => companion.injury === 'recovering' && (companion.recoveryFloors ?? 0) > 0 ? { ...companion, recoveryFloors: (companion.recoveryFloors ?? 0) - 1 } : companion)
+export const completeCompanionRecovery = (companions: readonly Companion[], rescues: readonly RescuedNpc[], id: string): CompanionRecoveryMutation => {
+  const next = cloneCompanions(companions, rescues)
+  const companion = next.find(candidate => candidate.id === id)
+  if (!companion || companion.permanentlyLost || companion.injury !== 'recovering') return { changed: false, message: 'That companion is not in Lodge recovery.', companions: next, cashSpent: 0 }
+  if ((companion.recoveryFloors ?? 0) > 0) return { changed: false, message: `${companion.name} needs ${companion.recoveryFloors} more cleared floor${companion.recoveryFloors === 1 ? '' : 's'} before returning.`, companions: next, cashSpent: 0 }
+  companion.injury = 'healthy'
+  companion.rosterStatus = 'benched'
+  delete companion.recoveryFloors
+  return { changed: true, message: `${companion.name} completes Lodge recovery and is ready for the bench.`, companions: cloneCompanions(next, rescues), cashSpent: 0 }
+}
 export const changeCompanionRoster = (companions: readonly Companion[], rescues: readonly RescuedNpc[], id: string, action: CompanionRosterAction): CompanionRosterMutation => {
   const next = cloneCompanions(companions, rescues)
   const companion = next.find(candidate => candidate.id === id)

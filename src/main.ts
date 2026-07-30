@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -732,8 +732,14 @@ function handleHubInput(key: string, run = false): boolean {
       const pending = route.companionAction
       if (pending) {
         if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
-        const result = changeCompanionRoster(campaign.companions, campaign.rescuedNpcs, pending.id, pending.action)
+        if ((pending.action === 'beginRecovery' || pending.action === 'completeRecovery') && !heir) { hubNotice = 'Courier funds are unavailable.'; return true }
+        const result = pending.action === 'beginRecovery'
+          ? beginCompanionRecovery(campaign.companions, campaign.rescuedNpcs, pending.id, heir!.gold)
+          : pending.action === 'completeRecovery'
+            ? completeCompanionRecovery(campaign.companions, campaign.rescuedNpcs, pending.id)
+            : changeCompanionRoster(campaign.companions, campaign.rescuedNpcs, pending.id, pending.action)
         campaign = { ...campaign, companions: result.companions }
+        if (result.changed && result.cashSpent && heir) heir.gold -= result.cashSpent
         hubNotice = result.message
         route = { ...route, companionAction: undefined }
         if (result.changed) persistActiveCourier()
@@ -744,8 +750,8 @@ function handleHubInput(key: string, run = false): boolean {
       const choice = Number(key) - 1
       const companion = campaign.companions[choice]
       if (!Number.isInteger(choice) || !companion || choice > 4) { hubNotice = 'Choose a listed companion (1-5).'; return true }
-      const next = companionRosterAction(companion)
-      if (!next || companion.injury !== 'healthy') { hubNotice = `${companion.name} is unavailable (${companion.permanentlyLost ? 'permanently lost' : companion.injury}).`; return true }
+      const next = companionLodgeAction(companion)
+      if (!next) { hubNotice = `${companion.name} is unavailable (${companion.permanentlyLost ? 'permanently lost' : companion.injury === 'recovering' ? `${companion.recoveryFloors ?? 0} cleared floor remaining` : companion.injury}).`; return true }
       route = { ...route, companionAction: { id: companion.id, action: next } }
       hubNotice = undefined
       return true

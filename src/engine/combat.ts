@@ -28,6 +28,7 @@ import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 import { advanceEcology } from '../ecology'
 import { activeCompanionRoster, isCompanionActor } from './party'
+import { injureCompanion } from './companions'
 import { resolveAutonomousCompanions, tickCompanionCooldowns } from './companion-autonomy'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
@@ -330,8 +331,7 @@ const interceptEnemyDamage = (state: RunState, source: Actor, damage: number): n
   const remaining = damage - transferred
   log(state, `${guard.name} intercepts ${source.name}: absorbs ${transferred}, courier takes ${remaining}.`)
   if (guard.health <= 0) {
-    companion.injury = 'injured'
-    companion.rosterStatus = 'benched'
+    injureCompanion(companion)
     state.floor.actors = state.floor.actors.filter(actor => actor !== guard)
     log(state, `${guard.name} withdraws injured to the Lodge.`)
   }

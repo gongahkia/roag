@@ -290,6 +290,7 @@ export interface Companion {
   rosterStatus: CompanionRosterStatus
   controlMode: CompanionControlMode
   injury: CompanionInjuryState
+  recoveryFloors?: number
   abilityState: CompanionAbilityState
   toolState: CompanionToolState
   permanentlyLost: boolean

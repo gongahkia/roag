@@ -14,6 +14,7 @@ import { completeObjective } from '../objectives'
 import { consume, distance, event, log, turnRng, type ActionResult } from './shared'
 import { refreshFov } from './visibility'
 import { synchronizePartyActors } from './party'
+import { progressCompanionRecovery } from './companions'
 import { evaluateEquipmentEffects } from './equipment'
 import { vitalityRecovery, vitalityRescueRecovery } from './vitality'
 import { scriptCastProfile } from './scripts'
@@ -151,6 +152,8 @@ export function descend(state: RunState): ActionResult {
   const areaArc = state.areaArc?.biome === biome ? state.areaArc : areaArcStateFor(state.seed, biome)
   if (state.floor.escalation) recordAreaArcPhase(areaArc, state.floor.escalation.phase)
   state.areaArc = areaArc
+  state.companions = progressCompanionRecovery(state.companions ?? [], state.rescuedNpcs)
+  for (const companion of state.companions.filter(companion => companion.injury === 'recovering' && companion.recoveryFloors === 0)) log(state, `${companion.name}'s Lodge recovery is ready to conclude.`)
   if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
   const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(biome))

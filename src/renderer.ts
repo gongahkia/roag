@@ -476,14 +476,14 @@ export class TerminalRenderer {
         this.text(56, 23, `${companionAction.action.toUpperCase()} ${selected.name}`.slice(0, 32), colors.gold)
         this.text(56, 25, `${selected.role.toUpperCase()} · ${selected.rosterStatus.toUpperCase()}`, colors.text)
         this.text(56, 27, `${biomeName[selected.recruitment.biome]} stage ${selected.recruitment.floor + 1}`, colors.dim)
-        this.text(56, 30, companionAction.action === 'recruit' ? 'Free · status becomes BENCHED.' : companionAction.action === 'activate' ? 'Joins active party if capacity allows.' : 'Returns to the lodge bench.', colors.text)
+        this.text(56, 30, companionAction.action === 'recruit' ? 'Free · status becomes BENCHED.' : companionAction.action === 'activate' ? 'Joins active party if capacity allows.' : companionAction.action === 'beginRecovery' ? '10 cash · benched for one cleared floor.' : companionAction.action === 'completeRecovery' ? 'No cost · returns healthy to the bench.' : 'Returns to the lodge bench.', colors.text)
         this.text(56, 39, 'ENTER confirm · C / ESC cancel', colors.green)
         return
       }
       this.text(56, 23, `0. CONTROL: ${(hub?.companionControlMode ?? 'autonomous').toUpperCase()}`, colors.gold)
       if (!companions.length) { this.text(56, 26, hub?.state.rescued.length ? 'Rescues are being logged as leads.' : 'No rescue leads are available.', colors.dim); this.text(56, 39, '0 change control · C / ESC close', colors.green); return }
       companions.slice(0, 5).forEach((companion, index) => {
-        const status = companion.permanentlyLost ? 'UNAVAILABLE' : companion.injury !== 'healthy' ? companion.injury.toUpperCase() : companion.rosterStatus.toUpperCase()
+        const status = companion.permanentlyLost ? 'UNAVAILABLE' : companion.injury === 'recovering' ? `REC ${companion.recoveryFloors ?? 1}F` : companion.injury === 'injured' ? 'INJURED' : companion.rosterStatus.toUpperCase()
         this.text(56, 26 + index * 2, `${index + 1}. ${companion.name.slice(0, 12).padEnd(12)} ${companion.role.slice(0, 5).padEnd(5)} ${status}`.slice(0, 34), companion.permanentlyLost || companion.injury !== 'healthy' ? colors.dim : companion.rosterStatus === 'active' ? colors.green : colors.text)
       })
       this.text(56, 39, `0 control · 1-${Math.min(5, companions.length)} review · C / ESC close`, colors.green)
