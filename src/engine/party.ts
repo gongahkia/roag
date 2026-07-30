@@ -31,7 +31,7 @@ const samePoint = (left: Point, right: Point): boolean => left.x === right.x && 
 const candidatePositions = (state: RunState): Point[] => {
   const points: Point[] = []
   const radiusLimit = Math.max(state.floor.width, state.floor.height)
-  for (let radius = 1; radius <= radiusLimit; radius++) {
+  for (let radius = 2; radius <= radiusLimit; radius++) {
     for (let y = state.hero.y - radius; y <= state.hero.y + radius; y++) for (let x = state.hero.x - radius; x <= state.hero.x + radius; x++) {
       if (Math.max(Math.abs(x - state.hero.x), Math.abs(y - state.hero.y)) === radius) points.push({ x, y })
     }

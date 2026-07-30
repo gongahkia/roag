@@ -28,6 +28,7 @@ import { markCurseDamaged } from './curses'
 import { grantGold } from './economy'
 import { advanceEcology } from '../ecology'
 import { isCompanionActor } from './party'
+import { resolveAutonomousCompanions } from './companion-autonomy'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -136,6 +137,8 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
   advanceEcology(state, events)
   expirePropEffects(state)
   expireAshways(state)
+  refreshFov(state)
+  for (const command of resolveAutonomousCompanions(state)) events.push(event('companion', command.companionId, command.action))
   const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
   for (const telegraph of resolvedTelegraphs) {
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const

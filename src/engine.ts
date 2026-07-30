@@ -46,6 +46,8 @@ export { addCompanionLeads, assertCompanion, changeCompanionRoster, cloneCompani
 export type { CompanionRosterAction, CompanionRosterMutation } from './engine/companions'
 export { activeCompanionRoster, companionActorId, isCompanionActor, synchronizePartyActors } from './engine/party'
 export type { PartyPlacementReason, PartyPlacementResult } from './engine/party'
+export { autonomousCompanionDecision, resolveAutonomousCompanions } from './engine/companion-autonomy'
+export type { AutonomousCompanionAction, AutonomousCompanionCommand } from './engine/companion-autonomy'
 export { COMPANION_ROLE_CONTRACTS, companionRoleContract, companionRoleContractErrors, isLegalCompanionRoleAction } from './engine/companion-roles'
 export { cloneCarryoverDiagnostics, snapshotCampaignCarryover, transferCampaignCarryover } from './engine/carryover'
 export type { CampaignCarryoverTransfer } from './engine/carryover'

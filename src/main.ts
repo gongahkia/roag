@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionRosterAction, completeCampaignArea, completeCampaignTier, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -356,6 +356,7 @@ function persistActiveCourier(restoreCheckpoint = false): void {
   if (!activeCourier) return
   if (state?.status === 'playing' && state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   if (state?.status === 'playing' && state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
+  if (state?.status === 'playing') campaign = { ...campaign, companions: cloneCompanions(state.companions ?? campaign.companions, campaign.rescuedNpcs) }
   activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
   if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
   activeCourier.campaign = campaign
@@ -541,6 +542,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
   const completedState = state
   const completed = completedState.area ?? completedState.floor.biome
   heir = structuredClone(completedState.hero)
+  campaign = { ...campaign, companions: cloneCompanions(completedState.companions ?? campaign.companions, campaign.rescuedNpcs) }
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed, campaign.areaOrder)
