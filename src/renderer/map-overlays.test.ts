@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapCellIndex, mapOverlays } from './map-overlays'
+import { mapCellIndex, mapOverlays, visibleMapActor } from './map-overlays'
 
 describe('map overlays', () => {
   it('indexes render overlays once while preserving draw precedence', () => {
@@ -16,5 +16,14 @@ describe('map overlays', () => {
     expect(overlays.telegraphs[mapCellIndex(8, 3)]?.id).toBe('first')
     expect(overlays.previewPath[mapCellIndex(10, 3)]).toBe(1)
     expect(overlays.previewCells[mapCellIndex(11, 3)]).toBe(1)
+  })
+
+  it('withholds companion overlays outside current visibility', () => {
+    const actor = { id: 'party:mika', role: 'ally' as const, kind: 'ally', name: 'Mika', x: 2, y: 3, health: 12, maxHealth: 12, attack: 0, defense: 0, speed: 0, energy: 0, glyph: 'S', color: '#8fd39b', hostile: false, status: ['companion:companion:rescue:mika'] }
+    const tiles = Array.from({ length: 120 * 35 }, () => ({ kind: 'floor' as const, explored: true, visible: true }))
+    tiles[mapCellIndex({ width: 120 }, 2, 3)] = { kind: 'floor', explored: true, visible: false }
+    expect(visibleMapActor({ width: 120, tiles }, actor)).toBeUndefined()
+    tiles[mapCellIndex({ width: 120 }, 2, 3)] = { kind: 'floor', explored: true, visible: true }
+    expect(visibleMapActor({ width: 120, tiles }, actor)).toBe(actor)
   })
 })

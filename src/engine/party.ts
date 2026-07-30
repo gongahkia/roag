@@ -1,4 +1,4 @@
-import type { Actor, Companion, Point, RunState } from '../types'
+import type { Actor, Companion, CompanionRole, Point, RunState } from '../types'
 import { getTile, isPassable } from '../world'
 import { log } from './shared'
 
@@ -9,6 +9,13 @@ const active = (companion: Companion): boolean => companion.rosterStatus === 'ac
 export const activeCompanionRoster = (companions: readonly Companion[]): Companion[] => companions.filter(active).map(companion => structuredClone(companion)).sort((left, right) => left.id.localeCompare(right.id))
 export const companionActorId = (companionId: string): string => `party:${companionId}`
 export const isCompanionActor = (actor: Actor): boolean => actor.role === 'ally' && actor.status?.some(status => status.startsWith('companion:')) === true
+const companionAppearances: Record<CompanionRole, { glyph: string; color: string }> = {
+  guard: { glyph: 'G', color: '#e9c965' },
+  scout: { glyph: 'S', color: '#8fd39b' },
+  pathmaker: { glyph: 'P', color: '#8fb8ed' },
+  ritualist: { glyph: 'R', color: '#d2a4e8' }
+}
+export const companionAppearance = (role: CompanionRole): { glyph: string; color: string } => companionAppearances[role]
 const actorForCompanion = (companion: Companion, position: Point): Actor => ({
   id: companionActorId(companion.id),
   role: 'ally',
@@ -22,8 +29,7 @@ const actorForCompanion = (companion: Companion, position: Point): Actor => ({
   defense: 0,
   speed: 0,
   energy: 0,
-  glyph: '&',
-  color: '#8fd39b',
+  ...companionAppearance(companion.role),
   hostile: false,
   status: [`companion:${companion.id}`, `role:${companion.role}`]
 })
@@ -58,5 +64,6 @@ export const synchronizePartyActors = (state: RunState, reason: PartyPlacementRe
     return { reason, placed: false, companionIds: roster.map(companion => companion.id), positions: [], message }
   }
   state.floor.actors.push(...roster.map((companion, index) => actorForCompanion(companion, positions[index]!)))
+  log(state, `${roster.map(companion => companion.name).join(', ')} join${roster.length === 1 ? 's' : ''} the party formation.`)
   return { reason, placed: true, companionIds: roster.map(companion => companion.id), positions }
 }

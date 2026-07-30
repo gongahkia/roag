@@ -34,3 +34,5 @@ export const mapOverlays = (floor: Pick<Floor, 'items' | 'props' | 'actors' | 't
   for (const point of preview?.cells ?? []) if (inMap(point)) previewCells[mapCellIndex(dimensions, point.x, point.y)] = 1
   return { items, props, actors, telegraphs, previewPath, previewCells }
 }
+
+export const visibleMapActor = (floor: Pick<Floor, 'tiles' | 'width'>, actor: Actor | undefined): Actor | undefined => actor && floor.tiles[mapCellIndex(floor, actor.x, actor.y)]?.visible ? actor : undefined

@@ -55,4 +55,15 @@ describe('deterministic party placement', () => {
     expect(synchronizePartyActors(state, 'removal')).toMatchObject({ placed: true, companionIds: [] })
     expect(partyActors(state)).toHaveLength(0)
   })
+
+  it('logs formation joins and uses distinct role map markers', () => {
+    const guard = companion('guard')
+    guard.role = 'guard'
+    const scout = companion('scout', 'wilds')
+    scout.role = 'scout'
+    const state = createRun({ companions: [guard, scout] })
+    synchronizePartyActors(state, 'activation')
+    expect(partyActors(state).map(actor => [actor.glyph, actor.color])).toEqual([['G', '#e9c965'], ['S', '#8fd39b']])
+    expect(state.messages[0]).toBe('guard, scout join the party formation.')
+  })
 })

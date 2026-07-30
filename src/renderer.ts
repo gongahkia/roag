@@ -2,10 +2,10 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
-import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
+import { mapCellIndex, mapOverlays, visibleMapActor, type MapOverlays } from './renderer/map-overlays'
 import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cameraFrame, cellRect } from './renderer/metrics'
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { isTelegraphVisible, presentTelegraph } from './renderer/telegraphs'
@@ -596,7 +596,7 @@ export class TerminalRenderer {
     const encounter = state.floor.encounters?.find(current => current.x === x && current.y === y && current.state === 'dormant')
     if (encounter && !this.spriteMode) this.cell(x, y, encounter.kind === 'wayfarer' ? '&' : encounter.kind === 'bloodBargain' ? '$' : '≈', encounter.kind === 'bloodBargain' ? colors.red : encounter.kind === 'shiftingChamber' ? colors.blue : colors.green)
     if (item) this.drawItem(item, x, y)
-    const actor = overlays.actors[index]
+    const actor = visibleMapActor(state.floor, overlays.actors[index])
     if (actor) this.spriteMode ? drawActorSprite(this.ctx, actor, false, x, y) : this.cell(x, y, this.runeMode ? actor.glyph : terminalGlyph(actor.glyph), actor.color)
     if (telegraph && !this.spriteMode) {
       const presentation = presentTelegraph(telegraph, state.turn, '')
@@ -727,7 +727,8 @@ export class TerminalRenderer {
     const terrain = getTile(state.floor, hero.x, hero.y)
     if (terrain) this.text(50, 45, terrainInspection(biome, terrain.kind), colors.dim)
     this.text(50, 46, `MARKS ${milestones.length} seen · SECRETS ${secrets.length} found`, colors.dim)
-    this.boonRelicLists(hero, 48)
+    if (state.companions?.length) this.partyHud(state, 48)
+    else this.boonRelicLists(hero, 48)
   }
 
   private courierSheet(hero: Hero): void {
@@ -774,6 +775,21 @@ export class TerminalRenderer {
     relics.slice(0, 3).forEach((id, index) => {
       const relic = relicFor(id)
       this.text(72, y + 1 + index, `${index + 1}. ${relic.glyph} ${relic.name.slice(0, 14)}`, colors.gold)
+    })
+  }
+
+  private partyHud(state: RunState, y: number): void {
+    const party = partyHud(state)
+    const order = party.order.map((_, index) => index === 0 ? '@' : String(index)).join('>')
+    this.text(50, y, `PARTY ${party.controlMode === 'direct' ? 'DIRECT' : 'AUTO'} · ORDER ${order}`, party.controlMode === 'direct' ? colors.green : colors.gold)
+    party.entries.slice(0, 5).forEach((entry, index) => {
+      const status = entry.status === 'recovering' ? `REC ${state.companions?.find(companion => companion.id === entry.id)?.recoveryFloors ?? 0}F` : entry.status.toUpperCase()
+      const health = entry.health ? `HP ${entry.health.current}/${entry.health.maximum}` : status
+      const conditions = entry.conditions.map(condition => condition.toUpperCase()).join('/')
+      const cooldowns = entry.cooldowns.map(cooldown => `${cooldown.action.slice(0, 3).toUpperCase()}${cooldown.turns}`).join('/')
+      const orderMark = entry.focused ? '>' : entry.turnOrder ? String(entry.turnOrder) : '-'
+      const line = `${orderMark} ${entry.glyph} ${entry.name.slice(0, 11).padEnd(11)} ${health}${conditions ? ` ${conditions}` : ''}${cooldowns ? ` ${cooldowns}` : ''}`.slice(0, 45)
+      this.text(50, y + 1 + index, line, entry.focused ? colors.green : entry.status === 'lost' || entry.status === 'injured' || entry.status === 'recovering' ? colors.dim : entry.color)
     })
   }
 
