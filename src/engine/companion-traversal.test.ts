@@ -23,7 +23,7 @@ describe('companion traversal support', () => {
     pathmaker.state.floor.tiles[indexOf(2, 1)]!.kind = 'rubble'
     const resources = { bombs: pathmaker.state.hero.bombs, ropes: pathmaker.state.hero.ropes, tools: [...(pathmaker.state.hero.traversalTools ?? [])] }
     const target = companionTerrainTargets(pathmaker.state, 'stabilizeTerrain')[0]!
-    expect(executeCompanionRoleAction(pathmaker.state, pathmaker.companion, pathmaker.actor, 'stabilizeTerrain', target, 'test support')).toBe(true)
+    expect(executeCompanionRoleAction(pathmaker.state, pathmaker.companion, pathmaker.actor, 'stabilizeTerrain', target, 'test support')).toMatchObject({ executed: true, result: 'terrain stabilized' })
     expect(pathmaker.state.floor.tiles[indexOf(2, 1)]!.kind).toBe('floor')
     expect(pathmaker.companion.abilityState.cooldowns).toMatchObject({ stabilizeTerrain: 2 })
     expect(pathmaker.state.hero).toMatchObject({ bombs: resources.bombs, ropes: resources.ropes, traversalTools: resources.tools })
@@ -39,7 +39,7 @@ describe('companion traversal support', () => {
     pathmaker.state.floor.tiles[indexOf(hidden.x, hidden.y)]!.kind = 'rubble'
     pathmaker.state.floor.tiles[indexOf(hidden.x, hidden.y)]!.visible = false
     expect(companionTerrainMutationAssessment(pathmaker.state, 'stabilizeTerrain', hidden)).toMatchObject({ ready: false, reason: 'target-unseen' })
-    expect(executeCompanionRoleAction(pathmaker.state, pathmaker.companion, pathmaker.actor, 'stabilizeTerrain', hidden, 'test support')).toBe(false)
+    expect(executeCompanionRoleAction(pathmaker.state, pathmaker.companion, pathmaker.actor, 'stabilizeTerrain', hidden, 'test support')).toMatchObject({ executed: false, result: 'target-unseen' })
     expect(pathmaker.companion.abilityState.cooldowns).toEqual({})
     const protectedTarget = { ...pathmaker.state.floor.exit }
     pathmaker.state.floor.tiles[indexOf(protectedTarget.x, protectedTarget.y)]!.kind = 'rubble'

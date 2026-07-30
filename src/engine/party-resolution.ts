@@ -4,7 +4,7 @@ import { activeCompanionRoster, companionActorId, isCompanionActor } from './par
 
 export type PartyActorTeam = 'courier' | 'companion' | 'enemy' | 'neutral'
 export type PartyResolutionReason = 'resolved' | 'blocked-bounds' | 'blocked-terrain' | 'blocked-occupant' | 'friendly-fire' | 'no-target' | 'duplicate-target' | 'source-missing'
-export interface PartyResolution { sourceId: string; kind: 'move' | 'line' | 'area'; resolved: boolean; reason: PartyResolutionReason; targets: string[]; fallback?: 'wait' }
+export interface PartyResolution { sourceId: string; kind: 'move' | 'line' | 'area' | 'support'; resolved: boolean; reason: PartyResolutionReason; targets: string[]; fallback?: 'wait' }
 export interface PartyTarget { id: string; team: PartyActorTeam; point: Point; actor?: Actor }
 
 const courierId = 'courier'
@@ -49,6 +49,22 @@ export const resolvePartyTargets = (state: RunState, sourceId: string, kind: 'li
   }
   if (targets.length) return { sourceId, kind, resolved: true, reason: 'resolved', targets }
   return { sourceId, kind, resolved: false, reason: friendly ? 'friendly-fire' : 'no-target', targets: [], fallback: 'wait' }
+}
+
+export const resolvePartySupport = (state: RunState, sourceId: string, cells: readonly Point[]): PartyResolution => {
+  const current = source(state, sourceId)
+  if (!current) return { sourceId, kind: 'support', resolved: false, reason: 'source-missing', targets: [], fallback: 'wait' }
+  const seen = new Set<string>()
+  const targets: string[] = []
+  let hostile = false
+  for (const cell of cells) {
+    const target = targetAt(state, cell)
+    if (!target || target.id === sourceId || seen.has(target.id)) continue
+    seen.add(target.id)
+    if (hostileTo(current.team, target.team)) { hostile = true; continue }
+    targets.push(target.id)
+  }
+  return targets.length ? { sourceId, kind: 'support', resolved: true, reason: 'resolved', targets } : { sourceId, kind: 'support', resolved: false, reason: hostile ? 'friendly-fire' : 'no-target', targets: [], fallback: 'wait' }
 }
 
 export const removeDefeatedPartyActors = (state: RunState): string[] => {

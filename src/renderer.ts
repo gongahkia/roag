@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, outpostInteraction, outpostMap, outpostSpawn, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, type MapOverlays } from './renderer/map-overlays'
@@ -1025,11 +1025,19 @@ export class TerminalRenderer {
     const companion = state.companions?.find(candidate => candidate.id === id)
     this.box(15, 14, 54, 18, 'COMPANION COMMAND')
     if (!companion) { this.text(20, 21, 'Companion record is unavailable.', colors.red); this.text(20, 27, 'ENTER resolves the remaining turn.', colors.green); return }
-    const actions = companion.role === 'guard' ? ['1 INTERCEPT', '2 PROTECT'] : companion.role === 'scout' ? ['1 OBSERVE', '2 MARK'] : companion.role === 'pathmaker' ? ['1 TRAVERSE', '2 STABILIZE TERRAIN'] : ['1 WARD', '2 STABILIZE HAZARD']
+    const actions = companion.role === 'guard' ? ['intercept', 'protect'] as const : companion.role === 'scout' ? ['observe', 'mark'] as const : companion.role === 'pathmaker' ? ['traverse', 'stabilizeTerrain'] as const : ['ward', 'stabilizeHazard'] as const
+    const actor = state.floor.actors.find(candidate => candidate.status?.includes(`companion:${companion.id}`))
+    const assessments = actions.map(action => actor ? assessCompanionAbility(state, companion, actor, action) : undefined)
+    const actionLine = (index: number): string => {
+      const action = actions[index]!
+      const assessment = assessments[index]
+      return `${index + 1} ${action.toUpperCase()} · ${assessment?.ready ? `READY → ${assessment.targetLabel ?? 'SELF'}` : assessment ? assessment.reason.replaceAll('-', ' ').toUpperCase() : 'ACTOR MISSING'}`.slice(0, 46)
+    }
     this.text(20, 18, `${String(modal.index + 1)}/${modal.companionIds.length} · ${companion.name} · ${companion.role.toUpperCase()}`, colors.gold)
-    this.text(20, 21, actions.join(' · '), colors.text)
-    this.text(20, 24, '8-way direction moves · ENTER / L waits', colors.text)
-    this.text(20, 27, 'ESC explains cancellation · each companion acts once', colors.dim)
+    this.text(20, 21, actionLine(0), assessments[0]?.ready ? colors.green : colors.dim)
+    this.text(20, 23, actionLine(1), assessments[1]?.ready ? colors.green : colors.dim)
+    this.text(20, 25, `${assessments[0]?.effect ?? 'No ability effect'} · range ${assessments[0]?.range ?? 0} · companion cooldown`, colors.text)
+    this.text(20, 28, '8-way direction moves · ENTER / L waits · ESC explains cancellation', colors.dim)
   }
 
   private analysis(analysis: RunAnalysis): void {

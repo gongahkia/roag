@@ -145,7 +145,7 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
     log(state, `${directCompanions[0]!.name} awaits a command (1-2 action · direction move · Enter wait).`)
     return events
   }
-  for (const command of resolveAutonomousCompanions(state)) events.push(event('companion', command.companionId, command.action))
+  for (const command of resolveAutonomousCompanions(state)) events.push(event('companion', command.companionId, `${command.action}:${command.target ? `${command.target.x},${command.target.y}` : 'self'}:${command.result ?? 'resolved'}`))
   return resolveTurnAfterParty(state, events)
 }
 

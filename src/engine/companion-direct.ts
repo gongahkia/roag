@@ -1,8 +1,8 @@
 import { DIRECTIONS, type Actor, type Companion, type Direction, type Modal, type RunState } from '../types'
 import { executeCompanionRoleAction } from './companion-autonomy'
+import { companionAbilityTarget } from './companion-abilities'
 import { companionRoleContract } from './companion-roles'
 import { isCompanionActor } from './party'
-import { companionTerrainTargets, type CompanionTerrainAction } from './companion-traversal'
 import { resolveTurnAfterParty } from './combat'
 import { resolvePartyMove } from './party-resolution'
 import { event, log, type ActionResult } from './shared'
@@ -48,8 +48,8 @@ export const performDirectCompanionCommand = (state: RunState, modal: Extract<Mo
   const action = companionRoleContract(companion.role).directActions[Number(command) - 1]
   if (!action) { log(state, `${companion.name}: choose direction, ${directCompanionControls(companion).join(' / ')}, or Enter.`); return [] }
   if ((companion.abilityState.cooldowns[action] ?? 0) > 0) { log(state, `${companion.name}'s ${action} is recovering.`); return [] }
-  const terrainAction = action === 'stabilizeTerrain' || action === 'stabilizeHazard' ? action as CompanionTerrainAction : undefined
-  const target = terrainAction ? companionTerrainTargets(state, terrainAction)[0] : state.floor.actors.filter(actor => actor.hostile && actor.health > 0).sort((left, right) => Math.max(Math.abs(left.x - state.hero.x), Math.abs(left.y - state.hero.y)) - Math.max(Math.abs(right.x - state.hero.x), Math.abs(right.y - state.hero.y)) || left.id.localeCompare(right.id))[0]
-  if (!executeCompanionRoleAction(state, companion, actor, action, target ? { x: target.x, y: target.y } : undefined, `${action} by direct command`)) return []
-  return next(state, modal, companion, action)
+  const execution = executeCompanionRoleAction(state, companion, actor, action, companionAbilityTarget(state, companion, actor, action), `${action} by direct command`)
+  if (!execution.executed) return []
+  const target = execution.target ? `${execution.target.x},${execution.target.y}` : 'self'
+  return next(state, modal, companion, `${action}:${target}:${execution.result}`)
 }

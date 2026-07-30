@@ -8,6 +8,9 @@ import { distance } from './shared'
 import { ecologyReadout } from '../ecology'
 import { toolFor } from './buildcraft'
 import { secretInteractionHint, secretShortcutReport } from '../secrets'
+import { assessCompanionAbility } from './companion-abilities'
+import { companionRoleContract } from './companion-roles'
+import { activeCompanionRoster, isCompanionActor } from './party'
 
 export interface FieldReadout { brief: string; lines: string[] }
 
@@ -18,6 +21,7 @@ const visibleHostiles = (state: RunState) => state.floor.actors
 const nearbyProps = (state: RunState): Prop[] => state.floor.props
   .filter(prop => prop.state !== 'destroyed' && distance(prop, state.hero) <= 1)
   .sort((first, second) => first.id.localeCompare(second.id))
+const companionIdForActor = (actor: { status?: string[] }): string | undefined => actor.status?.find(status => status.startsWith('companion:'))?.slice('companion:'.length)
 
 const telegraphLabel = (state: RunState, id: string): string => {
   const telegraph = state.floor.telegraphs?.find(current => current.id === id)
@@ -30,6 +34,15 @@ export const fieldReadout = (state: RunState): FieldReadout => {
   const telegraphs = [...(state.floor.telegraphs ?? [])].sort((first, second) => first.resolveTurn - second.resolveTurn || first.id.localeCompare(second.id))
   const foes = visibleHostiles(state)
   const lines = [`OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`]
+  for (const companion of activeCompanionRoster(state.companions ?? []).slice(0, 3)) {
+    const actor = state.floor.actors.find(candidate => isCompanionActor(candidate) && companionIdForActor(candidate) === companion.id)
+    if (!actor) { lines.push(`COMPANION: ${companion.name} — unavailable on this floor.`); continue }
+    const abilities = companionRoleContract(companion.role).directActions.map(action => {
+      const assessment = assessCompanionAbility(state, companion, actor, action)
+      return `${action} ${assessment.ready ? `READY→${assessment.targetLabel ?? 'self'}` : assessment.reason.replaceAll('-', ' ')}`
+    })
+    lines.push(`COMPANION: ${companion.name} — ${abilities.join(' / ')}`)
+  }
   if (state.floor.escalation) lines.push(`ARC: ${state.floor.escalation.arcId} / ${state.floor.escalation.phase} — ${state.floor.escalation.landmark}`)
   for (const ecology of (state.floor.ecology ?? []).filter(current => current.state !== 'resolved').sort((first, second) => first.startsAt - second.startsAt || first.id.localeCompare(second.id)).slice(0, 2)) lines.push(`ECOLOGY: ${ecologyReadout(ecology, state.turn)}`)
   for (const telegraph of telegraphs.slice(0, 3)) {
