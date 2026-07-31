@@ -4,15 +4,13 @@
 
 # `Jomon`
 
-Browser-based, turn-based courier roguelike. Every seed draws and orders four distinct biomes from an eight-biome pool for a sixteen-floor campaign; cleared floors increase shared threat regardless of biome identity.
+[ASCII](https://en.wikipedia.org/wiki/ASCII)-art based [procedurally-generated](https://en.wikipedia.org/wiki/Procedural_generation) Dungeon Crawler [Roguelike](https://en.wikipedia.org/wiki/Roguelike) that lives in the browser.
 
 ## Stack
 
-* Language: [TypeScript](https://www.typescriptlang.org/)
-* Runtime: browser [Canvas 2D API](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D) and Web Audio
-* Tooling: [Vite](https://vite.dev/)
-* Tests: [Vitest](https://vitest.dev/)
-* Assets/Fonts: [BigBlue Terminal](https://int10h.org/blog/2015/12/bigblue-terminal-oldschool-fixed-width-font/)
+* Scripting: [TypeScript](https://www.typescriptlang.org/), [Canvas 2D API](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D), [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+* Test: [Vite](https://vite.dev/), [Vitest](https://vitest.dev/)
+* Font: [BigBlue Terminal](https://int10h.org/blog/2015/12/bigblue-terminal-oldschool-fixed-width-font/)
 
 ## Screenshots
 
@@ -24,25 +22,16 @@ Browser-based, turn-based courier roguelike. Every seed draws and orders four di
 
 ## Usage
 
-The below commands run `Jomon` locally.
+> [!IMPORTANT]  
+> The easiest way to play `Jomon` is via its live deployment ***[here](https://gabrielongzm.com/jomon/)***.
 
-```sh
-git clone https://github.com/gongahkia/jomon && cd jomon
-npm ci
-npm run dev
-```
+Alternatively, the below commands are for running `Jomon` locally.
 
-Build a production bundle:
-
-```sh
-npm run build
-npm run preview
-```
-
-Generate deterministic spatial metrics; JSON reports default to ignored `generation-reports/`:
-
-```sh
-npm run generation:report
+```console
+$ git clone https://github.com/gongahkia/jomon && cd jomo
+$ npm ci && npm run dev
+$ npm run build
+$ npm run preview
 ```
 
 ## Autoplay corpus
