@@ -32,12 +32,6 @@ npm ci
 npm run dev
 ```
 
-Audit deterministic level generation for all ten biomes:
-
-```sh
-npm run debug:levels
-```
-
 Build a production bundle:
 
 ```sh

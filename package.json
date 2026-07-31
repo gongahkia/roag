@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "debug:levels": "vite --open '/?debug=levels'",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "SKIP_CAMPAIGN_MATRIX=1 ./scripts/test-ci.sh",
