@@ -1,15 +1,16 @@
 import './style.css';
 import { presentFeedback, type FeedbackTone } from './feedback';
-import { applyCommand, beginCourse, botMove, createGame, currentUpgradeChoices, defaultConfig, tickTurn } from './core/game';
+import { applyCommand, beginCourse, botMove, createGame, currentUpgradeChoices, defaultConfig, previewShot, tickTurn } from './core/game';
 import { generateCandidates } from './core/generator';
 import { hashSeed } from './core/random';
 import { bindingFor, isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from './preferences';
-import type { GameState, PowerUp, ShotCommand } from './core/types';
+import type { Ball, GameState, PowerUp, ShotCommand } from './core/types';
 import { createRenderer } from './ui/render';
 
 type Overlay = 'help' | 'settings' | undefined;
 interface LedgerEntry { id: number; message: string; tone: FeedbackTone; }
 interface Callout { id: number; message: string; tone: FeedbackTone; expiresAt: number; }
+interface ShotAnimation { playerId: string; frame: number; }
 
 const app = document.querySelector<HTMLElement>('#app')!;
 let config = defaultConfig();
@@ -28,6 +29,7 @@ let feedbackId = 0;
 let lastFeedbackMessage: string | undefined;
 let ledger: LedgerEntry[] = [];
 let callouts: Callout[] = [];
+let shotAnimation: ShotAnimation | undefined;
 
 const escape = (value: string) => value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!);
 const current = () => state.players[state.turn.playerIndex]!;
@@ -136,13 +138,48 @@ const adjustPower = (amount: number) => {
   renderControls();
 };
 
+const drawShotFrame = (playerId: string, ball: Ball) => {
+  const players = state.players.map((player) => player.id === playerId ? { ...player, ball } : player);
+  renderer?.draw(state.course, players);
+};
+
+const playShot = (shot: ShotCommand) => {
+  if (state.status !== 'playing' || shotAnimation) return;
+  const player = current();
+  const frames = previewShot(state, shot);
+  if (!frames?.length) {
+    setState(applyCommand(state, { type: 'shoot', shot }));
+    return;
+  }
+  const source = state;
+  const duration = Math.min(2_200, Math.max(360, frames.length * 11));
+  const startedAt = performance.now();
+  shotAnimation = { playerId: player.id, frame: 0 };
+  renderControls();
+  document.querySelector<HTMLElement>('#status')!.textContent = renderStatus();
+  const animate = (now: number) => {
+    if (!shotAnimation || state !== source) return;
+    const progress = Math.min(1, (now - startedAt) / duration);
+    const frame = Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1)));
+    shotAnimation.frame = frame;
+    drawShotFrame(player.id, frames[frame]!);
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+      return;
+    }
+    shotAnimation = undefined;
+    setState(applyCommand(source, { type: 'shoot', shot }));
+  };
+  requestAnimationFrame(animate);
+};
+
 const shoot = () => {
   if (state.status !== 'playing' || current().kind !== 'human') return;
-  setState(applyCommand(state, { type: 'shoot', shot: aim }));
+  playShot(aim);
 };
 
 const usePowerUp = (powerUp: PowerUp) => {
-  if (state.status !== 'playing' || current().kind !== 'human') return;
+  if (state.status !== 'playing' || current().kind !== 'human' || shotAnimation) return;
   const target = state.players.find((player) => player.id !== current().id && !player.ball.complete);
   setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id }));
 };
@@ -162,7 +199,7 @@ const scheduleBot = () => {
   if (state.status !== 'playing') return;
   botTimeout = window.setTimeout(() => {
     const move = botMove(state);
-    if (move) setState(applyCommand(state, { type: 'shoot', shot: move }));
+    if (move) playShot(move);
   }, preferences.reducedMotion ? 180 : 650);
 };
 
@@ -170,7 +207,7 @@ const renderControls = () => {
   const control = document.querySelector<HTMLElement>('#controls');
   if (!control) return;
   const player = current();
-  const disabled = state.status !== 'playing' || player.kind !== 'human';
+  const disabled = state.status !== 'playing' || player.kind !== 'human' || Boolean(shotAnimation);
   control.innerHTML = `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b></div>
     <label>power <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
@@ -221,6 +258,7 @@ const render = () => {
   `;
   document.querySelector<HTMLButtonElement>('#new-run')?.addEventListener('click', setupGame);
   const canvas = document.querySelector<HTMLCanvasElement>('#course')!;
+  renderer?.dispose();
   renderer = createRenderer(canvas);
   renderer.draw(state.course, state.players, aim);
   canvas.addEventListener('pointermove', chooseAim);
@@ -232,6 +270,7 @@ const renderStatus = () => {
   if (state.status === 'preview') return 'generator inspection — choose a validated candidate, then lock the hole';
   if (state.status === 'draft') return 'draft phase — each player chooses an upgrade';
   if (state.status === 'finished') return `winner: ${escape([...state.players].sort((a, b) => a.total - b.total)[0]!.name)}`;
+  if (shotAnimation) return `${escape(current().name)}'s ball is in flight`;
   return `${escape(current().name)} is taking a turn`;
 };
 
@@ -296,7 +335,7 @@ window.addEventListener('keydown', (event) => {
   event.preventDefault();
   if (command === 'help') { overlay = overlay === 'help' ? undefined : 'help'; render(); return; }
   if (command === 'settings') { overlay = overlay === 'settings' ? undefined : 'settings'; render(); return; }
-  if (overlay) return;
+  if (overlay || shotAnimation) return;
   if (command === 'shoot') shoot();
   if (command === 'powerDown') adjustPower(-0.2);
   if (command === 'powerUp') adjustPower(0.2);
@@ -314,7 +353,7 @@ const loop = (now: number) => {
   const previousCalloutCount = callouts.length;
   callouts = callouts.filter((callout) => callout.expiresAt > now);
   if (callouts.length !== previousCalloutCount) document.querySelector<HTMLElement>('#callouts')!.innerHTML = calloutMarkup();
-  if (state.status === 'playing') {
+  if (state.status === 'playing' && !shotAnimation) {
     const next = tickTurn(state, elapsed);
     if (next !== state) {
       state = next;

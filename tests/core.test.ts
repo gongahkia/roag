@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision } from '../src/core/bots';
-import { applyCommand, beginCourse, createGame, defaultConfig } from '../src/core/game';
+import { applyCommand, beginCourse, createGame, defaultConfig, previewShot } from '../src/core/game';
 import { generateCandidates, generateCourse } from '../src/core/generator';
 import { newBall, simulateShot } from '../src/core/physics';
 
@@ -33,6 +33,15 @@ describe('turns and bots', () => {
     const next = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
     expect(next.players[0]!.ball.strokes).toBe(1);
     expect(next.turn.playerIndex).toBe(1);
+  });
+
+  it('provides animation frames that finish at the same ball state as the committed shot', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'animation-seed', botCount: 1 }));
+    const shot = { angle: 0, power: 3 };
+    const frames = previewShot(game, shot)!;
+    const committed = applyCommand(game, { type: 'shoot', shot }).players[0]!.ball;
+    expect(frames.length).toBeGreaterThan(1);
+    expect(frames.at(-1)).toMatchObject({ x: committed.x, y: committed.y, z: committed.z, complete: committed.complete });
   });
 
   it('gives bots a finite physics-valid shot', () => {
