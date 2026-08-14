@@ -1,6 +1,6 @@
 import { distanceToCup, simulateShot } from './physics';
 import { Random } from './random';
-import type { Course, Player, PowerUp, ShotCommand } from './types';
+import type { Course, Player, PowerUp, ShotCommand, WorldRotation } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
@@ -18,7 +18,7 @@ const rankedTarget = (bot: Player, players: Player[]): Player | undefined => pla
   .filter((player) => player.id !== bot.id && !player.ball.complete)
   .sort((left, right) => left.total + left.ball.strokes - (right.total + right.ball.strokes))[0];
 
-export const chooseBotDecision = (course: Course, bot: Player, players: Player[]): BotDecision => {
+export const chooseBotDecision = (course: Course, bot: Player, players: Player[], rotation: WorldRotation): BotDecision => {
   const skill = clampedSkill(bot, players.filter((player) => player.id !== bot.id));
   const random = new Random(`${course.seed}:${bot.id}:${bot.ball.strokes}`);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
@@ -32,7 +32,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
     for (let power = 2; power <= 7.5; power += powerStep) {
       const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot);
+      const result = simulateShot(course, bot.ball, shot, 10, rotation);
       const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
         + result.ball.resetCount * 45
         + Math.max(0, result.ball.z - 1.4) * 3
