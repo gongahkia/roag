@@ -1,4 +1,4 @@
-import type { Ball, Course, Point, ShotCommand, Surface, Tile } from './types';
+import type { Ball, Course, Point, ShotCommand, Surface, Tile, WorldRotation } from './types';
 
 const STEP = 1 / 60;
 const GRAVITY = -14;
@@ -22,20 +22,22 @@ export interface SimulationResult {
   frames: Ball[];
   holed: boolean;
   reset: boolean;
+  pickupIds: string[];
 }
 
-export const tileAt = (course: Course, x: number, y: number): Tile | undefined => {
+export const tileAt = (course: Course, x: number, y: number, rotation: WorldRotation = 0): Tile | undefined => {
   const column = Math.floor(x);
   const row = Math.floor(y);
   if (column < 0 || row < 0 || column >= course.width || row >= course.height) return undefined;
-  return course.tiles[row * course.width + column];
+  const tile = course.tiles[row * course.width + column];
+  return tile?.rotationGate === undefined || tile.rotationGate === rotation ? tile : undefined;
 };
 
 export const tileCenter = (point: Point) => ({ x: point.x + 0.5, y: point.y + 0.5 });
 
-export const newBall = (course: Course): Ball => {
+export const newBall = (course: Course, rotation: WorldRotation = 0): Ball => {
   const tee = tileCenter(course.tee);
-  const tile = tileAt(course, tee.x, tee.y)!;
+  const tile = tileAt(course, tee.x, tee.y, rotation)!;
   return { x: tee.x, y: tee.y, z: tile.height + BALL_RADIUS, vx: 0, vy: 0, vz: 0, strokes: 0, complete: false, resetCount: 0 };
 };
 
@@ -51,13 +53,14 @@ const speed = (ball: Ball) => Math.hypot(ball.vx, ball.vy, ball.vz);
 
 export const isStopped = (ball: Ball) => speed(ball) < 0.12;
 
-export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = 10): SimulationResult => {
+export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = 10, rotation: WorldRotation = 0): SimulationResult => {
   let ball = applyShot(initial, shot);
   const frames: Ball[] = [];
   const tee = tileCenter(course.tee);
   const cup = tileCenter(course.cup);
   let reset = false;
   let holed = false;
+  const pickupIds = new Set<string>();
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
     const previous = { ...ball };
@@ -66,7 +69,7 @@ export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, m
     ball.y += ball.vy * STEP;
     ball.z += ball.vz * STEP;
 
-    const tile = tileAt(course, ball.x, ball.y);
+    const tile = tileAt(course, ball.x, ball.y, rotation);
     if (!tile || tile.surface === 'void') {
       ball = { ...previous, vx: 0, vy: 0, vz: 0 };
       reset = true;
@@ -102,7 +105,11 @@ export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, m
       }
     }
 
-    if (Math.hypot(ball.x - cup.x, ball.y - cup.y) < 0.28 && Math.hypot(ball.vx, ball.vy) < 1.9 && ball.z <= (tileAt(course, cup.x, cup.y)?.height ?? 0) + 0.3) {
+    for (const pickup of course.pickups) {
+      if (!pickup.collected && pickup.rotation === rotation && Math.hypot(ball.x - pickup.point.x - 0.5, ball.y - pickup.point.y - 0.5) < 0.34) pickupIds.add(pickup.id);
+    }
+
+    if (Math.hypot(ball.x - cup.x, ball.y - cup.y) < 0.28 && Math.hypot(ball.vx, ball.vy) < 1.9 && ball.z <= (tileAt(course, cup.x, cup.y, rotation)?.height ?? 0) + 0.3) {
       ball = { ...ball, x: cup.x, y: cup.y, vx: 0, vy: 0, vz: 0, complete: true };
       holed = true;
       frames.push({ ...ball });
@@ -119,7 +126,7 @@ export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, m
 
   if (!frames.length) frames.push({ ...ball, x: tee.x, y: tee.y });
   else if (frames.at(-1)!.x !== ball.x || frames.at(-1)!.y !== ball.y || frames.at(-1)!.z !== ball.z || frames.at(-1)!.complete !== ball.complete) frames.push({ ...ball });
-  return { ball, frames, holed, reset };
+  return { ball, frames, holed, reset, pickupIds: [...pickupIds] };
 };
 
 export const distanceToCup = (course: Course, ball: Ball) => {

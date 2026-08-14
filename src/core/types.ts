@@ -1,5 +1,7 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
+export type WorldRotation = 0 | 1 | 2 | 3;
+export type PowerUp = 'turbo' | 'bomb' | 'freeze' | 'swap';
 
 export type Surface =
   | 'void'
@@ -18,6 +20,7 @@ export interface Tile {
   height: number;
   slope?: { x: number; y: number };
   direction?: { x: number; y: number };
+  rotationGate?: WorldRotation;
 }
 
 export interface Point {
@@ -34,7 +37,16 @@ export interface Course {
   tee: Point;
   cup: Point;
   route: Point[];
+  pickups: CoursePickup[];
   score: CourseScore;
+}
+
+export interface CoursePickup {
+  id: string;
+  point: Point;
+  powerUp: PowerUp;
+  rotation: WorldRotation;
+  collected: boolean;
 }
 
 export interface CourseScore {
@@ -65,8 +77,6 @@ export interface Ball {
   complete: boolean;
   resetCount: number;
 }
-
-export type PowerUp = 'turbo' | 'bomb' | 'freeze' | 'swap';
 
 export interface Player {
   id: string;
@@ -103,6 +113,7 @@ export interface GameState {
   config: GameConfig;
   course: Course;
   hole: number;
+  rotation: WorldRotation;
   players: Player[];
   turn: TurnState;
   status: 'lobby' | 'preview' | 'playing' | 'draft' | 'finished';
@@ -113,7 +124,8 @@ export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string }
   | { type: 'next-hole' }
-  | { type: 'draft'; upgrade: string };
+  | { type: 'draft'; upgrade: string }
+  | { type: 'rotate-world'; direction: -1 | 1 };
 
 export interface GameTransport {
   send(command: GameCommand): void;
