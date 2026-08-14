@@ -118,17 +118,31 @@ const decorate = (course: Course, random: Random) => {
 };
 
 const addRotationCache = (course: Course, random: Random, routeIndex: number) => {
-  const origin = course.route[Math.min(course.route.length - 3, Math.max(3, routeIndex))]!;
   const gate = random.pick<WorldRotation>([1, 2, 3]);
-  const candidates = [...directions].sort(() => random.next() - .5);
-  for (const direction of candidates) {
-    const length = random.int(2, 4);
-    const path = Array.from({ length }, (_, index) => ({ x: origin.x + direction.x * (index + 1), y: origin.y + direction.y * (index + 1) }));
-    if (path.some((point) => point.x < 1 || point.y < 1 || point.x >= COURSE_WIDTH - 1 || point.y >= COURSE_HEIGHT - 1)) continue;
-    if (path.some((point) => course.tiles[indexOf(course, point)]!.surface !== 'void')) continue;
-    const height = course.tiles[indexOf(course, origin)]!.height;
-    path.forEach((point) => writeTile(course.tiles, point, 'fairway', height, course.width, gate));
-    const point = path.at(-1)!;
+  const origins = course.route
+    .map((point, index) => ({ point, distance: Math.abs(index - routeIndex) }))
+    .sort((left, right) => left.distance - right.distance)
+    .map(({ point }) => point);
+  for (const origin of origins) {
+    const candidates = [...directions].sort(() => random.next() - .5);
+    for (const direction of candidates) {
+      const length = random.int(1, 3);
+      const path = Array.from({ length }, (_, index) => ({ x: origin.x + direction.x * (index + 1), y: origin.y + direction.y * (index + 1) }));
+      if (path.some((point) => point.x < 1 || point.y < 1 || point.x >= COURSE_WIDTH - 1 || point.y >= COURSE_HEIGHT - 1)) continue;
+      if (path.some((point) => course.tiles[indexOf(course, point)]!.surface !== 'void')) continue;
+      const height = course.tiles[indexOf(course, origin)]!.height;
+      path.forEach((point) => writeTile(course.tiles, point, 'fairway', height, course.width, gate));
+      const point = path.at(-1)!;
+      course.pickups.push({ id: `cache-${course.pickups.length}`, point, powerUp: random.pick(['turbo', 'bomb', 'freeze', 'swap'] as const), rotation: gate, collected: false });
+      return;
+    }
+  }
+  const routeCells = new Set(course.route.map((point) => `${point.x},${point.y}`));
+  for (const origin of origins) for (const direction of directions) {
+    const point = { x: origin.x + direction.x, y: origin.y + direction.y };
+    const tile = course.tiles[indexOf(course, point)];
+    if (!tile || tile.surface !== 'fairway' || routeCells.has(`${point.x},${point.y}`)) continue;
+    tile.rotationGate = gate;
     course.pickups.push({ id: `cache-${course.pickups.length}`, point, powerUp: random.pick(['turbo', 'bomb', 'freeze', 'swap'] as const), rotation: gate, collected: false });
     return;
   }

@@ -120,7 +120,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     advanceTurn(state);
   }
   if (command.type === 'use-power-up' && state.status === 'playing') usePowerUp(state, command.powerUp, command.targetId);
-  if (command.type === 'rotate-world' && (state.status === 'preview' || state.status === 'playing')) {
+  if (command.type === 'rotate-world' && !state.turn.shotInFlight && (state.status === 'preview' || state.status === 'playing')) {
     state.rotation = ((state.rotation + command.direction + 4) % 4) as WorldRotation;
     addMessage(state, `world turns ${rotationName(state.rotation)}`);
   }

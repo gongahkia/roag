@@ -157,13 +157,15 @@ const playShot = (shot: ShotCommand) => {
     return;
   }
   const source = state;
+  const inFlight = { ...source, turn: { ...source.turn, shotInFlight: true } };
   const duration = Math.min(2_200, Math.max(360, frames.length * 11));
   const startedAt = performance.now();
   shotAnimation = { playerId: player.id, frame: 0 };
+  state = inFlight;
   renderControls();
   document.querySelector<HTMLElement>('#status')!.textContent = renderStatus();
   const animate = (now: number) => {
-    if (!shotAnimation || state !== source) return;
+    if (!shotAnimation || state !== inFlight) return;
     const progress = Math.min(1, (now - startedAt) / duration);
     const frame = Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1)));
     shotAnimation.frame = frame;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseBotDecision } from '../src/core/bots';
 import { applyCommand, beginCourse, createGame, defaultConfig, previewShot } from '../src/core/game';
 import { generateCandidates, generateCourse } from '../src/core/generator';
-import { newBall, simulateShot } from '../src/core/physics';
+import { newBall, simulateShot, tileAt } from '../src/core/physics';
 
 describe('course generation', () => {
   it('reproduces a valid course for a fixed seed', () => {
@@ -33,6 +33,14 @@ describe('course generation', () => {
     expect(candidates).toHaveLength(3);
     expect(candidates.every((course) => course.score.playable && course.score.solverShots.length > 0)).toBe(true);
   });
+
+  it('adds rotation-gated side caches that are inaccessible at other orientations', () => {
+    const course = generateCourse('turntable-seed');
+    expect(course.pickups.length).toBeGreaterThan(0);
+    const pickup = course.pickups[0]!;
+    expect(tileAt(course, pickup.point.x + .5, pickup.point.y + .5, 0)).toBeUndefined();
+    expect(tileAt(course, pickup.point.x + .5, pickup.point.y + .5, pickup.rotation)).toBeDefined();
+  });
 });
 
 describe('turns and bots', () => {
@@ -42,6 +50,27 @@ describe('turns and bots', () => {
     const next = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
     expect(next.players[0]!.ball.strokes).toBe(1);
     expect(next.turn.playerIndex).toBe(1);
+  });
+
+  it('rotates the live course only while inspecting or taking a turn', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'rotation-state', botCount: 1 }));
+    const rotated = applyCommand(game, { type: 'rotate-world', direction: 1 });
+    expect(rotated.rotation).toBe(1);
+    expect(rotated.messages[0]).toContain('world turns east');
+  });
+
+  it('rejects rotation commands while a ball is in flight', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'rotation-lock', botCount: 1 }));
+    const locked = { ...game, turn: { ...game.turn, shotInFlight: true } };
+    expect(applyCommand(locked, { type: 'rotate-world', direction: 1 }).rotation).toBe(0);
+  });
+
+  it('awards an active-orientation cache picked up during a shot', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'cache-pickup', botCount: 1 }));
+    game.course.pickups = [{ id: 'test-cache', point: game.course.tee, powerUp: 'turbo', rotation: 0, collected: false }];
+    const next = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
+    expect(next.players[0]!.inventory).toBe('turbo');
+    expect(next.course.pickups[0]!.collected).toBe(true);
   });
 
   it('provides animation frames that finish at the same ball state as the committed shot', () => {
