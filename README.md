@@ -1,40 +1,18 @@
-# Jomon
+# Golf With Your Enemies
 
-Jomon is a single-player, offline-first, browser-based procedural low-mysticism medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
+An original, ASCII-isometric mini-golf roguelike with freeform generated courses, a visible generation inspector, local hot-seat play, and up to four AI enemies.
 
-The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck and a zero-time map legend through remappable command help; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
+## Run locally
 
-The initial six-member household is immutable deterministic creation evidence: normalized world seed plus resolved configuration reproduce its roster, roles, equipment, histories, directional relationships, and zero-time eligible active-crew projection exactly. It has no individual rerolls or selected courier. The mutable selected courier remains `state.courier.initialCourierId`; selection, switching, and succession remain separate work. The household contract preserves FoundationWorld v14, MedievalWorldState v12, manifest/replay behavior, and IndexedDB layout v4.
-
-- [Lore and content reference](LORE.md)
-- [Authoritative roadmap](TODO.md)
-- [Desktop-browser performance and storage baseline](docs/performance-storage-baseline.md)
-- [Medieval local persistence layout](docs/persistence-layout.md)
-- [Closed internal-content boundary for maintainers (no public mod/content-pack API)](docs/internal-content-boundary.md)
-- [Renderer-independent effect model (foundation only)](docs/effects-model.md)
-- [Mystical effect policy and audit boundary](docs/mystical-effect-policy.md)
-- [Courier loss policy assessment boundary](docs/courier-loss-policy.md)
-- [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
-- [Semantic palette and accessibility contract](docs/semantic-palette.md)
-- [Static Jomon deck-plan, map legend, and primary ASCII projection](docs/jomon-deck-plan.md)
-- [Initial immutable household and active-crew contract](docs/initial-household-contract.md)
-
-## Development
-
-```console
-$ npm ci
-$ npm run dev
-$ npm run build
-$ npm run preview
+```sh
+npm install
+npm run dev
 ```
 
-## Current verification commands
+Run the verification suite with `npm run check`.
 
-```console
-$ npm test
-$ npm run test:autoplay:tasks
-$ npm run test:e2e
-$ npm run build
-```
+## Current scope
 
-These commands currently validate the superseded prototype while the medieval implementation is built. They must not be cited as evidence that the new setting or its planned mechanics are already implemented.
+The game is a static browser client designed for GitHub Pages. The local transport keeps commands, state, course manifests, and seeds separate from the UI so a later authoritative multiplayer backend or WebRTC transport can be added without replacing game rules.
+
+Each generated hole creates a route, applies freeform terrain and hazards, then retains candidates only when its shot solver finds a viable cup line. The generator inspector presents candidate seed and scoring data before the hole is locked into the nine-hole campaign.
