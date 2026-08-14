@@ -31,6 +31,7 @@ const glyphs: Partial<Record<Surface, string>> = {
 export interface Renderer {
   draw(course: Course, players: Player[], aim?: { angle: number; power: number }): void;
   pick(event: PointerEvent): { x: number; y: number };
+  dispose(): void;
 }
 
 const project = (x: number, y: number, z: number) => ({
@@ -82,46 +83,54 @@ const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, 
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
+  let latest: { course: Course; players: Player[]; aim?: { angle: number; power: number } } | undefined;
+  const paint = (course: Course, players: Player[], aim?: { angle: number; power: number }) => {
+    const { width, height } = canvas.getBoundingClientRect();
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = '#07111f';
+    context.fillRect(0, 0, width, height);
+    const boardOffset = offset();
+    for (let y = 0; y < course.height; y += 1) {
+      for (let x = 0; x < course.width; x += 1) drawTile(context, course.tiles[y * course.width + x]!, x, y, boardOffset);
+    }
+    if (aim) {
+      const player = players.find((candidate) => !candidate.ball.complete);
+      if (player) {
+        const start = project(player.ball.x, player.ball.y, player.ball.z + 0.15);
+        context.beginPath();
+        context.moveTo(start.x + boardOffset.x, start.y + boardOffset.y);
+        context.lineTo(start.x + Math.cos(aim.angle) * aim.power * 13 + boardOffset.x, start.y + Math.sin(aim.angle) * aim.power * 6 + boardOffset.y);
+        context.strokeStyle = '#f9e2af';
+        context.setLineDash([4, 4]);
+        context.lineWidth = 2;
+        context.stroke();
+        context.setLineDash([]);
+      }
+    }
+    [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player.ball, player.color, boardOffset));
+  };
   const resize = () => {
     const ratio = window.devicePixelRatio || 1;
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    if (latest) paint(latest.course, latest.players, latest.aim);
   };
-  new ResizeObserver(resize).observe(canvas);
+  const observer = new ResizeObserver(resize);
+  observer.observe(canvas);
   resize();
 
   const offset = () => ({ x: canvas.clientWidth / 2 - 2, y: 82 });
   return {
     draw(course, players, aim) {
-      const { width, height } = canvas.getBoundingClientRect();
-      context.clearRect(0, 0, width, height);
-      context.fillStyle = '#07111f';
-      context.fillRect(0, 0, width, height);
-      const boardOffset = offset();
-      for (let y = 0; y < course.height; y += 1) {
-        for (let x = 0; x < course.width; x += 1) drawTile(context, course.tiles[y * course.width + x]!, x, y, boardOffset);
-      }
-      if (aim) {
-        const player = players.find((candidate) => !candidate.ball.complete);
-        if (player) {
-          const start = project(player.ball.x, player.ball.y, player.ball.z + 0.15);
-          context.beginPath();
-          context.moveTo(start.x + boardOffset.x, start.y + boardOffset.y);
-          context.lineTo(start.x + Math.cos(aim.angle) * aim.power * 13 + boardOffset.x, start.y + Math.sin(aim.angle) * aim.power * 6 + boardOffset.y);
-          context.strokeStyle = '#f9e2af';
-          context.setLineDash([4, 4]);
-          context.lineWidth = 2;
-          context.stroke();
-          context.setLineDash([]);
-        }
-      }
-      [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player.ball, player.color, boardOffset));
+      latest = { course, players, aim };
+      paint(course, players, aim);
     },
     pick(event) {
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     },
+    dispose() { observer.disconnect(); },
   };
 };

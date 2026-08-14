@@ -2,7 +2,7 @@ import { chooseBotDecision } from './bots';
 import { generateCourse } from './generator';
 import { newBall, simulateShot } from './physics';
 import { hashSeed } from './random';
-import type { Course, GameCommand, GameConfig, GameState, GameTransport, Player, PowerUp, ShotCommand } from './types';
+import type { Ball, Course, GameCommand, GameConfig, GameState, GameTransport, Player, PowerUp, ShotCommand } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 const powerUps: PowerUp[] = ['turbo', 'bomb', 'freeze', 'swap'];
@@ -49,6 +49,18 @@ const cloneState = (state: GameState): GameState => ({ ...state, players: state.
 
 const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
 
+const adjustedShot = (player: Player, shot: ShotCommand): ShotCommand => {
+  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1);
+  return { ...shot, power: shot.power * multiplier };
+};
+
+export const previewShot = (state: GameState, shot: ShotCommand): Ball[] | undefined => {
+  if (state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  const player = activePlayer(state);
+  if (player.frozenTurns) return undefined;
+  return simulateShot(state.course, player.ball, adjustedShot(player, shot)).frames;
+};
+
 const addMessage = (state: GameState, message: string) => {
   state.messages = [message, ...state.messages].slice(0, 5);
 };
@@ -89,8 +101,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
       advanceTurn(state);
       return state;
     }
-    const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1);
-    const result = simulateShot(state.course, player.ball, { ...command.shot, power: command.shot.power * multiplier });
+    const result = simulateShot(state.course, player.ball, adjustedShot(player, command.shot));
     player.turboArmed = false;
     player.ball = result.ball;
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);

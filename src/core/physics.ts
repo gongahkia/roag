@@ -118,6 +118,7 @@ export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, m
   }
 
   if (!frames.length) frames.push({ ...ball, x: tee.x, y: tee.y });
+  else if (frames.at(-1)!.x !== ball.x || frames.at(-1)!.y !== ball.y || frames.at(-1)!.z !== ball.z || frames.at(-1)!.complete !== ball.complete) frames.push({ ...ball });
   return { ball, frames, holed, reset };
 };
 
