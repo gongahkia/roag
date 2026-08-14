@@ -119,6 +119,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, course: Course, players: 
     const rotated = rotate(course, player.ball.x, player.ball.y, rotation);
     const point = project(rotated.x, rotated.y, player.ball.z + .58);
     const text = definition.glyph;
+    context.font = '12px BigBlueTerm, ui-monospace, monospace';
     const width = Math.max(23, context.measureText(text).width + 10);
     const x = point.x + offset.x + (index % 3 - 1) * 8 - width / 2;
     const y = point.y + offset.y - 18 - Math.floor(index / 3) * 11;
@@ -128,7 +129,6 @@ const drawEmotes = (context: CanvasRenderingContext2D, course: Course, players: 
     context.fillRect(x, y, width, 15);
     context.strokeRect(x + .5, y + .5, width - 1, 14);
     context.fillStyle = '#f8fffa';
-    context.font = '12px BigBlueTerm, ui-monospace, monospace';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(text, x + width / 2, y + 8);

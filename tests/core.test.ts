@@ -65,6 +65,21 @@ describe('turns and bots', () => {
     expect(applyCommand(locked, { type: 'rotate-world', direction: 1 }).rotation).toBe(0);
   });
 
+  it('records a deterministic emote for a valid player', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'emote-seed', botCount: 1 }));
+    const player = game.players[0]!;
+    const next = applyCommand(game, { type: 'emote', playerId: player.id, emote: 'cheer' });
+    expect(next.emotes).toEqual([{ id: `${game.course.seed}:${player.id}:1`, playerId: player.id, emote: 'cheer' }]);
+    expect(next.emoteSequence).toBe(1);
+  });
+
+  it('ignores an emote from an unknown player', () => {
+    const game = beginCourse(createGame({ ...defaultConfig(), seed: 'invalid-emote', botCount: 1 }));
+    const next = applyCommand(game, { type: 'emote', playerId: 'not-a-player', emote: 'gg' });
+    expect(next.emotes).toEqual([]);
+    expect(next.emoteSequence).toBe(0);
+  });
+
   it('awards an active-orientation cache picked up during a shot', () => {
     const game = beginCourse(createGame({ ...defaultConfig(), seed: 'cache-pickup', botCount: 1 }));
     game.course.pickups = [{ id: 'test-cache', point: game.course.tee, powerUp: 'turbo', rotation: 0, collected: false }];
