@@ -20,7 +20,7 @@ export interface PreferencesStore {
 
 export const PREFERENCES_KEY = 'golf-with-your-enemies-preferences';
 export const SHORTCUTS: readonly ShortcutBinding[] = [
-  { id: 'shoot', label: 'Shoot', defaultKey: 'Space' },
+  { id: 'shoot', label: 'Shoot', defaultKey: ' ' },
   { id: 'powerDown', label: 'Power down', defaultKey: '-' },
   { id: 'powerUp', label: 'Power up', defaultKey: '=' },
   { id: 'lock', label: 'Lock candidate', defaultKey: 'Enter' },
