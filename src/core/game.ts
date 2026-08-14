@@ -83,12 +83,20 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   const state = cloneState(current);
   if (command.type === 'shoot' && state.status === 'playing' && !state.turn.shotInFlight) {
     const player = activePlayer(state);
-    const result = simulateShot(state.course, player.ball, command.shot);
+    if (player.frozenTurns) {
+      player.frozenTurns -= 1;
+      addMessage(state, `${player.name} is frozen solid`);
+      advanceTurn(state);
+      return state;
+    }
+    const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1);
+    const result = simulateShot(state.course, player.ball, { ...command.shot, power: command.shot.power * multiplier });
+    player.turboArmed = false;
     player.ball = result.ball;
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
     else if (result.reset) addMessage(state, `${player.name} finds the void`);
     else addMessage(state, `${player.name} rolls to safety`);
-    if (state.config.powerUps && !player.inventory && player.ball.strokes % 2 === 0) player.inventory = powerUps[(state.hole + state.turn.playerIndex) % powerUps.length]!;
+    if (state.config.powerUps && !player.inventory && (player.ball.strokes % 2 === 0 || player.upgrades.includes('extra charge'))) player.inventory = powerUps[(state.hole + state.turn.playerIndex) % powerUps.length]!;
     advanceTurn(state);
   }
   if (command.type === 'use-power-up' && state.status === 'playing') usePowerUp(state, command.powerUp, command.targetId);
@@ -111,7 +119,12 @@ const advanceDraftOrHole = (state: GameState) => {
 const startHole = (state: GameState, hole: number) => {
   state.hole = hole;
   state.course = generateCourse(hashSeed(state.config.seed, hole));
-  state.players.forEach((player) => { player.ball = newBall(state.course); player.inventory = undefined; });
+  state.players.forEach((player) => {
+    player.ball = newBall(state.course);
+    player.inventory = undefined;
+    player.turboArmed = false;
+    player.frozenTurns = undefined;
+  });
   state.turn = { playerIndex: 0, secondsLeft: state.config.timerSeconds, shotInFlight: false };
   state.status = 'preview';
   addMessage(state, `hole ${hole}: inspect, lock, and tee off`);
@@ -122,8 +135,7 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
   if (player.inventory !== powerUp) return;
   const target = state.players.find((candidate) => candidate.id === targetId);
   if (powerUp === 'turbo') {
-    player.ball.vx *= 1.8;
-    player.ball.vy *= 1.8;
+    player.turboArmed = true;
     addMessage(state, `${player.name} arms turbo`);
   }
   if (powerUp === 'bomb' && target) {
@@ -132,8 +144,7 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
     addMessage(state, `${player.name} bombs ${target.name}`);
   }
   if (powerUp === 'freeze' && target) {
-    target.ball.vx = 0;
-    target.ball.vy = 0;
+    target.frozenTurns = 1;
     addMessage(state, `${player.name} freezes ${target.name}`);
   }
   if (powerUp === 'swap' && target) {

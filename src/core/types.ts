@@ -77,6 +77,8 @@ export interface Player {
   ball: Ball;
   upgrades: string[];
   inventory?: PowerUp;
+  turboArmed?: boolean;
+  frozenTurns?: number;
   total: number;
 }
 

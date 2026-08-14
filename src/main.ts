@@ -1,13 +1,14 @@
 import './style.css';
 import { applyCommand, beginCourse, botMove, createGame, currentUpgradeChoices, defaultConfig, tickTurn } from './core/game';
 import { generateCandidates } from './core/generator';
+import { hashSeed } from './core/random';
 import type { GameState, PowerUp, ShotCommand } from './core/types';
 import { createRenderer } from './ui/render';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 let config = defaultConfig();
 let state = createGame(config);
-let candidates = generateCandidates(config.seed);
+let candidates = generateCandidates(hashSeed(config.seed, 1));
 let selectedCandidate = 0;
 let aim: ShotCommand = { angle: 0, power: 4 };
 let renderer: ReturnType<typeof createRenderer> | undefined;
@@ -19,7 +20,9 @@ const escape = (value: string) => value.replace(/[&<>'"]/g, (character) => ({ '&
 const current = () => state.players[state.turn.playerIndex]!;
 
 const setState = (next: GameState) => {
+  const refreshCandidates = next.status === 'preview' && (next.hole !== state.hole || next.course.seed !== state.course.seed);
   state = next;
+  if (refreshCandidates) candidates = generateCandidates(hashSeed(state.config.seed, state.hole));
   render();
   scheduleBot();
 };
@@ -37,7 +40,7 @@ const setupGame = () => {
   };
   if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
   state = createGame(config);
-  candidates = generateCandidates(config.seed);
+  candidates = generateCandidates(hashSeed(config.seed, 1));
   selectedCandidate = 0;
   render();
 };
@@ -73,7 +76,17 @@ const usePowerUp = (powerUp: PowerUp) => {
 
 const scheduleBot = () => {
   window.clearTimeout(botTimeout);
-  if (state.status !== 'playing' || current().kind !== 'bot') return;
+  if (current().kind !== 'bot') return;
+  if (state.status === 'draft') {
+    botTimeout = window.setTimeout(() => {
+      const choices = currentUpgradeChoices(state);
+      const bot = current();
+      const skill = typeof bot.skill === 'number' ? bot.skill : 6;
+      setState(applyCommand(state, { type: 'draft', upgrade: choices[(skill - 1) % choices.length]! }));
+    }, 450);
+    return;
+  }
+  if (state.status !== 'playing') return;
   botTimeout = window.setTimeout(() => {
     const move = botMove(state);
     if (move) setState(applyCommand(state, { type: 'shoot', shot: move }));

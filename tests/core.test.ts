@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision } from '../src/core/bots';
 import { applyCommand, beginCourse, createGame, defaultConfig } from '../src/core/game';
-import { generateCourse } from '../src/core/generator';
+import { generateCandidates, generateCourse } from '../src/core/generator';
 import { newBall, simulateShot } from '../src/core/physics';
 
 describe('course generation', () => {
@@ -17,6 +17,12 @@ describe('course generation', () => {
     const course = generateCourse('solver-seed');
     const result = simulateShot(course, newBall(course), course.score.solverShots[0]!);
     expect(result.holed || result.ball.resetCount === 0).toBe(true);
+  });
+
+  it('returns only validated candidates for the inspector', () => {
+    const candidates = generateCandidates('inspector-seed', 3);
+    expect(candidates).toHaveLength(3);
+    expect(candidates.every((course) => course.score.playable && course.score.solverShots.length > 0)).toBe(true);
   });
 });
 
@@ -35,5 +41,15 @@ describe('turns and bots', () => {
     const decision = chooseBotDecision(game.course, bot, game.players);
     expect(decision.shot.power).toBeGreaterThanOrEqual(1);
     expect(Number.isFinite(decision.shot.angle)).toBe(true);
+  });
+
+  it('applies chaos items through game state instead of granting bot-only effects', () => {
+    let game = beginCourse(createGame({ ...defaultConfig(), seed: 'item-seed', humanCount: 1, botCount: 1 }));
+    game.players[0]!.inventory = 'freeze';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'freeze', targetId: game.players[1]!.id });
+    expect(game.players[1]!.frozenTurns).toBe(1);
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
+    expect(game.players[1]!.ball.strokes).toBe(0);
   });
 });
