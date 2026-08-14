@@ -16,7 +16,16 @@ describe('course generation', () => {
   it('keeps the tee-to-cup solver line inside the simulation', () => {
     const course = generateCourse('solver-seed');
     const result = simulateShot(course, newBall(course), course.score.solverShots[0]!);
-    expect(result.holed || result.ball.resetCount === 0).toBe(true);
+    expect(result.holed).toBe(true);
+  });
+
+  it('stops a ball at its last legal position instead of returning it to the tee', () => {
+    const course = generateCourse('edge-seed');
+    const start = newBall(course);
+    const result = simulateShot(course, start, { angle: Math.PI, power: 8 });
+    expect(result.reset).toBe(true);
+    expect(result.ball.resetCount).toBe(0);
+    expect(result.ball.x).toBeLessThan(start.x);
   });
 
   it('returns only validated candidates for the inspector', () => {

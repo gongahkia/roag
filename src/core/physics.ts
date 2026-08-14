@@ -68,7 +68,7 @@ export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, m
 
     const tile = tileAt(course, ball.x, ball.y);
     if (!tile || tile.surface === 'void') {
-      ball = { ...newBall(course), strokes: ball.strokes, resetCount: ball.resetCount + 1 };
+      ball = { ...previous, vx: 0, vy: 0, vz: 0 };
       reset = true;
       frames.push({ ...ball });
       break;

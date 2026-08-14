@@ -105,7 +105,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     player.turboArmed = false;
     player.ball = result.ball;
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
-    else if (result.reset) addMessage(state, `${player.name} finds the void`);
+    else if (result.reset) addMessage(state, `${player.name} finds the edge`);
     else addMessage(state, `${player.name} rolls to safety`);
     if (state.config.powerUps && !player.inventory && (player.ball.strokes % 2 === 0 || player.upgrades.includes('extra charge'))) player.inventory = powerUps[(state.hole + state.turn.playerIndex) % powerUps.length]!;
     advanceTurn(state);
