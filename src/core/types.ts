@@ -2,6 +2,14 @@ export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
 export type WorldRotation = 0 | 1 | 2 | 3;
 export type PowerUp = 'turbo' | 'bomb' | 'freeze' | 'swap';
+export const EMOTES = [
+  { id: 'cheer', glyph: '\\o/', label: 'cheer' },
+  { id: 'taunt', glyph: '>:]', label: 'taunt' },
+  { id: 'panic', glyph: '!?', label: 'panic' },
+  { id: 'wow', glyph: '*_*', label: 'wow' },
+  { id: 'gg', glyph: 'GG', label: 'good game' },
+] as const;
+export type Emote = typeof EMOTES[number]['id'];
 
 export type Surface =
   | 'void'
@@ -109,11 +117,19 @@ export interface TurnState {
   shotInFlight: boolean;
 }
 
+export interface EmoteEvent {
+  id: string;
+  playerId: string;
+  emote: Emote;
+}
+
 export interface GameState {
   config: GameConfig;
   course: Course;
   hole: number;
   rotation: WorldRotation;
+  emotes: EmoteEvent[];
+  emoteSequence: number;
   players: Player[];
   turn: TurnState;
   status: 'lobby' | 'preview' | 'playing' | 'draft' | 'finished';
@@ -125,7 +141,8 @@ export type GameCommand =
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string }
   | { type: 'next-hole' }
   | { type: 'draft'; upgrade: string }
-  | { type: 'rotate-world'; direction: -1 | 1 };
+  | { type: 'rotate-world'; direction: -1 | 1 }
+  | { type: 'emote'; playerId: string; emote: Emote };
 
 export interface GameTransport {
   send(command: GameCommand): void;

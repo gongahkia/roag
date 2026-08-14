@@ -39,6 +39,8 @@ export const createGame = (config: GameConfig): GameState => {
     course,
     hole: 1,
     rotation: 0,
+    emotes: [],
+    emoteSequence: 0,
     players,
     turn: { playerIndex: 0, secondsLeft: config.timerSeconds, shotInFlight: false },
     status: 'preview',
@@ -46,7 +48,7 @@ export const createGame = (config: GameConfig): GameState => {
   };
 };
 
-const cloneState = (state: GameState): GameState => ({ ...state, course: { ...state.course, pickups: state.course.pickups.map((pickup) => ({ ...pickup })) }, players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
+const cloneState = (state: GameState): GameState => ({ ...state, course: { ...state.course, pickups: state.course.pickups.map((pickup) => ({ ...pickup })) }, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
 
 const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
 
@@ -123,6 +125,13 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   if (command.type === 'rotate-world' && !state.turn.shotInFlight && (state.status === 'preview' || state.status === 'playing')) {
     state.rotation = ((state.rotation + command.direction + 4) % 4) as WorldRotation;
     addMessage(state, `world turns ${rotationName(state.rotation)}`);
+  }
+  if (command.type === 'emote') {
+    const player = state.players.find((candidate) => candidate.id === command.playerId);
+    if (player) {
+      state.emoteSequence += 1;
+      state.emotes = [...state.emotes, { id: `${state.hole}:${command.playerId}:${state.emoteSequence}`, playerId: command.playerId, emote: command.emote }].slice(-16);
+    }
   }
   if (command.type === 'draft' && state.status === 'draft') {
     const player = activePlayer(state);

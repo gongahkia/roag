@@ -1,4 +1,4 @@
-import type { Ball, Course, CoursePickup, Player, Surface, Tile, WorldRotation } from '../core/types';
+import { EMOTES, type Ball, type Course, type CoursePickup, type EmoteEvent, type Player, type Surface, type Tile, type WorldRotation } from '../core/types';
 
 const TILE_W = 34;
 const TILE_H = 17;
@@ -29,7 +29,7 @@ const glyphs: Partial<Record<Surface, string>> = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], aim?: { angle: number; power: number }, rotation?: WorldRotation): void;
+  draw(course: Course, players: Player[], aim?: { angle: number; power: number }, rotation?: WorldRotation, emotes?: readonly EmoteEvent[]): void;
   pick(event: PointerEvent): { x: number; y: number };
   dispose(): void;
 }
@@ -111,10 +111,34 @@ const drawPickup = (context: CanvasRenderingContext2D, course: Course, pickup: C
   context.fillText('✦', point.x + offset.x, point.y + offset.y);
 };
 
+const drawEmotes = (context: CanvasRenderingContext2D, course: Course, players: Player[], emotes: readonly EmoteEvent[], offset: { x: number; y: number }, rotation: WorldRotation) => {
+  emotes.forEach((event, index) => {
+    const player = players.find((candidate) => candidate.id === event.playerId);
+    const definition = EMOTES.find((candidate) => candidate.id === event.emote);
+    if (!player || !definition) return;
+    const rotated = rotate(course, player.ball.x, player.ball.y, rotation);
+    const point = project(rotated.x, rotated.y, player.ball.z + .58);
+    const text = definition.glyph;
+    const width = Math.max(23, context.measureText(text).width + 10);
+    const x = point.x + offset.x + (index % 3 - 1) * 8 - width / 2;
+    const y = point.y + offset.y - 18 - Math.floor(index / 3) * 11;
+    context.fillStyle = '#071625ee';
+    context.strokeStyle = player.color;
+    context.lineWidth = 1;
+    context.fillRect(x, y, width, 15);
+    context.strokeRect(x + .5, y + .5, width - 1, 14);
+    context.fillStyle = '#f8fffa';
+    context.font = '12px BigBlueTerm, ui-monospace, monospace';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, x + width / 2, y + 8);
+  });
+};
+
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; aim?: { angle: number; power: number }; rotation: WorldRotation } | undefined;
-  const paint = (course: Course, players: Player[], aim: { angle: number; power: number } | undefined, rotation: WorldRotation) => {
+  let latest: { course: Course; players: Player[]; aim?: { angle: number; power: number }; rotation: WorldRotation; emotes: readonly EmoteEvent[] } | undefined;
+  const paint = (course: Course, players: Player[], aim: { angle: number; power: number } | undefined, rotation: WorldRotation, emotes: readonly EmoteEvent[]) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     context.fillStyle = '#07111f';
@@ -140,6 +164,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       }
     }
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, course, player.ball, player.color, boardOffset, rotation));
+    drawEmotes(context, course, players, emotes, boardOffset, rotation);
   };
   const resize = () => {
     const ratio = window.devicePixelRatio || 1;
@@ -147,7 +172,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.aim, latest.rotation);
+    if (latest) paint(latest.course, latest.players, latest.aim, latest.rotation, latest.emotes);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
@@ -155,9 +180,9 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
 
   const offset = () => ({ x: canvas.clientWidth / 2 - 2, y: 82 });
   return {
-    draw(course, players, aim, rotation = 0) {
-      latest = { course, players, aim, rotation };
-      paint(course, players, aim, rotation);
+    draw(course, players, aim, rotation = 0, emotes = []) {
+      latest = { course, players, aim, rotation, emotes };
+      paint(course, players, aim, rotation, emotes);
     },
     pick(event) {
       const rect = canvas.getBoundingClientRect();
