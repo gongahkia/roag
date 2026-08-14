@@ -79,8 +79,7 @@ const solve = (course: Course): ShotCommand[] => {
   }
   const winner = candidates.filter((candidate) => candidate.holed).sort((a, b) => a.shot.power - b.shot.power)[0];
   if (winner) return [winner.shot];
-  const close = candidates.sort((a, b) => a.distance - b.distance)[0];
-  return close && close.distance < 2.4 ? [close.shot] : [];
+  return [];
 };
 
 const scoreCourse = (course: Course): CourseScore => {
@@ -118,7 +117,7 @@ const decorate = (course: Course, random: Random) => {
   }
 };
 
-export const generateCourse = (seed: string): Course => {
+const buildCourse = (seed: string): Course => {
   const random = new Random(seed);
   const tiles = Array.from({ length: COURSE_WIDTH * COURSE_HEIGHT }, baseTile);
   const route = routeFor(random);
@@ -135,6 +134,17 @@ export const generateCourse = (seed: string): Course => {
   decorate(course, random);
   course.score = scoreCourse(course);
   return course;
+};
+
+export const generateCourse = (seed: string): Course => {
+  let fallback = buildCourse(seed);
+  if (fallback.score.playable) return fallback;
+  for (let attempt = 1; attempt <= 40; attempt += 1) {
+    const candidate = buildCourse(`${seed}-retry-${attempt}`);
+    if (candidate.score.playable) return candidate;
+    if (candidate.score.total > fallback.score.total) fallback = candidate;
+  }
+  return fallback;
 };
 
 export const generateCandidates = (seed: string, count = 3): Course[] => {
