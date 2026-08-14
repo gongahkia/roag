@@ -128,19 +128,24 @@ const chooseAim = (event: PointerEvent) => {
   const dx = point.x - rect.width / 2;
   const dy = point.y - 120;
   aim = { angle: Math.atan2(dy / 0.5, dx), power: Math.max(1, Math.min(8, Math.hypot(dx, dy * 2) / 50)) };
-  renderer.draw(state.course, state.players, aim);
+  renderer.draw(state.course, state.players, aim, state.rotation);
   renderControls();
 };
 
 const adjustPower = (amount: number) => {
   aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
-  renderer?.draw(state.course, state.players, aim);
+  renderer?.draw(state.course, state.players, aim, state.rotation);
   renderControls();
+};
+
+const rotateWorld = (direction: -1 | 1) => {
+  if ((state.status !== 'preview' && state.status !== 'playing') || shotAnimation) return;
+  setState(applyCommand(state, { type: 'rotate-world', direction }));
 };
 
 const drawShotFrame = (playerId: string, ball: Ball) => {
   const players = state.players.map((player) => player.id === playerId ? { ...player, ball } : player);
-  renderer?.draw(state.course, players);
+  renderer?.draw(state.course, players, undefined, state.rotation);
 };
 
 const playShot = (shot: ShotCommand) => {
@@ -208,19 +213,23 @@ const renderControls = () => {
   if (!control) return;
   const player = current();
   const disabled = state.status !== 'playing' || player.kind !== 'human' || Boolean(shotAnimation);
+  const rotationDisabled = (state.status !== 'preview' && state.status !== 'playing') || Boolean(shotAnimation);
   control.innerHTML = `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b></div>
+    <div class="rotation-controls"><button id="rotate-left" ${rotationDisabled ? 'disabled' : ''} aria-label="turn world left">↶ <kbd>${keyLabel(bindingFor(preferences, 'rotateLeft'))}</kbd></button><strong>turn ${state.rotation * 90}°</strong><button id="rotate-right" ${rotationDisabled ? 'disabled' : ''} aria-label="turn world right">↷ <kbd>${keyLabel(bindingFor(preferences, 'rotateRight'))}</kbd></button></div>
     <label>power <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>shoot <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
     ${player.inventory ? `<button id="powerup" ${disabled ? 'disabled' : ''}>use ${player.inventory} <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd></button>` : '<span class="muted">no chaos item</span>'}
   `;
   document.querySelector<HTMLInputElement>('#power')?.addEventListener('input', (event) => {
     aim = { ...aim, power: Number((event.target as HTMLInputElement).value) };
-    renderer?.draw(state.course, state.players, aim);
+    renderer?.draw(state.course, state.players, aim, state.rotation);
     renderControls();
   });
   document.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
   document.querySelector<HTMLButtonElement>('#powerup')?.addEventListener('click', () => { if (player.inventory) usePowerUp(player.inventory); });
+  document.querySelector<HTMLButtonElement>('#rotate-left')?.addEventListener('click', () => rotateWorld(-1));
+  document.querySelector<HTMLButtonElement>('#rotate-right')?.addEventListener('click', () => rotateWorld(1));
 };
 
 const renderOverlay = () => {
@@ -229,9 +238,9 @@ const renderOverlay = () => {
   return `<section class="overlay" role="dialog" aria-modal="true" aria-label="game settings"><div class="overlay-card settings-card"><button class="close" data-close-overlay aria-label="close settings">×</button><p class="eyebrow">LOCAL PREFERENCES</p><h2>terminal settings</h2><label class="setting-toggle"><input data-preference="reducedMotion" type="checkbox" ${preferences.reducedMotion ? 'checked' : ''}> reduced motion and flash</label><label class="setting-toggle"><input data-preference="highContrast" type="checkbox" ${preferences.highContrast ? 'checked' : ''}> high-contrast glyphs</label><h3>shortcuts</h3><dl class="shortcut-list">${shortcutRows(true)}</dl><p class="hint">${rebinding ? `press a key for ${escape(rebinding)} · Esc cancels` : 'select a key to rebind it'}</p></div></section>`;
 };
 
-const shortcutRows = (interactive = false) => ['shoot', 'powerDown', 'powerUp', 'lock', 'reroll', 'usePowerUp', 'help', 'settings'].map((id) => {
+const shortcutRows = (interactive = false) => ['shoot', 'powerDown', 'powerUp', 'rotateLeft', 'rotateRight', 'lock', 'reroll', 'usePowerUp', 'help', 'settings'].map((id) => {
   const shortcutId = id as ShortcutId;
-  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', lock: 'lock candidate', reroll: 'reroll candidates', usePowerUp: 'use chaos item', help: 'shortcut help', settings: 'settings' })[shortcutId];
+  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', rotateLeft: 'turn world left', rotateRight: 'turn world right', lock: 'lock candidate', reroll: 'reroll candidates', usePowerUp: 'use chaos item', help: 'shortcut help', settings: 'settings' })[shortcutId];
   const key = keyLabel(bindingFor(preferences, shortcutId));
   return `<dt>${label}</dt><dd>${interactive ? `<button data-bind="${shortcutId}" class="key-button ${rebinding === shortcutId ? 'selected' : ''}">${key}</button>` : `<kbd>${key}</kbd>`}</dd>`;
 }).join('');
@@ -260,7 +269,7 @@ const render = () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#course')!;
   renderer?.dispose();
   renderer = createRenderer(canvas);
-  renderer.draw(state.course, state.players, aim);
+  renderer.draw(state.course, state.players, aim, state.rotation);
   canvas.addEventListener('pointermove', chooseAim);
   canvas.addEventListener('pointerdown', chooseAim);
   renderControls();
@@ -270,8 +279,8 @@ const renderStatus = () => {
   if (state.status === 'preview') return 'generator inspection — choose a validated candidate, then lock the hole';
   if (state.status === 'draft') return 'draft phase — each player chooses an upgrade';
   if (state.status === 'finished') return `winner: ${escape([...state.players].sort((a, b) => a.total - b.total)[0]!.name)}`;
-  if (shotAnimation) return `${escape(current().name)}'s ball is in flight`;
-  return `${escape(current().name)} is taking a turn`;
+  if (shotAnimation) return `${escape(current().name)}'s ball is in flight · world turn ${state.rotation * 90}° locked`;
+  return `${escape(current().name)} is taking a turn · world turn ${state.rotation * 90}°`;
 };
 
 const calloutMarkup = () => callouts.map((callout) => `<p class="callout ${callout.tone}">${escape(callout.message)}</p>`).join('');
@@ -339,6 +348,8 @@ window.addEventListener('keydown', (event) => {
   if (command === 'shoot') shoot();
   if (command === 'powerDown') adjustPower(-0.2);
   if (command === 'powerUp') adjustPower(0.2);
+  if (command === 'rotateLeft') rotateWorld(-1);
+  if (command === 'rotateRight') rotateWorld(1);
   if (command === 'lock') lockCandidate();
   if (command === 'reroll') rerollCandidates();
   if (command === 'usePowerUp') {

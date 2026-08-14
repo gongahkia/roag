@@ -56,7 +56,7 @@ describe('turns and bots', () => {
   it('gives bots a finite physics-valid shot', () => {
     const game = beginCourse(createGame({ ...defaultConfig(), seed: 'bot-seed', humanCount: 1, botCount: 1, botSkill: 8 }));
     const bot = game.players[1]!;
-    const decision = chooseBotDecision(game.course, bot, game.players);
+    const decision = chooseBotDecision(game.course, bot, game.players, game.rotation);
     expect(decision.shot.power).toBeGreaterThanOrEqual(1);
     expect(Number.isFinite(decision.shot.angle)).toBe(true);
   });
