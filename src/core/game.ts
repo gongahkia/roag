@@ -130,7 +130,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     const player = state.players.find((candidate) => candidate.id === command.playerId);
     if (player) {
       state.emoteSequence += 1;
-      state.emotes = [...state.emotes, { id: `${state.hole}:${command.playerId}:${state.emoteSequence}`, playerId: command.playerId, emote: command.emote }].slice(-16);
+      state.emotes = [...state.emotes, { id: `${state.course.seed}:${command.playerId}:${state.emoteSequence}`, playerId: command.playerId, emote: command.emote }].slice(-16);
     }
   }
   if (command.type === 'draft' && state.status === 'draft') {

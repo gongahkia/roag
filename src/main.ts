@@ -4,13 +4,14 @@ import { applyCommand, beginCourse, botMove, createGame, currentUpgradeChoices, 
 import { generateCandidates } from './core/generator';
 import { hashSeed } from './core/random';
 import { bindingFor, isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from './preferences';
-import type { Ball, GameState, PowerUp, ShotCommand } from './core/types';
+import { EMOTES, type Ball, type Emote, type EmoteEvent, type GameState, type PowerUp, type ShotCommand } from './core/types';
 import { createRenderer } from './ui/render';
 
 type Overlay = 'help' | 'settings' | undefined;
 interface LedgerEntry { id: number; message: string; tone: FeedbackTone; }
 interface Callout { id: number; message: string; tone: FeedbackTone; expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
+interface LiveEmote extends EmoteEvent { expiresAt: number; }
 
 const app = document.querySelector<HTMLElement>('#app')!;
 let config = defaultConfig();
@@ -30,6 +31,8 @@ let lastFeedbackMessage: string | undefined;
 let ledger: LedgerEntry[] = [];
 let callouts: Callout[] = [];
 let shotAnimation: ShotAnimation | undefined;
+let liveEmotes: LiveEmote[] = [];
+let seenEmoteIds = new Set<string>();
 
 const escape = (value: string) => value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!);
 const current = () => state.players[state.turn.playerIndex]!;
@@ -51,6 +54,14 @@ const recordFeedback = (message: string) => {
 
 const recordStateFeedback = (next: GameState) => recordFeedback(next.messages[0] ?? '');
 
+const syncEmotes = (next: GameState) => {
+  for (const emote of next.emotes) {
+    if (seenEmoteIds.has(emote.id)) continue;
+    seenEmoteIds.add(emote.id);
+    liveEmotes = [{ ...emote, expiresAt: performance.now() + (preferences.reducedMotion ? 1_100 : 2_700) }, ...liveEmotes].slice(0, 8);
+  }
+};
+
 const setState = (next: GameState) => {
   const refreshCandidates = next.status === 'preview' && (next.hole !== state.hole || next.course.seed !== state.course.seed);
   state = next;
@@ -60,6 +71,7 @@ const setState = (next: GameState) => {
     selectedCandidate = 0;
   }
   recordStateFeedback(state);
+  syncEmotes(state);
   render();
   scheduleBot();
 };
@@ -80,6 +92,8 @@ const setupGame = () => {
   candidates = generateCandidates(hashSeed(config.seed, 1));
   selectedCandidate = 0;
   rerollCount = 0;
+  liveEmotes = [];
+  seenEmoteIds = new Set();
   recordStateFeedback(state);
   render();
 };
@@ -128,13 +142,13 @@ const chooseAim = (event: PointerEvent) => {
   const dx = point.x - rect.width / 2;
   const dy = point.y - 120;
   aim = { angle: Math.atan2(dy / 0.5, dx), power: Math.max(1, Math.min(8, Math.hypot(dx, dy * 2) / 50)) };
-  renderer.draw(state.course, state.players, aim, state.rotation);
+  renderer.draw(state.course, state.players, aim, state.rotation, liveEmotes);
   renderControls();
 };
 
 const adjustPower = (amount: number) => {
   aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
-  renderer?.draw(state.course, state.players, aim, state.rotation);
+  renderer?.draw(state.course, state.players, aim, state.rotation, liveEmotes);
   renderControls();
 };
 
@@ -145,7 +159,7 @@ const rotateWorld = (direction: -1 | 1) => {
 
 const drawShotFrame = (playerId: string, ball: Ball) => {
   const players = state.players.map((player) => player.id === playerId ? { ...player, ball } : player);
-  renderer?.draw(state.course, players, undefined, state.rotation);
+  renderer?.draw(state.course, players, undefined, state.rotation, liveEmotes);
 };
 
 const playShot = (shot: ShotCommand) => {
@@ -191,6 +205,13 @@ const usePowerUp = (powerUp: PowerUp) => {
   setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id }));
 };
 
+const sendEmote = (emote: Emote) => {
+  if (state.status === 'lobby' || shotAnimation) return;
+  const player = current();
+  if (player.kind !== 'human') return;
+  setState(applyCommand(state, { type: 'emote', playerId: player.id, emote }));
+};
+
 const scheduleBot = () => {
   window.clearTimeout(botTimeout);
   if (current().kind !== 'bot') return;
@@ -219,13 +240,14 @@ const renderControls = () => {
   control.innerHTML = `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b></div>
     <div class="rotation-controls"><button id="rotate-left" ${rotationDisabled ? 'disabled' : ''} aria-label="turn world left">↶ <kbd>${keyLabel(bindingFor(preferences, 'rotateLeft'))}</kbd></button><strong>turn ${state.rotation * 90}°</strong><button id="rotate-right" ${rotationDisabled ? 'disabled' : ''} aria-label="turn world right">↷ <kbd>${keyLabel(bindingFor(preferences, 'rotateRight'))}</kbd></button></div>
+    <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
     <label>power <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>shoot <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
     ${player.inventory ? `<button id="powerup" ${disabled ? 'disabled' : ''}>use ${player.inventory} <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd></button>` : '<span class="muted">no chaos item</span>'}
   `;
   document.querySelector<HTMLInputElement>('#power')?.addEventListener('input', (event) => {
     aim = { ...aim, power: Number((event.target as HTMLInputElement).value) };
-    renderer?.draw(state.course, state.players, aim, state.rotation);
+    renderer?.draw(state.course, state.players, aim, state.rotation, liveEmotes);
     renderControls();
   });
   document.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
@@ -271,7 +293,7 @@ const render = () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#course')!;
   renderer?.dispose();
   renderer = createRenderer(canvas);
-  renderer.draw(state.course, state.players, aim, state.rotation);
+  renderer.draw(state.course, state.players, aim, state.rotation, liveEmotes);
   canvas.addEventListener('pointermove', chooseAim);
   canvas.addEventListener('pointerdown', chooseAim);
   renderControls();
@@ -314,6 +336,8 @@ app.addEventListener('click', (event) => {
   if (candidate !== undefined) { selectedCandidate = Number(candidate); render(); return; }
   if (element.id === 'lock') { lockCandidate(); return; }
   if (element.id === 'reroll') { rerollCandidates(); return; }
+  const emote = element.dataset.emote as Emote | undefined;
+  if (emote) { sendEmote(emote); return; }
   const upgrade = element.dataset.upgrade;
   if (upgrade) { setState(applyCommand(state, { type: 'draft', upgrade })); return; }
   const openOverlay = element.dataset.openOverlay as Overlay;
@@ -366,6 +390,9 @@ const loop = (now: number) => {
   const previousCalloutCount = callouts.length;
   callouts = callouts.filter((callout) => callout.expiresAt > now);
   if (callouts.length !== previousCalloutCount) document.querySelector<HTMLElement>('#callouts')!.innerHTML = calloutMarkup();
+  const previousEmoteCount = liveEmotes.length;
+  liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
+  if (liveEmotes.length !== previousEmoteCount && !shotAnimation) renderer?.draw(state.course, state.players, aim, state.rotation, liveEmotes);
   if (state.status === 'playing' && !shotAnimation) {
     const next = tickTurn(state, elapsed);
     if (next !== state) {
