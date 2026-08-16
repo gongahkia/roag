@@ -18,7 +18,7 @@ const rankedTarget = (bot: Player, players: Player[]): Player | undefined => pla
   .filter((player) => player.id !== bot.id && !player.ball.complete)
   .sort((left, right) => left.total + left.ball.strokes - (right.total + right.ball.strokes))[0];
 
-export const chooseBotDecision = (course: Course, bot: Player, players: Player[]): BotDecision => {
+export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0): BotDecision => {
   const skill = clampedSkill(bot, players.filter((player) => player.id !== bot.id));
   const random = new Random(`${course.seed}:${bot.id}:${bot.ball.strokes}`);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
@@ -32,7 +32,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
     for (let power = 2; power <= 7.5; power += powerStep) {
       const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot);
+      const result = simulateShot(course, bot.ball, shot, 10, { phase });
       const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
         + result.ball.resetCount * 45
         + Math.max(0, result.ball.z - 1.4) * 3
@@ -49,7 +49,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   const target = rankedTarget(bot, players);
   let powerUp: BotDecision['powerUp'];
   if (bot.inventory && target && skill >= 5 && random.chance(0.18 + skill * 0.025)) {
-    powerUp = bot.inventory === 'turbo' ? { type: bot.inventory } : { type: bot.inventory, targetId: target.id };
+    powerUp = bot.inventory === 'turbo' || bot.inventory === 'shield' ? { type: bot.inventory } : { type: bot.inventory, targetId: target.id };
   }
   return { shot, powerUp, confidence: Math.max(0, 1 - selected.score / 150) };
 };

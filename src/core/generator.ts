@@ -1,4 +1,5 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
+import { closedGateAt, COURSE_PHASES } from './hazards';
 import { Random } from './random';
 import type { Course, CourseScore, Point, ShotCommand, Surface, Tile } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
@@ -47,7 +48,7 @@ const routeFor = (random: Random): Point[] => {
   return route;
 };
 
-const reachable = (course: Course): boolean => {
+const reachable = (course: Course, phase = 0): boolean => {
   const seen = new Set<string>();
   const queue = [course.tee];
   const key = (point: Point) => `${point.x},${point.y}`;
@@ -59,21 +60,21 @@ const reachable = (course: Course): boolean => {
     for (const direction of directions) {
       const next = { x: current.x + direction.x, y: current.y + direction.y };
       const tile = tileAt(course, next.x + 0.5, next.y + 0.5);
-      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !seen.has(key(next))) queue.push(next);
+      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, next.x + .5, next.y + .5, phase) && !seen.has(key(next))) queue.push(next);
     }
   }
   return false;
 };
 
-const solve = (course: Course): ShotCommand[] => {
+const solve = (course: Course, phase: number): ShotCommand[] => {
   const ball = newBall(course);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
   const baseAngle = Math.atan2(cup.y - ball.y, cup.x - ball.x);
   const candidates: { shot: ShotCommand; distance: number; holed: boolean }[] = [];
-  for (let offset = -0.55; offset <= 0.55; offset += 0.11) {
-    for (let power = 1.8; power <= 8; power += 0.35) {
+  for (let offset = -0.5; offset <= 0.5; offset += 0.2) {
+    for (let power = 1.8; power <= 8; power += 0.55) {
       const shot = { angle: baseAngle + offset, power };
-      const result = simulateShot(course, ball, shot);
+      const result = simulateShot(course, ball, shot, 10, { phase });
       candidates.push({ shot, distance: distanceToCup(course, result.ball), holed: result.holed });
     }
   }
@@ -83,16 +84,44 @@ const solve = (course: Course): ShotCommand[] => {
 };
 
 const scoreCourse = (course: Course): CourseScore => {
-  const hazards = course.tiles.filter((tile) => tile.surface === 'sand' || tile.surface === 'ice' || tile.surface === 'booster' || tile.surface === 'conveyor').length;
+  const hazards = course.tiles.filter((tile) => tile.surface === 'sand' || tile.surface === 'ice' || tile.surface === 'booster' || tile.surface === 'conveyor').length + course.hazards.length;
   const elevation = course.tiles.reduce((total, tile) => total + tile.height, 0);
   const branches = course.tiles.filter((tile) => tile.surface === 'fairway').length - course.route.length * 6;
-  const solverShots = reachable(course) ? solve(course) : [];
-  const playable = solverShots.length > 0;
+  const phaseSolutions = Array.from({ length: COURSE_PHASES }, (_, phase) => reachable(course, phase) ? solve(course, phase) : []);
+  const solverShots = phaseSolutions[0]!;
+  const playable = phaseSolutions.every((shots) => shots.length > 0);
   const estimatedStrokes = Math.max(1, Math.round(course.route.length / 7 + hazards / 15));
   const routes = Math.max(1, Math.min(4, Math.round(branches / 12) + 1));
   const novelty = Math.min(100, Math.round(hazards * 2.2 + elevation * 3.5 + routes * 12));
   const total = playable ? Math.round(55 + novelty * 0.25 + Math.min(20, estimatedStrokes * 4) + routes * 5) : 0;
   return { playable, estimatedStrokes, hazards, elevation, routes, novelty, total, solverShots, rejection: playable ? undefined : 'shot solver found no safe cup line' };
+};
+
+const addHazard = (course: Course, random: Random) => {
+  const choices = course.route.slice(4, -4).filter((point) => {
+    const tile = course.tiles[indexOf(course, point)]!;
+    return tile.surface !== 'void' && tile.surface !== 'wall';
+  });
+  const point = random.pick(choices.length ? choices : course.route.slice(2, -2));
+  if (random.chance(.56)) course.hazards.push({ id: 'sweeper-0', kind: 'sweeper', point, phaseOffset: random.int(0, COURSE_PHASES - 1), radius: .78 });
+  else course.hazards.push({ id: 'gate-0', kind: 'gate', point, phaseOffset: random.int(0, COURSE_PHASES - 1) });
+};
+
+const addItemPads = (course: Course, random: Random) => {
+  const used = new Set<string>();
+  const sideSteps = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }];
+  const fractions = [.22, .5, .76];
+  fractions.forEach((fraction, index) => {
+    const base = course.route[Math.min(course.route.length - 2, Math.max(2, Math.round((course.route.length - 1) * fraction)))]!;
+    const candidates = sideSteps.map((step) => ({ x: base.x + step.x, y: base.y + step.y })).filter((point) => {
+      const tile = tileAt(course, point.x + .5, point.y + .5);
+      const key = `${point.x},${point.y}`;
+      return tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, point.x + .5, point.y + .5, 0) && !used.has(key);
+    });
+    const point = random.pick(candidates.length ? candidates : [base]);
+    used.add(`${point.x},${point.y}`);
+    course.itemPads.push({ id: `pad-${index}`, point, kind: index === 0 ? 'recovery' : random.chance(.5) ? 'recovery' : 'chaos' });
+  });
 };
 
 const decorate = (course: Course, random: Random) => {
@@ -132,6 +161,8 @@ const decorate = (course: Course, random: Random) => {
     tile.surface = 'wall';
     walls += 1;
   }
+  addHazard(course, random);
+  addItemPads(course, random);
 };
 
 const buildCourse = (seed: string): Course => {
@@ -147,7 +178,7 @@ const buildCourse = (seed: string): Course => {
   const cup = route.at(-1)!;
   writeTile(tiles, tee, 'tee', tiles[indexOf({ width: COURSE_WIDTH }, tee)]!.height);
   writeTile(tiles, cup, 'cup', tiles[indexOf({ width: COURSE_WIDTH }, cup)]!.height);
-  const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, score: {} as CourseScore };
+  const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], itemPads: [], score: {} as CourseScore };
   decorate(course, random);
   course.score = scoreCourse(course);
   return course;

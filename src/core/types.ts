@@ -1,6 +1,6 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
-export type PowerUp = 'turbo' | 'bomb' | 'freeze' | 'swap';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap';
 export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet';
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
@@ -35,6 +35,31 @@ export interface Point {
   y: number;
 }
 
+export interface SweeperHazard {
+  id: string;
+  kind: 'sweeper';
+  point: Point;
+  phaseOffset: number;
+  radius: number;
+}
+
+export interface GateHazard {
+  id: string;
+  kind: 'gate';
+  point: Point;
+  phaseOffset: number;
+}
+
+export type CourseHazard = SweeperHazard | GateHazard;
+export type ItemPadKind = 'recovery' | 'chaos';
+
+export interface ItemPad {
+  id: string;
+  point: Point;
+  kind: ItemPadKind;
+  collected?: boolean;
+}
+
 export interface Course {
   id: string;
   seed: string;
@@ -44,6 +69,8 @@ export interface Course {
   tee: Point;
   cup: Point;
   route: Point[];
+  hazards: CourseHazard[];
+  itemPads: ItemPad[];
   score: CourseScore;
 }
 
@@ -118,6 +145,7 @@ export interface GameState {
   config: GameConfig;
   course: Course;
   hole: number;
+  coursePhase: number;
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];

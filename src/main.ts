@@ -146,19 +146,19 @@ const lockCandidate = () => {
 const chooseAim = (event: PointerEvent) => {
   if (!renderer || state.status !== 'playing' || current().kind !== 'human') return;
   aim = renderer.aimFromPointer(event, state.course, current().ball);
-  renderer.draw(state.course, state.players, aim, liveEmotes);
+  renderer.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   renderControls();
 };
 
 const adjustPower = (amount: number) => {
   aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
-  renderer?.draw(state.course, state.players, aim, liveEmotes);
+  renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   renderControls();
 };
 
 const drawShotFrame = (balls: readonly Ball[]) => {
   const players = state.players.map((player, index) => ({ ...player, ball: balls[index]! }));
-  renderer?.draw(state.course, players, undefined, liveEmotes);
+  renderer?.draw(state.course, players, state.coursePhase, undefined, liveEmotes, state.config.powerUps);
 };
 
 const playShot = (shot: ShotCommand) => {
@@ -238,7 +238,7 @@ const renderControls = () => {
   const player = current();
   const disabled = state.status !== 'playing' || player.kind !== 'human' || Boolean(shotAnimation);
   control.innerHTML = `
-    <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b></div>
+    <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/8</small></div>
     <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
     <label>power <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>shoot <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
@@ -247,7 +247,7 @@ const renderControls = () => {
   `;
   document.querySelector<HTMLInputElement>('#power')?.addEventListener('input', (event) => {
     aim = { ...aim, power: Number((event.target as HTMLInputElement).value) };
-    renderer?.draw(state.course, state.players, aim, liveEmotes);
+    renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
     renderControls();
   });
   document.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
@@ -298,7 +298,7 @@ const render = () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#course')!;
   renderer?.dispose();
   renderer = createRenderer(canvas);
-  renderer.draw(state.course, state.players, aim, liveEmotes);
+  renderer.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   canvas.addEventListener('pointermove', chooseAim);
   canvas.addEventListener('pointerdown', chooseAim);
   renderControls();
@@ -308,8 +308,8 @@ const renderStatus = () => {
   if (state.status === 'preview') return 'generator inspection — choose a validated candidate, then lock the hole';
   if (state.status === 'draft') return 'draft phase — each player chooses an upgrade';
   if (state.status === 'finished') return `winner: ${escape([...state.players].sort((a, b) => a.total - b.total)[0]!.name)}`;
-  if (shotAnimation) return `${escape(current().name)}'s ball is in flight`;
-  return `${escape(current().name)} is taking a turn`;
+  if (shotAnimation) return `${escape(current().name)}'s ball is in flight · hazard ${state.coursePhase + 1}/8 locked`;
+  return `${escape(current().name)} is taking a turn · hazard ${state.coursePhase + 1}/8`;
 };
 
 const calloutMarkup = () => callouts.map((callout) => `<p class="callout ${callout.tone}">${escape(callout.message)}</p>`).join('');
@@ -319,11 +319,11 @@ const renderInspector = () => {
     const candidate = candidates[selectedCandidate] ?? state.course;
     const solver = candidate.score.solverShots[0];
     return `<div class="candidate-tabs">${candidates.map((_, index) => `<button data-candidate="${index}" class="${index === selectedCandidate ? 'selected' : ''}">candidate ${index + 1}</button>`).join('')}</div>
-      <dl><dt>seed</dt><dd>${escape(candidate.seed)}</dd><dt>verdict</dt><dd class="good">validated</dd><dt>quality</dt><dd>${candidate.score.total}/100</dd><dt>solver line</dt><dd>${solver ? `${solver.power.toFixed(1)} power @ ${(solver.angle * 180 / Math.PI).toFixed(0)}°` : 'none'}</dd><dt>expected strokes</dt><dd>${candidate.score.estimatedStrokes}</dd><dt>hazards</dt><dd>${candidate.score.hazards}</dd><dt>elevation</dt><dd>${candidate.score.elevation}</dd><dt>route score</dt><dd>${candidate.score.routes} lanes · ${candidate.score.novelty} novelty</dd></dl>
-      <div class="inspector-actions"><button id="reroll">reroll <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="lock" class="primary">lock & tee off <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div><p class="hint">The generator carves a reachable route first, decorates it with freeform terrain, then accepts only simulated cup lines.</p>${renderLedger()}`;
+      <dl><dt>seed</dt><dd>${escape(candidate.seed)}</dd><dt>verdict</dt><dd class="good">validated in all 8 phases</dd><dt>quality</dt><dd>${candidate.score.total}/100</dd><dt>solver line</dt><dd>${solver ? `${solver.power.toFixed(1)} power @ ${(solver.angle * 180 / Math.PI).toFixed(0)}°` : 'none'}</dd><dt>expected strokes</dt><dd>${candidate.score.estimatedStrokes}</dd><dt>hazards</dt><dd>${candidate.hazards.map((hazard) => hazard.kind).join(' + ')}</dd><dt>item pads</dt><dd>${candidate.itemPads.length} visible pads</dd><dt>elevation</dt><dd>${candidate.score.elevation}</dd><dt>route score</dt><dd>${candidate.score.routes} lanes · ${candidate.score.novelty} novelty</dd></dl>
+      <div class="inspector-actions"><button id="reroll">reroll <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="lock" class="primary">lock & tee off <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div><p class="hint">hazards advance one phase after each resolved turn; previews, bots, and committed shots share the same locked phase.</p>${renderLedger()}`;
   }
   if (state.status === 'draft') return `<p>each player keeps one modifier for the rest of the campaign.</p><div class="upgrades">${currentUpgradeChoices(state).map((upgrade) => `<button data-upgrade="${upgrade}"><strong>${upgrade}</strong><small>${UPGRADE_DESCRIPTIONS[upgrade]}</small></button>`).join('')}</div>${renderLedger()}`;
-  return `${renderLedger()}<h3>course legend</h3><p class="legend">quarry stone · sand drift · ice sheet<br>red chevrons guide the route</p>`;
+  return `${renderLedger()}<h3>course legend</h3><p class="legend">quarry stone · sand drift · ice sheet<br>amber arm: sweeper · red/cyan: timed gate<br>cyan +: recovery pad · violet !: chaos pad</p>`;
 };
 
 const renderLedger = () => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escape(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>waiting for the first stroke</span></li>'}</ul>`;
@@ -398,12 +398,13 @@ const loop = (now: number) => {
   if (callouts.length !== previousCalloutCount) document.querySelector<HTMLElement>('#callouts')!.innerHTML = calloutMarkup();
   const previousEmoteCount = liveEmotes.length;
   liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
-  if (liveEmotes.length !== previousEmoteCount && !shotAnimation) renderer?.draw(state.course, state.players, aim, liveEmotes);
+  if (liveEmotes.length !== previousEmoteCount && !shotAnimation) renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   if (state.status === 'playing' && !shotAnimation) {
     const next = tickTurn(state, elapsed);
     if (next !== state) {
       state = next;
       recordStateFeedback(state);
+      renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
       renderControls();
       document.querySelector<HTMLElement>('#status')!.textContent = renderStatus();
       document.querySelector<HTMLElement>('#callouts')!.innerHTML = calloutMarkup();

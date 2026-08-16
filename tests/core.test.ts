@@ -14,7 +14,7 @@ const arena = (seed = 'arena'): Course => {
   const cup = { x: width - 2, y: height - 2 };
   tiles[tee.y * width + tee.x] = { surface: 'tee', height: 0 };
   tiles[cup.y * width + cup.x] = { surface: 'cup', height: 0 };
-  return { id: seed, seed, width, height, tiles, tee, cup, route: [tee, cup], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 100, solverShots: [] } };
+  return { id: seed, seed, width, height, tiles, tee, cup, route: [tee, cup], hazards: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 100, solverShots: [] } };
 };
 
 const gameOn = (course: Course, options = {}) => {
