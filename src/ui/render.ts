@@ -74,7 +74,8 @@ const visibleTilesFor = (course: Course, rotation: WorldRotation, metrics: Metri
         return project(rotated.x, rotated.y, tile.height, metrics);
       };
       const corners = [point(x, y), point(x + 1, y), point(x + 1, y + 1), point(x, y + 1)];
-      const center = project(...Object.values(rotate(course, x + .5, y + .5, rotation)), tile.height, metrics);
+      const rotatedCenter = rotate(course, x + .5, y + .5, rotation);
+      const center = project(rotatedCenter.x, rotatedCenter.y, tile.height, metrics);
       visible.push({ x, y, tile, corners, center });
     }
   }
