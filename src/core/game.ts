@@ -368,6 +368,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     const player = activePlayer(state);
     if (player.frozenTurns) {
       player.frozenTurns -= 1;
+      player.twoPuttsArmed = undefined;
       addMessage(state, `${player.name} is frozen solid`);
       advanceCoursePhase(state);
       advanceTurn(state);
@@ -558,7 +559,9 @@ export const tickTurn = (current: GameState, elapsedSeconds: number): GameState 
   const state = cloneState(current);
   state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsedSeconds);
   if (state.turn.secondsLeft === 0) {
-    addMessage(state, `${activePlayer(state).name} timed out`);
+    const player = activePlayer(state);
+    player.twoPuttsArmed = undefined;
+    addMessage(state, `${player.name} timed out`);
     advanceCoursePhase(state);
     if (state.status === 'validate') {
       state.turn = { playerIndex: state.turn.playerIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };

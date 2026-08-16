@@ -281,8 +281,19 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
   if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase)) {
     if (participant.modifiers.ghostBall && !participant.ghostUsed) {
       participant.ghostUsed = true;
+      if (tile.surface === 'wall') {
+        const normal = bounceNormal(previous, ball);
+        if (normal.x) ball.x = normal.x < 0 ? Math.floor(ball.x) + 1.001 : Math.floor(ball.x) - .001;
+        if (normal.y) ball.y = normal.y < 0 ? Math.floor(ball.y) + 1.001 : Math.floor(ball.y) - .001;
+      }
+      const passedTile = tileAt(course, ball.x, ball.y);
+      if (!passedTile || passedTile.surface === 'void') {
+        participant.reset = true;
+        participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, resetCount: previous.resetCount + 1 };
+        return;
+      }
       ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
-      applySurfaceForces(course, ball, tile, participant.modifiers);
+      applySurfaceForces(course, ball, passedTile, participant.modifiers);
       return;
     }
     const normal = bounceNormal(previous, ball);

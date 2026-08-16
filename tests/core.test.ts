@@ -172,7 +172,9 @@ describe('turns and bots', () => {
     wallCourse.tiles[3 * wallCourse.width + 4] = { surface: 'wall', height: 0 };
     const normalBank = simulateShot(wallCourse, newBall(wallCourse), { angle: 0, power: 4 }, 1);
     const bankShot = simulateShot(wallCourse, newBall(wallCourse), { angle: 0, power: 4 }, 1, { modifiers: { bankShot: true } });
+    const bouncy = simulateShot(wallCourse, newBall(wallCourse), { angle: 0, power: 4 }, 1, { modifiers: { bouncy: true } });
     expect(bankShot.ball.x).toBeLessThan(normalBank.ball.x);
+    expect(bouncy.ball.x).toBeLessThan(bankShot.ball.x);
 
     const voidCourse = arena('shield-arena');
     voidCourse.tiles = voidCourse.tiles.map(() => ({ surface: 'void', height: 0 }));
@@ -264,7 +266,49 @@ describe('turns and bots', () => {
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
     expect(course.itemPads[0]!.collected).toBeUndefined();
     expect(game.course.itemPads[0]!.collected).toBe(true);
-    expect(['turbo', 'shield']).toContain(game.players[0]!.inventory);
+    expect(['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet']).toContain(game.players[0]!.inventory);
+  });
+
+  it('expires ball forms after a shot and keeps two putts on the same phase and turn', () => {
+    const course = arena('two-putts-arena');
+    let game = gameOn(course);
+    game.players[0]!.inventory = 'ghost';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'ghost' });
+    expect(game.players[0]!.ballForm).toBe('ghost');
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.players[0]!.ballForm).toBeUndefined();
+
+    game = gameOn(course);
+    game.players[0]!.inventory = 'two putts';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'two putts' });
+    expect(game.players[0]!.twoPuttsArmed).toBe(true);
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.turn.playerIndex).toBe(0);
+    expect(game.coursePhase).toBe(0);
+    expect(game.players[0]!.twoPuttsArmed).toBeUndefined();
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.turn.playerIndex).toBe(1);
+    expect(game.coursePhase).toBe(1);
+  });
+
+  it('gives scavenger a second item slot and arms a selected portal-ball exit', () => {
+    const course = arena('scavenger-arena');
+    course.itemPads = [{ id: 'scavenge-pad', point: { x: 2, y: 3 }, kind: 'recovery' }];
+    course.portals = [
+      { id: 'portal-1', entrance: { point: { x: 3, y: 3 }, direction: { x: 1, y: 0 } }, exit: { point: { x: 8, y: 3 }, direction: { x: 1, y: 0 } } },
+      { id: 'portal-2', entrance: { point: { x: 5, y: 1 }, direction: { x: 1, y: 0 } }, exit: { point: { x: 10, y: 1 }, direction: { x: 1, y: 0 } } },
+    ];
+    let game = gameOn(course);
+    game.players[0]!.upgrades = ['scavenger'];
+    game.players[0]!.inventory = 'turbo';
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.players[0]!.spareInventory).toBeDefined();
+
+    game = gameOn(course);
+    game.players[0]!.inventory = 'portal';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'portal', portalExitId: 'portal-2:exit' });
+    expect(game.players[0]!.ballForm).toBe('portal');
+    expect(game.players[0]!.portalExitId).toBe('portal-2:exit');
   });
 });
 
@@ -294,6 +338,19 @@ describe('authored course rounds', () => {
     game = applyCommand(game, { type: 'select-upgrade', upgrade: 'bank shot' });
     game = applyCommand(game, { type: 'select-upgrade', upgrade: 'hazard shield' });
     expect(game.players[0]!.upgrades).toEqual(['hazard shield']);
+  });
+
+  it('lets builders create independently linked portal pairs with oriented endpoints', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'builder-portals', humanCount: 1, botCount: 0 });
+    game = applyCommand(game, { type: 'build-settings', tool: 'portal-entrance', portalPairId: 7, direction: { x: 1, y: 0 } });
+    game = applyCommand(game, { type: 'build-place', point: { x: 4, y: 6 } });
+    game = applyCommand(game, { type: 'build-settings', tool: 'portal-exit', direction: { x: 0, y: -1 } });
+    game = applyCommand(game, { type: 'build-place', point: { x: 12, y: 8 } });
+    expect(game.course.portals).toEqual([{
+      id: 'portal-7',
+      entrance: { point: { x: 4, y: 6 }, direction: { x: 1, y: 0 } },
+      exit: { point: { x: 12, y: 8 }, direction: { x: 0, y: -1 } },
+    }]);
   });
 
   it('keeps terrain generation deterministic while applying the authored settings', () => {

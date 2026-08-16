@@ -110,4 +110,33 @@ describe('grounded physics invariants', () => {
     expect(result.ball.vx).toBeGreaterThan(7);
     expect(Math.hypot(result.ball.vx, result.ball.vy)).toBeLessThanOrEqual(MAX_SURFACE_SPEED);
   });
+
+  it('teleports through paired portals with rotated momentum and supports a portal-ball redirect', () => {
+    const course = lane('fairway', 28);
+    course.portals = [
+      { id: 'portal-1', entrance: { point: { x: 3, y: 3 }, direction: { x: 1, y: 0 } }, exit: { point: { x: 10, y: 3 }, direction: { x: 1, y: 0 } } },
+      { id: 'portal-2', entrance: { point: { x: 5, y: 1 }, direction: { x: 1, y: 0 } }, exit: { point: { x: 18, y: 3 }, direction: { x: 1, y: 0 } } },
+    ];
+    const paired = simulateShot(course, newBall(course), { angle: 0, power: 4 }, .6);
+    const redirected = simulateShot(course, newBall(course), { angle: 0, power: 4 }, .6, { modifiers: { portalExitId: 'portal-2:exit' } });
+    const savvy = simulateShot(course, newBall(course), { angle: 0, power: 4 }, .6, { modifiers: { portalSpeedMultiplier: 1.18 } });
+    expect(paired.ball.x).toBeGreaterThan(10);
+    expect(redirected.ball.x).toBeGreaterThan(18);
+    expect(savvy.ball.x).toBeGreaterThan(paired.ball.x);
+  });
+
+  it('applies ghost and magnet ball effects during the active shot', () => {
+    const wallCourse = lane();
+    wallCourse.tiles[3 * wallCourse.width + 3] = { surface: 'wall', height: 0 };
+    const normal = simulateShot(wallCourse, newBall(wallCourse), { angle: 0, power: 4 }, .8);
+    const ghost = simulateShot(wallCourse, newBall(wallCourse), { angle: 0, power: 4 }, .8, { modifiers: { ghostBall: true } });
+    expect(normal.ball.x).toBeLessThan(3);
+    expect(ghost.ball.x).toBeGreaterThan(3);
+
+    const magnetCourse = lane();
+    magnetCourse.itemPads = [{ id: 'magnet-pad', point: { x: 4, y: 4 }, kind: 'recovery' }];
+    const flat = simulateShot(magnetCourse, newBall(magnetCourse), { angle: 0, power: 3 }, 1);
+    const magnet = simulateShot(magnetCourse, newBall(magnetCourse), { angle: 0, power: 3 }, 1, { modifiers: { magnetBall: true } });
+    expect(magnet.ball.y).toBeGreaterThan(flat.ball.y);
+  });
 });

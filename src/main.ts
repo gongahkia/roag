@@ -197,7 +197,7 @@ const scheduleBot = () => {
     if (!decision) return;
     if (decision.secondWind) setState(applyCommand(state, { type: 'arm-second-wind' }));
     if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId }));
-    playShot(decision.shot);
+    playShot((decision.secondWind || decision.powerUp ? botMove(state)?.shot : undefined) ?? decision.shot);
   }, preferences.reducedMotion ? 180 : 650);
 };
 
