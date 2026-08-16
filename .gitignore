@@ -2,3 +2,4 @@ node_modules/
 dist/
 coverage/
 AGENTS.md
+.playwright-cli
