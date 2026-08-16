@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision } from '../src/core/bots';
 import { applyCommand, beginCourse, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
-import { generateCandidates, generateCourse } from '../src/core/generator';
+import { defaultTerrainSettings, generateCandidates, generateCourse, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
 import { Random } from '../src/core/random';
 import type { Course, Player, Tile } from '../src/core/types';
@@ -297,8 +297,8 @@ describe('authored course rounds', () => {
   });
 
   it('keeps terrain generation deterministic while applying the authored settings', () => {
-    const sparse = { density: .1, elevation: 0, hazards: 0 };
-    const busy = { density: .9, elevation: 1, hazards: 3 };
+    const sparse = { ...defaultTerrainSettings(), density: .1, elevation: 0, hazards: 0, routeLength: .35, bendiness: 0, laneWidth: 1, branches: 0, chaos: 0 };
+    const busy = { ...defaultTerrainSettings(), density: .9, elevation: 1, hazards: 3, routeLength: 1, bendiness: .9, laneWidth: 2, branches: 3, chaos: 1, theme: 'hazard-run' as const };
     const first = generateCourse('builder-settings', busy);
     const second = generateCourse('builder-settings', busy);
     const quiet = generateCourse('builder-settings', sparse);
@@ -306,7 +306,9 @@ describe('authored course rounds', () => {
     expect(first.tiles).toEqual(second.tiles);
     expect(first.hazards).toHaveLength(3);
     expect(quiet.hazards).toHaveLength(0);
-    expect(first.tiles.reduce((total, tile) => total + tile.height, 0)).toBeGreaterThan(quiet.tiles.reduce((total, tile) => total + tile.height, 0));
+    expect(first.tiles.filter((tile) => tile.surface !== 'void').length).toBeGreaterThan(quiet.tiles.filter((tile) => tile.surface !== 'void').length);
+    expect(first.route).not.toEqual(quiet.route);
+    expect(randomTerrainSettings('builder-settings', 2)).toEqual(randomTerrainSettings('builder-settings', 2));
   });
 
   it('requires an author sink before moving to the next builder, then starts competition', () => {

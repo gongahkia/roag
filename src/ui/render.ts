@@ -7,23 +7,23 @@ export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elev
 interface VisibleTile { x: number; y: number; tile: Tile; heights: [number, number, number, number]; corners: Point[]; center: Point; }
 
 const topColors: Record<Surface, string> = {
-  void: '#08131d',
-  fairway: '#aeb5ae',
-  rough: '#7e8d79',
-  sand: '#ceb57b',
-  ice: '#7fc2cc',
-  wall: '#6f7777',
-  tee: '#91b7b1',
-  cup: '#d5d9c7',
-  booster: '#b65a36',
-  conveyor: '#6972a9',
+  void: '#f8fcf4',
+  fairway: '#78b96b',
+  rough: '#4e914b',
+  sand: '#ecd69c',
+  ice: '#b8e4ee',
+  wall: '#8c998a',
+  tee: '#9dce7e',
+  cup: '#d2edbd',
+  booster: '#e49b36',
+  conveyor: '#75a8d0',
 };
 
 const faceColors = {
-  light: '#f1a02e',
-  dark: '#bd481e',
-  wallLight: '#db7430',
-  wallDark: '#88331d',
+  light: '#78a95e',
+  dark: '#4d813f',
+  wallLight: '#aab4a5',
+  wallDark: '#6e786a',
 };
 
 export interface Renderer {
@@ -112,7 +112,7 @@ const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: nu
   const wall = tile.tile.surface === 'wall';
   context.fillStyle = wall ? (brighter ? faceColors.wallLight : faceColors.wallDark) : (brighter ? faceColors.light : faceColors.dark);
   context.fill();
-  context.fillStyle = brighter ? '#fff3c342' : '#370d1240';
+  context.fillStyle = brighter ? '#ffffff4d' : '#24512228';
   for (let stripe = 6; stripe < Math.max(...depths); stripe += 9) {
     context.fillRect(Math.min(face[0].x, face[1].x), Math.max(face[0].y, face[1].y) + stripe, Math.abs(face[1].x - face[0].x), 1);
   }
@@ -126,14 +126,14 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
   const inset = metrics.tileWidth * .19;
   if (tile.tile.surface === 'fairway') {
     if ((tile.x * 5 + tile.y * 3) % 5 === 0) {
-      context.fillStyle = '#f4f0d724';
+      context.fillStyle = '#e9ffd83b';
       context.fillRect(center.x - inset, center.y - 1, inset * 2, 2);
     }
   } else if (tile.tile.surface === 'rough') {
-    context.fillStyle = '#263d3740';
+    context.fillStyle = '#1d5c2542';
     for (let dot = -1; dot <= 1; dot += 1) context.fillRect(center.x + dot * 5, center.y + (dot % 2) * 3, 2, 2);
   } else if (tile.tile.surface === 'sand') {
-    context.strokeStyle = '#fff3c85c';
+    context.strokeStyle = '#fff9d58a';
     context.lineWidth = 1;
     for (let line = -2; line <= 2; line += 1) {
       context.beginPath();
@@ -142,20 +142,20 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
       context.stroke();
     }
   } else if (tile.tile.surface === 'ice') {
-    context.strokeStyle = '#e9ffff8f';
+    context.strokeStyle = '#ffffffb8';
     context.lineWidth = 1.5;
     context.beginPath();
     context.moveTo(center.x - inset, center.y + 3);
     context.lineTo(center.x + inset, center.y - 3);
     context.stroke();
   } else if (tile.tile.surface === 'tee') {
-    context.fillStyle = '#f5f4d7';
+    context.fillStyle = '#f9fff4';
     context.fillRect(center.x - inset, center.y - 2, inset * 2, 4);
   } else if (tile.tile.surface === 'cup') {
     const size = metrics.tileWidth * .16;
-    context.fillStyle = '#17222b';
+    context.fillStyle = '#204e2a';
     context.fillRect(center.x - size, center.y - size / 2, size * 2, size);
-    context.fillStyle = '#f4eed3';
+    context.fillStyle = '#ffffff';
     context.fillRect(center.x - size, center.y - size / 2, size, size / 2);
     context.fillRect(center.x, center.y, size, size / 2);
   }
@@ -180,7 +180,7 @@ const drawSurfaceMarker = (context: CanvasRenderingContext2D, tile: VisibleTile,
   if (tile.tile.surface !== 'booster' && tile.tile.surface !== 'conveyor') return;
   const direction = tile.tile.direction ?? { x: 1, y: 0 };
   const vector = screenDirection(tile.x, tile.y, direction, metrics);
-  drawChevron(context, withOffset(tile.center, offset), vector, metrics.tileWidth * .18, tile.tile.surface === 'booster' ? '#ffe4a3' : '#e8f3ff');
+  drawChevron(context, withOffset(tile.center, offset), vector, metrics.tileWidth * .18, tile.tile.surface === 'booster' ? '#fff9d8' : '#ffffff');
 };
 
 const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
@@ -191,7 +191,7 @@ const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, off
     if (!isVisible(tile) || tile.surface !== 'fairway') continue;
     const center = withOffset(project(point.x + .5, point.y + .5, floorHeightAt(course, point.x + .5, point.y + .5) + .025, metrics), offset);
     const direction = screenDirection(point.x, point.y, { x: next.x - point.x, y: next.y - point.y }, metrics);
-    drawChevron(context, center, direction, metrics.tileWidth * .13, '#d94327');
+    drawChevron(context, center, direction, metrics.tileWidth * .13, '#e55d35');
   }
 };
 
@@ -203,20 +203,20 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
     if (hazard.kind === 'sweeper') {
       const direction = sweeperDirection(hazard, phase);
       const end = withOffset(project(hazard.point.x + .5 + direction.x * hazard.radius, hazard.point.y + .5 + direction.y * hazard.radius, heightAt(course, hazard.point) + .13, metrics), offset);
-      context.strokeStyle = '#f8b84a';
+      context.strokeStyle = '#f0a232';
       context.lineWidth = Math.max(4, metrics.tileWidth * .11);
       context.beginPath();
       context.moveTo(center.x, center.y);
       context.lineTo(end.x, end.y);
       context.stroke();
-      context.strokeStyle = '#4b1b16';
+      context.strokeStyle = '#623d26';
       context.lineWidth = Math.max(1, metrics.tileWidth * .025);
       context.stroke();
       context.beginPath();
       context.arc(center.x, center.y, Math.max(4, metrics.tileWidth * .11), 0, Math.PI * 2);
-      context.fillStyle = '#d94327';
+      context.fillStyle = '#d95a36';
       context.fill();
-      context.strokeStyle = '#fff1b7';
+      context.strokeStyle = '#ffffff';
       context.lineWidth = 1;
       context.stroke();
       continue;
@@ -224,13 +224,13 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
     const open = isGateOpen(hazard, phase);
     const width = metrics.tileWidth * .23;
     const height = metrics.tileHeight * .48;
-    context.fillStyle = open ? '#8df2ea65' : '#d94327d9';
+    context.fillStyle = open ? '#7acbbd88' : '#d95a36d9';
     context.fillRect(center.x - width, center.y - height, width * 2, height * 2);
-    context.strokeStyle = open ? '#bffff7' : '#fff1b7';
+    context.strokeStyle = open ? '#1d7168' : '#ffffff';
     context.lineWidth = open ? 1.5 : 2;
     context.strokeRect(center.x - width, center.y - height, width * 2, height * 2);
     if (!open) {
-      context.strokeStyle = '#4b1b16';
+      context.strokeStyle = '#623d26';
       context.beginPath();
       context.moveTo(center.x - width, center.y - height);
       context.lineTo(center.x + width, center.y + height);
@@ -248,10 +248,10 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
     polygon(context, [{ x: center.x, y: center.y - size }, { x: center.x + size, y: center.y }, { x: center.x, y: center.y + size }, { x: center.x - size, y: center.y }]);
     context.fillStyle = pad.kind === 'recovery' ? '#73d9d5' : '#c88cf5';
     context.fill();
-    context.strokeStyle = '#fff1b7';
+    context.strokeStyle = '#ffffff';
     context.lineWidth = 1.2;
     context.stroke();
-    context.fillStyle = '#061018';
+    context.fillStyle = '#1c4321';
     context.font = `${Math.max(8, metrics.tileWidth * .16)}px BigBlueTerm, ui-monospace, monospace`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -264,14 +264,14 @@ const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, 
   const radius = Math.max(4, metrics.tileWidth * .13);
   context.beginPath();
   context.ellipse(point.x, point.y + radius * .38, radius * .82, radius * .32, 0, 0, Math.PI * 2);
-  context.fillStyle = '#02101966';
+  context.fillStyle = '#315e3360';
   context.fill();
   context.beginPath();
   context.arc(point.x, point.y, radius, 0, Math.PI * 2);
   context.fillStyle = color;
   context.fill();
   context.lineWidth = 1.4;
-  context.strokeStyle = '#fff7de';
+  context.strokeStyle = '#ffffff';
   context.stroke();
   context.beginPath();
   context.arc(point.x - radius * .3, point.y - radius * .34, Math.max(1.2, radius * .22), 0, Math.PI * 2);
@@ -289,12 +289,12 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
     const width = Math.max(23, context.measureText(definition.glyph).width + 10);
     const x = point.x + (index % 3 - 1) * 8 - width / 2;
     const y = point.y - 18 - Math.floor(index / 3) * 11;
-    context.fillStyle = '#08131dea';
+    context.fillStyle = '#ffffffeb';
     context.strokeStyle = player.color;
     context.lineWidth = 1;
     context.fillRect(x, y, width, 15);
     context.strokeRect(x + .5, y + .5, width - 1, 14);
-    context.fillStyle = '#f8fffa';
+    context.fillStyle = '#17311b';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(definition.glyph, x + width / 2, y + 8);
@@ -316,8 +316,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
-    voidGradient.addColorStop(0, '#112b3a');
-    voidGradient.addColorStop(1, '#050b12');
+    voidGradient.addColorStop(0, '#ffffff');
+    voidGradient.addColorStop(1, '#edf7e8');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
     const { metrics, tiles, offset } = layoutFor(course, buildMode);
@@ -335,7 +335,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       drawPattern(context, tile, offset, metrics);
       if (buildMode) {
         polygon(context, tile.corners.map((point) => withOffset(point, offset)));
-        context.strokeStyle = tile.tile.surface === 'void' ? '#60859b88' : '#fff1b75c';
+        context.strokeStyle = tile.tile.surface === 'void' ? '#aec7a988' : '#ffffff85';
         context.lineWidth = 1;
         context.stroke();
       }
@@ -352,7 +352,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         context.moveTo(start.x, start.y);
         const projected = projectWorldDirection({ x: Math.cos(aim.angle) * aim.power * .4, y: Math.sin(aim.angle) * aim.power * .4 }, metrics);
         context.lineTo(start.x + projected.x, start.y + projected.y);
-        context.strokeStyle = '#fff1b7';
+        context.strokeStyle = '#1d5527';
         context.setLineDash([4, 4]);
         context.lineWidth = 2;
         context.stroke();
