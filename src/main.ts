@@ -2,7 +2,7 @@ import './style.css';
 import { presentFeedback, type FeedbackTone } from './feedback';
 import { applyCommand, botMove, createGame, currentUpgradeChoices, defaultConfig, previewShot, tickTurn, UPGRADE_DESCRIPTIONS } from './core/game';
 import { bindingFor, isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from './preferences';
-import { EMOTES, type Ball, type BuildTool, type Emote, type EmoteEvent, type GameState, type PowerUp, type ShotCommand } from './core/types';
+import { EMOTES, type Ball, type BuildTool, type CourseTheme, type Emote, type EmoteEvent, type GameState, type PowerUp, type ShotCommand } from './core/types';
 import { createRenderer } from './ui/render';
 
 type Overlay = 'help' | 'settings' | undefined;
@@ -308,16 +308,26 @@ const renderInspector = () => {
       { id: 'chaos-pad', label: 'chaos pad' }, { id: 'erase', label: 'erase' },
     ];
     const directions = [{ label: '→', x: 1, y: 0 }, { label: '↓', x: 0, y: 1 }, { label: '←', x: -1, y: 0 }, { label: '↑', x: 0, y: -1 }];
+    const themes: { id: CourseTheme; label: string }[] = [
+      { id: 'balanced', label: 'balanced' }, { id: 'speedway', label: 'speedway' }, { id: 'hazard-run', label: 'hazard run' }, { id: 'ice-rink', label: 'ice rink' }, { id: 'quarry', label: 'quarry' },
+    ];
     return `<p class="hint"><strong>${escape(current().name)}</strong> is authoring. Select a tool, then click any isometric grid cell. A course needs one tee, one cup, and eight playable tiles.</p>
       <h3>place</h3><div class="build-tools">${tools.map((tool) => `<button data-build-tool="${tool.id}" class="${build.tool === tool.id ? 'selected' : ''}">${tool.label}</button>`).join('')}</div>
       <h3>tile controls</h3><label class="builder-range">height <output>${build.height}</output><input id="build-height" type="range" min="0" max="3" step="1" value="${build.height}"></label>
       <div class="build-directions" aria-label="surface direction">${directions.map((direction) => `<button data-build-direction="${direction.x},${direction.y}" class="${build.direction.x === direction.x && build.direction.y === direction.y ? 'selected' : ''}" title="direction ${direction.label}">${direction.label}</button>`).join('')}</div>
-      <h3>seeded terrain generator</h3><p class="hint">deterministic route carving with editable terrain, ramp, wall, and hazard placement. Same seed and sliders produce the same starting course.</p>
+      <h3>route composition</h3><p class="hint">these controls shape the playable route before you hand-curate individual tiles.</p>
+      <label class="builder-range">route length <output>${Math.round(build.terrain.routeLength * 100)}%</output><input id="route-length" type="range" min="0.35" max="1" step="0.05" value="${build.terrain.routeLength}"></label>
+      <label class="builder-range">bendiness <output>${Math.round(build.terrain.bendiness * 100)}%</output><input id="route-bendiness" type="range" min="0" max="1" step="0.05" value="${build.terrain.bendiness}"></label>
+      <label class="builder-range">lane width <output>${build.terrain.laneWidth}</output><input id="route-width" type="range" min="1" max="3" step="1" value="${build.terrain.laneWidth}"></label>
+      <label class="builder-range">side routes <output>${build.terrain.branches}</output><input id="route-branches" type="range" min="0" max="3" step="1" value="${build.terrain.branches}"></label>
+      <h3>course curation</h3><p class="hint">pick a personality, then either tune the generator or take the result apart tile by tile.</p><div class="theme-tools">${themes.map((theme) => `<button data-course-theme="${theme.id}" class="${build.terrain.theme === theme.id ? 'selected' : ''}">${theme.label}</button>`).join('')}</div>
+      <h3>seeded terrain generator</h3><p class="hint">deterministic route carving with editable terrain, ramp, wall, and hazard placement. Same seed, controls, and variation produce the same starting course.</p>
       <label class="builder-range">terrain density <output>${Math.round(build.terrain.density * 100)}%</output><input id="terrain-density" type="range" min="0.1" max="1" step="0.05" value="${build.terrain.density}"></label>
       <label class="builder-range">ramp frequency <output>${Math.round(build.terrain.elevation * 100)}%</output><input id="terrain-elevation" type="range" min="0" max="1" step="0.05" value="${build.terrain.elevation}"></label>
       <label class="builder-range">timed hazards <output>${build.terrain.hazards}</output><input id="terrain-hazards" type="range" min="0" max="3" step="1" value="${build.terrain.hazards}"></label>
+      <label class="builder-range">surface chaos <output>${Math.round(build.terrain.chaos * 100)}%</output><input id="terrain-chaos" type="range" min="0" max="1" step="0.05" value="${build.terrain.chaos}"></label>
       <h3>competitive perk</h3><p class="hint">choose one upgrade for the play phase. You can change it until your course validates.</p><div class="upgrades build-perks">${Object.entries(UPGRADE_DESCRIPTIONS).map(([upgrade, description]) => `<button data-builder-upgrade="${upgrade}" class="${current().upgrades.includes(upgrade as keyof typeof UPGRADE_DESCRIPTIONS) ? 'selected' : ''}"><strong>${upgrade}</strong><small>${description}</small></button>`).join('')}</div>
-      <div class="inspector-actions"><button id="auto-terrain">generate terrain <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="validate" class="primary">validate course <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div>${renderLedger()}`;
+      <div class="inspector-actions"><button id="randomize-terrain">surprise me</button><button id="auto-terrain">generate terrain <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="validate" class="primary">validate course <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div>${renderLedger()}`;
   }
   if (state.status === 'draft') return `<p>each player keeps one modifier for the rest of the campaign.</p><div class="upgrades">${currentUpgradeChoices(state).map((upgrade) => `<button data-upgrade="${upgrade}"><strong>${upgrade}</strong><small>${UPGRADE_DESCRIPTIONS[upgrade]}</small></button>`).join('')}</div>${renderLedger()}`;
   const author = state.authoredCourses[state.courseIndex] && state.players.find((player) => player.id === state.authoredCourses[state.courseIndex]!.authorId);
@@ -343,6 +353,8 @@ app.addEventListener('click', (event) => {
   if (buildTool && state.status === 'build') { setState(applyCommand(state, { type: 'build-settings', tool: buildTool })); return; }
   const builderUpgrade = element.dataset.builderUpgrade as keyof typeof UPGRADE_DESCRIPTIONS | undefined;
   if (builderUpgrade && state.status === 'build') { setState(applyCommand(state, { type: 'select-upgrade', upgrade: builderUpgrade })); return; }
+  const courseTheme = element.dataset.courseTheme as CourseTheme | undefined;
+  if (courseTheme && state.status === 'build') { setState(applyCommand(state, { type: 'build-settings', terrain: { theme: courseTheme } })); return; }
   const direction = element.dataset.buildDirection;
   if (direction && state.status === 'build') {
     const [x, y] = direction.split(',').map(Number);
@@ -350,6 +362,7 @@ app.addEventListener('click', (event) => {
     return;
   }
   if (element.id === 'auto-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-generate' })); return; }
+  if (element.id === 'randomize-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-randomize' })); return; }
   if (element.id === 'validate' && state.status === 'build') { setState(applyCommand(state, { type: 'begin-validation' })); return; }
   const emote = element.dataset.emote as Emote | undefined;
   if (emote) { sendEmote(emote); return; }
@@ -377,7 +390,12 @@ app.addEventListener('input', (event) => {
   }
   const terrain = target.id === 'terrain-density' ? { density: Number(target.value) }
     : target.id === 'terrain-elevation' ? { elevation: Number(target.value) }
-      : target.id === 'terrain-hazards' ? { hazards: Number(target.value) } : undefined;
+      : target.id === 'terrain-hazards' ? { hazards: Number(target.value) }
+        : target.id === 'terrain-chaos' ? { chaos: Number(target.value) }
+          : target.id === 'route-length' ? { routeLength: Number(target.value) }
+            : target.id === 'route-bendiness' ? { bendiness: Number(target.value) }
+              : target.id === 'route-width' ? { laneWidth: Number(target.value) }
+                : target.id === 'route-branches' ? { branches: Number(target.value) } : undefined;
   if (terrain) setState(applyCommand(state, { type: 'build-settings', terrain }));
 });
 

@@ -99,6 +99,9 @@ td i { width: .5rem; height: .5rem; border-radius: 50%; display: inline-block; m
 .candidate-tabs button { padding: .38rem .12rem; font-size: .55rem; }
 .build-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
 .build-tools button { min-height: 2rem; padding: .35rem .28rem; font-size: .59rem; text-align: left; }
+.theme-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+.theme-tools button { min-height: 1.9rem; padding: .34rem .28rem; color: var(--blue); font-size: .58rem; text-align: left; }
+.theme-tools button:first-child { grid-column: span 2; }
 .builder-range { display: grid; grid-template-columns: 1fr auto; gap: .26rem .5rem; margin: .58rem 0; color: var(--dim); font-size: .64rem; }
 .builder-range input { grid-column: 1 / -1; }
 .builder-range output { color: var(--gold); }

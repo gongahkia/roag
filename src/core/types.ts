@@ -54,11 +54,19 @@ export interface GateHazard {
 export type CourseHazard = SweeperHazard | GateHazard;
 export type ItemPadKind = 'recovery' | 'chaos';
 export type BuildTool = 'erase' | 'fairway' | 'rough' | 'sand' | 'ice' | 'wall' | 'booster' | 'conveyor' | 'tee' | 'cup' | 'sweeper' | 'gate' | 'recovery-pad' | 'chaos-pad';
+export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry';
 
 export interface TerrainSettings {
   density: number;
   elevation: number;
   hazards: number;
+  routeLength: number;
+  bendiness: number;
+  laneWidth: number;
+  branches: number;
+  chaos: number;
+  theme: CourseTheme;
+  variation: number;
 }
 
 export interface BuildState {
@@ -187,6 +195,7 @@ export type GameCommand =
   | { type: 'build-place'; point: Point }
   | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; terrain?: Partial<TerrainSettings> }
   | { type: 'build-generate' }
+  | { type: 'build-randomize' }
   | { type: 'begin-validation' }
   | { type: 'select-upgrade'; upgrade: Upgrade }
   | { type: 'emote'; playerId: string; emote: Emote };

@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { defaultTerrainSettings, generateCourse } from './generator';
+import { defaultTerrainSettings, generateCourse, randomTerrainSettings } from './generator';
 import { COURSE_PHASES } from './hazards';
 import { MAX_SETTLE_SECONDS, newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { hashSeed, Random } from './random';
@@ -299,9 +299,17 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   }
   if (command.type === 'build-generate' && state.status === 'build' && state.build) {
     const author = state.players[state.build.authorIndex]!;
-    state.course = generateCourse(hashSeed(`${state.config.seed}-${author.id}`, state.authoredCourses.length + 1), state.build.terrain);
+    state.course = generateCourse(hashSeed(`${state.config.seed}-${author.id}-v${state.build.terrain.variation}`, state.authoredCourses.length + 1), state.build.terrain);
     state.build.generated = true;
     addMessage(state, `${author.name} generated terrain — edit it or validate it`);
+    return state;
+  }
+  if (command.type === 'build-randomize' && state.status === 'build' && state.build) {
+    const author = state.players[state.build.authorIndex]!;
+    const variation = state.build.terrain.variation + 1;
+    state.build.terrain = randomTerrainSettings(`${state.config.seed}:${author.id}`, variation);
+    state.build.generated = false;
+    addMessage(state, `${author.name} rolls a new curated generator setup`);
     return state;
   }
   if (command.type === 'select-upgrade' && state.status === 'build' && state.build) {
