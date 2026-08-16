@@ -1,4 +1,4 @@
-import { defaultTerrainSettings, generateCourse, randomTerrainSettings } from './generator';
+import { generateCourse, randomTerrainSettings } from './generator';
 import { COURSE_PHASES } from './hazards';
 import { activePlayer, addMessage } from './game-state';
 import { newBall } from './physics';

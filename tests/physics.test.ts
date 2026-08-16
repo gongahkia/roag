@@ -2,17 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { generateCourse } from '../src/core/generator';
 import { MAX_SURFACE_SPEED, floorHeightAt, newBall, simulateShot, tileCornerHeights } from '../src/core/physics';
 import { projectWorldDirection } from '../src/ui/render';
-import type { Course, Surface, Tile } from '../src/core/types';
-
-const lane = (surface: Surface = 'fairway', width = 80): Course => {
-  const height = 7;
-  const tee = { x: 1, y: 3 };
-  const cup = { x: width - 5, y: 3 };
-  const tiles: Tile[] = Array.from({ length: width * height }, () => ({ surface, height: 0 }));
-  tiles[tee.y * width + tee.x] = { surface: 'tee', height: 0 };
-  tiles[cup.y * width + cup.x] = { surface: 'cup', height: 0 };
-  return { id: `lane-${surface}`, seed: `lane-${surface}`, width, height, tiles, tee, cup, route: [tee, cup], hazards: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 0, solverShots: [] } };
-};
+import type { Course } from '../src/core/types';
+import { createLane as lane } from './fixtures';
 
 const travel = (course: Course, power: number) => {
   const start = newBall(course);

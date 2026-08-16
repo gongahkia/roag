@@ -202,7 +202,7 @@ export interface GameState {
   emoteSequence: number;
   players: Player[];
   turn: TurnState;
-  status: 'lobby' | 'build' | 'validate' | 'preview' | 'playing' | 'draft' | 'finished';
+  status: 'build' | 'validate' | 'playing' | 'finished';
   messages: string[];
 }
 
@@ -210,8 +210,6 @@ export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
   | { type: 'arm-second-wind' }
-  | { type: 'next-hole' }
-  | { type: 'draft'; upgrade: Upgrade }
   | { type: 'build-place'; point: Point }
   | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; portalPairId?: number; terrain?: Partial<TerrainSettings> }
   | { type: 'build-generate' }

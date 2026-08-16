@@ -1,4 +1,5 @@
-import { distanceToCup, simulateShot, type BallPhysicsModifiers } from './physics';
+import { distanceToCup, simulateShot } from './physics';
+import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
 import type { Course, Player, PowerUp, ShotCommand } from './types';
 
@@ -19,18 +20,6 @@ const rankedTarget = (bot: Player, players: Player[]): Player | undefined => pla
   .filter((player) => player.id !== bot.id && !player.ball.complete)
   .sort((left, right) => left.total + left.ball.strokes - (right.total + right.ball.strokes))[0];
 
-const modifiersFor = (player: Player): BallPhysicsModifiers => ({
-  mass: player.upgrades.includes('heavy ball') && player.ballForm === 'heavy' ? 1.9 : player.ballForm === 'heavy' ? 1.65 : player.upgrades.includes('heavy ball') ? 1.45 : 1,
-  iceSkates: player.upgrades.includes('ice skates') || player.ballForm === 'ice',
-  bankShot: player.upgrades.includes('bank shot'),
-  bouncy: player.ballForm === 'bouncy',
-  ghostBall: player.ballForm === 'ghost',
-  magnetBall: player.ballForm === 'magnet',
-  portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
-  portalSpeedMultiplier: player.upgrades.includes('portal savvy') ? 1.18 : 1,
-  hazardShield: player.hazardShield,
-});
-
 const bestPortalExit = (course: Course) => course.portals?.filter((pair) => pair.exit).map((pair) => ({ id: `${pair.id}:exit`, distance: Math.hypot(course.cup.x - pair.exit!.point.x, course.cup.y - pair.exit!.point.y) })).sort((left, right) => left.distance - right.distance)[0]?.id;
 
 export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0): BotDecision => {
@@ -47,7 +36,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
     for (let power = 2; power <= 7.5; power += powerStep) {
       const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot, undefined, { phase, modifiers: modifiersFor(bot) });
+      const result = simulateShot(course, bot.ball, shot, undefined, { phase, modifiers: physicsModifiersFor(bot) });
       const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
         + result.ball.resetCount * 45
         + Math.max(0, result.ball.z - 1.4) * 3

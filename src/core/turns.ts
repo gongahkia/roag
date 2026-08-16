@@ -1,6 +1,6 @@
 import { createBuildState, activePlayer, addMessage, beginBuild, cloneCourse } from './game-state';
 import { COURSE_PHASES } from './hazards';
-import { newBall, simulateShot, type SimulationResult } from './physics';
+import { simulateShot, type SimulationResult } from './physics';
 import { adjustedShotFor, canStorePowerUp, physicsModifiersFor, resetPlayerForCourse } from './player-effects';
 import { awardPowerUp } from './powerups';
 import type { Ball, GameState, ShotCommand } from './types';
@@ -146,7 +146,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   advanceTurn(state);
 };
 
-export const beginCourse = (state: GameState): GameState => ({ ...state, status: 'playing', messages: ['tee off — aim with the board, ...state.messages] });
+export const beginCourse = (state: GameState): GameState => ({ ...state, status: 'playing', messages: ['tee off — aim with the board, then shoot', ...state.messages] });
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
   if ((current.status !== 'playing' && current.status !== 'validate') || current.turn.shotInFlight) return current;
