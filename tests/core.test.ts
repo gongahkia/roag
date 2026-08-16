@@ -22,13 +22,13 @@ describe('course generation', () => {
     expect(result.holed).toBe(true);
   });
 
-  it('stops a ball at its last legal position instead of returning it to the tee', () => {
+  it('uses guard walls to keep shots inside generated terrain where possible', () => {
     const course = generateCourse('edge-seed');
     const start = newBall(course);
     const result = simulateShot(course, start, { angle: Math.PI, power: 8 });
-    expect(result.reset).toBe(true);
-    expect(result.ball.resetCount).toBe(1);
-    expect(result.ball.x).toBeLessThan(start.x);
+    expect(result.reset).toBe(false);
+    expect(result.ball.resetCount).toBe(0);
+    expect(result.ball.x).toBeGreaterThan(start.x - .5);
   });
 
   it('returns only validated candidates for the inspector', () => {
@@ -42,7 +42,7 @@ describe('course generation', () => {
     expect(course.route.every((point) => tileAt(course, point.x + .5, point.y + .5)?.surface !== 'void')).toBe(true);
   });
 
-  it('adds sparse wall bumpers without invalidating generated courses', () => {
+  it('adds guard walls without invalidating generated courses', () => {
     const course = generateCourse('wall-bumper-seed');
     expect(course.tiles.some((tile) => tile.surface === 'wall')).toBe(true);
     expect(course.score.playable).toBe(true);

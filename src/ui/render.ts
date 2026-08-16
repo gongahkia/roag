@@ -314,11 +314,20 @@ const statusLabels = (player: Player) => {
 const drawBall = (context: CanvasRenderingContext2D, player: Player, offset: Point, metrics: ProjectionMetrics) => {
   const { ball, color } = player;
   const point = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
+  const shadowPoint = withOffset(project(ball.x, ball.y, ball.falling ? .02 : ball.z + .08, metrics), offset);
   const radius = Math.max(4, metrics.tileWidth * .13);
   context.beginPath();
-  context.ellipse(point.x, point.y + radius * .38, radius * .82, radius * .32, 0, 0, Math.PI * 2);
+  context.ellipse(shadowPoint.x, shadowPoint.y + radius * .38, radius * .82, radius * .32, 0, 0, Math.PI * 2);
   context.fillStyle = '#315e3360';
   context.fill();
+  if (ball.falling) {
+    context.beginPath();
+    context.moveTo(shadowPoint.x, shadowPoint.y);
+    context.lineTo(point.x, point.y);
+    context.lineWidth = Math.max(1, radius * .28);
+    context.strokeStyle = `${color}99`;
+    context.stroke();
+  }
   context.beginPath();
   context.arc(point.x, point.y, radius, 0, Math.PI * 2);
   context.fillStyle = color;

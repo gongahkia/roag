@@ -121,7 +121,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.ballForm = undefined;
   player.portalExitId = undefined;
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
-  else if (result.reset) addMessage(state, `${player.name} finds the edge`);
+  else if (result.reset) addMessage(state, `${player.name} falls into the void`);
   else addMessage(state, `${player.name} rolls to safety`);
   if (state.status === 'validate') {
     advanceCoursePhase(state);

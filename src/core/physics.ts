@@ -9,6 +9,8 @@ const HEIGHT_TO_WORLD = 0.18;
 const STOP_SPEED = 0.12;
 const BOOST_ACCELERATION = 4.5;
 const CONVEYOR_ACCELERATION = 1.2;
+const FALL_GRAVITY = 8.6;
+const FALL_DURATION_FRAMES = 30;
 
 export const MAX_SETTLE_SECONDS = 18;
 export const MAX_SURFACE_SPEED = 8;
@@ -77,6 +79,8 @@ interface Participant {
   shieldUsed: boolean;
   ghostUsed: boolean;
   portalCooldown: number;
+  fallFramesRemaining: number;
+  returnBall?: Ball;
 }
 
 export const tileAt = (course: Course, x: number, y: number): Tile | undefined => {
@@ -228,6 +232,25 @@ const stopParticipant = (course: Course, participant: Participant) => {
   };
 };
 
+const beginFall = (participant: Participant, previous: Ball) => {
+  participant.reset = true;
+  participant.returnBall = { ...previous, vx: 0, vy: 0, vz: 0, falling: undefined, resetCount: previous.resetCount + 1 };
+  participant.fallFramesRemaining = FALL_DURATION_FRAMES;
+  participant.ball = { ...participant.ball, z: previous.z, vz: -FALL_GRAVITY * STEP, falling: true };
+};
+
+const continueFall = (participant: Participant) => {
+  const ball = participant.ball;
+  ball.x += ball.vx * STEP;
+  ball.y += ball.vy * STEP;
+  ball.vx *= .985;
+  ball.vy *= .985;
+  ball.vz -= FALL_GRAVITY * STEP;
+  ball.z += ball.vz * STEP;
+  participant.fallFramesRemaining -= 1;
+  if (participant.fallFramesRemaining === 0) participant.ball = participant.returnBall!;
+};
+
 const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: BallPhysicsModifiers) => {
   const gradient = floorGradientAt(course, ball.x, ball.y);
   ball.vx -= gradient.x * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
@@ -257,6 +280,10 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
 };
 
 const stepTerrain = (course: Course, participant: Participant, phase: number) => {
+  if (participant.fallFramesRemaining > 0) {
+    continueFall(participant);
+    return;
+  }
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
@@ -273,8 +300,7 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
       const velocity = reflect(previous, normal, .38);
       participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     } else {
-      participant.reset = true;
-      participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, resetCount: previous.resetCount + 1 };
+      beginFall(participant, previous);
     }
     return;
   }
@@ -288,8 +314,7 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
       }
       const passedTile = tileAt(course, ball.x, ball.y);
       if (!passedTile || passedTile.surface === 'void') {
-        participant.reset = true;
-        participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, resetCount: previous.resetCount + 1 };
+        beginFall(participant, previous);
         return;
       }
       ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
@@ -371,8 +396,8 @@ const allSettled = (course: Course, participants: Participant[]) => participants
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
-    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0 },
-    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0 })),
+    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0 },
+    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0 })),
   ];
   const frames: SimulationFrame[] = [];
   const cup = tileCenter(course.cup);

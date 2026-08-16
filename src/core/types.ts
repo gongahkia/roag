@@ -145,6 +145,7 @@ export interface Ball {
   strokes: number;
   complete: boolean;
   resetCount: number;
+  falling?: boolean;
 }
 
 export interface Player {

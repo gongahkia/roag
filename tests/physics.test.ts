@@ -26,6 +26,19 @@ describe('grounded physics invariants', () => {
     expect(result.ball.vy).toBeGreaterThan(.2);
   });
 
+  it('animates an edge fall before returning a ball to its last legal position', () => {
+    const course = lane('fairway', 14);
+    const start = newBall(course);
+    const result = simulateShot(course, start, { angle: Math.PI, power: 4 });
+    const fallingFrames = result.frames.map((frame) => frame.ball).filter((ball) => ball.falling);
+
+    expect(result.reset).toBe(true);
+    expect(fallingFrames.length).toBeGreaterThan(5);
+    expect(fallingFrames.at(-1)!.z).toBeLessThan(fallingFrames[0]!.z);
+    expect(result.ball).toMatchObject({ falling: undefined, resetCount: 1 });
+    expect(result.ball.x).toBeLessThan(start.x);
+  });
+
   it('uses a calibrated nonlinear fairway power curve and settles standard shots', () => {
     const course = lane();
     const low = travel(course, 1);

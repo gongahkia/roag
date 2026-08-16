@@ -222,6 +222,25 @@ const addItemPads = (course: Course, random: Random, count: number) => {
   });
 };
 
+const addBarrierWalls = (course: Course) => {
+  const candidates = new Map<string, { point: Point; height: number }>();
+  for (let y = 0; y < course.height; y += 1) {
+    for (let x = 0; x < course.width; x += 1) {
+      const tile = course.tiles[indexOf(course, { x, y })]!;
+      if (tile.surface === 'void' || tile.surface === 'wall') continue;
+      for (const direction of directions) {
+        const point = { x: x + direction.x, y: y + direction.y };
+        const neighbor = tileAt(course, point.x + .5, point.y + .5);
+        if (neighbor?.surface !== 'void') continue;
+        const key = `${point.x},${point.y}`;
+        const existing = candidates.get(key);
+        candidates.set(key, { point, height: Math.max(existing?.height ?? 0, tile.height) });
+      }
+    }
+  }
+  for (const { point, height } of candidates.values()) course.tiles[indexOf(course, point)] = { surface: 'wall', height };
+};
+
 const decorate = (course: Course, random: Random, settings: TerrainSettings) => {
   const featureAttempts = Math.round(6 + settings.density * 24 + settings.chaos * 26);
   for (let attempt = 0; attempt < featureAttempts; attempt += 1) {
@@ -258,6 +277,7 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings) => 
   }
   for (let index = 0; index < settings.hazards; index += 1) addHazard(course, random, index, settings.theme);
   addItemPads(course, random, 3 + Math.max(0, Math.round((settings.chaos - .5) * 4)));
+  addBarrierWalls(course);
 };
 
 const buildCourse = (seed: string, settings: TerrainSettings): Course => {
