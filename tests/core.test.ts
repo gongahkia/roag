@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision } from '../src/core/bots';
-import { applyCommand, beginCourse, botMove, createGame, defaultConfig, previewShot } from '../src/core/game';
+import { applyCommand, beginCourse, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
 import { generateCandidates, generateCourse } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
 import { Random } from '../src/core/random';
@@ -65,6 +65,16 @@ describe('course generation', () => {
     expect(course.score.playable).toBe(true);
   });
 
+  it('keeps a solver line viable in every hazard phase and generates both major hazard types', () => {
+    const courses = Array.from({ length: 8 }, (_, index) => generateCourse(`phase-set-${index}`));
+    expect(courses.some((course) => course.hazards[0]?.kind === 'sweeper')).toBe(true);
+    expect(courses.some((course) => course.hazards[0]?.kind === 'gate')).toBe(true);
+    expect(courses.every((course) => course.itemPads.length === 3)).toBe(true);
+    for (const course of courses) {
+      for (let phase = 0; phase < 8; phase += 1) expect(simulateShot(course, newBall(course), course.score.solverShots[0]!, 10, { phase }).holed).toBe(true);
+    }
+  });
+
 });
 
 describe('turns and bots', () => {
@@ -100,6 +110,11 @@ describe('turns and bots', () => {
     expect(frames.length).toBeGreaterThan(1);
     expect(frames.at(-1)?.[0]).toMatchObject({ x: committed.x, y: committed.y, z: committed.z, complete: committed.complete });
     expect(frames.at(-1)?.[1]).toMatchObject({ x: committedOpponent.x, y: committedOpponent.y, z: committedOpponent.z, complete: committedOpponent.complete });
+    expect(Math.hypot(committed.vx, committed.vy, committed.vz)).toBe(0);
+
+    const multiplayer = beginCourse(createGame({ ...defaultConfig(), seed: 'animation-multiplayer', botCount: 3 }));
+    const multiplayerFrames = previewShot(multiplayer, shot)!;
+    expect(multiplayerFrames.every((frame) => frame.length === multiplayer.players.length)).toBe(true);
   });
 
   it('gives bots a finite physics-valid shot', () => {
@@ -212,5 +227,43 @@ describe('turns and bots', () => {
     game = applyCommand(game, { type: 'shoot', shot: move.shot });
     expect(game.players[1]!.turboArmed).toBe(false);
     expect(game.players[1]!.ball.strokes).toBe(1);
+  });
+
+  it('uses the same phase for gates, sweepers, previews, and committed turns', () => {
+    const gateCourse = arena('gate-arena');
+    gateCourse.hazards = [{ id: 'gate', kind: 'gate', point: { x: 3, y: 3 }, phaseOffset: 0 }];
+    const openGate = simulateShot(gateCourse, newBall(gateCourse), { angle: 0, power: 4 }, 1, { phase: 0 });
+    const closedGate = simulateShot(gateCourse, newBall(gateCourse), { angle: 0, power: 4 }, 1, { phase: 2 });
+    expect(openGate.ball.x).toBeGreaterThan(3.2);
+    expect(closedGate.ball.x).toBeLessThan(3);
+
+    const sweeperCourse = arena('sweeper-arena');
+    sweeperCourse.hazards = [{ id: 'sweeper', kind: 'sweeper', point: { x: 3, y: 3 }, phaseOffset: 0, radius: .78 }];
+    const sweep = simulateShot(sweeperCourse, newBall(sweeperCourse), { angle: 0, power: 4 }, 1, { phase: 0 });
+    expect(Math.abs(sweep.ball.y - 3.5)).toBeGreaterThan(.1);
+
+    let game = gameOn(gateCourse);
+    const frames = previewShot(game, { angle: 0, power: 4 })!;
+    const committed = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 4 } });
+    expect(frames.at(-1)?.[0]).toMatchObject({ x: committed.players[0]!.ball.x, y: committed.players[0]!.ball.y });
+    expect(committed.coursePhase).toBe(1);
+    game = committed;
+    game.players[1]!.frozenTurns = 1;
+    game = applyCommand({ ...game, turn: { ...game.turn, playerIndex: 1 } }, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.coursePhase).toBe(2);
+    game = tickTurn({ ...game, turn: { ...game.turn, secondsLeft: .1 } }, 1);
+    expect(game.coursePhase).toBe(3);
+  });
+
+  it('collects visible pads and favors recovery items for players substantially behind', () => {
+    const course = arena('pad-arena');
+    const padId = Array.from({ length: 12 }, (_, index) => `recovery-${index}`).find((id) => new Random(`${course.seed}:${id}:human-0:0:1`).chance(.7))!;
+    course.itemPads = [{ id: padId, point: { x: 2, y: 3 }, kind: 'chaos' }];
+    let game = gameOn(course);
+    game.players[0]!.total = 3;
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(course.itemPads[0]!.collected).toBeUndefined();
+    expect(game.course.itemPads[0]!.collected).toBe(true);
+    expect(['turbo', 'shield']).toContain(game.players[0]!.inventory);
   });
 });

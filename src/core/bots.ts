@@ -32,7 +32,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
     for (let power = 2; power <= 7.5; power += powerStep) {
       const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot, 10, { phase });
+      const result = simulateShot(course, bot.ball, shot, undefined, { phase });
       const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
         + result.ball.resetCount * 45
         + Math.max(0, result.ball.z - 1.4) * 3

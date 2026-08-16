@@ -156,8 +156,9 @@ const adjustPower = (amount: number) => {
   renderControls();
 };
 
-const drawShotFrame = (balls: readonly Ball[]) => {
-  const players = state.players.map((player, index) => ({ ...player, ball: balls[index]! }));
+const drawShotFrame = (balls: readonly Ball[] | undefined) => {
+  if (!balls) return;
+  const players = state.players.map((player, index) => ({ ...player, ball: balls[index] ?? player.ball }));
   renderer?.draw(state.course, players, state.coursePhase, undefined, liveEmotes, state.config.powerUps);
 };
 
@@ -179,8 +180,8 @@ const playShot = (shot: ShotCommand) => {
   document.querySelector<HTMLElement>('#status')!.textContent = renderStatus();
   const animate = (now: number) => {
     if (!shotAnimation || state !== inFlight) return;
-    const progress = Math.min(1, (now - startedAt) / duration);
-    const frame = Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1)));
+    const progress = Math.max(0, Math.min(1, (now - startedAt) / duration));
+    const frame = Math.max(0, Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1))));
     shotAnimation.frame = frame;
     drawShotFrame(frames[frame]!);
     if (progress < 1) {

@@ -26,7 +26,8 @@ export type Surface =
 export interface Tile {
   surface: Surface;
   height: number;
-  slope?: { x: number; y: number };
+  /** shared clockwise corner heights: north-west, north-east, south-east, south-west */
+  corners?: [number, number, number, number];
   direction?: { x: number; y: number };
 }
 

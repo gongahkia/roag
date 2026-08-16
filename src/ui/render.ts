@@ -1,9 +1,10 @@
 import { isGateOpen, sweeperDirection } from '../core/hazards';
+import { floorHeightAt, tileCornerHeights } from '../core/physics';
 import { EMOTES, type Ball, type Course, type EmoteEvent, type Player, type Surface, type Tile } from '../core/types';
 
 interface Point { x: number; y: number; }
-interface Metrics { tileWidth: number; tileHeight: number; elevation: number; }
-interface VisibleTile { x: number; y: number; tile: Tile; corners: Point[]; center: Point; }
+export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elevation: number; }
+interface VisibleTile { x: number; y: number; tile: Tile; heights: [number, number, number, number]; corners: Point[]; center: Point; }
 
 const topColors: Record<Surface, string> = {
   void: '#08131d',
@@ -31,9 +32,14 @@ export interface Renderer {
   dispose(): void;
 }
 
-const project = (x: number, y: number, z: number, metrics: Metrics): Point => ({
+const project = (x: number, y: number, z: number, metrics: ProjectionMetrics): Point => ({
   x: (x - y) * metrics.tileWidth / 2,
   y: (x + y) * metrics.tileHeight / 2 - z * metrics.elevation,
+});
+
+export const projectWorldDirection = (direction: Point, metrics: Pick<ProjectionMetrics, 'tileWidth' | 'tileHeight'>): Point => ({
+  x: (direction.x - direction.y) * metrics.tileWidth / 2,
+  y: (direction.x + direction.y) * metrics.tileHeight / 2,
 });
 
 const polygon = (context: CanvasRenderingContext2D, points: readonly Point[]) => {
@@ -45,23 +51,23 @@ const polygon = (context: CanvasRenderingContext2D, points: readonly Point[]) =>
 
 const isVisible = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
 
-const visibleTilesFor = (course: Course, metrics: Metrics): VisibleTile[] => {
+const visibleTilesFor = (course: Course, metrics: ProjectionMetrics): VisibleTile[] => {
   const visible: VisibleTile[] = [];
   for (let y = 0; y < course.height; y += 1) {
     for (let x = 0; x < course.width; x += 1) {
       const tile = course.tiles[y * course.width + x]!;
       if (!isVisible(tile)) continue;
-      const point = (tileX: number, tileY: number) => project(tileX, tileY, tile.height, metrics);
-      const corners = [point(x, y), point(x + 1, y), point(x + 1, y + 1), point(x, y + 1)];
-      const center = project(x + .5, y + .5, tile.height, metrics);
-      visible.push({ x, y, tile, corners, center });
+      const heights = tileCornerHeights(tile);
+      const corners = [project(x, y, heights[0], metrics), project(x + 1, y, heights[1], metrics), project(x + 1, y + 1, heights[2], metrics), project(x, y + 1, heights[3], metrics)];
+      const center = project(x + .5, y + .5, heights.reduce((sum, height) => sum + height, 0) / 4, metrics);
+      visible.push({ x, y, tile, heights, corners, center });
     }
   }
   return visible.sort((left, right) => left.center.y - right.center.y || left.center.x - right.center.x);
 };
 
-const boundsFor = (tiles: readonly VisibleTile[], metrics: Metrics) => {
-  const points = tiles.flatMap(({ corners, tile }) => [...corners, ...corners.map((point) => ({ x: point.x, y: point.y + (tile.height + 1.1) * metrics.elevation }))]);
+const boundsFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics) => {
+  const points = tiles.flatMap(({ corners, heights }) => [...corners, ...corners.map((point, index) => ({ x: point.x, y: point.y + (heights[index]! + 1.1) * metrics.elevation }))]);
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
   const minY = Math.min(...points.map((point) => point.y));
@@ -69,14 +75,14 @@ const boundsFor = (tiles: readonly VisibleTile[], metrics: Metrics) => {
   return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 };
 
-const metricsFor = (course: Course, width: number, height: number): Metrics => {
+const metricsFor = (course: Course, width: number, height: number): ProjectionMetrics => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
   const bounds = boundsFor(visibleTilesFor(course, unitMetrics), unitMetrics);
   const tileWidth = Math.max(16, Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height));
   return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
 };
 
-const offsetFor = (tiles: readonly VisibleTile[], metrics: Metrics, width: number, height: number): Point => {
+const offsetFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics, width: number, height: number): Point => {
   const { minX, maxX, minY, maxY } = boundsFor(tiles, metrics);
   return {
     x: width / 2 - (minX + maxX) / 2,
@@ -88,16 +94,16 @@ const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offse
 
 const neighborFor = (course: Course, x: number, y: number, direction: Point) => course.tiles[(y + direction.y) * course.width + x + direction.x];
 
-const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, offset: Point, metrics: Metrics) => {
-  if (isVisible(neighbor) && neighbor!.height >= tile.tile.height) return;
+const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, offset: Point, metrics: ProjectionMetrics) => {
+  if (isVisible(neighbor)) return;
   const edgePoints = [tile.corners[edge]!, tile.corners[(edge + 1) % 4]!];
-  const baseline = isVisible(neighbor) ? neighbor!.height : -1.1;
-  const depth = Math.max(.15, tile.tile.height - baseline) * metrics.elevation;
+  const edgeHeights = [tile.heights[edge]!, tile.heights[(edge + 1) % 4]!];
+  const depths = edgeHeights.map((height) => (height + 1.1) * metrics.elevation);
   const face = [
     withOffset(edgePoints[0], offset),
     withOffset(edgePoints[1], offset),
-    withOffset({ x: edgePoints[1].x, y: edgePoints[1].y + depth }, offset),
-    withOffset({ x: edgePoints[0].x, y: edgePoints[0].y + depth }, offset),
+    withOffset({ x: edgePoints[1].x, y: edgePoints[1].y + depths[1]! }, offset),
+    withOffset({ x: edgePoints[0].x, y: edgePoints[0].y + depths[0]! }, offset),
   ];
   polygon(context, face);
   const brighter = edgePoints[0].x < edgePoints[1].x;
@@ -105,12 +111,12 @@ const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: nu
   context.fillStyle = wall ? (brighter ? faceColors.wallLight : faceColors.wallDark) : (brighter ? faceColors.light : faceColors.dark);
   context.fill();
   context.fillStyle = brighter ? '#fff3c342' : '#370d1240';
-  for (let stripe = 6; stripe < depth; stripe += 9) {
+  for (let stripe = 6; stripe < Math.max(...depths); stripe += 9) {
     context.fillRect(Math.min(face[0].x, face[1].x), Math.max(face[0].y, face[1].y) + stripe, Math.abs(face[1].x - face[0].x), 1);
   }
 };
 
-const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: Metrics) => {
+const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: ProjectionMetrics) => {
   const center = withOffset(tile.center, offset);
   context.save();
   polygon(context, tile.corners.map((point) => withOffset(point, offset)));
@@ -154,11 +160,10 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
   context.restore();
 };
 
-const screenDirection = (x: number, y: number, direction: Point, metrics: Metrics): Point => {
-  const startPoint = project(x + .5, y + .5, 0, metrics);
-  const endPoint = project(x + .5 + direction.x, y + .5 + direction.y, 0, metrics);
-  const length = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y) || 1;
-  return { x: (endPoint.x - startPoint.x) / length, y: (endPoint.y - startPoint.y) / length };
+const screenDirection = (_x: number, _y: number, direction: Point, metrics: ProjectionMetrics): Point => {
+  const projected = projectWorldDirection(direction, metrics);
+  const length = Math.hypot(projected.x, projected.y) || 1;
+  return { x: projected.x / length, y: projected.y / length };
 };
 
 const drawChevron = (context: CanvasRenderingContext2D, center: Point, direction: Point, size: number, color: string) => {
@@ -169,28 +174,28 @@ const drawChevron = (context: CanvasRenderingContext2D, center: Point, direction
   context.fill();
 };
 
-const drawSurfaceMarker = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: Metrics) => {
+const drawSurfaceMarker = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: ProjectionMetrics) => {
   if (tile.tile.surface !== 'booster' && tile.tile.surface !== 'conveyor') return;
   const direction = tile.tile.direction ?? { x: 1, y: 0 };
   const vector = screenDirection(tile.x, tile.y, direction, metrics);
   drawChevron(context, withOffset(tile.center, offset), vector, metrics.tileWidth * .18, tile.tile.surface === 'booster' ? '#ffe4a3' : '#e8f3ff');
 };
 
-const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: Metrics) => {
+const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
   for (let index = 2; index < course.route.length - 1; index += 4) {
     const point = course.route[index]!;
     const next = course.route[index + 1]!;
     const tile = course.tiles[point.y * course.width + point.x]!;
     if (!isVisible(tile) || tile.surface !== 'fairway') continue;
-    const center = withOffset(project(point.x + .5, point.y + .5, tile.height + .025, metrics), offset);
+    const center = withOffset(project(point.x + .5, point.y + .5, floorHeightAt(course, point.x + .5, point.y + .5) + .025, metrics), offset);
     const direction = screenDirection(point.x, point.y, { x: next.x - point.x, y: next.y - point.y }, metrics);
     drawChevron(context, center, direction, metrics.tileWidth * .13, '#d94327');
   }
 };
 
-const heightAt = (course: Course, point: Point) => course.tiles[point.y * course.width + point.x]?.height ?? 0;
+const heightAt = (course: Course, point: Point) => floorHeightAt(course, point.x + .5, point.y + .5);
 
-const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: number, offset: Point, metrics: Metrics) => {
+const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: number, offset: Point, metrics: ProjectionMetrics) => {
   for (const hazard of course.hazards) {
     const center = withOffset(project(hazard.point.x + .5, hazard.point.y + .5, heightAt(course, hazard.point) + .1, metrics), offset);
     if (hazard.kind === 'sweeper') {
@@ -234,7 +239,7 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
   }
 };
 
-const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: Metrics) => {
+const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
   course.itemPads.filter((pad) => !pad.collected).forEach((pad) => {
     const center = withOffset(project(pad.point.x + .5, pad.point.y + .5, heightAt(course, pad.point) + .06, metrics), offset);
     const size = metrics.tileWidth * .14;
@@ -252,7 +257,7 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
   });
 };
 
-const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, offset: Point, metrics: Metrics) => {
+const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, offset: Point, metrics: ProjectionMetrics) => {
   const point = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
   const radius = Math.max(4, metrics.tileWidth * .13);
   context.beginPath();
@@ -272,7 +277,7 @@ const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, 
   context.fill();
 };
 
-const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes: readonly EmoteEvent[], offset: Point, metrics: Metrics) => {
+const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes: readonly EmoteEvent[], offset: Point, metrics: ProjectionMetrics) => {
   emotes.forEach((event, index) => {
     const player = players.find((candidate) => candidate.id === event.playerId);
     const definition = EMOTES.find((candidate) => candidate.id === event.emote);
@@ -337,7 +342,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         const start = withOffset(project(player.ball.x, player.ball.y, player.ball.z + .15, metrics), offset);
         context.beginPath();
         context.moveTo(start.x, start.y);
-        context.lineTo(start.x + Math.cos(aim.angle) * aim.power * metrics.tileWidth * .4, start.y + Math.sin(aim.angle) * aim.power * metrics.tileHeight * .4);
+        const projected = projectWorldDirection({ x: Math.cos(aim.angle) * aim.power * .4, y: Math.sin(aim.angle) * aim.power * .4 }, metrics);
+        context.lineTo(start.x + projected.x, start.y + projected.y);
         context.strokeStyle = '#fff1b7';
         context.setLineDash([4, 4]);
         context.lineWidth = 2;

@@ -1,7 +1,7 @@
 import { chooseBotDecision, type BotDecision } from './bots';
 import { generateCourse } from './generator';
 import { COURSE_PHASES } from './hazards';
-import { newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
+import { MAX_SETTLE_SECONDS, newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { hashSeed, Random } from './random';
 import type { Ball, Course, GameCommand, GameConfig, GameState, GameTransport, ItemPadKind, Player, PowerUp, ShotCommand, Upgrade } from './types';
 
@@ -77,7 +77,7 @@ const modifiersFor = (player: Player): BallPhysicsModifiers => ({
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
-  return simulateShot(state.course, player.ball, adjustedShot(player, shot), 10, {
+  return simulateShot(state.course, player.ball, adjustedShot(player, shot), undefined, {
     modifiers: modifiersFor(player),
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
     collisions: state.config.collisions,
@@ -231,7 +231,7 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
   }
   if (powerUp === 'bomb' && target) {
     const distance = Math.hypot(target.ball.x - player.ball.x, target.ball.y - player.ball.y) || 1;
-    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, 4, modifiersFor(target), state.coursePhase);
+    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, MAX_SETTLE_SECONDS, modifiersFor(target), state.coursePhase);
     target.ball = result.ball;
     target.hazardShield = target.hazardShield && !result.shieldUsed;
     addMessage(state, `${player.name} bombs ${target.name}`);

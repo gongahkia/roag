@@ -2,21 +2,28 @@ import { closedGateAt, sweeperDirection } from './hazards';
 import type { Ball, Course, Point, ShotCommand, Surface, Tile } from './types';
 
 const STEP = 1 / 60;
-const GRAVITY = -14;
 const BALL_RADIUS = 0.18;
 const BALL_DIAMETER = BALL_RADIUS * 2;
+const SLOPE_GRAVITY = 9.8;
+const HEIGHT_TO_WORLD = 0.18;
+const STOP_SPEED = 0.12;
+const BOOST_ACCELERATION = 4.5;
+const CONVEYOR_ACCELERATION = 1.2;
 
-const surfaceFriction: Record<Surface, number> = {
-  void: 0.995,
-  fairway: 0.994,
-  rough: 0.987,
-  sand: 0.978,
-  ice: 0.998,
-  wall: 0.65,
-  tee: 0.994,
-  cup: 0.994,
-  booster: 0.995,
-  conveyor: 0.991,
+export const MAX_SETTLE_SECONDS = 18;
+export const MAX_SURFACE_SPEED = 8;
+
+const rollingDeceleration: Record<Surface, number> = {
+  void: 0,
+  fairway: 0.92,
+  rough: 1.45,
+  sand: 2.35,
+  ice: 0.55,
+  wall: 0,
+  tee: 0.92,
+  cup: 0.92,
+  booster: 0.82,
+  conveyor: 0.92,
 };
 
 export interface BallPhysicsModifiers {
@@ -54,6 +61,8 @@ export interface SimulationResult {
   shieldUsed: boolean;
   otherShieldUsed: boolean[];
   itemPadIds: string[];
+  /** false means the safety ceiling stopped an otherwise active simulation */
+  settled: boolean;
 }
 
 interface Participant {
@@ -72,27 +81,54 @@ export const tileAt = (course: Course, x: number, y: number): Tile | undefined =
 
 export const tileCenter = (point: Point) => ({ x: point.x + 0.5, y: point.y + 0.5 });
 
+export const tileCornerHeights = (tile: Tile): [number, number, number, number] => tile.corners ?? [tile.height, tile.height, tile.height, tile.height];
+
+export const floorHeightAt = (course: Course, x: number, y: number): number => {
+  const tile = tileAt(course, x, y);
+  if (!tile) return 0;
+  const [northWest, northEast, southEast, southWest] = tileCornerHeights(tile);
+  const localX = x - Math.floor(x);
+  const localY = y - Math.floor(y);
+  return northWest * (1 - localX) * (1 - localY)
+    + northEast * localX * (1 - localY)
+    + southEast * localX * localY
+    + southWest * (1 - localX) * localY;
+};
+
+export const floorGradientAt = (course: Course, x: number, y: number): Point => {
+  const tile = tileAt(course, x, y);
+  if (!tile) return { x: 0, y: 0 };
+  const [northWest, northEast, southEast, southWest] = tileCornerHeights(tile);
+  const localX = x - Math.floor(x);
+  const localY = y - Math.floor(y);
+  return {
+    x: (northEast - northWest) * (1 - localY) + (southEast - southWest) * localY,
+    y: (southWest - northWest) * (1 - localX) + (southEast - northEast) * localX,
+  };
+};
+
 export const newBall = (course: Course): Ball => {
   const tee = tileCenter(course.tee);
-  const tile = tileAt(course, tee.x, tee.y)!;
-  return { x: tee.x, y: tee.y, z: tile.height + BALL_RADIUS, vx: 0, vy: 0, vz: 0, strokes: 0, complete: false, resetCount: 0 };
+  return { x: tee.x, y: tee.y, z: floorHeightAt(course, tee.x, tee.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, strokes: 0, complete: false, resetCount: 0 };
 };
 
 export const applyShot = (ball: Ball, shot: ShotCommand): Ball => ({
   ...ball,
   vx: Math.cos(shot.angle) * shot.power,
   vy: Math.sin(shot.angle) * shot.power,
-  vz: Math.min(2.8, shot.power * 0.11),
+  vz: 0,
   strokes: ball.strokes + 1,
 });
 
+const planarSpeed = (ball: Ball) => Math.hypot(ball.vx, ball.vy);
+
 const speed = (ball: Ball) => Math.hypot(ball.vx, ball.vy, ball.vz);
 
-export const isStopped = (ball: Ball) => speed(ball) < 0.12;
+export const isStopped = (ball: Ball) => speed(ball) < STOP_SPEED;
 
 const isOnGround = (course: Course, ball: Ball) => {
   const tile = tileAt(course, ball.x, ball.y);
-  return Boolean(tile && tile.surface !== 'void' && ball.z <= tile.height + BALL_RADIUS + .01);
+  return Boolean(tile && tile.surface !== 'void' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
 };
 
 const snapshot = (participants: readonly Participant[]): SimulationFrame => ({
@@ -102,19 +138,80 @@ const snapshot = (participants: readonly Participant[]): SimulationFrame => ({
 
 const sameFrame = (left: SimulationFrame, right: SimulationFrame) => JSON.stringify(left) === JSON.stringify(right);
 
+const limitPlanarSpeed = (ball: Ball) => {
+  const currentSpeed = planarSpeed(ball);
+  if (currentSpeed <= MAX_SURFACE_SPEED) return;
+  const scale = MAX_SURFACE_SPEED / currentSpeed;
+  ball.vx *= scale;
+  ball.vy *= scale;
+};
+
+const bounceNormal = (previous: Ball, next: Ball): Point => {
+  const previousColumn = Math.floor(previous.x);
+  const previousRow = Math.floor(previous.y);
+  const nextColumn = Math.floor(next.x);
+  const nextRow = Math.floor(next.y);
+  const crossedX = nextColumn !== previousColumn;
+  const crossedY = nextRow !== previousRow;
+  if (crossedX && (!crossedY || Math.abs(next.vx) >= Math.abs(next.vy))) return { x: nextColumn > previousColumn ? -1 : 1, y: 0 };
+  if (crossedY) return { x: 0, y: nextRow > previousRow ? -1 : 1 };
+  return Math.abs(next.vx) >= Math.abs(next.vy) ? { x: next.vx > 0 ? -1 : 1, y: 0 } : { x: 0, y: next.vy > 0 ? -1 : 1 };
+};
+
+const reflect = (ball: Ball, normal: Point, restitution: number) => {
+  const approach = ball.vx * normal.x + ball.vy * normal.y;
+  if (approach >= 0) return { vx: ball.vx, vy: ball.vy };
+  return {
+    vx: ball.vx - (1 + restitution) * approach * normal.x,
+    vy: ball.vy - (1 + restitution) * approach * normal.y,
+  };
+};
+
+const stopParticipant = (course: Course, participant: Participant) => {
+  const tile = tileAt(course, participant.ball.x, participant.ball.y);
+  participant.ball = {
+    ...participant.ball,
+    z: tile && tile.surface !== 'void' ? floorHeightAt(course, participant.ball.x, participant.ball.y) + BALL_RADIUS : participant.ball.z,
+    vx: 0,
+    vy: 0,
+    vz: 0,
+  };
+};
+
+const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: BallPhysicsModifiers) => {
+  const gradient = floorGradientAt(course, ball.x, ball.y);
+  ball.vx -= gradient.x * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
+  ball.vy -= gradient.y * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
+  if (tile.surface === 'booster' || tile.surface === 'conveyor') {
+    const direction = tile.direction ?? { x: 1, y: 0 };
+    const acceleration = tile.surface === 'booster' ? BOOST_ACCELERATION : CONVEYOR_ACCELERATION;
+    ball.vx += direction.x * acceleration * STEP;
+    ball.vy += direction.y * acceleration * STEP;
+  }
+  const currentSpeed = planarSpeed(ball);
+  if (currentSpeed > 0) {
+    const deceleration = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
+    const reduction = Math.min(currentSpeed, deceleration * STEP);
+    ball.vx -= ball.vx / currentSpeed * reduction;
+    ball.vy -= ball.vy / currentSpeed * reduction;
+  }
+  limitPlanarSpeed(ball);
+};
+
 const stepTerrain = (course: Course, participant: Participant, phase: number) => {
   const previous = { ...participant.ball };
-  let ball = participant.ball;
-  ball.vz += GRAVITY * STEP;
+  const ball = participant.ball;
   ball.x += ball.vx * STEP;
   ball.y += ball.vy * STEP;
-  ball.z += ball.vz * STEP;
+  ball.vz = 0;
 
   const tile = tileAt(course, ball.x, ball.y);
   if (!tile || tile.surface === 'void') {
     if (participant.modifiers.hazardShield && !participant.shieldUsed) {
       participant.shieldUsed = true;
-      participant.ball = { ...previous, vx: -previous.vx * .38, vy: -previous.vy * .38, vz: Math.max(0, previous.vz * .2) };
+      const normal = bounceNormal(previous, ball);
+      const velocity = reflect(previous, normal, .38);
+      participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     } else {
       participant.reset = true;
       participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, resetCount: previous.resetCount + 1 };
@@ -122,34 +219,14 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
     return;
   }
   if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase)) {
-    const rebound = participant.modifiers.bankShot ? .82 : .52;
-    participant.ball = { ...previous, vx: -previous.vx * rebound, vy: -previous.vy * rebound, vz: Math.max(0, previous.vz * .5) };
+    const normal = bounceNormal(previous, ball);
+    const velocity = reflect(previous, normal, participant.modifiers.bankShot ? .82 : .52);
+    participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     return;
   }
 
-  const floor = tile.height + BALL_RADIUS;
-  if (ball.z <= floor) {
-    ball.z = floor;
-    ball.vz = ball.vz < -0.5 ? -ball.vz * .24 : 0;
-    const friction = tile.surface === 'ice' && participant.modifiers.iceSkates ? .9994 : surfaceFriction[tile.surface];
-    ball.vx *= friction;
-    ball.vy *= friction;
-    if (tile.slope) {
-      ball.vx += tile.slope.x * STEP * 2.4;
-      ball.vy += tile.slope.y * STEP * 2.4;
-    }
-    if (tile.surface === 'booster') {
-      const direction = tile.direction ?? { x: 1, y: 0 };
-      ball.vx += direction.x * .18;
-      ball.vy += direction.y * .18;
-    }
-    if (tile.surface === 'conveyor') {
-      const direction = tile.direction ?? { x: 1, y: 0 };
-      ball.vx += direction.x * .045;
-      ball.vy += direction.y * .045;
-    }
-  }
-  participant.ball = ball;
+  ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
+  applySurfaceForces(course, ball, tile, participant.modifiers);
 };
 
 const collideWithSweepers = (course: Course, participants: Participant[], phase: number) => {
@@ -170,8 +247,10 @@ const collideWithSweepers = (course: Course, participants: Participant[], phase:
       const overlap = thickness - Math.abs(sideways) + .01;
       participant.ball.x += normal.x * overlap;
       participant.ball.y += normal.y * overlap;
+      participant.ball.z = floorHeightAt(course, participant.ball.x, participant.ball.y) + BALL_RADIUS;
       participant.ball.vx += normal.x * 1.55 + direction.x * .45;
       participant.ball.vy += normal.y * 1.55 + direction.y * .45;
+      limitPlanarSpeed(participant.ball);
     }
   }
 };
@@ -202,9 +281,15 @@ const collide = (course: Course, participants: Participant[]) => {
       left.ball.y -= normal.y * separation / leftMass;
       right.ball.x += normal.x * separation / rightMass;
       right.ball.y += normal.y * separation / rightMass;
+      left.ball.z = floorHeightAt(course, left.ball.x, left.ball.y) + BALL_RADIUS;
+      right.ball.z = floorHeightAt(course, right.ball.x, right.ball.y) + BALL_RADIUS;
+      limitPlanarSpeed(left.ball);
+      limitPlanarSpeed(right.ball);
     }
   }
 };
+
+const allSettled = (course: Course, participants: Participant[]) => participants.every((participant) => participant.ball.complete || (isStopped(participant.ball) && isOnGround(course, participant.ball)));
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
@@ -215,7 +300,9 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
   const cup = tileCenter(course.cup);
   const phase = options.phase ?? 0;
   const itemPadIds = new Set<string>();
+  const settleAtEnd = maxSeconds >= MAX_SETTLE_SECONDS;
   let holed = false;
+  let settled = false;
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
     participants.forEach((participant) => {
@@ -226,8 +313,8 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
     const active = participants[0]!;
     const activeTile = tileAt(course, active.ball.x, active.ball.y);
-    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y) < .28 && Math.hypot(active.ball.vx, active.ball.vy) < 1.9 && active.ball.z <= (tileAt(course, cup.x, cup.y)?.height ?? 0) + .3) {
-      active.ball = { ...active.ball, x: cup.x, y: cup.y, vx: 0, vy: 0, vz: 0, complete: true };
+    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y) < .28 && planarSpeed(active.ball) < 1.9 && active.ball.z <= floorHeightAt(course, cup.x, cup.y) + .3) {
+      active.ball = { ...active.ball, x: cup.x, y: cup.y, z: floorHeightAt(course, cup.x, cup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
       holed = true;
     }
     if (options.collectItems && !itemPadIds.size && !active.ball.complete) {
@@ -236,12 +323,16 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
     }
 
     participants.forEach((participant) => {
-      if (!participant.ball.complete && isStopped(participant.ball) && isOnGround(course, participant.ball)) participant.ball = { ...participant.ball, vx: 0, vy: 0, vz: 0 };
+      if (!participant.ball.complete && isStopped(participant.ball) && isOnGround(course, participant.ball)) stopParticipant(course, participant);
     });
     if (frame % 2 === 0) frames.push(snapshot(participants));
-    if (participants.every((participant) => participant.ball.complete || (isStopped(participant.ball) && isOnGround(course, participant.ball)))) break;
+    if (allSettled(course, participants)) {
+      settled = true;
+      break;
+    }
   }
 
+  if (!settled && settleAtEnd) participants.forEach((participant) => { if (!participant.ball.complete) stopParticipant(course, participant); });
   const finalFrame = snapshot(participants);
   if (!frames.length || !sameFrame(frames.at(-1)!, finalFrame)) frames.push(finalFrame);
   return {
@@ -254,12 +345,13 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
     shieldUsed: participants[0]!.shieldUsed,
     otherShieldUsed: participants.slice(1).map((participant) => participant.shieldUsed),
     itemPadIds: [...itemPadIds],
+    settled,
   };
 };
 
-export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = 10, options: SimulationOptions = {}): SimulationResult => simulateMotion(course, applyShot(initial, shot), maxSeconds, options);
+export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = MAX_SETTLE_SECONDS, options: SimulationOptions = {}): SimulationResult => simulateMotion(course, applyShot(initial, shot), maxSeconds, options);
 
-export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = 4, modifiers: BallPhysicsModifiers = {}, phase = 0): SimulationResult => simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: Math.min(1.5, Math.hypot(velocity.x, velocity.y) * .08) }, maxSeconds, { modifiers, phase });
+export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = MAX_SETTLE_SECONDS, modifiers: BallPhysicsModifiers = {}, phase = 0): SimulationResult => simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: 0 }, maxSeconds, { modifiers, phase });
 
 export const distanceToCup = (course: Course, ball: Ball) => {
   const cup = tileCenter(course.cup);
