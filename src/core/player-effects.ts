@@ -1,0 +1,78 @@
+import { newBall, type BallPhysicsModifiers } from './physics';
+import type { BallForm, Course, Player, PowerUp, ShotCommand, Upgrade } from './types';
+
+export const BALL_FORMS: readonly BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
+export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet'];
+export const CHAOS_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
+export const UPGRADES: readonly Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'];
+
+export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
+  'heavy ball': '+12% launch power and 1.45× collision mass',
+  'ice skates': 'slides farther across ice',
+  'extra charge': 'empty chaos slot refills after every shot',
+  'bank shot': 'retains 82% speed on wall rebounds',
+  'hazard shield': 'one void rebound each hole',
+  'chaos magnet': '65% chance to refill after using an item',
+  'portal savvy': '18% more speed after portal exits',
+  'second wind': 'one two-putts charge each hole',
+  scavenger: 'hold a second chaos item',
+};
+
+export const isBallForm = (powerUp: PowerUp): powerUp is BallForm => BALL_FORMS.includes(powerUp as BallForm);
+
+export const adjustedShotFor = (player: Player, shot: ShotCommand): ShotCommand => {
+  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1);
+  return { ...shot, power: shot.power * multiplier };
+};
+
+export const physicsModifiersFor = (player: Player): BallPhysicsModifiers => ({
+  mass: player.upgrades.includes('heavy ball') && player.ballForm === 'heavy' ? 1.9 : player.ballForm === 'heavy' ? 1.65 : player.upgrades.includes('heavy ball') ? 1.45 : 1,
+  iceSkates: player.upgrades.includes('ice skates') || player.ballForm === 'ice',
+  bankShot: player.upgrades.includes('bank shot'),
+  bouncy: player.ballForm === 'bouncy',
+  ghostBall: player.ballForm === 'ghost',
+  magnetBall: player.ballForm === 'magnet',
+  portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
+  portalSpeedMultiplier: player.upgrades.includes('portal savvy') ? 1.18 : 1,
+  hazardShield: player.hazardShield,
+});
+
+export const resetPlayerForCourse = (player: Player, course: Course) => {
+  player.ball = newBall(course);
+  player.inventory = undefined;
+  player.spareInventory = undefined;
+  player.ballForm = undefined;
+  player.portalExitId = undefined;
+  player.twoPuttsArmed = undefined;
+  player.secondWindAvailable = player.upgrades.includes('second wind');
+  player.turboArmed = false;
+  player.frozenTurns = undefined;
+  player.hazardShield = player.upgrades.includes('hazard shield');
+};
+
+export const canStorePowerUp = (player: Player) => !player.inventory || (player.upgrades.includes('scavenger') && !player.spareInventory);
+
+export const storePowerUp = (player: Player, powerUp: PowerUp) => {
+  if (!player.inventory) {
+    player.inventory = powerUp;
+    return true;
+  }
+  if (player.upgrades.includes('scavenger') && !player.spareInventory) {
+    player.spareInventory = powerUp;
+    return true;
+  }
+  return false;
+};
+
+export const takePowerUp = (player: Player, powerUp: PowerUp) => {
+  if (player.inventory === powerUp) {
+    player.inventory = player.spareInventory;
+    player.spareInventory = undefined;
+    return true;
+  }
+  if (player.spareInventory === powerUp) {
+    player.spareInventory = undefined;
+    return true;
+  }
+  return false;
+};
