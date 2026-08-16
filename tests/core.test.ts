@@ -311,6 +311,13 @@ describe('authored course rounds', () => {
     expect(randomTerrainSettings('builder-settings', 2)).toEqual(randomTerrainSettings('builder-settings', 2));
   });
 
+  it('keeps varied curated generator setups playable', () => {
+    const generated = Array.from({ length: 20 }, (_, index) => generateCourse(`curated-variation-${index}`, randomTerrainSettings('curated-variation', index + 1)));
+    expect(generated.every((course) => course.score.playable)).toBe(true);
+    expect(new Set(generated.map((course) => course.cup.x)).size).toBeGreaterThan(2);
+    expect(new Set(generated.map((course) => course.tiles.filter((tile) => tile.surface !== 'void').length)).size).toBeGreaterThan(4);
+  });
+
   it('requires an author sink before moving to the next builder, then starts competition', () => {
     let game = createGame({ ...defaultConfig(), seed: 'author-validation', humanCount: 1, botCount: 1 });
     game = applyCommand(game, { type: 'build-generate' });

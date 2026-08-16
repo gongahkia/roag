@@ -28,15 +28,16 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
 
 export const randomTerrainSettings = (seed: string, variation: number): TerrainSettings => {
   const random = new Random(`${seed}:terrain:${variation}`);
+  const stepped = (min: number, max: number, step: number) => Number((min + random.int(0, Math.round((max - min) / step)) * step).toFixed(2));
   return {
-    density: Number((.2 + random.next() * .8).toFixed(2)),
-    elevation: Number((random.next()).toFixed(2)),
+    density: stepped(.1, 1, .05),
+    elevation: stepped(0, 1, .05),
     hazards: random.int(0, 4),
-    routeLength: Number((.35 + random.next() * .65).toFixed(2)),
-    bendiness: Number((random.next()).toFixed(2)),
+    routeLength: stepped(.35, 1, .05),
+    bendiness: stepped(0, 1, .05),
     laneWidth: random.int(1, 3),
     branches: random.int(0, 3),
-    chaos: Number((random.next()).toFixed(2)),
+    chaos: stepped(0, 1, .05),
     theme: random.pick(themes),
     variation,
   };
