@@ -1,9 +1,9 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { generateCourse } from './generator';
+import { defaultTerrainSettings, generateCourse } from './generator';
 import { COURSE_PHASES } from './hazards';
 import { MAX_SETTLE_SECONDS, newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { hashSeed, Random } from './random';
-import type { Ball, Course, GameCommand, GameConfig, GameState, GameTransport, ItemPadKind, Player, PowerUp, ShotCommand, Upgrade } from './types';
+import type { Ball, BuildTool, Course, GameCommand, GameConfig, GameState, GameTransport, ItemPadKind, Player, Point, PowerUp, ShotCommand, Upgrade } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 const recoveryPowerUps: PowerUp[] = ['turbo', 'shield'];
@@ -41,8 +41,26 @@ const emptyPlayer = (id: string, index: number, kind: Player['kind'], skill: Pla
   total: 0,
 });
 
+const blankCourse = (seed: string): Course => {
+  const tee = { x: 2, y: Math.floor(7) };
+  const cup = { x: 17, y: Math.floor(7) };
+  return {
+    id: `build-${seed}`,
+    seed,
+    width: 20,
+    height: 14,
+    tiles: Array.from({ length: 280 }, () => ({ surface: 'void', height: 0 })),
+    tee,
+    cup,
+    route: [],
+    hazards: [],
+    itemPads: [],
+    score: { playable: false, estimatedStrokes: 0, hazards: 0, elevation: 0, routes: 0, novelty: 0, total: 0, solverShots: [], rejection: 'builder has not validated this course' },
+  };
+};
+
 export const createGame = (config: GameConfig): GameState => {
-  const course = generateCourse(hashSeed(config.seed, 1));
+  const course = blankCourse(hashSeed(config.seed, 0));
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
   players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
   return {
@@ -54,12 +72,17 @@ export const createGame = (config: GameConfig): GameState => {
     emoteSequence: 0,
     players,
     turn: { playerIndex: 0, secondsLeft: config.timerSeconds, shotInFlight: false },
-    status: 'preview',
-    messages: [`seed ${course.seed} generated`],
+    authoredCourses: [],
+    courseIndex: 0,
+    build: { authorIndex: 0, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false },
+    status: 'build',
+    messages: ['build a course, then sink it once to validate'],
   };
 };
 
-const cloneState = (state: GameState): GameState => ({ ...state, course: { ...state.course, hazards: state.course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })), itemPads: state.course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })) }, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
+const cloneCourse = (course: Course): Course => ({ ...course, tiles: course.tiles.map((tile) => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined })), route: course.route.map((point) => ({ ...point })), tee: { ...course.tee }, cup: { ...course.cup }, hazards: course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })), itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })) });
+
+const cloneState = (state: GameState): GameState => ({ ...state, course: cloneCourse(state.course), authoredCourses: state.authoredCourses.map((entry) => ({ ...entry, course: cloneCourse(entry.course) })), build: state.build ? { ...state.build, direction: { ...state.build.direction }, terrain: { ...state.build.terrain } } : undefined, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
 
 const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
 
@@ -77,6 +100,10 @@ const modifiersFor = (player: Player): BallPhysicsModifiers => ({
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
+  if (state.status === 'validate') return simulateShot(state.course, player.ball, adjustedShot(player, shot), undefined, {
+    modifiers: modifiersFor(player),
+    phase: state.coursePhase,
+  });
   return simulateShot(state.course, player.ball, adjustedShot(player, shot), undefined, {
     modifiers: modifiersFor(player),
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
@@ -89,6 +116,7 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
 const applySimulation = (state: GameState, playerIndex: number, result: SimulationResult) => {
   state.players[playerIndex]!.ball = result.ball;
   state.players[playerIndex]!.hazardShield = state.players[playerIndex]!.hazardShield && !result.shieldUsed;
+  if (state.status === 'validate') return;
   let otherIndex = 0;
   state.players.forEach((player, index) => {
     if (index === playerIndex) return;
@@ -99,14 +127,14 @@ const applySimulation = (state: GameState, playerIndex: number, result: Simulati
 };
 
 export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | undefined => {
-  if (state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  if ((state.status !== 'playing' && state.status !== 'validate') || state.turn.shotInFlight) return undefined;
   const playerIndex = state.turn.playerIndex;
   const player = state.players[playerIndex]!;
   if (player.frozenTurns) return undefined;
   const result = simulatePlayerShot(state, playerIndex, shot);
   return result.frames.map((frame) => {
     let otherIndex = 0;
-    return state.players.map((_, index) => index === playerIndex ? frame.ball : frame.otherBalls[otherIndex++]!);
+    return state.players.map((player, index) => index === playerIndex ? frame.ball : frame.otherBalls[otherIndex++] ?? player.ball);
   });
 };
 
@@ -116,6 +144,113 @@ const addMessage = (state: GameState, message: string) => {
 
 const advanceCoursePhase = (state: GameState) => {
   state.coursePhase = (state.coursePhase + 1) % COURSE_PHASES;
+};
+
+const resetPlayersForCourse = (state: GameState) => {
+  state.players.forEach((player) => {
+    player.ball = newBall(state.course);
+    player.inventory = undefined;
+    player.turboArmed = false;
+    player.frozenTurns = undefined;
+    player.hazardShield = player.upgrades.includes('hazard shield');
+  });
+};
+
+const beginBuild = (state: GameState, authorIndex: number) => {
+  const author = state.players[authorIndex]!;
+  state.course = blankCourse(hashSeed(state.config.seed, state.authoredCourses.length + authorIndex + 1));
+  state.coursePhase = 0;
+  state.build = { authorIndex, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false };
+  state.turn = { playerIndex: authorIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+  state.status = 'build';
+  addMessage(state, `${author.name} is building a course`);
+};
+
+const buildReady = (course: Course) => {
+  const tee = course.tiles[course.tee.y * course.width + course.tee.x];
+  const cup = course.tiles[course.cup.y * course.width + course.cup.x];
+  return tee?.surface === 'tee' && cup?.surface === 'cup' && course.tiles.filter((tile) => tile.surface !== 'void' && tile.surface !== 'wall').length >= 8;
+};
+
+const recenterTileHeight = (tile: Course['tiles'][number]) => {
+  const corners = tile.corners ?? [tile.height, tile.height, tile.height, tile.height];
+  tile.corners = corners;
+  tile.height = corners.reduce((total, height) => total + height, 0) / 4;
+};
+
+const setBuildHeight = (course: Course, point: Point, height: number) => {
+  const at = (x: number, y: number) => x >= 0 && y >= 0 && x < course.width && y < course.height ? course.tiles[y * course.width + x] : undefined;
+  const tile = at(point.x, point.y);
+  if (!tile || tile.surface === 'void') return;
+  tile.corners = [height, height, height, height];
+  tile.height = height;
+  const north = at(point.x, point.y - 1);
+  const east = at(point.x + 1, point.y);
+  const south = at(point.x, point.y + 1);
+  const west = at(point.x - 1, point.y);
+  if (north && north.surface !== 'void') { const corners = north.corners ?? [north.height, north.height, north.height, north.height]; corners[3] = height; corners[2] = height; north.corners = corners; recenterTileHeight(north); }
+  if (east && east.surface !== 'void') { const corners = east.corners ?? [east.height, east.height, east.height, east.height]; corners[0] = height; corners[3] = height; east.corners = corners; recenterTileHeight(east); }
+  if (south && south.surface !== 'void') { const corners = south.corners ?? [south.height, south.height, south.height, south.height]; corners[0] = height; corners[1] = height; south.corners = corners; recenterTileHeight(south); }
+  if (west && west.surface !== 'void') { const corners = west.corners ?? [west.height, west.height, west.height, west.height]; corners[1] = height; corners[2] = height; west.corners = corners; recenterTileHeight(west); }
+};
+
+const placeBuildTool = (state: GameState, point: Point) => {
+  const build = state.build;
+  if (!build || point.x < 0 || point.y < 0 || point.x >= state.course.width || point.y >= state.course.height) return;
+  const tileIndex = point.y * state.course.width + point.x;
+  const tool = build.tool;
+  const clearFeatures = () => {
+    state.course.hazards = state.course.hazards.filter((hazard) => hazard.point.x !== point.x || hazard.point.y !== point.y);
+    state.course.itemPads = state.course.itemPads.filter((pad) => pad.point.x !== point.x || pad.point.y !== point.y);
+  };
+  if (tool === 'erase') {
+    state.course.tiles[tileIndex] = { surface: 'void', height: 0 };
+    clearFeatures();
+    return;
+  }
+  if (tool === 'tee' || tool === 'cup') {
+    const previous = tool === 'tee' ? state.course.tee : state.course.cup;
+    const previousTile = state.course.tiles[previous.y * state.course.width + previous.x];
+    if (previousTile?.surface === tool) state.course.tiles[previous.y * state.course.width + previous.x] = { surface: 'void', height: 0 };
+    state.course[tool] = { ...point };
+    state.course.tiles[tileIndex] = { surface: tool, height: build.height, corners: [build.height, build.height, build.height, build.height] };
+    clearFeatures();
+    return;
+  }
+  if (tool === 'sweeper' || tool === 'gate') {
+    if (state.course.tiles[tileIndex]!.surface === 'void') state.course.tiles[tileIndex] = { surface: 'fairway', height: build.height, corners: [build.height, build.height, build.height, build.height] };
+    state.course.hazards = state.course.hazards.filter((hazard) => hazard.point.x !== point.x || hazard.point.y !== point.y);
+    state.course.hazards.push(tool === 'sweeper' ? { id: `builder-sweeper-${point.x}-${point.y}`, kind: 'sweeper', point: { ...point }, phaseOffset: (point.x + point.y) % COURSE_PHASES, radius: .78 } : { id: `builder-gate-${point.x}-${point.y}`, kind: 'gate', point: { ...point }, phaseOffset: (point.x + point.y) % COURSE_PHASES });
+    return;
+  }
+  if (tool === 'recovery-pad' || tool === 'chaos-pad') {
+    if (state.course.tiles[tileIndex]!.surface === 'void') state.course.tiles[tileIndex] = { surface: 'fairway', height: build.height, corners: [build.height, build.height, build.height, build.height] };
+    state.course.itemPads = state.course.itemPads.filter((pad) => pad.point.x !== point.x || pad.point.y !== point.y);
+    state.course.itemPads.push({ id: `builder-pad-${point.x}-${point.y}`, point: { ...point }, kind: tool === 'recovery-pad' ? 'recovery' : 'chaos' });
+    return;
+  }
+  state.course.tiles[tileIndex] = { surface: tool, height: build.height, corners: [build.height, build.height, build.height, build.height], direction: tool === 'booster' || tool === 'conveyor' ? { ...build.direction } : undefined };
+  clearFeatures();
+  setBuildHeight(state.course, point, build.height);
+};
+
+const finishValidation = (state: GameState) => {
+  const author = activePlayer(state);
+  state.authoredCourses.push({ authorId: author.id, course: cloneCourse(state.course) });
+  const nextAuthor = state.authoredCourses.length;
+  if (nextAuthor < state.players.length) {
+    beginBuild(state, nextAuthor);
+    return;
+  }
+  state.courseIndex = 0;
+  state.course = cloneCourse(state.authoredCourses[0]!.course);
+  state.hole = 1;
+  state.coursePhase = 0;
+  resetPlayersForCourse(state);
+  state.turn = { playerIndex: 0, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+  state.build = undefined;
+  state.status = 'playing';
+  addMessage(state, 'all courses validated — competitive play begins');
 };
 
 const advanceTurn = (state: GameState) => {
@@ -135,18 +270,60 @@ const finishHole = (state: GameState) => {
     const strokes = player.ball.complete ? player.ball.strokes : state.config.strokeCap;
     player.total += strokes;
   }
-  if (state.hole >= 9) {
+  if (state.courseIndex + 1 >= state.authoredCourses.length) {
     state.status = 'finished';
-    addMessage(state, 'campaign complete');
-  } else {
-    state.status = 'draft';
-    addMessage(state, `hole ${state.hole} scored — choose an upgrade`);
+    addMessage(state, 'all authored courses scored');
+    return;
   }
+  state.courseIndex += 1;
+  state.hole = state.courseIndex + 1;
+  state.course = cloneCourse(state.authoredCourses[state.courseIndex]!.course);
+  state.coursePhase = 0;
+  resetPlayersForCourse(state);
+  state.turn = { playerIndex: 0, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+  addMessage(state, `playing ${state.players.find((player) => player.id === state.authoredCourses[state.courseIndex]!.authorId)?.name ?? 'player'}'s course`);
 };
 
 export const applyCommand = (current: GameState, command: GameCommand): GameState => {
   const state = cloneState(current);
-  if (command.type === 'shoot' && state.status === 'playing' && !state.turn.shotInFlight) {
+  if (command.type === 'build-settings' && state.status === 'build' && state.build) {
+    if (command.tool) state.build.tool = command.tool;
+    if (command.height !== undefined) state.build.height = Math.max(0, Math.min(3, command.height));
+    if (command.direction) state.build.direction = { ...command.direction };
+    if (command.terrain) state.build.terrain = { ...state.build.terrain, ...command.terrain };
+    return state;
+  }
+  if (command.type === 'build-place' && state.status === 'build') {
+    placeBuildTool(state, command.point);
+    return state;
+  }
+  if (command.type === 'build-generate' && state.status === 'build' && state.build) {
+    const author = state.players[state.build.authorIndex]!;
+    state.course = generateCourse(hashSeed(`${state.config.seed}-${author.id}`, state.authoredCourses.length + 1), state.build.terrain);
+    state.build.generated = true;
+    addMessage(state, `${author.name} generated terrain — edit it or validate it`);
+    return state;
+  }
+  if (command.type === 'select-upgrade' && state.status === 'build' && state.build) {
+    const author = state.players[state.build.authorIndex]!;
+    author.upgrades = [command.upgrade];
+    addMessage(state, `${author.name} equips ${command.upgrade} for competition`);
+    return state;
+  }
+  if (command.type === 'begin-validation' && state.status === 'build') {
+    if (!buildReady(state.course)) {
+      addMessage(state, 'place a tee, cup, and at least eight playable tiles first');
+      return state;
+    }
+    const authorIndex = state.build?.authorIndex ?? state.turn.playerIndex;
+    state.players[authorIndex]!.ball = newBall(state.course);
+    state.turn = { playerIndex: authorIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+    state.coursePhase = 0;
+    state.status = 'validate';
+    addMessage(state, `${activePlayer(state).name} must sink this course once`);
+    return state;
+  }
+  if (command.type === 'shoot' && (state.status === 'playing' || state.status === 'validate') && !state.turn.shotInFlight) {
     const player = activePlayer(state);
     if (player.frozenTurns) {
       player.frozenTurns -= 1;
@@ -162,6 +339,16 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
     else if (result.reset) addMessage(state, `${player.name} finds the edge`);
     else addMessage(state, `${player.name} rolls to safety`);
+    if (state.status === 'validate') {
+      advanceCoursePhase(state);
+      if (result.holed) finishValidation(state);
+      else if (player.ball.strokes >= state.config.strokeCap) {
+        state.status = 'build';
+        state.build = { ...(state.build ?? { authorIndex: playerIndex, tool: 'fairway' as BuildTool, height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false }), authorIndex: playerIndex };
+        addMessage(state, `${player.name} needs to revise this course before it can be played`);
+      } else state.turn = { playerIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+      return state;
+    }
     const pad = result.itemPadIds.map((id) => state.course.itemPads.find((candidate) => candidate.id === id)).find(Boolean);
     if (state.config.powerUps && !player.inventory && pad) {
       pad.collected = true;
@@ -260,12 +447,16 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
 export const beginCourse = (state: GameState): GameState => ({ ...state, status: 'playing', messages: ['tee off — aim with the board, then shoot', ...state.messages] });
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if (current.status !== 'playing' || current.turn.shotInFlight) return current;
+  if ((current.status !== 'playing' && current.status !== 'validate') || current.turn.shotInFlight) return current;
   const state = cloneState(current);
   state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsedSeconds);
   if (state.turn.secondsLeft === 0) {
     addMessage(state, `${activePlayer(state).name} timed out`);
     advanceCoursePhase(state);
+    if (state.status === 'validate') {
+      state.turn = { playerIndex: state.turn.playerIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+      return state;
+    }
     advanceTurn(state);
   }
   return state;
@@ -283,7 +474,7 @@ export const currentUpgradeChoices = (state: GameState): Upgrade[] => upgrades.m
 
 export const botMove = (state: GameState): BotDecision | undefined => {
   const player = activePlayer(state);
-  if (player.kind !== 'bot' || state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  if (player.kind !== 'bot' || (state.status !== 'playing' && state.status !== 'validate') || state.turn.shotInFlight) return undefined;
   return chooseBotDecision(state.course, player, state.players, state.coursePhase);
 };
 

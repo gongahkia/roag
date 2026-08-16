@@ -53,6 +53,27 @@ export interface GateHazard {
 
 export type CourseHazard = SweeperHazard | GateHazard;
 export type ItemPadKind = 'recovery' | 'chaos';
+export type BuildTool = 'erase' | 'fairway' | 'rough' | 'sand' | 'ice' | 'wall' | 'booster' | 'conveyor' | 'tee' | 'cup' | 'sweeper' | 'gate' | 'recovery-pad' | 'chaos-pad';
+
+export interface TerrainSettings {
+  density: number;
+  elevation: number;
+  hazards: number;
+}
+
+export interface BuildState {
+  authorIndex: number;
+  tool: BuildTool;
+  height: number;
+  direction: Point;
+  terrain: TerrainSettings;
+  generated: boolean;
+}
+
+export interface AuthoredCourse {
+  authorId: string;
+  course: Course;
+}
 
 export interface ItemPad {
   id: string;
@@ -147,11 +168,14 @@ export interface GameState {
   course: Course;
   hole: number;
   coursePhase: number;
+  authoredCourses: AuthoredCourse[];
+  courseIndex: number;
+  build?: BuildState;
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];
   turn: TurnState;
-  status: 'lobby' | 'preview' | 'playing' | 'draft' | 'finished';
+  status: 'lobby' | 'build' | 'validate' | 'preview' | 'playing' | 'draft' | 'finished';
   messages: string[];
 }
 
@@ -160,6 +184,11 @@ export type GameCommand =
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string }
   | { type: 'next-hole' }
   | { type: 'draft'; upgrade: Upgrade }
+  | { type: 'build-place'; point: Point }
+  | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; terrain?: Partial<TerrainSettings> }
+  | { type: 'build-generate' }
+  | { type: 'begin-validation' }
+  | { type: 'select-upgrade'; upgrade: Upgrade }
   | { type: 'emote'; playerId: string; emote: Emote };
 
 export interface GameTransport {

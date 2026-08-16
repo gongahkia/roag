@@ -267,3 +267,99 @@ describe('turns and bots', () => {
     expect(['turbo', 'shield']).toContain(game.players[0]!.inventory);
   });
 });
+
+describe('authored course rounds', () => {
+  it('starts with a blank canvas and lets an author build the required validation layout', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'manual-builder', humanCount: 1, botCount: 0 });
+    expect(game.status).toBe('build');
+    expect(game.course.tiles.every((tile) => tile.surface === 'void')).toBe(true);
+
+    game = applyCommand(game, { type: 'build-settings', height: 2 });
+    for (let x = 2; x <= 10; x += 1) game = applyCommand(game, { type: 'build-place', point: { x, y: 7 } });
+    game = applyCommand(game, { type: 'build-place', point: { x: 2, y: 7 } });
+    game = applyCommand(game, { type: 'build-settings', tool: 'tee' });
+    game = applyCommand(game, { type: 'build-place', point: { x: 2, y: 7 } });
+    game = applyCommand(game, { type: 'build-settings', tool: 'cup' });
+    game = applyCommand(game, { type: 'build-place', point: { x: 10, y: 7 } });
+    game = applyCommand(game, { type: 'begin-validation' });
+
+    expect(game.status).toBe('validate');
+    expect(game.course.tiles[7 * game.course.width + 5]!.height).toBe(2);
+    expect(game.course.tiles[7 * game.course.width + 2]!.surface).toBe('tee');
+    expect(game.course.tiles[7 * game.course.width + 10]!.surface).toBe('cup');
+  });
+
+  it('lets each author set one competition perk while building', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'builder-perk', humanCount: 1, botCount: 0 });
+    game = applyCommand(game, { type: 'select-upgrade', upgrade: 'bank shot' });
+    game = applyCommand(game, { type: 'select-upgrade', upgrade: 'hazard shield' });
+    expect(game.players[0]!.upgrades).toEqual(['hazard shield']);
+  });
+
+  it('keeps terrain generation deterministic while applying the authored settings', () => {
+    const sparse = { density: .1, elevation: 0, hazards: 0 };
+    const busy = { density: .9, elevation: 1, hazards: 3 };
+    const first = generateCourse('builder-settings', busy);
+    const second = generateCourse('builder-settings', busy);
+    const quiet = generateCourse('builder-settings', sparse);
+
+    expect(first.tiles).toEqual(second.tiles);
+    expect(first.hazards).toHaveLength(3);
+    expect(quiet.hazards).toHaveLength(0);
+    expect(first.tiles.reduce((total, tile) => total + tile.height, 0)).toBeGreaterThan(quiet.tiles.reduce((total, tile) => total + tile.height, 0));
+  });
+
+  it('requires an author sink before moving to the next builder, then starts competition', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'author-validation', humanCount: 1, botCount: 1 });
+    game = applyCommand(game, { type: 'build-generate' });
+    game = applyCommand(game, { type: 'begin-validation' });
+    const firstShot = game.course.score.solverShots[0];
+    expect(firstShot).toBeDefined();
+    game = applyCommand(game, { type: 'shoot', shot: firstShot! });
+    expect(game.status).toBe('build');
+    expect(game.authoredCourses).toHaveLength(1);
+    expect(game.turn.playerIndex).toBe(1);
+    expect(botMove(game)).toBeUndefined();
+
+    game = applyCommand(game, { type: 'build-generate' });
+    game = applyCommand(game, { type: 'begin-validation' });
+    expect(game.status).toBe('validate');
+    expect(botMove(game)).toBeDefined();
+    const secondShot = game.course.score.solverShots[0];
+    expect(secondShot).toBeDefined();
+    game = applyCommand(game, { type: 'shoot', shot: secondShot! });
+
+    expect(game.status).toBe('playing');
+    expect(game.authoredCourses).toHaveLength(2);
+    expect(game.courseIndex).toBe(0);
+    expect(game.players.every((player) => player.ball.strokes === 0)).toBe(true);
+  });
+
+  it('keeps validation turns with the author when the timer expires', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'validation-timeout', humanCount: 1, botCount: 1 });
+    game = applyCommand(game, { type: 'build-generate' });
+    game = applyCommand(game, { type: 'begin-validation' });
+    game = tickTurn({ ...game, turn: { ...game.turn, secondsLeft: .1 } }, 1);
+    expect(game.status).toBe('validate');
+    expect(game.turn.playerIndex).toBe(0);
+    expect(game.turn.secondsLeft).toBe(game.config.timerSeconds);
+  });
+
+  it('scores each authored course in order and preserves the validated course copy', () => {
+    const first = generateCourse('competition-first');
+    const second = generateCourse('competition-second');
+    let game = beginCourse(createGame({ ...defaultConfig(), seed: 'competition-round', humanCount: 1, botCount: 1 }));
+    game.status = 'playing';
+    game.course = first;
+    game.authoredCourses = [{ authorId: 'human-0', course: first }, { authorId: 'bot-0', course: second }];
+    game.players.forEach((player) => { player.ball = newBall(first); });
+    game.players[1]!.ball.complete = true;
+    game = applyCommand(game, { type: 'shoot', shot: first.score.solverShots[0]! });
+
+    expect(game.status).toBe('playing');
+    expect(game.courseIndex).toBe(1);
+    expect(game.course.seed).toBe(second.seed);
+    expect(game.authoredCourses[0]!.course.seed).toBe(first.seed);
+    expect(game.players.every((player) => player.ball.strokes === 0)).toBe(true);
+  });
+});

@@ -1,10 +1,8 @@
 import './style.css';
 import { presentFeedback, type FeedbackTone } from './feedback';
-import { applyCommand, beginCourse, botMove, createGame, currentUpgradeChoices, defaultConfig, previewShot, tickTurn, UPGRADE_DESCRIPTIONS } from './core/game';
-import { generateCandidates } from './core/generator';
-import { hashSeed } from './core/random';
+import { applyCommand, botMove, createGame, currentUpgradeChoices, defaultConfig, previewShot, tickTurn, UPGRADE_DESCRIPTIONS } from './core/game';
 import { bindingFor, isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from './preferences';
-import { EMOTES, type Ball, type Emote, type EmoteEvent, type GameState, type PowerUp, type ShotCommand } from './core/types';
+import { EMOTES, type Ball, type BuildTool, type Emote, type EmoteEvent, type GameState, type PowerUp, type ShotCommand } from './core/types';
 import { createRenderer } from './ui/render';
 
 type Overlay = 'help' | 'settings' | undefined;
@@ -20,9 +18,6 @@ const requestedSeed = query.get('seed')?.trim();
 const captureMode = query.get('capture') === '1';
 let config = { ...defaultConfig(), ...(requestedSeed ? { seed: requestedSeed } : {}) };
 let state = createGame(config);
-let candidates = generateCandidates(hashSeed(config.seed, 1));
-let selectedCandidate = 0;
-let rerollCount = 0;
 let aim: ShotCommand = { angle: 0, power: 4 };
 let renderer: ReturnType<typeof createRenderer> | undefined;
 let lastTick = performance.now();
@@ -68,16 +63,7 @@ const syncEmotes = (next: GameState) => {
 };
 
 const setState = (next: GameState) => {
-  const previousStatus = state.status;
-  const refreshCandidates = next.status === 'preview' && (next.hole !== state.hole || next.course.seed !== state.course.seed);
   state = next;
-  if (!captureMode && state.status === 'preview' && previousStatus !== 'preview') drawer = 'intel';
-  if (previousStatus === 'preview' && state.status !== 'preview') drawer = undefined;
-  if (refreshCandidates) {
-    rerollCount = 0;
-    candidates = generateCandidates(hashSeed(state.config.seed, state.hole));
-    selectedCandidate = 0;
-  }
   recordStateFeedback(state);
   syncEmotes(state);
   render();
@@ -96,62 +82,28 @@ const setupGame = () => {
     powerUps: document.querySelector<HTMLInputElement>('#powerups')?.checked ?? config.powerUps,
   };
   if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
-  state = createGame(config);
   drawer = captureMode ? undefined : 'intel';
-  candidates = generateCandidates(hashSeed(config.seed, 1));
-  selectedCandidate = 0;
-  rerollCount = 0;
   liveEmotes = [];
   seenEmoteIds = new Set();
-  recordStateFeedback(state);
-  render();
-};
-
-const rerollCandidates = () => {
-  if (state.status !== 'preview') return;
-  rerollCount += 1;
-  candidates = generateCandidates(`${hashSeed(config.seed, state.hole)}-reroll-${rerollCount}`);
-  selectedCandidate = 0;
-  state = { ...state, messages: ['candidates rerolled', ...state.messages].slice(0, 5) };
-  recordStateFeedback(state);
-  render();
-};
-
-const lockCandidate = () => {
-  const candidate = candidates[selectedCandidate];
-  if (!candidate || state.status !== 'preview') return;
-  state = {
-    ...state,
-    course: candidate,
-    players: state.players.map((player) => ({
-      ...player,
-      ball: {
-        ...player.ball,
-        x: candidate.tee.x + 0.5,
-        y: candidate.tee.y + 0.5,
-        z: candidate.tiles[candidate.tee.y * candidate.width + candidate.tee.x]!.height + 0.18,
-        vx: 0,
-        vy: 0,
-        vz: 0,
-        complete: false,
-        strokes: 0,
-        resetCount: 0,
-      },
-    })),
-    messages: [`locked ${candidate.seed}`, ...state.messages].slice(0, 5),
-  };
-  setState(beginCourse(state));
+  setState(createGame(config));
 };
 
 const chooseAim = (event: PointerEvent) => {
-  if (!renderer || state.status !== 'playing' || current().kind !== 'human') return;
+  if (!renderer || (state.status !== 'playing' && state.status !== 'validate') || current().kind !== 'human') return;
   aim = renderer.aimFromPointer(event, state.course, current().ball);
   renderer.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   renderControls();
 };
 
+const placeBuild = (event: PointerEvent) => {
+  if (!renderer || state.status !== 'build' || current().kind !== 'human') return;
+  const point = renderer.tileFromPointer(event, state.course);
+  if (point) setState(applyCommand(state, { type: 'build-place', point }));
+};
+
 const adjustPower = (amount: number) => {
   aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
+  if (state.status !== 'playing' && state.status !== 'validate') return;
   renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
   renderControls();
 };
@@ -163,7 +115,7 @@ const drawShotFrame = (balls: readonly Ball[] | undefined) => {
 };
 
 const playShot = (shot: ShotCommand) => {
-  if (state.status !== 'playing' || shotAnimation) return;
+  if ((state.status !== 'playing' && state.status !== 'validate') || shotAnimation) return;
   const player = current();
   const frames = previewShot(state, shot);
   if (!frames?.length) {
@@ -195,7 +147,7 @@ const playShot = (shot: ShotCommand) => {
 };
 
 const shoot = () => {
-  if (state.status !== 'playing' || current().kind !== 'human') return;
+  if ((state.status !== 'playing' && state.status !== 'validate') || current().kind !== 'human') return;
   playShot(aim);
 };
 
@@ -215,6 +167,20 @@ const sendEmote = (emote: Emote) => {
 const scheduleBot = () => {
   window.clearTimeout(botTimeout);
   if (current().kind !== 'bot') return;
+  if (state.status === 'build') {
+    botTimeout = window.setTimeout(() => {
+      if (state.status !== 'build' || current().kind !== 'bot') return;
+      const bot = current();
+      if (!bot.upgrades.length) {
+        const skill = typeof bot.skill === 'number' ? bot.skill : 6;
+        const upgrade = Object.keys(UPGRADE_DESCRIPTIONS)[(skill - 1) % Object.keys(UPGRADE_DESCRIPTIONS).length]! as keyof typeof UPGRADE_DESCRIPTIONS;
+        setState(applyCommand(state, { type: 'select-upgrade', upgrade }));
+        return;
+      }
+      setState(applyCommand(state, { type: state.build?.generated ? 'begin-validation' : 'build-generate' }));
+    }, preferences.reducedMotion ? 90 : 500);
+    return;
+  }
   if (state.status === 'draft') {
     botTimeout = window.setTimeout(() => {
       const choices = currentUpgradeChoices(state);
@@ -224,7 +190,7 @@ const scheduleBot = () => {
     }, preferences.reducedMotion ? 120 : 450);
     return;
   }
-  if (state.status !== 'playing') return;
+  if (state.status !== 'playing' && state.status !== 'validate') return;
   botTimeout = window.setTimeout(() => {
     const decision = botMove(state);
     if (!decision) return;
@@ -237,7 +203,17 @@ const renderControls = () => {
   const control = document.querySelector<HTMLElement>('#controls');
   if (!control) return;
   const player = current();
-  const disabled = state.status !== 'playing' || player.kind !== 'human' || Boolean(shotAnimation);
+  if (state.status === 'build') {
+    const build = state.build!;
+    control.innerHTML = `
+      <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>build</b><small class="phase">author ${build.authorIndex + 1}/${state.players.length}</small></div>
+      <p class="control-status">${renderStatus()}</p>
+      <button id="validate" class="primary" ${player.kind !== 'human' ? 'disabled' : ''}>validate course <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button>
+    `;
+    document.querySelector<HTMLButtonElement>('#validate')?.addEventListener('click', () => setState(applyCommand(state, { type: 'begin-validation' })));
+    return;
+  }
+  const disabled = (state.status !== 'playing' && state.status !== 'validate') || player.kind !== 'human' || Boolean(shotAnimation);
   control.innerHTML = `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/8</small></div>
     <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
@@ -263,7 +239,7 @@ const renderOverlay = () => {
 
 const shortcutRows = (interactive = false) => ['shoot', 'powerDown', 'powerUp', 'lock', 'reroll', 'usePowerUp', 'help', 'settings'].map((id) => {
   const shortcutId = id as ShortcutId;
-  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', lock: 'lock candidate', reroll: 'reroll candidates', usePowerUp: 'use chaos item', help: 'shortcut help', settings: 'settings' })[shortcutId];
+  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', lock: 'validate course', reroll: 'generate terrain', usePowerUp: 'use chaos item', help: 'shortcut help', settings: 'settings' })[shortcutId];
   const key = keyLabel(bindingFor(preferences, shortcutId));
   return `<dt>${label}</dt><dd>${interactive ? `<button data-bind="${shortcutId}" class="key-button ${rebinding === shortcutId ? 'selected' : ''}">${key}</button>` : `<kbd>${key}</kbd>`}</dd>`;
 }).join('');
@@ -277,20 +253,25 @@ const renderRunDrawer = () => {
     <div class="split"><label>timer <input id="timer" type="number" min="8" max="90" value="${config.timerSeconds}"></label><label>skill <select id="skill"><option value="adaptive" ${config.botSkill === 'adaptive' ? 'selected' : ''}>adaptive</option>${Array.from({ length: 10 }, (_, index) => `<option value="${index + 1}" ${config.botSkill === index + 1 ? 'selected' : ''}>${index + 1}</option>`).join('')}</select></label></div>
     <label class="toggle"><input id="collisions" type="checkbox" ${config.collisions ? 'checked' : ''}> physical ball collisions</label>
     <label class="toggle"><input id="powerups" type="checkbox" ${config.powerUps ? 'checked' : ''}> high-chaos power-ups</label>
-    <button id="new-run">generate candidates</button>
-    <p class="hint">up to 12 seats · max 4 AI · sequential timed turns</p>
+    <button id="new-run">start new build round</button>
+    <p class="hint">up to 12 seats · max 4 AI · every player authors one course, then everyone competes on all validated courses</p>
     <h3>scorecard</h3><table><thead><tr><th>player</th><th>hole</th><th>total</th></tr></thead><tbody>${scoreRows}</tbody></table>`;
 };
 
 const renderDrawer = () => {
   if (!drawer) return '';
-  const title = drawer === 'run' ? 'run controls' : state.status === 'preview' ? 'course selection' : 'course intel';
+  const title = drawer === 'run' ? 'run controls' : state.status === 'build' ? 'course builder' : 'course intel';
   return `<aside class="drawer drawer-${drawer} panel" aria-label="${title}"><div class="drawer-heading"><h2>${title}</h2><button data-close-drawer class="close" aria-label="close ${title}">×</button></div><div class="drawer-content">${drawer === 'run' ? renderRunDrawer() : renderInspector()}</div></aside>`;
 };
 
 const render = () => {
+  const progress = state.status === 'build'
+    ? `BUILD <b>${state.build!.authorIndex + 1}</b> / ${state.players.length}`
+    : state.status === 'validate'
+      ? `TEST <b>${state.build!.authorIndex + 1}</b> / ${state.players.length}`
+      : `COURSE <b>${state.courseIndex + 1}</b> / ${state.authoredCourses.length}`;
   app.innerHTML = `
-    <section class="topbar"><div class="brand"><p class="eyebrow">ARCADE QUARRY MINI GOLF</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-drawer="run" class="${drawer === 'run' ? 'selected' : ''}" aria-expanded="${drawer === 'run'}">run</button><button data-drawer="intel" class="${drawer === 'intel' ? 'selected' : ''}" aria-expanded="${drawer === 'intel'}">intel</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">HOLE <b>${state.hole}</b> / 9<br><small>${escape(state.course.seed)}</small></div></div></section>
+    <section class="topbar"><div class="brand"><p class="eyebrow">ARCADE QUARRY MINI GOLF</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-drawer="run" class="${drawer === 'run' ? 'selected' : ''}" aria-expanded="${drawer === 'run'}">run</button><button data-drawer="intel" class="${drawer === 'intel' ? 'selected' : ''}" aria-expanded="${drawer === 'intel'}">${state.status === 'build' ? 'build' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escape(state.course.seed)}</small></div></div></section>
     <section class="layout">
       <section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade quarry golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${calloutMarkup()}</div></div><div id="controls" class="controls"></div></section>
     </section>${renderDrawer()}${renderOverlay()}
@@ -299,14 +280,16 @@ const render = () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#course')!;
   renderer?.dispose();
   renderer = createRenderer(canvas);
-  renderer.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
+  renderer.draw(state.course, state.players, state.coursePhase, state.status === 'build' ? undefined : aim, liveEmotes, state.config.powerUps, state.status === 'build');
   canvas.addEventListener('pointermove', chooseAim);
-  canvas.addEventListener('pointerdown', chooseAim);
+  canvas.addEventListener('pointerdown', state.status === 'build' ? placeBuild : chooseAim);
   renderControls();
 };
 
 const renderStatus = () => {
-  if (state.status === 'preview') return 'generator inspection — choose a validated candidate, then lock the hole';
+  if (state.status === 'build') return 'place every tile from scratch, or generate a seeded terrain pass and edit it';
+  if (state.status === 'validate') return `${escape(current().name)} must sink this authored course once before it enters competition`;
+  if (state.status === 'preview') return 'course preview';
   if (state.status === 'draft') return 'draft phase — each player chooses an upgrade';
   if (state.status === 'finished') return `winner: ${escape([...state.players].sort((a, b) => a.total - b.total)[0]!.name)}`;
   if (shotAnimation) return `${escape(current().name)}'s ball is in flight · hazard ${state.coursePhase + 1}/8 locked`;
@@ -316,15 +299,29 @@ const renderStatus = () => {
 const calloutMarkup = () => callouts.map((callout) => `<p class="callout ${callout.tone}">${escape(callout.message)}</p>`).join('');
 
 const renderInspector = () => {
-  if (state.status === 'preview') {
-    const candidate = candidates[selectedCandidate] ?? state.course;
-    const solver = candidate.score.solverShots[0];
-    return `<div class="candidate-tabs">${candidates.map((_, index) => `<button data-candidate="${index}" class="${index === selectedCandidate ? 'selected' : ''}">candidate ${index + 1}</button>`).join('')}</div>
-      <dl><dt>seed</dt><dd>${escape(candidate.seed)}</dd><dt>verdict</dt><dd class="good">validated in all 8 phases</dd><dt>quality</dt><dd>${candidate.score.total}/100</dd><dt>solver line</dt><dd>${solver ? `${solver.power.toFixed(1)} power @ ${(solver.angle * 180 / Math.PI).toFixed(0)}°` : 'none'}</dd><dt>expected strokes</dt><dd>${candidate.score.estimatedStrokes}</dd><dt>hazards</dt><dd>${candidate.hazards.map((hazard) => hazard.kind).join(' + ')}</dd><dt>item pads</dt><dd>${candidate.itemPads.length} visible pads</dd><dt>elevation</dt><dd>${candidate.score.elevation}</dd><dt>route score</dt><dd>${candidate.score.routes} lanes · ${candidate.score.novelty} novelty</dd></dl>
-      <div class="inspector-actions"><button id="reroll">reroll <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="lock" class="primary">lock & tee off <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div><p class="hint">hazards advance one phase after each resolved turn; previews, bots, and committed shots share the same locked phase.</p>${renderLedger()}`;
+  if (state.status === 'build') {
+    const build = state.build!;
+    const tools: { id: BuildTool; label: string }[] = [
+      { id: 'fairway', label: 'fairway' }, { id: 'rough', label: 'rough' }, { id: 'sand', label: 'sand' }, { id: 'ice', label: 'ice' },
+      { id: 'wall', label: 'wall' }, { id: 'booster', label: 'booster' }, { id: 'conveyor', label: 'conveyor' }, { id: 'tee', label: 'tee' },
+      { id: 'cup', label: 'cup' }, { id: 'sweeper', label: 'sweeper' }, { id: 'gate', label: 'timed gate' }, { id: 'recovery-pad', label: 'recovery pad' },
+      { id: 'chaos-pad', label: 'chaos pad' }, { id: 'erase', label: 'erase' },
+    ];
+    const directions = [{ label: '→', x: 1, y: 0 }, { label: '↓', x: 0, y: 1 }, { label: '←', x: -1, y: 0 }, { label: '↑', x: 0, y: -1 }];
+    return `<p class="hint"><strong>${escape(current().name)}</strong> is authoring. Select a tool, then click any isometric grid cell. A course needs one tee, one cup, and eight playable tiles.</p>
+      <h3>place</h3><div class="build-tools">${tools.map((tool) => `<button data-build-tool="${tool.id}" class="${build.tool === tool.id ? 'selected' : ''}">${tool.label}</button>`).join('')}</div>
+      <h3>tile controls</h3><label class="builder-range">height <output>${build.height}</output><input id="build-height" type="range" min="0" max="3" step="1" value="${build.height}"></label>
+      <div class="build-directions" aria-label="surface direction">${directions.map((direction) => `<button data-build-direction="${direction.x},${direction.y}" class="${build.direction.x === direction.x && build.direction.y === direction.y ? 'selected' : ''}" title="direction ${direction.label}">${direction.label}</button>`).join('')}</div>
+      <h3>seeded terrain generator</h3><p class="hint">deterministic route carving with editable terrain, ramp, wall, and hazard placement. Same seed and sliders produce the same starting course.</p>
+      <label class="builder-range">terrain density <output>${Math.round(build.terrain.density * 100)}%</output><input id="terrain-density" type="range" min="0.1" max="1" step="0.05" value="${build.terrain.density}"></label>
+      <label class="builder-range">ramp frequency <output>${Math.round(build.terrain.elevation * 100)}%</output><input id="terrain-elevation" type="range" min="0" max="1" step="0.05" value="${build.terrain.elevation}"></label>
+      <label class="builder-range">timed hazards <output>${build.terrain.hazards}</output><input id="terrain-hazards" type="range" min="0" max="3" step="1" value="${build.terrain.hazards}"></label>
+      <h3>competitive perk</h3><p class="hint">choose one upgrade for the play phase. You can change it until your course validates.</p><div class="upgrades build-perks">${Object.entries(UPGRADE_DESCRIPTIONS).map(([upgrade, description]) => `<button data-builder-upgrade="${upgrade}" class="${current().upgrades.includes(upgrade as keyof typeof UPGRADE_DESCRIPTIONS) ? 'selected' : ''}"><strong>${upgrade}</strong><small>${description}</small></button>`).join('')}</div>
+      <div class="inspector-actions"><button id="auto-terrain">generate terrain <kbd>${keyLabel(bindingFor(preferences, 'reroll'))}</kbd></button><button id="validate" class="primary">validate course <kbd>${keyLabel(bindingFor(preferences, 'lock'))}</kbd></button></div>${renderLedger()}`;
   }
   if (state.status === 'draft') return `<p>each player keeps one modifier for the rest of the campaign.</p><div class="upgrades">${currentUpgradeChoices(state).map((upgrade) => `<button data-upgrade="${upgrade}"><strong>${upgrade}</strong><small>${UPGRADE_DESCRIPTIONS[upgrade]}</small></button>`).join('')}</div>${renderLedger()}`;
-  return `${renderLedger()}<h3>course legend</h3><p class="legend">quarry stone · sand drift · ice sheet<br>amber arm: sweeper · red/cyan: timed gate<br>cyan +: recovery pad · violet !: chaos pad</p>`;
+  const author = state.authoredCourses[state.courseIndex] && state.players.find((player) => player.id === state.authoredCourses[state.courseIndex]!.authorId);
+  return `${renderLedger()}<h3>course</h3><dl><dt>author</dt><dd>${author ? escape(author.name) : 'unassigned'}</dd><dt>validated</dt><dd class="good">author completed one sink</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>chaos pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">quarry stone · sand drift · ice sheet<br>amber arm: sweeper · red/cyan: timed gate<br>cyan +: recovery pad · violet !: chaos pad</p>`;
 };
 
 const renderLedger = () => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escape(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>waiting for the first stroke</span></li>'}</ul>`;
@@ -337,14 +334,23 @@ const updatePreferences = (partial: Partial<typeof preferences>) => {
 };
 
 app.addEventListener('click', (event) => {
-  const element = event.target as HTMLElement;
+  const target = event.target as HTMLElement;
+  const element = target.closest<HTMLElement>('button') ?? target;
   const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
   if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
   if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-  const candidate = element.dataset.candidate;
-  if (candidate !== undefined) { selectedCandidate = Number(candidate); render(); return; }
-  if (element.id === 'lock') { lockCandidate(); return; }
-  if (element.id === 'reroll') { rerollCandidates(); return; }
+  const buildTool = element.dataset.buildTool as BuildTool | undefined;
+  if (buildTool && state.status === 'build') { setState(applyCommand(state, { type: 'build-settings', tool: buildTool })); return; }
+  const builderUpgrade = element.dataset.builderUpgrade as keyof typeof UPGRADE_DESCRIPTIONS | undefined;
+  if (builderUpgrade && state.status === 'build') { setState(applyCommand(state, { type: 'select-upgrade', upgrade: builderUpgrade })); return; }
+  const direction = element.dataset.buildDirection;
+  if (direction && state.status === 'build') {
+    const [x, y] = direction.split(',').map(Number);
+    setState(applyCommand(state, { type: 'build-settings', direction: { x, y } }));
+    return;
+  }
+  if (element.id === 'auto-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-generate' })); return; }
+  if (element.id === 'validate' && state.status === 'build') { setState(applyCommand(state, { type: 'begin-validation' })); return; }
   const emote = element.dataset.emote as Emote | undefined;
   if (emote) { sendEmote(emote); return; }
   const upgrade = element.dataset.upgrade;
@@ -360,6 +366,19 @@ app.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement;
   const preference = target.dataset.preference;
   if (preference === 'reducedMotion' || preference === 'highContrast') updatePreferences({ [preference]: target.checked });
+});
+
+app.addEventListener('input', (event) => {
+  const target = event.target as HTMLInputElement;
+  if (state.status !== 'build') return;
+  if (target.id === 'build-height') {
+    setState(applyCommand(state, { type: 'build-settings', height: Number(target.value) }));
+    return;
+  }
+  const terrain = target.id === 'terrain-density' ? { density: Number(target.value) }
+    : target.id === 'terrain-elevation' ? { elevation: Number(target.value) }
+      : target.id === 'terrain-hazards' ? { hazards: Number(target.value) } : undefined;
+  if (terrain) setState(applyCommand(state, { type: 'build-settings', terrain }));
 });
 
 window.addEventListener('keydown', (event) => {
@@ -383,8 +402,8 @@ window.addEventListener('keydown', (event) => {
   if (command === 'shoot') shoot();
   if (command === 'powerDown') adjustPower(-0.2);
   if (command === 'powerUp') adjustPower(0.2);
-  if (command === 'lock') lockCandidate();
-  if (command === 'reroll') rerollCandidates();
+  if (command === 'lock' && state.status === 'build') setState(applyCommand(state, { type: 'begin-validation' }));
+  if (command === 'reroll' && state.status === 'build') setState(applyCommand(state, { type: 'build-generate' }));
   if (command === 'usePowerUp') {
     const player = current();
     if (player.inventory) usePowerUp(player.inventory);
@@ -400,7 +419,7 @@ const loop = (now: number) => {
   const previousEmoteCount = liveEmotes.length;
   liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
   if (liveEmotes.length !== previousEmoteCount && !shotAnimation) renderer?.draw(state.course, state.players, state.coursePhase, aim, liveEmotes, state.config.powerUps);
-  if (state.status === 'playing' && !shotAnimation) {
+  if ((state.status === 'playing' || state.status === 'validate') && !shotAnimation) {
     const next = tickTurn(state, elapsed);
     if (next !== state) {
       state = next;

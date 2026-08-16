@@ -97,6 +97,13 @@ td i { width: .5rem; height: .5rem; border-radius: 50%; display: inline-block; m
 
 .candidate-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; margin: .65rem 0 .8rem; }
 .candidate-tabs button { padding: .38rem .12rem; font-size: .55rem; }
+.build-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+.build-tools button { min-height: 2rem; padding: .35rem .28rem; font-size: .59rem; text-align: left; }
+.builder-range { display: grid; grid-template-columns: 1fr auto; gap: .26rem .5rem; margin: .58rem 0; color: var(--dim); font-size: .64rem; }
+.builder-range input { grid-column: 1 / -1; }
+.builder-range output { color: var(--gold); }
+.build-directions { display: grid; grid-template-columns: repeat(4, 1fr); gap: .3rem; }
+.build-directions button { padding: .36rem; color: var(--blue); }
 dl { display: grid; grid-template-columns: 1fr 1.17fr; gap: .42rem .52rem; font-size: .65rem; }
 dt { color: var(--dim); }
 dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }

@@ -27,8 +27,9 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean): void;
+  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, buildMode?: boolean): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
+  tileFromPointer(event: PointerEvent, course: Course): Point | undefined;
   dispose(): void;
 }
 
@@ -49,14 +50,14 @@ const polygon = (context: CanvasRenderingContext2D, points: readonly Point[]) =>
   context.closePath();
 };
 
-const isVisible = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
+const isVisible = (tile: Tile | undefined, includeVoid = false) => Boolean(tile && (includeVoid || tile.surface !== 'void'));
 
-const visibleTilesFor = (course: Course, metrics: ProjectionMetrics): VisibleTile[] => {
+const visibleTilesFor = (course: Course, metrics: ProjectionMetrics, includeVoid = false): VisibleTile[] => {
   const visible: VisibleTile[] = [];
   for (let y = 0; y < course.height; y += 1) {
     for (let x = 0; x < course.width; x += 1) {
       const tile = course.tiles[y * course.width + x]!;
-      if (!isVisible(tile)) continue;
+      if (!isVisible(tile, includeVoid)) continue;
       const heights = tileCornerHeights(tile);
       const corners = [project(x, y, heights[0], metrics), project(x + 1, y, heights[1], metrics), project(x + 1, y + 1, heights[2], metrics), project(x, y + 1, heights[3], metrics)];
       const center = project(x + .5, y + .5, heights.reduce((sum, height) => sum + height, 0) / 4, metrics);
@@ -75,9 +76,9 @@ const boundsFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics) =>
   return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 };
 
-const metricsFor = (course: Course, width: number, height: number): ProjectionMetrics => {
+const metricsFor = (course: Course, width: number, height: number, includeVoid = false): ProjectionMetrics => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
-  const bounds = boundsFor(visibleTilesFor(course, unitMetrics), unitMetrics);
+  const bounds = boundsFor(visibleTilesFor(course, unitMetrics, includeVoid), unitMetrics);
   const tileWidth = Math.max(16, Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height));
   return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
 };
@@ -95,6 +96,7 @@ const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offse
 const neighborFor = (course: Course, x: number, y: number, direction: Point) => course.tiles[(y + direction.y) * course.width + x + direction.x];
 
 const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, offset: Point, metrics: ProjectionMetrics) => {
+  if (tile.tile.surface === 'void') return;
   if (isVisible(neighbor)) return;
   const edgePoints = [tile.corners[edge]!, tile.corners[(edge + 1) % 4]!];
   const edgeHeights = [tile.heights[edge]!, tile.heights[(edge + 1) % 4]!];
@@ -301,16 +303,16 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; buildMode: boolean } | undefined;
 
-  const layoutFor = (course: Course) => {
+  const layoutFor = (course: Course, buildMode = false) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const metrics = metricsFor(course, width, height);
-    const tiles = visibleTilesFor(course, metrics);
+    const metrics = metricsFor(course, width, height, buildMode);
+    const tiles = visibleTilesFor(course, metrics, buildMode);
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, buildMode: boolean) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -318,7 +320,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#050b12');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const { metrics, tiles, offset } = layoutFor(course);
+    const { metrics, tiles, offset } = layoutFor(course, buildMode);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     tiles.forEach((tile) => {
       for (let edge = 0; edge < 4; edge += 1) {
@@ -331,6 +333,12 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       context.fillStyle = topColors[tile.tile.surface];
       context.fill();
       drawPattern(context, tile, offset, metrics);
+      if (buildMode) {
+        polygon(context, tile.corners.map((point) => withOffset(point, offset)));
+        context.strokeStyle = tile.tile.surface === 'void' ? '#60859b88' : '#fff1b75c';
+        context.lineWidth = 1;
+        context.stroke();
+      }
     });
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
@@ -361,16 +369,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems);
+    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.buildMode);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true) {
-      latest = { course, players, phase, aim, emotes, showItems };
-      paint(course, players, phase, aim, emotes, showItems);
+    draw(course, players, phase, aim, emotes = [], showItems = true, buildMode = false) {
+      latest = { course, players, phase, aim, emotes, showItems, buildMode };
+      paint(course, players, phase, aim, emotes, showItems, buildMode);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();
@@ -382,6 +390,18 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         angle: Math.atan2(worldDelta.y, worldDelta.x),
         power: Math.max(1, Math.min(8, Math.hypot(worldDelta.x, worldDelta.y) * 1.7)),
       };
+    },
+    tileFromPointer(event, course) {
+      const rect = canvas.getBoundingClientRect();
+      const { metrics, offset } = layoutFor(course, true);
+      const screen = { x: event.clientX - rect.left - offset.x, y: event.clientY - rect.top - offset.y };
+      const world = {
+        x: screen.x / metrics.tileWidth + screen.y / metrics.tileHeight,
+        y: -screen.x / metrics.tileWidth + screen.y / metrics.tileHeight,
+      };
+      const point = { x: Math.floor(world.x), y: Math.floor(world.y) };
+      if (point.x < 0 || point.y < 0 || point.x >= course.width || point.y >= course.height) return undefined;
+      return point;
     },
     dispose() { observer.disconnect(); },
   };
