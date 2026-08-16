@@ -281,11 +281,12 @@ const buildCourse = (seed: string, settings: TerrainSettings): Course => {
   return course;
 };
 
-export const generateCourse = (seed: string, settings = defaultTerrainSettings()): Course => {
-  let fallback = buildCourse(seed, settings);
+export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}): Course => {
+  const resolvedSettings = { ...defaultTerrainSettings(), ...settings };
+  let fallback = buildCourse(seed, resolvedSettings);
   if (fallback.score.playable) return fallback;
   for (let attempt = 1; attempt <= 40; attempt += 1) {
-    const candidate = buildCourse(`${seed}-retry-${attempt}`, settings);
+    const candidate = buildCourse(`${seed}-retry-${attempt}`, resolvedSettings);
     if (candidate.score.playable) return candidate;
     if (candidate.score.total > fallback.score.total) fallback = candidate;
   }
