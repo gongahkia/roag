@@ -1,7 +1,8 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap';
-export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet';
+export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | BallForm;
+export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger';
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
   { id: 'taunt', glyph: '>:]', label: 'taunt' },
@@ -52,8 +53,18 @@ export interface GateHazard {
 }
 
 export type CourseHazard = SweeperHazard | GateHazard;
+export interface PortalEndpoint {
+  point: Point;
+  direction: Point;
+}
+
+export interface PortalPair {
+  id: string;
+  entrance?: PortalEndpoint;
+  exit?: PortalEndpoint;
+}
 export type ItemPadKind = 'recovery' | 'chaos';
-export type BuildTool = 'erase' | 'fairway' | 'rough' | 'sand' | 'ice' | 'wall' | 'booster' | 'conveyor' | 'tee' | 'cup' | 'sweeper' | 'gate' | 'recovery-pad' | 'chaos-pad';
+export type BuildTool = 'erase' | 'fairway' | 'rough' | 'sand' | 'ice' | 'wall' | 'booster' | 'conveyor' | 'tee' | 'cup' | 'sweeper' | 'gate' | 'portal-entrance' | 'portal-exit' | 'recovery-pad' | 'chaos-pad';
 export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry';
 
 export interface TerrainSettings {
@@ -74,6 +85,7 @@ export interface BuildState {
   tool: BuildTool;
   height: number;
   direction: Point;
+  portalPairId: number;
   terrain: TerrainSettings;
   generated: boolean;
 }
@@ -100,6 +112,8 @@ export interface Course {
   cup: Point;
   route: Point[];
   hazards: CourseHazard[];
+  /** portal overlays remain optional so saved pre-portal courses stay readable. */
+  portals?: PortalPair[];
   itemPads: ItemPad[];
   score: CourseScore;
 }
@@ -142,6 +156,11 @@ export interface Player {
   ball: Ball;
   upgrades: Upgrade[];
   inventory?: PowerUp;
+  spareInventory?: PowerUp;
+  ballForm?: BallForm;
+  portalExitId?: string;
+  twoPuttsArmed?: boolean;
+  secondWindAvailable?: boolean;
   turboArmed?: boolean;
   frozenTurns?: number;
   hazardShield?: boolean;
@@ -189,11 +208,12 @@ export interface GameState {
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
-  | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string }
+  | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
+  | { type: 'arm-second-wind' }
   | { type: 'next-hole' }
   | { type: 'draft'; upgrade: Upgrade }
   | { type: 'build-place'; point: Point }
-  | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; terrain?: Partial<TerrainSettings> }
+  | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; portalPairId?: number; terrain?: Partial<TerrainSettings> }
   | { type: 'build-generate' }
   | { type: 'build-randomize' }
   | { type: 'begin-validation' }

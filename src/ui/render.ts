@@ -1,6 +1,6 @@
 import { isGateOpen, sweeperDirection } from '../core/hazards';
 import { floorHeightAt, tileCornerHeights } from '../core/physics';
-import { EMOTES, type Ball, type Course, type EmoteEvent, type Player, type Surface, type Tile } from '../core/types';
+import { EMOTES, type Ball, type Course, type EmoteEvent, type Player, type PortalEndpoint, type Surface, type Tile } from '../core/types';
 
 interface Point { x: number; y: number; }
 export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elevation: number; }
@@ -185,6 +185,35 @@ const drawChevron = (context: CanvasRenderingContext2D, center: Point, direction
   context.fill();
 };
 
+const portalColors = ['#4589e8', '#c66af0', '#32a892', '#e08a3e', '#e65b81', '#6b8fd9'];
+
+const drawPortalEndpoint = (context: CanvasRenderingContext2D, endpoint: PortalEndpoint, label: string, color: string, course: Course, offset: Point, metrics: ProjectionMetrics) => {
+  const center = withOffset(project(endpoint.point.x + .5, endpoint.point.y + .5, heightAt(course, endpoint.point) + .08, metrics), offset);
+  const radius = Math.max(5, metrics.tileWidth * .2);
+  context.beginPath();
+  context.ellipse(center.x, center.y, radius, radius * .52, 0, 0, Math.PI * 2);
+  context.fillStyle = '#18212ce8';
+  context.fill();
+  context.strokeStyle = color;
+  context.lineWidth = Math.max(1.5, metrics.tileWidth * .045);
+  context.stroke();
+  const direction = screenDirection(endpoint.point.x, endpoint.point.y, endpoint.direction, metrics);
+  drawChevron(context, center, direction, radius * .52, color);
+  context.fillStyle = '#ffffff';
+  context.font = `${Math.max(7, metrics.tileWidth * .13)}px BigBlueTerm, ui-monospace, monospace`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(label, center.x, center.y - radius * .9);
+};
+
+const drawPortals = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
+  course.portals?.forEach((pair, index) => {
+    const color = portalColors[index % portalColors.length]!;
+    if (pair.entrance) drawPortalEndpoint(context, pair.entrance, `${index + 1}A`, color, course, offset, metrics);
+    if (pair.exit) drawPortalEndpoint(context, pair.exit, `${index + 1}B`, color, course, offset, metrics);
+  });
+};
+
 const drawSurfaceMarker = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: ProjectionMetrics) => {
   if (tile.tile.surface !== 'booster' && tile.tile.surface !== 'conveyor') return;
   const direction = tile.tile.direction ?? { x: 1, y: 0 };
@@ -268,7 +297,22 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
   });
 };
 
-const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, offset: Point, metrics: ProjectionMetrics) => {
+const statusLabels = (player: Player) => {
+  const upgrades: Record<string, string> = {
+    'heavy ball': 'HB', 'ice skates': 'IS', 'extra charge': 'EC', 'bank shot': 'BK', 'hazard shield': 'HS', 'chaos magnet': 'CM', 'portal savvy': 'PS', 'second wind': 'SW', scavenger: 'SC',
+  };
+  return [
+    player.inventory ? `I:${player.inventory}` : undefined,
+    player.spareInventory ? `I:${player.spareInventory}` : undefined,
+    player.ballForm ? `BALL:${player.ballForm}` : undefined,
+    player.twoPuttsArmed ? '2P!' : undefined,
+    player.secondWindAvailable ? 'SW!' : undefined,
+    ...player.upgrades.map((upgrade) => upgrades[upgrade]),
+  ].filter(Boolean) as string[];
+};
+
+const drawBall = (context: CanvasRenderingContext2D, player: Player, offset: Point, metrics: ProjectionMetrics) => {
+  const { ball, color } = player;
   const point = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
   const radius = Math.max(4, metrics.tileWidth * .13);
   context.beginPath();
@@ -286,6 +330,23 @@ const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, 
   context.arc(point.x - radius * .3, point.y - radius * .34, Math.max(1.2, radius * .22), 0, Math.PI * 2);
   context.fillStyle = '#ffffffb8';
   context.fill();
+  const labels = statusLabels(player);
+  if (!labels.length) return;
+  context.font = `${Math.max(7, metrics.tileWidth * .12)}px BigBlueTerm, ui-monospace, monospace`;
+  const rows = [labels.slice(0, 3).join(' '), labels.slice(3).join(' ')].filter(Boolean);
+  rows.forEach((row, index) => {
+    const width = context.measureText(row).width + 6;
+    const y = point.y - radius - 9 - (rows.length - index - 1) * 11;
+    context.fillStyle = '#132015de';
+    context.fillRect(point.x - width / 2, y - 5, width, 10);
+    context.strokeStyle = color;
+    context.lineWidth = 1;
+    context.strokeRect(point.x - width / 2, y - 5, width, 10);
+    context.fillStyle = '#ffffff';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(row, point.x, y);
+  });
 };
 
 const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes: readonly EmoteEvent[], offset: Point, metrics: ProjectionMetrics) => {
@@ -355,6 +416,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     } else tiles.forEach(drawTile);
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
+    drawPortals(context, course, offset, metrics);
     if (showItems) drawItemPads(context, course, offset, metrics);
     drawHazards(context, course, phase, offset, metrics);
     if (aim) {
@@ -372,7 +434,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         context.setLineDash([]);
       }
     }
-    [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player.ball, player.color, offset, metrics));
+    [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
     drawEmotes(context, players, emotes, offset, metrics);
   };
 

@@ -154,7 +154,8 @@ const shoot = () => {
 const usePowerUp = (powerUp: PowerUp) => {
   if (state.status !== 'playing' || current().kind !== 'human' || shotAnimation) return;
   const target = state.players.find((player) => player.id !== current().id && !player.ball.complete);
-  setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id }));
+  const portalExitId = document.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
+  setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id, portalExitId }));
 };
 
 const sendEmote = (emote: Emote) => {
@@ -194,7 +195,8 @@ const scheduleBot = () => {
   botTimeout = window.setTimeout(() => {
     const decision = botMove(state);
     if (!decision) return;
-    if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId }));
+    if (decision.secondWind) setState(applyCommand(state, { type: 'arm-second-wind' }));
+    if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId }));
     playShot(decision.shot);
   }, preferences.reducedMotion ? 180 : 650);
 };
@@ -214,12 +216,17 @@ const renderControls = () => {
     return;
   }
   const disabled = (state.status !== 'playing' && state.status !== 'validate') || player.kind !== 'human' || Boolean(shotAnimation);
+  const heldItems = [player.inventory, player.spareInventory].filter(Boolean) as PowerUp[];
+  const portalExits = state.course.portals?.filter((pair) => pair.exit).map((pair) => `<option value="${pair.id}:exit">${escape(pair.id)} exit</option>`).join('') ?? '';
   control.innerHTML = `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escape(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/8</small></div>
     <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
     <label>power <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>shoot <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
-    ${player.inventory ? `<button id="powerup" ${disabled ? 'disabled' : ''}>use ${player.inventory} <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd></button>` : '<span class="muted">no chaos item</span>'}
+    ${player.ballForm ? `<span class="active-form">next shot: ${escape(player.ballForm)} ball</span>` : ''}
+    ${heldItems.includes('portal') ? `<label>portal exit <select id="portal-exit" ${disabled ? 'disabled' : ''}>${portalExits}</select></label>` : ''}
+    ${heldItems.length ? heldItems.map((powerUp) => `<button data-use-powerup="${powerUp}" ${disabled ? 'disabled' : ''}>use ${escape(powerUp)}${powerUp === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`).join('') : '<span class="muted">no chaos item</span>'}
+    ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}
     <p id="status" class="control-status">${renderStatus()}</p>
   `;
   document.querySelector<HTMLInputElement>('#power')?.addEventListener('input', (event) => {
@@ -228,7 +235,7 @@ const renderControls = () => {
     renderControls();
   });
   document.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
-  document.querySelector<HTMLButtonElement>('#powerup')?.addEventListener('click', () => { if (player.inventory) usePowerUp(player.inventory); });
+  document.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => setState(applyCommand(state, { type: 'arm-second-wind' })));
 };
 
 const renderOverlay = () => {
@@ -304,7 +311,7 @@ const renderInspector = () => {
     const tools: { id: BuildTool; label: string }[] = [
       { id: 'fairway', label: 'fairway' }, { id: 'rough', label: 'rough' }, { id: 'sand', label: 'sand' }, { id: 'ice', label: 'ice' },
       { id: 'wall', label: 'wall' }, { id: 'booster', label: 'booster' }, { id: 'conveyor', label: 'conveyor' }, { id: 'tee', label: 'tee' },
-      { id: 'cup', label: 'cup' }, { id: 'sweeper', label: 'sweeper' }, { id: 'gate', label: 'timed gate' }, { id: 'recovery-pad', label: 'recovery pad' },
+      { id: 'cup', label: 'cup' }, { id: 'sweeper', label: 'sweeper' }, { id: 'gate', label: 'timed gate' }, { id: 'portal-entrance', label: 'portal entrance' }, { id: 'portal-exit', label: 'portal exit' }, { id: 'recovery-pad', label: 'recovery pad' },
       { id: 'chaos-pad', label: 'chaos pad' }, { id: 'erase', label: 'erase' },
     ];
     const directions = [{ label: '→', x: 1, y: 0 }, { label: '↓', x: 0, y: 1 }, { label: '←', x: -1, y: 0 }, { label: '↑', x: 0, y: -1 }];
@@ -315,6 +322,7 @@ const renderInspector = () => {
       <h3>place</h3><div class="build-tools">${tools.map((tool) => `<button data-build-tool="${tool.id}" class="${build.tool === tool.id ? 'selected' : ''}">${tool.label}</button>`).join('')}</div>
       <h3>tile controls</h3><label class="builder-range">height <output>${build.height}</output><input id="build-height" type="range" min="0" max="3" step="1" value="${build.height}"></label>
       <div class="build-directions" aria-label="surface direction">${directions.map((direction) => `<button data-build-direction="${direction.x},${direction.y}" class="${build.direction.x === direction.x && build.direction.y === direction.y ? 'selected' : ''}" title="direction ${direction.label}">${direction.label}</button>`).join('')}</div>
+      <label class="builder-range">portal pair <output>${build.portalPairId}</output><input id="portal-pair" type="number" min="1" step="1" value="${build.portalPairId}"></label><p class="hint">place one entrance and one exit for each numbered, color-coded portal pair. arrows control its exit direction.</p>
       <h3>route composition</h3><p class="hint">these controls shape the playable route before you hand-curate individual tiles.</p>
       <label class="builder-range">route length <output>${Math.round(build.terrain.routeLength * 100)}%</output><input id="route-length" type="range" min="0.35" max="1" step="0.05" value="${build.terrain.routeLength}"></label>
       <label class="builder-range">bendiness <output>${Math.round(build.terrain.bendiness * 100)}%</output><input id="route-bendiness" type="range" min="0" max="1" step="0.05" value="${build.terrain.bendiness}"></label>
@@ -331,7 +339,7 @@ const renderInspector = () => {
   }
   if (state.status === 'draft') return `<p>each player keeps one modifier for the rest of the campaign.</p><div class="upgrades">${currentUpgradeChoices(state).map((upgrade) => `<button data-upgrade="${upgrade}"><strong>${upgrade}</strong><small>${UPGRADE_DESCRIPTIONS[upgrade]}</small></button>`).join('')}</div>${renderLedger()}`;
   const author = state.authoredCourses[state.courseIndex] && state.players.find((player) => player.id === state.authoredCourses[state.courseIndex]!.authorId);
-  return `${renderLedger()}<h3>course</h3><dl><dt>author</dt><dd>${author ? escape(author.name) : 'unassigned'}</dd><dt>validated</dt><dd class="good">author completed one sink</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>chaos pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate<br>cyan +: recovery pad · violet !: chaos pad</p>`;
+  return `${renderLedger()}<h3>course</h3><dl><dt>author</dt><dd>${author ? escape(author.name) : 'unassigned'}</dd><dt>validated</dt><dd class="good">author completed one sink</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>chaos pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · numbered A/B: portal pair<br>cyan +: recovery pad · violet !: chaos pad</p>`;
 };
 
 const renderLedger = () => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escape(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>waiting for the first stroke</span></li>'}</ul>`;
@@ -364,6 +372,8 @@ app.addEventListener('click', (event) => {
   if (element.id === 'auto-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-generate' })); return; }
   if (element.id === 'randomize-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-randomize' })); return; }
   if (element.id === 'validate' && state.status === 'build') { setState(applyCommand(state, { type: 'begin-validation' })); return; }
+  const powerUp = element.dataset.usePowerup as PowerUp | undefined;
+  if (powerUp) { usePowerUp(powerUp); return; }
   const emote = element.dataset.emote as Emote | undefined;
   if (emote) { sendEmote(emote); return; }
   const upgrade = element.dataset.upgrade;
@@ -386,6 +396,10 @@ app.addEventListener('input', (event) => {
   if (state.status !== 'build') return;
   if (target.id === 'build-height') {
     setState(applyCommand(state, { type: 'build-settings', height: Number(target.value) }));
+    return;
+  }
+  if (target.id === 'portal-pair') {
+    setState(applyCommand(state, { type: 'build-settings', portalPairId: Number(target.value) }));
     return;
   }
   const terrain = target.id === 'terrain-density' ? { density: Number(target.value) }

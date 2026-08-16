@@ -1,5 +1,5 @@
 import { closedGateAt, sweeperDirection } from './hazards';
-import type { Ball, Course, Point, ShotCommand, Surface, Tile } from './types';
+import type { Ball, Course, Point, PortalEndpoint, PortalPair, ShotCommand, Surface, Tile } from './types';
 
 const STEP = 1 / 60;
 const BALL_RADIUS = 0.18;
@@ -30,6 +30,11 @@ export interface BallPhysicsModifiers {
   mass?: number;
   iceSkates?: boolean;
   bankShot?: boolean;
+  bouncy?: boolean;
+  ghostBall?: boolean;
+  magnetBall?: boolean;
+  portalExitId?: string;
+  portalSpeedMultiplier?: number;
   hazardShield?: boolean;
 }
 
@@ -70,6 +75,8 @@ interface Participant {
   modifiers: BallPhysicsModifiers;
   reset: boolean;
   shieldUsed: boolean;
+  ghostUsed: boolean;
+  portalCooldown: number;
 }
 
 export const tileAt = (course: Course, x: number, y: number): Tile | undefined => {
@@ -167,6 +174,49 @@ const reflect = (ball: Ball, normal: Point, restitution: number) => {
   };
 };
 
+export const portalPairs = (course: Course): readonly PortalPair[] => course.portals ?? [];
+
+export const portalEntranceAt = (course: Course, x: number, y: number): PortalPair | undefined => portalPairs(course).find((pair) => pair.entrance && pair.exit && pair.entrance.point.x === Math.floor(x) && pair.entrance.point.y === Math.floor(y));
+
+const portalExitFor = (course: Course, pair: PortalPair, requestedId?: string): PortalEndpoint | undefined => {
+  if (requestedId) return portalPairs(course).find((candidate) => `${candidate.id}:exit` === requestedId)?.exit;
+  return pair.exit;
+};
+
+const rotateVelocity = (velocity: Point, entrance: Point, exit: Point, speedMultiplier: number) => {
+  const rotation = Math.atan2(exit.y, exit.x) - Math.atan2(entrance.y, entrance.x);
+  const cosine = Math.cos(rotation);
+  const sine = Math.sin(rotation);
+  return {
+    x: (velocity.x * cosine - velocity.y * sine) * speedMultiplier,
+    y: (velocity.x * sine + velocity.y * cosine) * speedMultiplier,
+  };
+};
+
+const teleportThroughPortal = (course: Course, participant: Participant): boolean => {
+  if (participant.portalCooldown > 0) {
+    participant.portalCooldown -= 1;
+    return false;
+  }
+  const pair = portalEntranceAt(course, participant.ball.x, participant.ball.y);
+  if (!pair?.entrance) return false;
+  const exit = portalExitFor(course, pair, participant.modifiers.portalExitId);
+  if (!exit) return false;
+  const velocity = rotateVelocity(participant.ball, pair.entrance.direction, exit.direction, participant.modifiers.portalSpeedMultiplier ?? 1);
+  participant.ball = {
+    ...participant.ball,
+    x: exit.point.x + .5 + exit.direction.x * .34,
+    y: exit.point.y + .5 + exit.direction.y * .34,
+    z: floorHeightAt(course, exit.point.x + .5, exit.point.y + .5) + BALL_RADIUS,
+    vx: velocity.x,
+    vy: velocity.y,
+    vz: 0,
+  };
+  participant.portalCooldown = 8;
+  limitPlanarSpeed(participant.ball);
+  return true;
+};
+
 const stopParticipant = (course: Course, participant: Participant) => {
   const tile = tileAt(course, participant.ball.x, participant.ball.y);
   participant.ball = {
@@ -188,6 +238,14 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
     ball.vx += direction.x * acceleration * STEP;
     ball.vy += direction.y * acceleration * STEP;
   }
+  if (modifiers.magnetBall) {
+    const pad = course.itemPads.filter((candidate) => !candidate.collected).map((candidate) => ({ pad: candidate, distance: Math.hypot(candidate.point.x + .5 - ball.x, candidate.point.y + .5 - ball.y) })).filter((candidate) => candidate.distance > .05 && candidate.distance < 3.25).sort((left, right) => left.distance - right.distance)[0];
+    if (pad) {
+      const pull = 2.1 * (1 - pad.distance / 3.25) * STEP;
+      ball.vx += (pad.pad.point.x + .5 - ball.x) / pad.distance * pull;
+      ball.vy += (pad.pad.point.y + .5 - ball.y) / pad.distance * pull;
+    }
+  }
   const currentSpeed = planarSpeed(ball);
   if (currentSpeed > 0) {
     const deceleration = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
@@ -205,6 +263,8 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
   ball.y += ball.vy * STEP;
   ball.vz = 0;
 
+  if (teleportThroughPortal(course, participant)) return;
+
   const tile = tileAt(course, ball.x, ball.y);
   if (!tile || tile.surface === 'void') {
     if (participant.modifiers.hazardShield && !participant.shieldUsed) {
@@ -219,8 +279,15 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
     return;
   }
   if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase)) {
+    if (participant.modifiers.ghostBall && !participant.ghostUsed) {
+      participant.ghostUsed = true;
+      ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
+      applySurfaceForces(course, ball, tile, participant.modifiers);
+      return;
+    }
     const normal = bounceNormal(previous, ball);
-    const velocity = reflect(previous, normal, participant.modifiers.bankShot ? .82 : .52);
+    const restitution = participant.modifiers.bouncy ? .94 : participant.modifiers.bankShot ? .82 : .52;
+    const velocity = reflect(previous, normal, restitution);
     participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     return;
   }
@@ -293,8 +360,8 @@ const allSettled = (course: Course, participants: Participant[]) => participants
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
-    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false },
-    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false })),
+    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0 },
+    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0 })),
   ];
   const frames: SimulationFrame[] = [];
   const cup = tileCenter(course.cup);

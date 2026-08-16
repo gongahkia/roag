@@ -3,12 +3,13 @@ import { defaultTerrainSettings, generateCourse, randomTerrainSettings } from '.
 import { COURSE_PHASES } from './hazards';
 import { MAX_SETTLE_SECONDS, newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { hashSeed, Random } from './random';
-import type { Ball, BuildTool, Course, GameCommand, GameConfig, GameState, GameTransport, ItemPadKind, Player, Point, PowerUp, ShotCommand, Upgrade } from './types';
+import type { Ball, BallForm, BuildTool, Course, GameCommand, GameConfig, GameState, GameTransport, ItemPadKind, Player, Point, PowerUp, ShotCommand, Upgrade } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
-const recoveryPowerUps: PowerUp[] = ['turbo', 'shield'];
-const chaosPowerUps: PowerUp[] = ['turbo', 'bomb', 'freeze', 'swap'];
-const upgrades: Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet'];
+const recoveryPowerUps: PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet'];
+const chaosPowerUps: PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
+const ballForms: BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
+const upgrades: Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'];
 
 export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
   'heavy ball': '+12% launch power and 1.45× collision mass',
@@ -17,6 +18,9 @@ export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
   'bank shot': 'retains 82% speed on wall rebounds',
   'hazard shield': 'one void rebound each hole',
   'chaos magnet': '65% chance to refill after using an item',
+  'portal savvy': '18% more speed after portal exits',
+  'second wind': 'one two-putts charge each hole',
+  scavenger: 'hold a second chaos item',
 };
 
 export const defaultConfig = (): GameConfig => ({
@@ -54,6 +58,7 @@ const blankCourse = (seed: string): Course => {
     cup,
     route: [],
     hazards: [],
+    portals: [],
     itemPads: [],
     score: { playable: false, estimatedStrokes: 0, hazards: 0, elevation: 0, routes: 0, novelty: 0, total: 0, solverShots: [], rejection: 'builder has not validated this course' },
   };
@@ -74,27 +79,32 @@ export const createGame = (config: GameConfig): GameState => {
     turn: { playerIndex: 0, secondsLeft: config.timerSeconds, shotInFlight: false },
     authoredCourses: [],
     courseIndex: 0,
-    build: { authorIndex: 0, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false },
+    build: { authorIndex: 0, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, portalPairId: 1, terrain: defaultTerrainSettings(), generated: false },
     status: 'build',
     messages: ['build a course, then sink it once to validate'],
   };
 };
 
-const cloneCourse = (course: Course): Course => ({ ...course, tiles: course.tiles.map((tile) => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined })), route: course.route.map((point) => ({ ...point })), tee: { ...course.tee }, cup: { ...course.cup }, hazards: course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })), itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })) });
+const cloneCourse = (course: Course): Course => ({ ...course, tiles: course.tiles.map((tile) => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined })), route: course.route.map((point) => ({ ...point })), tee: { ...course.tee }, cup: { ...course.cup }, hazards: course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })), portals: course.portals?.map((pair) => ({ ...pair, entrance: pair.entrance ? { point: { ...pair.entrance.point }, direction: { ...pair.entrance.direction } } : undefined, exit: pair.exit ? { point: { ...pair.exit.point }, direction: { ...pair.exit.direction } } : undefined })), itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })) });
 
 const cloneState = (state: GameState): GameState => ({ ...state, course: cloneCourse(state.course), authoredCourses: state.authoredCourses.map((entry) => ({ ...entry, course: cloneCourse(entry.course) })), build: state.build ? { ...state.build, direction: { ...state.build.direction }, terrain: { ...state.build.terrain } } : undefined, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
 
 const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
 
 const adjustedShot = (player: Player, shot: ShotCommand): ShotCommand => {
-  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1);
+  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1);
   return { ...shot, power: shot.power * multiplier };
 };
 
 const modifiersFor = (player: Player): BallPhysicsModifiers => ({
-  mass: player.upgrades.includes('heavy ball') ? 1.45 : 1,
-  iceSkates: player.upgrades.includes('ice skates'),
+  mass: player.upgrades.includes('heavy ball') && player.ballForm === 'heavy' ? 1.9 : player.ballForm === 'heavy' ? 1.65 : player.upgrades.includes('heavy ball') ? 1.45 : 1,
+  iceSkates: player.upgrades.includes('ice skates') || player.ballForm === 'ice',
   bankShot: player.upgrades.includes('bank shot'),
+  bouncy: player.ballForm === 'bouncy',
+  ghostBall: player.ballForm === 'ghost',
+  magnetBall: player.ballForm === 'magnet',
+  portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
+  portalSpeedMultiplier: player.upgrades.includes('portal savvy') ? 1.18 : 1,
   hazardShield: player.hazardShield,
 });
 
@@ -109,7 +119,7 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
     collisions: state.config.collisions,
     phase: state.coursePhase,
-    collectItems: state.config.powerUps && !player.inventory,
+    collectItems: state.config.powerUps && canStorePowerUp(player),
   });
 };
 
@@ -150,6 +160,11 @@ const resetPlayersForCourse = (state: GameState) => {
   state.players.forEach((player) => {
     player.ball = newBall(state.course);
     player.inventory = undefined;
+    player.spareInventory = undefined;
+    player.ballForm = undefined;
+    player.portalExitId = undefined;
+    player.twoPuttsArmed = undefined;
+    player.secondWindAvailable = player.upgrades.includes('second wind');
     player.turboArmed = false;
     player.frozenTurns = undefined;
     player.hazardShield = player.upgrades.includes('hazard shield');
@@ -160,7 +175,7 @@ const beginBuild = (state: GameState, authorIndex: number) => {
   const author = state.players[authorIndex]!;
   state.course = blankCourse(hashSeed(state.config.seed, state.authoredCourses.length + authorIndex + 1));
   state.coursePhase = 0;
-  state.build = { authorIndex, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false };
+  state.build = { authorIndex, tool: 'fairway', height: 0, direction: { x: 1, y: 0 }, portalPairId: 1, terrain: defaultTerrainSettings(), generated: false };
   state.turn = { playerIndex: authorIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
   state.status = 'build';
   addMessage(state, `${author.name} is building a course`);
@@ -202,6 +217,11 @@ const placeBuildTool = (state: GameState, point: Point) => {
   const clearFeatures = () => {
     state.course.hazards = state.course.hazards.filter((hazard) => hazard.point.x !== point.x || hazard.point.y !== point.y);
     state.course.itemPads = state.course.itemPads.filter((pad) => pad.point.x !== point.x || pad.point.y !== point.y);
+    state.course.portals = (state.course.portals ?? []).map((pair) => ({
+      ...pair,
+      entrance: pair.entrance?.point.x === point.x && pair.entrance.point.y === point.y ? undefined : pair.entrance,
+      exit: pair.exit?.point.x === point.x && pair.exit.point.y === point.y ? undefined : pair.exit,
+    })).filter((pair) => pair.entrance || pair.exit);
   };
   if (tool === 'erase') {
     state.course.tiles[tileIndex] = { surface: 'void', height: 0 };
@@ -221,6 +241,18 @@ const placeBuildTool = (state: GameState, point: Point) => {
     if (state.course.tiles[tileIndex]!.surface === 'void') state.course.tiles[tileIndex] = { surface: 'fairway', height: build.height, corners: [build.height, build.height, build.height, build.height] };
     state.course.hazards = state.course.hazards.filter((hazard) => hazard.point.x !== point.x || hazard.point.y !== point.y);
     state.course.hazards.push(tool === 'sweeper' ? { id: `builder-sweeper-${point.x}-${point.y}`, kind: 'sweeper', point: { ...point }, phaseOffset: (point.x + point.y) % COURSE_PHASES, radius: .78 } : { id: `builder-gate-${point.x}-${point.y}`, kind: 'gate', point: { ...point }, phaseOffset: (point.x + point.y) % COURSE_PHASES });
+    return;
+  }
+  if (tool === 'portal-entrance' || tool === 'portal-exit') {
+    if (state.course.tiles[tileIndex]!.surface === 'void') state.course.tiles[tileIndex] = { surface: 'fairway', height: build.height, corners: [build.height, build.height, build.height, build.height] };
+    clearFeatures();
+    const id = `portal-${build.portalPairId}`;
+    const endpoint = tool === 'portal-entrance' ? 'entrance' : 'exit';
+    const portals = state.course.portals ?? (state.course.portals = []);
+    const pair = portals.find((candidate) => candidate.id === id);
+    const placed = { point: { ...point }, direction: { ...build.direction } };
+    if (pair) pair[endpoint] = placed;
+    else portals.push({ id, [endpoint]: placed });
     return;
   }
   if (tool === 'recovery-pad' || tool === 'chaos-pad') {
@@ -290,6 +322,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     if (command.tool) state.build.tool = command.tool;
     if (command.height !== undefined) state.build.height = Math.max(0, Math.min(3, command.height));
     if (command.direction) state.build.direction = { ...command.direction };
+    if (command.portalPairId !== undefined) state.build.portalPairId = Math.max(1, Math.floor(command.portalPairId));
     if (command.terrain) state.build.terrain = { ...state.build.terrain, ...command.terrain };
     return state;
   }
@@ -344,6 +377,9 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     const result = simulatePlayerShot(state, playerIndex, command.shot);
     player.turboArmed = false;
     applySimulation(state, playerIndex, result);
+    const consumedForm = player.ballForm;
+    player.ballForm = undefined;
+    player.portalExitId = undefined;
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
     else if (result.reset) addMessage(state, `${player.name} finds the edge`);
     else addMessage(state, `${player.name} rolls to safety`);
@@ -352,24 +388,40 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
       if (result.holed) finishValidation(state);
       else if (player.ball.strokes >= state.config.strokeCap) {
         state.status = 'build';
-        state.build = { ...(state.build ?? { authorIndex: playerIndex, tool: 'fairway' as BuildTool, height: 0, direction: { x: 1, y: 0 }, terrain: defaultTerrainSettings(), generated: false }), authorIndex: playerIndex };
+        state.build = { ...(state.build ?? { authorIndex: playerIndex, tool: 'fairway' as BuildTool, height: 0, direction: { x: 1, y: 0 }, portalPairId: 1, terrain: defaultTerrainSettings(), generated: false }), authorIndex: playerIndex };
         addMessage(state, `${player.name} needs to revise this course before it can be played`);
       } else state.turn = { playerIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
       return state;
     }
     const pad = result.itemPadIds.map((id) => state.course.itemPads.find((candidate) => candidate.id === id)).find(Boolean);
-    if (state.config.powerUps && !player.inventory && pad) {
+    if (state.config.powerUps && canStorePowerUp(player) && pad) {
       pad.collected = true;
-      player.inventory = powerUpFor(state, player, pad.kind, pad.id);
-      addMessage(state, `${player.name} taps a ${pad.kind} pad — ${player.inventory}`);
-    } else if (state.config.powerUps && !player.inventory && player.upgrades.includes('extra charge')) {
-      player.inventory = powerUpFor(state, player, 'recovery', 'extra-charge');
-      addMessage(state, `${player.name}'s extra charge pulls ${player.inventory}`);
+      const item = powerUpFor(state, player, pad.kind, pad.id);
+      storePowerUp(player, item);
+      addMessage(state, `${player.name} taps a ${pad.kind} pad — ${item}`);
+    } else if (state.config.powerUps && canStorePowerUp(player) && player.upgrades.includes('extra charge')) {
+      const item = powerUpFor(state, player, 'recovery', 'extra-charge');
+      storePowerUp(player, item);
+      addMessage(state, `${player.name}'s extra charge pulls ${item}`);
+    }
+    if (player.twoPuttsArmed && !player.ball.complete && player.ball.strokes < state.config.strokeCap) {
+      player.twoPuttsArmed = undefined;
+      addMessage(state, `${player.name} takes the second putt${consumedForm ? ` after ${consumedForm} ball` : ''}`);
+      state.turn = { playerIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
+      return state;
     }
     advanceCoursePhase(state);
     advanceTurn(state);
   }
-  if (command.type === 'use-power-up' && state.status === 'playing') usePowerUp(state, command.powerUp, command.targetId);
+  if (command.type === 'use-power-up' && state.status === 'playing') usePowerUp(state, command.powerUp, command.targetId, command.portalExitId);
+  if (command.type === 'arm-second-wind' && state.status === 'playing') {
+    const player = activePlayer(state);
+    if (player.secondWindAvailable && !player.twoPuttsArmed) {
+      player.secondWindAvailable = false;
+      player.twoPuttsArmed = true;
+      addMessage(state, `${player.name} calls on second wind — two putts armed`);
+    }
+  }
   if (command.type === 'emote') {
     const player = state.players.find((candidate) => candidate.id === command.playerId);
     if (player) {
@@ -400,6 +452,11 @@ const startHole = (state: GameState, hole: number) => {
   state.players.forEach((player) => {
     player.ball = newBall(state.course);
     player.inventory = undefined;
+    player.spareInventory = undefined;
+    player.ballForm = undefined;
+    player.portalExitId = undefined;
+    player.twoPuttsArmed = undefined;
+    player.secondWindAvailable = player.upgrades.includes('second wind');
     player.turboArmed = false;
     player.frozenTurns = undefined;
     player.hazardShield = player.upgrades.includes('hazard shield');
@@ -409,9 +466,38 @@ const startHole = (state: GameState, hole: number) => {
   addMessage(state, `hole ${hole}: inspect, lock, and tee off`);
 };
 
-const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
+const canStorePowerUp = (player: Player) => !player.inventory || (player.upgrades.includes('scavenger') && !player.spareInventory);
+
+const storePowerUp = (player: Player, powerUp: PowerUp) => {
+  if (!player.inventory) {
+    player.inventory = powerUp;
+    return true;
+  }
+  if (player.upgrades.includes('scavenger') && !player.spareInventory) {
+    player.spareInventory = powerUp;
+    return true;
+  }
+  return false;
+};
+
+const takePowerUp = (player: Player, powerUp: PowerUp) => {
+  if (player.inventory === powerUp) {
+    player.inventory = player.spareInventory;
+    player.spareInventory = undefined;
+    return true;
+  }
+  if (player.spareInventory === powerUp) {
+    player.spareInventory = undefined;
+    return true;
+  }
+  return false;
+};
+
+const portalExitExists = (course: Course, id: string | undefined) => Boolean(id && course.portals?.some((pair) => pair.exit && `${pair.id}:exit` === id));
+
+const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string, portalExitId?: string) => {
   const player = activePlayer(state);
-  if (player.inventory !== powerUp) return;
+  if (player.inventory !== powerUp && player.spareInventory !== powerUp) return;
   const target = state.players.find((candidate) => candidate.id === targetId);
   let used = false;
   if (powerUp === 'turbo') {
@@ -444,11 +530,24 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
     addMessage(state, `${player.name} swaps with ${target.name}`);
     used = true;
   }
+  if (powerUp === 'two putts' && !player.twoPuttsArmed) {
+    player.twoPuttsArmed = true;
+    addMessage(state, `${player.name} arms two putts`);
+    used = true;
+  }
+  if (ballForms.includes(powerUp as BallForm)) {
+    const ballForm = powerUp as BallForm;
+    if (ballForm === 'portal' && !portalExitExists(state.course, portalExitId)) return;
+    player.ballForm = ballForm;
+    player.portalExitId = ballForm === 'portal' ? portalExitId : undefined;
+    addMessage(state, `${player.name} becomes a ${ballForm} ball`);
+    used = true;
+  }
   if (!used) return;
-  player.inventory = undefined;
+  takePowerUp(player, powerUp);
   if (state.config.powerUps && player.upgrades.includes('chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(.65)) {
-    player.inventory = powerUpFor(state, player, 'chaos', 'chaos-magnet');
-    addMessage(state, `${player.name}'s chaos magnet pulls ${player.inventory}`);
+    const item = powerUpFor(state, player, 'chaos', 'chaos-magnet');
+    if (storePowerUp(player, item)) addMessage(state, `${player.name}'s chaos magnet pulls ${item}`);
   }
 };
 
