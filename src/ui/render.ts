@@ -1,4 +1,4 @@
-import { EMOTES, type Ball, type Course, type CoursePickup, type EmoteEvent, type Player, type Surface, type Tile, type WorldRotation } from '../core/types';
+import { EMOTES, type Ball, type Course, type EmoteEvent, type Player, type Surface, type Tile } from '../core/types';
 
 interface Point { x: number; y: number; }
 interface Metrics { tileWidth: number; tileHeight: number; elevation: number; }
@@ -25,21 +25,10 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], aim?: { angle: number; power: number }, rotation?: WorldRotation, emotes?: readonly EmoteEvent[]): void;
-  aimFromPointer(event: PointerEvent, course: Course, ball: Ball, rotation: WorldRotation): { angle: number; power: number };
+  draw(course: Course, players: Player[], aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[]): void;
+  aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   dispose(): void;
 }
-
-const rotate = (course: Course, x: number, y: number, rotation: WorldRotation) => {
-  const centerX = course.width / 2;
-  const centerY = course.height / 2;
-  const deltaX = x - centerX;
-  const deltaY = y - centerY;
-  if (rotation === 1) return { x: centerX - deltaY, y: centerY + deltaX };
-  if (rotation === 2) return { x: centerX - deltaX, y: centerY - deltaY };
-  if (rotation === 3) return { x: centerX + deltaY, y: centerY - deltaX };
-  return { x, y };
-};
 
 const project = (x: number, y: number, z: number, metrics: Metrics): Point => ({
   x: (x - y) * metrics.tileWidth / 2,
@@ -53,21 +42,17 @@ const polygon = (context: CanvasRenderingContext2D, points: readonly Point[]) =>
   context.closePath();
 };
 
-const isVisible = (tile: Tile | undefined, rotation: WorldRotation) => Boolean(tile && tile.surface !== 'void' && (tile.rotationGate === undefined || tile.rotationGate === rotation));
+const isVisible = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
 
-const visibleTilesFor = (course: Course, rotation: WorldRotation, metrics: Metrics): VisibleTile[] => {
+const visibleTilesFor = (course: Course, metrics: Metrics): VisibleTile[] => {
   const visible: VisibleTile[] = [];
   for (let y = 0; y < course.height; y += 1) {
     for (let x = 0; x < course.width; x += 1) {
       const tile = course.tiles[y * course.width + x]!;
-      if (!isVisible(tile, rotation)) continue;
-      const point = (tileX: number, tileY: number) => {
-        const rotated = rotate(course, tileX, tileY, rotation);
-        return project(rotated.x, rotated.y, tile.height, metrics);
-      };
+      if (!isVisible(tile)) continue;
+      const point = (tileX: number, tileY: number) => project(tileX, tileY, tile.height, metrics);
       const corners = [point(x, y), point(x + 1, y), point(x + 1, y + 1), point(x, y + 1)];
-      const rotatedCenter = rotate(course, x + .5, y + .5, rotation);
-      const center = project(rotatedCenter.x, rotatedCenter.y, tile.height, metrics);
+      const center = project(x + .5, y + .5, tile.height, metrics);
       visible.push({ x, y, tile, corners, center });
     }
   }
@@ -83,9 +68,9 @@ const boundsFor = (tiles: readonly VisibleTile[], metrics: Metrics) => {
   return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 };
 
-const metricsFor = (course: Course, rotation: WorldRotation, width: number, height: number): Metrics => {
+const metricsFor = (course: Course, width: number, height: number): Metrics => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
-  const bounds = boundsFor(visibleTilesFor(course, rotation, unitMetrics), unitMetrics);
+  const bounds = boundsFor(visibleTilesFor(course, unitMetrics), unitMetrics);
   const tileWidth = Math.max(16, Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height));
   return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
 };
@@ -102,10 +87,10 @@ const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offse
 
 const neighborFor = (course: Course, x: number, y: number, direction: Point) => course.tiles[(y + direction.y) * course.width + x + direction.x];
 
-const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, rotation: WorldRotation, offset: Point, metrics: Metrics) => {
-  if (isVisible(neighbor, rotation) && neighbor!.height >= tile.tile.height) return;
+const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, offset: Point, metrics: Metrics) => {
+  if (isVisible(neighbor) && neighbor!.height >= tile.tile.height) return;
   const edgePoints = [tile.corners[edge]!, tile.corners[(edge + 1) % 4]!];
-  const baseline = isVisible(neighbor, rotation) ? neighbor!.height : -1.1;
+  const baseline = isVisible(neighbor) ? neighbor!.height : -1.1;
   const depth = Math.max(.15, tile.tile.height - baseline) * metrics.elevation;
   const face = [
     withOffset(edgePoints[0], offset),
@@ -168,11 +153,9 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
   context.restore();
 };
 
-const screenDirection = (course: Course, x: number, y: number, direction: Point, rotation: WorldRotation, metrics: Metrics): Point => {
-  const start = rotate(course, x + .5, y + .5, rotation);
-  const end = rotate(course, x + .5 + direction.x, y + .5 + direction.y, rotation);
-  const startPoint = project(start.x, start.y, 0, metrics);
-  const endPoint = project(end.x, end.y, 0, metrics);
+const screenDirection = (x: number, y: number, direction: Point, metrics: Metrics): Point => {
+  const startPoint = project(x + .5, y + .5, 0, metrics);
+  const endPoint = project(x + .5 + direction.x, y + .5 + direction.y, 0, metrics);
   const length = Math.hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y) || 1;
   return { x: (endPoint.x - startPoint.x) / length, y: (endPoint.y - startPoint.y) / length };
 };
@@ -185,29 +168,27 @@ const drawChevron = (context: CanvasRenderingContext2D, center: Point, direction
   context.fill();
 };
 
-const drawSurfaceMarker = (context: CanvasRenderingContext2D, course: Course, tile: VisibleTile, offset: Point, rotation: WorldRotation, metrics: Metrics) => {
+const drawSurfaceMarker = (context: CanvasRenderingContext2D, tile: VisibleTile, offset: Point, metrics: Metrics) => {
   if (tile.tile.surface !== 'booster' && tile.tile.surface !== 'conveyor') return;
   const direction = tile.tile.direction ?? { x: 1, y: 0 };
-  const vector = screenDirection(course, tile.x, tile.y, direction, rotation, metrics);
+  const vector = screenDirection(tile.x, tile.y, direction, metrics);
   drawChevron(context, withOffset(tile.center, offset), vector, metrics.tileWidth * .18, tile.tile.surface === 'booster' ? '#ffe4a3' : '#e8f3ff');
 };
 
-const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, offset: Point, rotation: WorldRotation, metrics: Metrics) => {
+const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: Metrics) => {
   for (let index = 2; index < course.route.length - 1; index += 4) {
     const point = course.route[index]!;
     const next = course.route[index + 1]!;
     const tile = course.tiles[point.y * course.width + point.x]!;
-    if (!isVisible(tile, rotation) || tile.surface !== 'fairway') continue;
-    const rotated = rotate(course, point.x + .5, point.y + .5, rotation);
-    const center = withOffset(project(rotated.x, rotated.y, tile.height + .025, metrics), offset);
-    const direction = screenDirection(course, point.x, point.y, { x: next.x - point.x, y: next.y - point.y }, rotation, metrics);
+    if (!isVisible(tile) || tile.surface !== 'fairway') continue;
+    const center = withOffset(project(point.x + .5, point.y + .5, tile.height + .025, metrics), offset);
+    const direction = screenDirection(point.x, point.y, { x: next.x - point.x, y: next.y - point.y }, metrics);
     drawChevron(context, center, direction, metrics.tileWidth * .13, '#d94327');
   }
 };
 
-const drawBall = (context: CanvasRenderingContext2D, course: Course, ball: Ball, color: string, offset: Point, rotation: WorldRotation, metrics: Metrics) => {
-  const rotated = rotate(course, ball.x, ball.y, rotation);
-  const point = withOffset(project(rotated.x, rotated.y, ball.z + .08, metrics), offset);
+const drawBall = (context: CanvasRenderingContext2D, ball: Ball, color: string, offset: Point, metrics: Metrics) => {
+  const point = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
   const radius = Math.max(4, metrics.tileWidth * .13);
   context.beginPath();
   context.ellipse(point.x, point.y + radius * .38, radius * .82, radius * .32, 0, 0, Math.PI * 2);
@@ -226,28 +207,12 @@ const drawBall = (context: CanvasRenderingContext2D, course: Course, ball: Ball,
   context.fill();
 };
 
-const drawPickup = (context: CanvasRenderingContext2D, course: Course, pickup: CoursePickup, offset: Point, rotation: WorldRotation, metrics: Metrics) => {
-  if (pickup.collected || pickup.rotation !== rotation) return;
-  const tile = course.tiles[pickup.point.y * course.width + pickup.point.x]!;
-  if (!isVisible(tile, rotation)) return;
-  const rotated = rotate(course, pickup.point.x + .5, pickup.point.y + .5, rotation);
-  const point = withOffset(project(rotated.x, rotated.y, tile.height + .28, metrics), offset);
-  const radius = Math.max(4, metrics.tileWidth * .12);
-  polygon(context, [{ x: point.x, y: point.y - radius }, { x: point.x + radius, y: point.y }, { x: point.x, y: point.y + radius }, { x: point.x - radius, y: point.y }]);
-  context.fillStyle = '#dca4ff';
-  context.fill();
-  context.strokeStyle = '#fff0ff';
-  context.lineWidth = 1;
-  context.stroke();
-};
-
-const drawEmotes = (context: CanvasRenderingContext2D, course: Course, players: Player[], emotes: readonly EmoteEvent[], offset: Point, rotation: WorldRotation, metrics: Metrics) => {
+const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes: readonly EmoteEvent[], offset: Point, metrics: Metrics) => {
   emotes.forEach((event, index) => {
     const player = players.find((candidate) => candidate.id === event.playerId);
     const definition = EMOTES.find((candidate) => candidate.id === event.emote);
     if (!player || !definition) return;
-    const rotated = rotate(course, player.ball.x, player.ball.y, rotation);
-    const point = withOffset(project(rotated.x, rotated.y, player.ball.z + .62, metrics), offset);
+    const point = withOffset(project(player.ball.x, player.ball.y, player.ball.z + .62, metrics), offset);
     context.font = '12px BigBlueTerm, ui-monospace, monospace';
     const width = Math.max(23, context.measureText(definition.glyph).width + 10);
     const x = point.x + (index % 3 - 1) * 8 - width / 2;
@@ -266,16 +231,16 @@ const drawEmotes = (context: CanvasRenderingContext2D, course: Course, players: 
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; aim?: { angle: number; power: number }; rotation: WorldRotation; emotes: readonly EmoteEvent[] } | undefined;
+  let latest: { course: Course; players: Player[]; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[] } | undefined;
 
-  const layoutFor = (course: Course, rotation: WorldRotation) => {
+  const layoutFor = (course: Course) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const metrics = metricsFor(course, rotation, width, height);
-    const tiles = visibleTilesFor(course, rotation, metrics);
+    const metrics = metricsFor(course, width, height);
+    const tiles = visibleTilesFor(course, metrics);
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], aim: { angle: number; power: number } | undefined, rotation: WorldRotation, emotes: readonly EmoteEvent[]) => {
+  const paint = (course: Course, players: Player[], aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[]) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -283,28 +248,26 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#050b12');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const { metrics, tiles, offset } = layoutFor(course, rotation);
+    const { metrics, tiles, offset } = layoutFor(course);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     tiles.forEach((tile) => {
       for (let edge = 0; edge < 4; edge += 1) {
         const first = tile.corners[edge]!;
         const second = tile.corners[(edge + 1) % 4]!;
         if ((first.y + second.y) / 2 <= tile.center.y) continue;
-        drawSide(context, tile, edge, neighborFor(course, tile.x, tile.y, directions[edge]!), rotation, offset, metrics);
+        drawSide(context, tile, edge, neighborFor(course, tile.x, tile.y, directions[edge]!), offset, metrics);
       }
       polygon(context, tile.corners.map((point) => withOffset(point, offset)));
       context.fillStyle = topColors[tile.tile.surface];
       context.fill();
       drawPattern(context, tile, offset, metrics);
     });
-    tiles.forEach((tile) => drawSurfaceMarker(context, course, tile, offset, rotation, metrics));
-    drawRouteMarkers(context, course, offset, rotation, metrics);
-    course.pickups.forEach((pickup) => drawPickup(context, course, pickup, offset, rotation, metrics));
+    tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
+    drawRouteMarkers(context, course, offset, metrics);
     if (aim) {
       const player = players.find((candidate) => !candidate.ball.complete);
       if (player) {
-        const rotated = rotate(course, player.ball.x, player.ball.y, rotation);
-        const start = withOffset(project(rotated.x, rotated.y, player.ball.z + .15, metrics), offset);
+        const start = withOffset(project(player.ball.x, player.ball.y, player.ball.z + .15, metrics), offset);
         context.beginPath();
         context.moveTo(start.x, start.y);
         context.lineTo(start.x + Math.cos(aim.angle) * aim.power * metrics.tileWidth * .4, start.y + Math.sin(aim.angle) * aim.power * metrics.tileHeight * .4);
@@ -315,8 +278,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         context.setLineDash([]);
       }
     }
-    [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, course, player.ball, player.color, offset, rotation, metrics));
-    drawEmotes(context, course, players, emotes, offset, rotation, metrics);
+    [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player.ball, player.color, offset, metrics));
+    drawEmotes(context, players, emotes, offset, metrics);
   };
 
   const resize = () => {
@@ -325,28 +288,23 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.aim, latest.rotation, latest.emotes);
+    if (latest) paint(latest.course, latest.players, latest.aim, latest.emotes);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, aim, rotation = 0, emotes = []) {
-      latest = { course, players, aim, rotation, emotes };
-      paint(course, players, aim, rotation, emotes);
+    draw(course, players, aim, emotes = []) {
+      latest = { course, players, aim, emotes };
+      paint(course, players, aim, emotes);
     },
-    aimFromPointer(event, course, ball, rotation) {
+    aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();
-      const { metrics, offset } = layoutFor(course, rotation);
-      const rotated = rotate(course, ball.x, ball.y, rotation);
-      const ballPoint = withOffset(project(rotated.x, rotated.y, ball.z + .08, metrics), offset);
+      const { metrics, offset } = layoutFor(course);
+      const ballPoint = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
       const viewDelta = { x: event.clientX - rect.left - ballPoint.x, y: event.clientY - rect.top - ballPoint.y };
-      const rotatedDelta = { x: viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight, y: -viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight };
-      const worldDelta = rotation === 1 ? { x: rotatedDelta.y, y: -rotatedDelta.x }
-        : rotation === 2 ? { x: -rotatedDelta.x, y: -rotatedDelta.y }
-          : rotation === 3 ? { x: -rotatedDelta.y, y: rotatedDelta.x }
-            : rotatedDelta;
+      const worldDelta = { x: viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight, y: -viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight };
       return {
         angle: Math.atan2(worldDelta.y, worldDelta.x),
         power: Math.max(1, Math.min(8, Math.hypot(worldDelta.x, worldDelta.y) * 1.7)),

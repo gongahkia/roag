@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "check": "npm run build && npm run test"
+    "check": "npm run build && npm run test",
+    "capture:levels": "node scripts/capture-levels.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

@@ -1,6 +1,6 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
 import { Random } from './random';
-import type { Course, CourseScore, Point, ShotCommand, Surface, Tile, WorldRotation } from './types';
+import type { Course, CourseScore, Point, ShotCommand, Surface, Tile } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
 
 const directions = [
@@ -14,9 +14,9 @@ const indexOf = (course: Pick<Course, 'width'>, point: Point) => point.y * cours
 
 const baseTile = (): Tile => ({ surface: 'void', height: 0 });
 
-const writeTile = (tiles: Tile[], point: Point, surface: Surface, height: number, width = COURSE_WIDTH, rotationGate?: WorldRotation) => {
+const writeTile = (tiles: Tile[], point: Point, surface: Surface, height: number, width = COURSE_WIDTH) => {
   if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= COURSE_HEIGHT) return;
-  tiles[point.y * width + point.x] = { surface, height, ...(rotationGate === undefined ? {} : { rotationGate }) };
+  tiles[point.y * width + point.x] = { surface, height };
 };
 
 const carve = (tiles: Tile[], point: Point, height: number) => {
@@ -115,36 +115,22 @@ const decorate = (course: Course, random: Random) => {
       tile.direction = random.pick(directions);
     }
   }
-};
-
-const addRotationCache = (course: Course, random: Random, routeIndex: number) => {
-  const gate = random.pick<WorldRotation>([1, 2, 3]);
-  const origins = course.route
-    .map((point, index) => ({ point, distance: Math.abs(index - routeIndex) }))
-    .sort((left, right) => left.distance - right.distance)
-    .map(({ point }) => point);
-  for (const origin of origins) {
-    const candidates = [...directions].sort(() => random.next() - .5);
-    for (const direction of candidates) {
-      const length = random.int(1, 3);
-      const path = Array.from({ length }, (_, index) => ({ x: origin.x + direction.x * (index + 1), y: origin.y + direction.y * (index + 1) }));
-      if (path.some((point) => point.x < 1 || point.y < 1 || point.x >= COURSE_WIDTH - 1 || point.y >= COURSE_HEIGHT - 1)) continue;
-      if (path.some((point) => course.tiles[indexOf(course, point)]!.surface !== 'void')) continue;
-      const height = course.tiles[indexOf(course, origin)]!.height;
-      path.forEach((point) => writeTile(course.tiles, point, 'fairway', height, course.width, gate));
-      const point = path.at(-1)!;
-      course.pickups.push({ id: `cache-${course.pickups.length}`, point, powerUp: random.pick(['turbo', 'bomb', 'freeze', 'swap'] as const), rotation: gate, collected: false });
-      return;
-    }
-  }
-  const routeCells = new Set(course.route.map((point) => `${point.x},${point.y}`));
-  for (const origin of origins) for (const direction of directions) {
-    const point = { x: origin.x + direction.x, y: origin.y + direction.y };
-    const tile = course.tiles[indexOf(course, point)];
-    if (!tile || tile.surface !== 'fairway' || routeCells.has(`${point.x},${point.y}`)) continue;
-    tile.rotationGate = gate;
-    course.pickups.push({ id: `cache-${course.pickups.length}`, point, powerUp: random.pick(['turbo', 'bomb', 'freeze', 'swap'] as const), rotation: gate, collected: false });
-    return;
+  let walls = 0;
+  const wallTarget = random.int(1, 2);
+  for (let attempt = 0; attempt < 36 && walls < wallTarget; attempt += 1) {
+    const routePoint = random.pick(course.route.slice(2, -2));
+    const direction = random.pick(directions);
+    const point = { x: routePoint.x + direction.x, y: routePoint.y + direction.y };
+    const tile = tileAt(course, point.x + .5, point.y + .5);
+    const onRoute = course.route.some((route) => route.x === point.x && route.y === point.y);
+    if (!tile || tile.surface !== 'fairway' || onRoute) continue;
+    const openNeighbors = directions.filter((neighbor) => {
+      const adjacent = tileAt(course, point.x + neighbor.x + .5, point.y + neighbor.y + .5);
+      return adjacent && adjacent.surface !== 'void' && adjacent.surface !== 'wall';
+    }).length;
+    if (openNeighbors < 2) continue;
+    tile.surface = 'wall';
+    walls += 1;
   }
 };
 
@@ -161,10 +147,8 @@ const buildCourse = (seed: string): Course => {
   const cup = route.at(-1)!;
   writeTile(tiles, tee, 'tee', tiles[indexOf({ width: COURSE_WIDTH }, tee)]!.height);
   writeTile(tiles, cup, 'cup', tiles[indexOf({ width: COURSE_WIDTH }, cup)]!.height);
-  const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, pickups: [], score: {} as CourseScore };
+  const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, score: {} as CourseScore };
   decorate(course, random);
-  addRotationCache(course, random, Math.floor(route.length * .35));
-  addRotationCache(course, random, Math.floor(route.length * .7));
   course.score = scoreCourse(course);
   return course;
 };

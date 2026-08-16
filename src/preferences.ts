@@ -1,4 +1,4 @@
-export type ShortcutId = 'shoot' | 'powerDown' | 'powerUp' | 'rotateLeft' | 'rotateRight' | 'lock' | 'reroll' | 'usePowerUp' | 'help' | 'settings';
+export type ShortcutId = 'shoot' | 'powerDown' | 'powerUp' | 'lock' | 'reroll' | 'usePowerUp' | 'help' | 'settings';
 
 export interface ShortcutBinding {
   id: ShortcutId;
@@ -23,8 +23,6 @@ export const SHORTCUTS: readonly ShortcutBinding[] = [
   { id: 'shoot', label: 'Shoot', defaultKey: ' ' },
   { id: 'powerDown', label: 'Power down', defaultKey: '-' },
   { id: 'powerUp', label: 'Power up', defaultKey: '=' },
-  { id: 'rotateLeft', label: 'Turn world left', defaultKey: '[' },
-  { id: 'rotateRight', label: 'Turn world right', defaultKey: ']' },
   { id: 'lock', label: 'Lock candidate', defaultKey: 'Enter' },
   { id: 'reroll', label: 'Reroll candidates', defaultKey: 'r' },
   { id: 'usePowerUp', label: 'Use chaos item', defaultKey: 'p' },

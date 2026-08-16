@@ -1,12 +1,21 @@
-import { chooseBotDecision } from './bots';
+import { chooseBotDecision, type BotDecision } from './bots';
 import { generateCourse } from './generator';
-import { newBall, simulateShot } from './physics';
-import { hashSeed } from './random';
-import type { Ball, Course, GameCommand, GameConfig, GameState, GameTransport, Player, PowerUp, ShotCommand, WorldRotation } from './types';
+import { newBall, simulateImpulse, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
+import { hashSeed, Random } from './random';
+import type { Ball, Course, GameCommand, GameConfig, GameState, GameTransport, Player, PowerUp, ShotCommand, Upgrade } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 const powerUps: PowerUp[] = ['turbo', 'bomb', 'freeze', 'swap'];
-const upgrades = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet'];
+const upgrades: Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet'];
+
+export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
+  'heavy ball': '+12% launch power and 1.45× collision mass',
+  'ice skates': 'slides farther across ice',
+  'extra charge': 'empty chaos slot refills after every shot',
+  'bank shot': 'retains 82% speed on wall rebounds',
+  'hazard shield': 'one void rebound each hole',
+  'chaos magnet': '65% chance to refill after using an item',
+};
 
 export const defaultConfig = (): GameConfig => ({
   seed: `enemy-${Math.random().toString(36).slice(2, 8)}`,
@@ -38,7 +47,6 @@ export const createGame = (config: GameConfig): GameState => {
     config,
     course,
     hole: 1,
-    rotation: 0,
     emotes: [],
     emoteSequence: 0,
     players,
@@ -48,7 +56,7 @@ export const createGame = (config: GameConfig): GameState => {
   };
 };
 
-const cloneState = (state: GameState): GameState => ({ ...state, course: { ...state.course, pickups: state.course.pickups.map((pickup) => ({ ...pickup })) }, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
+const cloneState = (state: GameState): GameState => ({ ...state, course: { ...state.course }, emotes: state.emotes.map((emote) => ({ ...emote })), players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), turn: { ...state.turn }, messages: [...state.messages] });
 
 const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
 
@@ -57,11 +65,44 @@ const adjustedShot = (player: Player, shot: ShotCommand): ShotCommand => {
   return { ...shot, power: shot.power * multiplier };
 };
 
-export const previewShot = (state: GameState, shot: ShotCommand): Ball[] | undefined => {
+const modifiersFor = (player: Player): BallPhysicsModifiers => ({
+  mass: player.upgrades.includes('heavy ball') ? 1.45 : 1,
+  iceSkates: player.upgrades.includes('ice skates'),
+  bankShot: player.upgrades.includes('bank shot'),
+  hazardShield: player.hazardShield,
+});
+
+const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
+  const player = state.players[playerIndex]!;
+  return simulateShot(state.course, player.ball, adjustedShot(player, shot), 10, {
+    modifiers: modifiersFor(player),
+    otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
+    collisions: state.config.collisions,
+  });
+};
+
+const applySimulation = (state: GameState, playerIndex: number, result: SimulationResult) => {
+  state.players[playerIndex]!.ball = result.ball;
+  state.players[playerIndex]!.hazardShield = state.players[playerIndex]!.hazardShield && !result.shieldUsed;
+  let otherIndex = 0;
+  state.players.forEach((player, index) => {
+    if (index === playerIndex) return;
+    player.ball = result.otherBalls[otherIndex]!;
+    player.hazardShield = player.hazardShield && !result.otherShieldUsed[otherIndex];
+    otherIndex += 1;
+  });
+};
+
+export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | undefined => {
   if (state.status !== 'playing' || state.turn.shotInFlight) return undefined;
-  const player = activePlayer(state);
+  const playerIndex = state.turn.playerIndex;
+  const player = state.players[playerIndex]!;
   if (player.frozenTurns) return undefined;
-  return simulateShot(state.course, player.ball, adjustedShot(player, shot), 10, state.rotation).frames;
+  const result = simulatePlayerShot(state, playerIndex, shot);
+  return result.frames.map((frame) => {
+    let otherIndex = 0;
+    return state.players.map((_, index) => index === playerIndex ? frame.ball : frame.otherBalls[otherIndex++]!);
+  });
 };
 
 const addMessage = (state: GameState, message: string) => {
@@ -104,28 +145,20 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
       advanceTurn(state);
       return state;
     }
-    const result = simulateShot(state.course, player.ball, adjustedShot(player, command.shot), 10, state.rotation);
+    const playerIndex = state.turn.playerIndex;
+    const result = simulatePlayerShot(state, playerIndex, command.shot);
     player.turboArmed = false;
-    player.ball = result.ball;
+    applySimulation(state, playerIndex, result);
     if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
     else if (result.reset) addMessage(state, `${player.name} finds the edge`);
     else addMessage(state, `${player.name} rolls to safety`);
-    if (!player.inventory) {
-      const pickup = state.course.pickups.find((candidate) => result.pickupIds.includes(candidate.id) && !candidate.collected);
-      if (pickup) {
-        pickup.collected = true;
-        player.inventory = pickup.powerUp;
-        addMessage(state, `${player.name} collects ${pickup.powerUp}`);
-      }
+    if (state.config.powerUps && !player.inventory && (player.ball.strokes % 2 === 0 || player.upgrades.includes('extra charge'))) {
+      player.inventory = powerUpFor(state, player);
+      addMessage(state, `${player.name} pulls ${player.inventory}`);
     }
-    if (state.config.powerUps && !player.inventory && (player.ball.strokes % 2 === 0 || player.upgrades.includes('extra charge'))) player.inventory = powerUps[(state.hole + state.turn.playerIndex) % powerUps.length]!;
     advanceTurn(state);
   }
   if (command.type === 'use-power-up' && state.status === 'playing') usePowerUp(state, command.powerUp, command.targetId);
-  if (command.type === 'rotate-world' && !state.turn.shotInFlight && (state.status === 'preview' || state.status === 'playing')) {
-    state.rotation = ((state.rotation + command.direction + 4) % 4) as WorldRotation;
-    addMessage(state, `world turns ${rotationName(state.rotation)}`);
-  }
   if (command.type === 'emote') {
     const player = state.players.find((candidate) => candidate.id === command.playerId);
     if (player) {
@@ -135,7 +168,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   }
   if (command.type === 'draft' && state.status === 'draft') {
     const player = activePlayer(state);
-    player.upgrades.push(command.upgrade);
+    if (!player.upgrades.includes(command.upgrade)) player.upgrades.push(command.upgrade);
     addMessage(state, `${player.name} drafts ${command.upgrade}`);
     advanceDraftOrHole(state);
   }
@@ -152,12 +185,12 @@ const advanceDraftOrHole = (state: GameState) => {
 const startHole = (state: GameState, hole: number) => {
   state.hole = hole;
   state.course = generateCourse(hashSeed(state.config.seed, hole));
-  state.rotation = 0;
   state.players.forEach((player) => {
     player.ball = newBall(state.course);
     player.inventory = undefined;
     player.turboArmed = false;
     player.frozenTurns = undefined;
+    player.hazardShield = player.upgrades.includes('hazard shield');
   });
   state.turn = { playerIndex: 0, secondsLeft: state.config.timerSeconds, shotInFlight: false };
   state.status = 'preview';
@@ -168,25 +201,38 @@ const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string) => {
   const player = activePlayer(state);
   if (player.inventory !== powerUp) return;
   const target = state.players.find((candidate) => candidate.id === targetId);
+  let used = false;
   if (powerUp === 'turbo') {
     player.turboArmed = true;
     addMessage(state, `${player.name} arms turbo`);
+    used = true;
   }
   if (powerUp === 'bomb' && target) {
-    target.ball.vx += target.ball.x > player.ball.x ? 2.8 : -2.8;
-    target.ball.vy += 1.6;
+    const distance = Math.hypot(target.ball.x - player.ball.x, target.ball.y - player.ball.y) || 1;
+    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, 4, modifiersFor(target));
+    target.ball = result.ball;
+    target.hazardShield = target.hazardShield && !result.shieldUsed;
     addMessage(state, `${player.name} bombs ${target.name}`);
+    used = true;
   }
   if (powerUp === 'freeze' && target) {
     target.frozenTurns = 1;
     addMessage(state, `${player.name} freezes ${target.name}`);
+    used = true;
   }
   if (powerUp === 'swap' && target) {
-    [player.ball.x, target.ball.x] = [target.ball.x, player.ball.x];
-    [player.ball.y, target.ball.y] = [target.ball.y, player.ball.y];
+    const playerPosition = { x: player.ball.x, y: player.ball.y, z: player.ball.z };
+    player.ball = { ...player.ball, x: target.ball.x, y: target.ball.y, z: target.ball.z, vx: 0, vy: 0, vz: 0 };
+    target.ball = { ...target.ball, ...playerPosition, vx: 0, vy: 0, vz: 0 };
     addMessage(state, `${player.name} swaps with ${target.name}`);
+    used = true;
   }
+  if (!used) return;
   player.inventory = undefined;
+  if (state.config.powerUps && player.upgrades.includes('chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(.65)) {
+    player.inventory = powerUpFor(state, player);
+    addMessage(state, `${player.name}'s chaos magnet pulls ${player.inventory}`);
+  }
 };
 
 export const beginCourse = (state: GameState): GameState => ({ ...state, status: 'playing', messages: ['tee off — aim with the board, then shoot', ...state.messages] });
@@ -202,14 +248,14 @@ export const tickTurn = (current: GameState, elapsedSeconds: number): GameState 
   return state;
 };
 
-export const currentUpgradeChoices = (state: GameState) => upgrades.map((_, index) => upgrades[(index + state.hole + state.turn.playerIndex) % upgrades.length]!);
+const powerUpFor = (state: GameState, player: Player): PowerUp => powerUps[(state.hole + state.players.indexOf(player) + player.ball.strokes + player.total) % powerUps.length]!;
 
-const rotationName = (rotation: WorldRotation) => ['north', 'east', 'south', 'west'][rotation]!;
+export const currentUpgradeChoices = (state: GameState): Upgrade[] => upgrades.map((_, index) => upgrades[(index + state.hole + state.turn.playerIndex) % upgrades.length]!);
 
-export const botMove = (state: GameState): ShotCommand | undefined => {
+export const botMove = (state: GameState): BotDecision | undefined => {
   const player = activePlayer(state);
   if (player.kind !== 'bot' || state.status !== 'playing' || state.turn.shotInFlight) return undefined;
-  return chooseBotDecision(state.course, player, state.players, state.rotation).shot;
+  return chooseBotDecision(state.course, player, state.players);
 };
 
 export class LocalTransport implements GameTransport {
