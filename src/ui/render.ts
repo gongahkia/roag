@@ -55,14 +55,6 @@ const polygon = (context: CanvasRenderingContext2D, points: readonly Point[]) =>
 
 const isVisible = (tile: Tile | undefined, rotation: WorldRotation) => Boolean(tile && tile.surface !== 'void' && (tile.rotationGate === undefined || tile.rotationGate === rotation));
 
-const metricsFor = (course: Course, width: number, height: number): Metrics => {
-  const highestTile = Math.max(...course.tiles.map((tile) => tile.height), 0);
-  const horizontalLimit = (width - 38) * 2 / (course.width + course.height);
-  const verticalLimit = (height - 54) / ((course.width + course.height) / 4 + (highestTile + 1.2) * .34);
-  const tileWidth = Math.max(16, Math.min(48, horizontalLimit, verticalLimit));
-  return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
-};
-
 const visibleTilesFor = (course: Course, rotation: WorldRotation, metrics: Metrics): VisibleTile[] => {
   const visible: VisibleTile[] = [];
   for (let y = 0; y < course.height; y += 1) {
@@ -82,12 +74,24 @@ const visibleTilesFor = (course: Course, rotation: WorldRotation, metrics: Metri
   return visible.sort((left, right) => left.center.y - right.center.y || left.center.x - right.center.x);
 };
 
-const offsetFor = (tiles: readonly VisibleTile[], metrics: Metrics, width: number, height: number): Point => {
+const boundsFor = (tiles: readonly VisibleTile[], metrics: Metrics) => {
   const points = tiles.flatMap(({ corners, tile }) => [...corners, ...corners.map((point) => ({ x: point.x, y: point.y + (tile.height + 1.1) * metrics.elevation }))]);
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
   const minY = Math.min(...points.map((point) => point.y));
   const maxY = Math.max(...points.map((point) => point.y));
+  return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+};
+
+const metricsFor = (course: Course, rotation: WorldRotation, width: number, height: number): Metrics => {
+  const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
+  const bounds = boundsFor(visibleTilesFor(course, rotation, unitMetrics), unitMetrics);
+  const tileWidth = Math.max(16, Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height));
+  return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
+};
+
+const offsetFor = (tiles: readonly VisibleTile[], metrics: Metrics, width: number, height: number): Point => {
+  const { minX, maxX, minY, maxY } = boundsFor(tiles, metrics);
   return {
     x: width / 2 - (minX + maxX) / 2,
     y: height / 2 - (minY + maxY) / 2 + 6,
@@ -266,7 +270,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
 
   const layoutFor = (course: Course, rotation: WorldRotation) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const metrics = metricsFor(course, width, height);
+    const metrics = metricsFor(course, rotation, width, height);
     const tiles = visibleTilesFor(course, rotation, metrics);
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
