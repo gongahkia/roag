@@ -64,11 +64,15 @@ const visibleTilesFor = (course: Course, metrics: ProjectionMetrics, includeVoid
       visible.push({ x, y, tile, heights, corners, center });
     }
   }
-  return visible.sort((left, right) => left.center.y - right.center.y || left.center.x - right.center.x);
+  return visible.sort((left, right) => {
+    const leftDepth = left.x + left.y;
+    const rightDepth = right.x + right.y;
+    return leftDepth - rightDepth || left.x - right.x;
+  });
 };
 
 const boundsFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics) => {
-  const points = tiles.flatMap(({ corners, heights }) => [...corners, ...corners.map((point, index) => ({ x: point.x, y: point.y + (heights[index]! + 1.1) * metrics.elevation }))]);
+  const points = tiles.flatMap(({ corners, heights }) => [...corners, ...corners.map((point, index) => ({ x: point.x, y: point.y + heights[index]! * metrics.elevation }))]);
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
   const minY = Math.min(...points.map((point) => point.y));
@@ -95,12 +99,17 @@ const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offse
 
 const neighborFor = (course: Course, x: number, y: number, direction: Point) => course.tiles[(y + direction.y) * course.width + x + direction.x];
 
+const neighborEdgeCorners = [[3, 2], [0, 3], [1, 0], [2, 1]] as const;
+
 const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: number, neighbor: Tile | undefined, offset: Point, metrics: ProjectionMetrics) => {
   if (tile.tile.surface === 'void') return;
-  if (isVisible(neighbor)) return;
   const edgePoints = [tile.corners[edge]!, tile.corners[(edge + 1) % 4]!];
   const edgeHeights = [tile.heights[edge]!, tile.heights[(edge + 1) % 4]!];
-  const depths = edgeHeights.map((height) => (height + 1.1) * metrics.elevation);
+  const indexes = neighborEdgeCorners[edge]!;
+  const neighborHeights = isVisible(neighbor) ? tileCornerHeights(neighbor!) : [0, 0, 0, 0];
+  const depths = edgeHeights.map((height, index) => Math.max(0, height - neighborHeights[indexes[index]!]!) * metrics.elevation);
+  if (tile.tile.surface === 'wall' && !isVisible(neighbor)) depths.forEach((depth, index) => { depths[index] = Math.max(depth, metrics.elevation * .72); });
+  if (Math.max(...depths) < .2) return;
   const face = [
     withOffset(edgePoints[0], offset),
     withOffset(edgePoints[1], offset),
@@ -322,7 +331,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.fillRect(0, 0, width, height);
     const { metrics, tiles, offset } = layoutFor(course, buildMode);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
-    tiles.forEach((tile) => {
+    const drawTile = (tile: VisibleTile) => {
       for (let edge = 0; edge < 4; edge += 1) {
         const first = tile.corners[edge]!;
         const second = tile.corners[(edge + 1) % 4]!;
@@ -339,7 +348,11 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         context.lineWidth = 1;
         context.stroke();
       }
-    });
+    };
+    if (buildMode) {
+      tiles.filter((tile) => tile.tile.surface === 'void').forEach(drawTile);
+      tiles.filter((tile) => tile.tile.surface !== 'void').forEach(drawTile);
+    } else tiles.forEach(drawTile);
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
     if (showItems) drawItemPads(context, course, offset, metrics);
