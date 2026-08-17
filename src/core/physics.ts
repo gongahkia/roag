@@ -1,5 +1,5 @@
 import { closedGateAt, sweeperDirection } from './hazards';
-import type { Ball, Course, Gadget, Point, PortalEndpoint, PortalPair, ShotCommand, Surface, Tile } from './types';
+import type { Ball, Course, Gadget, Point, PortalEndpoint, PortalPair, RealityCard, ShotCommand, Surface, Tile } from './types';
 
 const STEP = 1 / 60;
 export const BALL_RADIUS = 0.18;
@@ -57,6 +57,13 @@ export interface BallPhysicsModifiers {
   slipstream?: boolean;
   reboundRig?: boolean;
   chipGravityMultiplier?: number;
+  roughRider?: boolean;
+  sandWedge?: boolean;
+  gatecrasher?: boolean;
+  thornmail?: boolean;
+  anvilBall?: boolean;
+  mirrorBall?: boolean;
+  sidewaysGravity?: boolean;
 }
 
 export interface OtherBallSimulation {
@@ -72,6 +79,7 @@ export interface SimulationOptions {
   phaseCount?: number;
   collectItems?: boolean;
   gadgets?: readonly Gadget[];
+  reality?: RealityCard;
 }
 
 export interface SimulationFrame {

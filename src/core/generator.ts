@@ -485,17 +485,8 @@ export const defaultHoleRules = (): HoleRules => ({
 
 const votingLabels = ['steady hands', 'hazard holiday', 'speed council', 'ice caucus', 'quarry motion', 'chaos compact'];
 
-const pickDistinct = <T>(random: Random, values: readonly T[], count: number) => {
-  const available = [...values];
-  const selected: T[] = [];
-  while (available.length && selected.length < count) selected.push(available.splice(random.int(0, available.length - 1), 1)[0]!);
-  return selected;
-};
-
 const randomHoleRules = (random: Random): HoleRules => {
   const rules = defaultHoleRules();
-  const startingItems = [undefined, 'turbo', 'shield', 'two putts', 'bouncy', 'magnet', 'glider', 'rescue drone', 'sky spring'] as const;
-  const boons = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger', 'aerial ace', 'cup reader', 'gadgeteer'] as const;
   const powerUps = random.chance(.82);
   return {
     ...rules,
@@ -513,14 +504,16 @@ const randomHoleRules = (random: Random): HoleRules => {
     cupRadius: random.pick([.23, .28, .33, .37]),
     hazardPhaseCount: random.pick([4, 6, 8, 10]),
     scoreMultiplier: random.pick([.75, 1, 1.25]),
-    startingPowerUp: powerUps ? random.pick(startingItems) : undefined,
-    sharedBoons: pickDistinct(random, boons, random.int(0, 2)),
+    // Persistent Caddies and contraband are earned in the shared clubhouse shop,
+    // never injected by a course package.
+    startingPowerUp: undefined,
+    sharedBoons: [],
   };
 };
 
 const optionLabel = (_terrain: TerrainSettings, rules: HoleRules, index: number) => {
-  const boon = rules.sharedBoons[0] ?? (rules.startingPowerUp ? `${rules.startingPowerUp} supply` : 'standard kit');
-  return `${votingLabels[index % votingLabels.length]} · ${boon}`;
+  const pace = rules.timerSeconds <= 18 ? 'quickfire' : rules.timerSeconds >= 30 ? 'long clock' : 'standard clock';
+  return `${votingLabels[index % votingLabels.length]} · ${pace}`;
 };
 
 const guaranteedFallbackCourse = (seed: string, phaseCount: number, dimensions: CourseDimensions): Course => {

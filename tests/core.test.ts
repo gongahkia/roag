@@ -219,7 +219,7 @@ describe('turns, shared rules, and bots', () => {
     expect(game.status).toBe('transitioning');
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
     game = applyCommand(game, { type: 'complete-transition' });
-    expect(game.players[0]!.upgrades).toEqual(game.holeRules.sharedBoons);
+    expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
   });
 
   it('scores each resolved hole and finishes after the configured ninth hole', () => {

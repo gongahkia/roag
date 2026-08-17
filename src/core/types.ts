@@ -377,6 +377,8 @@ export interface GameState {
   shop?: ShopState;
   queuedReality?: RealityCard;
   activeReality?: RealityCard;
+  /** A black flag temporarily overrides the normal next-player rotation. */
+  forcedNextPlayerId?: string;
   turn: TurnState;
   paused: boolean;
   status: 'voting' | 'shopping' | 'transitioning' | 'playing' | 'finished';
