@@ -417,6 +417,30 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     ball.vx *= 1.12;
     ball.vy *= 1.12;
   }
+  if (gadget.kind === 'gravity well') {
+    ball.vx -= dx / distance * 3.4;
+    ball.vy -= dy / distance * 3.4;
+  }
+  if (gadget.kind === 'mirror plate') {
+    ball.vx *= -1;
+    ball.vy *= -1;
+  }
+  if (gadget.kind === 'toll booth') {
+    ball.vx *= .76;
+    ball.vy *= .76;
+  }
+  if (gadget.kind === 'control inverter') {
+    ball.vx *= .72;
+    ball.vy *= .72;
+  }
+  if (gadget.kind === 'portal gun') {
+    const exit = gadgets.find((candidate) => candidate.id !== gadget.id && candidate.kind === 'portal gun' && candidate.ownerId === gadget.ownerId);
+    if (exit) {
+      ball.x = exit.point.x + .5;
+      ball.y = exit.point.y + .5;
+      ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
+    }
+  }
   participant.featureCooldown = 8;
   limitPlanarSpeed(ball);
   return false;

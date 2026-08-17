@@ -319,6 +319,7 @@ export interface ShopOffer {
 
 export interface ShopState {
   visit: number;
+  opening: boolean;
   shelf: ShopOffer[];
   buyerOrder: string[];
   buyerIndex: number;
@@ -387,7 +388,7 @@ export type GameCommand =
   | { type: 'cast-vote'; playerId: string; optionId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
-  | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string; placement?: Point }
+  | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; targetId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }
   | { type: 'shop-vote-reroll'; playerId: string; approve: boolean }
   | { type: 'shop-buy'; playerId: string; offerId: string; replaceCaddyId?: CaddyId }

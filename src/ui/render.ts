@@ -382,7 +382,7 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
     const center = withOffset(project(pad.point.x + .5, pad.point.y + .5, heightAt(course, pad.point) + .06, metrics), offset);
     const size = metrics.tileWidth * .14;
     polygon(context, [{ x: center.x, y: center.y - size }, { x: center.x + size, y: center.y }, { x: center.x, y: center.y + size }, { x: center.x - size, y: center.y }]);
-    context.fillStyle = pad.kind === 'recovery' ? '#73d9d5' : '#c88cf5';
+    context.fillStyle = pad.kind === 'recovery' ? '#73d9d5' : pad.kind === 'cash' ? '#e1ba57' : '#c88cf5';
     context.fill();
     context.strokeStyle = '#ffffff';
     context.lineWidth = 1.2;
@@ -391,7 +391,7 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
     context.font = `${Math.max(8, metrics.tileWidth * .16)}px BigBlueTerm, ui-monospace, monospace`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(pad.kind === 'recovery' ? '+' : '!', center.x, center.y + 1);
+    context.fillText(pad.kind === 'recovery' ? '+' : pad.kind === 'cash' ? '$' : '!', center.x, center.y + 1);
   });
 };
 
@@ -461,8 +461,8 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
   });
 };
 
-const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋', 'sky spring': '⌃' };
-const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5', 'sky spring': '#a987ec' };
+const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋', 'sky spring': '⌃', 'gravity well': '◉', 'mirror plate': '◇', 'toll booth': '$', 'control inverter': '↻', 'portal gun': '◉' };
+const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5', 'sky spring': '#a987ec', 'gravity well': '#745ac4', 'mirror plate': '#9ab5c9', 'toll booth': '#d1a447', 'control inverter': '#ca526f', 'portal gun': '#5bb1be' };
 
 const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets: readonly Gadget[], offset: Point, metrics: ProjectionMetrics) => {
   gadgets.forEach((gadget) => {

@@ -264,7 +264,8 @@ const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper
 const addItemPads = (course: Course, random: Random, recoveryPads: number, chaosPads: number) => {
   const used = new Set<string>();
   const sideSteps = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }];
-  const pads = [...Array.from({ length: recoveryPads }, () => 'recovery' as const), ...Array.from({ length: chaosPads }, () => 'chaos' as const)];
+  const cashPads = Math.max(1, Math.round((recoveryPads + chaosPads) / 4));
+  const pads = [...Array.from({ length: recoveryPads }, () => 'recovery' as const), ...Array.from({ length: chaosPads }, () => 'chaos' as const), ...Array.from({ length: cashPads }, () => 'cash' as const)];
   const fractions = pads.map((_, index) => (index + 1) / (pads.length + 1));
   fractions.forEach((fraction, index) => {
     const base = course.route[Math.min(course.route.length - 2, Math.max(2, Math.round((course.route.length - 1) * fraction)))]!;

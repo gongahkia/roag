@@ -2,6 +2,7 @@ import { chooseBotDecision, type BotDecision } from './bots';
 import { activePlayer, castVote, cloneGameState, completeTransition, createGameState, defaultConfig, setPaused } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
+import { buyShopOffer, sellShopCaddy, skipShopBuyer, voteShopReroll } from './shop';
 import { previewShot, resolveShot, tickTurn } from './turns';
 import type { GameCommand, GameConfig, GameState, GameTransport } from './types';
 
@@ -33,6 +34,22 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   }
   if (command.type === 'arm-second-wind' && state.status === 'playing') {
     armSecondWind(state);
+    return state;
+  }
+  if (command.type === 'shop-vote-reroll') {
+    voteShopReroll(state, command.playerId, command.approve);
+    return state;
+  }
+  if (command.type === 'shop-buy') {
+    buyShopOffer(state, command.playerId, command.offerId, command.replaceCaddyId);
+    return state;
+  }
+  if (command.type === 'shop-sell-caddy') {
+    sellShopCaddy(state, command.playerId, command.caddyId);
+    return state;
+  }
+  if (command.type === 'shop-skip') {
+    skipShopBuyer(state, command.playerId);
     return state;
   }
   if (command.type === 'emote') {

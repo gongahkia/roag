@@ -1,0 +1,160 @@
+import { CADDIES, CONTENT } from './catalog';
+import { addMessage, beginCourseTransition } from './game-state';
+import { addCaddy, caddyCount, pocketCapacity, pocketsFor, removeCaddy, syncPocketMirrors } from './player-effects';
+import { Random } from './random';
+import type { CaddyId, ContentCategory, ContentId, GameState, RealityCard, ShopOffer } from './types';
+
+const SHOP_SECONDS = 20;
+
+const contentFor = (categories: readonly ContentCategory[]) => CONTENT.filter((definition) => categories.includes(definition.category));
+const offer = (contentId: ContentId, index: number): ShopOffer => {
+  const definition = CONTENT.find((candidate) => candidate.id === contentId)!;
+  return { id: `shop-${index}-${contentId.replaceAll(' ', '-')}`, contentId, category: definition.category, price: definition.price };
+};
+
+const pick = (random: Random, categories: readonly ContentCategory[], selected: Set<ContentId>) => {
+  const choices = contentFor(categories).filter((definition) => !selected.has(definition.id));
+  const choice = random.pick(choices.length ? choices : contentFor(categories));
+  selected.add(choice.id);
+  return choice.id;
+};
+
+const shelfFor = (state: GameState, visit: number, reroll = 0) => {
+  const random = new Random(`${state.config.seed}:shop:${visit}:reroll:${reroll}`);
+  const selected = new Set<ContentId>();
+  const ids = [
+    pick(random, ['caddy'], selected), pick(random, ['caddy'], selected), pick(random, ['caddy'], selected),
+    pick(random, ['pocket', 'form', 'gadget'], selected), pick(random, ['pocket', 'form', 'gadget'], selected),
+    pick(random, ['reality'], selected), pick(random, ['chrono'], selected),
+  ];
+  return ids.map((id, index) => offer(id, index));
+};
+
+const buyerOrderFor = (state: GameState, opening: boolean) => {
+  if (opening) return state.players.map((player) => player.id);
+  const completed = state.players.filter((player) => player.ball.complete).sort((left, right) => left.ball.strokes - right.ball.strokes || left.id.localeCompare(right.id));
+  const unfinished = state.players.filter((player) => !player.ball.complete).sort((left, right) => left.ball.strokes - right.ball.strokes || left.id.localeCompare(right.id));
+  return [...completed, ...unfinished].map((player) => player.id);
+};
+
+export const activeShopper = (state: GameState) => state.shop ? state.players.find((player) => player.id === state.shop!.buyerOrder[state.shop!.buyerIndex]) : undefined;
+
+export const openShop = (state: GameState, opening = false) => {
+  const visit = (state.shop?.visit ?? 0) + 1;
+  state.shop = { visit, opening, shelf: shelfFor(state, visit), buyerOrder: buyerOrderFor(state, opening), buyerIndex: 0, completedBuyerIds: [], rerollVotes: {}, rerollResolved: false, rerolled: false, secondsLeft: SHOP_SECONDS };
+  state.status = 'shopping';
+  state.paused = false;
+  addMessage(state, opening ? 'the clubhouse merchant opens before tee-off' : 'hole scored — the clubhouse merchant opens');
+};
+
+export const awardHoleCash = (state: GameState) => {
+  const leader = Math.min(...state.players.map((player) => player.total));
+  state.players.forEach((player) => {
+    const comeback = player.total - leader >= 2 ? 3 : 0;
+    player.cash += 4 + comeback;
+    if (comeback) addMessage(state, `${player.name} collects a $${comeback} comeback bounty`);
+  });
+};
+
+const resolveReroll = (state: GameState) => {
+  const shop = state.shop!;
+  if (shop.rerollResolved || Object.keys(shop.rerollVotes).length < state.players.length) return;
+  const approvals = Object.values(shop.rerollVotes).filter(Boolean).length;
+  shop.rerollResolved = true;
+  shop.rerolled = approvals > state.players.length / 2;
+  if (shop.rerolled) {
+    shop.shelf = shelfFor(state, shop.visit, 1);
+    addMessage(state, 'the table votes to reshuffle the merchant shelf');
+  } else addMessage(state, 'the merchant shelf stands');
+};
+
+export const voteShopReroll = (state: GameState, playerId: string, approve: boolean) => {
+  if (state.status !== 'shopping' || !state.shop || state.shop.rerollResolved || !state.players.some((player) => player.id === playerId)) return;
+  state.shop.rerollVotes[playerId] = approve;
+  resolveReroll(state);
+};
+
+const completeBuyer = (state: GameState) => {
+  const shop = state.shop!;
+  const buyer = activeShopper(state);
+  if (buyer) shop.completedBuyerIds.push(buyer.id);
+  shop.buyerIndex += 1;
+  shop.secondsLeft = SHOP_SECONDS;
+  if (shop.buyerIndex < shop.buyerOrder.length) return;
+  const opening = shop.opening;
+  state.shop = undefined;
+  if (opening) {
+    state.status = 'playing';
+    addMessage(state, 'the merchant rings the bell — tee off');
+  } else beginCourseTransition(state);
+};
+
+const caddyDiscount = (state: GameState, playerId: string, category: ContentCategory) => {
+  const player = state.players.find((candidate) => candidate.id === playerId)!;
+  return category === 'caddy' ? caddyCount(player, 'broker') : 0;
+};
+
+const storePocket = (state: GameState, playerId: string, contentId: ContentId) => {
+  const player = state.players.find((candidate) => candidate.id === playerId)!;
+  const pockets = pocketsFor(player);
+  if (pockets.length >= pocketCapacity(player)) return false;
+  pockets.push({ id: contentId as never, source: 'shop' });
+  syncPocketMirrors(player);
+  return true;
+};
+
+export const buyShopOffer = (state: GameState, playerId: string, offerId: string, replaceCaddyId?: CaddyId) => {
+  if (state.status !== 'shopping' || !state.shop || !state.shop.rerollResolved || activeShopper(state)?.id !== playerId) return;
+  const shopOffer = state.shop.shelf.find((candidate) => candidate.id === offerId && !candidate.sold);
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!shopOffer || !player) return;
+  const cost = Math.max(0, shopOffer.price - caddyDiscount(state, playerId, shopOffer.category));
+  if (player.cash < cost) return;
+  if (shopOffer.category === 'caddy') {
+    const caddyId = shopOffer.contentId as CaddyId;
+    const isDuplicate = caddyCount(player, caddyId) > 0;
+    if (!isDuplicate && player.caddies.length >= 3) {
+      if (!replaceCaddyId || !removeCaddy(player, replaceCaddyId)) return;
+      player.cash += 3;
+    }
+    addCaddy(player, caddyId);
+  } else if (shopOffer.category === 'reality') {
+    state.queuedReality = shopOffer.contentId as RealityCard;
+  } else if (!storePocket(state, playerId, shopOffer.contentId)) return;
+  player.cash -= cost;
+  shopOffer.sold = true;
+  if (caddyCount(player, 'black market caddy') && ['pocket', 'form', 'gadget'].includes(shopOffer.category)) {
+    const random = new Random(`${state.config.seed}:black-market:${state.hole}:${player.id}:${shopOffer.id}`);
+    const bonus = pick(random, ['pocket'], new Set());
+    storePocket(state, player.id, bonus);
+  }
+  addMessage(state, `${player.name} buys ${shopOffer.contentId} for $${cost}`);
+  completeBuyer(state);
+};
+
+export const sellShopCaddy = (state: GameState, playerId: string, caddyId: CaddyId) => {
+  if (state.status !== 'shopping' || !state.shop || !state.shop.rerollResolved || activeShopper(state)?.id !== playerId) return;
+  const player = state.players.find((candidate) => candidate.id === playerId)!;
+  if (!removeCaddy(player, caddyId)) return;
+  player.cash += 3;
+  addMessage(state, `${player.name} sells ${caddyId} for $3`);
+};
+
+export const skipShopBuyer = (state: GameState, playerId: string) => {
+  if (state.status !== 'shopping' || !state.shop || !state.shop.rerollResolved || activeShopper(state)?.id !== playerId) return;
+  addMessage(state, `${activeShopper(state)!.name} leaves the merchant shelf alone`);
+  completeBuyer(state);
+};
+
+export const tickShop = (state: GameState, elapsedSeconds: number) => {
+  if (state.status !== 'shopping' || !state.shop || state.paused) return false;
+  state.shop.secondsLeft = Math.max(0, state.shop.secondsLeft - elapsedSeconds);
+  if (state.shop.secondsLeft > 0) return false;
+  if (!state.shop.rerollResolved) {
+    state.players.forEach((player) => { state.shop!.rerollVotes[player.id] ??= false; });
+    resolveReroll(state);
+  } else skipShopBuyer(state, activeShopper(state)?.id ?? '');
+  return true;
+};
+
+export const caddyDefinitions = CADDIES;

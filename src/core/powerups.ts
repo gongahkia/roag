@@ -1,8 +1,8 @@
 import { activePlayer, addMessage } from './game-state';
 import { BALL_RADIUS, MAX_SETTLE_SECONDS, floorHeightAt, simulateImpulse, tileAt } from './physics';
-import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, canStorePowerUp, isBallForm, physicsModifiersFor, storePowerUp, takePowerUp } from './player-effects';
+import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, caddyCount, canStorePowerUp, hasCaddy, isBallForm, physicsModifiersFor, pocketsFor, storePowerUp, takePocketCard } from './player-effects';
 import { Random } from './random';
-import type { Course, GadgetKind, GameState, ItemPadKind, Player, Point, PowerUp } from './types';
+import type { ChronoCard, Course, GadgetKind, GameState, ItemPadKind, Player, Point, PowerUp } from './types';
 
 const portalExitExists = (course: Course, id: string | undefined) => Boolean(id && course.portals?.some((pair) => pair.exit && `${pair.id}:exit` === id));
 
@@ -36,7 +36,7 @@ const isGadget = (powerUp: PowerUp): powerUp is GadgetKind => GADGET_POWER_UPS.i
 export const canPlaceGadget = (state: GameState, ownerId: string, point: Point | undefined) => {
   if (!point || !Number.isInteger(point.x) || !Number.isInteger(point.y)) return false;
   const owner = state.players.find((player) => player.id === ownerId);
-  const limit = owner?.upgrades.includes('gadgeteer') ? 2 : 1;
+  const limit = owner ? 1 + caddyCount(owner, 'gadgeteer') : 1;
   if ((state.gadgets ?? []).filter((gadget) => gadget.ownerId === ownerId).length >= limit) return false;
   const tile = tileAt(state.course, point.x + .5, point.y + .5);
   if (!tile || !['fairway', 'rough', 'sand', 'ice', 'booster', 'conveyor'].includes(tile.surface)) return false;
@@ -64,12 +64,33 @@ const routePointAfter = (state: GameState, player: Player) => {
   return state.course.route[Math.min(state.course.route.length - 2, nearest.index + 3)]!;
 };
 
-export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string, portalExitId?: string, placement?: Point) => {
+const chronoCards: readonly ChronoCard[] = ['undo drive', 'second chance', 'echo putt', 'future sight', 'time theft', 'frozen frame', 'parallel parking', 'grandfather clause'];
+const isChrono = (value: PowerUp | ChronoCard): value is ChronoCard => chronoCards.includes(value as ChronoCard);
+
+export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targetId?: string, portalExitId?: string, placement?: Point) => {
   const player = activePlayer(state);
-  if (player.inventory !== powerUp && player.spareInventory !== powerUp) return;
+  if (!pocketsFor(player).some((card) => card.id === powerUp)) return;
   const target = state.players.find((candidate) => candidate.id === targetId);
   let used = false;
-  if (isGadget(powerUp)) {
+  if (isChrono(powerUp)) {
+    const targetPlayer = powerUp === 'grandfather clause' ? target : player;
+    const history = targetPlayer?.shotHistory.at(-1);
+    if ((powerUp === 'undo drive' || powerUp === 'second chance' || powerUp === 'grandfather clause') && history && targetPlayer) {
+      targetPlayer.ball = { ...history.before, strokes: powerUp === 'second chance' ? history.before.strokes : targetPlayer.ball.strokes };
+      addMessage(state, `${player.name} invokes ${powerUp}`);
+      used = true;
+    }
+    if (powerUp === 'echo putt' || powerUp === 'time theft') { player.twoPuttsArmed = true; addMessage(state, `${player.name} bends the turn order with ${powerUp}`); used = true; }
+    if (powerUp === 'future sight') { player.cupMagnetArmed = true; addMessage(state, `${player.name} reads three possible futures`); used = true; }
+    if (powerUp === 'frozen frame') { player.hazardShield = true; player.reboundRigArmed = true; addMessage(state, `${player.name} freezes the frame around their next shot`); used = true; }
+    if (powerUp === 'parallel parking') {
+      const point = routePointAfter(state, player);
+      player.ball = { ...player.ball, x: point.x + .5, y: point.y + .5, z: floorHeightAt(state.course, point.x + .5, point.y + .5) + BALL_RADIUS, vx: 0, vy: 0, vz: 0 };
+      addMessage(state, `${player.name} parks in a parallel timeline`);
+      used = true;
+    }
+  }
+  if (!isChrono(powerUp) && isGadget(powerUp)) {
     if (!canPlaceGadget(state, player.id, placement)) return;
     state.gadgets = [...(state.gadgets ?? []), { id: `gadget-${state.hole}-${state.coursePhase}-${player.id}-${powerUp.replaceAll(' ', '-')}`, ownerId: player.id, kind: powerUp, point: { ...placement! } }];
     addMessage(state, `${player.name} places a ${powerUp}`);
@@ -147,7 +168,62 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string
     addMessage(state, `${player.name} airhorns ${target.name} into a chip`);
     used = true;
   }
-  if (isBallForm(powerUp)) {
+  if (powerUp === 'club flipper' && target && target.id !== player.id) {
+    target.controlInverted = 1;
+    addMessage(state, `${player.name} flips ${target.name}'s controls`);
+    used = true;
+  }
+  if (powerUp === 'time dilator' && target && target.id !== player.id) {
+    target.timeDilated = 1;
+    addMessage(state, `${player.name} slows ${target.name}'s next shot`);
+    used = true;
+  }
+  if (powerUp === 'mugger' && target && target.id !== player.id) {
+    const stolen = pocketsFor(target).shift();
+    if (stolen && canStorePowerUp(player)) pocketsFor(player).push(stolen);
+    else { target.cash = Math.max(0, target.cash - 3); player.cash += 3; }
+    addMessage(state, `${player.name} mugs ${target.name}`);
+    used = true;
+  }
+  if (powerUp === 'scramble') {
+    const balls = state.players.filter((candidate) => !candidate.ball.complete).map((candidate) => ({ x: candidate.ball.x, y: candidate.ball.y, z: candidate.ball.z }));
+    state.players.filter((candidate) => !candidate.ball.complete).forEach((candidate, index) => {
+      const next = balls[(index + 1) % balls.length]!;
+      candidate.ball = { ...candidate.ball, ...next, vx: 0, vy: 0, vz: 0 };
+    });
+    addMessage(state, `${player.name} scrambles the table`);
+    used = true;
+  }
+  if (powerUp === 'gravity gloves') { player.cupMagnetArmed = true; addMessage(state, `${player.name} equips gravity gloves`); used = true; }
+  if (powerUp === 'bunker buster') {
+    const nearestWall = state.course.tiles.map((tile, index) => ({ tile, x: index % state.course.width, y: Math.floor(index / state.course.width) })).filter((candidate) => candidate.tile.surface === 'wall').sort((left, right) => Math.hypot(left.x + .5 - player.ball.x, left.y + .5 - player.ball.y) - Math.hypot(right.x + .5 - player.ball.x, right.y + .5 - player.ball.y))[0];
+    const targetPoint = placement ?? (nearestWall ? { x: nearestWall.x, y: nearestWall.y } : undefined);
+    const tile = targetPoint && tileAt(state.course, targetPoint.x + .5, targetPoint.y + .5);
+    if (tile?.surface === 'wall') { tile.surface = 'fairway'; addMessage(state, `${player.name} busts a wall`); used = true; }
+    const gate = targetPoint && state.course.hazards.find((hazard) => hazard.kind === 'gate' && hazard.point.x === targetPoint.x && hazard.point.y === targetPoint.y);
+    if (gate) { state.course.hazards = state.course.hazards.filter((hazard) => hazard !== gate); addMessage(state, `${player.name} opens a gate`); used = true; }
+  }
+  if (powerUp === 'portal remote' && portalExitExists(state.course, portalExitId)) {
+    const exit = state.course.portals!.find((pair) => `${pair.id}:exit` === portalExitId)!.exit!;
+    player.ball = { ...player.ball, x: exit.point.x + .5, y: exit.point.y + .5, z: floorHeightAt(state.course, exit.point.x + .5, exit.point.y + .5) + BALL_RADIUS, vx: 0, vy: 0, vz: 0 };
+    addMessage(state, `${player.name} remotes into ${portalExitId}`);
+    used = true;
+  }
+  if (powerUp === 'red tee') { player.redTee = { x: Math.floor(player.ball.x), y: Math.floor(player.ball.y) }; addMessage(state, `${player.name} plants a red tee`); used = true; }
+  if (powerUp === 'black flag' && target && target.id !== player.id) { target.frozenTurns = undefined; target.twoPuttsArmed = true; addMessage(state, `${player.name} waves a black flag at ${target.name}`); used = true; }
+  if (powerUp === 'cherry bomb') {
+    state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete).forEach((candidate) => {
+      const distance = Math.hypot(candidate.ball.x - player.ball.x, candidate.ball.y - player.ball.y) || 1;
+      candidate.ball = simulateImpulse(state.course, candidate.ball, { x: (candidate.ball.x - player.ball.x) / distance * 3.8, y: (candidate.ball.y - player.ball.y) / distance * 3.8 }, MAX_SETTLE_SECONDS, physicsModifiersFor(candidate, state.holeRules), state.coursePhase, state.holeRules.hazardPhaseCount).ball;
+    });
+    addMessage(state, `${player.name} detonates a cherry bomb`);
+    used = true;
+  }
+  if (powerUp === 'copycat' && target) {
+    const copied = pocketsFor(target)[0];
+    if (copied && canStorePowerUp(player)) { pocketsFor(player).push({ ...copied }); addMessage(state, `${player.name} copies ${target.name}'s ${copied.id}`); used = true; }
+  }
+  if (!isChrono(powerUp) && isBallForm(powerUp)) {
     if (powerUp === 'portal' && !portalExitExists(state.course, portalExitId)) return;
     player.ballForm = powerUp;
     player.portalExitId = powerUp === 'portal' ? portalExitId : undefined;
@@ -155,8 +231,8 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string
     used = true;
   }
   if (!used) return;
-  takePowerUp(player, powerUp);
-  if (state.holeRules.powerUps && player.upgrades.includes('chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(.65)) {
+  takePocketCard(player, powerUp);
+  if (!isChrono(powerUp) && state.holeRules.powerUps && hasCaddy(player, 'chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(1 - .35 ** caddyCount(player, 'chaos magnet'))) {
     awardPowerUp(state, player, 'chaos', 'chaos-magnet', `${player.name}'s chaos magnet pulls {powerUp}`);
   }
 };

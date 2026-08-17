@@ -31,6 +31,10 @@ const emptyPlayer = (id: string, index: number, kind: Player['kind'], skill: Pla
   skill,
   ball: newBall(course),
   upgrades: [],
+  cash: 10,
+  caddies: [],
+  pockets: [],
+  shotHistory: [],
   total: 0,
 });
 
@@ -75,6 +79,14 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.height ??= COURSE_HEIGHT;
   });
   state.gadgets ??= [];
+  if (state.shop) state.shop.opening ??= false;
+  state.players.forEach((player) => {
+    player.cash ??= 10;
+    player.caddies ??= player.upgrades.map((id) => ({ id, stacks: 1 }));
+    player.pockets ??= [player.inventory, player.spareInventory].filter(Boolean).map((id) => ({ id: id!, source: 'pad' as const }));
+    player.shotHistory ??= [];
+    player.upgrades = player.caddies.map((caddy) => caddy.id);
+  });
   state.coursePlan ??= [];
   if (state.status !== 'voting' && state.coursePlan.length < state.hole) {
     state.coursePlan.push({ id: `legacy-hole-${state.hole}`, label: `legacy hole ${state.hole}`, courseSeed: state.course.seed, recipe: { terrain: defaultTerrainSettings(), rules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] } } });
@@ -112,6 +124,12 @@ export const courseForPlan = (plan: PlannedHole) => generateCourse(plan.courseSe
 
 const activatePlan = (state: GameState, plan: PlannedHole) => {
   state.course = cloneCourse(courseForPlan(plan));
+  if (state.queuedReality) {
+    state.activeReality = state.queuedReality;
+    state.queuedReality = undefined;
+    if (state.activeReality === 'void is fairway') state.course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });
+    if (state.activeReality === 'fairway is ice') state.course.tiles.forEach((tile) => { if (tile.surface === 'fairway') tile.surface = 'ice'; });
+  } else state.activeReality = undefined;
   state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
   state.coursePhase = 0;
   state.gadgets = [];
@@ -140,7 +158,7 @@ export const createGameState = (config: GameConfig): GameState => {
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
   players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
   if (firstPlan) players.forEach((player) => resetPlayerForCourse(player, course, holeRules));
-  return {
+  const state: GameState = {
     config: resolvedConfig,
     course,
     holeRules,
@@ -157,6 +175,7 @@ export const createGameState = (config: GameConfig): GameState => {
     status: firstPlan ? 'playing' : 'voting',
     messages: firstPlan ? [`quick start locked ${coursePlan.length} random courses — tee off`] : ['vote for the first course and house rules'],
   };
+  return state;
 };
 
 export const cloneGameState = (state: GameState): GameState => ({
@@ -167,8 +186,9 @@ export const cloneGameState = (state: GameState): GameState => ({
   coursePlan: (state.coursePlan ?? []).map(clonePlan),
   transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
-  players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
+  players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })),
   gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),
+  shop: state.shop ? { ...state.shop, shelf: state.shop.shelf.map((offer) => ({ ...offer })), buyerOrder: [...state.shop.buyerOrder], completedBuyerIds: [...state.shop.completedBuyerIds], rerollVotes: { ...state.shop.rerollVotes } } : undefined,
   turn: { ...state.turn },
   messages: [...state.messages],
 });

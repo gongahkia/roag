@@ -167,6 +167,34 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .card-action { margin-top: auto; padding-top: .55rem; color: var(--green); font-size: .64rem; letter-spacing: .03em; text-align: center; text-transform: uppercase; }
 .vote-panel-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: .35rem .9rem; margin-top: .9rem; color: var(--dim); font-size: .65rem; text-align: center; }
 .vote-panel-footer span::before { margin-right: .3rem; color: var(--chaos); content: '✦'; }
+.app-shell.shopping { filter: saturate(.72) brightness(.68); }
+.app-shell.shopping canvas { visibility: hidden; }
+.merchant-overlay { position: fixed; z-index: 12; inset: 0; overflow: auto; padding: clamp(.7rem, 2vw, 2rem); background: radial-gradient(circle at 50% 8%, #425834f2 0 9%, #172216f5 46%, #09100df9 100%); color: #f8edce; }
+.merchant-overlay::before, .merchant-overlay::after { position: fixed; z-index: -1; inset: 0; pointer-events: none; content: ''; }
+.merchant-overlay::before { background-image: radial-gradient(circle, #e3bf6c88 0 1px, transparent 1.8px), repeating-linear-gradient(90deg, transparent 0 48px, #d9ae4b0b 49px 50px); background-size: 63px 63px, auto; opacity: .5; }
+.merchant-overlay::after { inset: 1.2rem; border: 1px solid #d9ae4b55; box-shadow: inset 0 0 100px #d5a44419; }
+.merchant-table { position: relative; width: min(1400px, 100%); min-height: 100%; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 245px; grid-template-rows: auto auto 1fr; gap: clamp(.7rem, 1.5vw, 1.3rem); align-content: center; }
+.merchant-header { grid-column: 1 / -1; padding-top: clamp(.4rem, 1vw, 1.2rem); text-align: center; text-shadow: 0 2px 0 #09100d, 0 0 28px #e9bf6266; }
+.merchant-header .eyebrow { margin: 0 0 .35rem; color: #e6bc67; letter-spacing: .17em; }
+.merchant-header h1 { margin: 0; color: #fff5d8; font-size: clamp(1.7rem, 4.4vw, 3.6rem); letter-spacing: -.07em; }
+.merchant-header h1 em { color: #e3b24e; font-style: normal; }
+.merchant-header > p:last-child { margin: .4rem 0 0; color: #b6c5a5; font-size: .73rem; letter-spacing: .06em; text-transform: uppercase; }
+.merchant-vote, .merchant-action { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .55rem 1rem; padding: .7rem 1rem; border: 1px solid #cfaa5870; background: linear-gradient(90deg, #101b12e8, #283522db, #101b12e8); box-shadow: inset 0 0 35px #dbb45b12; text-align: center; }
+.merchant-vote p, .merchant-action p, .merchant-vote small, .merchant-action small { margin: 0; color: #dce4cf; font-size: .71rem; }
+.merchant-vote div { display: flex; gap: .45rem; }
+.merchant-vote button, .merchant-action button { border-color: #d2a64f; color: #f8edce; background: #2c3a22; }
+.merchant-vote .primary { background: #b87823; color: #fff8df; }
+.merchant-replace { display: flex; align-items: center; gap: .35rem; color: #c9d2bc; font-size: .67rem; }
+.merchant-replace select { width: auto; padding: .35rem; border-color: #c69b43; background: #172115; color: #fff0ce; }
+.merchant-shelf { display: grid; grid-template-columns: repeat(7, minmax(115px, 1fr)); gap: clamp(.35rem, 1vw, .85rem); align-items: stretch; perspective: 900px; }
+.merchant-card { position: relative; min-height: 248px; overflow: hidden; display: flex; flex-direction: column; padding: .7rem; border: 2px solid #b39456; background: linear-gradient(145deg, #f2e6bf, #cdb87d 58%, #8f7340); color: #26321f; box-shadow: 0 11px 0 #061008, 0 18px 34px #00000077; transition: transform 150ms ease, box-shadow 150ms ease; }
+.merchant-card:hover:not(.sold) { z-index: 1; transform: translateY(-9px) rotateX(3deg); box-shadow: 0 16px 0 #061008, 0 27px 44px #0000008e, 0 0 26px #eabf5e70; }
+.merchant-card::after { position: absolute; inset: 4px; border: 1px solid #48533b66; pointer-events: none; content: ''; }
+.merchant-card-top { display: flex; align-items: center; justify-content: space-between; gap: .18rem; border-bottom: 1px solid #5a684c66; padding-bottom: .45rem; }
+.merchant-card-top span { font-size: 1.25rem; }.merchant-card-top small { color: #526046; font-size: .52rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.merchant-card-top b { color: #674212; font-size: .68rem; }
+.merchant-card h3 { margin: .72rem 0 .4rem; color: #1e2a18; font-size: .83rem; line-height: 1; text-transform: capitalize; }.merchant-card p { margin: 0; color: #43503a; font-size: .64rem; line-height: 1.36; }.merchant-card footer { margin-top: auto; padding-top: .6rem; }.merchant-card footer button { width: 100%; border-color: #5b4118; background: #36472a; color: #fff2ce; }.merchant-card footer button:disabled { opacity: .42; }
+.merchant-card.merchant-reality { border-color: #9c6ab4; background: linear-gradient(145deg, #ead9ed, #b994c6 60%, #795a8b); }.merchant-card.merchant-chrono { border-color: #759fb2; background: linear-gradient(145deg, #d7edf1, #89b6c2 60%, #4e7181); }.merchant-card.merchant-gadget { border-color: #bc8952; background: linear-gradient(145deg, #f1dec3, #c49662 60%, #806041); }.merchant-card.merchant-form { border-color: #5f9a95; background: linear-gradient(145deg, #d3eee9, #8ec7be 60%, #4b7d77); }.merchant-card.sold { filter: grayscale(.92) brightness(.62); transform: rotate(-1deg); }.merchant-card.sold footer { color: #efe6cf; font-size: .65rem; font-weight: 800; text-align: center; text-transform: uppercase; }
+.merchant-ledger { align-self: stretch; padding: .8rem; border: 1px solid #d2ad5a88; background: linear-gradient(180deg, #202d1ce8, #101811ec); box-shadow: inset 0 0 34px #e7bb5c12, 0 14px 40px #0008; }.merchant-ledger h2 { margin: 0 0 .65rem; color: #e6be67; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; }.merchant-ledger ol { display: grid; gap: .5rem; list-style: none; margin: 0; padding: 0; }.merchant-player { display: grid; grid-template-columns: auto 1fr auto; gap: .25rem; align-items: center; color: #dbe4cf; font-size: .64rem; }.merchant-player i { width: .55rem; height: .55rem; border-radius: 50%; }.merchant-player b { color: #eac15e; }.merchant-player span { grid-column: 2 / -1; color: #aeba9f; font-size: .55rem; line-height: 1.35; }.merchant-player.active { padding: .35rem; outline: 1px solid #e5bd63; background: #d9b05416; }.merchant-ledger > p { margin: .85rem 0 0; border-top: 1px solid #b9984e4d; padding-top: .65rem; color: #aebd9e; font-size: .59rem; text-transform: capitalize; }
 .results-overlay { position: fixed; z-index: 12; inset: 0; overflow: auto; padding: clamp(.8rem, 2.5vw, 2rem); background: radial-gradient(circle at 50% 10%, #fbfff8f2 0 16%, #e3f0dce8 55%, #d4e5cee8 100%); }
 .results-overlay::before { position: fixed; z-index: -1; inset: 0; background-image: radial-gradient(circle, #d38a18 0 2px, transparent 2.5px), radial-gradient(circle, #7d4ba2 0 1.5px, transparent 2px), radial-gradient(circle, #4f8a4a 0 1.5px, transparent 2px); background-position: 8% 17%, 83% 13%, 91% 76%; background-size: 88px 88px, 116px 116px, 142px 142px; content: ''; opacity: .4; }
 .results-panel { position: relative; width: min(880px, 100%); margin: 0 auto; padding: clamp(.85rem, 2.2vw, 1.5rem); border: 2px solid var(--line-bright); background: #fffffff2; box-shadow: 0 24px 68px #2c4e2a38; }
@@ -294,6 +322,7 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
   .controls > .primary { order: 2; }
   .vote-overlay { padding: .65rem; }
   .vote-card-grid { grid-template-columns: 1fr; }
+  .merchant-table { grid-template-columns: 1fr; }.merchant-shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); }.merchant-ledger { grid-row: auto; }.merchant-card { min-height: 180px; }
   .vote-panel-header { margin-bottom: .8rem; }
   .results-overlay { padding: .7rem; }
   .results-panel { padding: .75rem; }

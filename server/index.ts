@@ -4,8 +4,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocket, WebSocketServer } from 'ws';
 import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../src/core/game';
+import { CONTENT_BY_ID } from '../src/core/catalog';
 import { normalizeGameState } from '../src/core/game-state';
-import type { Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
+import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
 const port = Number(process.env.PORT ?? 8787);
@@ -41,7 +42,7 @@ const now = () => Date.now();
 const randomId = (bytes = 18) => randomBytes(bytes).toString('base64url');
 const roomCode = () => randomBytes(3).toString('hex').toUpperCase();
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('base64url');
-const powerUps = new Set(['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'cup magnet', 'slipstream', 'rebound rig', 'phase shift', 'sandbag', 'rescue drone', 'airhorn', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring']);
+const powerUps = new Set([...CONTENT_BY_ID.values()].filter((definition) => definition.category !== 'caddy' && definition.category !== 'reality').map((definition) => definition.id));
 const emotes = new Set(['cheer', 'taunt', 'panic', 'wow', 'gg']);
 
 const safeName = (value: unknown) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16 ? value.trim().replace(/[^a-zA-Z0-9 _-]/g, '') : undefined;
@@ -71,7 +72,7 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   if (source.type === 'set-paused' && typeof source.paused === 'boolean') return { type: 'set-paused', paused: source.paused };
   if (source.type === 'arm-second-wind') return { type: 'arm-second-wind' };
   if (source.type === 'emote' && typeof source.playerId === 'string' && typeof source.emote === 'string' && emotes.has(source.emote)) return { type: 'emote', playerId: source.playerId, emote: source.emote as Emote };
-  if (source.type === 'use-power-up' && typeof source.powerUp === 'string' && powerUps.has(source.powerUp)) {
+  if (source.type === 'use-power-up' && typeof source.powerUp === 'string' && powerUps.has(source.powerUp as never)) {
     const targetId = typeof source.targetId === 'string' && source.targetId.length <= 24 ? source.targetId : undefined;
     const portalExitId = typeof source.portalExitId === 'string' && source.portalExitId.length <= 80 ? source.portalExitId : undefined;
     const rawPlacement = source.placement;
@@ -81,6 +82,10 @@ const validCommand = (value: unknown): GameCommand | undefined => {
       : undefined;
     return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, targetId, portalExitId, placement };
   }
+  if (source.type === 'shop-vote-reroll' && typeof source.playerId === 'string' && typeof source.approve === 'boolean') return { type: 'shop-vote-reroll', playerId: source.playerId, approve: source.approve };
+  if (source.type === 'shop-buy' && typeof source.playerId === 'string' && typeof source.offerId === 'string' && (source.replaceCaddyId === undefined || (typeof source.replaceCaddyId === 'string' && CONTENT_BY_ID.get(source.replaceCaddyId as never)?.category === 'caddy'))) return { type: 'shop-buy', playerId: source.playerId, offerId: source.offerId, replaceCaddyId: source.replaceCaddyId as CaddyId | undefined };
+  if (source.type === 'shop-sell-caddy' && typeof source.playerId === 'string' && typeof source.caddyId === 'string' && CONTENT_BY_ID.get(source.caddyId as never)?.category === 'caddy') return { type: 'shop-sell-caddy', playerId: source.playerId, caddyId: source.caddyId as CaddyId };
+  if (source.type === 'shop-skip' && typeof source.playerId === 'string') return { type: 'shop-skip', playerId: source.playerId };
   return undefined;
 };
 
@@ -168,6 +173,35 @@ const scheduleAutomation = (room: StoredRoom) => {
     }, 520);
     return;
   }
+  if (game.status === 'shopping' && game.shop) {
+    const unresolvedBot = game.players.find((player) => player.kind === 'bot' && game.shop && !game.shop.rerollResolved && game.shop.rerollVotes[player.id] === undefined);
+    if (unresolvedBot && current.botFor !== `shop-vote:${unresolvedBot.id}`) {
+      if (current.botTimeout) clearTimeout(current.botTimeout);
+      current.botFor = `shop-vote:${unresolvedBot.id}`;
+      current.botTimeout = setTimeout(() => {
+        current.botTimeout = undefined;
+        current.botFor = undefined;
+        const latest = rooms.get(room.code);
+        if (latest?.game?.status === 'shopping') updateGame(latest, applyCommand(latest.game, { type: 'shop-vote-reroll', playerId: unresolvedBot.id, approve: false }));
+      }, 350);
+      return;
+    }
+    const shopperId = game.shop.buyerOrder[game.shop.buyerIndex];
+    const shopper = game.players.find((player) => player.id === shopperId);
+    if (!game.shop.rerollResolved || !shopper || shopper.kind !== 'bot' || current.botFor === `shop-buy:${shopper.id}`) return;
+    if (current.botTimeout) clearTimeout(current.botTimeout);
+    current.botFor = `shop-buy:${shopper.id}`;
+    current.botTimeout = setTimeout(() => {
+      current.botTimeout = undefined;
+      current.botFor = undefined;
+      const latest = rooms.get(room.code);
+      const latestShop = latest?.game?.shop;
+      if (!latest?.game || latest.game.status !== 'shopping' || !latestShop || latestShop.buyerOrder[latestShop.buyerIndex] !== shopper.id) return;
+      const offer = latestShop.shelf.find((candidate) => !candidate.sold && candidate.price <= shopper.cash);
+      updateGame(latest, applyCommand(latest.game, offer ? { type: 'shop-buy', playerId: shopper.id, offerId: offer.id } : { type: 'shop-skip', playerId: shopper.id }));
+    }, 550);
+    return;
+  }
   if (game.status !== 'playing') return;
   const bot = game.players[game.turn.playerIndex];
   if (!bot || bot.kind !== 'bot' || current.botFor === `shot:${bot.id}`) return;
@@ -196,6 +230,12 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   const active = game.players[game.turn.playerIndex];
   if (command.type === 'cast-vote') return command.playerId === session.playerId ? undefined : 'you can only cast your own ballot';
   if (command.type === 'emote') return command.playerId === session.playerId ? undefined : 'you can only send your own emote';
+  if (command.type === 'shop-vote-reroll') return command.playerId === session.playerId ? undefined : 'you can only cast your own merchant ballot';
+  if (command.type === 'shop-buy' || command.type === 'shop-sell-caddy' || command.type === 'shop-skip') {
+    if (command.playerId !== session.playerId) return 'you can only act for your own golfer';
+    if (game.status !== 'shopping' || game.shop?.buyerOrder[game.shop.buyerIndex] !== session.playerId) return 'it is not your merchant turn';
+    return undefined;
+  }
   if (!active || active.id !== session.playerId || active.kind !== 'human') return 'it is not your turn';
   if (command.type === 'shoot' && (!Number.isFinite(command.shot.angle) || !Number.isFinite(command.shot.power) || command.shot.power < 1 || command.shot.power > 8)) return 'invalid shot';
   return undefined;
@@ -342,7 +382,7 @@ socketServer.on('connection', (socket) => {
 
 setInterval(() => {
   rooms.forEach((room) => {
-    if (!room.game || room.game.paused || room.game.status !== 'playing') return;
+    if (!room.game || room.game.paused || room.game.status === 'finished') return;
     const next = tickTurn(room.game, .25);
     if (next !== room.game) updateGame(room, next);
   });

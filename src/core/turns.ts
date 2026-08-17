@@ -1,7 +1,8 @@
-import { activePlayer, addMessage, beginCourseTransition } from './game-state';
+import { activePlayer, addMessage } from './game-state';
 import { simulateShot, type SimulationResult } from './physics';
-import { adjustedShotFor, canStorePowerUp, physicsModifiersFor } from './player-effects';
+import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
+import { awardHoleCash, openShop, tickShop } from './shop';
 import type { Ball, GameState, ShotCommand } from './types';
 
 const advanceCoursePhase = (state: GameState) => {
@@ -17,7 +18,7 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
     collisions: state.holeRules.collisions,
     phase: state.coursePhase,
     phaseCount: state.holeRules.hazardPhaseCount,
-    collectItems: state.holeRules.powerUps && canStorePowerUp(player),
+    collectItems: (state.holeRules.powerUps && canStorePowerUp(player)) || state.course.itemPads.some((pad) => pad.kind === 'cash' && !pad.collected),
     gadgets: state.gadgets ?? [],
   });
 };
@@ -32,7 +33,21 @@ const applySimulation = (state: GameState, playerIndex: number, result: Simulati
     player.hazardShield = player.hazardShield && !result.otherShieldUsed[otherIndex];
     otherIndex += 1;
   });
-  if (result.gadgetIds.length) state.gadgets = (state.gadgets ?? []).filter((gadget) => !result.gadgetIds.includes(gadget.id));
+  if (result.gadgetIds.length) {
+    const triggered = (state.gadgets ?? []).filter((gadget) => result.gadgetIds.includes(gadget.id));
+    triggered.forEach((gadget) => {
+      if (gadget.kind === 'toll booth') {
+        const owner = state.players.find((player) => player.id === gadget.ownerId);
+        if (owner) { owner.cash += 2; addMessage(state, `${owner.name}'s toll booth collects $2`); }
+      }
+      if (gadget.kind === 'control inverter') {
+        const struck = state.players[playerIndex]!;
+        struck.controlInverted = 1;
+        addMessage(state, `${struck.name} crosses a control inverter`);
+      }
+    });
+    state.gadgets = (state.gadgets ?? []).filter((gadget) => !result.gadgetIds.includes(gadget.id));
+  }
 };
 
 export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | undefined => {
@@ -56,12 +71,14 @@ const finishHole = (state: GameState) => {
     addMessage(state, 'nine holes scored — campaign complete');
     return;
   }
-  beginCourseTransition(state);
+  awardHoleCash(state);
+  openShop(state);
 };
 
 const advanceTurn = (state: GameState) => {
+  const direction = state.activeReality === 'turns are backwards' ? -1 : 1;
   for (let offset = 1; offset <= state.players.length; offset += 1) {
-    const index = (state.turn.playerIndex + offset) % state.players.length;
+    const index = (state.turn.playerIndex + direction * offset + state.players.length * 2) % state.players.length;
     const player = state.players[index]!;
     if (!player.ball.complete && player.ball.strokes < state.holeRules.strokeCap) {
       state.turn = { playerIndex: index, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
@@ -84,6 +101,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   }
   const playerIndex = state.turn.playerIndex;
   const forcedChip = player.forcedChip;
+  const before = { ...player.ball };
   const result = simulatePlayerShot(state, playerIndex, shot);
   player.turboArmed = false;
   player.cupMagnetArmed = false;
@@ -92,6 +110,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.sandbagged = false;
   player.forcedChip = undefined;
   applySimulation(state, playerIndex, result);
+  player.shotHistory = [...player.shotHistory, { hole: state.hole, before, after: { ...player.ball } }].slice(-12);
   const consumedForm = player.ballForm;
   player.ballForm = undefined;
   player.portalExitId = undefined;
@@ -100,8 +119,20 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   else if (result.reset) addMessage(state, `${player.name} falls into the void`);
   else addMessage(state, `${player.name} rolls to safety`);
   const pad = result.itemPadIds.map((id) => state.course.itemPads.find((candidate) => candidate.id === id)).find(Boolean);
-  if (pad && awardPowerUp(state, player, pad.kind, pad.id, `${player.name} taps a ${pad.kind} pad — {powerUp}`)) pad.collected = true;
-  else if (!pad && player.upgrades.includes('extra charge')) awardPowerUp(state, player, 'recovery', 'extra-charge', `${player.name}'s extra charge pulls {powerUp}`);
+  if (pad?.kind === 'cash') {
+    const leaderScore = Math.min(...state.players.map((candidate) => candidate.total + candidate.ball.strokes));
+    const behind = player.total + player.ball.strokes - leaderScore >= 2;
+    const value = (behind ? 5 : 2) * (1 + caddyCount(player, 'coin slot'));
+    player.cash += value;
+    pad.collected = true;
+    addMessage(state, `${player.name} collects $${value} from a cash pad`);
+  } else if (pad && awardPowerUp(state, player, pad.kind, pad.id, `${player.name} taps a ${pad.kind} pad — {powerUp}`)) pad.collected = true;
+  else if (!pad && hasCaddy(player, 'extra charge')) awardPowerUp(state, player, 'recovery', 'extra-charge', `${player.name}'s extra charge pulls {powerUp}`);
+  if (state.activeReality === 'cup walks' && !result.holed) {
+    const index = state.course.route.findIndex((point) => point.x === state.course.cup.x && point.y === state.course.cup.y);
+    const next = state.course.route[Math.min(state.course.route.length - 1, Math.max(1, index + 1))];
+    if (next) state.course.cup = { ...next };
+  }
   if (player.twoPuttsArmed && !player.ball.complete && player.ball.strokes < state.holeRules.strokeCap) {
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} takes the second putt${consumedForm ? ` after ${consumedForm} ball` : ''}`);
@@ -113,8 +144,12 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if (current.status !== 'playing' || current.paused || current.turn.shotInFlight) return current;
-  const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), messages: [...current.messages] };
+  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused || current.turn.shotInFlight) return current;
+  const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })), messages: [...current.messages] } as GameState;
+  if (state.status === 'shopping') {
+    tickShop(state, elapsedSeconds);
+    return state;
+  }
   state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsedSeconds);
   if (state.turn.secondsLeft === 0) {
     const player = activePlayer(state);

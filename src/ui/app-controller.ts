@@ -3,7 +3,7 @@ import { chooseBotVote } from '../core/bots';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { courseForPlan } from '../core/game-state';
 import { canPlaceGadget } from '../core/powerups';
-import type { Ball, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
+import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
@@ -372,10 +372,10 @@ export const startApp = (app: HTMLElement) => {
     requestAnimationFrame(animate);
   };
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
-  const useHeldPowerUp = (powerUp: PowerUp) => {
+  const useHeldPowerUp = (powerUp: PowerUp | ChronoCard) => {
     if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
-    const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring']);
-    if (gadgets.has(powerUp)) {
+    const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun']);
+    if (gadgets.has(powerUp as PowerUp)) {
       placement = { kind: powerUp as GadgetKind, ownerId: current().id, valid: false, confirmed: false };
       playEffect(530, .08);
       drawBoard();
@@ -429,6 +429,21 @@ export const startApp = (app: HTMLElement) => {
         const optionId = chooseBotVote(state.config.seed, state.hole, bot, state.vote.options);
         setState(applyCommand(state, { type: 'cast-vote', playerId: bot.id, optionId }));
       }, preferences.reducedMotion ? 100 : 520);
+      return;
+    }
+    if (state.status === 'shopping' && state.shop) {
+      if (!state.shop.rerollResolved) {
+        const bot = state.players.find((player) => player.kind === 'bot' && state.shop!.rerollVotes[player.id] === undefined);
+        if (!bot) return;
+        botTimeout = window.setTimeout(() => setState(applyCommand(state, { type: 'shop-vote-reroll', playerId: bot.id, approve: false })), preferences.reducedMotion ? 100 : 420);
+        return;
+      }
+      const shopper = state.players.find((player) => player.id === state.shop!.buyerOrder[state.shop!.buyerIndex]);
+      if (!shopper || shopper.kind !== 'bot') return;
+      botTimeout = window.setTimeout(() => {
+        const offer = state.shop!.shelf.find((candidate) => !candidate.sold && candidate.price <= shopper.cash);
+        setState(applyCommand(state, offer ? { type: 'shop-buy', playerId: shopper.id, offerId: offer.id } : { type: 'shop-skip', playerId: shopper.id }));
+      }, preferences.reducedMotion ? 120 : 560);
       return;
     }
     if (state.status !== 'playing' || current().kind !== 'bot') return;
@@ -545,8 +560,32 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
     const voteOption = target.closest<HTMLElement>('[data-vote-option]')?.dataset.voteOption;
     if (voteOption) { castVote(voteOption); return; }
-    const powerUp = element.dataset.usePowerup as PowerUp | undefined;
+    const powerUp = element.dataset.usePowerup as (PowerUp | ChronoCard) | undefined;
     if (powerUp) { useHeldPowerUp(powerUp); return; }
+    const reroll = element.dataset.shopReroll;
+    if (reroll && state.shop && !state.shop.rerollResolved) {
+      const voter = online() ? state.players.find((player) => player.id === onlinePlayerId && state.shop!.rerollVotes[player.id] === undefined) : state.players.find((player) => player.kind === 'human' && state.shop!.rerollVotes[player.id] === undefined);
+      if (voter) dispatch({ type: 'shop-vote-reroll', playerId: voter.id, approve: reroll === 'yes' });
+      return;
+    }
+    const offerId = element.dataset.shopBuy;
+    if (offerId && state.shop) {
+      const buyerId = state.shop.buyerOrder[state.shop.buyerIndex];
+      const replaceCaddyId = app.querySelector<HTMLSelectElement>('#replace-caddy')?.value;
+      if (buyerId) dispatch({ type: 'shop-buy', playerId: buyerId, offerId, replaceCaddyId: replaceCaddyId as never });
+      return;
+    }
+    const sellCaddy = element.dataset.shopSell;
+    if (sellCaddy && state.shop) {
+      const buyerId = state.shop.buyerOrder[state.shop.buyerIndex];
+      if (buyerId) dispatch({ type: 'shop-sell-caddy', playerId: buyerId, caddyId: sellCaddy as never });
+      return;
+    }
+    if (element.hasAttribute('data-shop-skip') && state.shop) {
+      const buyerId = state.shop.buyerOrder[state.shop.buyerIndex];
+      if (buyerId) dispatch({ type: 'shop-skip', playerId: buyerId });
+      return;
+    }
     if (element.hasAttribute('data-cancel-placement')) { placement = undefined; drawBoard(); renderControls(); return; }
     const emote = element.dataset.emote as Emote | undefined;
     if (emote) { sendEmote(emote); return; }

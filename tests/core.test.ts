@@ -19,6 +19,17 @@ const resolveVote = (game: ReturnType<typeof createGame>, optionIndex = 0) => {
   return resolved;
 };
 
+const resolveShop = (game: ReturnType<typeof createGame>) => {
+  let resolved = game;
+  if (resolved.status !== 'shopping') return resolved;
+  resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'shop-vote-reroll', playerId: player.id, approve: false }), resolved);
+  while (resolved.status === 'shopping') {
+    const playerId = resolved.shop!.buyerOrder[resolved.shop!.buyerIndex]!;
+    resolved = applyCommand(resolved, { type: 'shop-skip', playerId });
+  }
+  return resolved;
+};
+
 describe('course generation', () => {
   it('reproduces valid courses and candidate pools for a fixed seed', () => {
     const first = generateCourse('test-seed');
@@ -112,7 +123,7 @@ describe('public voting flow', () => {
     expect(first.course.seed).toBe(first.coursePlan[0]!.courseSeed);
     expect(first.course).toMatchObject({ width: 24, height: 16 });
     expect(first.coursePlan.every((plan) => plan.recipe.terrain.width === 24 && plan.recipe.terrain.height === 16)).toBe(true);
-    expect(first.players.every((player) => player.upgrades.join(',') === first.holeRules.sharedBoons.join(','))).toBe(true);
+    expect(first.players.every((player) => player.caddies.length === 0 && player.cash === 10)).toBe(true);
   });
 
   it('keeps named ballots public and editable until the final ballot locks the whole match plan', () => {
@@ -127,7 +138,7 @@ describe('public voting flow', () => {
     expect(game.status).toBe('playing');
     expect(game.course.seed).toBe(second!.course.seed);
     expect(game.coursePlan).toMatchObject([{ id: second!.id, label: second!.label, courseSeed: second!.course.seed }]);
-    expect(game.players.every((player) => player.upgrades.join(',') === game.holeRules.sharedBoons.join(','))).toBe(true);
+    expect(game.players.every((player) => player.caddies.length === 0 && player.cash === 10)).toBe(true);
   });
 
   it('collects every hole package before opening the first turn and transitions through the locked plan', () => {
@@ -143,6 +154,8 @@ describe('public voting flow', () => {
     game.players[0]!.ball.complete = true;
     game.players[0]!.ball.strokes = 1;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(game.status).toBe('shopping');
+    game = resolveShop(game);
     expect(game.status).toBe('transitioning');
     expect(game.transition?.next.id).toBe(second.id);
     game = applyCommand(game, { type: 'complete-transition' });
@@ -201,6 +214,8 @@ describe('turns, shared rules, and bots', () => {
     expect(game.players[0]!.ball.x).toBeGreaterThan(before.x + 2);
     game.players[0]!.ball.complete = true;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(game.status).toBe('shopping');
+    game = resolveShop(game);
     expect(game.status).toBe('transitioning');
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
     game = applyCommand(game, { type: 'complete-transition' });
@@ -213,7 +228,11 @@ describe('turns, shared rules, and bots', () => {
       game.players[0]!.ball.complete = true;
       game.players[0]!.ball.strokes = 1;
       game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
-      if (hole < 9) game = applyCommand(game, { type: 'complete-transition' });
+      if (hole < 9) {
+        expect(game.status).toBe('shopping');
+        game = resolveShop(game);
+        game = applyCommand(game, { type: 'complete-transition' });
+      }
     }
     expect(game.status).toBe('finished');
     expect(game.players[0]!.total).toBeGreaterThanOrEqual(9);
