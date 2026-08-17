@@ -4,6 +4,7 @@ import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn
 import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
+import { physicsModifiersFor } from '../src/core/player-effects';
 import { normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
 import type { GameState } from '../src/core/types';
@@ -42,13 +43,16 @@ describe('course generation', () => {
 
   it('exposes deterministic granular recipes including independent surface, hazard, portal, and pad quantities', () => {
     const terrain = randomTerrainSettings('granularity', 2);
-    const generated = generateCourse('granularity-course', { ...terrain, wallCount: 5, sweeperCount: 2, gateCount: 2, portalPairs: 2, recoveryPads: 3, chaosPads: 4 });
+    const generated = generateCourse('granularity-course', { ...terrain, wallCount: 5, sweeperCount: 2, gateCount: 2, portalPairs: 2, recoveryPads: 3, chaosPads: 4, updraftCount: 2, lowBarCount: 2, airRingCount: 2 });
     expect(terrain).toEqual(randomTerrainSettings('granularity', 2));
     expect(generated.hazards.filter((hazard) => hazard.kind === 'sweeper')).toHaveLength(2);
     expect(generated.hazards.filter((hazard) => hazard.kind === 'gate')).toHaveLength(2);
     expect(generated.portals).toHaveLength(2);
     expect(generated.itemPads.filter((pad) => pad.kind === 'recovery')).toHaveLength(3);
     expect(generated.itemPads.filter((pad) => pad.kind === 'chaos')).toHaveLength(4);
+    expect(generated.hazards.filter((hazard) => hazard.kind === 'updraft')).toHaveLength(2);
+    expect(generated.hazards.filter((hazard) => hazard.kind === 'low-bar')).toHaveLength(2);
+    expect(generated.features.filter((feature) => feature.kind === 'air-ring')).toHaveLength(2);
   });
 
   it('keeps generated courses guarded and solver-playable', () => {
@@ -206,6 +210,36 @@ describe('turns, shared rules, and bots', () => {
     expect(Number.isFinite(decision.shot.angle)).toBe(true);
     game.turn.playerIndex = 1;
     expect(botMove(game)).toBeDefined();
+  });
+
+  it('adds aerial forms, team boons, tactical items, and a second gadget slot', () => {
+    const course = arena('expanded-content');
+    course.route = [{ x: 1, y: 3 }, { x: 4, y: 3 }, { x: 7, y: 3 }, course.cup];
+    let game = gameOn(course);
+    const player = game.players[0]!;
+    player.upgrades = ['aerial ace', 'cup reader', 'gadgeteer'];
+    player.ballForm = 'glider';
+    const modifiers = physicsModifiersFor(player, game.holeRules);
+    expect(modifiers.chipGravityMultiplier).toBeLessThan(.6);
+    expect(modifiers.cupRadius).toBeGreaterThan(game.holeRules.cupRadius);
+
+    player.inventory = 'sky spring';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'sky spring', placement: { x: 4, y: 3 } });
+    game.players[0]!.inventory = 'popper pad';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'popper pad', placement: { x: 5, y: 3 } });
+    expect(game.gadgets).toHaveLength(2);
+
+    const beforeDrone = game.players[0]!.ball.x;
+    game.players[0]!.inventory = 'rescue drone';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'rescue drone' });
+    expect(game.players[0]!.ball.x).toBeGreaterThan(beforeDrone);
+
+    game.players[0]!.inventory = 'airhorn';
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'airhorn', targetId: game.players[1]!.id });
+    game.turn.playerIndex = 1;
+    const forcedFrames = previewShot(game, { angle: 0, power: 3, kind: 'putt' })!;
+    expect(game.players[1]!.forcedChip).toBe(true);
+    expect(Math.max(...forcedFrames.map((frame) => frame[1]!.z))).toBeGreaterThan(game.players[1]!.ball.z + .5);
   });
 
   it('keeps timers, collision settings, and recovery drops under the active rules', () => {
