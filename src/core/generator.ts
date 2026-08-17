@@ -155,7 +155,7 @@ const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, s
   }
 };
 
-const reachable = (course: Course, phase = 0): boolean => {
+const reachable = (course: Course, phase = 0, phaseCount = COURSE_PHASES): boolean => {
   const seen = new Set<string>();
   const queue = [course.tee];
   const key = (point: Point) => `${point.x},${point.y}`;
@@ -167,7 +167,7 @@ const reachable = (course: Course, phase = 0): boolean => {
     for (const direction of directions) {
       const next = { x: current.x + direction.x, y: current.y + direction.y };
       const tile = tileAt(course, next.x + 0.5, next.y + 0.5);
-      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, next.x + .5, next.y + .5, phase) && !seen.has(key(next))) queue.push(next);
+      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, next.x + .5, next.y + .5, phase, phaseCount) && !seen.has(key(next))) queue.push(next);
     }
   }
   return false;
@@ -190,14 +190,14 @@ const solve = (course: Course, phase: number): ShotCommand[] => {
   return [];
 };
 
-const scoreCourse = (course: Course): CourseScore => {
+const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   const hazards = course.tiles.filter((tile) => tile.surface === 'sand' || tile.surface === 'ice' || tile.surface === 'booster' || tile.surface === 'conveyor').length + course.hazards.length;
   const elevation = Math.round(course.tiles.reduce((total, tile) => total + tile.height, 0));
   const branches = course.tiles.filter((tile) => tile.surface === 'fairway').length - course.route.length * 6;
   const solverShots = solve(course, 0);
-  const playable = solverShots.length > 0 && Array.from({ length: COURSE_PHASES }, (_, phase) => {
-    if (!reachable(course, phase)) return false;
-    const result = simulateShot(course, newBall(course), solverShots[0]!, undefined, { phase });
+  const playable = solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
+    if (!reachable(course, phase, phaseCount)) return false;
+    const result = simulateShot(course, newBall(course), solverShots[0]!, undefined, { phase, phaseCount });
     return result.holed && result.settled;
   }).every(Boolean);
   const estimatedStrokes = Math.max(1, Math.round(course.route.length / 7 + hazards / 15));
@@ -207,7 +207,7 @@ const scoreCourse = (course: Course): CourseScore => {
   return { playable, estimatedStrokes, hazards, elevation, routes, novelty, total, solverShots, rejection: playable ? undefined : 'shot solver found no safe cup line' };
 };
 
-const addHazard = (course: Course, random: Random, index: number, theme: CourseTheme) => {
+const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper' | 'gate', phaseCount: number) => {
   const routeCells = new Set(course.route.map((point) => `${point.x},${point.y}`));
   const choices: Point[] = [];
   for (let y = 1; y < course.height - 1; y += 1) {
@@ -222,15 +222,15 @@ const addHazard = (course: Course, random: Random, index: number, theme: CourseT
     }
   }
   const point = random.pick(choices.length ? choices : course.route.slice(2, -2));
-  const sweeperChance = theme === 'hazard-run' ? .72 : theme === 'speedway' ? .42 : .56;
-  if (random.chance(sweeperChance)) course.hazards.push({ id: `sweeper-${index}`, kind: 'sweeper', point, phaseOffset: random.int(0, COURSE_PHASES - 1), radius: .78 });
-  else course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, COURSE_PHASES - 1) });
+  if (kind === 'sweeper') course.hazards.push({ id: `sweeper-${index}`, kind: 'sweeper', point, phaseOffset: random.int(0, phaseCount - 1), radius: .78 });
+  else course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, phaseCount - 1) });
 };
 
-const addItemPads = (course: Course, random: Random, count: number) => {
+const addItemPads = (course: Course, random: Random, recoveryPads: number, chaosPads: number) => {
   const used = new Set<string>();
   const sideSteps = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }];
-  const fractions = Array.from({ length: count }, (_, index) => (index + 1) / (count + 1));
+  const pads = [...Array.from({ length: recoveryPads }, () => 'recovery' as const), ...Array.from({ length: chaosPads }, () => 'chaos' as const)];
+  const fractions = pads.map((_, index) => (index + 1) / (pads.length + 1));
   fractions.forEach((fraction, index) => {
     const base = course.route[Math.min(course.route.length - 2, Math.max(2, Math.round((course.route.length - 1) * fraction)))]!;
     const candidates = sideSteps.map((step) => ({ x: base.x + step.x, y: base.y + step.y })).filter((point) => {
@@ -240,8 +240,33 @@ const addItemPads = (course: Course, random: Random, count: number) => {
     });
     const point = random.pick(candidates.length ? candidates : [base]);
     used.add(`${point.x},${point.y}`);
-    course.itemPads.push({ id: `pad-${index}`, point, kind: index === 0 ? 'recovery' : random.chance(.5) ? 'recovery' : 'chaos' });
+    course.itemPads.push({ id: `pad-${index}`, point, kind: pads[index]! });
   });
+};
+
+const addPortals = (course: Course, random: Random, count: number) => {
+  const used = new Set<string>([`${course.tee.x},${course.tee.y}`, `${course.cup.x},${course.cup.y}`]);
+  const candidates = course.tiles.flatMap((tile, index) => {
+    if (tile.surface === 'void' || tile.surface === 'wall') return [];
+    const point = { x: index % course.width, y: Math.floor(index / course.width) };
+    return course.route.some((route) => route.x === point.x && route.y === point.y) ? [] : [point];
+  });
+  for (let index = 0; index < count && candidates.length >= 2; index += 1) {
+    const choose = () => {
+      const available = candidates.filter((point) => !used.has(`${point.x},${point.y}`));
+      return available.length ? random.pick(available) : undefined;
+    };
+    const entrance = choose();
+    if (!entrance) break;
+    used.add(`${entrance.x},${entrance.y}`);
+    const exit = choose();
+    if (!exit) break;
+    used.add(`${exit.x},${exit.y}`);
+    const directions = [
+      { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 },
+    ];
+    course.portals!.push({ id: `portal-${index + 1}`, entrance: { point: entrance, direction: random.pick(directions) }, exit: { point: exit, direction: random.pick(directions) } });
+  }
 };
 
 const addBarrierWalls = (course: Course) => {
@@ -263,25 +288,29 @@ const addBarrierWalls = (course: Course) => {
   for (const { point, height } of candidates.values()) course.tiles[indexOf(course, point)] = { surface: 'wall', height };
 };
 
-const decorate = (course: Course, random: Random, settings: TerrainSettings) => {
+const decorate = (course: Course, random: Random, settings: TerrainSettings, phaseCount: number) => {
   const featureAttempts = Math.round(6 + settings.density * 24 + settings.chaos * 26);
   for (let attempt = 0; attempt < featureAttempts; attempt += 1) {
     const point = { x: random.int(2, COURSE_WIDTH - 3), y: random.int(2, COURSE_HEIGHT - 3) };
     const tile = course.tiles[indexOf(course, point)]!;
     if (tile.surface !== 'fairway' || point.x === course.tee.x || point.x === course.cup.x) continue;
     const surfaceRoll = random.next();
-    const sandChance = settings.theme === 'quarry' ? .5 : settings.theme === 'ice-rink' ? .08 : .24;
-    const iceChance = settings.theme === 'ice-rink' ? .56 : settings.theme === 'quarry' ? .08 : .24;
-    const speedChance = settings.theme === 'speedway' ? .58 : .3 + settings.chaos * .12;
-    if (surfaceRoll < sandChance) tile.surface = 'sand';
-    else if (surfaceRoll < sandChance + iceChance) tile.surface = 'ice';
-    else if (surfaceRoll < sandChance + iceChance + speedChance) {
-      tile.surface = random.chance(0.5) ? 'booster' : 'conveyor';
+    const themeBoost = settings.theme === 'quarry' ? { sand: .12, ice: -.04, speed: -.03 } : settings.theme === 'ice-rink' ? { sand: -.04, ice: .14, speed: -.02 } : settings.theme === 'speedway' ? { sand: -.03, ice: -.02, speed: .13 } : { sand: 0, ice: 0, speed: 0 };
+    const rough = settings.roughRate;
+    const sand = Math.max(0, settings.sandRate + themeBoost.sand);
+    const ice = Math.max(0, settings.iceRate + themeBoost.ice);
+    const booster = Math.max(0, settings.boosterRate + themeBoost.speed);
+    const conveyor = Math.max(0, settings.conveyorRate + themeBoost.speed / 2);
+    if (surfaceRoll < rough) tile.surface = 'rough';
+    else if (surfaceRoll < rough + sand) tile.surface = 'sand';
+    else if (surfaceRoll < rough + sand + ice) tile.surface = 'ice';
+    else if (surfaceRoll < rough + sand + ice + booster + conveyor) {
+      tile.surface = surfaceRoll < rough + sand + ice + booster ? 'booster' : 'conveyor';
       tile.direction = random.pick(directions);
     }
   }
   let walls = 0;
-  const wallTarget = Math.max(0, Math.min(5, Math.round(settings.density * 2 + settings.chaos * 2 + (settings.theme === 'quarry' ? 1 : 0))));
+  const wallTarget = settings.wallCount;
   for (let attempt = 0; attempt < 36 && walls < wallTarget; attempt += 1) {
     const routePoint = random.pick(course.route.slice(2, -2));
     const direction = random.pick(directions);
@@ -297,19 +326,21 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings) => 
     tile.surface = 'wall';
     walls += 1;
   }
-  for (let index = 0; index < settings.hazards; index += 1) addHazard(course, random, index, settings.theme);
-  addItemPads(course, random, 3 + Math.max(0, Math.round((settings.chaos - .5) * 4)));
+  for (let index = 0; index < settings.sweeperCount; index += 1) addHazard(course, random, index, 'sweeper', phaseCount);
+  for (let index = 0; index < settings.gateCount; index += 1) addHazard(course, random, index, 'gate', phaseCount);
+  addPortals(course, random, settings.portalPairs);
+  addItemPads(course, random, settings.recoveryPads, settings.chaosPads);
   addBarrierWalls(course);
 };
 
-const buildCourse = (seed: string, settings: TerrainSettings): Course => {
+const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number): Course => {
   const random = new Random(seed);
   const tiles = Array.from({ length: COURSE_WIDTH * COURSE_HEIGHT }, baseTile);
   const route = routeFor(random, settings);
   let elevation = 0;
   for (const [index, point] of route.entries()) {
     const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0);
-    if (index > 2 && random.chance(elevationChance)) elevation = Math.max(0, Math.min(3, elevation + random.pick([-1, 1])));
+    if (index > 2 && random.chance(elevationChance)) elevation = Math.max(0, Math.min(settings.maxElevation, elevation + random.pick([-1, 1])));
     carve(tiles, point, elevation, settings.laneWidth);
   }
   carveBranches(tiles, route, random, settings);
@@ -318,18 +349,18 @@ const buildCourse = (seed: string, settings: TerrainSettings): Course => {
   writeTile(tiles, tee, 'tee', tiles[indexOf({ width: COURSE_WIDTH }, tee)]!.height);
   writeTile(tiles, cup, 'cup', tiles[indexOf({ width: COURSE_WIDTH }, cup)]!.height);
   const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], portals: [], itemPads: [], score: {} as CourseScore };
-  decorate(course, random, settings);
+  decorate(course, random, settings, phaseCount);
   smoothRampHeights(course);
-  course.score = scoreCourse(course);
+  course.score = scoreCourse(course, phaseCount);
   return course;
 };
 
-export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}): Course => {
+export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES): Course => {
   const resolvedSettings = { ...defaultTerrainSettings(), ...settings };
-  let fallback = buildCourse(seed, resolvedSettings);
+  let fallback = buildCourse(seed, resolvedSettings, phaseCount);
   if (fallback.score.playable) return fallback;
   for (let attempt = 1; attempt <= 40; attempt += 1) {
-    const candidate = buildCourse(`${seed}-retry-${attempt}`, resolvedSettings);
+    const candidate = buildCourse(`${seed}-retry-${attempt}`, resolvedSettings, phaseCount);
     if (candidate.score.playable) return candidate;
     if (candidate.score.total > fallback.score.total) fallback = candidate;
   }
@@ -343,4 +374,85 @@ export const generateCandidates = (seed: string, count = 3): Course[] => {
     if (course.score.playable) accepted.push(course);
   }
   return accepted.sort((a, b) => b.score.total - a.score.total);
+};
+
+export const defaultHoleRules = (): HoleRules => ({
+  timerSeconds: 24,
+  strokeCap: 10,
+  collisions: true,
+  powerUps: true,
+  recoveryBias: .5,
+  launchMultiplier: 1,
+  rollingResistanceMultiplier: 1,
+  wallRestitutionMultiplier: 1,
+  terrainAccelerationMultiplier: 1,
+  hazardImpulseMultiplier: 1,
+  portalSpeedMultiplier: 1,
+  cupRadius: .28,
+  hazardPhaseCount: COURSE_PHASES,
+  scoreMultiplier: 1,
+  sharedBoons: [],
+});
+
+const votingLabels = ['steady hands', 'hazard holiday', 'speed council', 'ice caucus', 'quarry motion', 'chaos compact'];
+
+const pickDistinct = <T>(random: Random, values: readonly T[], count: number) => {
+  const available = [...values];
+  const selected: T[] = [];
+  while (available.length && selected.length < count) selected.push(available.splice(random.int(0, available.length - 1), 1)[0]!);
+  return selected;
+};
+
+const randomHoleRules = (random: Random): HoleRules => {
+  const rules = defaultHoleRules();
+  const startingItems = [undefined, 'turbo', 'shield', 'two putts', 'bouncy', 'magnet'] as const;
+  const boons = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'] as const;
+  return {
+    ...rules,
+    timerSeconds: random.pick([14, 18, 24, 30]),
+    strokeCap: random.pick([7, 9, 10, 12]),
+    collisions: random.chance(.7),
+    powerUps: random.chance(.82),
+    recoveryBias: random.pick([.25, .5, .75]),
+    launchMultiplier: random.pick([.86, .94, 1, 1.08, 1.16]),
+    rollingResistanceMultiplier: random.pick([.72, .86, 1, 1.16, 1.3]),
+    wallRestitutionMultiplier: random.pick([.8, .94, 1, 1.12]),
+    terrainAccelerationMultiplier: random.pick([.75, .9, 1, 1.15, 1.3]),
+    hazardImpulseMultiplier: random.pick([.75, .9, 1, 1.18, 1.35]),
+    portalSpeedMultiplier: random.pick([.86, 1, 1.15, 1.3]),
+    cupRadius: random.pick([.23, .28, .33, .37]),
+    hazardPhaseCount: random.pick([4, 6, 8, 10]),
+    scoreMultiplier: random.pick([.75, 1, 1.25]),
+    startingPowerUp: random.pick(startingItems),
+    sharedBoons: pickDistinct(random, boons, random.int(0, 2)),
+  };
+};
+
+const optionLabel = (terrain: TerrainSettings, rules: HoleRules, index: number) => {
+  const boon = rules.sharedBoons[0] ?? (rules.startingPowerUp ? `${rules.startingPowerUp} supply` : 'standard kit');
+  return `${votingLabels[index % votingLabels.length]} · ${terrain.theme} · ${boon}`;
+};
+
+export const generateVotingOptions = (seed: string, hole: number): VotingOption[] => {
+  const options: VotingOption[] = [];
+  const seenCourses = new Set<string>();
+  for (let attempt = 0; options.length < 3 && attempt < 96; attempt += 1) {
+    const random = new Random(`${seed}:hole:${hole}:option:${attempt}`);
+    const terrain = { ...randomTerrainSettings(`${seed}:hole:${hole}`, attempt + 1), variation: hole * 100 + attempt };
+    const rules = randomHoleRules(random);
+    const course = generateCourse(`${seed}:hole:${hole}:course:${attempt}`, terrain, rules.hazardPhaseCount);
+    const signature = `${course.seed}:${course.tee.x},${course.tee.y}:${course.cup.x},${course.cup.y}`;
+    if (!course.score.playable || seenCourses.has(signature)) continue;
+    seenCourses.add(signature);
+    const index = options.length;
+    options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
+  }
+  while (options.length < 3) {
+    const index = options.length;
+    const terrain = { ...defaultTerrainSettings(), variation: hole * 100 + 90 + index, theme: themes[index % themes.length]! };
+    const rules = defaultHoleRules();
+    const course = generateCourse(`${seed}:hole:${hole}:fallback:${index}`, terrain, rules.hazardPhaseCount);
+    options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
+  }
+  return options;
 };

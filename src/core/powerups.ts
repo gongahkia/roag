@@ -10,12 +10,13 @@ export const powerUpFor = (state: GameState, player: Player, kind: ItemPadKind, 
   const random = new Random(`${state.course.seed}:${source}:${player.id}:${state.coursePhase}:${player.ball.strokes}`);
   const leaderScore = Math.min(...state.players.map((candidate) => candidate.total + candidate.ball.strokes));
   const deficit = player.total + player.ball.strokes - leaderScore;
-  if (deficit >= 2 && random.chance(.7)) return random.pick(RECOVERY_POWER_UPS);
-  return random.pick(kind === 'recovery' ? RECOVERY_POWER_UPS : CHAOS_POWER_UPS);
+  if (deficit >= 2 && random.chance(Math.max(.2, state.holeRules.recoveryBias))) return random.pick(RECOVERY_POWER_UPS);
+  if (kind === 'recovery' || random.chance(state.holeRules.recoveryBias)) return random.pick(RECOVERY_POWER_UPS);
+  return random.pick(CHAOS_POWER_UPS);
 };
 
 export const awardPowerUp = (state: GameState, player: Player, kind: ItemPadKind, source: string, message: string) => {
-  if (!state.config.powerUps || !canStorePowerUp(player)) return false;
+  if (!state.holeRules.powerUps || !canStorePowerUp(player)) return false;
   const powerUp = powerUpFor(state, player, kind, source);
   storePowerUp(player, powerUp);
   addMessage(state, message.replace('{powerUp}', powerUp));
@@ -47,7 +48,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string
   }
   if (powerUp === 'bomb' && target) {
     const distance = Math.hypot(target.ball.x - player.ball.x, target.ball.y - player.ball.y) || 1;
-    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, MAX_SETTLE_SECONDS, physicsModifiersFor(target), state.coursePhase);
+    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, MAX_SETTLE_SECONDS, physicsModifiersFor(target, state.holeRules), state.coursePhase, state.holeRules.hazardPhaseCount);
     target.ball = result.ball;
     target.hazardShield = target.hazardShield && !result.shieldUsed;
     addMessage(state, `${player.name} bombs ${target.name}`);
@@ -79,7 +80,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string
   }
   if (!used) return;
   takePowerUp(player, powerUp);
-  if (state.config.powerUps && player.upgrades.includes('chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(.65)) {
+  if (state.holeRules.powerUps && player.upgrades.includes('chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(.65)) {
     awardPowerUp(state, player, 'chaos', 'chaos-magnet', `${player.name}'s chaos magnet pulls {powerUp}`);
   }
 };

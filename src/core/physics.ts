@@ -38,6 +38,11 @@ export interface BallPhysicsModifiers {
   portalExitId?: string;
   portalSpeedMultiplier?: number;
   hazardShield?: boolean;
+  rollingResistanceMultiplier?: number;
+  wallRestitutionMultiplier?: number;
+  terrainAccelerationMultiplier?: number;
+  hazardImpulseMultiplier?: number;
+  cupRadius?: number;
 }
 
 export interface OtherBallSimulation {
@@ -50,6 +55,7 @@ export interface SimulationOptions {
   otherBalls?: readonly OtherBallSimulation[];
   collisions?: boolean;
   phase?: number;
+  phaseCount?: number;
   collectItems?: boolean;
 }
 
@@ -257,7 +263,7 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
   ball.vy -= gradient.y * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
   if (tile.surface === 'booster' || tile.surface === 'conveyor') {
     const direction = tile.direction ?? { x: 1, y: 0 };
-    const acceleration = tile.surface === 'booster' ? BOOST_ACCELERATION : CONVEYOR_ACCELERATION;
+    const acceleration = (tile.surface === 'booster' ? BOOST_ACCELERATION : CONVEYOR_ACCELERATION) * (modifiers.terrainAccelerationMultiplier ?? 1);
     ball.vx += direction.x * acceleration * STEP;
     ball.vy += direction.y * acceleration * STEP;
   }
@@ -272,14 +278,14 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
   const currentSpeed = planarSpeed(ball);
   if (currentSpeed > 0) {
     const deceleration = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
-    const reduction = Math.min(currentSpeed, deceleration * STEP);
+    const reduction = Math.min(currentSpeed, deceleration * (modifiers.rollingResistanceMultiplier ?? 1) * STEP);
     ball.vx -= ball.vx / currentSpeed * reduction;
     ball.vy -= ball.vy / currentSpeed * reduction;
   }
   limitPlanarSpeed(ball);
 };
 
-const stepTerrain = (course: Course, participant: Participant, phase: number) => {
+const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number) => {
   if (participant.fallFramesRemaining > 0) {
     continueFall(participant);
     return;
@@ -304,7 +310,7 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
     }
     return;
   }
-  if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase)) {
+  if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase, phaseCount)) {
     if (participant.modifiers.ghostBall && !participant.ghostUsed) {
       participant.ghostUsed = true;
       if (tile.surface === 'wall') {
@@ -322,7 +328,7 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
       return;
     }
     const normal = bounceNormal(previous, ball);
-    const restitution = participant.modifiers.bouncy ? .94 : participant.modifiers.bankShot ? .82 : .52;
+    const restitution = Math.min(.98, (participant.modifiers.bouncy ? .94 : participant.modifiers.bankShot ? .82 : .52) * (participant.modifiers.wallRestitutionMultiplier ?? 1));
     const velocity = reflect(previous, normal, restitution);
     participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     return;
@@ -332,11 +338,11 @@ const stepTerrain = (course: Course, participant: Participant, phase: number) =>
   applySurfaceForces(course, ball, tile, participant.modifiers);
 };
 
-const collideWithSweepers = (course: Course, participants: Participant[], phase: number) => {
+const collideWithSweepers = (course: Course, participants: Participant[], phase: number, phaseCount: number) => {
   for (const hazard of course.hazards) {
     if (hazard.kind !== 'sweeper') continue;
     const center = { x: hazard.point.x + .5, y: hazard.point.y + .5 };
-    const direction = sweeperDirection(hazard, phase);
+    const direction = sweeperDirection(hazard, phase, phaseCount);
     const perpendicular = { x: -direction.y, y: direction.x };
     for (const participant of participants) {
       if (participant.ball.complete || !isOnGround(course, participant.ball)) continue;
@@ -351,8 +357,9 @@ const collideWithSweepers = (course: Course, participants: Participant[], phase:
       participant.ball.x += normal.x * overlap;
       participant.ball.y += normal.y * overlap;
       participant.ball.z = floorHeightAt(course, participant.ball.x, participant.ball.y) + BALL_RADIUS;
-      participant.ball.vx += normal.x * 1.55 + direction.x * .45;
-      participant.ball.vy += normal.y * 1.55 + direction.y * .45;
+      const impulse = participant.modifiers.hazardImpulseMultiplier ?? 1;
+      participant.ball.vx += (normal.x * 1.55 + direction.x * .45) * impulse;
+      participant.ball.vy += (normal.y * 1.55 + direction.y * .45) * impulse;
       limitPlanarSpeed(participant.ball);
     }
   }
@@ -402,6 +409,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
   const frames: SimulationFrame[] = [];
   const cup = tileCenter(course.cup);
   const phase = options.phase ?? 0;
+  const phaseCount = options.phaseCount ?? 8;
   const itemPadIds = new Set<string>();
   const settleAtEnd = maxSeconds >= MAX_SETTLE_SECONDS;
   let holed = false;
@@ -409,14 +417,14 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
     participants.forEach((participant) => {
-      if (!participant.ball.complete && !isStopped(participant.ball)) stepTerrain(course, participant, phase);
+      if (!participant.ball.complete && !isStopped(participant.ball)) stepTerrain(course, participant, phase, phaseCount);
     });
-    collideWithSweepers(course, participants, phase);
+    collideWithSweepers(course, participants, phase, phaseCount);
     if (options.collisions && participants.length > 1) collide(course, participants);
 
     const active = participants[0]!;
     const activeTile = tileAt(course, active.ball.x, active.ball.y);
-    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y) < .28 && planarSpeed(active.ball) < 1.9 && active.ball.z <= floorHeightAt(course, cup.x, cup.y) + .3) {
+    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y) < (active.modifiers.cupRadius ?? .28) && planarSpeed(active.ball) < 1.9 && active.ball.z <= floorHeightAt(course, cup.x, cup.y) + .3) {
       active.ball = { ...active.ball, x: cup.x, y: cup.y, z: floorHeightAt(course, cup.x, cup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
       holed = true;
     }
@@ -454,7 +462,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
 export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = MAX_SETTLE_SECONDS, options: SimulationOptions = {}): SimulationResult => simulateMotion(course, applyShot(initial, shot), maxSeconds, options);
 
-export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = MAX_SETTLE_SECONDS, modifiers: BallPhysicsModifiers = {}, phase = 0): SimulationResult => simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: 0 }, maxSeconds, { modifiers, phase });
+export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = MAX_SETTLE_SECONDS, modifiers: BallPhysicsModifiers = {}, phase = 0, phaseCount = 8): SimulationResult => simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: 0 }, maxSeconds, { modifiers, phase, phaseCount });
 
 export const distanceToCup = (course: Course, ball: Ball) => {
   const cup = tileCenter(course.cup);

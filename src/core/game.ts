@@ -1,39 +1,18 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { applyBuildSettings, beginValidation, generateBuildTerrain, placeBuildTool, randomizeBuildTerrain, selectCompetitivePerk } from './course-builder';
-import { activePlayer, cloneGameState, createGameState, defaultConfig } from './game-state';
+import { activePlayer, castVote, cloneGameState, createGameState, defaultConfig } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
-import { beginCourse, previewShot, resolveShot, tickTurn } from './turns';
+import { previewShot, resolveShot, tickTurn } from './turns';
 import type { GameCommand, GameConfig, GameState, GameTransport } from './types';
 
-export { UPGRADE_DESCRIPTIONS, defaultConfig, beginCourse, previewShot, tickTurn };
+export { UPGRADE_DESCRIPTIONS, defaultConfig, previewShot, tickTurn };
 
 export const createGame = (config: GameConfig): GameState => createGameState(config);
 
 export const applyCommand = (current: GameState, command: GameCommand): GameState => {
   const state = cloneGameState(current);
-  if (command.type === 'build-settings' && state.status === 'build' && state.build) {
-    applyBuildSettings(state.build, command);
-    return state;
-  }
-  if (command.type === 'build-place' && state.status === 'build') {
-    placeBuildTool(state, command.point);
-    return state;
-  }
-  if (command.type === 'build-generate' && state.status === 'build') {
-    generateBuildTerrain(state);
-    return state;
-  }
-  if (command.type === 'build-randomize' && state.status === 'build') {
-    randomizeBuildTerrain(state);
-    return state;
-  }
-  if (command.type === 'select-upgrade' && state.status === 'build') {
-    selectCompetitivePerk(state, command.upgrade);
-    return state;
-  }
-  if (command.type === 'begin-validation' && state.status === 'build') {
-    beginValidation(state);
+  if (command.type === 'cast-vote') {
+    castVote(state, command.playerId, command.optionId);
     return state;
   }
   if (command.type === 'shoot') {
@@ -60,8 +39,8 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
 
 export const botMove = (state: GameState): BotDecision | undefined => {
   const player = activePlayer(state);
-  if (player.kind !== 'bot' || (state.status !== 'playing' && state.status !== 'validate') || state.turn.shotInFlight) return undefined;
-  return chooseBotDecision(state.course, player, state.players, state.coursePhase);
+  if (player.kind !== 'bot' || state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  return chooseBotDecision(state.course, player, state.players, state.coursePhase, state.holeRules);
 };
 
 export class LocalTransport implements GameTransport {

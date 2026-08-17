@@ -1,16 +1,14 @@
-import { defaultTerrainSettings } from './generator';
+import { defaultHoleRules, generateVotingOptions } from './generator';
+import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
-import { hashSeed } from './random';
-import type { BuildState, Course, GameConfig, GameState, Player } from './types';
+import { Random } from './random';
+import type { Course, GameConfig, GameState, Player, VoteState, VotingOption } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 
 export const defaultConfig = (): GameConfig => ({
   seed: `enemy-${Math.random().toString(36).slice(2, 8)}`,
-  timerSeconds: 24,
-  strokeCap: 10,
-  collisions: true,
-  powerUps: true,
+  holeCount: 9,
   botCount: 3,
   humanCount: 1,
   botSkill: 5,
@@ -21,25 +19,6 @@ export const addMessage = (state: GameState, message: string) => {
 };
 
 export const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
-
-export const blankCourse = (seed: string): Course => {
-  const tee = { x: 2, y: 7 };
-  const cup = { x: 17, y: 7 };
-  return {
-    id: `build-${seed}`,
-    seed,
-    width: 20,
-    height: 14,
-    tiles: Array.from({ length: 280 }, () => ({ surface: 'void', height: 0 })),
-    tee,
-    cup,
-    route: [],
-    hazards: [],
-    portals: [],
-    itemPads: [],
-    score: { playable: false, estimatedStrokes: 0, hazards: 0, elevation: 0, routes: 0, novelty: 0, total: 0, solverShots: [], rejection: 'builder has not validated this course' },
-  };
-};
 
 const emptyPlayer = (id: string, index: number, kind: Player['kind'], skill: Player['skill'], course: Course): Player => ({
   id,
@@ -52,37 +31,6 @@ const emptyPlayer = (id: string, index: number, kind: Player['kind'], skill: Pla
   total: 0,
 });
 
-export const createBuildState = (authorIndex: number): BuildState => ({
-  authorIndex,
-  tool: 'fairway',
-  height: 0,
-  direction: { x: 1, y: 0 },
-  portalPairId: 1,
-  terrain: defaultTerrainSettings(),
-  generated: false,
-});
-
-export const createGameState = (config: GameConfig): GameState => {
-  const course = blankCourse(hashSeed(config.seed, 0));
-  const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
-  players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
-  return {
-    config,
-    course,
-    hole: 1,
-    coursePhase: 0,
-    emotes: [],
-    emoteSequence: 0,
-    players,
-    turn: { playerIndex: 0, secondsLeft: config.timerSeconds, shotInFlight: false },
-    authoredCourses: [],
-    courseIndex: 0,
-    build: createBuildState(0),
-    status: 'build',
-    messages: ['build a course, then sink it once to validate'],
-  };
-};
-
 export const cloneCourse = (course: Course): Course => ({
   ...course,
   tiles: course.tiles.map((tile) => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined })),
@@ -94,23 +42,78 @@ export const cloneCourse = (course: Course): Course => ({
   itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })),
 });
 
+const cloneOption = (option: VotingOption): VotingOption => ({
+  ...option,
+  course: cloneCourse(option.course),
+  recipe: { terrain: { ...option.recipe.terrain }, rules: { ...option.recipe.rules, sharedBoons: [...option.recipe.rules.sharedBoons] } },
+});
+
+const newVote = (config: GameConfig, hole: number): VoteState => ({ options: generateVotingOptions(config.seed, hole), ballots: {} });
+
+export const createGameState = (config: GameConfig): GameState => {
+  const vote = newVote(config, 1);
+  const course = cloneCourse(vote.options[0]!.course);
+  const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
+  players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
+  return {
+    config,
+    course,
+    holeRules: defaultHoleRules(),
+    hole: 1,
+    coursePhase: 0,
+    vote,
+    emotes: [],
+    emoteSequence: 0,
+    players,
+    turn: { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false },
+    status: 'voting',
+    messages: ['vote for the first course and house rules'],
+  };
+};
+
 export const cloneGameState = (state: GameState): GameState => ({
   ...state,
   course: cloneCourse(state.course),
-  authoredCourses: state.authoredCourses.map((entry) => ({ ...entry, course: cloneCourse(entry.course) })),
-  build: state.build ? { ...state.build, direction: { ...state.build.direction }, terrain: { ...state.build.terrain } } : undefined,
+  holeRules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] },
+  vote: state.vote ? { options: state.vote.options.map(cloneOption), ballots: { ...state.vote.ballots } } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
   turn: { ...state.turn },
   messages: [...state.messages],
 });
 
-export const beginBuild = (state: GameState, authorIndex: number) => {
-  const author = state.players[authorIndex]!;
-  state.course = blankCourse(hashSeed(state.config.seed, state.authoredCourses.length + authorIndex + 1));
+const resolveVote = (state: GameState) => {
+  const vote = state.vote!;
+  const counts = new Map(vote.options.map((option) => [option.id, 0]));
+  Object.values(vote.ballots).forEach((optionId) => counts.set(optionId, (counts.get(optionId) ?? 0) + 1));
+  const highest = Math.max(...counts.values());
+  const tied = vote.options.filter((option) => counts.get(option.id) === highest);
+  const winner = tied[new Random(`${state.config.seed}:hole:${state.hole}:tie`).int(0, tied.length - 1)]!;
+  state.course = cloneCourse(winner.course);
+  state.holeRules = { ...winner.recipe.rules, sharedBoons: [...winner.recipe.rules.sharedBoons] };
   state.coursePhase = 0;
-  state.build = createBuildState(authorIndex);
-  state.turn = { playerIndex: authorIndex, secondsLeft: state.config.timerSeconds, shotInFlight: false };
-  state.status = 'build';
-  addMessage(state, `${author.name} is building a course`);
+  state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
+  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+  state.vote = undefined;
+  state.status = 'playing';
+  addMessage(state, `${winner.label} wins the vote — tee off`);
+};
+
+export const castVote = (state: GameState, playerId: string, optionId: string) => {
+  if (state.status !== 'voting' || !state.vote) return;
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!player || !state.vote.options.some((option) => option.id === optionId)) return;
+  state.vote.ballots[playerId] = optionId;
+  addMessage(state, `${player.name} votes ${state.vote.options.find((option) => option.id === optionId)!.label}`);
+  if (state.players.every((candidate) => state.vote!.ballots[candidate.id])) resolveVote(state);
+};
+
+export const beginNextVote = (state: GameState) => {
+  state.hole += 1;
+  state.vote = newVote(state.config, state.hole);
+  state.course = cloneCourse(state.vote.options[0]!.course);
+  state.coursePhase = 0;
+  state.status = 'voting';
+  state.turn = { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false };
+  addMessage(state, `hole ${state.hole}: vote for the next course package`);
 };

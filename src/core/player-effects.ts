@@ -1,5 +1,5 @@
 import { newBall, type BallPhysicsModifiers } from './physics';
-import type { BallForm, Course, Player, PowerUp, ShotCommand, Upgrade } from './types';
+import type { BallForm, Course, HoleRules, Player, PowerUp, ShotCommand, Upgrade } from './types';
 
 export const BALL_FORMS: readonly BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
 export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet'];
@@ -20,12 +20,12 @@ export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
 
 export const isBallForm = (powerUp: PowerUp): powerUp is BallForm => BALL_FORMS.includes(powerUp as BallForm);
 
-export const adjustedShotFor = (player: Player, shot: ShotCommand): ShotCommand => {
-  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1);
+export const adjustedShotFor = (player: Player, shot: ShotCommand, rules?: HoleRules): ShotCommand => {
+  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1) * (rules?.launchMultiplier ?? 1);
   return { ...shot, power: shot.power * multiplier };
 };
 
-export const physicsModifiersFor = (player: Player): BallPhysicsModifiers => ({
+export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhysicsModifiers => ({
   mass: player.upgrades.includes('heavy ball') && player.ballForm === 'heavy' ? 1.9 : player.ballForm === 'heavy' ? 1.65 : player.upgrades.includes('heavy ball') ? 1.45 : 1,
   iceSkates: player.upgrades.includes('ice skates') || player.ballForm === 'ice',
   bankShot: player.upgrades.includes('bank shot'),
@@ -33,17 +33,23 @@ export const physicsModifiersFor = (player: Player): BallPhysicsModifiers => ({
   ghostBall: player.ballForm === 'ghost',
   magnetBall: player.ballForm === 'magnet',
   portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
-  portalSpeedMultiplier: player.upgrades.includes('portal savvy') ? 1.18 : 1,
+  portalSpeedMultiplier: (player.upgrades.includes('portal savvy') ? 1.18 : 1) * (rules?.portalSpeedMultiplier ?? 1),
   hazardShield: player.hazardShield,
+  rollingResistanceMultiplier: rules?.rollingResistanceMultiplier,
+  wallRestitutionMultiplier: rules?.wallRestitutionMultiplier,
+  terrainAccelerationMultiplier: rules?.terrainAccelerationMultiplier,
+  hazardImpulseMultiplier: rules?.hazardImpulseMultiplier,
+  cupRadius: rules?.cupRadius,
 });
 
-export const resetPlayerForCourse = (player: Player, course: Course) => {
+export const resetPlayerForCourse = (player: Player, course: Course, rules?: HoleRules) => {
   player.ball = newBall(course);
-  player.inventory = undefined;
+  player.inventory = rules?.powerUps ? rules.startingPowerUp : undefined;
   player.spareInventory = undefined;
   player.ballForm = undefined;
   player.portalExitId = undefined;
   player.twoPuttsArmed = undefined;
+  player.upgrades = [...(rules?.sharedBoons ?? [])];
   player.secondWindAvailable = player.upgrades.includes('second wind');
   player.turboArmed = false;
   player.frozenTurns = undefined;
