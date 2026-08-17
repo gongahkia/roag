@@ -5,7 +5,7 @@ import type { Ball, Emote, EmoteEvent, GameCommand, GameConfig, GameState, Power
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
-import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, type HomePanel } from './home-markup';
+import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, type HomeMode, type HomePanel } from './home-markup';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
 import { createRenderer } from './render';
 
@@ -61,6 +61,7 @@ export const startApp = (app: HTMLElement) => {
   let seenEmoteIds = new Set<string>();
   let screen: Screen = captureMode ? 'game' : 'home';
   let homePanel: HomePanel = 'play';
+  let homeMode: HomeMode = 'modes';
   let playerName = 'golfer-1';
   let requestedRoomCode = '';
   let serverUrl = preferences.onlineServerUrl || browserServerUrl();
@@ -279,8 +280,8 @@ export const startApp = (app: HTMLElement) => {
     connectOnline({ type: 'create-room', name: playerName, config: selected });
   };
   const joinOnlineRoom = () => {
-    playerName = readText(app, 'player-name', playerName);
-    serverUrl = readText(app, 'server-url', serverUrl);
+    playerName = readText(app, 'join-player-name', playerName);
+    serverUrl = readText(app, 'join-server-url', serverUrl);
     requestedRoomCode = readText(app, 'room-code', requestedRoomCode).toUpperCase();
     if (!/^[A-F0-9]{6}$/.test(requestedRoomCode)) { notice = 'enter the six-character room code'; render(); return; }
     connectOnline({ type: 'join-room', code: requestedRoomCode, name: playerName, reconnectToken: getStoredToken(requestedRoomCode) ?? undefined }, requestedRoomCode);
@@ -386,7 +387,7 @@ export const startApp = (app: HTMLElement) => {
     renderer?.dispose();
     renderer = undefined;
     if (screen === 'home') {
-      app.innerHTML = renderHomeMarkup({ panel: homePanel, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
+      app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
       return;
     }
     if (screen === 'lobby') {
@@ -436,7 +437,9 @@ export const startApp = (app: HTMLElement) => {
     const target = event.target as HTMLElement;
     const element = target.closest<HTMLElement>('button') ?? target;
     const homeTarget = element.dataset.homePanel as HomePanel | undefined;
-    if (homeTarget) { homePanel = homeTarget; notice = undefined; render(); return; }
+    if (homeTarget) { homePanel = homeTarget; if (homeTarget === 'play') homeMode = 'modes'; notice = undefined; render(); return; }
+    const homeModeTarget = element.dataset.homeMode as HomeMode | undefined;
+    if (homeModeTarget) { homeMode = homeModeTarget; notice = undefined; render(); return; }
     if (element.hasAttribute('data-start-local')) { startLocal(); return; }
     if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }

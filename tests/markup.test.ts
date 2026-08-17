@@ -2,8 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, defaultConfig } from '../src/core/game';
 import { renderAppMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
+import { lobbyConfigFromGame, renderHomeMarkup } from '../src/ui/home-markup';
 
 describe('voting overlay markup', () => {
+  it('keeps the clubhouse focused on choosing local or multiplayer before exposing setup forms', () => {
+    const state = createGame(defaultConfig());
+    const markup = renderHomeMarkup({ panel: 'play', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
+    expect(markup).toContain('data-home-mode="local"');
+    expect(markup).toContain('data-home-mode="multiplayer"');
+    expect(markup).not.toContain('id="local-seed"');
+    expect(markup).not.toContain('id="online-seed"');
+  });
+
+  it('separates hosting configuration from the lightweight join card', () => {
+    const state = createGame(defaultConfig());
+    const markup = renderHomeMarkup({ panel: 'play', mode: 'multiplayer', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
+    expect(markup).toContain('HOST A ROOM');
+    expect(markup).toContain('JOIN A ROOM');
+    expect(markup).toContain('id="online-seed"');
+    expect(markup).toContain('id="join-player-name"');
+    expect(markup).toContain('id="join-server-url"');
+  });
+
   it('keeps the ballot in the foreground with three icon-rich clickable package cards and vote pills', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
