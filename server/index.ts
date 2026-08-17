@@ -30,7 +30,7 @@ interface Session {
 interface RoomTimers {
   botFor?: string;
   botTimeout?: NodeJS.Timeout;
-  assemblyTimeout?: NodeJS.Timeout;
+  transitionTimeout?: NodeJS.Timeout;
 }
 
 const rooms = new Map<string, StoredRoom>();
@@ -118,10 +118,10 @@ const roomTimersFor = (room: StoredRoom) => {
 const clearAutomation = (room: StoredRoom) => {
   const current = roomTimersFor(room);
   if (current.botTimeout) clearTimeout(current.botTimeout);
-  if (current.assemblyTimeout) clearTimeout(current.assemblyTimeout);
+  if (current.transitionTimeout) clearTimeout(current.transitionTimeout);
   current.botTimeout = undefined;
   current.botFor = undefined;
-  current.assemblyTimeout = undefined;
+  current.transitionTimeout = undefined;
 };
 
 const updateGame = (room: StoredRoom, game: GameState) => {
@@ -138,12 +138,12 @@ const scheduleAutomation = (room: StoredRoom) => {
     clearAutomation(room);
     return;
   }
-  if (game.status === 'assembling') {
-    if (!current.assemblyTimeout) {
-      current.assemblyTimeout = setTimeout(() => {
-        current.assemblyTimeout = undefined;
+  if (game.status === 'transitioning') {
+    if (!current.transitionTimeout) {
+      current.transitionTimeout = setTimeout(() => {
+        current.transitionTimeout = undefined;
         const latest = rooms.get(room.code);
-        if (latest?.game?.status === 'assembling' && !latest.game.paused) updateGame(latest, applyCommand(latest.game, { type: 'complete-assembly' }));
+        if (latest?.game?.status === 'transitioning' && !latest.game.paused) updateGame(latest, applyCommand(latest.game, { type: 'complete-transition' }));
       }, 1_650);
     }
     return;
@@ -186,7 +186,7 @@ const scheduleAutomation = (room: StoredRoom) => {
 const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand) => {
   const game = room.game;
   if (!game) return 'the room has not started';
-  if (command.type === 'complete-assembly') return 'course assembly is server controlled';
+  if (command.type === 'complete-transition') return 'course transition is server controlled';
   if (command.type === 'set-paused') return session.playerId === room.hostId ? undefined : 'only the host can pause the room';
   if (game.paused) return 'the match is paused';
   const active = game.players[game.turn.playerIndex];

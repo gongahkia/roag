@@ -1,6 +1,7 @@
 import { presentFeedback } from '../feedback';
 import { chooseBotVote } from '../core/bots';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
+import { courseForPlan } from '../core/game-state';
 import { canPlaceGadget } from '../core/powerups';
 import type { Ball, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
 import { OnlineClient } from '../net/online-client';
@@ -57,8 +58,9 @@ export const startApp = (app: HTMLElement) => {
   let ledger: LedgerEntry[] = [];
   let callouts: TimedCallout[] = [];
   let shotAnimation: ShotAnimation | undefined;
-  let assemblyFrame: number | undefined;
-  let assemblyProgress = 0;
+  let transitionFrame: number | undefined;
+  let transitionProgress = 0;
+  let transitionCourse: GameState['course'] | undefined;
   let liveEmotes: LiveEmote[] = [];
   let seenEmoteIds = new Set<string>();
   let screen: Screen = captureMode ? 'game' : 'home';
@@ -91,7 +93,6 @@ export const startApp = (app: HTMLElement) => {
     aim,
     placement,
     shotInFlight: Boolean(shotAnimation),
-    assemblyProgress: state.status === 'assembling' ? assemblyProgress : undefined,
     ledger,
     callouts,
     multiplayer: { online: online(), connected: onlineConnected, roomCode: room?.code, playerId: onlinePlayerId, host: room?.hostId === onlinePlayerId, controllerName },
@@ -142,50 +143,58 @@ export const startApp = (app: HTMLElement) => {
 
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
-    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, state.status === 'assembling' ? assemblyProgress : undefined, state.gadgets ?? [], placement);
+    if (state.status === 'transitioning' && state.transition) {
+      if (transitionProgress < .5) renderer?.draw(state.course, [], state.coursePhase, undefined, [], false, state.holeRules.hazardPhaseCount, 1 - transitionProgress * 2, []);
+      else renderer?.draw(transitionCourse ?? courseForPlan(state.transition.next), [], 0, undefined, [], false, state.transition.next.recipe.rules.hazardPhaseCount, (transitionProgress - .5) * 2, []);
+      return;
+    }
+    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement);
   };
-  const startAssembly = (completeLocally: boolean) => {
-    if (state.status !== 'assembling') return;
-    if (assemblyFrame !== undefined) window.cancelAnimationFrame(assemblyFrame);
+  const startTransition = (completeLocally: boolean) => {
+    if (state.status !== 'transitioning') return;
+    if (transitionFrame !== undefined) window.cancelAnimationFrame(transitionFrame);
     const duration = preferences.reducedMotion ? 120 : 1_650;
-    const startedAt = performance.now() - assemblyProgress * duration;
+    const startedAt = performance.now() - transitionProgress * duration;
     const animate = (now: number) => {
-      if (state.status !== 'assembling') return;
-      assemblyProgress = Math.max(0, Math.min(1, (now - startedAt) / duration));
+      if (state.status !== 'transitioning') return;
+      transitionProgress = Math.max(0, Math.min(1, (now - startedAt) / duration));
       drawBoard(undefined, null);
-      const progress = app.querySelector<HTMLElement>('#assembly-progress');
-      if (progress) progress.textContent = `${Math.round(assemblyProgress * 100)}%`;
-      const progressFill = app.querySelector<HTMLElement>('#assembly-progress-fill');
-      if (progressFill) progressFill.style.width = `${Math.round(assemblyProgress * 100)}%`;
-      if (assemblyProgress < 1) { assemblyFrame = requestAnimationFrame(animate); return; }
-      assemblyFrame = undefined;
-      if (completeLocally) setState(applyCommand(state, { type: 'complete-assembly' }));
+      if (transitionProgress < 1) { transitionFrame = requestAnimationFrame(animate); return; }
+      transitionFrame = undefined;
+      if (completeLocally) setState(applyCommand(state, { type: 'complete-transition' }));
     };
-    assemblyFrame = requestAnimationFrame(animate);
+    transitionFrame = requestAnimationFrame(animate);
   };
   const setState = (next: GameState) => {
-    const enteringAssembly = state.status !== 'assembling' && next.status === 'assembling';
+    const enteringTransition = state.status !== 'transitioning' && next.status === 'transitioning';
     state = next;
     if (placement && (state.status !== 'playing' || !state.players.find((player) => player.id === placement!.ownerId && (player.inventory === placement!.kind || player.spareInventory === placement!.kind)))) placement = undefined;
-    if (enteringAssembly) assemblyProgress = 0;
-    if (state.status !== 'assembling' && assemblyFrame !== undefined) {
-      window.cancelAnimationFrame(assemblyFrame);
-      assemblyFrame = undefined;
+    if (enteringTransition) {
+      transitionProgress = 0;
+      transitionCourse = state.transition ? courseForPlan(state.transition.next) : undefined;
+    }
+    if (state.status !== 'transitioning' && transitionFrame !== undefined) {
+      window.cancelAnimationFrame(transitionFrame);
+      transitionFrame = undefined;
+      transitionCourse = undefined;
     }
     recordStateFeedback(state);
     syncEmotes(state);
     render();
     if (!online()) {
       scheduleBot();
-      if (state.status === 'assembling') startAssembly(true);
-    } else if (enteringAssembly) startAssembly(false);
+      if (state.status === 'transitioning') startTransition(true);
+    } else if (enteringTransition) startTransition(false);
   };
   const receiveGame = (next: GameState) => setState(next);
   const autoResolveCaptureVote = (source: GameState) => {
-    const optionId = source.vote?.options[0]?.id;
-    if (!optionId) return source;
-    const resolved = source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source);
-    return resolved.status === 'assembling' ? applyCommand(resolved, { type: 'complete-assembly' }) : resolved;
+    let resolved = source;
+    while (resolved.status === 'voting') {
+      const optionId = resolved.vote?.options[0]?.id;
+      if (!optionId) break;
+      resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), resolved);
+    }
+    return resolved;
   };
   if (captureMode) state = autoResolveCaptureVote(state);
 

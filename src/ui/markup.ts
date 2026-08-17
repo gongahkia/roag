@@ -18,7 +18,6 @@ export interface ViewModel {
   aim: ShotCommand;
   placement?: { kind: GadgetKind; point?: Point; valid: boolean; confirmed?: boolean };
   shotInFlight: boolean;
-  assemblyProgress?: number;
   multiplayer: MultiplayerView;
   ledger: readonly LedgerEntry[];
   callouts: readonly Callout[];
@@ -43,8 +42,8 @@ const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb:
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.paused) return 'match paused';
-  if (state.status === 'voting') return `public vote: ${Object.keys(state.vote?.ballots ?? {}).length}/${state.players.length} ballots cast`;
-  if (state.status === 'assembling') return `assembling ${escapeHtml(state.assembly?.label ?? 'the elected course')}`;
+  if (state.status === 'voting') return `match selection: hole ${state.coursePlan.length + 1}/${state.config.holeCount} · ${Object.keys(state.vote?.ballots ?? {}).length}/${state.players.length} ballots cast`;
+  if (state.status === 'transitioning') return `rebuilding hole ${state.hole}/${state.config.holeCount}`;
   if (state.status === 'finished') return 'campaign complete — final standings are ready';
   if (shotInFlight) return `${escapeHtml(current(state).name)}'s ball is in flight · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount} locked`;
   return `${escapeHtml(current(state).name)} is taking a turn · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}`;
@@ -54,16 +53,16 @@ export const renderCallouts = (callouts: readonly Callout[]) => callouts.map((ca
 const renderLedger = (ledger: readonly LedgerEntry[]) => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escapeHtml(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>waiting for the ballot</span></li>'}</ul>`;
 
 const renderVotingControls = (state: GameState) => {
-  return `<div class="turn"><strong>ballot open</strong><b>${Object.keys(state.vote?.ballots ?? {}).length}/${state.players.length}</b><small class="phase">choose a package in the overlay</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
+  return `<div class="turn"><strong>match ballot</strong><b>${state.coursePlan.length + 1}/${state.config.holeCount}</b><small class="phase">lock every hole before tee-off</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 };
 
-const renderAssemblyControls = (state: GameState) => `<div class="turn"><strong>course assembly</strong><b>…</b><small class="phase">the elected arena is materializing</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
+const renderTransitionControls = (state: GameState) => `<div class="turn"><strong>next hole</strong><b>${state.hole}/${state.config.holeCount}</b><small class="phase">course rebuilding</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">final results are in the foreground</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 
 export const renderControlsMarkup = (view: ViewModel) => {
   const { state, preferences, aim, shotInFlight, multiplayer, placement } = view;
   if (state.status === 'voting') return renderVotingControls(state);
-  if (state.status === 'assembling') return renderAssemblyControls(state);
+  if (state.status === 'transitioning' || state.status === 'assembling') return renderTransitionControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
@@ -110,6 +109,7 @@ const renderVoteOverlay = (view: ViewModel) => {
   const { state } = view;
   if (state.status !== 'voting' || !state.vote) return '';
   const { vote } = state;
+  const selectionHole = state.coursePlan.length + 1;
   const votesFor = (optionId: string) => Object.values(vote.ballots).filter((ballot) => ballot === optionId).length;
   const nextHumanVoter = view.multiplayer.online
     ? state.players.find((player) => player.id === view.multiplayer.playerId && !vote.ballots[player.id])
@@ -130,17 +130,7 @@ const renderVoteOverlay = (view: ViewModel) => {
   const ballotPrompt = nextHumanVoter
     ? view.multiplayer.online ? 'click one package to cast your ballot' : `pass the device to ${escapeHtml(nextHumanVoter.name)} · click one package to vote`
     : 'your ballot is locked · waiting for the table';
-  return `<section class="vote-overlay" role="region" aria-label="hole ${state.hole} public ballot"><div class="vote-panel"><header class="vote-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · PUBLIC BALLOT</p><h1>Choose the next <em>clubhouse condition</em></h1><p>${ballotPrompt} · ${Object.keys(vote.ballots).length}/${state.players.length} selections shown publicly.</p></header><div class="vote-card-grid">${vote.options.map(packageCard).join('')}</div><footer class="vote-panel-footer"><span>${view.multiplayer.online ? 'click a card to cast your ballot' : 'click a card to cast the next human vote'}</span><span>bot ballots appear automatically</span></footer></div></section>`;
-};
-
-const renderAssemblyOverlay = ({ state, assemblyProgress = 0 }: ViewModel) => {
-  if (state.status !== 'assembling' || !state.assembly) return '';
-  const { assembly } = state;
-  const progress = Math.round(Math.max(0, Math.min(1, assemblyProgress)) * 100);
-  const rules = state.holeRules;
-  const boons = rules.sharedBoons.length ? rules.sharedBoons.map((boon) => `<span class="boon-chip"><b>${boonIcon[boon] ?? '✦'}</b>${escapeHtml(boon)}</span>`).join('') : '<span class="boon-chip muted"><b>○</b>no shared boon</span>';
-  const supply = rules.startingPowerUp ? `<span class="supply-chip"><b>${powerUpIcon[rules.startingPowerUp] ?? '✦'}</b>start: ${escapeHtml(rules.startingPowerUp)}</span>` : '';
-  return `<section class="assembly-overlay" role="status" aria-live="polite" aria-label="assembling selected course"><div class="assembly-card theme-${assembly.theme}"><p class="eyebrow">PACKAGE ELECTED · ${assembly.votes}/${assembly.totalBallots} VOTES</p><div class="assembly-heading"><span class="assembly-icon" aria-hidden="true">${themeIcon[assembly.theme]}</span><div><h2>${escapeHtml(assembly.label)}</h2><p>winning course package · arena generation in progress</p></div></div><div class="assembly-progress" aria-label="course assembly ${progress}%"><span id="assembly-progress-fill" style="width:${progress}%"></span></div><div class="assembly-progress-copy"><span>deploying course tiles</span><strong id="assembly-progress">${progress}%</strong></div><div class="assembly-facts"><span>▰ ${state.course.width} × ${state.course.height} tiles</span><span>⚠ ${state.course.hazards.length} hazards</span><span>◉ ${state.course.portals?.length ?? 0} portals</span><span>✦ ${state.course.itemPads.length} supply pads</span></div><div class="assembly-boons">${boons}${supply}</div></div></section>`;
+  return `<section class="vote-overlay" role="region" aria-label="planned hole ${selectionHole} public ballot"><div class="vote-panel"><header class="vote-panel-header"><p class="eyebrow">MATCH PLAN · HOLE ${selectionHole} / ${state.config.holeCount}</p><h1>Choose the next <em>clubhouse condition</em></h1><p>${ballotPrompt} · every hole is selected before the first tee-off.</p></header><div class="vote-card-grid">${vote.options.map(packageCard).join('')}</div><footer class="vote-panel-footer"><span>${view.multiplayer.online ? 'click a card to cast your ballot' : 'click a card to cast the next human vote'}</span><span>bot ballots appear automatically</span></footer></div></section>`;
 };
 
 const ordinal = (rank: number) => `${rank}${rank % 100 >= 11 && rank % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[rank % 10] ?? 'th'}`;
@@ -183,8 +173,8 @@ const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {
 
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
-  if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">The ballot is open in the foreground. No course is revealed until the vote resolves.</p>`;
-  if (state.status === 'assembling') return `${renderLedger(view.ledger)}<p class="hint">The selected package is assembling in the foreground. Gameplay opens after the final tile lands.</p>`;
+  if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">Lock the whole match plan before tee-off. Courses stay hidden until play starts.</p>`;
+  if (state.status === 'transitioning' || state.status === 'assembling') return `${renderLedger(view.ledger)}<p class="hint">The completed arena is breaking apart while the next planned course lands.</p>`;
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : '⌁ pulse launch').join(' · ') || 'none';
   return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>biome</dt><dd>${themeIcon[state.course.theme]} ${themeDescriptor[state.course.theme]}</dd><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>shared boons</dt><dd>${state.holeRules.sharedBoons.join(', ') || 'none'}</dd><dt>starting supply</dt><dd>${state.holeRules.startingPowerUp ?? 'none'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>biome effects</dt><dd>${features}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · numbered A/B: portal pair<br>↻ paired sinkhole · ✽ thorn knockback · ⌁ pulse launch<br>cyan +: recovery pad · violet !: chaos pad · ↑/⌁/✹/≋: player gadgets</p>`;
 };
@@ -197,8 +187,8 @@ const renderDrawer = (view: ViewModel) => {
 
 export const renderAppMarkup = (view: ViewModel) => {
   const { state } = view;
-  const progress = state.status === 'voting' ? `VOTE <b>${state.hole}</b> / ${state.config.holeCount}` : `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
-  const shellState = state.status === 'voting' ? 'voting' : state.status === 'assembling' ? 'assembling' : state.status === 'finished' ? 'finished' : '';
+  const progress = state.status === 'voting' ? `PLAN <b>${state.coursePlan.length + 1}</b> / ${state.config.holeCount}` : `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
+  const shellState = state.status === 'voting' ? 'voting' : state.status === 'transitioning' ? 'transitioning' : state.status === 'finished' ? 'finished' : '';
   const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.controllerName ? `PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PARTY';
-  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'vote' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderAssemblyOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
+  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'plan' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
 };

@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { activePlayer, castVote, cloneGameState, completeAssembly, createGameState, defaultConfig, setPaused } from './game-state';
+import { activePlayer, castVote, cloneGameState, completeTransition, createGameState, defaultConfig, setPaused } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
 import { previewShot, resolveShot, tickTurn } from './turns';
@@ -15,8 +15,8 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     castVote(state, command.playerId, command.optionId);
     return state;
   }
-  if (command.type === 'complete-assembly') {
-    completeAssembly(state);
+  if (command.type === 'complete-transition') {
+    completeTransition(state);
     return state;
   }
   if (command.type === 'set-paused') {

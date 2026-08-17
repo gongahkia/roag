@@ -10,9 +10,12 @@ import type { GameState } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
 const resolveVote = (game: ReturnType<typeof createGame>, optionIndex = 0) => {
-  const optionId = game.vote!.options[optionIndex]!.id;
-  const resolved = game.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), game);
-  return applyCommand(resolved, { type: 'complete-assembly' });
+  let resolved = game;
+  while (resolved.status === 'voting') {
+    const optionId = resolved.vote!.options[Math.min(optionIndex, resolved.vote!.options.length - 1)]!.id;
+    resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), resolved);
+  }
+  return resolved;
 };
 
 describe('course generation', () => {
@@ -87,8 +90,8 @@ describe('public voting flow', () => {
     expect(first.vote?.options.map((option) => option.course.tiles)).toEqual(second.vote?.options.map((option) => option.course.tiles));
   });
 
-  it('keeps named ballots public and editable until the final ballot resolves the plurality winner', () => {
-    let game = createGame({ ...defaultConfig(), seed: 'public-ballot', humanCount: 2, botCount: 1 });
+  it('keeps named ballots public and editable until the final ballot locks the whole match plan', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'public-ballot', holeCount: 1, humanCount: 2, botCount: 1 });
     const [first, second, third] = game.vote!.options;
     game = applyCommand(game, { type: 'cast-vote', playerId: 'human-0', optionId: first!.id });
     game = applyCommand(game, { type: 'cast-vote', playerId: 'human-0', optionId: second!.id });
@@ -96,12 +99,30 @@ describe('public voting flow', () => {
     expect(game.status).toBe('voting');
     expect(game.vote!.ballots['human-0']).toBe(second!.id);
     game = applyCommand(game, { type: 'cast-vote', playerId: 'bot-0', optionId: third!.id });
-    expect(game.status).toBe('assembling');
-    expect(game.course.seed).toBe(second!.course.seed);
-    expect(game.assembly).toMatchObject({ optionId: second!.id, label: second!.label, votes: 2, totalBallots: 3 });
-    expect(game.players.every((player) => player.upgrades.join(',') === game.holeRules.sharedBoons.join(','))).toBe(true);
-    game = applyCommand(game, { type: 'complete-assembly' });
     expect(game.status).toBe('playing');
+    expect(game.course.seed).toBe(second!.course.seed);
+    expect(game.coursePlan).toMatchObject([{ id: second!.id, label: second!.label, courseSeed: second!.course.seed }]);
+    expect(game.players.every((player) => player.upgrades.join(',') === game.holeRules.sharedBoons.join(','))).toBe(true);
+  });
+
+  it('collects every hole package before opening the first turn and transitions through the locked plan', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'frontloaded-plan', holeCount: 2, humanCount: 1, botCount: 0 });
+    const first = game.vote!.options[1]!;
+    game = game.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId: first.id }), game);
+    expect(game.status).toBe('voting');
+    expect(game.coursePlan).toHaveLength(1);
+    const second = game.vote!.options[2]!;
+    game = game.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId: second.id }), game);
+    expect(game.status).toBe('playing');
+    expect(game.coursePlan.map((plan) => plan.id)).toEqual([first.id, second.id]);
+    game.players[0]!.ball.complete = true;
+    game.players[0]!.ball.strokes = 1;
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(game.status).toBe('transitioning');
+    expect(game.transition?.next.id).toBe(second.id);
+    game = applyCommand(game, { type: 'complete-transition' });
+    expect(game.status).toBe('playing');
+    expect(game.course.seed).toBe(second.course.seed);
   });
 
   it('breaks tied pluralities and bot ballots deterministically', () => {
@@ -144,9 +165,9 @@ describe('turns, shared rules, and bots', () => {
     expect(frames.at(-1)?.[0]).toMatchObject({ x: committed.players[0]!.ball.x, y: committed.players[0]!.ball.y, z: committed.players[0]!.ball.z, complete: committed.players[0]!.ball.complete });
   });
 
-  it('feeds selected all-player rules into simulation and expires them when the next vote begins', () => {
+  it('feeds selected all-player rules into simulation and refreshes them when the next planned course lands', () => {
     const course = arena('shared-rules');
-    let game = gameOn(course, { botCount: 0 });
+    let game = gameOn(course, { botCount: 0, holeCount: 2 });
     game.holeRules = { ...defaultHoleRules(), launchMultiplier: 1.16, collisions: false, sharedBoons: ['heavy ball', 'bank shot'], powerUps: true };
     game.players.forEach((player) => { player.upgrades = [...game.holeRules.sharedBoons]; });
     const before = game.players[0]!.ball;
@@ -154,9 +175,9 @@ describe('turns, shared rules, and bots', () => {
     expect(game.players[0]!.ball.x).toBeGreaterThan(before.x + 2);
     game.players[0]!.ball.complete = true;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
-    expect(game.status).toBe('voting');
+    expect(game.status).toBe('transitioning');
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
-    game = resolveVote(game);
+    game = applyCommand(game, { type: 'complete-transition' });
     expect(game.players[0]!.upgrades).toEqual(game.holeRules.sharedBoons);
   });
 
@@ -166,7 +187,7 @@ describe('turns, shared rules, and bots', () => {
       game.players[0]!.ball.complete = true;
       game.players[0]!.ball.strokes = 1;
       game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
-      if (hole < 9) game = resolveVote(game);
+      if (hole < 9) game = applyCommand(game, { type: 'complete-transition' });
     }
     expect(game.status).toBe('finished');
     expect(game.players[0]!.total).toBeGreaterThanOrEqual(9);

@@ -149,6 +149,13 @@ export interface VotingOption {
   course: Course;
 }
 
+export interface PlannedHole {
+  id: string;
+  label: string;
+  recipe: HoleRecipe;
+  courseSeed: string;
+}
+
 export interface VoteState {
   options: VotingOption[];
   ballots: Record<string, string>;
@@ -160,6 +167,10 @@ export interface AssemblyState {
   theme: TerrainSettings['theme'];
   votes: number;
   totalBallots: number;
+}
+
+export interface CourseTransition {
+  next: PlannedHole;
 }
 
 export interface ItemPad {
@@ -275,21 +286,23 @@ export interface GameState {
   hole: number;
   coursePhase: number;
   vote?: VoteState;
+  coursePlan: PlannedHole[];
   assembly?: AssemblyState;
+  transition?: CourseTransition;
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];
   gadgets: Gadget[];
   turn: TurnState;
   paused: boolean;
-  status: 'voting' | 'assembling' | 'playing' | 'finished';
+  status: 'voting' | 'assembling' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
 }
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'cast-vote'; playerId: string; optionId: string }
-  | { type: 'complete-assembly' }
+  | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }

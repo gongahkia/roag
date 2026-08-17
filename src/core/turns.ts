@@ -1,4 +1,4 @@
-import { activePlayer, addMessage, beginNextVote } from './game-state';
+import { activePlayer, addMessage, beginCourseTransition } from './game-state';
 import { simulateShot, type SimulationResult } from './physics';
 import { adjustedShotFor, canStorePowerUp, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
@@ -55,7 +55,7 @@ const finishHole = (state: GameState) => {
     addMessage(state, 'nine holes scored — campaign complete');
     return;
   }
-  beginNextVote(state);
+  beginCourseTransition(state);
 };
 
 const advanceTurn = (state: GameState) => {

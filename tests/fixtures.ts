@@ -24,10 +24,11 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
 };
 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
-  let game = createGame({ ...defaultConfig(), seed: course.seed, humanCount: 1, botCount: 1, ...options });
-  const optionId = game.vote!.options[0]!.id;
-  for (const player of game.players) game = applyCommand(game, { type: 'cast-vote', playerId: player.id, optionId });
-  game = applyCommand(game, { type: 'complete-assembly' });
+  let game = createGame({ ...defaultConfig(), seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options });
+  while (game.status === 'voting') {
+    const optionId = game.vote!.options[0]!.id;
+    for (const player of game.players) game = applyCommand(game, { type: 'cast-vote', playerId: player.id, optionId });
+  }
   game.course = course;
   game.players.forEach((player) => { player.ball = newBall(course); });
   return game;

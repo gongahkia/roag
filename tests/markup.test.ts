@@ -48,16 +48,15 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('click again or press Enter to place');
   });
 
-  it('shows the selected course package while its arena is assembling', () => {
-    let state = createGame({ ...defaultConfig(), seed: 'assembly-markup', humanCount: 1, botCount: 1 });
+  it('removes the loading overlay after the full match plan is selected', () => {
+    let state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
     const optionId = state.vote!.options[0]!.id;
     state = state.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), state);
-    const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, assemblyProgress: .5, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(state.status).toBe('assembling');
-    expect(markup).toContain('class="assembly-overlay"');
-    expect(markup).toContain(state.assembly!.label);
-    expect(markup).toContain('id="assembly-progress-fill"');
-    expect(markup).toContain('app-shell assembling');
+    const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(state.status).toBe('playing');
+    expect(markup).not.toContain('assembly-overlay');
+    expect(markup).not.toContain('assembly-progress');
+    expect(markup).not.toContain('app-shell assembling');
   });
 
   it('presents a winner, last place, podium, and final standings after the campaign', () => {

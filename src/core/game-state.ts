@@ -1,8 +1,8 @@
-import { defaultHoleRules, generateVotingOptions } from './generator';
+import { defaultHoleRules, defaultTerrainSettings, generateCourse, generateVotingOptions } from './generator';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
-import type { Course, GameConfig, GameState, Player, VoteState, VotingOption } from './types';
+import type { Course, GameConfig, GameState, PlannedHole, Player, VoteState, VotingOption } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 
@@ -64,6 +64,18 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.pulseCount ??= 0;
   });
   state.gadgets ??= [];
+  state.coursePlan ??= [];
+  if (state.status !== 'voting' && state.coursePlan.length < state.hole) {
+    state.coursePlan.push({ id: `legacy-hole-${state.hole}`, label: `legacy hole ${state.hole}`, courseSeed: state.course.seed, recipe: { terrain: defaultTerrainSettings(), rules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] } } });
+  }
+  while (state.status !== 'voting' && state.coursePlan.length < state.config.holeCount) {
+    const option = generateVotingOptions(state.config.seed, state.coursePlan.length + 1)[0]!;
+    state.coursePlan.push(planFromOption(option));
+  }
+  if ((state as GameState & { status: string }).status === 'assembling') {
+    state.assembly = undefined;
+    state.status = 'playing';
+  }
   state.emotes ??= [];
   state.emoteSequence ??= 0;
   return state;
@@ -74,6 +86,26 @@ const cloneOption = (option: VotingOption): VotingOption => ({
   course: cloneCourse(option.course),
   recipe: { terrain: { ...option.recipe.terrain }, rules: { ...option.recipe.rules, sharedBoons: [...option.recipe.rules.sharedBoons] } },
 });
+
+const planFromOption = (option: VotingOption): PlannedHole => ({
+  id: option.id,
+  label: option.label,
+  courseSeed: option.course.seed,
+  recipe: { terrain: { ...option.recipe.terrain }, rules: { ...option.recipe.rules, sharedBoons: [...option.recipe.rules.sharedBoons] } },
+});
+
+const clonePlan = (plan: PlannedHole): PlannedHole => ({ ...plan, recipe: { terrain: { ...plan.recipe.terrain }, rules: { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] } } });
+
+export const courseForPlan = (plan: PlannedHole) => generateCourse(plan.courseSeed, plan.recipe.terrain, plan.recipe.rules.hazardPhaseCount);
+
+const activatePlan = (state: GameState, plan: PlannedHole) => {
+  state.course = cloneCourse(courseForPlan(plan));
+  state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
+  state.coursePhase = 0;
+  state.gadgets = [];
+  state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
+  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+};
 
 const newVote = (config: GameConfig, hole: number): VoteState => ({ options: generateVotingOptions(config.seed, hole), ballots: {} });
 
@@ -89,6 +121,7 @@ export const createGameState = (config: GameConfig): GameState => {
     hole: 1,
     coursePhase: 0,
     vote,
+    coursePlan: [],
     emotes: [],
     emoteSequence: 0,
     players,
@@ -105,7 +138,9 @@ export const cloneGameState = (state: GameState): GameState => ({
   course: cloneCourse(state.course),
   holeRules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] },
   vote: state.vote ? { options: state.vote.options.map(cloneOption), ballots: { ...state.vote.ballots } } : undefined,
+  coursePlan: (state.coursePlan ?? []).map(clonePlan),
   assembly: state.assembly ? { ...state.assembly } : undefined,
+  transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
   gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),
@@ -120,16 +155,21 @@ const resolveVote = (state: GameState) => {
   const highest = Math.max(...counts.values());
   const tied = vote.options.filter((option) => counts.get(option.id) === highest);
   const winner = tied[new Random(`${state.config.seed}:hole:${state.hole}:tie`).int(0, tied.length - 1)]!;
-  state.course = cloneCourse(winner.course);
-  state.holeRules = { ...winner.recipe.rules, sharedBoons: [...winner.recipe.rules.sharedBoons] };
-  state.coursePhase = 0;
-  state.gadgets = [];
-  state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
-  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+  const planned = planFromOption(winner);
+  state.coursePlan = [...(state.coursePlan ?? []), planned];
   state.vote = undefined;
-  state.assembly = { optionId: winner.id, label: winner.label, theme: winner.recipe.terrain.theme, votes: counts.get(winner.id) ?? 0, totalBallots: state.players.length };
-  state.status = 'assembling';
-  addMessage(state, `${winner.label} wins the vote — assembling course`);
+  state.assembly = undefined;
+  if (state.coursePlan.length < state.config.holeCount) {
+    const nextHole = state.coursePlan.length + 1;
+    state.vote = newVote(state.config, nextHole);
+    state.course = cloneCourse(state.vote.options[0]!.course);
+    addMessage(state, `${winner.label} locks hole ${state.coursePlan.length} — choose hole ${nextHole}`);
+    return;
+  }
+  state.hole = 1;
+  activatePlan(state, state.coursePlan[0]!);
+  state.status = 'playing';
+  addMessage(state, 'full course plan locked — tee off');
 };
 
 export const castVote = (state: GameState, playerId: string, optionId: string) => {
@@ -141,11 +181,12 @@ export const castVote = (state: GameState, playerId: string, optionId: string) =
   if (state.players.every((candidate) => state.vote!.ballots[candidate.id])) resolveVote(state);
 };
 
-export const completeAssembly = (state: GameState) => {
-  if (state.status !== 'assembling') return;
-  state.assembly = undefined;
+export const completeTransition = (state: GameState) => {
+  if (state.status !== 'transitioning' || !state.transition) return;
+  activatePlan(state, state.transition.next);
+  state.transition = undefined;
   state.status = 'playing';
-  addMessage(state, 'course assembled — tee off');
+  addMessage(state, `hole ${state.hole} is ready — tee off`);
 };
 
 export const setPaused = (state: GameState, paused: boolean) => {
@@ -154,15 +195,14 @@ export const setPaused = (state: GameState, paused: boolean) => {
   addMessage(state, paused ? 'match paused' : 'match resumed');
 };
 
-export const beginNextVote = (state: GameState) => {
-  state.hole += 1;
-  state.vote = newVote(state.config, state.hole);
-  state.assembly = undefined;
-  state.course = cloneCourse(state.vote.options[0]!.course);
-  state.coursePhase = 0;
+export const beginCourseTransition = (state: GameState) => {
+  const nextHole = state.hole + 1;
+  const next = state.coursePlan[nextHole - 1];
+  if (!next) return;
+  state.hole = nextHole;
+  state.transition = { next: clonePlan(next) };
   state.gadgets = [];
   state.paused = false;
-  state.status = 'voting';
-  state.turn = { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false };
-  addMessage(state, `hole ${state.hole}: vote for the next course package`);
+  state.status = 'transitioning';
+  addMessage(state, `hole ${state.hole - 1} complete — rebuilding hole ${state.hole}`);
 };
