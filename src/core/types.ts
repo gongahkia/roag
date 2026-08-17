@@ -126,6 +126,14 @@ export interface VoteState {
   ballots: Record<string, string>;
 }
 
+export interface AssemblyState {
+  optionId: string;
+  label: string;
+  theme: TerrainSettings['theme'];
+  votes: number;
+  totalBallots: number;
+}
+
 export interface ItemPad {
   id: string;
   point: Point;
@@ -226,17 +234,19 @@ export interface GameState {
   hole: number;
   coursePhase: number;
   vote?: VoteState;
+  assembly?: AssemblyState;
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];
   turn: TurnState;
-  status: 'voting' | 'playing' | 'finished';
+  status: 'voting' | 'assembling' | 'playing' | 'finished';
   messages: string[];
 }
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'cast-vote'; playerId: string; optionId: string }
+  | { type: 'complete-assembly' }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
   | { type: 'arm-second-wind' }
   | { type: 'emote'; playerId: string; emote: Emote };

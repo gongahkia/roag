@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { activePlayer, castVote, cloneGameState, createGameState, defaultConfig } from './game-state';
+import { activePlayer, castVote, cloneGameState, completeAssembly, createGameState, defaultConfig } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
 import { previewShot, resolveShot, tickTurn } from './turns';
@@ -13,6 +13,10 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   const state = cloneGameState(current);
   if (command.type === 'cast-vote') {
     castVote(state, command.playerId, command.optionId);
+    return state;
+  }
+  if (command.type === 'complete-assembly') {
+    completeAssembly(state);
     return state;
   }
   if (command.type === 'shoot') {

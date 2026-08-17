@@ -76,6 +76,7 @@ export const cloneGameState = (state: GameState): GameState => ({
   course: cloneCourse(state.course),
   holeRules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] },
   vote: state.vote ? { options: state.vote.options.map(cloneOption), ballots: { ...state.vote.ballots } } : undefined,
+  assembly: state.assembly ? { ...state.assembly } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
   turn: { ...state.turn },
@@ -95,8 +96,9 @@ const resolveVote = (state: GameState) => {
   state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
   state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
   state.vote = undefined;
-  state.status = 'playing';
-  addMessage(state, `${winner.label} wins the vote — tee off`);
+  state.assembly = { optionId: winner.id, label: winner.label, theme: winner.recipe.terrain.theme, votes: counts.get(winner.id) ?? 0, totalBallots: state.players.length };
+  state.status = 'assembling';
+  addMessage(state, `${winner.label} wins the vote — assembling course`);
 };
 
 export const castVote = (state: GameState, playerId: string, optionId: string) => {
@@ -108,9 +110,17 @@ export const castVote = (state: GameState, playerId: string, optionId: string) =
   if (state.players.every((candidate) => state.vote!.ballots[candidate.id])) resolveVote(state);
 };
 
+export const completeAssembly = (state: GameState) => {
+  if (state.status !== 'assembling') return;
+  state.assembly = undefined;
+  state.status = 'playing';
+  addMessage(state, 'course assembled — tee off');
+};
+
 export const beginNextVote = (state: GameState) => {
   state.hole += 1;
   state.vote = newVote(state.config, state.hole);
+  state.assembly = undefined;
   state.course = cloneCourse(state.vote.options[0]!.course);
   state.coursePhase = 0;
   state.status = 'voting';
