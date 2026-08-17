@@ -221,6 +221,7 @@ export const startApp = (app: HTMLElement) => {
   app.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const element = target.closest<HTMLElement>('button') ?? target;
+    if (element.hasAttribute('data-restart-run')) { setupGame(); return; }
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }

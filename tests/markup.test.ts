@@ -27,4 +27,20 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('id="assembly-progress-fill"');
     expect(markup).toContain('app-shell assembling');
   });
+
+  it('presents a winner, last place, podium, and final standings after the campaign', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'results-markup', humanCount: 1, botCount: 2 });
+    state.status = 'finished';
+    state.players[0]!.total = 17;
+    state.players[1]!.total = 22;
+    state.players[2]!.total = 28;
+    const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, ledger: [], callouts: [] });
+    expect(markup).toContain('class="results-overlay"');
+    expect(markup).toContain('Clubhouse champion');
+    expect(markup).toContain('class="podium-card podium-place-1"');
+    expect(markup).toContain('full standings');
+    expect(markup).toContain('last place');
+    expect(markup).toContain('data-restart-run');
+    expect(markup).toContain('app-shell finished');
+  });
 });

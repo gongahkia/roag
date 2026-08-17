@@ -40,7 +40,7 @@ const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb:
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.status === 'voting') return `public vote: ${Object.keys(state.vote?.ballots ?? {}).length}/${state.players.length} ballots cast`;
   if (state.status === 'assembling') return `assembling ${escapeHtml(state.assembly?.label ?? 'the elected course')}`;
-  if (state.status === 'finished') return `winner: ${escapeHtml([...state.players].sort((left, right) => left.total - right.total)[0]!.name)}`;
+  if (state.status === 'finished') return 'campaign complete — final standings are ready';
   if (shotInFlight) return `${escapeHtml(current(state).name)}'s ball is in flight · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount} locked`;
   return `${escapeHtml(current(state).name)} is taking a turn · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}`;
 };
@@ -53,11 +53,13 @@ const renderVotingControls = (state: GameState) => {
 };
 
 const renderAssemblyControls = (state: GameState) => `<div class="turn"><strong>course assembly</strong><b>…</b><small class="phase">the elected arena is materializing</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
+const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">final results are in the foreground</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 
 export const renderControlsMarkup = (view: ViewModel) => {
   const { state, preferences, aim, shotInFlight } = view;
   if (state.status === 'voting') return renderVotingControls(state);
   if (state.status === 'assembling') return renderAssemblyControls(state);
+  if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
   const disabled = state.status !== 'playing' || player.kind !== 'human' || shotInFlight;
   const heldItems = [player.inventory, player.spareInventory].filter(Boolean) as PowerUp[];
@@ -124,6 +126,38 @@ const renderAssemblyOverlay = ({ state, assemblyProgress = 0 }: ViewModel) => {
   return `<section class="assembly-overlay" role="status" aria-live="polite" aria-label="assembling selected course"><div class="assembly-card theme-${assembly.theme}"><p class="eyebrow">PACKAGE ELECTED · ${assembly.votes}/${assembly.totalBallots} VOTES</p><div class="assembly-heading"><span class="assembly-icon" aria-hidden="true">${themeIcon[assembly.theme]}</span><div><h2>${escapeHtml(assembly.label)}</h2><p>winning course package · arena generation in progress</p></div></div><div class="assembly-progress" aria-label="course assembly ${progress}%"><span id="assembly-progress-fill" style="width:${progress}%"></span></div><div class="assembly-progress-copy"><span>deploying course tiles</span><strong id="assembly-progress">${progress}%</strong></div><div class="assembly-facts"><span>▰ ${state.course.width} × ${state.course.height} tiles</span><span>⚠ ${state.course.hazards.length} hazards</span><span>◉ ${state.course.portals?.length ?? 0} portals</span><span>✦ ${state.course.itemPads.length} supply pads</span></div><div class="assembly-boons">${boons}${supply}</div></div></section>`;
 };
 
+const ordinal = (rank: number) => `${rank}${rank % 100 >= 11 && rank % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[rank % 10] ?? 'th'}`;
+
+const renderResultsOverlay = ({ state }: ViewModel) => {
+  if (state.status !== 'finished') return '';
+  const standings = [...state.players].sort((left, right) => left.total - right.total || left.name.localeCompare(right.name));
+  const leadingScore = standings[0]!.total;
+  const champions = standings.filter((player) => player.total === leadingScore);
+  const trailingScore = standings.at(-1)!.total;
+  const trailers = standings.filter((player) => player.total === trailingScore);
+  const podium = standings.slice(0, 3);
+  const podiumCard = (player: typeof standings[number], position: number) => {
+    const rank = standings.findIndex((candidate) => candidate.total === player.total) + 1;
+    const gap = player.total - leadingScore;
+    const title = rank === 1 ? champions.length > 1 ? 'co-champion' : 'clubhouse champion' : `${ordinal(rank)} place`;
+    return `<article class="podium-card podium-place-${position}"><span class="podium-medal">${position === 1 ? '★' : position === 2 ? '◆' : '●'}</span><i style="background:${player.color}"></i><p>${escapeHtml(title)}</p><h3>${escapeHtml(player.name)}</h3><strong>${player.total}<small>strokes</small></strong><footer>${gap ? `+${gap} from lead` : champions.length > 1 ? 'tied for lead' : 'lowest total'}</footer><b class="podium-plinth">${ordinal(rank)}</b></article>`;
+  };
+  const standingRows = standings.map((player) => {
+    const rank = standings.findIndex((candidate) => candidate.total === player.total) + 1;
+    const gap = player.total - leadingScore;
+    const outcome = rank === 1 ? champions.length > 1 ? 'co-champion' : 'winner' : player.total === trailingScore && trailers.length < standings.length ? 'last place' : `+${gap}`;
+    return `<li class="${rank === 1 ? 'winner' : player.total === trailingScore && trailers.length < standings.length ? 'last' : ''}"><span>${ordinal(rank)}</span><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><em>${outcome}</em><b>${player.total}</b></li>`;
+  }).join('');
+  const championNames = champions.map((player) => escapeHtml(player.name)).join(' + ');
+  const trailingNames = trailers.map((player) => escapeHtml(player.name)).join(' + ');
+  const headline = champions.length > 1 ? 'Clubhouse co-champions' : 'Clubhouse champion';
+  const summary = champions.length > 1
+    ? `${championNames} finish level on ${leadingScore} strokes.`
+    : `${championNames} claims the trophy with ${leadingScore} strokes.`;
+  const finalCallout = trailers.length === standings.length ? 'everyone finishes level.' : `${trailingNames} ${trailers.length > 1 ? 'share' : 'takes'} last place at ${trailingScore}.`;
+  return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section><footer class="results-actions"><button class="primary" data-restart-run>play again</button><span>same lineup · replay this seed</span></footer></div></section>`;
+};
+
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">The ballot is open in the foreground. No course is revealed until the vote resolves.</p>`;
@@ -140,6 +174,6 @@ const renderDrawer = (view: ViewModel) => {
 export const renderAppMarkup = (view: ViewModel) => {
   const { state } = view;
   const progress = state.status === 'voting' ? `VOTE <b>${state.hole}</b> / ${state.config.holeCount}` : `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
-  const shellState = state.status === 'voting' ? 'voting' : state.status === 'assembling' ? 'assembling' : '';
-  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">SUNNY CLUBHOUSE MINI GOLF</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'vote' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderAssemblyOverlay(view)}${renderOverlay(view)}`;
+  const shellState = state.status === 'voting' ? 'voting' : state.status === 'assembling' ? 'assembling' : state.status === 'finished' ? 'finished' : '';
+  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">SUNNY CLUBHOUSE MINI GOLF</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'vote' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderAssemblyOverlay(view)}${renderResultsOverlay(view)}${renderOverlay(view)}`;
 };
