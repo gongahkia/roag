@@ -72,8 +72,9 @@ export const normalizeGameState = (state: GameState): GameState => {
     const option = generateVotingOptions(state.config.seed, state.coursePlan.length + 1)[0]!;
     state.coursePlan.push(planFromOption(option));
   }
-  if ((state as GameState & { status: string }).status === 'assembling') {
-    state.assembly = undefined;
+  const legacy = state as unknown as { status: string; assembly?: unknown };
+  if (legacy.status === 'assembling') {
+    delete legacy.assembly;
     state.status = 'playing';
   }
   state.emotes ??= [];
@@ -139,7 +140,6 @@ export const cloneGameState = (state: GameState): GameState => ({
   holeRules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] },
   vote: state.vote ? { options: state.vote.options.map(cloneOption), ballots: { ...state.vote.ballots } } : undefined,
   coursePlan: (state.coursePlan ?? []).map(clonePlan),
-  assembly: state.assembly ? { ...state.assembly } : undefined,
   transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
@@ -158,7 +158,6 @@ const resolveVote = (state: GameState) => {
   const planned = planFromOption(winner);
   state.coursePlan = [...(state.coursePlan ?? []), planned];
   state.vote = undefined;
-  state.assembly = undefined;
   if (state.coursePlan.length < state.config.holeCount) {
     const nextHole = state.coursePlan.length + 1;
     state.vote = newVote(state.config, nextHole);

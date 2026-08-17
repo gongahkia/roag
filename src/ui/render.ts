@@ -27,7 +27,7 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, assemblyProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
+  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
@@ -489,7 +489,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; assemblyProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
 
   const layoutFor = (course: Course) => {
     const { width, height } = canvas.getBoundingClientRect();
@@ -498,7 +498,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, assemblyProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -508,10 +508,10 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.fillRect(0, 0, width, height);
     const { metrics, tiles, offset } = layoutFor(course);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
-    const clampedAssembly = assemblyProgress === undefined ? undefined : Math.max(0, Math.min(1, assemblyProgress));
+    const clampedBuild = buildProgress === undefined ? undefined : Math.max(0, Math.min(1, buildProgress));
     const drawTile = (tile: VisibleTile) => {
       const stagger = ((tile.x * 13 + tile.y * 7) % 23) / 23 * .58;
-      const arrived = clampedAssembly === undefined ? 1 : Math.max(0, Math.min(1, (clampedAssembly - stagger) / .42));
+      const arrived = clampedBuild === undefined ? 1 : Math.max(0, Math.min(1, (clampedBuild - stagger) / .42));
       if (arrived === 0) return;
       const eased = 1 - (1 - arrived) ** 3;
       const angle = ((tile.x * 19 + tile.y * 11) % 8) * Math.PI / 4;
@@ -532,7 +532,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       context.restore();
     };
     tiles.forEach(drawTile);
-    const worldOpacity = clampedAssembly === undefined ? 1 : Math.max(0, Math.min(1, (clampedAssembly - .58) / .42));
+    const worldOpacity = clampedBuild === undefined ? 1 : Math.max(0, Math.min(1, (clampedBuild - .58) / .42));
     context.save();
     context.globalAlpha = worldOpacity;
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
@@ -569,16 +569,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.assemblyProgress, latest.gadgets, latest.placement);
+    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, assemblyProgress, gadgets = [], placement) {
-      latest = { course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress, gadgets, placement };
-      paint(course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress, gadgets, placement);
+    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement) {
+      latest = { course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement };
+      paint(course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();

@@ -161,14 +161,6 @@ export interface VoteState {
   ballots: Record<string, string>;
 }
 
-export interface AssemblyState {
-  optionId: string;
-  label: string;
-  theme: TerrainSettings['theme'];
-  votes: number;
-  totalBallots: number;
-}
-
 export interface CourseTransition {
   next: PlannedHole;
 }
@@ -287,7 +279,6 @@ export interface GameState {
   coursePhase: number;
   vote?: VoteState;
   coursePlan: PlannedHole[];
-  assembly?: AssemblyState;
   transition?: CourseTransition;
   emotes: EmoteEvent[];
   emoteSequence: number;
@@ -295,7 +286,7 @@ export interface GameState {
   gadgets: Gadget[];
   turn: TurnState;
   paused: boolean;
-  status: 'voting' | 'assembling' | 'transitioning' | 'playing' | 'finished';
+  status: 'voting' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
 }
 

@@ -154,9 +154,17 @@ export const startApp = (app: HTMLElement) => {
     if (state.status !== 'transitioning') return;
     if (transitionFrame !== undefined) window.cancelAnimationFrame(transitionFrame);
     const duration = preferences.reducedMotion ? 120 : 1_650;
-    const startedAt = performance.now() - transitionProgress * duration;
+    let startedAt = performance.now() - transitionProgress * duration;
+    let previousFrameAt = performance.now();
     const animate = (now: number) => {
       if (state.status !== 'transitioning') return;
+      if (state.paused) {
+        startedAt += now - previousFrameAt;
+        previousFrameAt = now;
+        transitionFrame = requestAnimationFrame(animate);
+        return;
+      }
+      previousFrameAt = now;
       transitionProgress = Math.max(0, Math.min(1, (now - startedAt) / duration));
       drawBoard(undefined, null);
       if (transitionProgress < 1) { transitionFrame = requestAnimationFrame(animate); return; }

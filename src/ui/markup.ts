@@ -62,7 +62,7 @@ const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>
 export const renderControlsMarkup = (view: ViewModel) => {
   const { state, preferences, aim, shotInFlight, multiplayer, placement } = view;
   if (state.status === 'voting') return renderVotingControls(state);
-  if (state.status === 'transitioning' || state.status === 'assembling') return renderTransitionControls(state);
+  if (state.status === 'transitioning') return renderTransitionControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
@@ -174,7 +174,7 @@ const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">Lock the whole match plan before tee-off. Courses stay hidden until play starts.</p>`;
-  if (state.status === 'transitioning' || state.status === 'assembling') return `${renderLedger(view.ledger)}<p class="hint">The completed arena is breaking apart while the next planned course lands.</p>`;
+  if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">The completed arena is breaking apart while the next planned course lands.</p>`;
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : '⌁ pulse launch').join(' · ') || 'none';
   return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>biome</dt><dd>${themeIcon[state.course.theme]} ${themeDescriptor[state.course.theme]}</dd><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>shared boons</dt><dd>${state.holeRules.sharedBoons.join(', ') || 'none'}</dd><dt>starting supply</dt><dd>${state.holeRules.startingPowerUp ?? 'none'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>biome effects</dt><dd>${features}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · numbered A/B: portal pair<br>↻ paired sinkhole · ✽ thorn knockback · ⌁ pulse launch<br>cyan +: recovery pad · violet !: chaos pad · ↑/⌁/✹/≋: player gadgets</p>`;
 };
