@@ -23,6 +23,8 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('id="online-seed"');
     expect(markup).toContain('id="online-course-width"');
     expect(markup).toContain('id="online-course-height"');
+    expect(markup).not.toContain('max="24"');
+    expect(markup).not.toContain('max="16"');
     expect(markup).toContain('id="join-player-name"');
     expect(markup).toContain('id="join-server-url"');
     expect(markup).toContain('data-create-quick-room');

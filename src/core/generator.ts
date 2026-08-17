@@ -155,7 +155,6 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
   const cupX = Math.max(minCupX, Math.min(settings.width - 2, Math.round(minCupX + settings.routeLength * (settings.width - 2 - minCupX))));
   const bendChance = .05 + settings.bendiness * .34;
   const verticalChance = settings.bendiness * .14;
-  let steps = 0;
   while (position.x < cupX) {
     let deltaY = random.chance(bendChance) ? random.pick([-1, 1]) : 0;
     if (settings.theme === 'speedway' && random.chance(.65)) deltaY = 0;
@@ -171,7 +170,6 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
       position = { ...position, y: Math.max(minY, Math.min(maxY, position.y + random.pick([-1, 1]))) };
       if (route.at(-1)!.x !== position.x || route.at(-1)!.y !== position.y) route.push({ ...position });
     }
-    steps += 1;
   }
   route.push({ x: cupX, y: position.y });
   return route;

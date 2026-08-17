@@ -607,12 +607,14 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const layoutFor = (course: Course, focus?: Ball, advanceCamera = false) => {
     const { width, height } = canvas.getBoundingClientRect();
     const target = cameraFor(course, width, height, focus);
-    const reusable = trackedCamera && trackedCamera.courseId === course.id && trackedCamera.width === width && trackedCamera.height === height && trackedCamera.followsFocus === target.followsFocus;
-    const offset = reusable
-      ? advanceCamera && target.followsFocus
-        ? { x: trackedCamera.offset.x + (target.offset.x - trackedCamera.offset.x) * .18, y: trackedCamera.offset.y + (target.offset.y - trackedCamera.offset.y) * .18 }
-        : trackedCamera.offset
-      : target.offset;
+    const previous = trackedCamera;
+    const reusable = Boolean(previous && previous.courseId === course.id && previous.width === width && previous.height === height && previous.followsFocus === target.followsFocus);
+    let offset = target.offset;
+    if (previous && reusable) {
+      offset = advanceCamera && target.followsFocus
+        ? { x: previous.offset.x + (target.offset.x - previous.offset.x) * .18, y: previous.offset.y + (target.offset.y - previous.offset.y) * .18 }
+        : previous.offset;
+    }
     if (advanceCamera || !reusable) trackedCamera = { courseId: course.id, width, height, offset, followsFocus: target.followsFocus };
     return { ...target, offset, tiles: visibleTilesFor(course, target.metrics) };
   };

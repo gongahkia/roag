@@ -49,6 +49,16 @@ describe('course generation', () => {
     expect(options.every((option) => option.recipe.terrain.width === 24 && option.recipe.terrain.height === 16)).toBe(true);
   });
 
+  it('keeps large requested dimensions instead of clamping them to the old board limit', () => {
+    const dimensions = { width: 64, height: 36 };
+    const course = generateCourse('large-course', { ...defaultTerrainSettings(), ...dimensions });
+    const options = generateVotingOptions('large-options', 1, dimensions);
+    expect(course).toMatchObject(dimensions);
+    expect(course.cup.x).toBeGreaterThan(24);
+    expect(options.every((option) => option.course.width === dimensions.width && option.course.height === dimensions.height)).toBe(true);
+    expect(options.every((option) => option.recipe.rules.strokeCap >= 13)).toBe(true);
+  });
+
   it('keeps voting packages free of shared boons and starting supplies', () => {
     const options = generateVotingOptions('clubhouse-only', 1);
     expect(options.every((option) => option.recipe.rules.sharedBoons.length === 0 && option.recipe.rules.startingPowerUp === undefined)).toBe(true);
