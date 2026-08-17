@@ -9,7 +9,8 @@ import { createArena as arena, gameOn } from './fixtures';
 
 const resolveVote = (game: ReturnType<typeof createGame>, optionIndex = 0) => {
   const optionId = game.vote!.options[optionIndex]!.id;
-  return game.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), game);
+  const resolved = game.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), game);
+  return applyCommand(resolved, { type: 'complete-assembly' });
 };
 
 describe('course generation', () => {
@@ -73,9 +74,12 @@ describe('public voting flow', () => {
     expect(game.status).toBe('voting');
     expect(game.vote!.ballots['human-0']).toBe(second!.id);
     game = applyCommand(game, { type: 'cast-vote', playerId: 'bot-0', optionId: third!.id });
-    expect(game.status).toBe('playing');
+    expect(game.status).toBe('assembling');
     expect(game.course.seed).toBe(second!.course.seed);
+    expect(game.assembly).toMatchObject({ optionId: second!.id, label: second!.label, votes: 2, totalBallots: 3 });
     expect(game.players.every((player) => player.upgrades.join(',') === game.holeRules.sharedBoons.join(','))).toBe(true);
+    game = applyCommand(game, { type: 'complete-assembly' });
+    expect(game.status).toBe('playing');
   });
 
   it('breaks tied pluralities and bot ballots deterministically', () => {
