@@ -48,10 +48,13 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
 type CourseDimensions = Pick<TerrainSettings, 'width' | 'height'>;
 
 const normalizeDimensions = (dimensions: Partial<CourseDimensions>): CourseDimensions => {
-  const normalize = (value: number | undefined, fallback: number, minimum: number, maximum: number) => Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, Math.round(value!))) : fallback;
+  const normalize = (value: number | undefined, fallback: number, minimum: number) => {
+    const rounded = Number.isFinite(value) ? Math.round(value!) : fallback;
+    return Number.isSafeInteger(rounded) ? Math.max(minimum, rounded) : fallback;
+  };
   return {
-    width: normalize(dimensions.width, COURSE_WIDTH, 14, 24),
-    height: normalize(dimensions.height, COURSE_HEIGHT, 10, 16),
+    width: normalize(dimensions.width, COURSE_WIDTH, 14),
+    height: normalize(dimensions.height, COURSE_HEIGHT, 10),
   };
 };
 
@@ -153,7 +156,7 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
   const bendChance = .05 + settings.bendiness * .34;
   const verticalChance = settings.bendiness * .14;
   let steps = 0;
-  while (position.x < cupX && steps < 48) {
+  while (position.x < cupX) {
     let deltaY = random.chance(bendChance) ? random.pick([-1, 1]) : 0;
     if (settings.theme === 'speedway' && random.chance(.65)) deltaY = 0;
     if (settings.theme === 'drift' && random.chance(.32)) deltaY = random.pick([-1, 1]);
@@ -227,12 +230,14 @@ const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   const hazards = course.tiles.filter((tile) => tile.surface === 'sand' || tile.surface === 'ice' || tile.surface === 'booster' || tile.surface === 'conveyor').length + course.hazards.length;
   const elevation = Math.round(course.tiles.reduce((total, tile) => total + tile.height, 0));
   const branches = course.tiles.filter((tile) => tile.surface === 'fairway').length - course.route.length * 6;
-  const solverShots = solve(course, 0, phaseCount);
-  const playable = solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
-    if (!reachable(course, phase, phaseCount)) return false;
+  const directShotDistance = Math.hypot(course.cup.x - course.tee.x, course.cup.y - course.tee.y);
+  const needsSingleShotProof = directShotDistance <= 28;
+  const solverShots = needsSingleShotProof ? solve(course, 0, phaseCount) : [];
+  const reachableAcrossPhases = Array.from({ length: phaseCount }, (_, phase) => reachable(course, phase, phaseCount)).every(Boolean);
+  const playable = reachableAcrossPhases && (!needsSingleShotProof || (solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
     const result = simulateShot(course, newBall(course), solverShots[0]!, undefined, { phase, phaseCount });
     return result.holed && result.settled;
-  }).every(Boolean);
+  }).every(Boolean)));
   const estimatedStrokes = Math.max(1, Math.round(course.route.length / 7 + hazards / 15));
   const routes = Math.max(1, Math.min(4, Math.round(branches / 12) + 1));
   const novelty = Math.min(100, Math.round(hazards * 2.2 + elevation * 3.5 + routes * 12));
@@ -485,13 +490,14 @@ export const defaultHoleRules = (): HoleRules => ({
 
 const votingLabels = ['steady hands', 'hazard holiday', 'speed council', 'ice caucus', 'quarry motion', 'chaos compact'];
 
-const randomHoleRules = (random: Random): HoleRules => {
+const randomHoleRules = (random: Random, dimensions: CourseDimensions): HoleRules => {
   const rules = defaultHoleRules();
   const powerUps = random.chance(.82);
+  const longHoleCap = Math.ceil((dimensions.width - 2) / 6) + 2;
   return {
     ...rules,
     timerSeconds: random.pick([14, 18, 24, 30]),
-    strokeCap: random.pick([7, 9, 10, 12]),
+    strokeCap: Math.max(random.pick([7, 9, 10, 12]), longHoleCap),
     collisions: random.chance(.7),
     powerUps,
     recoveryBias: random.pick([.25, .5, .75]),
@@ -535,10 +541,11 @@ export const generateVotingOptions = (seed: string, hole: number, dimensions: Pa
   for (let attempt = 0; options.length < 3 && attempt < 96; attempt += 1) {
     const random = new Random(`${seed}:hole:${hole}:option:${attempt}`);
     const terrain = { ...randomTerrainSettings(`${seed}:hole:${hole}`, attempt + 1, courseSize), variation: hole * 100 + attempt };
-    const rules = randomHoleRules(random);
+    const rules = randomHoleRules(random, courseSize);
     const course = generateCourse(`${seed}:hole:${hole}:course:${attempt}`, terrain, rules.hazardPhaseCount);
     const signature = `${course.seed}:${course.tee.x},${course.tee.y}:${course.cup.x},${course.cup.y}`;
     if (!course.score.playable || seenCourses.has(signature)) continue;
+    rules.strokeCap = Math.max(rules.strokeCap, course.score.estimatedStrokes + 2);
     seenCourses.add(signature);
     const index = options.length;
     options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
@@ -549,6 +556,7 @@ export const generateVotingOptions = (seed: string, hole: number, dimensions: Pa
     const rules = defaultHoleRules();
     const generated = generateCourse(`${seed}:hole:${hole}:fallback:${index}`, terrain, rules.hazardPhaseCount);
     const course = generated.score.playable ? generated : guaranteedFallbackCourse(`${seed}:hole:${hole}:fallback:${index}`, rules.hazardPhaseCount, courseSize);
+    rules.strokeCap = Math.max(rules.strokeCap, course.score.estimatedStrokes + 2);
     options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
   }
   return options;

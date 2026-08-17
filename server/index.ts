@@ -12,6 +12,8 @@ import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessa
 const port = Number(process.env.PORT ?? 8787);
 const allowedOrigins = new Set((process.env.APP_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean));
 const databasePath = process.env.GAME_DATABASE ?? 'data/golf-with-your-enemies.sqlite';
+const configuredCourseTileBudget = Number(process.env.MAX_COURSE_TILES ?? 262_144);
+const maxCourseTiles = Number.isSafeInteger(configuredCourseTileBudget) && configuredCourseTileBudget >= 140 ? configuredCourseTileBudget : 262_144;
 const databaseDirectory = databasePath.includes('/') ? databasePath.slice(0, databasePath.lastIndexOf('/')) : '';
 if (databaseDirectory) mkdirSync(databaseDirectory, { recursive: true });
 const database = new DatabaseSync(databasePath);
@@ -57,7 +59,7 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
   const skipVoting = source.skipVoting === true;
-  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isInteger(courseWidth) || courseWidth < 14 || courseWidth > 24 || !Number.isInteger(courseHeight) || courseHeight < 10 || courseHeight > 16 || courseWidth * courseHeight > 384 || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
+  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
   return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipVoting };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {

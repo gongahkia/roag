@@ -139,6 +139,16 @@ export const cameraFor = (course: Course, width: number, height: number, focus?:
 
 const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
 
+const visibleInViewport = (tile: VisibleTile, offset: Point, width: number, height: number, metrics: ProjectionMetrics) => {
+  const points = tile.corners.map((point, index) => ({ x: point.x + offset.x, y: point.y + offset.y + tile.heights[index]! * metrics.elevation }));
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const bleed = metrics.tileWidth * 1.5;
+  return maxX >= -bleed && minX <= width + bleed && maxY >= -bleed && minY <= height + bleed;
+};
+
 const neighborFor = (course: Course, x: number, y: number, direction: Point) => course.tiles[(y + direction.y) * course.width + x + direction.x];
 
 const neighborEdgeCorners = [[3, 2], [0, 3], [1, 0], [2, 1]] as const;
@@ -592,11 +602,19 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
   let latest: { course: Course; players: Player[]; phase: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball } | undefined;
+  let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean } | undefined;
 
-  const layoutFor = (course: Course, focus?: Ball) => {
+  const layoutFor = (course: Course, focus?: Ball, advanceCamera = false) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const camera = cameraFor(course, width, height, focus);
-    return { ...camera, tiles: visibleTilesFor(course, camera.metrics) };
+    const target = cameraFor(course, width, height, focus);
+    const reusable = trackedCamera && trackedCamera.courseId === course.id && trackedCamera.width === width && trackedCamera.height === height && trackedCamera.followsFocus === target.followsFocus;
+    const offset = reusable
+      ? advanceCamera && target.followsFocus
+        ? { x: trackedCamera.offset.x + (target.offset.x - trackedCamera.offset.x) * .18, y: trackedCamera.offset.y + (target.offset.y - trackedCamera.offset.y) * .18 }
+        : trackedCamera.offset
+      : target.offset;
+    if (advanceCamera || !reusable) trackedCamera = { courseId: course.id, width, height, offset, followsFocus: target.followsFocus };
+    return { ...target, offset, tiles: visibleTilesFor(course, target.metrics) };
   };
 
   const paint = (course: Course, players: Player[], phase: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball) => {
@@ -607,7 +625,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#edf7e8');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const { metrics, tiles, offset, followsFocus } = layoutFor(course, focus);
+    const { metrics, offset, followsFocus, tiles: allTiles } = layoutFor(course, focus, true);
+    const tiles = allTiles.filter((tile) => visibleInViewport(tile, offset, width, height, metrics));
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     const clampedBuild = buildProgress === undefined ? undefined : Math.max(0, Math.min(1, buildProgress));
     const drawTile = (tile: VisibleTile) => {
@@ -709,7 +728,9 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     tileFromPointer(event, course) {
       const rect = canvas.getBoundingClientRect();
       const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-      const { tiles, offset } = layoutFor(course, latest?.course === course ? latest.focus : undefined);
+      const layout = layoutFor(course, latest?.course === course ? latest.focus : undefined);
+      const tiles = layout.tiles.filter((tile) => visibleInViewport(tile, layout.offset, rect.width, rect.height, layout.metrics));
+      const { offset } = layout;
       const contains = (points: readonly Point[]) => {
         let inside = false;
         for (let current = 0, previous = points.length - 1; current < points.length; previous = current++) {
