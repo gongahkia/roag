@@ -79,6 +79,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.height ??= COURSE_HEIGHT;
   });
   state.gadgets ??= [];
+  state.holeFinishSequence ??= 0;
   if (state.shop) state.shop.opening ??= false;
   state.players.forEach((player) => {
     player.cash ??= 10;
@@ -132,6 +133,7 @@ const activatePlan = (state: GameState, plan: PlannedHole) => {
   } else state.activeReality = undefined;
   state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
   state.coursePhase = 0;
+  state.holeFinishSequence = 0;
   state.gadgets = [];
   state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
   state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
@@ -163,6 +165,7 @@ export const createGameState = (config: GameConfig): GameState => {
     course,
     holeRules,
     hole: 1,
+    holeFinishSequence: 0,
     coursePhase: 0,
     vote,
     coursePlan,

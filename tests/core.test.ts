@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision, chooseBotVote } from '../src/core/bots';
+import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
 import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
@@ -46,6 +47,11 @@ describe('course generation', () => {
     expect(options).toHaveLength(3);
     expect(options.every((option) => option.course.width === 24 && option.course.height === 16)).toBe(true);
     expect(options.every((option) => option.recipe.terrain.width === 24 && option.recipe.terrain.height === 16)).toBe(true);
+  });
+
+  it('keeps voting packages free of shared boons and starting supplies', () => {
+    const options = generateVotingOptions('clubhouse-only', 1);
+    expect(options.every((option) => option.recipe.rules.sharedBoons.length === 0 && option.recipe.rules.startingPowerUp === undefined)).toBe(true);
   });
 
   it('keeps solver routes inside playable terrain and across every configured phase', () => {
@@ -100,6 +106,46 @@ describe('course generation', () => {
     expect(drift.features.filter((feature) => feature.kind === 'sinkhole')).toHaveLength(2);
     expect(bloom.features.filter((feature) => feature.kind === 'thorn')).toHaveLength(3);
     expect(pulse.features.filter((feature) => feature.kind === 'pulse')).toHaveLength(3);
+  });
+});
+
+describe('clubhouse economy and reality cards', () => {
+  it('defines a large, unique data-driven merchant catalog', () => {
+    expect(CONTENT).toHaveLength(100);
+    expect(new Set(CONTENT.map((entry) => entry.id)).size).toBe(CONTENT.length);
+    expect(new Set(CONTENT.map((entry) => entry.category))).toEqual(new Set(['caddy', 'pocket', 'form', 'gadget', 'reality', 'chrono']));
+  });
+
+  it('opens a deterministic shared shelf after a hole and orders buyers by sink order', () => {
+    let game = gameOn(arena('merchant-order'), { holeCount: 2, humanCount: 2, botCount: 0 });
+    game.players[0]!.ball.complete = true;
+    game.players[0]!.ball.strokes = 5;
+    game.players[0]!.holeFinishOrder = 1;
+    game.players[1]!.ball.complete = true;
+    game.players[1]!.ball.strokes = 2;
+    game.players[1]!.holeFinishOrder = 0;
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(game.status).toBe('shopping');
+    expect(game.shop?.buyerOrder).toEqual([game.players[1]!.id, game.players[0]!.id]);
+    expect(game.shop?.shelf.map((offer) => offer.category)).toEqual(['caddy', 'caddy', 'caddy', expect.any(String), expect.any(String), 'reality', 'chrono']);
+    game = game.players.reduce((next, player) => applyCommand(next, { type: 'shop-vote-reroll', playerId: player.id, approve: false }), game);
+    const buyer = game.players[1]!;
+    buyer.cash = 20;
+    const caddyOffer = game.shop!.shelf.find((offer) => offer.category === 'caddy')!;
+    game = applyCommand(game, { type: 'shop-buy', playerId: buyer.id, offerId: caddyOffer.id });
+    expect(game.players[1]!.caddies).toEqual([{ id: caddyOffer.contentId, stacks: 1 }]);
+    expect(game.players[1]!.cash).toBe(14);
+  });
+
+  it('makes wall-is-cup and reverse controls deterministic simulation rules', () => {
+    const course = arena('reality-wall');
+    course.tiles[course.tee.y * course.width + (course.tee.x + 1)] = { surface: 'wall', height: 0 };
+    expect(simulateShot(course, newBall(course), { angle: 0, power: 2 }, 3, { reality: 'wall is cup' }).holed).toBe(true);
+    const player = gameOn(course, { botCount: 0 }).players[0]!;
+    player.controlInverted = 1;
+    expect(physicsModifiersFor(player).mass).toBeGreaterThan(0);
+    const reversed = previewShot({ ...gameOn(course, { botCount: 0 }), players: [player], turn: { playerIndex: 0, secondsLeft: 24, shotInFlight: false } }, { angle: 0, power: 2 });
+    expect(reversed?.at(-1)?.[0].x).toBeLessThan(player.ball.x);
   });
 });
 

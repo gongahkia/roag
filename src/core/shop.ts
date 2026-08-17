@@ -32,7 +32,7 @@ const shelfFor = (state: GameState, visit: number, reroll = 0) => {
 
 const buyerOrderFor = (state: GameState, opening: boolean) => {
   if (opening) return state.players.map((player) => player.id);
-  const completed = state.players.filter((player) => player.ball.complete).sort((left, right) => left.ball.strokes - right.ball.strokes || left.id.localeCompare(right.id));
+  const completed = state.players.filter((player) => player.ball.complete).sort((left, right) => (left.holeFinishOrder ?? Number.MAX_SAFE_INTEGER) - (right.holeFinishOrder ?? Number.MAX_SAFE_INTEGER) || left.ball.strokes - right.ball.strokes || left.id.localeCompare(right.id));
   const unfinished = state.players.filter((player) => !player.ball.complete).sort((left, right) => left.ball.strokes - right.ball.strokes || left.id.localeCompare(right.id));
   return [...completed, ...unfinished].map((player) => player.id);
 };

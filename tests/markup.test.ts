@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, defaultConfig } from '../src/core/game';
+import { openShop } from '../src/core/shop';
 import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup } from '../src/ui/home-markup';
@@ -62,6 +63,18 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('id="powerup-target"');
     expect(markup).toContain('data-use-powerup="popper pad"');
     expect(markup).toContain('click again or press Enter to place');
+  });
+
+  it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', humanCount: 2, botCount: 0, skipVoting: true });
+    openShop(state);
+    const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(markup).toContain('class="merchant-overlay"');
+    expect(markup).toContain('THE NINETEENTH HOLE · SHARED MARKET');
+    expect(markup.match(/class="merchant-card /g)).toHaveLength(7);
+    expect(markup).toContain('Caddies stack');
+    expect(markup).toContain('data-shop-reroll="yes"');
+    expect(markup).toContain('class="merchant-ledger"');
   });
 
   it('offers distinct putt and chip controls with an explicit chip cue', () => {

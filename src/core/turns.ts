@@ -148,6 +148,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
   else if (result.reset) addMessage(state, `${player.name} falls into the void`);
   else addMessage(state, `${player.name} rolls to safety`);
+  if (result.holed && player.holeFinishOrder === undefined) player.holeFinishOrder = state.holeFinishSequence++;
   const pad = result.itemPadIds.map((id) => state.course.itemPads.find((candidate) => candidate.id === id)).find(Boolean);
   if (pad?.kind === 'cash') {
     const leaderScore = Math.min(...state.players.map((candidate) => candidate.total + candidate.ball.strokes));

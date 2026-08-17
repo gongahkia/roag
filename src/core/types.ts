@@ -290,6 +290,8 @@ export interface Player {
   controlInverted?: number;
   timeDilated?: number;
   redTee?: Point;
+  /** The order a player sank this hole, used for the shared shop queue. */
+  holeFinishOrder?: number;
   total: number;
 }
 
@@ -366,6 +368,7 @@ export interface GameState {
   course: Course;
   holeRules: HoleRules;
   hole: number;
+  holeFinishSequence: number;
   coursePhase: number;
   vote?: VoteState;
   coursePlan: PlannedHole[];

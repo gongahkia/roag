@@ -140,6 +140,8 @@ export const resetPlayerForCourse = (player: Player, course: Course, _rules?: Ho
   player.forcedChip = undefined;
   player.controlInverted = undefined;
   player.timeDilated = undefined;
+  player.redTee = undefined;
+  player.holeFinishOrder = undefined;
 };
 
 export const canStorePowerUp = (player: Player) => pocketsFor(player).length < pocketCapacity(player);
