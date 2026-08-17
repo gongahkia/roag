@@ -128,18 +128,24 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .vote-panel-header h1 em { color: var(--chaos); }
 .vote-panel-header > p:last-child { margin: 0; color: var(--dim); font-size: .75rem; line-height: 1.5; }
 .vote-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(.65rem, 1.5vw, 1.25rem); align-items: stretch; }
-.vote-card { position: relative; overflow: hidden; display: flex; flex-direction: column; min-width: 0; padding: .95rem; border: 2px solid #a9c3a0; background: linear-gradient(155deg, #ffffff, #f2f8ee); box-shadow: 0 14px 35px #3d5f3724; }
+.vote-card { position: relative; overflow: hidden; display: flex; flex-direction: column; min-width: 0; padding: .95rem; border: 2px solid #a9c3a0; background: linear-gradient(155deg, #ffffff, #f2f8ee); box-shadow: 0 14px 35px #3d5f3724; cursor: pointer; transition: transform 130ms ease, box-shadow 130ms ease; }
+.vote-card:hover { transform: translateY(-3px); box-shadow: 0 19px 38px #3d5f3740; }
+.vote-card:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .vote-card::before { position: absolute; top: 0; right: 0; width: 64px; height: 64px; background: currentColor; clip-path: polygon(100% 0, 0 0, 100% 100%); content: ''; opacity: .12; }
 .vote-card.theme-speedway { color: #a96008; border-color: #d99a43; background: linear-gradient(155deg, #fffdf6, #fff2d8); }
 .vote-card.theme-hazard-run { color: #a44732; border-color: #d67a63; background: linear-gradient(155deg, #fffaf7, #ffe9de); }
 .vote-card.theme-ice-rink { color: #28768a; border-color: #6db9c9; background: linear-gradient(155deg, #f8feff, #e2f6fa); }
 .vote-card.theme-quarry { color: #6d5d3f; border-color: #aa9875; background: linear-gradient(155deg, #fffefb, #f2ece0); }
-.vote-card > header { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: .55rem; align-items: start; margin-bottom: .75rem; }
+.vote-card > header { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .55rem; align-items: start; margin-bottom: .75rem; }
 .package-number { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; color: currentColor; font-size: .78rem; font-weight: 700; }
 .card-kicker { margin: 0 0 .16rem; color: currentColor; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .vote-card h2 { margin: 0; color: var(--text); font-size: .88rem; line-height: 1.1; text-transform: capitalize; }
+.vote-pills { display: flex; max-width: 8.4rem; flex-wrap: wrap; justify-content: end; gap: .22rem; }
 .vote-count { display: grid; justify-items: center; min-width: 2rem; color: var(--gold); font-size: 1rem; line-height: .9; }
 .vote-count small { margin-top: .18rem; color: var(--dim); font-size: .5rem; letter-spacing: .06em; text-transform: uppercase; }
+.vote-pill { display: inline-flex; align-items: center; gap: .2rem; max-width: 6.4rem; overflow: hidden; border: 1px solid #b9cfb2; border-radius: 999px; padding: .14rem .27rem; color: var(--text); background: #ffffffeb; font-size: .53rem; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.vote-pill i { width: .38rem; height: .38rem; flex: 0 0 auto; border-radius: 50%; box-shadow: 0 0 0 1px #ffffff; }
+.vote-pill.empty { color: var(--dim); font-style: italic; }
 .course-glyphs { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .55rem; }
 .course-glyphs span, .rule-chip-grid span, .boon-chip, .supply-chip { border: 1px solid #c9d8c4; border-radius: 999px; padding: .18rem .34rem; color: var(--text); background: #ffffffc9; font-size: .61rem; line-height: 1.15; }
 .course-glyphs span { color: var(--dim); }
@@ -149,14 +155,7 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .boon-chip { border-color: #c8a4e1; color: #68418a; background: #faf5ff; }
 .boon-chip b, .supply-chip b { margin-right: .18rem; color: currentColor; }
 .supply-chip { border-color: #e6bb66; color: #94600b; background: #fff9e9; }
-.vote-seat-list { display: grid; gap: .32rem; margin-top: auto; }
-.vote-seat { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .38rem; width: 100%; min-height: 2.15rem; padding: .34rem .44rem; border-color: #b8cdb1; background: #ffffffd9; color: var(--text); font-size: .67rem; text-align: left; }
-.vote-seat i { width: .5rem; height: .5rem; border-radius: 50%; box-shadow: 0 0 0 1px #ffffff; }
-.vote-seat b { color: var(--dim); font-size: .61rem; text-transform: uppercase; }
-.vote-seat.selected { border-color: var(--green); background: #e5f4dc; box-shadow: inset 3px 0 0 var(--green); }
-.vote-seat.selected b { color: var(--green); }
-.vote-seat:disabled { opacity: 1; color: var(--dim); }
-.vote-seat:disabled.selected { color: var(--text); }
+.card-action { margin-top: auto; padding-top: .55rem; color: var(--green); font-size: .64rem; letter-spacing: .03em; text-align: center; text-transform: uppercase; }
 .vote-panel-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: .35rem .9rem; margin-top: .9rem; color: var(--dim); font-size: .65rem; text-align: center; }
 .vote-panel-footer span::before { margin-right: .3rem; color: var(--chaos); content: '✦'; }
 .overlay { position: fixed; z-index: 11; inset: 0; display: grid; place-items: center; padding: 1rem; background: #eaf4e0cf; }

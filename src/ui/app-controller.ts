@@ -191,9 +191,10 @@ export const startApp = (app: HTMLElement) => {
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-    const votePlayer = element.dataset.votePlayer;
-    const voteOption = element.dataset.voteOption;
-    if (votePlayer && voteOption) { setState(applyCommand(state, { type: 'cast-vote', playerId: votePlayer, optionId: voteOption })); return; }
+    const voteCard = target.closest<HTMLElement>('[data-vote-option]');
+    const voteOption = voteCard?.dataset.voteOption;
+    const nextHumanVoter = state.players.find((player) => player.kind === 'human' && !state.vote?.ballots[player.id]);
+    if (voteOption && nextHumanVoter) { setState(applyCommand(state, { type: 'cast-vote', playerId: nextHumanVoter.id, optionId: voteOption })); return; }
     const powerUp = element.dataset.usePowerup as PowerUp | undefined;
     if (powerUp) { useHeldPowerUp(powerUp); return; }
     const emote = element.dataset.emote as Emote | undefined;
@@ -220,6 +221,16 @@ export const startApp = (app: HTMLElement) => {
       return;
     }
     if (isEditableElement(event.target)) return;
+    const voteCard = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-vote-option]') : undefined;
+    const nextHumanVoter = state.players.find((player) => player.kind === 'human' && !state.vote?.ballots[player.id]);
+    if (voteCard && nextHumanVoter && (event.key === 'Enter' || event.key === ' ')) {
+      const voteOption = voteCard.dataset.voteOption;
+      if (voteOption) {
+        event.preventDefault();
+        setState(applyCommand(state, { type: 'cast-vote', playerId: nextHumanVoter.id, optionId: voteOption }));
+        return;
+      }
+    }
     if (event.key === 'Escape' && overlay) { overlay = undefined; render(); return; }
     const command = shortcutForKey(preferences, event.key);
     if (!command) return;

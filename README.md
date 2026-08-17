@@ -17,7 +17,7 @@ Capture a randomly seeded comparison set with `npm run capture:levels -- --count
 
 The game is a static browser client designed for GitHub Pages. The local transport keeps commands, state, course recipes, and seeds separate from the UI so a later authoritative multiplayer backend or WebRTC transport can be added without replacing game rules.
 
-Every match is a fixed nine-hole local hot-seat campaign. Before each hole, everyone votes publicly and concurrently between three seeded course-and-rules packages; bots cast deterministic seeded-random ballots, plurality wins, and a seed-based tie-break settles any draw. The selected package generates the next 20×14 isometric course, applies temporary rules to every player, and resets before the next vote; lowest aggregate strokes wins.
+Every match is a fixed nine-hole local hot-seat campaign. Before each hole, each local player takes a public card-selection turn between three seeded course-and-rules packages; bots cast deterministic seeded-random ballots, plurality wins, and a seed-based tie-break settles any draw. The selected package generates the next 20×14 isometric course, applies temporary rules to every player, and resets before the next vote; lowest aggregate strokes wins.
 
 The deterministic backend recipe exposes route length, bendiness, lane width, side routes, terrain density, ramp frequency and height cap, rough/sand/ice/booster/conveyor rates, wall count, sweeper count, gate count, portal-pair count, and separate recovery/chaos-pad counts. Curated personalities—balanced, speedway, hazard run, ice rink, and quarry—bias those ingredients; complete recipes remain programmatic rather than player-editable so game logic can construct, validate, and reproduce every ballot option from its seed.
 
@@ -31,6 +31,6 @@ Ball collisions are package-controlled: when enabled, a moving ball transfers mo
 
 ## Controls and accessibility
 
-During voting, select an option on your named row in the public ballot; you can change it until the last outstanding ballot is cast. During play, mouse movement aims a human player's shot; Space shoots, `-`/`=` change power, and `P` uses a held chaos item. The five ASCII emote buttons send `\o/`, `>:]`, `!?`, `*_*`, or `GG` above the current human player's ball. `?` opens the shortcut list and F1 opens settings, where all shortcuts can be remapped.
+During voting, pass the device to the named player and click their preferred package card; small pills on each card show every ballot cast so far. During play, mouse movement aims a human player's shot; Space shoots, `-`/`=` change power, and `P` uses a held chaos item. The five ASCII emote buttons send `\o/`, `>:]`, `!?`, `*_*`, or `GG` above the current human player's ball. `?` opens the shortcut list and F1 opens settings, where all shortcuts can be remapped.
 
 Settings persist locally and include reduced motion/flash and a high-contrast terminal mode. Shortcuts do not fire while an input field has focus.
