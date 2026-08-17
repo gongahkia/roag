@@ -8,6 +8,7 @@ import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
 import { normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
+import { chooseBotShopOffer } from '../src/core/shop';
 import type { GameState } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
@@ -145,6 +146,29 @@ describe('clubhouse economy and reality cards', () => {
     game = applyCommand(game, { type: 'shop-buy', playerId: buyer.id, offerId: caddyOffer.id });
     expect(game.players[1]!.caddies).toEqual([{ id: caddyOffer.contentId, stacks: 1 }]);
     expect(game.players[1]!.cash).toBe(14);
+  });
+
+  it('has bots rank legal merchant offers instead of taking the leftmost affordable card', () => {
+    const game = gameOn(arena('shop-bot-ranking'), { humanCount: 0, botCount: 1 });
+    const bot = game.players[0]!;
+    bot.cash = 20;
+    game.status = 'shopping';
+    game.shop = {
+      visit: 1,
+      opening: true,
+      shelf: [
+        { id: 'leftmost-pocket', contentId: 'turbo', category: 'pocket', price: 4 },
+        { id: 'reality-priority', contentId: 'wall is cup', category: 'reality', price: 8 },
+      ],
+      buyerOrder: [bot.id],
+      buyerIndex: 0,
+      completedBuyerIds: [],
+      rerollVotes: { [bot.id]: false },
+      rerollResolved: true,
+      rerolled: false,
+      secondsLeft: 20,
+    };
+    expect(chooseBotShopOffer(game, bot)?.id).toBe('reality-priority');
   });
 
   it('makes wall-is-cup and reverse controls deterministic simulation rules', () => {

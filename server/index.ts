@@ -6,6 +6,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../src/core/game';
 import { CONTENT_BY_ID } from '../src/core/catalog';
 import { normalizeGameState } from '../src/core/game-state';
+import { chooseBotShopOffer } from '../src/core/shop';
 import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
@@ -199,7 +200,8 @@ const scheduleAutomation = (room: StoredRoom) => {
       const latest = rooms.get(room.code);
       const latestShop = latest?.game?.shop;
       if (!latest?.game || latest.game.status !== 'shopping' || !latestShop || latestShop.buyerOrder[latestShop.buyerIndex] !== shopper.id) return;
-      const offer = latestShop.shelf.find((candidate) => !candidate.sold && candidate.price <= shopper.cash);
+      const latestShopper = latest.game.players.find((player) => player.id === shopper.id);
+      const offer = latestShopper ? chooseBotShopOffer(latest.game, latestShopper) : undefined;
       updateGame(latest, applyCommand(latest.game, offer ? { type: 'shop-buy', playerId: shopper.id, offerId: offer.id } : { type: 'shop-skip', playerId: shopper.id }));
     }, 550);
     return;

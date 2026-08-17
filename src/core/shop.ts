@@ -89,9 +89,33 @@ const completeBuyer = (state: GameState) => {
   } else beginCourseTransition(state);
 };
 
-const caddyDiscount = (state: GameState, playerId: string, category: ContentCategory) => {
-  const player = state.players.find((candidate) => candidate.id === playerId)!;
-  return category === 'caddy' ? caddyCount(player, 'broker') : 0;
+const offerCostFor = (player: GameState['players'][number], shopOffer: ShopOffer) => Math.max(0, shopOffer.price - (shopOffer.category === 'caddy' ? caddyCount(player, 'broker') : 0));
+
+/**
+ * Picks a legal, deterministic preference rather than whichever card happens to
+ * be first on the shared shelf. Keeping this in core makes local and server
+ * bots make the same shop decision.
+ */
+export const chooseBotShopOffer = (state: GameState, player: GameState['players'][number]) => {
+  const shop = state.shop;
+  if (!shop) return undefined;
+  const random = new Random(`${state.config.seed}:shop-bot:${shop.visit}:${shop.rerolled ? 1 : 0}:${player.id}`);
+  const pocketCount = Math.max(player.pockets.length, Number(Boolean(player.inventory)) + Number(Boolean(player.spareInventory)));
+  const categoryValue: Record<ContentCategory, number> = { caddy: 14, reality: 13, chrono: 11, pocket: 10, form: 10, gadget: 10 };
+  return shop.shelf
+    .filter((shopOffer) => {
+      if (shopOffer.sold || offerCostFor(player, shopOffer) > player.cash) return false;
+      if (shopOffer.category === 'caddy') {
+        const duplicate = player.caddies.some((caddy) => caddy.id === shopOffer.contentId);
+        return duplicate || player.caddies.length < 3;
+      }
+      return shopOffer.category === 'reality' || pocketCount < pocketCapacity(player);
+    })
+    .map((shopOffer) => {
+      const duplicateCaddy = shopOffer.category === 'caddy' && player.caddies.some((caddy) => caddy.id === shopOffer.contentId);
+      return { shopOffer, score: categoryValue[shopOffer.category] + (duplicateCaddy ? .35 : 0) + random.next() };
+    })
+    .sort((left, right) => right.score - left.score || left.shopOffer.id.localeCompare(right.shopOffer.id))[0]?.shopOffer;
 };
 
 const storePocket = (state: GameState, playerId: string, contentId: ContentId) => {
@@ -108,7 +132,7 @@ export const buyShopOffer = (state: GameState, playerId: string, offerId: string
   const shopOffer = state.shop.shelf.find((candidate) => candidate.id === offerId && !candidate.sold);
   const player = state.players.find((candidate) => candidate.id === playerId);
   if (!shopOffer || !player) return;
-  const cost = Math.max(0, shopOffer.price - caddyDiscount(state, playerId, shopOffer.category));
+  const cost = offerCostFor(player, shopOffer);
   if (player.cash < cost) return;
   if (shopOffer.category === 'caddy') {
     const caddyId = shopOffer.contentId as CaddyId;

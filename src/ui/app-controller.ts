@@ -3,6 +3,7 @@ import { chooseBotVote } from '../core/bots';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { courseForPlan } from '../core/game-state';
 import { canPlaceGadget } from '../core/powerups';
+import { chooseBotShopOffer } from '../core/shop';
 import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
@@ -441,7 +442,7 @@ export const startApp = (app: HTMLElement) => {
       const shopper = state.players.find((player) => player.id === state.shop!.buyerOrder[state.shop!.buyerIndex]);
       if (!shopper || shopper.kind !== 'bot') return;
       botTimeout = window.setTimeout(() => {
-        const offer = state.shop!.shelf.find((candidate) => !candidate.sold && candidate.price <= shopper.cash);
+        const offer = chooseBotShopOffer(state, shopper);
         setState(applyCommand(state, offer ? { type: 'shop-buy', playerId: shopper.id, offerId: offer.id } : { type: 'shop-skip', playerId: shopper.id }));
       }, preferences.reducedMotion ? 120 : 560);
       return;
