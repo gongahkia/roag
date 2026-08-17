@@ -173,4 +173,24 @@ describe('grounded physics invariants', () => {
     const magnet = simulateShot(magnetCourse, newBall(magnetCourse), { angle: 0, power: 3 }, 1, { modifiers: { magnetBall: true } });
     expect(magnet.ball.y).toBeGreaterThan(flat.ball.y);
   });
+
+  it('resolves biome interactions and universal gadget triggers in the deterministic simulation', () => {
+    const drift = lane('fairway', 30);
+    drift.theme = 'drift';
+    drift.features = [{ id: 'sink', kind: 'sinkhole', entrance: { x: 3, y: 3 }, exit: { x: 15, y: 3 } }];
+    const rerouted = simulateShot(drift, newBall(drift), { angle: 0, power: 4 }, .7);
+    expect(rerouted.ball.x).toBeGreaterThan(15);
+
+    const pulse = lane('fairway', 80);
+    pulse.theme = 'pulse';
+    pulse.features = [{ id: 'pulse', kind: 'pulse', point: { x: 2, y: 3 }, direction: { x: 1, y: 0 }, strength: 3 }];
+    const launched = simulateShot(pulse, newBall(pulse), { angle: 0, power: 2 }, .8);
+    const plain = simulateShot(lane('fairway', 80), newBall(lane('fairway', 80)), { angle: 0, power: 2 }, .8);
+    expect(launched.ball.x).toBeGreaterThan(plain.ball.x + .4);
+
+    const gadgets = lane('fairway', 40);
+    const trapped = simulateShot(gadgets, newBall(gadgets), { angle: 0, power: 4 }, 1, { gadgets: [{ id: 'mine', ownerId: 'human-0', kind: 'blast mine', point: { x: 4, y: 3 } }] });
+    expect(trapped.gadgetIds).toEqual(['mine']);
+    expect(trapped.ball.x).toBeLessThan(4);
+  });
 });

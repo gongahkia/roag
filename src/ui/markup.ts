@@ -1,4 +1,4 @@
-import { EMOTES, type GameConfig, type GameState, type HoleRules, type PowerUp, type ShotCommand, type VotingOption } from '../core/types';
+import { EMOTES, type GadgetKind, type GameConfig, type GameState, type HoleRules, type Point, type PowerUp, type ShotCommand, type VotingOption } from '../core/types';
 import { bindingFor, type GamePreferences, type ShortcutId } from '../preferences';
 
 export type Overlay = 'help' | 'settings' | undefined;
@@ -16,6 +16,7 @@ export interface ViewModel {
   drawer: Drawer;
   rebinding?: ShortcutId;
   aim: ShotCommand;
+  placement?: { kind: GadgetKind; point?: Point; valid: boolean; confirmed?: boolean };
   shotInFlight: boolean;
   assemblyProgress?: number;
   multiplayer: MultiplayerView;
@@ -33,11 +34,12 @@ const ruleSummary = (rules: HoleRules) => [
   `${Math.round(rules.launchMultiplier * 100)}% launch`, `${Math.round(rules.rollingResistanceMultiplier * 100)}% roll`,
   `${rules.hazardPhaseCount} hazard phases`, `${Math.round(rules.scoreMultiplier * 100)}% score`,
 ].join(' · ');
-const themeIcon: Record<VotingOption['recipe']['terrain']['theme'], string> = { balanced: '⛳', speedway: '⚡', 'hazard-run': '⚠', 'ice-rink': '❄', quarry: '⛏' };
+const themeIcon: Record<VotingOption['recipe']['terrain']['theme'], string> = { balanced: '⛳', speedway: '⚡', 'hazard-run': '⚠', 'ice-rink': '❄', quarry: '⛏', drift: '↻', bloom: '✽', pulse: '⌁' };
+const themeDescriptor: Record<VotingOption['recipe']['terrain']['theme'], string> = { balanced: 'steady green', speedway: 'speed lanes', 'hazard-run': 'moving traps', 'ice-rink': 'long slides', quarry: 'hard climbs', drift: 'paired sinkholes', bloom: 'thorn knockback', pulse: 'launch fields' };
 const boonIcon: Record<string, string> = {
   'heavy ball': '●', 'ice skates': '⛸', 'extra charge': '✚', 'bank shot': '↩', 'hazard shield': '⬡', 'chaos magnet': '🧲', 'portal savvy': '◉', 'second wind': '↯', scavenger: '▣',
 };
-const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb: '✹', freeze: '❄', swap: '⇄', 'two putts': '2P', heavy: '●', bouncy: '◌', ghost: '◐', magnet: '🧲', ice: '❄', portal: '◉' };
+const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb: '✹', freeze: '❄', swap: '⇄', 'two putts': '2P', heavy: '●', bouncy: '◌', ghost: '◐', magnet: '🧲', ice: '❄', portal: '◉', 'cup magnet': '⊙', slipstream: '➳', 'rebound rig': '↩', 'phase shift': '⇤', sandbag: '▰', 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋' };
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.paused) return 'match paused';
@@ -59,13 +61,18 @@ const renderAssemblyControls = (state: GameState) => `<div class="turn"><strong>
 const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">final results are in the foreground</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 
 export const renderControlsMarkup = (view: ViewModel) => {
-  const { state, preferences, aim, shotInFlight, multiplayer } = view;
+  const { state, preferences, aim, shotInFlight, multiplayer, placement } = view;
   if (state.status === 'voting') return renderVotingControls(state);
   if (state.status === 'assembling') return renderAssemblyControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
   const heldItems = [player.inventory, player.spareInventory].filter(Boolean) as PowerUp[];
+  const targeted = new Set<PowerUp>(['bomb', 'freeze', 'swap', 'phase shift', 'sandbag']);
+  const targets = state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete);
+  const targetSelector = heldItems.some((powerUp) => targeted.has(powerUp)) && targets.length
+    ? `<label>target <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targets.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`).join('')}</select></label>`
+    : '';
   const portalExits = state.course.portals?.filter((pair) => pair.exit).map((pair) => `<option value="${pair.id}:exit">${escapeHtml(pair.id)} exit</option>`).join('') ?? '';
   return `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escapeHtml(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}</small></div>
@@ -74,7 +81,9 @@ export const renderControlsMarkup = (view: ViewModel) => {
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>shoot <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
     ${player.ballForm ? `<span class="active-form">next shot: ${escapeHtml(player.ballForm)} ball</span>` : ''}
     ${heldItems.includes('portal') ? `<label>portal exit <select id="portal-exit" ${disabled ? 'disabled' : ''}>${portalExits}</select></label>` : ''}
+    ${targetSelector}
     ${heldItems.length ? heldItems.map((powerUp) => `<button data-use-powerup="${powerUp}" ${disabled ? 'disabled' : ''}>use ${escapeHtml(powerUp)}${powerUp === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`).join('') : '<span class="muted">no chaos item</span>'}
+    ${placement ? `<p class="placement-status ${placement.valid ? 'valid' : 'invalid'}">${powerUpIcon[placement.kind]} ${escapeHtml(placement.kind)} · ${placement.point ? placement.valid ? placement.confirmed ? 'click again or press Enter to place' : 'click this tile to lock the preview' : 'choose an open playable tile' : 'click a tile to preview'} <button data-cancel-placement>cancel</button></p>` : ''}
     ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}
     <p id="status" class="control-status">${renderStatus(view)}</p>`;
 };
@@ -111,8 +120,8 @@ const renderVoteOverlay = (view: ViewModel) => {
     const boons = rules.sharedBoons.length ? rules.sharedBoons.map((boon) => `<span class="boon-chip" title="${escapeHtml(boon)}"><b>${boonIcon[boon] ?? '✦'}</b>${escapeHtml(boon)}</span>`).join('') : '<span class="boon-chip muted"><b>○</b>no shared boon</span>';
     const supply = rules.startingPowerUp ? `<span class="supply-chip"><b>${powerUpIcon[rules.startingPowerUp] ?? '✦'}</b>start: ${escapeHtml(rules.startingPowerUp)}</span>` : '';
     const voterPills = voters.length ? voters.map((player) => `<span class="vote-pill" title="${escapeHtml(player.name)} voted for this package"><i style="background:${player.color}"></i>${escapeHtml(player.name)}</span>`).join('') : '<span class="vote-pill empty">no votes</span>';
-    return `<article class="vote-card theme-${terrain.theme}" data-vote-option="${option.id}" role="button" tabindex="0" aria-label="vote for ${escapeHtml(option.label)}"><header><span class="package-number">${index + 1}</span><div><p class="card-kicker">${themeIcon[terrain.theme]} ${escapeHtml(terrain.theme)}</p><h2>${escapeHtml(option.label)}</h2></div><div class="vote-pills"><strong class="vote-count">${votesFor(option.id)}<small>votes</small></strong>${voterPills}</div></header>
-      <div class="course-glyphs" aria-label="course configuration"><span title="route length">🧭 ${Math.round(terrain.routeLength * 100)}%</span><span title="bendiness">↪ ${Math.round(terrain.bendiness * 100)}%</span><span title="lane width">↔ ${terrain.laneWidth}</span><span title="ramps">⛰ ${Math.round(terrain.elevation * 100)}%/${terrain.maxElevation}</span><span title="walls">🧱 ${terrain.wallCount}</span><span title="sweepers and gates">⚠ ${terrain.sweeperCount}+${terrain.gateCount}</span><span title="portal pairs">◉ ${terrain.portalPairs}</span><span title="item pads">✚ ${terrain.recoveryPads} · ✹ ${terrain.chaosPads}</span></div>
+    return `<article class="vote-card theme-${terrain.theme}" data-vote-option="${option.id}" role="button" tabindex="0" aria-label="vote for ${escapeHtml(option.label)}"><header><span class="package-number">${index + 1}</span><div><p class="card-kicker" title="${escapeHtml(terrain.theme)}">${themeIcon[terrain.theme]} ${themeDescriptor[terrain.theme]}</p><h2>${escapeHtml(option.label)}</h2></div><div class="vote-pills"><strong class="vote-count">${votesFor(option.id)}<small>votes</small></strong>${voterPills}</div></header>
+      <div class="course-glyphs" aria-label="course configuration"><span title="route length">🧭 ${Math.round(terrain.routeLength * 100)}%</span><span title="bendiness">↪ ${Math.round(terrain.bendiness * 100)}%</span><span title="lane width">↔ ${terrain.laneWidth}</span><span title="ramps">⛰ ${Math.round(terrain.elevation * 100)}%/${terrain.maxElevation}</span><span title="walls">🧱 ${terrain.wallCount}</span><span title="sweepers and gates">⚠ ${terrain.sweeperCount}+${terrain.gateCount}</span><span title="portal pairs">◉ ${terrain.portalPairs}</span><span title="item pads">✚ ${terrain.recoveryPads} · ✹ ${terrain.chaosPads}</span>${terrain.theme === 'drift' ? `<span title="paired sinkholes">↻ ${terrain.sinkholePairs}</span>` : terrain.theme === 'bloom' ? `<span title="thorn zones">✽ ${terrain.thornCount}</span>` : terrain.theme === 'pulse' ? `<span title="pulse fields">⌁ ${terrain.pulseCount}</span>` : ''}</div>
       <div class="rule-chip-grid" aria-label="hole rules"><span>⏱ ${rules.timerSeconds}s</span><span>🎯 cap ${rules.strokeCap}</span><span>${rules.collisions ? '● collisions' : '○ no collisions'}</span><span>${rules.powerUps ? '🎁 items on' : '⊘ items off'}</span><span>↯ ${Math.round(rules.launchMultiplier * 100)}%</span><span>🧊 ${Math.round(rules.rollingResistanceMultiplier * 100)}%</span><span>↩ ${Math.round(rules.wallRestitutionMultiplier * 100)}%</span><span>◌ cup ${Math.round(rules.cupRadius * 100)}</span><span>◴ ${rules.hazardPhaseCount} phases</span><span>★ ${Math.round(rules.scoreMultiplier * 100)}% score</span></div>
       <div class="boon-row">${boons}${supply}</div>
       <footer class="card-action">${nextHumanVoter ? `<strong>click to vote${view.multiplayer.online ? '' : ` as ${escapeHtml(nextHumanVoter.name)}`}</strong>` : '<strong>ballot cast · waiting for the table</strong>'}</footer>
@@ -176,7 +185,8 @@ const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">The ballot is open in the foreground. No course is revealed until the vote resolves.</p>`;
   if (state.status === 'assembling') return `${renderLedger(view.ledger)}<p class="hint">The selected package is assembling in the foreground. Gameplay opens after the final tile lands.</p>`;
-  return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>shared boons</dt><dd>${state.holeRules.sharedBoons.join(', ') || 'none'}</dd><dt>starting supply</dt><dd>${state.holeRules.startingPowerUp ?? 'none'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · numbered A/B: portal pair<br>cyan +: recovery pad · violet !: chaos pad</p>`;
+  const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : '⌁ pulse launch').join(' · ') || 'none';
+  return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>biome</dt><dd>${themeIcon[state.course.theme]} ${themeDescriptor[state.course.theme]}</dd><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>shared boons</dt><dd>${state.holeRules.sharedBoons.join(', ') || 'none'}</dd><dt>starting supply</dt><dd>${state.holeRules.startingPowerUp ?? 'none'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>biome effects</dt><dd>${features}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · numbered A/B: portal pair<br>↻ paired sinkhole · ✽ thorn knockback · ⌁ pulse launch<br>cyan +: recovery pad · violet !: chaos pad · ↑/⌁/✹/≋: player gadgets</p>`;
 };
 
 const renderDrawer = (view: ViewModel) => {

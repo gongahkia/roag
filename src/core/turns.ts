@@ -17,6 +17,7 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
     phase: state.coursePhase,
     phaseCount: state.holeRules.hazardPhaseCount,
     collectItems: state.holeRules.powerUps && canStorePowerUp(player),
+    gadgets: state.gadgets ?? [],
   });
 };
 
@@ -30,6 +31,7 @@ const applySimulation = (state: GameState, playerIndex: number, result: Simulati
     player.hazardShield = player.hazardShield && !result.otherShieldUsed[otherIndex];
     otherIndex += 1;
   });
+  if (result.gadgetIds.length) state.gadgets = (state.gadgets ?? []).filter((gadget) => !result.gadgetIds.includes(gadget.id));
 };
 
 export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | undefined => {
@@ -82,6 +84,10 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   const playerIndex = state.turn.playerIndex;
   const result = simulatePlayerShot(state, playerIndex, shot);
   player.turboArmed = false;
+  player.cupMagnetArmed = false;
+  player.slipstreamArmed = false;
+  player.reboundRigArmed = false;
+  player.sandbagged = false;
   applySimulation(state, playerIndex, result);
   const consumedForm = player.ballForm;
   player.ballForm = undefined;

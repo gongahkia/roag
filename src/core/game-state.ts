@@ -38,9 +38,36 @@ export const cloneCourse = (course: Course): Course => ({
   tee: { ...course.tee },
   cup: { ...course.cup },
   hazards: course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })),
+  theme: course.theme ?? 'balanced',
+  features: (course.features ?? []).map((feature) => feature.kind === 'sinkhole'
+    ? { ...feature, entrance: { ...feature.entrance }, exit: { ...feature.exit } }
+    : feature.kind === 'pulse'
+      ? { ...feature, point: { ...feature.point }, direction: { ...feature.direction } }
+      : { ...feature, point: { ...feature.point } }),
   portals: course.portals?.map((pair) => ({ ...pair, entrance: pair.entrance ? { point: { ...pair.entrance.point }, direction: { ...pair.entrance.direction } } : undefined, exit: pair.exit ? { point: { ...pair.exit.point }, direction: { ...pair.exit.direction } } : undefined })),
   itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })),
 });
+
+/** upgrades snapshots written before biome features and gadgets without discarding their match state. */
+export const normalizeGameState = (state: GameState): GameState => {
+  const normalizeCourse = (course: Course) => {
+    course.theme ??= 'balanced';
+    course.features ??= [];
+    course.portals ??= [];
+    course.itemPads ??= [];
+  };
+  normalizeCourse(state.course);
+  state.vote?.options.forEach((option) => {
+    normalizeCourse(option.course);
+    option.recipe.terrain.sinkholePairs ??= 0;
+    option.recipe.terrain.thornCount ??= 0;
+    option.recipe.terrain.pulseCount ??= 0;
+  });
+  state.gadgets ??= [];
+  state.emotes ??= [];
+  state.emoteSequence ??= 0;
+  return state;
+};
 
 const cloneOption = (option: VotingOption): VotingOption => ({
   ...option,
@@ -65,6 +92,7 @@ export const createGameState = (config: GameConfig): GameState => {
     emotes: [],
     emoteSequence: 0,
     players,
+    gadgets: [],
     turn: { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false },
     paused: false,
     status: 'voting',
@@ -80,6 +108,7 @@ export const cloneGameState = (state: GameState): GameState => ({
   assembly: state.assembly ? { ...state.assembly } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })),
+  gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),
   turn: { ...state.turn },
   messages: [...state.messages],
 });
@@ -94,6 +123,7 @@ const resolveVote = (state: GameState) => {
   state.course = cloneCourse(winner.course);
   state.holeRules = { ...winner.recipe.rules, sharedBoons: [...winner.recipe.rules.sharedBoons] };
   state.coursePhase = 0;
+  state.gadgets = [];
   state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
   state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
   state.vote = undefined;
@@ -130,6 +160,7 @@ export const beginNextVote = (state: GameState) => {
   state.assembly = undefined;
   state.course = cloneCourse(state.vote.options[0]!.course);
   state.coursePhase = 0;
+  state.gadgets = [];
   state.paused = false;
   state.status = 'voting';
   state.turn = { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false };

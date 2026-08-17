@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, defaultConfig } from '../src/core/game';
-import { renderAppMarkup } from '../src/ui/markup';
+import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
 import { lobbyConfigFromGame, renderHomeMarkup } from '../src/ui/home-markup';
 
@@ -34,6 +34,18 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('data-vote-option="hole-1-option-1"');
     expect(markup).toContain('class="vote-pills"');
     expect(markup).toContain('app-shell voting');
+  });
+
+  it('renders target selection and click-confirmed gadget placement guidance for new items', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'item-markup', humanCount: 1, botCount: 1 });
+    state.status = 'playing';
+    state.vote = undefined;
+    state.players[0]!.inventory = 'sandbag';
+    state.players[0]!.spareInventory = 'popper pad';
+    const markup = renderControlsMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, placement: { kind: 'popper pad', point: { x: 4, y: 3 }, valid: true, confirmed: true }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(markup).toContain('id="powerup-target"');
+    expect(markup).toContain('data-use-powerup="popper pad"');
+    expect(markup).toContain('click again or press Enter to place');
   });
 
   it('shows the selected course package while its arena is assembling', () => {

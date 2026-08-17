@@ -11,7 +11,7 @@ const directions = [
   { x: 0, y: -1 },
 ];
 
-const themes: CourseTheme[] = ['balanced', 'speedway', 'hazard-run', 'ice-rink', 'quarry'];
+const themes: CourseTheme[] = ['balanced', 'speedway', 'hazard-run', 'ice-rink', 'quarry', 'drift', 'bloom', 'pulse'];
 
 export const defaultTerrainSettings = (): TerrainSettings => ({
   density: .55,
@@ -34,12 +34,16 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
   portalPairs: 1,
   recoveryPads: 2,
   chaosPads: 2,
+  sinkholePairs: 1,
+  thornCount: 2,
+  pulseCount: 2,
   variation: 0,
 });
 
 export const randomTerrainSettings = (seed: string, variation: number): TerrainSettings => {
   const random = new Random(`${seed}:terrain:${variation}`);
   const stepped = (min: number, max: number, step: number) => Number((min + random.int(0, Math.round((max - min) / step)) * step).toFixed(2));
+  const theme = random.pick(themes);
   return {
     density: stepped(.1, 1, .05),
     elevation: stepped(0, 1, .05),
@@ -49,7 +53,7 @@ export const randomTerrainSettings = (seed: string, variation: number): TerrainS
     laneWidth: random.int(1, 3),
     branches: random.int(0, 3),
     chaos: stepped(0, 1, .05),
-    theme: random.pick(themes),
+    theme,
     roughRate: stepped(.04, .3, .02),
     sandRate: stepped(.04, .34, .02),
     iceRate: stepped(.04, .34, .02),
@@ -61,6 +65,9 @@ export const randomTerrainSettings = (seed: string, variation: number): TerrainS
     portalPairs: random.int(0, 2),
     recoveryPads: random.int(1, 4),
     chaosPads: random.int(1, 4),
+    sinkholePairs: theme === 'drift' ? random.int(1, 2) : random.int(0, 1),
+    thornCount: theme === 'bloom' ? random.int(1, 3) : random.int(0, 1),
+    pulseCount: theme === 'pulse' ? random.int(1, 3) : random.int(0, 1),
     variation,
   };
 };
@@ -125,6 +132,8 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
   while (position.x < cupX && steps < 48) {
     let deltaY = random.chance(bendChance) ? random.pick([-1, 1]) : 0;
     if (settings.theme === 'speedway' && random.chance(.65)) deltaY = 0;
+    if (settings.theme === 'drift' && random.chance(.32)) deltaY = random.pick([-1, 1]);
+    if (settings.theme === 'pulse' && random.chance(.7)) deltaY = 0;
     if (settings.theme === 'hazard-run' && random.chance(.16 + settings.bendiness * .18)) deltaY = random.pick([-1, 1]);
     position = {
       x: Math.min(cupX, position.x + 1),
@@ -269,6 +278,44 @@ const addPortals = (course: Course, random: Random, count: number) => {
   }
 };
 
+const featureCandidates = (course: Course, avoidRoute = false) => course.tiles.flatMap((tile, index) => {
+  if (tile.surface === 'void' || tile.surface === 'wall' || tile.surface === 'tee' || tile.surface === 'cup') return [];
+  const point = { x: index % course.width, y: Math.floor(index / course.width) };
+  if (avoidRoute && course.route.some((route) => route.x === point.x && route.y === point.y)) return [];
+  if (course.itemPads.some((pad) => pad.point.x === point.x && pad.point.y === point.y)) return [];
+  return [point];
+});
+
+const addBiomeFeatures = (course: Course, random: Random, settings: TerrainSettings) => {
+  if (settings.theme === 'drift') {
+    const used = new Set<string>();
+    for (let index = 0; index < settings.sinkholePairs; index += 1) {
+      const candidates = featureCandidates(course, true).filter((point) => !used.has(`${point.x},${point.y}`));
+      if (candidates.length < 2) break;
+      const entrance = random.pick(candidates);
+      const distant = candidates.filter((candidate) => Math.hypot(candidate.x - entrance.x, candidate.y - entrance.y) >= 4);
+      const exit = random.pick(distant.length ? distant : candidates.filter((candidate) => candidate.x !== entrance.x || candidate.y !== entrance.y));
+      used.add(`${entrance.x},${entrance.y}`);
+      used.add(`${exit.x},${exit.y}`);
+      course.features.push({ id: `sinkhole-${index + 1}`, kind: 'sinkhole', entrance, exit });
+    }
+  }
+  if (settings.theme === 'bloom') {
+    const candidates = featureCandidates(course, true);
+    for (let index = 0; index < settings.thornCount && candidates.length; index += 1) {
+      const point = random.pick(candidates);
+      course.features.push({ id: `thorn-${index + 1}`, kind: 'thorn', point, radius: .52 + settings.chaos * .12 });
+    }
+  }
+  if (settings.theme === 'pulse') {
+    const candidates = featureCandidates(course);
+    for (let index = 0; index < settings.pulseCount && candidates.length; index += 1) {
+      const point = random.pick(candidates);
+      course.features.push({ id: `pulse-${index + 1}`, kind: 'pulse', point, direction: random.pick(directions), strength: 1.7 + settings.chaos * .8 });
+    }
+  }
+};
+
 const addBarrierWalls = (course: Course) => {
   const candidates = new Map<string, { point: Point; height: number }>();
   for (let y = 0; y < course.height; y += 1) {
@@ -295,7 +342,7 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
     const tile = course.tiles[indexOf(course, point)]!;
     if (tile.surface !== 'fairway' || point.x === course.tee.x || point.x === course.cup.x) continue;
     const surfaceRoll = random.next();
-    const themeBoost = settings.theme === 'quarry' ? { sand: .12, ice: -.04, speed: -.03 } : settings.theme === 'ice-rink' ? { sand: -.04, ice: .14, speed: -.02 } : settings.theme === 'speedway' ? { sand: -.03, ice: -.02, speed: .13 } : { sand: 0, ice: 0, speed: 0 };
+    const themeBoost = settings.theme === 'quarry' ? { sand: .12, ice: -.04, speed: -.03 } : settings.theme === 'ice-rink' ? { sand: -.04, ice: .14, speed: -.02 } : settings.theme === 'speedway' ? { sand: -.03, ice: -.02, speed: .13 } : settings.theme === 'drift' ? { sand: .03, ice: .08, speed: .02 } : settings.theme === 'bloom' ? { sand: .09, ice: -.03, speed: -.04 } : settings.theme === 'pulse' ? { sand: -.03, ice: -.02, speed: .1 } : { sand: 0, ice: 0, speed: 0 };
     const rough = settings.roughRate;
     const sand = Math.max(0, settings.sandRate + themeBoost.sand);
     const ice = Math.max(0, settings.iceRate + themeBoost.ice);
@@ -330,6 +377,7 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
   for (let index = 0; index < settings.gateCount; index += 1) addHazard(course, random, index, 'gate', phaseCount);
   addPortals(course, random, settings.portalPairs);
   addItemPads(course, random, settings.recoveryPads, settings.chaosPads);
+  addBiomeFeatures(course, random, settings);
   addBarrierWalls(course);
 };
 
@@ -348,7 +396,7 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
   const cup = route.at(-1)!;
   writeTile(tiles, tee, 'tee', tiles[indexOf({ width: COURSE_WIDTH }, tee)]!.height);
   writeTile(tiles, cup, 'cup', tiles[indexOf({ width: COURSE_WIDTH }, cup)]!.height);
-  const course: Course = { id: `course-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], portals: [], itemPads: [], score: {} as CourseScore };
+  const course: Course = { id: `course-${seed}`, seed, theme: settings.theme, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   decorate(course, random, settings, phaseCount);
   smoothRampHeights(course);
   course.score = scoreCourse(course, phaseCount);
@@ -429,9 +477,9 @@ const randomHoleRules = (random: Random): HoleRules => {
   };
 };
 
-const optionLabel = (terrain: TerrainSettings, rules: HoleRules, index: number) => {
+const optionLabel = (_terrain: TerrainSettings, rules: HoleRules, index: number) => {
   const boon = rules.sharedBoons[0] ?? (rules.startingPowerUp ? `${rules.startingPowerUp} supply` : 'standard kit');
-  return `${votingLabels[index % votingLabels.length]} · ${terrain.theme} · ${boon}`;
+  return `${votingLabels[index % votingLabels.length]} · ${boon}`;
 };
 
 const guaranteedFallbackCourse = (seed: string, phaseCount: number): Course => {
@@ -441,7 +489,7 @@ const guaranteedFallbackCourse = (seed: string, phaseCount: number): Course => {
   tiles[indexOf({ width: COURSE_WIDTH }, tee)] = { surface: 'tee', height: 0 };
   tiles[indexOf({ width: COURSE_WIDTH }, cup)] = { surface: 'cup', height: 0 };
   const route = Array.from({ length: cup.x - tee.x + 1 }, (_, index) => ({ x: tee.x + index, y: tee.y }));
-  const course: Course = { id: `fallback-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], portals: [], itemPads: [], score: {} as CourseScore };
+  const course: Course = { id: `fallback-${seed}`, seed, theme: 'balanced', width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   course.score = scoreCourse(course, phaseCount);
   return course;
 };

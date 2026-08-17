@@ -2,8 +2,9 @@ import { newBall, type BallPhysicsModifiers } from './physics';
 import type { BallForm, Course, HoleRules, Player, PowerUp, ShotCommand, Upgrade } from './types';
 
 export const BALL_FORMS: readonly BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
-export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet'];
-export const CHAOS_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal'];
+export const GADGET_POWER_UPS: readonly PowerUp[] = ['popper pad', 'snare patch', 'blast mine', 'slick patch'];
+export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'cup magnet', 'slipstream', 'rebound rig', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'phase shift', 'sandbag'];
+export const CHAOS_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'cup magnet', 'slipstream', 'rebound rig', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'phase shift', 'sandbag'];
 export const UPGRADES: readonly Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'];
 
 export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
@@ -21,7 +22,7 @@ export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
 export const isBallForm = (powerUp: PowerUp): powerUp is BallForm => BALL_FORMS.includes(powerUp as BallForm);
 
 export const adjustedShotFor = (player: Player, shot: ShotCommand, rules?: HoleRules): ShotCommand => {
-  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1) * (rules?.launchMultiplier ?? 1);
+  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.sandbagged ? .7 : 1) * (player.upgrades.includes('heavy ball') ? 1.12 : 1) * (player.ballForm === 'heavy' ? 1.16 : 1) * (rules?.launchMultiplier ?? 1);
   return { ...shot, power: shot.power * multiplier };
 };
 
@@ -40,6 +41,9 @@ export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhys
   terrainAccelerationMultiplier: rules?.terrainAccelerationMultiplier,
   hazardImpulseMultiplier: rules?.hazardImpulseMultiplier,
   cupRadius: rules?.cupRadius,
+  cupMagnet: player.cupMagnetArmed,
+  slipstream: player.slipstreamArmed,
+  reboundRig: player.reboundRigArmed,
 });
 
 export const resetPlayerForCourse = (player: Player, course: Course, rules?: HoleRules) => {
@@ -54,6 +58,10 @@ export const resetPlayerForCourse = (player: Player, course: Course, rules?: Hol
   player.turboArmed = false;
   player.frozenTurns = undefined;
   player.hazardShield = player.upgrades.includes('hazard shield');
+  player.cupMagnetArmed = undefined;
+  player.slipstreamArmed = undefined;
+  player.reboundRigArmed = undefined;
+  player.sandbagged = undefined;
 };
 
 export const canStorePowerUp = (player: Player) => !player.inventory || (player.upgrades.includes('scavenger') && !player.spareInventory);

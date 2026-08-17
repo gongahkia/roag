@@ -4,7 +4,9 @@ import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn
 import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
+import { normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
+import type { GameState } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
 const resolveVote = (game: ReturnType<typeof createGame>, optionIndex = 0) => {
@@ -53,6 +55,26 @@ describe('course generation', () => {
     expect(course.tiles.some((tile) => tile.surface === 'wall')).toBe(true);
     expect(result.reset).toBe(false);
     expect(result.ball.x).toBeGreaterThan(start.x - .5);
+  });
+
+  it('gives every abstract biome a deterministic presentation feature without changing the shared terrain controls', () => {
+    const themes = ['drift', 'bloom', 'pulse'] as const;
+    for (const theme of themes) {
+      const first = generateCourse(`biome-${theme}`, { ...defaultTerrainSettings(), theme, chaos: .8 });
+      const second = generateCourse(`biome-${theme}`, { ...defaultTerrainSettings(), theme, chaos: .8 });
+      expect(first.theme).toBe(theme);
+      expect(first.features).toEqual(second.features);
+      expect(first.features.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps biome feature quantities in the backend recipe for game logic to tune', () => {
+    const drift = generateCourse('drift-quantities', { ...defaultTerrainSettings(), theme: 'drift', sinkholePairs: 2 });
+    const bloom = generateCourse('bloom-quantities', { ...defaultTerrainSettings(), theme: 'bloom', thornCount: 3 });
+    const pulse = generateCourse('pulse-quantities', { ...defaultTerrainSettings(), theme: 'pulse', pulseCount: 3 });
+    expect(drift.features.filter((feature) => feature.kind === 'sinkhole')).toHaveLength(2);
+    expect(bloom.features.filter((feature) => feature.kind === 'thorn')).toHaveLength(3);
+    expect(pulse.features.filter((feature) => feature.kind === 'pulse')).toHaveLength(3);
   });
 });
 
@@ -175,7 +197,7 @@ describe('turns, shared rules, and bots', () => {
     game = tickTurn({ ...game, turn: { ...game.turn, secondsLeft: .1 } }, 1);
     expect(game.turn.secondsLeft).toBe(game.holeRules.timerSeconds);
     game.players[0]!.total = 3;
-    expect(['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet']).toContain(powerUpFor(game, game.players[0]!, 'chaos', 'recovery-bias'));
+    expect(['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'cup magnet', 'slipstream', 'rebound rig', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'phase shift', 'sandbag']).toContain(powerUpFor(game, game.players[0]!, 'chaos', 'recovery-bias'));
   });
 
   it('preserves item-specific effects that the shared rules can enable', () => {
@@ -191,5 +213,26 @@ describe('turns, shared rules, and bots', () => {
     game.course.seed = Array.from({ length: 12 }, (_, index) => `magnet-${index}`).find((seed) => new Random(`${seed}:human-0:0:turbo`).chance(.65))!;
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'turbo' });
     expect(game.players[0]!.inventory).toBeDefined();
+  });
+
+  it('places one legal universal gadget per player and keeps legacy snapshots readable', () => {
+    const course = arena('gadget-placement');
+    let game = gameOn(course, { botCount: 0 });
+    game.players[0]!.inventory = 'blast mine';
+    const invalid = applyCommand(game, { type: 'use-power-up', powerUp: 'blast mine', placement: course.tee });
+    expect(invalid.gadgets).toHaveLength(0);
+    expect(invalid.players[0]!.inventory).toBe('blast mine');
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'blast mine', placement: { x: 5, y: 3 } });
+    expect(game.gadgets).toMatchObject([{ ownerId: 'human-0', kind: 'blast mine', point: { x: 5, y: 3 } }]);
+    game.players[0]!.inventory = 'slick patch';
+    expect(applyCommand(game, { type: 'use-power-up', powerUp: 'slick patch', placement: { x: 6, y: 3 } }).gadgets).toHaveLength(1);
+
+    const legacy = structuredClone(game) as unknown as { gadgets?: unknown; course: { features?: unknown; theme?: unknown } };
+    delete legacy.gadgets;
+    delete legacy.course.features;
+    delete legacy.course.theme;
+    const restored = normalizeGameState(legacy as unknown as GameState);
+    expect(restored.gadgets).toEqual([]);
+    expect(restored.course).toMatchObject({ theme: 'balanced', features: [] });
   });
 });

@@ -10,7 +10,7 @@ export const createArena = (seed = 'arena'): Course => {
   const cup = { x: width - 2, y: height - 2 };
   tiles[tee.y * width + tee.x] = { surface: 'tee', height: 0 };
   tiles[cup.y * width + cup.x] = { surface: 'cup', height: 0 };
-  return { id: seed, seed, width, height, tiles, tee, cup, route: [tee, cup], hazards: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 100, solverShots: [] } };
+  return { id: seed, seed, theme: 'balanced', width, height, tiles, tee, cup, route: [tee, cup], hazards: [], features: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 100, solverShots: [] } };
 };
 
 export const createLane = (surface: Surface = 'fairway', width = 80): Course => {
@@ -20,7 +20,7 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
   const tiles: Tile[] = Array.from({ length: width * height }, () => ({ surface, height: 0 }));
   tiles[tee.y * width + tee.x] = { surface: 'tee', height: 0 };
   tiles[cup.y * width + cup.x] = { surface: 'cup', height: 0 };
-  return { id: `lane-${surface}`, seed: `lane-${surface}`, width, height, tiles, tee, cup, route: [tee, cup], hazards: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 0, solverShots: [] } };
+  return { id: `lane-${surface}`, seed: `lane-${surface}`, theme: 'balanced', width, height, tiles, tee, cup, route: [tee, cup], hazards: [], features: [], itemPads: [], score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 0, solverShots: [] } };
 };
 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {

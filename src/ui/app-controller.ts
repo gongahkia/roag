@@ -1,7 +1,8 @@
 import { presentFeedback } from '../feedback';
 import { chooseBotVote } from '../core/bots';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
-import type { Ball, Emote, EmoteEvent, GameCommand, GameConfig, GameState, PowerUp, ShotCommand } from '../core/types';
+import { canPlaceGadget } from '../core/powerups';
+import type { Ball, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
@@ -12,6 +13,7 @@ import { createRenderer } from './render';
 interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
 interface LiveEmote extends EmoteEvent { expiresAt: number; }
+interface PlacementState { kind: GadgetKind; point?: Point; valid: boolean; confirmed: boolean; ownerId: string; }
 type Screen = 'home' | 'lobby' | 'game';
 type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
 
@@ -73,6 +75,7 @@ export const startApp = (app: HTMLElement) => {
   let onlineConnected = false;
   let controllerName: string | undefined;
   let gamepadButtons: boolean[] = [];
+  let placement: PlacementState | undefined;
   let audioContext: AudioContext | undefined;
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
@@ -86,6 +89,7 @@ export const startApp = (app: HTMLElement) => {
     drawer,
     rebinding,
     aim,
+    placement,
     shotInFlight: Boolean(shotAnimation),
     assemblyProgress: state.status === 'assembling' ? assemblyProgress : undefined,
     ledger,
@@ -138,7 +142,7 @@ export const startApp = (app: HTMLElement) => {
 
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
-    renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, state.status === 'assembling' ? assemblyProgress : undefined);
+    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, state.status === 'assembling' ? assemblyProgress : undefined, state.gadgets ?? [], placement);
   };
   const startAssembly = (completeLocally: boolean) => {
     if (state.status !== 'assembling') return;
@@ -162,6 +166,7 @@ export const startApp = (app: HTMLElement) => {
   const setState = (next: GameState) => {
     const enteringAssembly = state.status !== 'assembling' && next.status === 'assembling';
     state = next;
+    if (placement && (state.status !== 'playing' || !state.players.find((player) => player.id === placement!.ownerId && (player.inventory === placement!.kind || player.spareInventory === placement!.kind)))) placement = undefined;
     if (enteringAssembly) assemblyProgress = 0;
     if (state.status !== 'assembling' && assemblyFrame !== undefined) {
       window.cancelAnimationFrame(assemblyFrame);
@@ -287,7 +292,15 @@ export const startApp = (app: HTMLElement) => {
     connectOnline({ type: 'join-room', code: requestedRoomCode, name: playerName, reconnectToken: getStoredToken(requestedRoomCode) ?? undefined }, requestedRoomCode);
   };
 
+  const updatePlacement = (event: PointerEvent) => {
+    if (!renderer || !placement || state.status !== 'playing' || state.paused || !canControlCurrent()) return;
+    const point = renderer.tileFromPointer(event, state.course);
+    placement = { ...placement, point, valid: canPlaceGadget(state, placement.ownerId, point), confirmed: false };
+    drawBoard();
+    renderControls();
+  };
   const chooseAim = (event: PointerEvent) => {
+    if (placement) { updatePlacement(event); return; }
     if (!renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
     aim = renderer.aimFromPointer(event, state.course, current().ball);
     drawBoard();
@@ -331,10 +344,36 @@ export const startApp = (app: HTMLElement) => {
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
   const useHeldPowerUp = (powerUp: PowerUp) => {
     if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
-    const target = state.players.find((player) => player.id !== current().id && !player.ball.complete);
+    const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch']);
+    if (gadgets.has(powerUp)) {
+      placement = { kind: powerUp as GadgetKind, ownerId: current().id, valid: false, confirmed: false };
+      playEffect(530, .08);
+      drawBoard();
+      renderControls();
+      return;
+    }
+    const selectedTarget = app.querySelector<HTMLSelectElement>('#powerup-target')?.value;
+    const target = state.players.find((player) => player.id === selectedTarget && player.id !== current().id && !player.ball.complete)
+      ?? state.players.find((player) => player.id !== current().id && !player.ball.complete);
     const portalExitId = app.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
     playEffect(530, .08);
     dispatch({ type: 'use-power-up', powerUp, targetId: target?.id, portalExitId });
+  };
+  const confirmPlacement = () => {
+    if (!placement || !placement.point || !placement.valid || state.status !== 'playing' || state.paused || current().id !== placement.ownerId || !canControlCurrent()) return;
+    const pending = placement;
+    placement = undefined;
+    playEffect(530, .08);
+    dispatch({ type: 'use-power-up', powerUp: pending.kind, placement: pending.point });
+  };
+  const selectPlacement = (event: PointerEvent) => {
+    if (!placement) return;
+    const point = renderer?.tileFromPointer(event, state.course);
+    const valid = canPlaceGadget(state, placement.ownerId, point);
+    if (placement.confirmed && placement.point?.x === point?.x && placement.point?.y === point?.y && placement.valid && valid) { confirmPlacement(); return; }
+    placement = { ...placement, point, valid, confirmed: true };
+    drawBoard();
+    renderControls();
   };
   const sendEmote = (emote: Emote) => {
     if (shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
@@ -367,7 +406,7 @@ export const startApp = (app: HTMLElement) => {
       const decision = botMove(state);
       if (!decision) return;
       if (decision.secondWind) setState(applyCommand(state, { type: 'arm-second-wind' }));
-      if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId }));
+      if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement }));
       playShot((decision.secondWind || decision.powerUp ? botMove(state)?.shot : undefined) ?? decision.shot);
     }, preferences.reducedMotion ? 180 : 650);
   };
@@ -401,6 +440,7 @@ export const startApp = (app: HTMLElement) => {
     renderer = createRenderer(canvas);
     drawBoard(undefined, state.status === 'playing' ? aim : null);
     canvas.addEventListener('pointermove', chooseAim);
+    canvas.addEventListener('pointerdown', selectPlacement);
     renderControls();
   };
   const updatePreferences = (partial: Partial<typeof preferences>) => {
@@ -419,6 +459,25 @@ export const startApp = (app: HTMLElement) => {
     gamepadButtons = pad.buttons.map((button) => button.pressed);
     if (edge(9)) togglePause();
     if (overlay || state.paused || shotAnimation || state.status !== 'playing' || current().kind !== 'human' || !canControlCurrent()) return;
+    if (placement) {
+      const origin = placement.point ?? { x: Math.floor(current().ball.x), y: Math.floor(current().ball.y) };
+      const left = edge(14);
+      const right = edge(15);
+      const up = edge(12);
+      const down = edge(13);
+      if (left || right || up || down) {
+        const point = { x: Math.max(0, Math.min(state.course.width - 1, origin.x + (right ? 1 : left ? -1 : 0))), y: Math.max(0, Math.min(state.course.height - 1, origin.y + (down ? 1 : up ? -1 : 0))) };
+        placement = { ...placement, point, valid: canPlaceGadget(state, placement.ownerId, point), confirmed: false };
+        drawBoard();
+        renderControls();
+      }
+      if (edge(0) && placement.point) {
+        if (placement.confirmed) confirmPlacement();
+        else { placement = { ...placement, confirmed: true }; drawBoard(); renderControls(); }
+      }
+      if (edge(1)) { placement = undefined; drawBoard(); renderControls(); }
+      return;
+    }
     const x = pad.axes[0] ?? 0;
     const y = pad.axes[1] ?? 0;
     const magnitude = Math.hypot(x, y);
@@ -454,6 +513,7 @@ export const startApp = (app: HTMLElement) => {
     if (voteOption) { castVote(voteOption); return; }
     const powerUp = element.dataset.usePowerup as PowerUp | undefined;
     if (powerUp) { useHeldPowerUp(powerUp); return; }
+    if (element.hasAttribute('data-cancel-placement')) { placement = undefined; drawBoard(); renderControls(); return; }
     const emote = element.dataset.emote as Emote | undefined;
     if (emote) { sendEmote(emote); return; }
     const openOverlay = element.dataset.openOverlay as Overlay;
@@ -487,6 +547,8 @@ export const startApp = (app: HTMLElement) => {
       const voteOption = voteCard.dataset.voteOption;
       if (voteOption) { event.preventDefault(); castVote(voteOption); return; }
     }
+    if (event.key === 'Escape' && placement) { placement = undefined; drawBoard(); renderControls(); return; }
+    if (event.key === 'Enter' && placement) { event.preventDefault(); confirmPlacement(); return; }
     if (event.key === 'Escape' && overlay) { overlay = undefined; render(); return; }
     const command = shortcutForKey(preferences, event.key);
     if (!command) return;

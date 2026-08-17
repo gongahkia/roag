@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocket, WebSocketServer } from 'ws';
 import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../src/core/game';
+import { normalizeGameState } from '../src/core/game-state';
 import type { Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
@@ -40,7 +41,7 @@ const now = () => Date.now();
 const randomId = (bytes = 18) => randomBytes(bytes).toString('base64url');
 const roomCode = () => randomBytes(3).toString('hex').toUpperCase();
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('base64url');
-const powerUps = new Set(['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal']);
+const powerUps = new Set(['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'cup magnet', 'slipstream', 'rebound rig', 'phase shift', 'sandbag', 'popper pad', 'snare patch', 'blast mine', 'slick patch']);
 const emotes = new Set(['cheer', 'taunt', 'panic', 'wow', 'gg']);
 
 const safeName = (value: unknown) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16 ? value.trim().replace(/[^a-zA-Z0-9 _-]/g, '') : undefined;
@@ -69,7 +70,12 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   if (source.type === 'use-power-up' && typeof source.powerUp === 'string' && powerUps.has(source.powerUp)) {
     const targetId = typeof source.targetId === 'string' && source.targetId.length <= 24 ? source.targetId : undefined;
     const portalExitId = typeof source.portalExitId === 'string' && source.portalExitId.length <= 80 ? source.portalExitId : undefined;
-    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, targetId, portalExitId };
+    const rawPlacement = source.placement;
+    const placement = rawPlacement && typeof rawPlacement === 'object' && !Array.isArray(rawPlacement)
+      && Number.isInteger((rawPlacement as Record<string, unknown>).x) && Number.isInteger((rawPlacement as Record<string, unknown>).y)
+      ? { x: Number((rawPlacement as Record<string, unknown>).x), y: Number((rawPlacement as Record<string, unknown>).y) }
+      : undefined;
+    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, targetId, portalExitId, placement };
   }
   return undefined;
 };
@@ -172,7 +178,7 @@ const scheduleAutomation = (room: StoredRoom) => {
     if (!decision) return;
     let next = latest.game;
     if (decision.secondWind) next = applyCommand(next, { type: 'arm-second-wind' });
-    if (decision.powerUp) next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId });
+    if (decision.powerUp) next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement });
     updateGame(latest, applyCommand(next, { type: 'shoot', shot: decision.shot }));
   }, 650);
 };
@@ -280,7 +286,10 @@ const loadRooms = () => {
   rows.forEach((row) => {
     try {
       const room = JSON.parse(row.snapshot) as StoredRoom;
-      if (room.code && room.config && room.members && room.reconnectTokens) rooms.set(room.code, room);
+      if (room.code && room.config && room.members && room.reconnectTokens) {
+        if (room.game) room.game = normalizeGameState(room.game);
+        rooms.set(room.code, room);
+      }
     } catch { }
   });
 };

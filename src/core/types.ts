@@ -1,7 +1,8 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
 export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal';
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | BallForm;
+export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | GadgetKind | BallForm;
 export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger';
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
@@ -53,6 +54,30 @@ export interface GateHazard {
 }
 
 export type CourseHazard = SweeperHazard | GateHazard;
+
+export interface SinkholeFeature {
+  id: string;
+  kind: 'sinkhole';
+  entrance: Point;
+  exit: Point;
+}
+
+export interface ThornFeature {
+  id: string;
+  kind: 'thorn';
+  point: Point;
+  radius: number;
+}
+
+export interface PulseFeature {
+  id: string;
+  kind: 'pulse';
+  point: Point;
+  direction: Point;
+  strength: number;
+}
+
+export type CourseFeature = SinkholeFeature | ThornFeature | PulseFeature;
 export interface PortalEndpoint {
   point: Point;
   direction: Point;
@@ -64,7 +89,7 @@ export interface PortalPair {
   exit?: PortalEndpoint;
 }
 export type ItemPadKind = 'recovery' | 'chaos';
-export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry';
+export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry' | 'drift' | 'bloom' | 'pulse';
 
 export interface TerrainSettings {
   density: number;
@@ -87,6 +112,9 @@ export interface TerrainSettings {
   portalPairs: number;
   recoveryPads: number;
   chaosPads: number;
+  sinkholePairs: number;
+  thornCount: number;
+  pulseCount: number;
   variation: number;
 }
 
@@ -144,6 +172,7 @@ export interface ItemPad {
 export interface Course {
   id: string;
   seed: string;
+  theme: CourseTheme;
   width: number;
   height: number;
   tiles: Tile[];
@@ -151,6 +180,7 @@ export interface Course {
   cup: Point;
   route: Point[];
   hazards: CourseHazard[];
+  features: CourseFeature[];
   /** portal overlays remain optional so saved pre-portal courses stay readable. */
   portals?: PortalPair[];
   itemPads: ItemPad[];
@@ -204,7 +234,18 @@ export interface Player {
   turboArmed?: boolean;
   frozenTurns?: number;
   hazardShield?: boolean;
+  cupMagnetArmed?: boolean;
+  slipstreamArmed?: boolean;
+  reboundRigArmed?: boolean;
+  sandbagged?: boolean;
   total: number;
+}
+
+export interface Gadget {
+  id: string;
+  ownerId: string;
+  kind: GadgetKind;
+  point: Point;
 }
 
 export interface GameConfig {
@@ -238,6 +279,7 @@ export interface GameState {
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];
+  gadgets: Gadget[];
   turn: TurnState;
   paused: boolean;
   status: 'voting' | 'assembling' | 'playing' | 'finished';
@@ -249,7 +291,7 @@ export type GameCommand =
   | { type: 'cast-vote'; playerId: string; optionId: string }
   | { type: 'complete-assembly' }
   | { type: 'set-paused'; paused: boolean }
-  | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
+  | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }
   | { type: 'emote'; playerId: string; emote: Emote };
 

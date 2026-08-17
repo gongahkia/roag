@@ -1,6 +1,6 @@
 import { isGateOpen, sweeperDirection } from '../core/hazards';
 import { floorHeightAt, tileCornerHeights } from '../core/physics';
-import { EMOTES, type Ball, type Course, type EmoteEvent, type Player, type PortalEndpoint, type Surface, type Tile } from '../core/types';
+import { EMOTES, type Ball, type Course, type EmoteEvent, type Gadget, type GadgetKind, type Player, type Point as WorldPoint, type PortalEndpoint, type Surface, type Tile } from '../core/types';
 
 interface Point { x: number; y: number; }
 export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elevation: number; }
@@ -27,10 +27,24 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, assemblyProgress?: number): void;
+  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, assemblyProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
+  tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
 }
+
+const themeTopColors: Record<Course['theme'], Partial<Record<Surface, string>>> = {
+  balanced: {},
+  speedway: { fairway: '#6077b7', rough: '#465a91', booster: '#f0a63d', conveyor: '#83c5e8' },
+  'hazard-run': { fairway: '#a76c58', rough: '#79483f', sand: '#e4b174', booster: '#e3753c' },
+  'ice-rink': { fairway: '#8dcee0', rough: '#67a9c7', ice: '#d6f5fb', sand: '#c9d6db' },
+  quarry: { fairway: '#9d9b6c', rough: '#72734f', sand: '#d6b57c', wall: '#79756d' },
+  drift: { fairway: '#c5976d', rough: '#996b55', sand: '#e3c383', ice: '#b6d8d8' },
+  bloom: { fairway: '#b482aa', rough: '#774a7a', sand: '#e4b4c8', booster: '#e498ba' },
+  pulse: { fairway: '#536c9b', rough: '#334873', sand: '#aeb5d1', booster: '#ef6a8d', conveyor: '#b58aea' },
+};
+
+const topColorFor = (course: Course, surface: Surface) => themeTopColors[course.theme]?.[surface] ?? topColors[surface];
 
 const project = (x: number, y: number, z: number, metrics: ProjectionMetrics): Point => ({
   x: (x - y) * metrics.tileWidth / 2,
@@ -296,6 +310,96 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
   });
 };
 
+const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
+  (course.features ?? []).forEach((feature) => {
+    if (feature.kind === 'sinkhole') {
+      const entrance = withOffset(project(feature.entrance.x + .5, feature.entrance.y + .5, heightAt(course, feature.entrance) + .07, metrics), offset);
+      const exit = withOffset(project(feature.exit.x + .5, feature.exit.y + .5, heightAt(course, feature.exit) + .07, metrics), offset);
+      const radius = metrics.tileWidth * .19;
+      [entrance, exit].forEach((center, index) => {
+        context.beginPath();
+        context.ellipse(center.x, center.y, radius, radius * .5, 0, 0, Math.PI * 2);
+        context.fillStyle = index ? '#61d9dcbb' : '#26314dd9';
+        context.fill();
+        context.strokeStyle = index ? '#d8ffff' : '#c49bf7';
+        context.lineWidth = 1.4;
+        context.stroke();
+      });
+      context.fillStyle = '#ffffff';
+      context.font = `${Math.max(8, metrics.tileWidth * .18)}px BigBlueTerm, ui-monospace, monospace`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('↻', entrance.x, entrance.y);
+      context.fillText('⇥', exit.x, exit.y);
+      return;
+    }
+    const center = withOffset(project(feature.point.x + .5, feature.point.y + .5, heightAt(course, feature.point) + .07, metrics), offset);
+    const size = metrics.tileWidth * .18;
+    if (feature.kind === 'thorn') {
+      context.fillStyle = '#6a225e';
+      context.strokeStyle = '#ffd7eb';
+      context.lineWidth = 1.3;
+      context.beginPath();
+      for (let index = 0; index < 8; index += 1) {
+        const angle = -Math.PI / 2 + index * Math.PI / 4;
+        const radius = index % 2 ? size * .48 : size;
+        const point = { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
+        if (index) context.lineTo(point.x, point.y); else context.moveTo(point.x, point.y);
+      }
+      context.closePath();
+      context.fill();
+      context.stroke();
+      return;
+    }
+    const direction = screenDirection(feature.point.x, feature.point.y, feature.direction, metrics);
+    context.beginPath();
+    context.arc(center.x, center.y, size, 0, Math.PI * 2);
+    context.fillStyle = '#f26c9fb8';
+    context.fill();
+    drawChevron(context, center, direction, size * .72, '#fff6ff');
+  });
+};
+
+const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋' };
+const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5' };
+
+const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets: readonly Gadget[], offset: Point, metrics: ProjectionMetrics) => {
+  gadgets.forEach((gadget) => {
+    const center = withOffset(project(gadget.point.x + .5, gadget.point.y + .5, heightAt(course, gadget.point) + .08, metrics), offset);
+    const radius = metrics.tileWidth * .15;
+    context.beginPath();
+    context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    context.fillStyle = gadgetColor[gadget.kind];
+    context.fill();
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 1.3;
+    context.stroke();
+    context.font = `${Math.max(8, metrics.tileWidth * .17)}px BigBlueTerm, ui-monospace, monospace`;
+    context.fillStyle = '#18221b';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(gadgetGlyph[gadget.kind], center.x, center.y + 1);
+  });
+};
+
+const drawPlacement = (context: CanvasRenderingContext2D, course: Course, placement: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, offset: Point, metrics: ProjectionMetrics) => {
+  if (!placement.point) return;
+  const center = withOffset(project(placement.point.x + .5, placement.point.y + .5, heightAt(course, placement.point) + .1, metrics), offset);
+  const radius = metrics.tileWidth * .22;
+  context.beginPath();
+  context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+  context.strokeStyle = placement.valid ? '#f8fff0' : '#ed5e55';
+  context.lineWidth = 2;
+  context.setLineDash([4, 3]);
+  context.stroke();
+  context.setLineDash([]);
+  context.font = `${Math.max(10, metrics.tileWidth * .22)}px BigBlueTerm, ui-monospace, monospace`;
+  context.fillStyle = placement.valid ? gadgetColor[placement.kind] : '#ed5e55';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(gadgetGlyph[placement.kind], center.x, center.y);
+};
+
 const statusLabels = (player: Player) => {
   const upgrades: Record<string, string> = {
     'heavy ball': 'HB', 'ice skates': 'IS', 'extra charge': 'EC', 'bank shot': 'BK', 'hazard shield': 'HS', 'chaos magnet': 'CM', 'portal savvy': 'PS', 'second wind': 'SW', scavenger: 'SC',
@@ -306,6 +410,10 @@ const statusLabels = (player: Player) => {
     player.ballForm ? `BALL:${player.ballForm}` : undefined,
     player.twoPuttsArmed ? '2P!' : undefined,
     player.secondWindAvailable ? 'SW!' : undefined,
+    player.cupMagnetArmed ? 'CUP!' : undefined,
+    player.slipstreamArmed ? 'SLIP!' : undefined,
+    player.reboundRigArmed ? 'RIG!' : undefined,
+    player.sandbagged ? 'BAG!' : undefined,
     ...player.upgrades.map((upgrade) => upgrades[upgrade]),
   ].filter(Boolean) as string[];
 };
@@ -381,7 +489,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; assemblyProgress?: number } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; assemblyProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
 
   const layoutFor = (course: Course) => {
     const { width, height } = canvas.getBoundingClientRect();
@@ -390,7 +498,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, assemblyProgress?: number) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, assemblyProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -418,7 +526,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         drawSide(context, tile, edge, neighborFor(course, tile.x, tile.y, directions[edge]!), offset, metrics);
       }
       polygon(context, tile.corners.map((point) => withOffset(point, offset)));
-      context.fillStyle = topColors[tile.tile.surface];
+      context.fillStyle = topColorFor(course, tile.tile.surface);
       context.fill();
       drawPattern(context, tile, offset, metrics);
       context.restore();
@@ -430,7 +538,10 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
     drawPortals(context, course, offset, metrics);
+    drawCourseFeatures(context, course, offset, metrics);
     if (showItems) drawItemPads(context, course, offset, metrics);
+    drawGadgets(context, course, gadgets, offset, metrics);
+    if (placement) drawPlacement(context, course, placement, offset, metrics);
     drawHazards(context, course, phase, offset, metrics, phaseCount);
     if (aim) {
       const player = players.find((candidate) => !candidate.ball.complete);
@@ -458,16 +569,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.assemblyProgress);
+    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.assemblyProgress, latest.gadgets, latest.placement);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, assemblyProgress) {
-      latest = { course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress };
-      paint(course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress);
+    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, assemblyProgress, gadgets = [], placement) {
+      latest = { course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress, gadgets, placement };
+      paint(course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress, gadgets, placement);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();
@@ -479,6 +590,22 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         angle: Math.atan2(worldDelta.y, worldDelta.x),
         power: Math.max(1, Math.min(8, Math.hypot(worldDelta.x, worldDelta.y) * 1.7)),
       };
+    },
+    tileFromPointer(event, course) {
+      const rect = canvas.getBoundingClientRect();
+      const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const { tiles, offset } = layoutFor(course);
+      const contains = (points: readonly Point[]) => {
+        let inside = false;
+        for (let current = 0, previous = points.length - 1; current < points.length; previous = current++) {
+          const from = points[current]!;
+          const to = points[previous]!;
+          if ((from.y > pointer.y) !== (to.y > pointer.y) && pointer.x < (to.x - from.x) * (pointer.y - from.y) / (to.y - from.y) + from.x) inside = !inside;
+        }
+        return inside;
+      };
+      const tile = [...tiles].reverse().find((candidate) => contains(candidate.corners.map((point) => withOffset(point, offset))));
+      return tile ? { x: tile.x, y: tile.y } : undefined;
     },
     dispose() { observer.disconnect(); },
   };
