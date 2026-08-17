@@ -61,7 +61,8 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   const source = value as Record<string, unknown>;
   if (source.type === 'shoot' && source.shot && typeof source.shot === 'object') {
     const shot = source.shot as Record<string, unknown>;
-    return typeof shot.angle === 'number' && typeof shot.power === 'number' && Number.isFinite(shot.angle) && Number.isFinite(shot.power) ? { type: 'shoot', shot: { angle: shot.angle, power: shot.power } } : undefined;
+    const kind = shot.kind === 'chip' ? 'chip' : shot.kind === undefined || shot.kind === 'putt' ? 'putt' : undefined;
+    return typeof shot.angle === 'number' && typeof shot.power === 'number' && Number.isFinite(shot.angle) && Number.isFinite(shot.power) && kind ? { type: 'shoot', shot: { angle: shot.angle, power: shot.power, kind } } : undefined;
   }
   if (source.type === 'cast-vote' && typeof source.playerId === 'string' && typeof source.optionId === 'string' && source.playerId.length <= 24 && source.optionId.length <= 80) return { type: 'cast-vote', playerId: source.playerId, optionId: source.optionId };
   if (source.type === 'set-paused' && typeof source.paused === 'boolean') return { type: 'set-paused', paused: source.paused };

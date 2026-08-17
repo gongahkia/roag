@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateCourse } from '../src/core/generator';
-import { MAX_DOWNHILL_ROLL_SPEED, MAX_SURFACE_SPEED, floorHeightAt, newBall, simulateImpulse, simulateShot, tileCornerHeights } from '../src/core/physics';
-import { projectWorldDirection } from '../src/ui/render';
+import { BALL_RADIUS, CUP_CAPTURE_COVERAGE, MAX_DOWNHILL_ROLL_SPEED, MAX_SURFACE_SPEED, cupCoverageAt, floorHeightAt, newBall, simulateImpulse, simulateShot, tileCornerHeights } from '../src/core/physics';
+import { aimPathFor, projectWorldDirection } from '../src/ui/render';
 import type { Course } from '../src/core/types';
 import { createLane as lane } from './fixtures';
 
@@ -16,6 +16,31 @@ describe('grounded physics invariants', () => {
     const metrics = { tileWidth: 40, tileHeight: 20 };
     expect(projectWorldDirection({ x: 1, y: 0 }, metrics)).toEqual({ x: 20, y: 10 });
     expect(projectWorldDirection({ x: 0, y: 1 }, metrics)).toEqual({ x: -20, y: 10 });
+  });
+
+  it('accepts a slow ball with a meaningful overlap on the cup instead of requiring a center hit', () => {
+    const course = lane('fairway', 28);
+    const cup = { x: course.cup.x + .5, y: course.cup.y + .5 };
+    expect(cupCoverageAt(.32, .28)).toBeGreaterThanOrEqual(CUP_CAPTURE_COVERAGE);
+    expect(cupCoverageAt(.4, .28)).toBeLessThan(CUP_CAPTURE_COVERAGE);
+    const ball = { ...newBall(course), x: cup.x + .32, y: cup.y, z: floorHeightAt(course, cup.x + .32, cup.y) + BALL_RADIUS };
+    const result = simulateImpulse(course, ball, { x: -.1, y: 0 }, .01);
+
+    expect(result.holed).toBe(true);
+    expect(result.ball).toMatchObject({ x: cup.x, y: cup.y, complete: true });
+  });
+
+  it('uses an airborne chip arc to clear a wall while putts stay grounded', () => {
+    const course = lane('fairway', 28);
+    course.tiles[3 * course.width + 3] = { surface: 'wall', height: 0 };
+    const putt = simulateShot(course, newBall(course), { angle: 0, power: 5, kind: 'putt' }, 1.2);
+    const chip = simulateShot(course, newBall(course), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+    const arc = aimPathFor(course, newBall(course), { angle: 0, power: 5, kind: 'chip' });
+
+    expect(putt.ball.x).toBeLessThan(3);
+    expect(chip.ball.x).toBeGreaterThan(3.5);
+    expect(Math.max(...chip.frames.map((frame) => frame.ball.z))).toBeGreaterThan(.9);
+    expect(Math.max(...arc.map((point) => point.z))).toBeGreaterThan(arc[0]!.z + .7);
   });
 
   it('preserves tangential velocity on a glancing wall rebound', () => {

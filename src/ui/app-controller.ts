@@ -46,7 +46,7 @@ export const startApp = (app: HTMLElement) => {
   const captureMode = query.get('capture') === '1';
   let config: GameConfig = { ...defaultConfig(), ...(requestedSeed ? { seed: requestedSeed } : {}) };
   let state = createGame(config);
-  let aim: ShotCommand = { angle: 0, power: 4 };
+  let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
   let renderer: ReturnType<typeof createRenderer> | undefined;
   let lastTick = performance.now();
   let botTimeout: number | undefined;
@@ -319,12 +319,18 @@ export const startApp = (app: HTMLElement) => {
   const chooseAim = (event: PointerEvent) => {
     if (placement) { updatePlacement(event); return; }
     if (!renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
-    aim = renderer.aimFromPointer(event, state.course, current().ball);
+    aim = { ...renderer.aimFromPointer(event, state.course, current().ball), kind: aim.kind };
     drawBoard();
     renderControls();
   };
   const adjustPower = (amount: number) => {
     aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
+    if (state.status !== 'playing' || state.paused) return;
+    drawBoard();
+    renderControls();
+  };
+  const selectShotKind = (kind: ShotCommand['kind']) => {
+    aim = { ...aim, kind: kind ?? 'putt' };
     if (state.status !== 'playing' || state.paused) return;
     drawBoard();
     renderControls();
@@ -436,6 +442,7 @@ export const startApp = (app: HTMLElement) => {
       drawBoard();
       renderControls();
     });
+    app.querySelectorAll<HTMLButtonElement>('[data-shot-kind]').forEach((button) => button.addEventListener('click', () => selectShotKind(button.dataset.shotKind === 'chip' ? 'chip' : 'putt')));
     app.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
     app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => dispatch({ type: 'arm-second-wind' }));
   };
@@ -499,10 +506,11 @@ export const startApp = (app: HTMLElement) => {
     const y = pad.axes[1] ?? 0;
     const magnitude = Math.hypot(x, y);
     if (magnitude > preferences.controllerDeadzone) {
-      const nextAim = { angle: Math.atan2(y, x), power: Math.max(1, Math.min(8, magnitude * 8 * preferences.controllerAimSensitivity)) };
+      const nextAim = { angle: Math.atan2(y, x), power: Math.max(1, Math.min(8, magnitude * 8 * preferences.controllerAimSensitivity)), kind: aim.kind };
       if (Math.abs(nextAim.angle - aim.angle) > .01 || Math.abs(nextAim.power - aim.power) > .05) { aim = nextAim; drawBoard(); renderControls(); }
     }
     if (edge(0)) shoot();
+    if (edge(3)) selectShotKind(aim.kind === 'chip' ? 'putt' : 'chip');
     const controllerPowerUp = current().inventory;
     if (edge(1) && controllerPowerUp) useHeldPowerUp(controllerPowerUp);
     if (edge(14)) adjustPower(-.2);
@@ -567,6 +575,7 @@ export const startApp = (app: HTMLElement) => {
     if (event.key === 'Escape' && placement) { placement = undefined; drawBoard(); renderControls(); return; }
     if (event.key === 'Enter' && placement) { event.preventDefault(); confirmPlacement(); return; }
     if (event.key === 'Escape' && overlay) { overlay = undefined; render(); return; }
+    if (event.key.toLowerCase() === 'c' && !overlay && !shotAnimation) { selectShotKind(aim.kind === 'chip' ? 'putt' : 'chip'); return; }
     const command = shortcutForKey(preferences, event.key);
     if (!command) return;
     event.preventDefault();

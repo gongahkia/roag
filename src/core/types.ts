@@ -202,9 +202,13 @@ export interface CourseScore {
   rejection?: string;
 }
 
+export type ShotKind = 'putt' | 'chip';
+
 export interface ShotCommand {
   angle: number;
   power: number;
+  /** Omitted legacy commands are grounded putts. */
+  kind?: ShotKind;
 }
 
 export interface Ball {

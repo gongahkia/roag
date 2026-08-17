@@ -48,6 +48,17 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('click again or press Enter to place');
   });
 
+  it('offers distinct putt and chip controls with an explicit chip cue', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'shot-modes', humanCount: 1, botCount: 0 });
+    state.status = 'playing';
+    state.vote = undefined;
+    const markup = renderControlsMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4, kind: 'chip' }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(markup).toContain('data-shot-kind="putt"');
+    expect(markup).toContain('data-shot-kind="chip"');
+    expect(markup).toContain('clear walls · C');
+    expect(markup).toContain('chip power');
+  });
+
   it('removes the loading overlay after the full match plan is selected', () => {
     let state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
     const optionId = state.vote!.options[0]!.id;

@@ -1,7 +1,7 @@
 import { distanceToCup, simulateShot, tileAt } from './physics';
 import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
-import type { Course, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, VotingOption } from './types';
+import type { Course, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind, VotingOption } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
@@ -34,6 +34,15 @@ const gadgetPointFor = (course: Course, bot: Player, gadgets: readonly Gadget[])
   return candidates.length ? candidates[(bot.ball.strokes + bot.id.length) % candidates.length] : undefined;
 };
 
+const wallBetween = (course: Course, from: Point, to: Point) => {
+  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) * 4));
+  for (let step = 1; step < steps; step += 1) {
+    const progress = step / steps;
+    if (tileAt(course, from.x + (to.x - from.x) * progress, from.y + (to.y - from.y) * progress)?.surface === 'wall') return true;
+  }
+  return false;
+};
+
 export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0, rules?: HoleRules, gadgets: readonly Gadget[] = []): BotDecision => {
   const skill = clampedSkill(bot, players.filter((player) => player.id !== bot.id));
   const random = new Random(`${course.seed}:${bot.id}:${bot.ball.strokes}`);
@@ -43,17 +52,20 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   const powerStep = 0.75 - skill * 0.055;
   const sampleCount = 5 + skill * 4;
   const candidates: { shot: ShotCommand; score: number }[] = [];
+  const shotKinds: readonly ShotKind[] = wallBetween(course, bot.ball, cup) ? ['putt', 'chip'] : ['putt'];
 
   for (let index = 0; index < sampleCount; index += 1) {
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
-    for (let power = 2; power <= 7.5; power += powerStep) {
-      const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot, undefined, { phase, phaseCount: rules?.hazardPhaseCount, modifiers: physicsModifiersFor(bot, rules) });
-      const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
-        + result.ball.resetCount * 45
-        + Math.max(0, result.ball.z - 1.4) * 3
-        + random.next() * (11 - skill) * 3;
-      candidates.push({ shot, score });
+    for (const kind of shotKinds) {
+      for (let power = 2; power <= 7.5; power += powerStep) {
+        const shot: ShotCommand = { angle, power, kind };
+        const result = simulateShot(course, bot.ball, shot, undefined, { phase, phaseCount: rules?.hazardPhaseCount, modifiers: physicsModifiersFor(bot, rules) });
+        const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
+          + result.ball.resetCount * 45
+          + Math.max(0, result.ball.z - 1.4) * 3
+          + random.next() * (11 - skill) * 3;
+        candidates.push({ shot, score });
+      }
     }
   }
   const selected = candidates.sort((left, right) => left.score - right.score)[0]!;

@@ -2,7 +2,7 @@ import { closedGateAt, sweeperDirection } from './hazards';
 import type { Ball, Course, Gadget, Point, PortalEndpoint, PortalPair, ShotCommand, Surface, Tile } from './types';
 
 const STEP = 1 / 60;
-const BALL_RADIUS = 0.18;
+export const BALL_RADIUS = 0.18;
 const BALL_DIAMETER = BALL_RADIUS * 2;
 const SLOPE_GRAVITY = 9.8;
 const HEIGHT_TO_WORLD = 0.18;
@@ -11,6 +11,15 @@ const BOOST_ACCELERATION = 4.5;
 const CONVEYOR_ACCELERATION = 1.2;
 const FALL_GRAVITY = 8.6;
 const FALL_DURATION_FRAMES = 30;
+export const CHIP_GRAVITY = 7.6;
+const CHIP_HORIZONTAL_MULTIPLIER = .88;
+const CHIP_MIN_LIFT = 1.2;
+const CHIP_LIFT_PER_POWER = .5;
+const CHIP_MAX_LIFT = 5.2;
+const WALL_CLEARANCE_HEIGHT = .7;
+const GATE_CLEARANCE_HEIGHT = .38;
+/** A ball drops once roughly one third of its area overlaps the cup. */
+export const CUP_CAPTURE_COVERAGE = .3;
 
 export const MAX_SETTLE_SECONDS = 18;
 export const MAX_SURFACE_SPEED = 8;
@@ -136,13 +145,34 @@ export const newBall = (course: Course): Ball => {
   return { x: tee.x, y: tee.y, z: floorHeightAt(course, tee.x, tee.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, strokes: 0, complete: false, resetCount: 0 };
 };
 
-export const applyShot = (ball: Ball, shot: ShotCommand): Ball => ({
-  ...ball,
-  vx: Math.cos(shot.angle) * shot.power,
-  vy: Math.sin(shot.angle) * shot.power,
-  vz: 0,
-  strokes: ball.strokes + 1,
-});
+const chipLiftFor = (power: number) => Math.min(CHIP_MAX_LIFT, CHIP_MIN_LIFT + power * CHIP_LIFT_PER_POWER);
+
+export const chipFlightSeconds = (shot: ShotCommand) => shot.kind === 'chip' ? chipLiftFor(shot.power) * 2 / CHIP_GRAVITY : 0;
+
+export const shotVelocityFor = (shot: ShotCommand) => {
+  const horizontalPower = shot.kind === 'chip' ? shot.power * CHIP_HORIZONTAL_MULTIPLIER : shot.power;
+  return {
+    vx: Math.cos(shot.angle) * horizontalPower,
+    vy: Math.sin(shot.angle) * horizontalPower,
+    vz: shot.kind === 'chip' ? chipLiftFor(shot.power) : 0,
+  };
+};
+
+export const applyShot = (ball: Ball, shot: ShotCommand): Ball => {
+  const velocity = shotVelocityFor(shot);
+  return { ...ball, ...velocity, strokes: ball.strokes + 1 };
+};
+
+/** Returns the fraction of the ball's circular footprint sitting over the cup. */
+export const cupCoverageAt = (distance: number, cupRadius: number) => {
+  if (distance >= BALL_RADIUS + cupRadius) return 0;
+  if (distance <= Math.abs(cupRadius - BALL_RADIUS)) return cupRadius >= BALL_RADIUS ? 1 : cupRadius ** 2 / BALL_RADIUS ** 2;
+  const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+  const ballArea = BALL_RADIUS ** 2 * Math.acos(clamp((distance ** 2 + BALL_RADIUS ** 2 - cupRadius ** 2) / (2 * distance * BALL_RADIUS)));
+  const cupArea = cupRadius ** 2 * Math.acos(clamp((distance ** 2 + cupRadius ** 2 - BALL_RADIUS ** 2) / (2 * distance * cupRadius)));
+  const sharedArea = ballArea + cupArea - .5 * Math.sqrt(Math.max(0, (-distance + BALL_RADIUS + cupRadius) * (distance + BALL_RADIUS - cupRadius) * (distance - BALL_RADIUS + cupRadius) * (distance + BALL_RADIUS + cupRadius)));
+  return sharedArea / (Math.PI * BALL_RADIUS ** 2);
+};
 
 const planarSpeed = (ball: Ball) => Math.hypot(ball.vx, ball.vy);
 
@@ -386,11 +416,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
   return false;
 };
 
-const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
-  if (participant.fallFramesRemaining > 0) {
-    continueFall(participant);
-    return;
-  }
+const stepGroundTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
@@ -438,6 +464,65 @@ const stepTerrain = (course: Course, participant: Participant, phase: number, ph
   ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
   if (applyCourseInteractions(course, participant, gadgets, triggeredGadgets)) return;
   applySurfaceForces(course, ball, tile, participant.modifiers);
+};
+
+const bounceAirborneBall = (course: Course, participant: Participant, previous: Ball) => {
+  const normal = bounceNormal(previous, participant.ball);
+  const velocity = reflect(previous, normal, .38);
+  participant.ball = {
+    ...previous,
+    ...velocity,
+    vz: Math.max(.12, Math.abs(previous.vz) * .24),
+    z: Math.max(previous.z, floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS),
+  };
+};
+
+const stepAirborne = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
+  const previous = { ...participant.ball };
+  const ball = participant.ball;
+  ball.x += ball.vx * STEP;
+  ball.y += ball.vy * STEP;
+  ball.vz -= CHIP_GRAVITY * STEP;
+  ball.z += ball.vz * STEP;
+
+  const tile = tileAt(course, ball.x, ball.y);
+  if (!tile || tile.surface === 'void') {
+    if (ball.z > BALL_RADIUS + .01) return;
+    if (participant.modifiers.hazardShield && !participant.shieldUsed) {
+      participant.shieldUsed = true;
+      bounceAirborneBall(course, participant, previous);
+    } else {
+      beginFall(participant, previous);
+    }
+    return;
+  }
+
+  const blocked = tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase, phaseCount);
+  if (blocked) {
+    const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : GATE_CLEARANCE_HEIGHT);
+    if (ball.z - BALL_RADIUS > obstructionHeight) return;
+    bounceAirborneBall(course, participant, previous);
+    return;
+  }
+
+  const landingHeight = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
+  if (ball.z > landingHeight || ball.vz > 0) return;
+  ball.z = landingHeight;
+  ball.vz = 0;
+  if (applyCourseInteractions(course, participant, gadgets, triggeredGadgets)) return;
+  applySurfaceForces(course, ball, tile, participant.modifiers);
+};
+
+const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
+  if (participant.fallFramesRemaining > 0) {
+    continueFall(participant);
+    return;
+  }
+  if (participant.ball.vz > .001 || !isOnGround(course, participant.ball)) {
+    stepAirborne(course, participant, phase, phaseCount, gadgets, triggeredGadgets);
+    return;
+  }
+  stepGroundTerrain(course, participant, phase, phaseCount, gadgets, triggeredGadgets);
 };
 
 const collideWithSweepers = (course: Course, participants: Participant[], phase: number, phaseCount: number) => {
@@ -527,7 +612,8 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
     const active = participants[0]!;
     const activeTile = tileAt(course, active.ball.x, active.ball.y);
-    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y) < (active.modifiers.cupRadius ?? .28) && planarSpeed(active.ball) < 1.9 && active.ball.z <= floorHeightAt(course, cup.x, cup.y) + .3) {
+    const cupCoverage = cupCoverageAt(Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y), active.modifiers.cupRadius ?? .28);
+    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && isOnGround(course, active.ball) && cupCoverage >= CUP_CAPTURE_COVERAGE && planarSpeed(active.ball) < 1.9) {
       active.ball = { ...active.ball, x: cup.x, y: cup.y, z: floorHeightAt(course, cup.x, cup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
       holed = true;
     }

@@ -1,6 +1,6 @@
 import { isGateOpen, sweeperDirection } from '../core/hazards';
-import { floorHeightAt, tileCornerHeights } from '../core/physics';
-import { EMOTES, type Ball, type Course, type EmoteEvent, type Gadget, type GadgetKind, type Player, type Point as WorldPoint, type PortalEndpoint, type Surface, type Tile } from '../core/types';
+import { CHIP_GRAVITY, chipFlightSeconds, floorHeightAt, shotVelocityFor, tileCornerHeights } from '../core/physics';
+import { EMOTES, type Ball, type Course, type EmoteEvent, type Gadget, type GadgetKind, type Player, type Point as WorldPoint, type PortalEndpoint, type ShotCommand, type Surface, type Tile } from '../core/types';
 
 interface Point { x: number; y: number; }
 export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elevation: number; }
@@ -27,7 +27,7 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
+  draw(course: Course, players: Player[], phase: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
@@ -247,6 +247,31 @@ const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, off
 };
 
 const heightAt = (course: Course, point: Point) => floorHeightAt(course, point.x + .5, point.y + .5);
+
+export interface AimPathPoint { x: number; y: number; z: number; }
+
+/** A grounded line for putts and an airborne carry arc for chips. */
+export const aimPathFor = (course: Course, ball: Ball, shot: ShotCommand): AimPathPoint[] => {
+  const startFloor = floorHeightAt(course, ball.x, ball.y);
+  const start = { x: ball.x, y: ball.y, z: ball.z + .15 };
+  if (shot.kind !== 'chip') {
+    const endpoint = { x: ball.x + Math.cos(shot.angle) * shot.power * .4, y: ball.y + Math.sin(shot.angle) * shot.power * .4 };
+    return [start, { ...endpoint, z: start.z + floorHeightAt(course, endpoint.x, endpoint.y) - startFloor }];
+  }
+  const velocity = shotVelocityFor(shot);
+  const duration = chipFlightSeconds(shot);
+  return Array.from({ length: 17 }, (_, index) => {
+    const progress = index / 16;
+    const time = duration * progress;
+    const x = ball.x + velocity.vx * time;
+    const y = ball.y + velocity.vy * time;
+    return {
+      x,
+      y,
+      z: start.z + velocity.vz * time - .5 * CHIP_GRAVITY * time ** 2 + (floorHeightAt(course, x, y) - startFloor) * progress,
+    };
+  });
+};
 
 const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: number, offset: Point, metrics: ProjectionMetrics, phaseCount = 8) => {
   for (const hazard of course.hazards) {
@@ -489,7 +514,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
 
   const layoutFor = (course: Course) => {
     const { width, height } = canvas.getBoundingClientRect();
@@ -498,7 +523,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -546,16 +571,23 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     if (aim) {
       const player = players.find((candidate) => !candidate.ball.complete);
       if (player) {
-        const start = withOffset(project(player.ball.x, player.ball.y, player.ball.z + .15, metrics), offset);
+        const path = aimPathFor(course, player.ball, aim).map((point) => withOffset(project(point.x, point.y, point.z, metrics), offset));
         context.beginPath();
-        context.moveTo(start.x, start.y);
-        const projected = projectWorldDirection({ x: Math.cos(aim.angle) * aim.power * .4, y: Math.sin(aim.angle) * aim.power * .4 }, metrics);
-        context.lineTo(start.x + projected.x, start.y + projected.y);
-        context.strokeStyle = '#1d5527';
-        context.setLineDash([4, 4]);
+        context.moveTo(path[0]!.x, path[0]!.y);
+        path.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+        context.strokeStyle = aim.kind === 'chip' ? '#c87824' : '#1d5527';
+        context.setLineDash(aim.kind === 'chip' ? [3, 3] : [4, 4]);
         context.lineWidth = 2;
         context.stroke();
         context.setLineDash([]);
+        if (aim.kind === 'chip') {
+          const landing = path.at(-1)!;
+          context.beginPath();
+          context.arc(landing.x, landing.y, Math.max(3, metrics.tileWidth * .07), 0, Math.PI * 2);
+          context.strokeStyle = '#c87824';
+          context.lineWidth = 1.5;
+          context.stroke();
+        }
       }
     }
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
