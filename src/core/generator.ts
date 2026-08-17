@@ -1,7 +1,7 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
 import { closedGateAt, COURSE_PHASES } from './hazards';
 import { Random } from './random';
-import type { Course, CourseScore, CourseTheme, Point, ShotCommand, Surface, TerrainSettings, Tile } from './types';
+import type { Course, CourseScore, CourseTheme, HoleRules, Point, ShotCommand, Surface, TerrainSettings, Tile, VotingOption } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
 
 const directions = [
@@ -16,13 +16,24 @@ const themes: CourseTheme[] = ['balanced', 'speedway', 'hazard-run', 'ice-rink',
 export const defaultTerrainSettings = (): TerrainSettings => ({
   density: .55,
   elevation: .55,
-  hazards: 1,
+  maxElevation: 3,
   routeLength: .7,
   bendiness: .4,
   laneWidth: 1,
   branches: 1,
   chaos: .45,
   theme: 'balanced',
+  roughRate: .13,
+  sandRate: .16,
+  iceRate: .12,
+  boosterRate: .13,
+  conveyorRate: .11,
+  wallCount: 2,
+  sweeperCount: 1,
+  gateCount: 1,
+  portalPairs: 1,
+  recoveryPads: 2,
+  chaosPads: 2,
   variation: 0,
 });
 
@@ -32,13 +43,24 @@ export const randomTerrainSettings = (seed: string, variation: number): TerrainS
   return {
     density: stepped(.1, 1, .05),
     elevation: stepped(0, 1, .05),
-    hazards: random.int(0, 4),
+    maxElevation: random.int(1, 3),
     routeLength: stepped(.35, 1, .05),
     bendiness: stepped(0, 1, .05),
     laneWidth: random.int(1, 3),
     branches: random.int(0, 3),
     chaos: stepped(0, 1, .05),
     theme: random.pick(themes),
+    roughRate: stepped(.04, .3, .02),
+    sandRate: stepped(.04, .34, .02),
+    iceRate: stepped(.04, .34, .02),
+    boosterRate: stepped(0, .3, .02),
+    conveyorRate: stepped(0, .3, .02),
+    wallCount: random.int(0, 6),
+    sweeperCount: random.int(0, 3),
+    gateCount: random.int(0, 3),
+    portalPairs: random.int(0, 2),
+    recoveryPads: random.int(1, 4),
+    chaosPads: random.int(1, 4),
     variation,
   };
 };

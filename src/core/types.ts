@@ -70,29 +70,61 @@ export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 
 export interface TerrainSettings {
   density: number;
   elevation: number;
-  hazards: number;
+  maxElevation: number;
   routeLength: number;
   bendiness: number;
   laneWidth: number;
   branches: number;
   chaos: number;
   theme: CourseTheme;
+  roughRate: number;
+  sandRate: number;
+  iceRate: number;
+  boosterRate: number;
+  conveyorRate: number;
+  wallCount: number;
+  sweeperCount: number;
+  gateCount: number;
+  portalPairs: number;
+  recoveryPads: number;
+  chaosPads: number;
   variation: number;
 }
 
-export interface BuildState {
-  authorIndex: number;
-  tool: BuildTool;
-  height: number;
-  direction: Point;
-  portalPairId: number;
-  terrain: TerrainSettings;
-  generated: boolean;
+export interface HoleRules {
+  timerSeconds: number;
+  strokeCap: number;
+  collisions: boolean;
+  powerUps: boolean;
+  recoveryBias: number;
+  launchMultiplier: number;
+  rollingResistanceMultiplier: number;
+  wallRestitutionMultiplier: number;
+  terrainAccelerationMultiplier: number;
+  hazardImpulseMultiplier: number;
+  portalSpeedMultiplier: number;
+  cupRadius: number;
+  hazardPhaseCount: number;
+  scoreMultiplier: number;
+  startingPowerUp?: PowerUp;
+  sharedBoons: Upgrade[];
 }
 
-export interface AuthoredCourse {
-  authorId: string;
+export interface HoleRecipe {
+  terrain: TerrainSettings;
+  rules: HoleRules;
+}
+
+export interface VotingOption {
+  id: string;
+  label: string;
+  recipe: HoleRecipe;
   course: Course;
+}
+
+export interface VoteState {
+  options: VotingOption[];
+  ballots: Record<string, string>;
 }
 
 export interface ItemPad {
@@ -170,10 +202,7 @@ export interface Player {
 
 export interface GameConfig {
   seed: string;
-  timerSeconds: number;
-  strokeCap: number;
-  collisions: boolean;
-  powerUps: boolean;
+  holeCount: number;
   botCount: number;
   humanCount: number;
   botSkill: number | 'adaptive';
@@ -194,29 +223,23 @@ export interface EmoteEvent {
 export interface GameState {
   config: GameConfig;
   course: Course;
+  holeRules: HoleRules;
   hole: number;
   coursePhase: number;
-  authoredCourses: AuthoredCourse[];
-  courseIndex: number;
-  build?: BuildState;
+  vote?: VoteState;
   emotes: EmoteEvent[];
   emoteSequence: number;
   players: Player[];
   turn: TurnState;
-  status: 'build' | 'validate' | 'playing' | 'finished';
+  status: 'voting' | 'playing' | 'finished';
   messages: string[];
 }
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
+  | { type: 'cast-vote'; playerId: string; optionId: string }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
   | { type: 'arm-second-wind' }
-  | { type: 'build-place'; point: Point }
-  | { type: 'build-settings'; tool?: BuildTool; height?: number; direction?: Point; portalPairId?: number; terrain?: Partial<TerrainSettings> }
-  | { type: 'build-generate' }
-  | { type: 'build-randomize' }
-  | { type: 'begin-validation' }
-  | { type: 'select-upgrade'; upgrade: Upgrade }
   | { type: 'emote'; playerId: string; emote: Emote };
 
 export interface GameTransport {
