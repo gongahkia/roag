@@ -297,6 +297,37 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
       context.stroke();
       continue;
     }
+    if (hazard.kind === 'updraft') {
+      const radius = metrics.tileWidth * hazard.radius * .45;
+      context.beginPath();
+      context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+      context.strokeStyle = '#8bdcf2';
+      context.lineWidth = 1.6;
+      context.setLineDash([3, 2]);
+      context.stroke();
+      context.setLineDash([]);
+      drawChevron(context, center, screenDirection(hazard.point.x, hazard.point.y, hazard.direction, metrics), radius * .58, '#e9fbff');
+      continue;
+    }
+    if (hazard.kind === 'low-bar') {
+      const height = metrics.tileHeight * 1.5;
+      const width = metrics.tileWidth * .34;
+      context.strokeStyle = '#8e4c35';
+      context.lineWidth = Math.max(3, metrics.tileWidth * .09);
+      context.beginPath();
+      context.moveTo(center.x - width, center.y - height);
+      context.lineTo(center.x + width, center.y - height);
+      context.stroke();
+      context.strokeStyle = '#ffe3a5';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(center.x - width, center.y - height);
+      context.lineTo(center.x - width, center.y + height * .18);
+      context.moveTo(center.x + width, center.y - height);
+      context.lineTo(center.x + width, center.y + height * .18);
+      context.stroke();
+      continue;
+    }
     const open = isGateOpen(hazard, phase, phaseCount);
     const width = metrics.tileWidth * .23;
     const height = metrics.tileHeight * .48;
@@ -360,6 +391,22 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
     }
     const center = withOffset(project(feature.point.x + .5, feature.point.y + .5, heightAt(course, feature.point) + .07, metrics), offset);
     const size = metrics.tileWidth * .18;
+    if (feature.kind === 'air-ring') {
+      const elevated = withOffset(project(feature.point.x + .5, feature.point.y + .5, heightAt(course, feature.point) + .74, metrics), offset);
+      context.beginPath();
+      context.ellipse(elevated.x, elevated.y, size * 1.08, size * .56, 0, 0, Math.PI * 2);
+      context.fillStyle = '#fff3a755';
+      context.fill();
+      context.strokeStyle = '#f0a232';
+      context.lineWidth = 2;
+      context.stroke();
+      context.fillStyle = '#fff7cf';
+      context.font = `${Math.max(8, metrics.tileWidth * .16)}px BigBlueTerm, ui-monospace, monospace`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('↯', elevated.x, elevated.y);
+      return;
+    }
     if (feature.kind === 'thorn') {
       context.fillStyle = '#6a225e';
       context.strokeStyle = '#ffd7eb';
@@ -385,8 +432,8 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
   });
 };
 
-const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋' };
-const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5' };
+const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋', 'sky spring': '⌃' };
+const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5', 'sky spring': '#a987ec' };
 
 const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets: readonly Gadget[], offset: Point, metrics: ProjectionMetrics) => {
   gadgets.forEach((gadget) => {
@@ -427,7 +474,7 @@ const drawPlacement = (context: CanvasRenderingContext2D, course: Course, placem
 
 const statusLabels = (player: Player) => {
   const upgrades: Record<string, string> = {
-    'heavy ball': 'HB', 'ice skates': 'IS', 'extra charge': 'EC', 'bank shot': 'BK', 'hazard shield': 'HS', 'chaos magnet': 'CM', 'portal savvy': 'PS', 'second wind': 'SW', scavenger: 'SC',
+    'heavy ball': 'HB', 'ice skates': 'IS', 'extra charge': 'EC', 'bank shot': 'BK', 'hazard shield': 'HS', 'chaos magnet': 'CM', 'portal savvy': 'PS', 'second wind': 'SW', scavenger: 'SC', 'aerial ace': 'AA', 'cup reader': 'CR', gadgeteer: 'GT',
   };
   return [
     player.inventory ? `I:${player.inventory}` : undefined,
@@ -439,6 +486,7 @@ const statusLabels = (player: Player) => {
     player.slipstreamArmed ? 'SLIP!' : undefined,
     player.reboundRigArmed ? 'RIG!' : undefined,
     player.sandbagged ? 'BAG!' : undefined,
+    player.forcedChip ? 'CHIP!' : undefined,
     ...player.upgrades.map((upgrade) => upgrades[upgrade]),
   ].filter(Boolean) as string[];
 };

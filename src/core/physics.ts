@@ -56,6 +56,7 @@ export interface BallPhysicsModifiers {
   cupMagnet?: boolean;
   slipstream?: boolean;
   reboundRig?: boolean;
+  chipGravityMultiplier?: number;
 }
 
 export interface OtherBallSimulation {
@@ -365,9 +366,9 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     participant.featureCooldown -= 1;
     return false;
   }
-  const feature = (course.features ?? []).find((candidate) => candidate.kind === 'sinkhole'
+  const feature = (course.features ?? []).find((candidate) => candidate.kind !== 'air-ring' && (candidate.kind === 'sinkhole'
     ? Math.hypot(ball.x - candidate.entrance.x - .5, ball.y - candidate.entrance.y - .5) < .34
-    : Math.hypot(ball.x - candidate.point.x - .5, ball.y - candidate.point.y - .5) < (candidate.kind === 'thorn' ? candidate.radius : .4));
+    : Math.hypot(ball.x - candidate.point.x - .5, ball.y - candidate.point.y - .5) < (candidate.kind === 'thorn' ? candidate.radius : .4)));
   if (feature?.kind === 'sinkhole') {
     ball.x = feature.exit.x + .5;
     ball.y = feature.exit.y + .5;
@@ -410,6 +411,11 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
   if (gadget.kind === 'snare patch') {
     ball.vx *= .18;
     ball.vy *= .18;
+  }
+  if (gadget.kind === 'sky spring') {
+    ball.vz = Math.max(ball.vz, 3.8);
+    ball.vx *= 1.12;
+    ball.vy *= 1.12;
   }
   participant.featureCooldown = 8;
   limitPlanarSpeed(ball);
@@ -477,12 +483,49 @@ const bounceAirborneBall = (course: Course, participant: Participant, previous: 
   };
 };
 
+const applyAirborneInteractions = (course: Course, participant: Participant, previous: Ball): boolean => {
+  const ball = participant.ball;
+  const lowBar = course.hazards.find((hazard) => hazard.kind === 'low-bar'
+    && Math.hypot(ball.x - hazard.point.x - .5, ball.y - hazard.point.y - .5) < .42);
+  if (lowBar) {
+    const height = floorHeightAt(course, lowBar.point.x + .5, lowBar.point.y + .5) + lowBar.clearance;
+    if (ball.z - BALL_RADIUS < height && ball.z + BALL_RADIUS > height) {
+      bounceAirborneBall(course, participant, previous);
+      return true;
+    }
+  }
+  for (const hazard of course.hazards) {
+    if (hazard.kind !== 'updraft') continue;
+    const distance = Math.hypot(ball.x - hazard.point.x - .5, ball.y - hazard.point.y - .5);
+    if (distance > hazard.radius) continue;
+    const force = hazard.strength * (1 - distance / hazard.radius) * STEP;
+    ball.vx += hazard.direction.x * force;
+    ball.vy += hazard.direction.y * force;
+    ball.vz += force * .52;
+    limitPlanarSpeed(ball);
+  }
+  if (participant.featureCooldown > 0) {
+    participant.featureCooldown -= 1;
+    return false;
+  }
+  const ring = (course.features ?? []).find((feature) => feature.kind === 'air-ring'
+    && Math.hypot(ball.x - feature.point.x - .5, ball.y - feature.point.y - .5) < feature.radius
+    && ball.z - BALL_RADIUS > floorHeightAt(course, feature.point.x + .5, feature.point.y + .5) + .38);
+  if (!ring) return false;
+  ball.vx *= ring.boost;
+  ball.vy *= ring.boost;
+  ball.vz += .58;
+  participant.featureCooldown = 12;
+  limitPlanarSpeed(ball);
+  return false;
+};
+
 const stepAirborne = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
   ball.y += ball.vy * STEP;
-  ball.vz -= CHIP_GRAVITY * STEP;
+  ball.vz -= CHIP_GRAVITY * (participant.modifiers.chipGravityMultiplier ?? 1) * STEP;
   ball.z += ball.vz * STEP;
 
   const tile = tileAt(course, ball.x, ball.y);
@@ -504,6 +547,8 @@ const stepAirborne = (course: Course, participant: Participant, phase: number, p
     bounceAirborneBall(course, participant, previous);
     return;
   }
+
+  if (applyAirborneInteractions(course, participant, previous)) return;
 
   const landingHeight = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
   if (ball.z > landingHeight || ball.vz > 0) return;

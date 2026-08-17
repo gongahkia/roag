@@ -1,5 +1,5 @@
 import { activePlayer, addMessage } from './game-state';
-import { MAX_SETTLE_SECONDS, simulateImpulse, tileAt } from './physics';
+import { BALL_RADIUS, MAX_SETTLE_SECONDS, floorHeightAt, simulateImpulse, tileAt } from './physics';
 import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, canStorePowerUp, isBallForm, physicsModifiersFor, storePowerUp, takePowerUp } from './player-effects';
 import { Random } from './random';
 import type { Course, GadgetKind, GameState, ItemPadKind, Player, Point, PowerUp } from './types';
@@ -35,7 +35,9 @@ const isGadget = (powerUp: PowerUp): powerUp is GadgetKind => GADGET_POWER_UPS.i
 
 export const canPlaceGadget = (state: GameState, ownerId: string, point: Point | undefined) => {
   if (!point || !Number.isInteger(point.x) || !Number.isInteger(point.y)) return false;
-  if (state.gadgets?.some((gadget) => gadget.ownerId === ownerId)) return false;
+  const owner = state.players.find((player) => player.id === ownerId);
+  const limit = owner?.upgrades.includes('gadgeteer') ? 2 : 1;
+  if ((state.gadgets ?? []).filter((gadget) => gadget.ownerId === ownerId).length >= limit) return false;
   const tile = tileAt(state.course, point.x + .5, point.y + .5);
   if (!tile || !['fairway', 'rough', 'sand', 'ice', 'booster', 'conveyor'].includes(tile.surface)) return false;
   const occupied = (candidate: Point) => candidate.x === point.x && candidate.y === point.y;
@@ -52,6 +54,14 @@ const routePointBefore = (state: GameState, player: Player) => {
     return distance < winner.distance ? { index, distance } : winner;
   }, { index: 0, distance: Number.POSITIVE_INFINITY });
   return state.course.route[Math.max(0, nearest.index - 4)]!;
+};
+
+const routePointAfter = (state: GameState, player: Player) => {
+  const nearest = state.course.route.reduce((winner, point, index) => {
+    const distance = Math.hypot(player.ball.x - point.x - .5, player.ball.y - point.y - .5);
+    return distance < winner.distance ? { index, distance } : winner;
+  }, { index: 0, distance: Number.POSITIVE_INFINITY });
+  return state.course.route[Math.min(state.course.route.length - 2, nearest.index + 3)]!;
 };
 
 export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string, portalExitId?: string, placement?: Point) => {
@@ -124,6 +134,17 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp, targetId?: string
   if (powerUp === 'sandbag' && target && target.id !== player.id) {
     target.sandbagged = true;
     addMessage(state, `${player.name} sandbags ${target.name}'s next shot`);
+    used = true;
+  }
+  if (powerUp === 'rescue drone') {
+    const point = routePointAfter(state, player);
+    player.ball = { ...player.ball, x: point.x + .5, y: point.y + .5, z: floorHeightAt(state.course, point.x + .5, point.y + .5) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, falling: undefined };
+    addMessage(state, `${player.name}'s rescue drone drops them ahead`);
+    used = true;
+  }
+  if (powerUp === 'airhorn' && target && target.id !== player.id) {
+    target.forcedChip = true;
+    addMessage(state, `${player.name} airhorns ${target.name} into a chip`);
     used = true;
   }
   if (isBallForm(powerUp)) {

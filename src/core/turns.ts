@@ -10,7 +10,8 @@ const advanceCoursePhase = (state: GameState) => {
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
-  return simulateShot(state.course, player.ball, adjustedShotFor(player, shot, state.holeRules), undefined, {
+  const effectiveShot = player.forcedChip ? { ...shot, kind: 'chip' as const } : shot;
+  return simulateShot(state.course, player.ball, adjustedShotFor(player, effectiveShot, state.holeRules), undefined, {
     modifiers: physicsModifiersFor(player, state.holeRules),
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: physicsModifiersFor(candidate, state.holeRules) })),
     collisions: state.holeRules.collisions,
@@ -82,16 +83,19 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     return;
   }
   const playerIndex = state.turn.playerIndex;
+  const forcedChip = player.forcedChip;
   const result = simulatePlayerShot(state, playerIndex, shot);
   player.turboArmed = false;
   player.cupMagnetArmed = false;
   player.slipstreamArmed = false;
   player.reboundRigArmed = false;
   player.sandbagged = false;
+  player.forcedChip = undefined;
   applySimulation(state, playerIndex, result);
   const consumedForm = player.ballForm;
   player.ballForm = undefined;
   player.portalExitId = undefined;
+  if (forcedChip) addMessage(state, `${player.name}'s airhorn forces a chip`);
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
   else if (result.reset) addMessage(state, `${player.name} falls into the void`);
   else addMessage(state, `${player.name} rolls to safety`);
