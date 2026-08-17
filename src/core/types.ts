@@ -1,9 +1,15 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
-export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal' | 'glider' | 'sticky' | 'orbit';
-export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch' | 'sky spring';
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | GadgetKind | BallForm;
-export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer';
+export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal' | 'glider' | 'sticky' | 'orbit' | 'quantum' | 'mirror' | 'anvil' | 'vampire' | 'boomerang';
+export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch' | 'sky spring' | 'gravity well' | 'mirror plate' | 'toll booth' | 'control inverter' | 'portal gun';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | 'club flipper' | 'time dilator' | 'mugger' | 'scramble' | 'gravity gloves' | 'bunker buster' | 'portal remote' | 'red tee' | 'black flag' | 'cherry bomb' | 'copycat' | GadgetKind | BallForm;
+export type CaddyId = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer' | 'backboard' | 'pinball wizard' | 'rough rider' | 'sand wedge' | 'conveyor cultist' | 'gatecrasher' | 'thornmail' | 'air mail' | 'shock absorber' | 'first responder' | 'pickpocket' | 'revenge club' | 'headwind' | 'bogeyman' | 'coin slot' | 'broker' | 'echo chamber' | 'paradox partner' | 'hole hunter' | 'black market caddy';
+/** Kept as a public alias for saved games created before the clubhouse shop. */
+export type Upgrade = CaddyId;
+export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' | 'gravity is sideways' | 'cup walks' | 'everybody is ghost' | 'two is one' | 'portals are plenty' | 'turns are backwards' | 'gates are open' | 'cups are many' | 'ball is cup';
+export type ChronoCard = 'undo drive' | 'second chance' | 'echo putt' | 'future sight' | 'time theft' | 'frozen frame' | 'parallel parking' | 'grandfather clause';
+export type ContentId = CaddyId | PowerUp | RealityCard | ChronoCard;
+export type ContentCategory = 'caddy' | 'pocket' | 'form' | 'gadget' | 'reality' | 'chrono';
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
   { id: 'taunt', glyph: '>:]', label: 'taunt' },
@@ -112,7 +118,7 @@ export interface PortalPair {
   entrance?: PortalEndpoint;
   exit?: PortalEndpoint;
 }
-export type ItemPadKind = 'recovery' | 'chaos';
+export type ItemPadKind = 'recovery' | 'chaos' | 'cash';
 export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry' | 'drift' | 'bloom' | 'pulse';
 
 export interface TerrainSettings {
@@ -162,7 +168,9 @@ export interface HoleRules {
   cupRadius: number;
   hazardPhaseCount: number;
   scoreMultiplier: number;
+  /** @deprecated shop purchases replace package starting items. */
   startingPowerUp?: PowerUp;
+  /** @deprecated legacy snapshots are migrated into personal Caddy stacks. */
   sharedBoons: Upgrade[];
 }
 
@@ -261,6 +269,10 @@ export interface Player {
   skill: number | 'adaptive';
   ball: Ball;
   upgrades: Upgrade[];
+  cash: number;
+  caddies: CaddyStack[];
+  pockets: PocketCard[];
+  shotHistory: ShotHistoryEntry[];
   inventory?: PowerUp;
   spareInventory?: PowerUp;
   ballForm?: BallForm;
@@ -275,7 +287,46 @@ export interface Player {
   reboundRigArmed?: boolean;
   sandbagged?: boolean;
   forcedChip?: boolean;
+  controlInverted?: number;
+  timeDilated?: number;
+  redTee?: Point;
   total: number;
+}
+
+export interface CaddyStack {
+  id: CaddyId;
+  stacks: number;
+}
+
+export interface PocketCard {
+  id: PowerUp | ChronoCard;
+  source: 'shop' | 'pad';
+}
+
+export interface ShotHistoryEntry {
+  hole: number;
+  before: Ball;
+  after: Ball;
+}
+
+export interface ShopOffer {
+  id: string;
+  contentId: ContentId;
+  category: ContentCategory;
+  price: number;
+  sold?: boolean;
+}
+
+export interface ShopState {
+  visit: number;
+  shelf: ShopOffer[];
+  buyerOrder: string[];
+  buyerIndex: number;
+  completedBuyerIds: string[];
+  rerollVotes: Record<string, boolean>;
+  rerollResolved: boolean;
+  rerolled: boolean;
+  secondsLeft: number;
 }
 
 export interface Gadget {
@@ -322,9 +373,12 @@ export interface GameState {
   emoteSequence: number;
   players: Player[];
   gadgets: Gadget[];
+  shop?: ShopState;
+  queuedReality?: RealityCard;
+  activeReality?: RealityCard;
   turn: TurnState;
   paused: boolean;
-  status: 'voting' | 'transitioning' | 'playing' | 'finished';
+  status: 'voting' | 'shopping' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
 }
 
@@ -335,6 +389,10 @@ export type GameCommand =
   | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }
+  | { type: 'shop-vote-reroll'; playerId: string; approve: boolean }
+  | { type: 'shop-buy'; playerId: string; offerId: string; replaceCaddyId?: CaddyId }
+  | { type: 'shop-sell-caddy'; playerId: string; caddyId: CaddyId }
+  | { type: 'shop-skip'; playerId: string }
   | { type: 'emote'; playerId: string; emote: Emote };
 
 export interface GameTransport {
