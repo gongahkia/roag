@@ -191,7 +191,10 @@ export const isStopped = (ball: Ball) => speed(ball) < STOP_SPEED;
 
 const isOnGround = (course: Course, ball: Ball) => {
   const tile = tileAt(course, ball.x, ball.y);
-  return Boolean(tile && tile.surface !== 'void' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
+  // A wall is an obstruction, never a valid landing surface. Treating it as
+  // ground allowed a chip at rest on a wall to settle before another collision
+  // step could reflect it.
+  return Boolean(tile && tile.surface !== 'void' && tile.surface !== 'wall' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
 };
 
 const rollingDecelerationFor = (tile: Tile, modifiers: BallPhysicsModifiers) => {

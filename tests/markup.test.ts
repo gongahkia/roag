@@ -66,7 +66,7 @@ describe('voting overlay markup', () => {
   });
 
   it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', humanCount: 2, botCount: 0, skipVoting: true });
+    const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipVoting: true });
     openShop(state);
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(markup).toContain('class="merchant-overlay"');

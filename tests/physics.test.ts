@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateCourse } from '../src/core/generator';
-import { BALL_RADIUS, CUP_CAPTURE_COVERAGE, MAX_DOWNHILL_ROLL_SPEED, MAX_SURFACE_SPEED, cupCoverageAt, floorHeightAt, newBall, simulateImpulse, simulateShot, tileCornerHeights } from '../src/core/physics';
+import { BALL_RADIUS, CUP_CAPTURE_COVERAGE, MAX_DOWNHILL_ROLL_SPEED, MAX_SURFACE_SPEED, cupCoverageAt, floorHeightAt, newBall, simulateImpulse, simulateShot, tileAt, tileCornerHeights } from '../src/core/physics';
 import { aimPathFor, projectWorldDirection } from '../src/ui/render';
 import type { Course } from '../src/core/types';
 import { createLane as lane } from './fixtures';
@@ -41,6 +41,14 @@ describe('grounded physics invariants', () => {
     expect(chip.ball.x).toBeGreaterThan(3.5);
     expect(Math.max(...chip.frames.map((frame) => frame.ball.z))).toBeGreaterThan(.9);
     expect(Math.max(...arc.map((point) => point.z))).toBeGreaterThan(arc[0]!.z + .7);
+  });
+
+  it('never lets a descending chip settle on a wall tile', () => {
+    const course = lane('fairway', 14);
+    course.tiles[3 * course.width + 3] = { surface: 'wall', height: 0 };
+    const result = simulateShot(course, newBall(course), { angle: 0, power: 4, kind: 'chip' });
+    expect(tileAt(course, result.ball.x, result.ball.y)?.surface).not.toBe('wall');
+    expect(result.ball.x).toBeLessThan(3);
   });
 
   it('makes updrafts, low bars, air rings, and sky springs meaningful airborne challenges', () => {
