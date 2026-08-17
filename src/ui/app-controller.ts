@@ -108,6 +108,8 @@ export const startApp = (app: HTMLElement) => {
       drawBoard(undefined, null);
       const progress = app.querySelector<HTMLElement>('#assembly-progress');
       if (progress) progress.textContent = `${Math.round(assemblyProgress * 100)}%`;
+      const progressFill = app.querySelector<HTMLElement>('#assembly-progress-fill');
+      if (progressFill) progressFill.style.width = `${Math.round(assemblyProgress * 100)}%`;
       if (assemblyProgress < 1) {
         assemblyFrame = requestAnimationFrame(animate);
         return;
