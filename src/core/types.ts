@@ -1,9 +1,9 @@
 export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
-export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal';
-export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch';
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | GadgetKind | BallForm;
-export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger';
+export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal' | 'glider' | 'sticky' | 'orbit';
+export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch' | 'sky spring';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | GadgetKind | BallForm;
+export type Upgrade = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer';
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
   { id: 'taunt', glyph: '>:]', label: 'taunt' },
@@ -53,7 +53,23 @@ export interface GateHazard {
   phaseOffset: number;
 }
 
-export type CourseHazard = SweeperHazard | GateHazard;
+export interface UpdraftHazard {
+  id: string;
+  kind: 'updraft';
+  point: Point;
+  direction: Point;
+  radius: number;
+  strength: number;
+}
+
+export interface LowBarHazard {
+  id: string;
+  kind: 'low-bar';
+  point: Point;
+  clearance: number;
+}
+
+export type CourseHazard = SweeperHazard | GateHazard | UpdraftHazard | LowBarHazard;
 
 export interface SinkholeFeature {
   id: string;
@@ -77,7 +93,15 @@ export interface PulseFeature {
   strength: number;
 }
 
-export type CourseFeature = SinkholeFeature | ThornFeature | PulseFeature;
+export interface AirRingFeature {
+  id: string;
+  kind: 'air-ring';
+  point: Point;
+  radius: number;
+  boost: number;
+}
+
+export type CourseFeature = SinkholeFeature | ThornFeature | PulseFeature | AirRingFeature;
 export interface PortalEndpoint {
   point: Point;
   direction: Point;
@@ -115,6 +139,9 @@ export interface TerrainSettings {
   sinkholePairs: number;
   thornCount: number;
   pulseCount: number;
+  updraftCount: number;
+  lowBarCount: number;
+  airRingCount: number;
   variation: number;
 }
 
@@ -245,6 +272,7 @@ export interface Player {
   slipstreamArmed?: boolean;
   reboundRigArmed?: boolean;
   sandbagged?: boolean;
+  forcedChip?: boolean;
   total: number;
 }
 

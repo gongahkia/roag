@@ -37,6 +37,9 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
   sinkholePairs: 1,
   thornCount: 2,
   pulseCount: 2,
+  updraftCount: 1,
+  lowBarCount: 1,
+  airRingCount: 1,
   variation: 0,
 });
 
@@ -68,6 +71,9 @@ export const randomTerrainSettings = (seed: string, variation: number): TerrainS
     sinkholePairs: theme === 'drift' ? random.int(1, 2) : random.int(0, 1),
     thornCount: theme === 'bloom' ? random.int(1, 3) : random.int(0, 1),
     pulseCount: theme === 'pulse' ? random.int(1, 3) : random.int(0, 1),
+    updraftCount: theme === 'pulse' ? random.int(1, 3) : random.int(0, 2),
+    lowBarCount: random.int(0, 2),
+    airRingCount: theme === 'speedway' ? random.int(1, 3) : random.int(0, 2),
     variation,
   };
 };
@@ -216,7 +222,7 @@ const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   return { playable, estimatedStrokes, hazards, elevation, routes, novelty, total, solverShots, rejection: playable ? undefined : 'shot solver found no safe cup line' };
 };
 
-const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper' | 'gate', phaseCount: number) => {
+const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper' | 'gate' | 'updraft' | 'low-bar', phaseCount: number) => {
   const routeCells = new Set(course.route.map((point) => `${point.x},${point.y}`));
   const choices: Point[] = [];
   for (let y = 1; y < course.height - 1; y += 1) {
@@ -232,7 +238,9 @@ const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper
   }
   const point = random.pick(choices.length ? choices : course.route.slice(2, -2));
   if (kind === 'sweeper') course.hazards.push({ id: `sweeper-${index}`, kind: 'sweeper', point, phaseOffset: random.int(0, phaseCount - 1), radius: .78 });
-  else course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, phaseCount - 1) });
+  else if (kind === 'gate') course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, phaseCount - 1) });
+  else if (kind === 'updraft') course.hazards.push({ id: `updraft-${index}`, kind: 'updraft', point, direction: random.pick(directions), radius: .72 + random.next() * .26, strength: 2.1 + random.next() * 1.2 });
+  else course.hazards.push({ id: `low-bar-${index}`, kind: 'low-bar', point, clearance: .66 + random.next() * .22 });
 };
 
 const addItemPads = (course: Course, random: Random, recoveryPads: number, chaosPads: number) => {
@@ -316,6 +324,17 @@ const addBiomeFeatures = (course: Course, random: Random, settings: TerrainSetti
   }
 };
 
+const addAirRings = (course: Course, random: Random, count: number) => {
+  const used = new Set<string>();
+  for (let index = 0; index < count; index += 1) {
+    const candidates = featureCandidates(course).filter((point) => !used.has(`${point.x},${point.y}`));
+    if (!candidates.length) break;
+    const point = random.pick(candidates);
+    used.add(`${point.x},${point.y}`);
+    course.features.push({ id: `air-ring-${index + 1}`, kind: 'air-ring', point, radius: .34 + random.next() * .12, boost: 1.16 + random.next() * .14 });
+  }
+};
+
 const addBarrierWalls = (course: Course) => {
   const candidates = new Map<string, { point: Point; height: number }>();
   for (let y = 0; y < course.height; y += 1) {
@@ -375,9 +394,12 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
   }
   for (let index = 0; index < settings.sweeperCount; index += 1) addHazard(course, random, index, 'sweeper', phaseCount);
   for (let index = 0; index < settings.gateCount; index += 1) addHazard(course, random, index, 'gate', phaseCount);
+  for (let index = 0; index < settings.updraftCount; index += 1) addHazard(course, random, index, 'updraft', phaseCount);
+  for (let index = 0; index < settings.lowBarCount; index += 1) addHazard(course, random, index, 'low-bar', phaseCount);
   addPortals(course, random, settings.portalPairs);
   addItemPads(course, random, settings.recoveryPads, settings.chaosPads);
   addBiomeFeatures(course, random, settings);
+  addAirRings(course, random, settings.airRingCount);
   addBarrierWalls(course);
 };
 

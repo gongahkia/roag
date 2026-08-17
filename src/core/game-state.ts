@@ -37,7 +37,7 @@ export const cloneCourse = (course: Course): Course => ({
   route: course.route.map((point) => ({ ...point })),
   tee: { ...course.tee },
   cup: { ...course.cup },
-  hazards: course.hazards.map((hazard) => ({ ...hazard, point: { ...hazard.point } })),
+  hazards: course.hazards.map((hazard) => hazard.kind === 'updraft' ? { ...hazard, point: { ...hazard.point }, direction: { ...hazard.direction } } : { ...hazard, point: { ...hazard.point } }),
   theme: course.theme ?? 'balanced',
   features: (course.features ?? []).map((feature) => feature.kind === 'sinkhole'
     ? { ...feature, entrance: { ...feature.entrance }, exit: { ...feature.exit } }
@@ -62,6 +62,9 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.sinkholePairs ??= 0;
     option.recipe.terrain.thornCount ??= 0;
     option.recipe.terrain.pulseCount ??= 0;
+    option.recipe.terrain.updraftCount ??= 0;
+    option.recipe.terrain.lowBarCount ??= 0;
+    option.recipe.terrain.airRingCount ??= 0;
   });
   state.gadgets ??= [];
   state.coursePlan ??= [];
