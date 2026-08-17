@@ -27,7 +27,7 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number): void;
+  draw(course: Course, players: Player[], phase: number, aim?: { angle: number; power: number }, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, assemblyProgress?: number): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   dispose(): void;
 }
@@ -381,7 +381,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: { angle: number; power: number }; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; assemblyProgress?: number } | undefined;
 
   const layoutFor = (course: Course) => {
     const { width, height } = canvas.getBoundingClientRect();
@@ -390,7 +390,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: { angle: number; power: number } | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, assemblyProgress?: number) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -400,7 +400,17 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.fillRect(0, 0, width, height);
     const { metrics, tiles, offset } = layoutFor(course);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
+    const clampedAssembly = assemblyProgress === undefined ? undefined : Math.max(0, Math.min(1, assemblyProgress));
     const drawTile = (tile: VisibleTile) => {
+      const stagger = ((tile.x * 13 + tile.y * 7) % 23) / 23 * .58;
+      const arrived = clampedAssembly === undefined ? 1 : Math.max(0, Math.min(1, (clampedAssembly - stagger) / .42));
+      if (arrived === 0) return;
+      const eased = 1 - (1 - arrived) ** 3;
+      const angle = ((tile.x * 19 + tile.y * 11) % 8) * Math.PI / 4;
+      const distance = metrics.tileWidth * (2.5 + ((tile.x + tile.y) % 3) * .35) * (1 - eased);
+      context.save();
+      context.translate(Math.cos(angle) * distance, Math.sin(angle) * distance - distance * .38);
+      context.globalAlpha = .22 + eased * .78;
       for (let edge = 0; edge < 4; edge += 1) {
         const first = tile.corners[edge]!;
         const second = tile.corners[(edge + 1) % 4]!;
@@ -411,8 +421,12 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       context.fillStyle = topColors[tile.tile.surface];
       context.fill();
       drawPattern(context, tile, offset, metrics);
+      context.restore();
     };
     tiles.forEach(drawTile);
+    const worldOpacity = clampedAssembly === undefined ? 1 : Math.max(0, Math.min(1, (clampedAssembly - .58) / .42));
+    context.save();
+    context.globalAlpha = worldOpacity;
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
     drawPortals(context, course, offset, metrics);
@@ -435,6 +449,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     }
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
     drawEmotes(context, players, emotes, offset, metrics);
+    context.restore();
   };
 
   const resize = () => {
@@ -443,16 +458,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount);
+    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.assemblyProgress);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8) {
-      latest = { course, players, phase, aim, emotes, showItems, phaseCount };
-      paint(course, players, phase, aim, emotes, showItems, phaseCount);
+    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, assemblyProgress) {
+      latest = { course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress };
+      paint(course, players, phase, aim, emotes, showItems, phaseCount, assemblyProgress);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();

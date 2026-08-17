@@ -28,11 +28,13 @@ export const startApp = (app: HTMLElement) => {
   let ledger: LedgerEntry[] = [];
   let callouts: TimedCallout[] = [];
   let shotAnimation: ShotAnimation | undefined;
+  let assemblyFrame: number | undefined;
+  let assemblyProgress = 0;
   let liveEmotes: LiveEmote[] = [];
   let seenEmoteIds = new Set<string>();
 
   const current = () => state.players[state.turn.playerIndex]!;
-  const view = (): ViewModel => ({ state, config, preferences, overlay, drawer, rebinding, aim, shotInFlight: Boolean(shotAnimation), ledger, callouts });
+  const view = (): ViewModel => ({ state, config, preferences, overlay, drawer, rebinding, aim, shotInFlight: Boolean(shotAnimation), assemblyProgress: state.status === 'assembling' ? assemblyProgress : undefined, ledger, callouts });
   const applyPreferences = () => {
     document.documentElement.classList.toggle('reduced-motion', preferences.reducedMotion);
     document.documentElement.classList.toggle('high-contrast', preferences.highContrast);
@@ -55,15 +57,24 @@ export const startApp = (app: HTMLElement) => {
   };
 
   const setState = (next: GameState) => {
+    const enteringAssembly = state.status !== 'assembling' && next.status === 'assembling';
     state = next;
+    if (enteringAssembly) assemblyProgress = 0;
+    if (state.status !== 'assembling' && assemblyFrame !== undefined) {
+      window.cancelAnimationFrame(assemblyFrame);
+      assemblyFrame = undefined;
+    }
     recordStateFeedback(state);
     syncEmotes(state);
     render();
     scheduleBot();
+    if (state.status === 'assembling') startAssembly();
   };
   const autoResolveCaptureVote = (source: GameState) => {
     const optionId = source.vote?.options[0]?.id;
-    return optionId ? source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source) : source;
+    if (!optionId) return source;
+    const resolved = source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source);
+    return resolved.status === 'assembling' ? applyCommand(resolved, { type: 'complete-assembly' }) : resolved;
   };
   if (captureMode) state = autoResolveCaptureVote(state);
 
@@ -84,7 +95,27 @@ export const startApp = (app: HTMLElement) => {
 
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
-    renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount);
+    renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, state.status === 'assembling' ? assemblyProgress : undefined);
+  };
+  const startAssembly = () => {
+    if (state.status !== 'assembling') return;
+    if (assemblyFrame !== undefined) window.cancelAnimationFrame(assemblyFrame);
+    const duration = preferences.reducedMotion ? 120 : 1_650;
+    const startedAt = performance.now() - assemblyProgress * duration;
+    const animate = (now: number) => {
+      if (state.status !== 'assembling') return;
+      assemblyProgress = Math.max(0, Math.min(1, (now - startedAt) / duration));
+      drawBoard(undefined, null);
+      const progress = app.querySelector<HTMLElement>('#assembly-progress');
+      if (progress) progress.textContent = `${Math.round(assemblyProgress * 100)}%`;
+      if (assemblyProgress < 1) {
+        assemblyFrame = requestAnimationFrame(animate);
+        return;
+      }
+      assemblyFrame = undefined;
+      setState(applyCommand(state, { type: 'complete-assembly' }));
+    };
+    assemblyFrame = requestAnimationFrame(animate);
   };
   const chooseAim = (event: PointerEvent) => {
     if (!renderer || state.status !== 'playing' || current().kind !== 'human') return;
