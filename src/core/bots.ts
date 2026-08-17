@@ -1,7 +1,7 @@
 import { distanceToCup, simulateShot } from './physics';
 import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
-import type { Course, Player, PowerUp, ShotCommand } from './types';
+import type { Course, HoleRules, Player, PowerUp, ShotCommand, VotingOption } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
@@ -22,7 +22,7 @@ const rankedTarget = (bot: Player, players: Player[]): Player | undefined => pla
 
 const bestPortalExit = (course: Course) => course.portals?.filter((pair) => pair.exit).map((pair) => ({ id: `${pair.id}:exit`, distance: Math.hypot(course.cup.x - pair.exit!.point.x, course.cup.y - pair.exit!.point.y) })).sort((left, right) => left.distance - right.distance)[0]?.id;
 
-export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0): BotDecision => {
+export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0, rules?: HoleRules): BotDecision => {
   const skill = clampedSkill(bot, players.filter((player) => player.id !== bot.id));
   const random = new Random(`${course.seed}:${bot.id}:${bot.ball.strokes}`);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
@@ -36,7 +36,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     const angle = baseAngle + (index - (sampleCount - 1) / 2) * angleStep;
     for (let power = 2; power <= 7.5; power += powerStep) {
       const shot = { angle, power };
-      const result = simulateShot(course, bot.ball, shot, undefined, { phase, modifiers: physicsModifiersFor(bot) });
+      const result = simulateShot(course, bot.ball, shot, undefined, { phase, phaseCount: rules?.hazardPhaseCount, modifiers: physicsModifiersFor(bot, rules) });
       const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
         + result.ball.resetCount * 45
         + Math.max(0, result.ball.z - 1.4) * 3
@@ -61,4 +61,9 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     } else if (target) powerUp = { type: held, targetId: target.id };
   }
   return { shot, powerUp, secondWind: bot.secondWindAvailable && !bot.twoPuttsArmed && skill >= 6 && random.chance(.45), confidence: Math.max(0, 1 - selected.score / 150) };
+};
+
+export const chooseBotVote = (seed: string, hole: number, bot: Player, options: readonly VotingOption[]): string => {
+  const random = new Random(`${seed}:hole:${hole}:vote:${bot.id}`);
+  return random.pick(options).id;
 };

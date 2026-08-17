@@ -1,22 +1,14 @@
 import { presentFeedback } from '../feedback';
-import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn, UPGRADE_DESCRIPTIONS } from '../core/game';
+import { chooseBotVote } from '../core/bots';
+import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
-import { type Ball, type BuildTool, type CourseTheme, type Emote, type EmoteEvent, type GameConfig, type GameState, type PowerUp, type ShotCommand } from '../core/types';
+import { type Ball, type Emote, type EmoteEvent, type GameConfig, type GameState, type PowerUp, type ShotCommand } from '../core/types';
 import { createRenderer } from './render';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
 
-interface TimedCallout extends Callout {
-  expiresAt: number;
-}
-
-interface ShotAnimation {
-  playerId: string;
-  frame: number;
-}
-
-interface LiveEmote extends EmoteEvent {
-  expiresAt: number;
-}
+interface TimedCallout extends Callout { expiresAt: number; }
+interface ShotAnimation { playerId: string; frame: number; }
+interface LiveEmote extends EmoteEvent { expiresAt: number; }
 
 export const startApp = (app: HTMLElement) => {
   const query = new URLSearchParams(window.location.search);
@@ -41,12 +33,10 @@ export const startApp = (app: HTMLElement) => {
 
   const current = () => state.players[state.turn.playerIndex]!;
   const view = (): ViewModel => ({ state, config, preferences, overlay, drawer, rebinding, aim, shotInFlight: Boolean(shotAnimation), ledger, callouts });
-
   const applyPreferences = () => {
     document.documentElement.classList.toggle('reduced-motion', preferences.reducedMotion);
     document.documentElement.classList.toggle('high-contrast', preferences.highContrast);
   };
-
   const recordFeedback = (message: string) => {
     if (!message || message === lastFeedbackMessage) return;
     lastFeedbackMessage = message;
@@ -55,9 +45,7 @@ export const startApp = (app: HTMLElement) => {
     ledger = [entry, ...ledger].slice(0, 8);
     if (presentation.major) callouts = [{ ...entry, expiresAt: performance.now() + (preferences.reducedMotion ? 900 : 1800) }, ...callouts].slice(0, 2);
   };
-
   const recordStateFeedback = (next: GameState) => recordFeedback(next.messages[0] ?? '');
-
   const syncEmotes = (next: GameState) => {
     for (const emote of next.emotes) {
       if (seenEmoteIds.has(emote.id)) continue;
@@ -73,6 +61,11 @@ export const startApp = (app: HTMLElement) => {
     render();
     scheduleBot();
   };
+  const autoResolveCaptureVote = (source: GameState) => {
+    const optionId = source.vote?.options[0]?.id;
+    return optionId ? source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source) : source;
+  };
+  if (captureMode) state = autoResolveCaptureVote(state);
 
   const setupGame = () => {
     config = {
@@ -80,51 +73,36 @@ export const startApp = (app: HTMLElement) => {
       seed: app.querySelector<HTMLInputElement>('#seed')?.value.trim() || config.seed,
       humanCount: Number(app.querySelector<HTMLInputElement>('#humans')?.value || config.humanCount),
       botCount: Number(app.querySelector<HTMLInputElement>('#bots')?.value || config.botCount),
-      timerSeconds: Number(app.querySelector<HTMLInputElement>('#timer')?.value || config.timerSeconds),
       botSkill: app.querySelector<HTMLSelectElement>('#skill')?.value === 'adaptive' ? 'adaptive' : Number(app.querySelector<HTMLSelectElement>('#skill')?.value || config.botSkill),
-      collisions: app.querySelector<HTMLInputElement>('#collisions')?.checked ?? config.collisions,
-      powerUps: app.querySelector<HTMLInputElement>('#powerups')?.checked ?? config.powerUps,
     };
     if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
     drawer = captureMode ? undefined : 'intel';
     liveEmotes = [];
     seenEmoteIds = new Set();
-    setState(createGame(config));
+    setState(captureMode ? autoResolveCaptureVote(createGame(config)) : createGame(config));
   };
 
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
-    renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.config.powerUps, state.status === 'build');
+    renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount);
   };
-
   const chooseAim = (event: PointerEvent) => {
-    if (!renderer || (state.status !== 'playing' && state.status !== 'validate') || current().kind !== 'human') return;
+    if (!renderer || state.status !== 'playing' || current().kind !== 'human') return;
     aim = renderer.aimFromPointer(event, state.course, current().ball);
     drawBoard();
     renderControls();
   };
-
-  const placeBuild = (event: PointerEvent) => {
-    if (!renderer || state.status !== 'build' || current().kind !== 'human') return;
-    const point = renderer.tileFromPointer(event, state.course);
-    if (point) setState(applyCommand(state, { type: 'build-place', point }));
-  };
-
   const adjustPower = (amount: number) => {
     aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
-    if (state.status !== 'playing' && state.status !== 'validate') return;
+    if (state.status !== 'playing') return;
     drawBoard();
     renderControls();
   };
-
   const playShot = (shot: ShotCommand) => {
-    if ((state.status !== 'playing' && state.status !== 'validate') || shotAnimation) return;
+    if (state.status !== 'playing' || shotAnimation) return;
     const player = current();
     const frames = previewShot(state, shot);
-    if (!frames?.length) {
-      setState(applyCommand(state, { type: 'shoot', shot }));
-      return;
-    }
+    if (!frames?.length) { setState(applyCommand(state, { type: 'shoot', shot })); return; }
     const source = state;
     const inFlight = { ...source, turn: { ...source.turn, shotInFlight: true } };
     const duration = Math.min(2_200, Math.max(360, frames.length * 11));
@@ -140,51 +118,36 @@ export const startApp = (app: HTMLElement) => {
       const frame = Math.max(0, Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1))));
       shotAnimation.frame = frame;
       drawBoard(frames[frame]!, null);
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-        return;
-      }
+      if (progress < 1) { requestAnimationFrame(animate); return; }
       shotAnimation = undefined;
       setState(applyCommand(source, { type: 'shoot', shot }));
     };
     requestAnimationFrame(animate);
   };
-
-  const shoot = () => {
-    if ((state.status !== 'playing' && state.status !== 'validate') || current().kind !== 'human') return;
-    playShot(aim);
-  };
-
+  const shoot = () => { if (state.status === 'playing' && current().kind === 'human') playShot(aim); };
   const useHeldPowerUp = (powerUp: PowerUp) => {
     if (state.status !== 'playing' || current().kind !== 'human' || shotAnimation) return;
     const target = state.players.find((player) => player.id !== current().id && !player.ball.complete);
     const portalExitId = app.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
     setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id, portalExitId }));
   };
-
   const sendEmote = (emote: Emote) => {
     if (shotAnimation || current().kind !== 'human') return;
     setState(applyCommand(state, { type: 'emote', playerId: current().id, emote }));
   };
-
   const scheduleBot = () => {
     window.clearTimeout(botTimeout);
-    if (current().kind !== 'bot') return;
-    if (state.status === 'build') {
+    if (state.status === 'voting' && state.vote) {
+      const bot = state.players.find((player) => player.kind === 'bot' && !state.vote!.ballots[player.id]);
+      if (!bot) return;
       botTimeout = window.setTimeout(() => {
-        if (state.status !== 'build' || current().kind !== 'bot') return;
-        const bot = current();
-        if (!bot.upgrades.length) {
-          const skill = typeof bot.skill === 'number' ? bot.skill : 6;
-          const upgrade = Object.keys(UPGRADE_DESCRIPTIONS)[(skill - 1) % Object.keys(UPGRADE_DESCRIPTIONS).length]! as keyof typeof UPGRADE_DESCRIPTIONS;
-          setState(applyCommand(state, { type: 'select-upgrade', upgrade }));
-          return;
-        }
-        setState(applyCommand(state, { type: state.build?.generated ? 'begin-validation' : 'build-generate' }));
-      }, preferences.reducedMotion ? 90 : 500);
+        if (state.status !== 'voting' || !state.vote || state.vote.ballots[bot.id]) return;
+        const optionId = chooseBotVote(state.config.seed, state.hole, bot, state.vote.options);
+        setState(applyCommand(state, { type: 'cast-vote', playerId: bot.id, optionId }));
+      }, preferences.reducedMotion ? 100 : 520);
       return;
     }
-    if (state.status !== 'playing' && state.status !== 'validate') return;
+    if (state.status !== 'playing' || current().kind !== 'bot') return;
     botTimeout = window.setTimeout(() => {
       const decision = botMove(state);
       if (!decision) return;
@@ -193,7 +156,6 @@ export const startApp = (app: HTMLElement) => {
       playShot((decision.secondWind || decision.powerUp ? botMove(state)?.shot : undefined) ?? decision.shot);
     }, preferences.reducedMotion ? 180 : 650);
   };
-
   const renderControls = () => {
     const control = app.querySelector<HTMLElement>('#controls');
     if (!control) return;
@@ -206,19 +168,16 @@ export const startApp = (app: HTMLElement) => {
     app.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
     app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => setState(applyCommand(state, { type: 'arm-second-wind' })));
   };
-
   const render = () => {
     app.innerHTML = renderAppMarkup(view());
     app.querySelector<HTMLButtonElement>('#new-run')?.addEventListener('click', setupGame);
     const canvas = app.querySelector<HTMLCanvasElement>('#course')!;
     renderer?.dispose();
     renderer = createRenderer(canvas);
-    drawBoard(undefined, state.status === 'build' ? null : aim);
+    drawBoard(undefined, state.status === 'playing' ? aim : null);
     canvas.addEventListener('pointermove', chooseAim);
-    canvas.addEventListener('pointerdown', state.status === 'build' ? placeBuild : chooseAim);
     renderControls();
   };
-
   const updatePreferences = (partial: Partial<typeof preferences>) => {
     preferences = { ...preferences, ...partial };
     savePreferences(preferences);
@@ -232,21 +191,9 @@ export const startApp = (app: HTMLElement) => {
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-    const buildTool = element.dataset.buildTool as BuildTool | undefined;
-    if (buildTool && state.status === 'build') { setState(applyCommand(state, { type: 'build-settings', tool: buildTool })); return; }
-    const builderUpgrade = element.dataset.builderUpgrade as keyof typeof UPGRADE_DESCRIPTIONS | undefined;
-    if (builderUpgrade && state.status === 'build') { setState(applyCommand(state, { type: 'select-upgrade', upgrade: builderUpgrade })); return; }
-    const courseTheme = element.dataset.courseTheme as CourseTheme | undefined;
-    if (courseTheme && state.status === 'build') { setState(applyCommand(state, { type: 'build-settings', terrain: { theme: courseTheme } })); return; }
-    const direction = element.dataset.buildDirection;
-    if (direction && state.status === 'build') {
-      const [x, y] = direction.split(',').map(Number);
-      setState(applyCommand(state, { type: 'build-settings', direction: { x, y } }));
-      return;
-    }
-    if (element.id === 'auto-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-generate' })); return; }
-    if (element.id === 'randomize-terrain' && state.status === 'build') { setState(applyCommand(state, { type: 'build-randomize' })); return; }
-    if (element.id === 'validate' && state.status === 'build') { setState(applyCommand(state, { type: 'begin-validation' })); return; }
+    const votePlayer = element.dataset.votePlayer;
+    const voteOption = element.dataset.voteOption;
+    if (votePlayer && voteOption) { setState(applyCommand(state, { type: 'cast-vote', playerId: votePlayer, optionId: voteOption })); return; }
     const powerUp = element.dataset.usePowerup as PowerUp | undefined;
     if (powerUp) { useHeldPowerUp(powerUp); return; }
     const emote = element.dataset.emote as Emote | undefined;
@@ -257,35 +204,11 @@ export const startApp = (app: HTMLElement) => {
     const binding = element.dataset.bind as ShortcutId | undefined;
     if (binding) { rebinding = binding; render(); }
   });
-
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLInputElement;
     const preference = target.dataset.preference;
     if (preference === 'reducedMotion' || preference === 'highContrast') updatePreferences({ [preference]: target.checked });
   });
-
-  app.addEventListener('input', (event) => {
-    const target = event.target as HTMLInputElement;
-    if (state.status !== 'build') return;
-    if (target.id === 'build-height') {
-      setState(applyCommand(state, { type: 'build-settings', height: Number(target.value) }));
-      return;
-    }
-    if (target.id === 'portal-pair') {
-      setState(applyCommand(state, { type: 'build-settings', portalPairId: Number(target.value) }));
-      return;
-    }
-    const terrain = target.id === 'terrain-density' ? { density: Number(target.value) }
-      : target.id === 'terrain-elevation' ? { elevation: Number(target.value) }
-        : target.id === 'terrain-hazards' ? { hazards: Number(target.value) }
-          : target.id === 'terrain-chaos' ? { chaos: Number(target.value) }
-            : target.id === 'route-length' ? { routeLength: Number(target.value) }
-              : target.id === 'route-bendiness' ? { bendiness: Number(target.value) }
-                : target.id === 'route-width' ? { laneWidth: Number(target.value) }
-                  : target.id === 'route-branches' ? { branches: Number(target.value) } : undefined;
-    if (terrain) setState(applyCommand(state, { type: 'build-settings', terrain }));
-  });
-
   window.addEventListener('keydown', (event) => {
     if (rebinding) {
       if (event.key === 'Escape') { rebinding = undefined; render(); return; }
@@ -305,13 +228,11 @@ export const startApp = (app: HTMLElement) => {
     if (command === 'settings') { overlay = overlay === 'settings' ? undefined : 'settings'; render(); return; }
     if (overlay || shotAnimation) return;
     if (command === 'shoot') shoot();
-    if (command === 'powerDown') adjustPower(-0.2);
-    if (command === 'powerUp') adjustPower(0.2);
-    if (command === 'lock' && state.status === 'build') setState(applyCommand(state, { type: 'begin-validation' }));
-    if (command === 'reroll' && state.status === 'build') setState(applyCommand(state, { type: 'build-generate' }));
-    if (command === 'usePowerUp' && current().inventory) useHeldPowerUp(current().inventory!);
+    if (command === 'powerDown') adjustPower(-.2);
+    if (command === 'powerUp') adjustPower(.2);
+    const heldPowerUp = current().inventory;
+    if (command === 'usePowerUp' && heldPowerUp) useHeldPowerUp(heldPowerUp);
   });
-
   const loop = (now: number) => {
     const elapsed = Math.min(1, (now - lastTick) / 1000);
     lastTick = now;
@@ -324,7 +245,7 @@ export const startApp = (app: HTMLElement) => {
     const previousEmoteCount = liveEmotes.length;
     liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
     if (liveEmotes.length !== previousEmoteCount && !shotAnimation) drawBoard();
-    if ((state.status === 'playing' || state.status === 'validate') && !shotAnimation) {
+    if (state.status === 'playing' && !shotAnimation) {
       const next = tickTurn(state, elapsed);
       if (next !== state) {
         state = next;
@@ -340,7 +261,6 @@ export const startApp = (app: HTMLElement) => {
     }
     requestAnimationFrame(loop);
   };
-
   applyPreferences();
   document.documentElement.classList.toggle('capture-mode', captureMode);
   recordStateFeedback(state);

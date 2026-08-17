@@ -173,7 +173,7 @@ const reachable = (course: Course, phase = 0, phaseCount = COURSE_PHASES): boole
   return false;
 };
 
-const solve = (course: Course, phase: number): ShotCommand[] => {
+const solve = (course: Course, phase: number, phaseCount = COURSE_PHASES): ShotCommand[] => {
   const ball = newBall(course);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
   const baseAngle = Math.atan2(cup.y - ball.y, cup.x - ball.x);
@@ -181,7 +181,7 @@ const solve = (course: Course, phase: number): ShotCommand[] => {
   for (let offset = -0.55; offset <= 0.55; offset += 0.11) {
     for (let power = 1.8; power <= 8; power += 0.35) {
       const shot = { angle: baseAngle + offset, power };
-      const result = simulateShot(course, ball, shot, undefined, { phase });
+      const result = simulateShot(course, ball, shot, undefined, { phase, phaseCount });
       candidates.push({ shot, distance: distanceToCup(course, result.ball), holed: result.holed });
     }
   }
@@ -194,7 +194,7 @@ const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   const hazards = course.tiles.filter((tile) => tile.surface === 'sand' || tile.surface === 'ice' || tile.surface === 'booster' || tile.surface === 'conveyor').length + course.hazards.length;
   const elevation = Math.round(course.tiles.reduce((total, tile) => total + tile.height, 0));
   const branches = course.tiles.filter((tile) => tile.surface === 'fairway').length - course.route.length * 6;
-  const solverShots = solve(course, 0);
+  const solverShots = solve(course, 0, phaseCount);
   const playable = solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
     if (!reachable(course, phase, phaseCount)) return false;
     const result = simulateShot(course, newBall(course), solverShots[0]!, undefined, { phase, phaseCount });
@@ -407,12 +407,13 @@ const randomHoleRules = (random: Random): HoleRules => {
   const rules = defaultHoleRules();
   const startingItems = [undefined, 'turbo', 'shield', 'two putts', 'bouncy', 'magnet'] as const;
   const boons = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'] as const;
+  const powerUps = random.chance(.82);
   return {
     ...rules,
     timerSeconds: random.pick([14, 18, 24, 30]),
     strokeCap: random.pick([7, 9, 10, 12]),
     collisions: random.chance(.7),
-    powerUps: random.chance(.82),
+    powerUps,
     recoveryBias: random.pick([.25, .5, .75]),
     launchMultiplier: random.pick([.86, .94, 1, 1.08, 1.16]),
     rollingResistanceMultiplier: random.pick([.72, .86, 1, 1.16, 1.3]),
@@ -423,7 +424,7 @@ const randomHoleRules = (random: Random): HoleRules => {
     cupRadius: random.pick([.23, .28, .33, .37]),
     hazardPhaseCount: random.pick([4, 6, 8, 10]),
     scoreMultiplier: random.pick([.75, 1, 1.25]),
-    startingPowerUp: random.pick(startingItems),
+    startingPowerUp: powerUps ? random.pick(startingItems) : undefined,
     sharedBoons: pickDistinct(random, boons, random.int(0, 2)),
   };
 };
@@ -431,6 +432,18 @@ const randomHoleRules = (random: Random): HoleRules => {
 const optionLabel = (terrain: TerrainSettings, rules: HoleRules, index: number) => {
   const boon = rules.sharedBoons[0] ?? (rules.startingPowerUp ? `${rules.startingPowerUp} supply` : 'standard kit');
   return `${votingLabels[index % votingLabels.length]} · ${terrain.theme} · ${boon}`;
+};
+
+const guaranteedFallbackCourse = (seed: string, phaseCount: number): Course => {
+  const tee = { x: 1, y: Math.floor(COURSE_HEIGHT / 2) };
+  const cup = { x: COURSE_WIDTH - 2, y: tee.y };
+  const tiles: Tile[] = Array.from({ length: COURSE_WIDTH * COURSE_HEIGHT }, () => ({ surface: 'fairway', height: 0 }));
+  tiles[indexOf({ width: COURSE_WIDTH }, tee)] = { surface: 'tee', height: 0 };
+  tiles[indexOf({ width: COURSE_WIDTH }, cup)] = { surface: 'cup', height: 0 };
+  const route = Array.from({ length: cup.x - tee.x + 1 }, (_, index) => ({ x: tee.x + index, y: tee.y }));
+  const course: Course = { id: `fallback-${seed}`, seed, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], portals: [], itemPads: [], score: {} as CourseScore };
+  course.score = scoreCourse(course, phaseCount);
+  return course;
 };
 
 export const generateVotingOptions = (seed: string, hole: number): VotingOption[] => {
@@ -451,7 +464,8 @@ export const generateVotingOptions = (seed: string, hole: number): VotingOption[
     const index = options.length;
     const terrain = { ...defaultTerrainSettings(), variation: hole * 100 + 90 + index, theme: themes[index % themes.length]! };
     const rules = defaultHoleRules();
-    const course = generateCourse(`${seed}:hole:${hole}:fallback:${index}`, terrain, rules.hazardPhaseCount);
+    const generated = generateCourse(`${seed}:hole:${hole}:fallback:${index}`, terrain, rules.hazardPhaseCount);
+    const course = generated.score.playable ? generated : guaranteedFallbackCourse(`${seed}:hole:${hole}:fallback:${index}`, rules.hazardPhaseCount);
     options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
   }
   return options;

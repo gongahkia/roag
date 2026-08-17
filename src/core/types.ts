@@ -64,7 +64,6 @@ export interface PortalPair {
   exit?: PortalEndpoint;
 }
 export type ItemPadKind = 'recovery' | 'chaos';
-export type BuildTool = 'erase' | 'fairway' | 'rough' | 'sand' | 'ice' | 'wall' | 'booster' | 'conveyor' | 'tee' | 'cup' | 'sweeper' | 'gate' | 'portal-entrance' | 'portal-exit' | 'recovery-pad' | 'chaos-pad';
 export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry';
 
 export interface TerrainSettings {

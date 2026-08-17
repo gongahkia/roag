@@ -6,7 +6,7 @@ describe('game preferences', () => {
     const preferences = normalizePreferences({
       reducedMotion: true,
       highContrast: true,
-      bindings: { shoot: 'p', usePowerUp: 'p', reroll: 3 },
+      bindings: { shoot: 'p', usePowerUp: 'p', obsolete: 3 },
     });
     expect(preferences.reducedMotion).toBe(true);
     expect(preferences.highContrast).toBe(true);
@@ -17,8 +17,8 @@ describe('game preferences', () => {
 
   it('rejects a remap that collides with another command', () => {
     const preferences = defaultPreferences();
-    expect(setShortcut(preferences, 'reroll', 'p')).toBe(preferences);
-    const remapped = setShortcut(preferences, 'reroll', 'x');
-    expect(bindingFor(remapped, 'reroll')).toBe('x');
+    expect(setShortcut(preferences, 'help', 'p')).toBe(preferences);
+    const remapped = setShortcut(preferences, 'help', 'x');
+    expect(bindingFor(remapped, 'help')).toBe('x');
   });
 });

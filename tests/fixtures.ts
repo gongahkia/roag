@@ -1,4 +1,4 @@
-import { beginCourse, createGame, defaultConfig } from '../src/core/game';
+import { applyCommand, createGame, defaultConfig } from '../src/core/game';
 import { newBall } from '../src/core/physics';
 import type { Course, GameConfig, Surface, Tile } from '../src/core/types';
 
@@ -24,7 +24,9 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
 };
 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
-  const game = beginCourse(createGame({ ...defaultConfig(), seed: course.seed, humanCount: 1, botCount: 1, ...options }));
+  let game = createGame({ ...defaultConfig(), seed: course.seed, humanCount: 1, botCount: 1, ...options });
+  const optionId = game.vote!.options[0]!.id;
+  for (const player of game.players) game = applyCommand(game, { type: 'cast-vote', playerId: player.id, optionId });
   game.course = course;
   game.players.forEach((player) => { player.ball = newBall(course); });
   return game;
