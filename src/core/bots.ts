@@ -78,11 +78,11 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   let powerUp: BotDecision['powerUp'];
   const held = bot.inventory ?? bot.spareInventory;
   if (held && skill >= 5 && random.chance(0.18 + skill * 0.025)) {
-    if (held === 'turbo' || held === 'shield' || held === 'two putts' || held === 'heavy' || held === 'bouncy' || held === 'ghost' || held === 'magnet' || held === 'ice' || held === 'cup magnet' || held === 'slipstream' || held === 'rebound rig') powerUp = { type: held };
+    if (held === 'turbo' || held === 'shield' || held === 'two putts' || held === 'heavy' || held === 'bouncy' || held === 'ghost' || held === 'magnet' || held === 'ice' || held === 'glider' || held === 'sticky' || held === 'orbit' || held === 'cup magnet' || held === 'slipstream' || held === 'rebound rig' || held === 'rescue drone') powerUp = { type: held };
     else if (held === 'portal') {
       const portalExitId = bestPortalExit(course);
       if (portalExitId) powerUp = { type: held, portalExitId };
-    } else if (held === 'popper pad' || held === 'snare patch' || held === 'blast mine' || held === 'slick patch') {
+    } else if (held === 'popper pad' || held === 'snare patch' || held === 'blast mine' || held === 'slick patch' || held === 'sky spring') {
       const placement = gadgetPointFor(course, bot, gadgets);
       if (placement) powerUp = { type: held, placement };
     } else if (target) powerUp = { type: held, targetId: target.id };

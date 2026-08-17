@@ -43,6 +43,27 @@ describe('grounded physics invariants', () => {
     expect(Math.max(...arc.map((point) => point.z))).toBeGreaterThan(arc[0]!.z + .7);
   });
 
+  it('makes updrafts, low bars, air rings, and sky springs meaningful airborne challenges', () => {
+    const plain = lane('fairway', 28);
+    const updraft = lane('fairway', 28);
+    updraft.hazards = [{ id: 'updraft', kind: 'updraft', point: { x: 3, y: 3 }, direction: { x: 1, y: 0 }, radius: 1.2, strength: 6 }];
+    const ring = lane('fairway', 28);
+    ring.features = [{ id: 'ring', kind: 'air-ring', point: { x: 3, y: 3 }, radius: .48, boost: 1.4 }];
+    const barred = lane('fairway', 28);
+    barred.hazards = [{ id: 'bar', kind: 'low-bar', point: { x: 3, y: 3 }, clearance: 1.1 }];
+    const sprung = lane('fairway', 28);
+    const clean = simulateShot(plain, newBall(plain), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+    const winded = simulateShot(updraft, newBall(updraft), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+    const boosted = simulateShot(ring, newBall(ring), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+    const blocked = simulateShot(barred, newBall(barred), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+    const launched = simulateShot(sprung, newBall(sprung), { angle: 0, power: 3 }, 1.2, { gadgets: [{ id: 'spring', ownerId: 'human-0', kind: 'sky spring', point: { x: 3, y: 3 } }] });
+
+    expect(winded.ball.x).toBeGreaterThan(clean.ball.x);
+    expect(boosted.ball.x).toBeGreaterThan(clean.ball.x);
+    expect(blocked.ball.x).toBeLessThan(clean.ball.x);
+    expect(Math.max(...launched.frames.map((frame) => frame.ball.z))).toBeGreaterThan(.8);
+  });
+
   it('preserves tangential velocity on a glancing wall rebound', () => {
     const course = lane();
     course.tiles[3 * course.width + 3] = { surface: 'wall', height: 0 };

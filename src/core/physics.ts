@@ -487,7 +487,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
   const ball = participant.ball;
   const lowBar = course.hazards.find((hazard) => hazard.kind === 'low-bar'
     && Math.hypot(ball.x - hazard.point.x - .5, ball.y - hazard.point.y - .5) < .42);
-  if (lowBar) {
+  if (lowBar?.kind === 'low-bar') {
     const height = floorHeightAt(course, lowBar.point.x + .5, lowBar.point.y + .5) + lowBar.clearance;
     if (ball.z - BALL_RADIUS < height && ball.z + BALL_RADIUS > height) {
       bounceAirborneBall(course, participant, previous);
@@ -511,7 +511,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
   const ring = (course.features ?? []).find((feature) => feature.kind === 'air-ring'
     && Math.hypot(ball.x - feature.point.x - .5, ball.y - feature.point.y - .5) < feature.radius
     && ball.z - BALL_RADIUS > floorHeightAt(course, feature.point.x + .5, feature.point.y + .5) + .38);
-  if (!ring) return false;
+  if (ring?.kind !== 'air-ring') return false;
   ball.vx *= ring.boost;
   ball.vy *= ring.boost;
   ball.vz += .58;

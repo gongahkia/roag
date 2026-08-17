@@ -148,7 +148,8 @@ export const startApp = (app: HTMLElement) => {
       else renderer?.draw(transitionCourse ?? courseForPlan(state.transition.next), [], 0, undefined, [], false, state.transition.next.recipe.rules.hazardPhaseCount, (transitionProgress - .5) * 2, []);
       return;
     }
-    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement);
+    const effectiveAim = drawAim && current().forcedChip ? { ...drawAim, kind: 'chip' as const } : drawAim;
+    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement);
   };
   const startTransition = (completeLocally: boolean) => {
     if (state.status !== 'transitioning') return;
@@ -367,7 +368,7 @@ export const startApp = (app: HTMLElement) => {
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
   const useHeldPowerUp = (powerUp: PowerUp) => {
     if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
-    const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch']);
+    const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring']);
     if (gadgets.has(powerUp)) {
       placement = { kind: powerUp as GadgetKind, ownerId: current().id, valid: false, confirmed: false };
       playEffect(530, .08);

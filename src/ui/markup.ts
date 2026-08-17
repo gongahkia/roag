@@ -67,7 +67,7 @@ export const renderControlsMarkup = (view: ViewModel) => {
   const player = current(state);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
   const heldItems = [player.inventory, player.spareInventory].filter(Boolean) as PowerUp[];
-  const targeted = new Set<PowerUp>(['bomb', 'freeze', 'swap', 'phase shift', 'sandbag']);
+  const targeted = new Set<PowerUp>(['bomb', 'freeze', 'swap', 'phase shift', 'sandbag', 'airhorn']);
   const targets = state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete);
   const targetSelector = heldItems.some((powerUp) => targeted.has(powerUp)) && targets.length
     ? `<label>target <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targets.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`).join('')}</select></label>`
@@ -80,6 +80,7 @@ export const renderControlsMarkup = (view: ViewModel) => {
     <label>${aim.kind === 'chip' ? 'chip power' : 'putt power'} <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>${aim.kind === 'chip' ? 'chip' : 'putt'} <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
     ${player.ballForm ? `<span class="active-form">next shot: ${escapeHtml(player.ballForm)} ball</span>` : ''}
+    ${player.forcedChip ? '<span class="active-form">airhorn: next shot is a chip</span>' : ''}
     ${heldItems.includes('portal') ? `<label>portal exit <select id="portal-exit" ${disabled ? 'disabled' : ''}>${portalExits}</select></label>` : ''}
     ${targetSelector}
     ${heldItems.length ? heldItems.map((powerUp) => `<button data-use-powerup="${powerUp}" ${disabled ? 'disabled' : ''}>use ${escapeHtml(powerUp)}${powerUp === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`).join('') : '<span class="muted">no chaos item</span>'}

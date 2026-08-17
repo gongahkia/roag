@@ -41,7 +41,7 @@ const now = () => Date.now();
 const randomId = (bytes = 18) => randomBytes(bytes).toString('base64url');
 const roomCode = () => randomBytes(3).toString('hex').toUpperCase();
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('base64url');
-const powerUps = new Set(['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'cup magnet', 'slipstream', 'rebound rig', 'phase shift', 'sandbag', 'popper pad', 'snare patch', 'blast mine', 'slick patch']);
+const powerUps = new Set(['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'cup magnet', 'slipstream', 'rebound rig', 'phase shift', 'sandbag', 'rescue drone', 'airhorn', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring']);
 const emotes = new Set(['cheer', 'taunt', 'panic', 'wow', 'gg']);
 
 const safeName = (value: unknown) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16 ? value.trim().replace(/[^a-zA-Z0-9 _-]/g, '') : undefined;
