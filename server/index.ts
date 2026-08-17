@@ -56,7 +56,7 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
   const skipVoting = source.skipVoting === true;
-  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isInteger(courseWidth) || courseWidth < 14 || courseWidth > 28 || !Number.isInteger(courseHeight) || courseHeight < 10 || courseHeight > 20 || courseWidth * courseHeight > 560 || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
+  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isInteger(courseWidth) || courseWidth < 14 || courseWidth > 24 || !Number.isInteger(courseHeight) || courseHeight < 10 || courseHeight > 16 || courseWidth * courseHeight > 384 || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
   return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipVoting };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {

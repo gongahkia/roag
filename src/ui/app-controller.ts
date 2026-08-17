@@ -25,6 +25,7 @@ const readNumber = (app: HTMLElement, id: string, fallback: number) => {
   const value = Number(app.querySelector<HTMLInputElement | HTMLSelectElement>(`#${id}`)?.value);
   return Number.isFinite(value) ? value : fallback;
 };
+const validCourseDimensions = (width: number, height: number) => Number.isInteger(width) && width >= 14 && width <= 24 && Number.isInteger(height) && height >= 10 && height <= 16 && width * height <= 384;
 const browserServerUrl = () => {
   const secure = window.location.protocol === 'https:';
   const port = window.location.port === '5173' || !window.location.port ? '8787' : window.location.port;
@@ -224,6 +225,7 @@ export const startApp = (app: HTMLElement) => {
   const startLocal = (skipVoting = false) => {
     const selected = { ...readConfig('local'), skipVoting };
     if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
+    if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose a level size between 14–24 by 10–16 tiles'; render(); return; }
     onlineClient?.disconnect();
     onlineClient = undefined;
     room = undefined;
@@ -303,6 +305,7 @@ export const startApp = (app: HTMLElement) => {
     playerName = readText(app, 'player-name', playerName);
     serverUrl = readText(app, 'server-url', serverUrl);
     if (selected.maxHumans + selected.botCount > 12) { notice = 'choose between one and twelve total players'; render(); return; }
+    if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose a level size between 14–24 by 10–16 tiles'; render(); return; }
     connectOnline({ type: 'create-room', name: playerName, config: selected });
   };
   const joinOnlineRoom = () => {

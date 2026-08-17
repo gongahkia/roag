@@ -47,10 +47,13 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
 
 type CourseDimensions = Pick<TerrainSettings, 'width' | 'height'>;
 
-const normalizeDimensions = (dimensions: Partial<CourseDimensions>): CourseDimensions => ({
-  width: Math.max(14, Math.min(28, Math.round(dimensions.width ?? COURSE_WIDTH))),
-  height: Math.max(10, Math.min(20, Math.round(dimensions.height ?? COURSE_HEIGHT))),
-});
+const normalizeDimensions = (dimensions: Partial<CourseDimensions>): CourseDimensions => {
+  const normalize = (value: number | undefined, fallback: number, minimum: number, maximum: number) => Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, Math.round(value!))) : fallback;
+  return {
+    width: normalize(dimensions.width, COURSE_WIDTH, 14, 24),
+    height: normalize(dimensions.height, COURSE_HEIGHT, 10, 16),
+  };
+};
 
 export const randomTerrainSettings = (seed: string, variation: number, dimensions: Partial<CourseDimensions> = {}): TerrainSettings => {
   const random = new Random(`${seed}:terrain:${variation}`);

@@ -21,11 +21,11 @@ describe('dynamic course camera', () => {
     const compactCamera = cameraFor(compact, 700, 500, newBall(compact));
     expect(compactCamera.followsFocus).toBe(false);
 
-    const large = fullCourse('camera-large', 28, 20);
+    const large = fullCourse('camera-large', 24, 16);
     const tee = newBall(large);
     const cup = { ...tee, x: large.cup.x + .5, y: large.cup.y + .5, z: floorHeightAt(large, large.cup.x + .5, large.cup.y + .5) + .18 };
-    const fromTee = cameraFor(large, 360, 300, tee);
-    const fromCup = cameraFor(large, 360, 300, cup);
+    const fromTee = cameraFor(large, 320, 300, tee);
+    const fromCup = cameraFor(large, 320, 300, cup);
     expect(fromTee.followsFocus).toBe(true);
     expect(fromTee.metrics.tileWidth).toBeGreaterThanOrEqual(16);
     expect(fromCup.offset).not.toEqual(fromTee.offset);
