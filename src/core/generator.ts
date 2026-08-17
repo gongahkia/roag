@@ -14,6 +14,8 @@ const directions = [
 const themes: CourseTheme[] = ['balanced', 'speedway', 'hazard-run', 'ice-rink', 'quarry', 'drift', 'bloom', 'pulse'];
 
 export const defaultTerrainSettings = (): TerrainSettings => ({
+  width: COURSE_WIDTH,
+  height: COURSE_HEIGHT,
   density: .55,
   elevation: .55,
   maxElevation: 3,
@@ -43,11 +45,20 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
   variation: 0,
 });
 
-export const randomTerrainSettings = (seed: string, variation: number): TerrainSettings => {
+type CourseDimensions = Pick<TerrainSettings, 'width' | 'height'>;
+
+const normalizeDimensions = (dimensions: Partial<CourseDimensions>): CourseDimensions => ({
+  width: Math.max(14, Math.min(28, Math.round(dimensions.width ?? COURSE_WIDTH))),
+  height: Math.max(10, Math.min(20, Math.round(dimensions.height ?? COURSE_HEIGHT))),
+});
+
+export const randomTerrainSettings = (seed: string, variation: number, dimensions: Partial<CourseDimensions> = {}): TerrainSettings => {
   const random = new Random(`${seed}:terrain:${variation}`);
+  const size = normalizeDimensions(dimensions);
   const stepped = (min: number, max: number, step: number) => Number((min + random.int(0, Math.round((max - min) / step)) * step).toFixed(2));
   const theme = random.pick(themes);
   return {
+    ...size,
     density: stepped(.1, 1, .05),
     elevation: stepped(0, 1, .05),
     maxElevation: random.int(1, 3),
@@ -82,16 +93,16 @@ const indexOf = (course: Pick<Course, 'width'>, point: Point) => point.y * cours
 
 const baseTile = (): Tile => ({ surface: 'void', height: 0 });
 
-const writeTile = (tiles: Tile[], point: Point, surface: Surface, height: number, width = COURSE_WIDTH) => {
-  if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= COURSE_HEIGHT) return;
+const writeTile = (tiles: Tile[], point: Point, surface: Surface, height: number, width: number, courseHeight: number) => {
+  if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= courseHeight) return;
   tiles[point.y * width + point.x] = { surface, height };
 };
 
-const carve = (tiles: Tile[], point: Point, height: number, laneWidth: number) => {
+const carve = (tiles: Tile[], point: Point, height: number, laneWidth: number, width: number, courseHeight: number) => {
   const radius = Math.max(1, Math.min(2, laneWidth));
   for (let y = point.y - radius; y <= point.y + radius; y += 1) {
     for (let x = point.x - radius; x <= point.x + radius; x += 1) {
-      if (x > 0 && y > 0 && x < COURSE_WIDTH - 1 && y < COURSE_HEIGHT - 1) writeTile(tiles, { x, y }, 'fairway', height);
+      if (x > 0 && y > 0 && x < width - 1 && y < courseHeight - 1) writeTile(tiles, { x, y }, 'fairway', height, width, courseHeight);
     }
   }
 };
@@ -129,9 +140,13 @@ const smoothRampHeights = (course: Course) => {
 };
 
 const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
-  const route: Point[] = [{ x: 1, y: random.int(3, COURSE_HEIGHT - 4) }];
+  const verticalPadding = Math.max(2, Math.round(settings.height * .21));
+  const minY = verticalPadding;
+  const maxY = Math.max(minY, settings.height - verticalPadding - 1);
+  const route: Point[] = [{ x: 1, y: random.int(minY, maxY) }];
   let position = { ...route[0]! };
-  const cupX = Math.max(10, Math.min(COURSE_WIDTH - 2, Math.round(10 + settings.routeLength * 8)));
+  const minCupX = Math.max(8, Math.floor(settings.width / 2));
+  const cupX = Math.max(minCupX, Math.min(settings.width - 2, Math.round(minCupX + settings.routeLength * (settings.width - 2 - minCupX))));
   const bendChance = .05 + settings.bendiness * .34;
   const verticalChance = settings.bendiness * .14;
   let steps = 0;
@@ -143,11 +158,11 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
     if (settings.theme === 'hazard-run' && random.chance(.16 + settings.bendiness * .18)) deltaY = random.pick([-1, 1]);
     position = {
       x: Math.min(cupX, position.x + 1),
-      y: Math.max(2, Math.min(COURSE_HEIGHT - 3, position.y + deltaY)),
+      y: Math.max(minY, Math.min(maxY, position.y + deltaY)),
     };
     if (route.at(-1)!.x !== position.x || route.at(-1)!.y !== position.y) route.push({ ...position });
     if (position.x < cupX - 1 && random.chance(verticalChance)) {
-      position = { ...position, y: Math.max(2, Math.min(COURSE_HEIGHT - 3, position.y + random.pick([-1, 1]))) };
+      position = { ...position, y: Math.max(minY, Math.min(maxY, position.y + random.pick([-1, 1]))) };
       if (route.at(-1)!.x !== position.x || route.at(-1)!.y !== position.y) route.push({ ...position });
     }
     steps += 1;
@@ -161,11 +176,11 @@ const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, s
     const base = random.pick(route.slice(Math.min(2, route.length - 1), Math.max(3, route.length - 2)));
     const direction = random.pick([-1, 1]);
     const length = random.int(2, 3 + Math.round(settings.chaos * 3));
-    const baseHeight = tiles[base.y * COURSE_WIDTH + base.x]!.height;
+    const baseHeight = tiles[base.y * settings.width + base.x]!.height;
     let point = { ...base };
     for (let step = 0; step < length; step += 1) {
-      point = { x: Math.max(1, Math.min(COURSE_WIDTH - 2, point.x + (random.chance(.35) ? 1 : 0))), y: Math.max(1, Math.min(COURSE_HEIGHT - 2, point.y + direction)) };
-      carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1));
+      point = { x: Math.max(1, Math.min(settings.width - 2, point.x + (random.chance(.35) ? 1 : 0))), y: Math.max(1, Math.min(settings.height - 2, point.y + direction)) };
+      carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1), settings.width, settings.height);
     }
   }
 };
@@ -357,7 +372,7 @@ const addBarrierWalls = (course: Course) => {
 const decorate = (course: Course, random: Random, settings: TerrainSettings, phaseCount: number) => {
   const featureAttempts = Math.round(6 + settings.density * 24 + settings.chaos * 26);
   for (let attempt = 0; attempt < featureAttempts; attempt += 1) {
-    const point = { x: random.int(2, COURSE_WIDTH - 3), y: random.int(2, COURSE_HEIGHT - 3) };
+    const point = { x: random.int(2, course.width - 3), y: random.int(2, course.height - 3) };
     const tile = course.tiles[indexOf(course, point)]!;
     if (tile.surface !== 'fairway' || point.x === course.tee.x || point.x === course.cup.x) continue;
     const surfaceRoll = random.next();
@@ -405,20 +420,20 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
 
 const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number): Course => {
   const random = new Random(seed);
-  const tiles = Array.from({ length: COURSE_WIDTH * COURSE_HEIGHT }, baseTile);
+  const tiles = Array.from({ length: settings.width * settings.height }, baseTile);
   const route = routeFor(random, settings);
   let elevation = 0;
   for (const [index, point] of route.entries()) {
     const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0);
     if (index > 2 && random.chance(elevationChance)) elevation = Math.max(0, Math.min(settings.maxElevation, elevation + random.pick([-1, 1])));
-    carve(tiles, point, elevation, settings.laneWidth);
+    carve(tiles, point, elevation, settings.laneWidth, settings.width, settings.height);
   }
   carveBranches(tiles, route, random, settings);
   const tee = route[0]!;
   const cup = route.at(-1)!;
-  writeTile(tiles, tee, 'tee', tiles[indexOf({ width: COURSE_WIDTH }, tee)]!.height);
-  writeTile(tiles, cup, 'cup', tiles[indexOf({ width: COURSE_WIDTH }, cup)]!.height);
-  const course: Course = { id: `course-${seed}`, seed, theme: settings.theme, width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
+  writeTile(tiles, tee, 'tee', tiles[indexOf({ width: settings.width }, tee)]!.height, settings.width, settings.height);
+  writeTile(tiles, cup, 'cup', tiles[indexOf({ width: settings.width }, cup)]!.height, settings.width, settings.height);
+  const course: Course = { id: `course-${seed}`, seed, theme: settings.theme, width: settings.width, height: settings.height, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   decorate(course, random, settings, phaseCount);
   smoothRampHeights(course);
   course.score = scoreCourse(course, phaseCount);
@@ -426,7 +441,7 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
 };
 
 export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES): Course => {
-  const resolvedSettings = { ...defaultTerrainSettings(), ...settings };
+  const resolvedSettings = { ...defaultTerrainSettings(), ...settings, ...normalizeDimensions(settings) };
   let fallback = buildCourse(seed, resolvedSettings, phaseCount);
   if (fallback.score.playable) return fallback;
   for (let attempt = 1; attempt <= 40; attempt += 1) {
@@ -504,24 +519,25 @@ const optionLabel = (_terrain: TerrainSettings, rules: HoleRules, index: number)
   return `${votingLabels[index % votingLabels.length]} · ${boon}`;
 };
 
-const guaranteedFallbackCourse = (seed: string, phaseCount: number): Course => {
-  const tee = { x: 1, y: Math.floor(COURSE_HEIGHT / 2) };
-  const cup = { x: COURSE_WIDTH - 2, y: tee.y };
-  const tiles: Tile[] = Array.from({ length: COURSE_WIDTH * COURSE_HEIGHT }, () => ({ surface: 'fairway', height: 0 }));
-  tiles[indexOf({ width: COURSE_WIDTH }, tee)] = { surface: 'tee', height: 0 };
-  tiles[indexOf({ width: COURSE_WIDTH }, cup)] = { surface: 'cup', height: 0 };
+const guaranteedFallbackCourse = (seed: string, phaseCount: number, dimensions: CourseDimensions): Course => {
+  const tee = { x: 1, y: Math.floor(dimensions.height / 2) };
+  const cup = { x: dimensions.width - 2, y: tee.y };
+  const tiles: Tile[] = Array.from({ length: dimensions.width * dimensions.height }, () => ({ surface: 'fairway', height: 0 }));
+  tiles[indexOf({ width: dimensions.width }, tee)] = { surface: 'tee', height: 0 };
+  tiles[indexOf({ width: dimensions.width }, cup)] = { surface: 'cup', height: 0 };
   const route = Array.from({ length: cup.x - tee.x + 1 }, (_, index) => ({ x: tee.x + index, y: tee.y }));
-  const course: Course = { id: `fallback-${seed}`, seed, theme: 'balanced', width: COURSE_WIDTH, height: COURSE_HEIGHT, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
+  const course: Course = { id: `fallback-${seed}`, seed, theme: 'balanced', width: dimensions.width, height: dimensions.height, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   course.score = scoreCourse(course, phaseCount);
   return course;
 };
 
-export const generateVotingOptions = (seed: string, hole: number): VotingOption[] => {
+export const generateVotingOptions = (seed: string, hole: number, dimensions: Partial<CourseDimensions> = {}): VotingOption[] => {
+  const courseSize = normalizeDimensions(dimensions);
   const options: VotingOption[] = [];
   const seenCourses = new Set<string>();
   for (let attempt = 0; options.length < 3 && attempt < 96; attempt += 1) {
     const random = new Random(`${seed}:hole:${hole}:option:${attempt}`);
-    const terrain = { ...randomTerrainSettings(`${seed}:hole:${hole}`, attempt + 1), variation: hole * 100 + attempt };
+    const terrain = { ...randomTerrainSettings(`${seed}:hole:${hole}`, attempt + 1, courseSize), variation: hole * 100 + attempt };
     const rules = randomHoleRules(random);
     const course = generateCourse(`${seed}:hole:${hole}:course:${attempt}`, terrain, rules.hazardPhaseCount);
     const signature = `${course.seed}:${course.tee.x},${course.tee.y}:${course.cup.x},${course.cup.y}`;
@@ -532,10 +548,10 @@ export const generateVotingOptions = (seed: string, hole: number): VotingOption[
   }
   while (options.length < 3) {
     const index = options.length;
-    const terrain = { ...defaultTerrainSettings(), variation: hole * 100 + 90 + index, theme: themes[index % themes.length]! };
+    const terrain = { ...defaultTerrainSettings(), ...courseSize, variation: hole * 100 + 90 + index, theme: themes[index % themes.length]! };
     const rules = defaultHoleRules();
     const generated = generateCourse(`${seed}:hole:${hole}:fallback:${index}`, terrain, rules.hazardPhaseCount);
-    const course = generated.score.playable ? generated : guaranteedFallbackCourse(`${seed}:hole:${hole}:fallback:${index}`, rules.hazardPhaseCount);
+    const course = generated.score.playable ? generated : guaranteedFallbackCourse(`${seed}:hole:${hole}:fallback:${index}`, rules.hazardPhaseCount, courseSize);
     options.push({ id: `hole-${hole}-option-${index + 1}`, label: optionLabel(terrain, rules, index), recipe: { terrain, rules }, course });
   }
   return options;

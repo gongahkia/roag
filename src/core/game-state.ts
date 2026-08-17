@@ -2,7 +2,7 @@ import { defaultHoleRules, defaultTerrainSettings, generateCourse, generateVotin
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
-import type { Course, GameConfig, GameState, PlannedHole, Player, VoteState, VotingOption } from './types';
+import { COURSE_HEIGHT, COURSE_WIDTH, type Course, type GameConfig, type GameState, type PlannedHole, type Player, type VoteState, type VotingOption } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 
@@ -12,6 +12,9 @@ export const defaultConfig = (): GameConfig => ({
   botCount: 3,
   humanCount: 1,
   botSkill: 5,
+  courseWidth: COURSE_WIDTH,
+  courseHeight: COURSE_HEIGHT,
+  skipVoting: false,
 });
 
 export const addMessage = (state: GameState, message: string) => {
@@ -50,6 +53,9 @@ export const cloneCourse = (course: Course): Course => ({
 
 /** upgrades snapshots written before biome features and gadgets without discarding their match state. */
 export const normalizeGameState = (state: GameState): GameState => {
+  state.config.courseWidth ??= COURSE_WIDTH;
+  state.config.courseHeight ??= COURSE_HEIGHT;
+  state.config.skipVoting ??= false;
   const normalizeCourse = (course: Course) => {
     course.theme ??= 'balanced';
     course.features ??= [];
@@ -65,6 +71,8 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.updraftCount ??= 0;
     option.recipe.terrain.lowBarCount ??= 0;
     option.recipe.terrain.airRingCount ??= 0;
+    option.recipe.terrain.width ??= COURSE_WIDTH;
+    option.recipe.terrain.height ??= COURSE_HEIGHT;
   });
   state.gadgets ??= [];
   state.coursePlan ??= [];
@@ -72,7 +80,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     state.coursePlan.push({ id: `legacy-hole-${state.hole}`, label: `legacy hole ${state.hole}`, courseSeed: state.course.seed, recipe: { terrain: defaultTerrainSettings(), rules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] } } });
   }
   while (state.status !== 'voting' && state.coursePlan.length < state.config.holeCount) {
-    const option = generateVotingOptions(state.config.seed, state.coursePlan.length + 1)[0]!;
+    const option = generateVotingOptions(state.config.seed, state.coursePlan.length + 1, courseDimensionsFor(state.config))[0]!;
     state.coursePlan.push(planFromOption(option));
   }
   const legacy = state as unknown as { status: string; assembly?: unknown };
@@ -111,29 +119,43 @@ const activatePlan = (state: GameState, plan: PlannedHole) => {
   state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
 };
 
-const newVote = (config: GameConfig, hole: number): VoteState => ({ options: generateVotingOptions(config.seed, hole), ballots: {} });
+const courseDimensionsFor = (config: GameConfig) => ({ width: config.courseWidth ?? COURSE_WIDTH, height: config.courseHeight ?? COURSE_HEIGHT });
+
+const newVote = (config: GameConfig, hole: number): VoteState => ({ options: generateVotingOptions(config.seed, hole, courseDimensionsFor(config)), ballots: {} });
+
+const quickStartPlan = (config: GameConfig): PlannedHole[] => Array.from({ length: config.holeCount }, (_, index) => {
+  const hole = index + 1;
+  const options = generateVotingOptions(config.seed, hole, courseDimensionsFor(config));
+  const selected = options[new Random(`${config.seed}:quick-start:hole:${hole}`).int(0, options.length - 1)]!;
+  return planFromOption(selected);
+});
 
 export const createGameState = (config: GameConfig): GameState => {
-  const vote = newVote(config, 1);
-  const course = cloneCourse(vote.options[0]!.course);
+  const resolvedConfig = { ...config, skipVoting: config.skipVoting === true };
+  const coursePlan = resolvedConfig.skipVoting ? quickStartPlan(resolvedConfig) : [];
+  const vote = resolvedConfig.skipVoting ? undefined : newVote(resolvedConfig, 1);
+  const firstPlan = coursePlan[0];
+  const course = firstPlan ? cloneCourse(courseForPlan(firstPlan)) : cloneCourse(vote!.options[0]!.course);
+  const holeRules = firstPlan ? { ...firstPlan.recipe.rules, sharedBoons: [...firstPlan.recipe.rules.sharedBoons] } : defaultHoleRules();
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
   players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
+  if (firstPlan) players.forEach((player) => resetPlayerForCourse(player, course, holeRules));
   return {
-    config,
+    config: resolvedConfig,
     course,
-    holeRules: defaultHoleRules(),
+    holeRules,
     hole: 1,
     coursePhase: 0,
     vote,
-    coursePlan: [],
+    coursePlan,
     emotes: [],
     emoteSequence: 0,
     players,
     gadgets: [],
-    turn: { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false },
+    turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false },
     paused: false,
-    status: 'voting',
-    messages: ['vote for the first course and house rules'],
+    status: firstPlan ? 'playing' : 'voting',
+    messages: firstPlan ? [`quick start locked ${coursePlan.length} random courses — tee off`] : ['vote for the first course and house rules'],
   };
 };
 

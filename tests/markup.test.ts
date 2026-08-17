@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, defaultConfig } from '../src/core/game';
 import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
-import { lobbyConfigFromGame, renderHomeMarkup } from '../src/ui/home-markup';
+import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup } from '../src/ui/home-markup';
 
 describe('voting overlay markup', () => {
   it('keeps the clubhouse focused on choosing local or multiplayer before exposing setup forms', () => {
@@ -20,8 +20,21 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('HOST A ROOM');
     expect(markup).toContain('JOIN A ROOM');
     expect(markup).toContain('id="online-seed"');
+    expect(markup).toContain('id="online-course-width"');
+    expect(markup).toContain('id="online-course-height"');
     expect(markup).toContain('id="join-player-name"');
     expect(markup).toContain('id="join-server-url"');
+    expect(markup).toContain('data-create-quick-room');
+  });
+
+  it('offers local quick start and reports a no-vote room rule to online guests', () => {
+    const state = createGame(defaultConfig());
+    const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
+    expect(local).toContain('data-quick-start-local');
+    expect(local).toContain('randomly locks all configured holes');
+    const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: { ...lobbyConfigFromGame({ ...state.config, skipVoting: true }), skipVoting: true }, members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
+    expect(lobby).toContain('every hole randomly locked, no voting');
+    expect(lobby).toContain('start quick match');
   });
 
   it('keeps the ballot in the foreground with three icon-rich clickable package cards and vote pills', () => {
@@ -31,6 +44,7 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('class="vote-card-grid"');
     expect(markup.match(/class="vote-card /g)).toHaveLength(3);
     expect(markup).toContain('class="course-glyphs"');
+    expect(markup).toContain('title="course dimensions"');
     expect(markup).toContain('air hazards: updrafts and low bars');
     expect(markup).toContain('air rings');
     expect(markup).toContain('data-vote-option="hole-1-option-1"');

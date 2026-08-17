@@ -149,7 +149,7 @@ export const startApp = (app: HTMLElement) => {
       return;
     }
     const effectiveAim = drawAim && current().forcedChip ? { ...drawAim, kind: 'chip' as const } : drawAim;
-    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement);
+    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball);
   };
   const startTransition = (completeLocally: boolean) => {
     if (state.status !== 'transitioning') return;
@@ -214,12 +214,15 @@ export const startApp = (app: HTMLElement) => {
       seed: readText(app, `${prefix}-seed`, fallback.seed),
       holeCount: readNumber(app, `${prefix}-holes`, fallback.holeCount),
       maxHumans: readNumber(app, `${prefix}-seats`, fallback.maxHumans),
+      courseWidth: readNumber(app, `${prefix}-course-width`, fallback.courseWidth),
+      courseHeight: readNumber(app, `${prefix}-course-height`, fallback.courseHeight),
       botCount: readNumber(app, `${prefix}-bots`, fallback.botCount),
       botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, `${prefix}-skill`, typeof fallback.botSkill === 'number' ? fallback.botSkill : 5),
+      skipVoting: false,
     };
   };
-  const startLocal = () => {
-    const selected = readConfig('local');
+  const startLocal = (skipVoting = false) => {
+    const selected = { ...readConfig('local'), skipVoting };
     if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
     onlineClient?.disconnect();
     onlineClient = undefined;
@@ -227,7 +230,7 @@ export const startApp = (app: HTMLElement) => {
     onlinePlayerId = undefined;
     pendingReconnectToken = undefined;
     onlineConnected = false;
-    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill };
+    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipVoting: selected.skipVoting };
     drawer = captureMode ? undefined : 'intel';
     overlay = undefined;
     liveEmotes = [];
@@ -295,8 +298,8 @@ export const startApp = (app: HTMLElement) => {
     render();
     client.connect(url, () => client.send(message));
   };
-  const createOnlineRoom = () => {
-    const selected = readConfig('online');
+  const createOnlineRoom = (skipVoting = false) => {
+    const selected = { ...readConfig('online'), skipVoting };
     playerName = readText(app, 'player-name', playerName);
     serverUrl = readText(app, 'server-url', serverUrl);
     if (selected.maxHumans + selected.botCount > 12) { notice = 'choose between one and twelve total players'; render(); return; }
@@ -526,7 +529,9 @@ export const startApp = (app: HTMLElement) => {
     const homeModeTarget = element.dataset.homeMode as HomeMode | undefined;
     if (homeModeTarget) { homeMode = homeModeTarget; notice = undefined; render(); return; }
     if (element.hasAttribute('data-start-local')) { startLocal(); return; }
+    if (element.hasAttribute('data-quick-start-local')) { startLocal(true); return; }
     if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
+    if (element.hasAttribute('data-create-quick-room')) { createOnlineRoom(true); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }
     if (element.hasAttribute('data-start-room')) { onlineClient?.send({ type: 'start-room' }); return; }
     if (element.hasAttribute('data-leave-lobby')) { onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }

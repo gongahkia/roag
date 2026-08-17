@@ -6,6 +6,9 @@ export interface LobbyConfig {
   botCount: number;
   botSkill: GameConfig['botSkill'];
   maxHumans: number;
+  courseWidth: number;
+  courseHeight: number;
+  skipVoting: boolean;
 }
 
 export interface LobbyMember {

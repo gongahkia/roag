@@ -30,6 +30,13 @@ describe('course generation', () => {
     expect(candidates.every((course) => course.score.playable && course.score.solverShots.length > 0)).toBe(true);
   });
 
+  it('generates the requested dimensions into every voting package', () => {
+    const options = generateVotingOptions('sized-course', 1, { width: 28, height: 18 });
+    expect(options).toHaveLength(3);
+    expect(options.every((option) => option.course.width === 28 && option.course.height === 18)).toBe(true);
+    expect(options.every((option) => option.recipe.terrain.width === 28 && option.recipe.terrain.height === 18)).toBe(true);
+  });
+
   it('keeps solver routes inside playable terrain and across every configured phase', () => {
     const options = generateVotingOptions('phase-set', 3);
     expect(options).toHaveLength(3);
@@ -92,6 +99,20 @@ describe('public voting flow', () => {
     expect(first.status).toBe('voting');
     expect(first.vote?.options.map((option) => option.id)).toEqual(second.vote?.options.map((option) => option.id));
     expect(first.vote?.options.map((option) => option.course.tiles)).toEqual(second.vote?.options.map((option) => option.course.tiles));
+  });
+
+  it('quick-starts with a deterministic random package locked for every configured hole', () => {
+    const config = { ...defaultConfig(), seed: 'quick-start', holeCount: 3, humanCount: 1, botCount: 1, courseWidth: 28, courseHeight: 18, skipVoting: true };
+    const first = createGame(config);
+    const second = createGame(config);
+    expect(first.status).toBe('playing');
+    expect(first.vote).toBeUndefined();
+    expect(first.coursePlan).toHaveLength(3);
+    expect(first.coursePlan).toEqual(second.coursePlan);
+    expect(first.course.seed).toBe(first.coursePlan[0]!.courseSeed);
+    expect(first.course).toMatchObject({ width: 28, height: 18 });
+    expect(first.coursePlan.every((plan) => plan.recipe.terrain.width === 28 && plan.recipe.terrain.height === 18)).toBe(true);
+    expect(first.players.every((player) => player.upgrades.join(',') === first.holeRules.sharedBoons.join(','))).toBe(true);
   });
 
   it('keeps named ballots public and editable until the final ballot locks the whole match plan', () => {

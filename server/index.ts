@@ -52,9 +52,12 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const holeCount = Number(source.holeCount);
   const botCount = Number(source.botCount);
   const maxHumans = Number(source.maxHumans);
+  const courseWidth = source.courseWidth === undefined ? 20 : Number(source.courseWidth);
+  const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
-  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
-  return { seed, holeCount, botCount, botSkill, maxHumans };
+  const skipVoting = source.skipVoting === true;
+  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isInteger(courseWidth) || courseWidth < 14 || courseWidth > 28 || !Number.isInteger(courseHeight) || courseHeight < 10 || courseHeight > 20 || courseWidth * courseHeight > 560 || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
+  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipVoting };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -239,7 +242,7 @@ const startRoom = (session: Session) => {
   if (session.playerId !== room.hostId) return report(session, 'only the host can start the room');
   if (room.phase !== 'lobby') return report(session, 'room already started');
   if (room.members.some((member) => ![...sessions].some((candidate) => candidate.roomCode === room.code && candidate.playerId === member.id && candidate.socket.readyState === WebSocket.OPEN))) return report(session, 'wait for every player to reconnect');
-  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length });
+  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipVoting: room.config.skipVoting === true });
   game.players.filter((player) => player.kind === 'human').forEach((player, index) => { player.name = room.members[index]!.name; });
   room.phase = 'game';
   updateGame(room, game);
@@ -288,6 +291,9 @@ const loadRooms = () => {
     try {
       const room = JSON.parse(row.snapshot) as StoredRoom;
       if (room.code && room.config && room.members && room.reconnectTokens) {
+        room.config.courseWidth ??= 20;
+        room.config.courseHeight ??= 14;
+        room.config.skipVoting ??= false;
         if (room.game) room.game = normalizeGameState(room.game);
         rooms.set(room.code, room);
       }

@@ -116,6 +116,8 @@ export type ItemPadKind = 'recovery' | 'chaos';
 export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry' | 'drift' | 'bloom' | 'pulse';
 
 export interface TerrainSettings {
+  width: number;
+  height: number;
   density: number;
   elevation: number;
   maxElevation: number;
@@ -289,6 +291,10 @@ export interface GameConfig {
   botCount: number;
   humanCount: number;
   botSkill: number | 'adaptive';
+  courseWidth?: number;
+  courseHeight?: number;
+  /** Lock a seed-selected package for every hole before the first tee shot. */
+  skipVoting?: boolean;
 }
 
 export interface TurnState {

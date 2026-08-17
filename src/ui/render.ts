@@ -27,7 +27,7 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }): void;
+  draw(course: Course, players: Player[], phase: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
@@ -96,15 +96,44 @@ const boundsFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics) =>
 const metricsFor = (course: Course, width: number, height: number, includeVoid = false): ProjectionMetrics => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
   const bounds = boundsFor(visibleTilesFor(course, unitMetrics, includeVoid), unitMetrics);
-  const tileWidth = Math.max(16, Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height));
+  const fittedTileWidth = Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height);
+  const readableTileWidth = course.width * course.height > 360 ? 16 : 12;
+  const tileWidth = Math.max(readableTileWidth, fittedTileWidth);
   return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
 };
 
-const offsetFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics, width: number, height: number): Point => {
+const centeredOffsetFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics, width: number, height: number): Point => {
   const { minX, maxX, minY, maxY } = boundsFor(tiles, metrics);
   return {
     x: width / 2 - (minX + maxX) / 2,
     y: height / 2 - (minY + maxY) / 2 + 6,
+  };
+};
+
+export interface CameraLayout {
+  metrics: ProjectionMetrics;
+  offset: Point;
+  followsFocus: boolean;
+}
+
+export const cameraFor = (course: Course, width: number, height: number, focus?: Pick<Ball, 'x' | 'y' | 'z'>): CameraLayout => {
+  const metrics = metricsFor(course, width, height);
+  const tiles = visibleTilesFor(course, metrics);
+  const centered = centeredOffsetFor(tiles, metrics, width, height);
+  const bounds = boundsFor(tiles, metrics);
+  const followsFocus = Boolean(focus && (bounds.width > width - 38 || bounds.height > height - 54));
+  if (!focus || !followsFocus) return { metrics, offset: centered, followsFocus: false };
+  const point = project(focus.x, focus.y, focus.z, metrics);
+  const paddingX = 19;
+  const paddingY = 27;
+  const clampOffset = (value: number, minimum: number, maximum: number, fallback: number) => minimum <= maximum ? Math.max(minimum, Math.min(maximum, value)) : fallback;
+  return {
+    metrics,
+    followsFocus,
+    offset: {
+      x: clampOffset(width * .5 - point.x, width - paddingX - bounds.maxX, paddingX - bounds.minX, centered.x),
+      y: clampOffset(height * .52 - point.y, height - paddingY - bounds.maxY, paddingY - bounds.minY, centered.y),
+    },
   };
 };
 
@@ -562,16 +591,15 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean } } | undefined;
+  let latest: { course: Course; players: Player[]; phase: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball } | undefined;
 
-  const layoutFor = (course: Course) => {
+  const layoutFor = (course: Course, focus?: Ball) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const metrics = metricsFor(course, width, height);
-    const tiles = visibleTilesFor(course, metrics);
-    return { metrics, tiles, offset: offsetFor(tiles, metrics, width, height) };
+    const camera = cameraFor(course, width, height, focus);
+    return { ...camera, tiles: visibleTilesFor(course, camera.metrics) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }) => {
+  const paint = (course: Course, players: Player[], phase: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -579,7 +607,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#edf7e8');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const { metrics, tiles, offset } = layoutFor(course);
+    const { metrics, tiles, offset, followsFocus } = layoutFor(course, focus);
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     const clampedBuild = buildProgress === undefined ? undefined : Math.max(0, Math.min(1, buildProgress));
     const drawTile = (tile: VisibleTile) => {
@@ -641,6 +669,13 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
     drawEmotes(context, players, emotes, offset, metrics);
     context.restore();
+    if (followsFocus) {
+      context.fillStyle = '#17311bba';
+      context.font = '10px BigBlueTerm, ui-monospace, monospace';
+      context.textAlign = 'right';
+      context.textBaseline = 'bottom';
+      context.fillText('FOLLOW CAM', width - 12, height - 10);
+    }
   };
 
   const resize = () => {
@@ -649,20 +684,20 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement);
+    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement) {
-      latest = { course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement };
-      paint(course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement);
+    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus) {
+      latest = { course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus };
+      paint(course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();
-      const { metrics, offset } = layoutFor(course);
+      const { metrics, offset } = layoutFor(course, ball);
       const ballPoint = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
       const viewDelta = { x: event.clientX - rect.left - ballPoint.x, y: event.clientY - rect.top - ballPoint.y };
       const worldDelta = { x: viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight, y: -viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight };
@@ -674,7 +709,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     tileFromPointer(event, course) {
       const rect = canvas.getBoundingClientRect();
       const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-      const { tiles, offset } = layoutFor(course);
+      const { tiles, offset } = layoutFor(course, latest?.course === course ? latest.focus : undefined);
       const contains = (points: readonly Point[]) => {
         let inside = false;
         for (let current = 0, previous = points.length - 1; current < points.length; previous = current++) {
