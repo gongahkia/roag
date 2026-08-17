@@ -100,6 +100,19 @@ describe('public voting flow', () => {
 });
 
 describe('turns, shared rules, and bots', () => {
+  it('freezes turns and shots while paused, then resumes the same match state', () => {
+    let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', humanCount: 1, botCount: 0 }));
+    const secondsLeft = game.turn.secondsLeft;
+    game = applyCommand(game, { type: 'set-paused', paused: true });
+    expect(game.paused).toBe(true);
+    expect(previewShot(game, { angle: 0, power: 3 })).toBeUndefined();
+    expect(tickTurn(game, 10)).toBe(game);
+    expect(game.turn.secondsLeft).toBe(secondsLeft);
+    game = applyCommand(game, { type: 'set-paused', paused: false });
+    expect(game.paused).toBe(false);
+    expect(previewShot(game, { angle: 0, power: 3 })).toBeDefined();
+  });
+
   it('accepts legal shots and keeps previews equal to committed physics', () => {
     const game = resolveVote(createGame({ ...defaultConfig(), seed: 'animation-seed', botCount: 1 }));
     const shot = { angle: 0, power: 3 };

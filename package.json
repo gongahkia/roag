@@ -5,15 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "tsx server/index.ts",
+    "dev:online": "npm run server",
     "build": "tsc --noEmit && vite build",
+    "check:server": "tsc --noEmit -p server/tsconfig.json",
     "test": "vitest run",
-    "check": "npm run build && npm run test",
+    "check": "npm run build && npm run check:server && npm run test",
     "capture:levels": "node scripts/capture-levels.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.12",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
     "vitest": "^3.1.2"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
   }
 }

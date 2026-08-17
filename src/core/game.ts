@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { activePlayer, castVote, cloneGameState, completeAssembly, createGameState, defaultConfig } from './game-state';
+import { activePlayer, castVote, cloneGameState, completeAssembly, createGameState, defaultConfig, setPaused } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
 import { previewShot, resolveShot, tickTurn } from './turns';
@@ -17,6 +17,10 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   }
   if (command.type === 'complete-assembly') {
     completeAssembly(state);
+    return state;
+  }
+  if (command.type === 'set-paused') {
+    setPaused(state, command.paused);
     return state;
   }
   if (command.type === 'shoot') {
@@ -43,7 +47,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
 
 export const botMove = (state: GameState): BotDecision | undefined => {
   const player = activePlayer(state);
-  if (player.kind !== 'bot' || state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  if (player.kind !== 'bot' || state.status !== 'playing' || state.paused || state.turn.shotInFlight) return undefined;
   return chooseBotDecision(state.course, player, state.players, state.coursePhase, state.holeRules);
 };
 

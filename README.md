@@ -9,13 +9,21 @@ npm install
 npm run dev
 ```
 
+For an online room, run the authoritative game server in a second terminal, then use the `online room` card on the clubhouse page:
+
+```sh
+npm run server
+```
+
+The server listens on `ws://localhost:8787`, stores rooms in `data/golf-with-your-enemies.sqlite`, and requires Node 22.5+ for its built-in SQLite driver. Configure `PORT`, `GAME_DATABASE`, and the comma-separated `APP_ORIGINS` allowlist when deploying it; production clients must use `wss://`.
+
 Run the verification suite with `npm run check`.
 
 Capture a randomly seeded comparison set with `npm run capture:levels -- --count 25`. The command writes PNGs and a seed manifest under `output/levels/`; set `BROWSER_BIN` when Chromium is not available as `chromium-browser`.
 
-## Current scope
+## Game flow and modes
 
-The game is a static browser client designed for GitHub Pages. The local transport keeps commands, state, course recipes, and seeds separate from the UI so a later authoritative multiplayer backend or WebRTC transport can be added without replacing game rules.
+The clubhouse is the main page. It starts a local hot-seat campaign or creates and joins a separate online lobby. A lobby displays the shareable six-character room code, player presence, selected seed/rules, AI settings, and the host-only start action. Once a room starts, the WebSocket server is authoritative for player commands, timers, bots, votes, course assembly, pause state, and scores; room snapshots are persisted in SQLite and reconnect tokens are kept in the browser session. Online rooms currently retain disconnected seats for reconnection and do not support spectators or mid-game joins.
 
 Every match is a fixed nine-hole local hot-seat campaign. Before each hole, each local player takes a public card-selection turn between three seeded course-and-rules packages; bots cast deterministic seeded-random ballots, plurality wins, and a seed-based tie-break settles any draw. The selected package enters a short assembly interstitial that shows its winning vote count while its isometric tiles fly in and construct the arena; only then does it apply temporary rules to every player and open play. After hole nine, a final clubhouse screen shows the podium, complete standings, tied champions when applicable, last place, and a one-click replay. The rules reset before the next vote; lowest aggregate strokes wins.
 
@@ -29,8 +37,10 @@ Shots use grounded mini-golf physics: calibrated rolling resistance varies by su
 
 Ball collisions are package-controlled: when enabled, a moving ball transfers momentum to resting opponents. Two putts keeps the player on the same hazard phase for an immediate second shot. Shared boons are active rules rather than labels—heavy ball, ice skates, extra charge, bank shot, hazard shield, chaos magnet, portal savvy, second wind, and scavenger respectively affect momentum, ice, item drops, wall rebounds, void recovery, item recharge, portal exits, bonus putts, and inventory capacity. Board badges always show every player's held item, active ball form, armed putts, and boons. Generated courses include sparse wall bumpers for bank shots.
 
-## Controls and accessibility
+## Controls, pause, and accessibility
 
-During voting, pass the device to the named player and click their preferred package card; small pills on each card show every ballot cast so far. During play, mouse movement aims a human player's shot; Space shoots, `-`/`=` change power, and `P` uses a held chaos item. The five ASCII emote buttons send `\o/`, `>:]`, `!?`, `*_*`, or `GG` above the current human player's ball. `?` opens the shortcut list and F1 opens settings, where all shortcuts can be remapped.
+During local voting, pass the device to the named player and click their preferred package card; in online play, each player can cast only their own ballot. Small pills on each card show every ballot cast so far. During play, mouse movement aims a human player's shot; Space shoots, `-`/`=` change power, and `P` uses a held chaos item. The five ASCII emote buttons send `\o/`, `>:]`, `!?`, `*_*`, or `GG` above the current human player's ball. Escape pauses a local match; online pause and resume are host-only. `?` opens the shortcut list and F1 opens settings, where all shortcuts can be remapped.
 
-Settings persist locally and include reduced motion/flash and a high-contrast terminal mode. Shortcuts do not fire while an input field has focus.
+Standard-mapped controllers are supported: the left stick aims, A shoots, B uses the held item, D-pad left/right adjusts power, and Menu/Start pauses. Settings persist locally and include reduced motion/flash, high contrast, master/effects-volume preferences, controller vibration, stick deadzone, aim sensitivity, and keyboard remapping. Shortcuts do not fire while an input field has focus.
+
+The server rejects unknown message shapes, rejects client course-assembly requests, verifies that a player owns each ballot/emote and the active turn, bounds shot input, rate-limits messages, limits WebSocket payload size, and checks browser Origins against `APP_ORIGINS` before upgrade. It is intentionally a small self-hosted room service rather than a hosted matchmaking, account, anti-cheat, or voice platform.

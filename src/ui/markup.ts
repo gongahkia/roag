@@ -6,6 +6,7 @@ export type Drawer = 'run' | 'intel' | undefined;
 
 export interface LedgerEntry { message: string; tone: string; }
 export interface Callout { message: string; tone: string; }
+export interface MultiplayerView { online: boolean; connected: boolean; roomCode?: string; playerId?: string; host: boolean; controllerName?: string; }
 
 export interface ViewModel {
   state: GameState;
@@ -17,6 +18,7 @@ export interface ViewModel {
   aim: ShotCommand;
   shotInFlight: boolean;
   assemblyProgress?: number;
+  multiplayer: MultiplayerView;
   ledger: readonly LedgerEntry[];
   callouts: readonly Callout[];
 }
@@ -38,6 +40,7 @@ const boonIcon: Record<string, string> = {
 const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb: '✹', freeze: '❄', swap: '⇄', 'two putts': '2P', heavy: '●', bouncy: '◌', ghost: '◐', magnet: '🧲', ice: '❄', portal: '◉' };
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
+  if (state.paused) return 'match paused';
   if (state.status === 'voting') return `public vote: ${Object.keys(state.vote?.ballots ?? {}).length}/${state.players.length} ballots cast`;
   if (state.status === 'assembling') return `assembling ${escapeHtml(state.assembly?.label ?? 'the elected course')}`;
   if (state.status === 'finished') return 'campaign complete — final standings are ready';
@@ -56,12 +59,12 @@ const renderAssemblyControls = (state: GameState) => `<div class="turn"><strong>
 const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">final results are in the foreground</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 
 export const renderControlsMarkup = (view: ViewModel) => {
-  const { state, preferences, aim, shotInFlight } = view;
+  const { state, preferences, aim, shotInFlight, multiplayer } = view;
   if (state.status === 'voting') return renderVotingControls(state);
   if (state.status === 'assembling') return renderAssemblyControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
-  const disabled = state.status !== 'playing' || player.kind !== 'human' || shotInFlight;
+  const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
   const heldItems = [player.inventory, player.spareInventory].filter(Boolean) as PowerUp[];
   const portalExits = state.course.portals?.filter((pair) => pair.exit).map((pair) => `<option value="${pair.id}:exit">${escapeHtml(pair.id)} exit</option>`).join('') ?? '';
   return `
@@ -76,9 +79,9 @@ export const renderControlsMarkup = (view: ViewModel) => {
     <p id="status" class="control-status">${renderStatus(view)}</p>`;
 };
 
-const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | undefined, interactive = false) => ['shoot', 'powerDown', 'powerUp', 'usePowerUp', 'help', 'settings'].map((id) => {
+const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | undefined, interactive = false) => ['shoot', 'powerDown', 'powerUp', 'usePowerUp', 'pause', 'help', 'settings'].map((id) => {
   const shortcutId = id as ShortcutId;
-  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', usePowerUp: 'use chaos item', help: 'shortcut help', settings: 'settings' })[shortcutId];
+  const label = ({ shoot: 'shoot', powerDown: 'power down', powerUp: 'power up', usePowerUp: 'use chaos item', pause: 'pause match', help: 'shortcut help', settings: 'settings' })[shortcutId];
   const key = keyLabel(bindingFor(preferences, shortcutId));
   return `<dt>${label}</dt><dd>${interactive ? `<button data-bind="${shortcutId}" class="key-button ${rebinding === shortcutId ? 'selected' : ''}">${key}</button>` : `<kbd>${key}</kbd>`}</dd>`;
 }).join('');
@@ -86,7 +89,7 @@ const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | unde
 const renderOverlay = ({ overlay, preferences, rebinding }: ViewModel) => {
   if (!overlay) return '';
   if (overlay === 'help') return `<section class="overlay" role="dialog" aria-modal="true" aria-label="shortcut help"><div class="overlay-card"><button class="close" data-close-overlay aria-label="close help">×</button><p class="eyebrow">MOUSE FIRST · KEYS READY</p><h2>quick commands</h2><dl class="shortcut-list">${shortcutRows(preferences, rebinding)}</dl><p class="hint">Voting is click-only so every local player can vote publicly in any order.</p></div></section>`;
-  return `<section class="overlay" role="dialog" aria-modal="true" aria-label="game settings"><div class="overlay-card settings-card"><button class="close" data-close-overlay aria-label="close settings">×</button><p class="eyebrow">LOCAL PREFERENCES</p><h2>terminal settings</h2><label class="setting-toggle"><input data-preference="reducedMotion" type="checkbox" ${preferences.reducedMotion ? 'checked' : ''}> reduced motion and flash</label><label class="setting-toggle"><input data-preference="highContrast" type="checkbox" ${preferences.highContrast ? 'checked' : ''}> high-contrast glyphs</label><h3>shortcuts</h3><dl class="shortcut-list">${shortcutRows(preferences, rebinding, true)}</dl><p class="hint">${rebinding ? `press a key for ${escapeHtml(rebinding)} · Esc cancels` : 'select a key to rebind it'}</p></div></section>`;
+  return `<section class="overlay" role="dialog" aria-modal="true" aria-label="game settings"><div class="overlay-card settings-card"><button class="close" data-close-overlay aria-label="close settings">×</button><p class="eyebrow">LOCAL PREFERENCES</p><h2>terminal settings</h2><label class="setting-toggle"><input data-preference="reducedMotion" type="checkbox" ${preferences.reducedMotion ? 'checked' : ''}> reduced motion and flash</label><label class="setting-toggle"><input data-preference="highContrast" type="checkbox" ${preferences.highContrast ? 'checked' : ''}> high-contrast glyphs</label><label class="setting-toggle"><input data-preference="controllerVibration" type="checkbox" ${preferences.controllerVibration ? 'checked' : ''}> controller vibration</label><label>master volume <input data-preference-range="masterVolume" type="range" min="0" max="1" step="0.05" value="${preferences.masterVolume}"></label><label>effects volume <input data-preference-range="effectsVolume" type="range" min="0" max="1" step="0.05" value="${preferences.effectsVolume}"></label><label>controller deadzone <input data-preference-range="controllerDeadzone" type="range" min="0.05" max="0.5" step="0.01" value="${preferences.controllerDeadzone}"></label><label>controller aim sensitivity <input data-preference-range="controllerAimSensitivity" type="range" min="0.5" max="2" step="0.05" value="${preferences.controllerAimSensitivity}"></label><h3>shortcuts</h3><dl class="shortcut-list">${shortcutRows(preferences, rebinding, true)}</dl><p class="hint">${rebinding ? `press a key for ${escapeHtml(rebinding)} · Esc cancels` : 'select a key to rebind it'}</p></div></section>`;
 };
 
 const renderRunDrawer = ({ state, config }: ViewModel) => {
@@ -99,7 +102,9 @@ const renderVoteOverlay = (view: ViewModel) => {
   if (state.status !== 'voting' || !state.vote) return '';
   const { vote } = state;
   const votesFor = (optionId: string) => Object.values(vote.ballots).filter((ballot) => ballot === optionId).length;
-  const nextHumanVoter = state.players.find((player) => player.kind === 'human' && !vote.ballots[player.id]);
+  const nextHumanVoter = view.multiplayer.online
+    ? state.players.find((player) => player.id === view.multiplayer.playerId && !vote.ballots[player.id])
+    : state.players.find((player) => player.kind === 'human' && !vote.ballots[player.id]);
   const packageCard = (option: VotingOption, index: number) => {
     const { terrain, rules } = option.recipe;
     const voters = state.players.filter((player) => vote.ballots[player.id] === option.id);
@@ -110,10 +115,13 @@ const renderVoteOverlay = (view: ViewModel) => {
       <div class="course-glyphs" aria-label="course configuration"><span title="route length">🧭 ${Math.round(terrain.routeLength * 100)}%</span><span title="bendiness">↪ ${Math.round(terrain.bendiness * 100)}%</span><span title="lane width">↔ ${terrain.laneWidth}</span><span title="ramps">⛰ ${Math.round(terrain.elevation * 100)}%/${terrain.maxElevation}</span><span title="walls">🧱 ${terrain.wallCount}</span><span title="sweepers and gates">⚠ ${terrain.sweeperCount}+${terrain.gateCount}</span><span title="portal pairs">◉ ${terrain.portalPairs}</span><span title="item pads">✚ ${terrain.recoveryPads} · ✹ ${terrain.chaosPads}</span></div>
       <div class="rule-chip-grid" aria-label="hole rules"><span>⏱ ${rules.timerSeconds}s</span><span>🎯 cap ${rules.strokeCap}</span><span>${rules.collisions ? '● collisions' : '○ no collisions'}</span><span>${rules.powerUps ? '🎁 items on' : '⊘ items off'}</span><span>↯ ${Math.round(rules.launchMultiplier * 100)}%</span><span>🧊 ${Math.round(rules.rollingResistanceMultiplier * 100)}%</span><span>↩ ${Math.round(rules.wallRestitutionMultiplier * 100)}%</span><span>◌ cup ${Math.round(rules.cupRadius * 100)}</span><span>◴ ${rules.hazardPhaseCount} phases</span><span>★ ${Math.round(rules.scoreMultiplier * 100)}% score</span></div>
       <div class="boon-row">${boons}${supply}</div>
-      <footer class="card-action">${nextHumanVoter ? `<strong>click to vote as ${escapeHtml(nextHumanVoter.name)}</strong>` : '<strong>waiting for bot ballots</strong>'}</footer>
+      <footer class="card-action">${nextHumanVoter ? `<strong>click to vote${view.multiplayer.online ? '' : ` as ${escapeHtml(nextHumanVoter.name)}`}</strong>` : '<strong>ballot cast · waiting for the table</strong>'}</footer>
     </article>`;
   };
-  return `<section class="vote-overlay" role="region" aria-label="hole ${state.hole} public ballot"><div class="vote-panel"><header class="vote-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · PUBLIC BALLOT</p><h1>Choose the next <em>clubhouse condition</em></h1><p>${nextHumanVoter ? `pass the device to ${escapeHtml(nextHumanVoter.name)} · click one package to vote` : 'all human selections cast · bot ballots are resolving'} · ${Object.keys(vote.ballots).length}/${state.players.length} selections shown publicly.</p></header><div class="vote-card-grid">${vote.options.map(packageCard).join('')}</div><footer class="vote-panel-footer"><span>click a card to cast the next human vote</span><span>bot ballots appear automatically</span></footer></div></section>`;
+  const ballotPrompt = nextHumanVoter
+    ? view.multiplayer.online ? 'click one package to cast your ballot' : `pass the device to ${escapeHtml(nextHumanVoter.name)} · click one package to vote`
+    : 'your ballot is locked · waiting for the table';
+  return `<section class="vote-overlay" role="region" aria-label="hole ${state.hole} public ballot"><div class="vote-panel"><header class="vote-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · PUBLIC BALLOT</p><h1>Choose the next <em>clubhouse condition</em></h1><p>${ballotPrompt} · ${Object.keys(vote.ballots).length}/${state.players.length} selections shown publicly.</p></header><div class="vote-card-grid">${vote.options.map(packageCard).join('')}</div><footer class="vote-panel-footer"><span>${view.multiplayer.online ? 'click a card to cast your ballot' : 'click a card to cast the next human vote'}</span><span>bot ballots appear automatically</span></footer></div></section>`;
 };
 
 const renderAssemblyOverlay = ({ state, assemblyProgress = 0 }: ViewModel) => {
@@ -158,6 +166,12 @@ const renderResultsOverlay = ({ state }: ViewModel) => {
   return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section><footer class="results-actions"><button class="primary" data-restart-run>play again</button><span>same lineup · replay this seed</span></footer></div></section>`;
 };
 
+const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {
+  if (!state.paused) return '';
+  const canResume = !multiplayer.online || multiplayer.host;
+  return `<section class="pause-overlay" role="dialog" aria-modal="true" aria-label="match paused"><div class="pause-card"><p class="eyebrow">${multiplayer.online ? 'ONLINE ROOM PAUSED' : 'LOCAL MATCH PAUSED'}</p><h2>take a breather</h2><p>${canResume ? 'Timers, bot turns, and gameplay input are frozen.' : 'Only the room host can resume this match.'}</p><button class="primary" data-toggle-pause ${canResume ? '' : 'disabled'}>resume match</button><button data-open-overlay="settings">settings</button></div></section>`;
+};
+
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">The ballot is open in the foreground. No course is revealed until the vote resolves.</p>`;
@@ -175,5 +189,6 @@ export const renderAppMarkup = (view: ViewModel) => {
   const { state } = view;
   const progress = state.status === 'voting' ? `VOTE <b>${state.hole}</b> / ${state.config.holeCount}` : `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
   const shellState = state.status === 'voting' ? 'voting' : state.status === 'assembling' ? 'assembling' : state.status === 'finished' ? 'finished' : '';
-  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">SUNNY CLUBHOUSE MINI GOLF</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'vote' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderAssemblyOverlay(view)}${renderResultsOverlay(view)}${renderOverlay(view)}`;
+  const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.controllerName ? `PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PARTY';
+  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'voting' ? 'vote' : 'intel'}</button><button data-open-overlay="help">? help</button><button data-open-overlay="settings">F1 settings</button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderVoteOverlay(view)}${renderAssemblyOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
 };

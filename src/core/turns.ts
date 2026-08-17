@@ -33,7 +33,7 @@ const applySimulation = (state: GameState, playerIndex: number, result: Simulati
 };
 
 export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | undefined => {
-  if (state.status !== 'playing' || state.turn.shotInFlight) return undefined;
+  if (state.status !== 'playing' || state.paused || state.turn.shotInFlight) return undefined;
   const playerIndex = state.turn.playerIndex;
   if (state.players[playerIndex]!.frozenTurns) return undefined;
   const result = simulatePlayerShot(state, playerIndex, shot);
@@ -69,7 +69,7 @@ const advanceTurn = (state: GameState) => {
 };
 
 export const resolveShot = (state: GameState, shot: ShotCommand) => {
-  if (state.status !== 'playing' || state.turn.shotInFlight) return;
+  if (state.status !== 'playing' || state.paused || state.turn.shotInFlight) return;
   const player = activePlayer(state);
   if (player.frozenTurns) {
     player.frozenTurns -= 1;
@@ -103,7 +103,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if (current.status !== 'playing' || current.turn.shotInFlight) return current;
+  if (current.status !== 'playing' || current.paused || current.turn.shotInFlight) return current;
   const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades] })), messages: [...current.messages] };
   state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsedSeconds);
   if (state.turn.secondsLeft === 0) {

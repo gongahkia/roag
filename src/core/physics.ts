@@ -14,6 +14,7 @@ const FALL_DURATION_FRAMES = 30;
 
 export const MAX_SETTLE_SECONDS = 18;
 export const MAX_SURFACE_SPEED = 8;
+export const MAX_DOWNHILL_ROLL_SPEED = 3.6;
 
 const rollingDeceleration: Record<Surface, number> = {
   void: 0,
@@ -148,6 +149,30 @@ const isOnGround = (course: Course, ball: Ball) => {
   return Boolean(tile && tile.surface !== 'void' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
 };
 
+const rollingDecelerationFor = (tile: Tile, modifiers: BallPhysicsModifiers) => (tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface]) * (modifiers.rollingResistanceMultiplier ?? 1);
+
+const downhillForceAt = (course: Course, ball: Ball, modifiers: BallPhysicsModifiers) => {
+  const tile = tileAt(course, ball.x, ball.y);
+  if (!tile || tile.surface === 'void' || tile.surface === 'wall') return undefined;
+  const gradient = floorGradientAt(course, ball.x, ball.y);
+  const steepness = Math.hypot(gradient.x, gradient.y);
+  if (steepness < .0001) return undefined;
+  const direction = { x: -gradient.x / steepness, y: -gradient.y / steepness };
+  return {
+    direction,
+    acceleration: steepness * SLOPE_GRAVITY * HEIGHT_TO_WORLD,
+    rollingDeceleration: rollingDecelerationFor(tile, modifiers),
+  };
+};
+
+const canRollDownhill = (course: Course, ball: Ball, modifiers: BallPhysicsModifiers) => {
+  if (!isOnGround(course, ball)) return false;
+  const downhill = downhillForceAt(course, ball, modifiers);
+  if (!downhill || downhill.acceleration <= downhill.rollingDeceleration) return false;
+  const downhillSpeed = ball.vx * downhill.direction.x + ball.vy * downhill.direction.y;
+  return downhillSpeed < MAX_DOWNHILL_ROLL_SPEED;
+};
+
 const snapshot = (participants: readonly Participant[]): SimulationFrame => ({
   ball: { ...participants[0]!.ball },
   otherBalls: participants.slice(1).map((participant) => ({ ...participant.ball })),
@@ -258,9 +283,14 @@ const continueFall = (participant: Participant) => {
 };
 
 const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: BallPhysicsModifiers) => {
-  const gradient = floorGradientAt(course, ball.x, ball.y);
-  ball.vx -= gradient.x * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
-  ball.vy -= gradient.y * SLOPE_GRAVITY * HEIGHT_TO_WORLD * STEP;
+  const downhill = downhillForceAt(course, ball, modifiers);
+  if (downhill) {
+    const downhillSpeed = ball.vx * downhill.direction.x + ball.vy * downhill.direction.y;
+    const allowedAcceleration = Math.max(0, (MAX_DOWNHILL_ROLL_SPEED - downhillSpeed) / STEP);
+    const acceleration = Math.min(downhill.acceleration, allowedAcceleration);
+    ball.vx += downhill.direction.x * acceleration * STEP;
+    ball.vy += downhill.direction.y * acceleration * STEP;
+  }
   if (tile.surface === 'booster' || tile.surface === 'conveyor') {
     const direction = tile.direction ?? { x: 1, y: 0 };
     const acceleration = (tile.surface === 'booster' ? BOOST_ACCELERATION : CONVEYOR_ACCELERATION) * (modifiers.terrainAccelerationMultiplier ?? 1);
@@ -277,8 +307,7 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
   }
   const currentSpeed = planarSpeed(ball);
   if (currentSpeed > 0) {
-    const deceleration = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
-    const reduction = Math.min(currentSpeed, deceleration * (modifiers.rollingResistanceMultiplier ?? 1) * STEP);
+    const reduction = Math.min(currentSpeed, rollingDecelerationFor(tile, modifiers) * STEP);
     ball.vx -= ball.vx / currentSpeed * reduction;
     ball.vy -= ball.vy / currentSpeed * reduction;
   }
@@ -399,7 +428,7 @@ const collide = (course: Course, participants: Participant[]) => {
   }
 };
 
-const allSettled = (course: Course, participants: Participant[]) => participants.every((participant) => participant.ball.complete || (isStopped(participant.ball) && isOnGround(course, participant.ball)));
+const allSettled = (course: Course, participants: Participant[]) => participants.every((participant) => participant.ball.complete || (isStopped(participant.ball) && isOnGround(course, participant.ball) && !canRollDownhill(course, participant.ball, participant.modifiers)));
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
@@ -417,7 +446,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
     participants.forEach((participant) => {
-      if (!participant.ball.complete && !isStopped(participant.ball)) stepTerrain(course, participant, phase, phaseCount);
+      if (!participant.ball.complete && (!isStopped(participant.ball) || canRollDownhill(course, participant.ball, participant.modifiers))) stepTerrain(course, participant, phase, phaseCount);
     });
     collideWithSweepers(course, participants, phase, phaseCount);
     if (options.collisions && participants.length > 1) collide(course, participants);
@@ -434,7 +463,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
     }
 
     participants.forEach((participant) => {
-      if (!participant.ball.complete && isStopped(participant.ball) && isOnGround(course, participant.ball)) stopParticipant(course, participant);
+      if (!participant.ball.complete && isStopped(participant.ball) && isOnGround(course, participant.ball) && !canRollDownhill(course, participant.ball, participant.modifiers)) stopParticipant(course, participant);
     });
     if (frame % 2 === 0) frames.push(snapshot(participants));
     if (allSettled(course, participants)) {

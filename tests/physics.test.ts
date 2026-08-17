@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateCourse } from '../src/core/generator';
-import { MAX_SURFACE_SPEED, floorHeightAt, newBall, simulateShot, tileCornerHeights } from '../src/core/physics';
+import { MAX_DOWNHILL_ROLL_SPEED, MAX_SURFACE_SPEED, floorHeightAt, newBall, simulateImpulse, simulateShot, tileCornerHeights } from '../src/core/physics';
 import { projectWorldDirection } from '../src/ui/render';
 import type { Course } from '../src/core/types';
 import { createLane as lane } from './fixtures';
@@ -105,6 +105,36 @@ describe('grounded physics invariants', () => {
         }
       }
     }
+  });
+
+  it('lets a nearly stopped ball roll down a meaningful hill without unlimited downhill acceleration', () => {
+    const course = lane('fairway', 80);
+    course.tiles.forEach((tile) => {
+      tile.corners = [1, 0, 0, 1];
+      tile.height = .5;
+    });
+    const start = newBall(course);
+    const result = simulateImpulse(course, { ...start, vx: .05 }, { x: .05, y: 0 }, 3);
+    const downhillSpeeds = result.frames.map((frame) => frame.ball.vx);
+
+    expect(result.ball.x).toBeGreaterThan(start.x + 1);
+    expect(Math.max(...downhillSpeeds)).toBeLessThanOrEqual(MAX_DOWNHILL_ROLL_SPEED + .03);
+    expect(result.frames.some((frame) => frame.ball.vx > .12)).toBe(true);
+  });
+
+  it('restarts a low-energy wall rebound when the landing point slopes downhill', () => {
+    const course = lane('fairway', 80);
+    course.tiles.forEach((tile) => {
+      tile.corners = [1, 0, 0, 1];
+      tile.height = .5;
+    });
+    course.tiles[3 * course.width + 5] = { surface: 'wall', height: .5 };
+    const ball = { ...newBall(course), x: 6.05, y: 3.5, z: floorHeightAt(course, 6.05, 3.5) + .18 };
+    const result = simulateImpulse(course, ball, { x: -.25, y: 0 }, 1.5);
+
+    expect(result.frames.some((frame) => frame.ball.vx < 0)).toBe(true);
+    expect(result.frames.some((frame) => frame.ball.vx > .12)).toBe(true);
+    expect(result.ball.x).toBeGreaterThan(6.25);
   });
 
   it('applies time-scaled terrain acceleration under a hard speed cap', () => {

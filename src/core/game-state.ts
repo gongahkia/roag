@@ -66,6 +66,7 @@ export const createGameState = (config: GameConfig): GameState => {
     emoteSequence: 0,
     players,
     turn: { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false },
+    paused: false,
     status: 'voting',
     messages: ['vote for the first course and house rules'],
   };
@@ -117,12 +118,19 @@ export const completeAssembly = (state: GameState) => {
   addMessage(state, 'course assembled — tee off');
 };
 
+export const setPaused = (state: GameState, paused: boolean) => {
+  if (state.status === 'finished') return;
+  state.paused = paused;
+  addMessage(state, paused ? 'match paused' : 'match resumed');
+};
+
 export const beginNextVote = (state: GameState) => {
   state.hole += 1;
   state.vote = newVote(state.config, state.hole);
   state.assembly = undefined;
   state.course = cloneCourse(state.vote.options[0]!.course);
   state.coursePhase = 0;
+  state.paused = false;
   state.status = 'voting';
   state.turn = { playerIndex: 0, secondsLeft: defaultHoleRules().timerSeconds, shotInFlight: false };
   addMessage(state, `hole ${state.hole}: vote for the next course package`);

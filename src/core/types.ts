@@ -239,6 +239,7 @@ export interface GameState {
   emoteSequence: number;
   players: Player[];
   turn: TurnState;
+  paused: boolean;
   status: 'voting' | 'assembling' | 'playing' | 'finished';
   messages: string[];
 }
@@ -247,6 +248,7 @@ export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'cast-vote'; playerId: string; optionId: string }
   | { type: 'complete-assembly' }
+  | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp; targetId?: string; portalExitId?: string }
   | { type: 'arm-second-wind' }
   | { type: 'emote'; playerId: string; emote: Emote };

@@ -1,14 +1,41 @@
 import { presentFeedback } from '../feedback';
 import { chooseBotVote } from '../core/bots';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
+import type { Ball, Emote, EmoteEvent, GameCommand, GameConfig, GameState, PowerUp, ShotCommand } from '../core/types';
+import { OnlineClient } from '../net/online-client';
+import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
-import { type Ball, type Emote, type EmoteEvent, type GameConfig, type GameState, type PowerUp, type ShotCommand } from '../core/types';
-import { createRenderer } from './render';
+import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, type HomePanel } from './home-markup';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
+import { createRenderer } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
 interface LiveEmote extends EmoteEvent { expiresAt: number; }
+type Screen = 'home' | 'lobby' | 'game';
+type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
+
+export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: BotScheduleSnapshot) => previous.status !== next.status || previous.turn.playerIndex !== next.turn.playerIndex;
+
+const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
+const readNumber = (app: HTMLElement, id: string, fallback: number) => {
+  const value = Number(app.querySelector<HTMLInputElement | HTMLSelectElement>(`#${id}`)?.value);
+  return Number.isFinite(value) ? value : fallback;
+};
+const browserServerUrl = () => {
+  const secure = window.location.protocol === 'https:';
+  const port = window.location.port === '5173' || !window.location.port ? '8787' : window.location.port;
+  return `${secure ? 'wss' : 'ws'}://${window.location.hostname}:${port}`;
+};
+const validServerUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'ws:' || parsed.protocol === 'wss:' ? parsed.toString().replace(/\/$/, '') : undefined;
+  } catch { return undefined; }
+};
+const tokenKey = (roomCode: string) => `golf-with-your-enemies-room-token:${roomCode.toUpperCase()}`;
+const getStoredToken = (roomCode: string) => { try { return sessionStorage.getItem(tokenKey(roomCode)); } catch { return null; } };
+const storeToken = (roomCode: string, token: string) => { try { sessionStorage.setItem(tokenKey(roomCode), token); } catch { } };
 
 export const startApp = (app: HTMLElement) => {
   const query = new URLSearchParams(window.location.search);
@@ -32,9 +59,38 @@ export const startApp = (app: HTMLElement) => {
   let assemblyProgress = 0;
   let liveEmotes: LiveEmote[] = [];
   let seenEmoteIds = new Set<string>();
+  let screen: Screen = captureMode ? 'game' : 'home';
+  let homePanel: HomePanel = 'play';
+  let playerName = 'golfer-1';
+  let requestedRoomCode = '';
+  let serverUrl = preferences.onlineServerUrl || browserServerUrl();
+  let notice: string | undefined;
+  let onlineClient: OnlineClient | undefined;
+  let room: RoomSnapshot | undefined;
+  let onlinePlayerId: string | undefined;
+  let pendingReconnectToken: string | undefined;
+  let onlineConnected = false;
+  let controllerName: string | undefined;
+  let gamepadButtons: boolean[] = [];
+  let audioContext: AudioContext | undefined;
 
+  const online = () => Boolean(onlineClient && room?.phase === 'game');
   const current = () => state.players[state.turn.playerIndex]!;
-  const view = (): ViewModel => ({ state, config, preferences, overlay, drawer, rebinding, aim, shotInFlight: Boolean(shotAnimation), assemblyProgress: state.status === 'assembling' ? assemblyProgress : undefined, ledger, callouts });
+  const canControlCurrent = () => !online() || current().id === onlinePlayerId;
+  const view = (): ViewModel => ({
+    state,
+    config,
+    preferences,
+    overlay,
+    drawer,
+    rebinding,
+    aim,
+    shotInFlight: Boolean(shotAnimation),
+    assemblyProgress: state.status === 'assembling' ? assemblyProgress : undefined,
+    ledger,
+    callouts,
+    multiplayer: { online: online(), connected: onlineConnected, roomCode: room?.code, playerId: onlinePlayerId, host: room?.hostId === onlinePlayerId, controllerName },
+  });
   const applyPreferences = () => {
     document.documentElement.classList.toggle('reduced-motion', preferences.reducedMotion);
     document.documentElement.classList.toggle('high-contrast', preferences.highContrast);
@@ -45,7 +101,7 @@ export const startApp = (app: HTMLElement) => {
     const presentation = presentFeedback(message);
     const entry: LedgerEntry = { message, tone: presentation.tone };
     ledger = [entry, ...ledger].slice(0, 8);
-    if (presentation.major) callouts = [{ ...entry, expiresAt: performance.now() + (preferences.reducedMotion ? 900 : 1800) }, ...callouts].slice(0, 2);
+    if (presentation.major) callouts = [{ ...entry, expiresAt: performance.now() + (preferences.reducedMotion ? 900 : 1_800) }, ...callouts].slice(0, 2);
   };
   const recordStateFeedback = (next: GameState) => recordFeedback(next.messages[0] ?? '');
   const syncEmotes = (next: GameState) => {
@@ -55,49 +111,35 @@ export const startApp = (app: HTMLElement) => {
       liveEmotes = [{ ...emote, expiresAt: performance.now() + (preferences.reducedMotion ? 1_100 : 2_700) }, ...liveEmotes].slice(0, 8);
     }
   };
-
-  const setState = (next: GameState) => {
-    const enteringAssembly = state.status !== 'assembling' && next.status === 'assembling';
-    state = next;
-    if (enteringAssembly) assemblyProgress = 0;
-    if (state.status !== 'assembling' && assemblyFrame !== undefined) {
-      window.cancelAnimationFrame(assemblyFrame);
-      assemblyFrame = undefined;
-    }
-    recordStateFeedback(state);
-    syncEmotes(state);
-    render();
-    scheduleBot();
-    if (state.status === 'assembling') startAssembly();
+  const vibrate = () => {
+    if (!preferences.controllerVibration) return;
+    const pad = navigator.getGamepads?.().find((candidate) => candidate?.connected);
+    const actuator = (pad as (Gamepad & { vibrationActuator?: { playEffect(type: 'dual-rumble', options: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown> } }) | undefined)?.vibrationActuator;
+    void actuator?.playEffect('dual-rumble', { duration: 90, strongMagnitude: .25, weakMagnitude: .4 }).catch(() => undefined);
   };
-  const autoResolveCaptureVote = (source: GameState) => {
-    const optionId = source.vote?.options[0]?.id;
-    if (!optionId) return source;
-    const resolved = source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source);
-    return resolved.status === 'assembling' ? applyCommand(resolved, { type: 'complete-assembly' }) : resolved;
-  };
-  if (captureMode) state = autoResolveCaptureVote(state);
-
-  const setupGame = () => {
-    config = {
-      ...config,
-      seed: app.querySelector<HTMLInputElement>('#seed')?.value.trim() || config.seed,
-      humanCount: Number(app.querySelector<HTMLInputElement>('#humans')?.value || config.humanCount),
-      botCount: Number(app.querySelector<HTMLInputElement>('#bots')?.value || config.botCount),
-      botSkill: app.querySelector<HTMLSelectElement>('#skill')?.value === 'adaptive' ? 'adaptive' : Number(app.querySelector<HTMLSelectElement>('#skill')?.value || config.botSkill),
-    };
-    if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
-    drawer = captureMode ? undefined : 'intel';
-    liveEmotes = [];
-    seenEmoteIds = new Set();
-    setState(captureMode ? autoResolveCaptureVote(createGame(config)) : createGame(config));
+  const playEffect = (frequency: number, duration = .07) => {
+    const volume = preferences.masterVolume * preferences.effectsVolume;
+    if (!volume) return;
+    const AudioContextConstructor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextConstructor) return;
+    audioContext ??= new AudioContextConstructor();
+    if (audioContext.state === 'suspended') void audioContext.resume().catch(() => undefined);
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'square';
+    gain.gain.setValueAtTime(Math.min(.08, volume * .08), audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + duration);
   };
 
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
     renderer?.draw(state.course, players, state.coursePhase, drawAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, state.status === 'assembling' ? assemblyProgress : undefined);
   };
-  const startAssembly = () => {
+  const startAssembly = (completeLocally: boolean) => {
     if (state.status !== 'assembling') return;
     if (assemblyFrame !== undefined) window.cancelAnimationFrame(assemblyFrame);
     const duration = preferences.reducedMotion ? 120 : 1_650;
@@ -110,38 +152,166 @@ export const startApp = (app: HTMLElement) => {
       if (progress) progress.textContent = `${Math.round(assemblyProgress * 100)}%`;
       const progressFill = app.querySelector<HTMLElement>('#assembly-progress-fill');
       if (progressFill) progressFill.style.width = `${Math.round(assemblyProgress * 100)}%`;
-      if (assemblyProgress < 1) {
-        assemblyFrame = requestAnimationFrame(animate);
-        return;
-      }
+      if (assemblyProgress < 1) { assemblyFrame = requestAnimationFrame(animate); return; }
       assemblyFrame = undefined;
-      setState(applyCommand(state, { type: 'complete-assembly' }));
+      if (completeLocally) setState(applyCommand(state, { type: 'complete-assembly' }));
     };
     assemblyFrame = requestAnimationFrame(animate);
   };
+  const setState = (next: GameState) => {
+    const enteringAssembly = state.status !== 'assembling' && next.status === 'assembling';
+    state = next;
+    if (enteringAssembly) assemblyProgress = 0;
+    if (state.status !== 'assembling' && assemblyFrame !== undefined) {
+      window.cancelAnimationFrame(assemblyFrame);
+      assemblyFrame = undefined;
+    }
+    recordStateFeedback(state);
+    syncEmotes(state);
+    render();
+    if (!online()) {
+      scheduleBot();
+      if (state.status === 'assembling') startAssembly(true);
+    } else if (enteringAssembly) startAssembly(false);
+  };
+  const receiveGame = (next: GameState) => setState(next);
+  const autoResolveCaptureVote = (source: GameState) => {
+    const optionId = source.vote?.options[0]?.id;
+    if (!optionId) return source;
+    const resolved = source.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), source);
+    return resolved.status === 'assembling' ? applyCommand(resolved, { type: 'complete-assembly' }) : resolved;
+  };
+  if (captureMode) state = autoResolveCaptureVote(state);
+
+  const readConfig = (prefix: 'local' | 'online'): LobbyConfig => {
+    const fallback = lobbyConfigFromGame(config);
+    const rawSkill = app.querySelector<HTMLSelectElement>(`#${prefix}-skill`)?.value;
+    return {
+      seed: readText(app, `${prefix}-seed`, fallback.seed),
+      holeCount: readNumber(app, `${prefix}-holes`, fallback.holeCount),
+      maxHumans: readNumber(app, `${prefix}-seats`, fallback.maxHumans),
+      botCount: readNumber(app, `${prefix}-bots`, fallback.botCount),
+      botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, `${prefix}-skill`, typeof fallback.botSkill === 'number' ? fallback.botSkill : 5),
+    };
+  };
+  const startLocal = () => {
+    const selected = readConfig('local');
+    if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
+    onlineClient?.disconnect();
+    onlineClient = undefined;
+    room = undefined;
+    onlinePlayerId = undefined;
+    pendingReconnectToken = undefined;
+    onlineConnected = false;
+    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill };
+    drawer = captureMode ? undefined : 'intel';
+    overlay = undefined;
+    liveEmotes = [];
+    seenEmoteIds = new Set();
+    screen = 'game';
+    notice = undefined;
+    setState(captureMode ? autoResolveCaptureVote(createGame(config)) : createGame(config));
+  };
+  const setupGame = () => {
+    const seed = readText(app, 'seed', config.seed);
+    const humanCount = readNumber(app, 'humans', config.humanCount);
+    const botCount = readNumber(app, 'bots', config.botCount);
+    const rawSkill = app.querySelector<HTMLSelectElement>('#skill')?.value;
+    config = { ...config, seed, humanCount, botCount, botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, 'skill', typeof config.botSkill === 'number' ? config.botSkill : 5) };
+    if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
+    liveEmotes = [];
+    seenEmoteIds = new Set();
+    setState(captureMode ? autoResolveCaptureVote(createGame(config)) : createGame(config));
+  };
+  const dispatch = (command: GameCommand) => {
+    if (online()) { onlineClient?.send({ type: 'command', command }); return; }
+    setState(applyCommand(state, command));
+  };
+  const connectOnline = (message: ClientMessage, codeForToken?: string) => {
+    const url = validServerUrl(serverUrl);
+    if (!url) { notice = 'enter a ws:// or wss:// game server address'; render(); return; }
+    preferences = { ...preferences, onlineServerUrl: url };
+    savePreferences(preferences);
+    notice = 'connecting to game server…';
+    onlineClient?.disconnect();
+    room = undefined;
+    onlinePlayerId = undefined;
+    pendingReconnectToken = undefined;
+    onlineConnected = false;
+    const client = new OnlineClient({
+      onRoom(nextRoom) {
+        if (onlineClient !== client) return;
+        room = nextRoom;
+        if (pendingReconnectToken) storeToken(nextRoom.code, pendingReconnectToken);
+        if (nextRoom.phase === 'game' && nextRoom.game) {
+          config = nextRoom.game.config;
+          screen = 'game';
+          receiveGame(nextRoom.game);
+        } else {
+          screen = 'lobby';
+          render();
+        }
+      },
+      onJoined(playerId, reconnectToken) {
+        if (onlineClient !== client) return;
+        onlinePlayerId = playerId;
+        pendingReconnectToken = reconnectToken;
+        if (codeForToken) storeToken(codeForToken, reconnectToken);
+        render();
+      },
+      onError(messageText) { if (onlineClient === client) { notice = messageText; render(); } },
+      onConnection(connected) {
+        if (onlineClient !== client) return;
+        onlineConnected = connected;
+        notice = connected ? undefined : 'connection lost — rejoin with your room code to restore your seat';
+        render();
+      },
+    });
+    onlineClient = client;
+    render();
+    client.connect(url, () => client.send(message));
+  };
+  const createOnlineRoom = () => {
+    const selected = readConfig('online');
+    playerName = readText(app, 'player-name', playerName);
+    serverUrl = readText(app, 'server-url', serverUrl);
+    if (selected.maxHumans + selected.botCount > 12) { notice = 'choose between one and twelve total players'; render(); return; }
+    connectOnline({ type: 'create-room', name: playerName, config: selected });
+  };
+  const joinOnlineRoom = () => {
+    playerName = readText(app, 'player-name', playerName);
+    serverUrl = readText(app, 'server-url', serverUrl);
+    requestedRoomCode = readText(app, 'room-code', requestedRoomCode).toUpperCase();
+    if (!/^[A-F0-9]{6}$/.test(requestedRoomCode)) { notice = 'enter the six-character room code'; render(); return; }
+    connectOnline({ type: 'join-room', code: requestedRoomCode, name: playerName, reconnectToken: getStoredToken(requestedRoomCode) ?? undefined }, requestedRoomCode);
+  };
+
   const chooseAim = (event: PointerEvent) => {
-    if (!renderer || state.status !== 'playing' || current().kind !== 'human') return;
+    if (!renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
     aim = renderer.aimFromPointer(event, state.course, current().ball);
     drawBoard();
     renderControls();
   };
   const adjustPower = (amount: number) => {
     aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
-    if (state.status !== 'playing') return;
+    if (state.status !== 'playing' || state.paused) return;
     drawBoard();
     renderControls();
   };
   const playShot = (shot: ShotCommand) => {
-    if (state.status !== 'playing' || shotAnimation) return;
+    if (state.status !== 'playing' || state.paused || shotAnimation || !canControlCurrent()) return;
+    if (online()) { vibrate(); playEffect(240, .09); dispatch({ type: 'shoot', shot }); return; }
     const player = current();
     const frames = previewShot(state, shot);
-    if (!frames?.length) { setState(applyCommand(state, { type: 'shoot', shot })); return; }
+    if (!frames?.length) { vibrate(); playEffect(240, .09); dispatch({ type: 'shoot', shot }); return; }
     const source = state;
     const inFlight = { ...source, turn: { ...source.turn, shotInFlight: true } };
     const duration = Math.min(2_200, Math.max(360, frames.length * 11));
     const startedAt = performance.now();
     shotAnimation = { playerId: player.id, frame: 0 };
     state = inFlight;
+    vibrate();
+    playEffect(240, .09);
     renderControls();
     const status = app.querySelector<HTMLElement>('#status');
     if (status) status.textContent = renderStatus(view());
@@ -157,19 +327,30 @@ export const startApp = (app: HTMLElement) => {
     };
     requestAnimationFrame(animate);
   };
-  const shoot = () => { if (state.status === 'playing' && current().kind === 'human') playShot(aim); };
+  const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
   const useHeldPowerUp = (powerUp: PowerUp) => {
-    if (state.status !== 'playing' || current().kind !== 'human' || shotAnimation) return;
+    if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
     const target = state.players.find((player) => player.id !== current().id && !player.ball.complete);
     const portalExitId = app.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
-    setState(applyCommand(state, { type: 'use-power-up', powerUp, targetId: target?.id, portalExitId }));
+    playEffect(530, .08);
+    dispatch({ type: 'use-power-up', powerUp, targetId: target?.id, portalExitId });
   };
   const sendEmote = (emote: Emote) => {
-    if (shotAnimation || current().kind !== 'human') return;
-    setState(applyCommand(state, { type: 'emote', playerId: current().id, emote }));
+    if (shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
+    dispatch({ type: 'emote', playerId: onlinePlayerId ?? current().id, emote });
+  };
+  const castVote = (optionId: string) => {
+    const voter = online() ? state.players.find((player) => player.id === onlinePlayerId && !state.vote?.ballots[player.id]) : state.players.find((player) => player.kind === 'human' && !state.vote?.ballots[player.id]);
+    if (voter) { playEffect(660, .06); dispatch({ type: 'cast-vote', playerId: voter.id, optionId }); }
+  };
+  const togglePause = () => {
+    if (state.status === 'finished' || (online() && room?.hostId !== onlinePlayerId)) return;
+    playEffect(state.paused ? 570 : 330, .1);
+    dispatch({ type: 'set-paused', paused: !state.paused });
   };
   const scheduleBot = () => {
     window.clearTimeout(botTimeout);
+    if (online() || state.paused) return;
     if (state.status === 'voting' && state.vote) {
       const bot = state.players.find((player) => player.kind === 'bot' && !state.vote!.ballots[player.id]);
       if (!bot) return;
@@ -199,13 +380,23 @@ export const startApp = (app: HTMLElement) => {
       renderControls();
     });
     app.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
-    app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => setState(applyCommand(state, { type: 'arm-second-wind' })));
+    app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => dispatch({ type: 'arm-second-wind' }));
   };
   const render = () => {
+    renderer?.dispose();
+    renderer = undefined;
+    if (screen === 'home') {
+      app.innerHTML = renderHomeMarkup({ panel: homePanel, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
+      return;
+    }
+    if (screen === 'lobby') {
+      if (room) app.innerHTML = renderLobbyMarkup(room, onlinePlayerId, onlineConnected, notice);
+      return;
+    }
     app.innerHTML = renderAppMarkup(view());
     app.querySelector<HTMLButtonElement>('#new-run')?.addEventListener('click', setupGame);
-    const canvas = app.querySelector<HTMLCanvasElement>('#course')!;
-    renderer?.dispose();
+    const canvas = app.querySelector<HTMLCanvasElement>('#course');
+    if (!canvas) return;
     renderer = createRenderer(canvas);
     drawBoard(undefined, state.status === 'playing' ? aim : null);
     canvas.addEventListener('pointermove', chooseAim);
@@ -217,18 +408,47 @@ export const startApp = (app: HTMLElement) => {
     applyPreferences();
     render();
   };
+  const pollController = () => {
+    if (screen !== 'game') return;
+    const pad = navigator.getGamepads?.().find((candidate) => candidate?.connected);
+    if (!pad) { gamepadButtons = []; return; }
+    if (!controllerName) { controllerName = pad.id || 'controller'; render(); }
+    const pressed = (index: number) => Boolean(pad.buttons[index]?.pressed);
+    const edge = (index: number) => pressed(index) && !gamepadButtons[index];
+    gamepadButtons = pad.buttons.map((button) => button.pressed);
+    if (edge(9)) togglePause();
+    if (overlay || state.paused || shotAnimation || state.status !== 'playing' || current().kind !== 'human' || !canControlCurrent()) return;
+    const x = pad.axes[0] ?? 0;
+    const y = pad.axes[1] ?? 0;
+    const magnitude = Math.hypot(x, y);
+    if (magnitude > preferences.controllerDeadzone) {
+      const nextAim = { angle: Math.atan2(y, x), power: Math.max(1, Math.min(8, magnitude * 8 * preferences.controllerAimSensitivity)) };
+      if (Math.abs(nextAim.angle - aim.angle) > .01 || Math.abs(nextAim.power - aim.power) > .05) { aim = nextAim; drawBoard(); renderControls(); }
+    }
+    if (edge(0)) shoot();
+    const controllerPowerUp = current().inventory;
+    if (edge(1) && controllerPowerUp) useHeldPowerUp(controllerPowerUp);
+    if (edge(14)) adjustPower(-.2);
+    if (edge(15)) adjustPower(.2);
+  };
 
   app.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const element = target.closest<HTMLElement>('button') ?? target;
-    if (element.hasAttribute('data-restart-run')) { setupGame(); return; }
+    const homeTarget = element.dataset.homePanel as HomePanel | undefined;
+    if (homeTarget) { homePanel = homeTarget; notice = undefined; render(); return; }
+    if (element.hasAttribute('data-start-local')) { startLocal(); return; }
+    if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
+    if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }
+    if (element.hasAttribute('data-start-room')) { onlineClient?.send({ type: 'start-room' }); return; }
+    if (element.hasAttribute('data-leave-lobby')) { onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
+    if (element.hasAttribute('data-restart-run')) { if (online()) { screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
+    if (element.hasAttribute('data-toggle-pause')) { togglePause(); return; }
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-    const voteCard = target.closest<HTMLElement>('[data-vote-option]');
-    const voteOption = voteCard?.dataset.voteOption;
-    const nextHumanVoter = state.players.find((player) => player.kind === 'human' && !state.vote?.ballots[player.id]);
-    if (voteOption && nextHumanVoter) { setState(applyCommand(state, { type: 'cast-vote', playerId: nextHumanVoter.id, optionId: voteOption })); return; }
+    const voteOption = target.closest<HTMLElement>('[data-vote-option]')?.dataset.voteOption;
+    if (voteOption) { castVote(voteOption); return; }
     const powerUp = element.dataset.usePowerup as PowerUp | undefined;
     if (powerUp) { useHeldPowerUp(powerUp); return; }
     const emote = element.dataset.emote as Emote | undefined;
@@ -241,9 +461,13 @@ export const startApp = (app: HTMLElement) => {
   });
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLInputElement;
-    const preference = target.dataset.preference;
-    if (preference === 'reducedMotion' || preference === 'highContrast') updatePreferences({ [preference]: target.checked });
+    const preference = target.dataset.preference as keyof typeof preferences | undefined;
+    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration') updatePreferences({ [preference]: target.checked });
+    const range = target.dataset.preferenceRange as keyof typeof preferences | undefined;
+    if (range === 'masterVolume' || range === 'effectsVolume' || range === 'controllerDeadzone' || range === 'controllerAimSensitivity') updatePreferences({ [range]: Number(target.value) });
   });
+  window.addEventListener('gamepadconnected', (event) => { controllerName = event.gamepad.id || 'controller'; render(); });
+  window.addEventListener('gamepaddisconnected', () => { controllerName = undefined; gamepadButtons = []; render(); });
   window.addEventListener('keydown', (event) => {
     if (rebinding) {
       if (event.key === 'Escape') { rebinding = undefined; render(); return; }
@@ -256,14 +480,9 @@ export const startApp = (app: HTMLElement) => {
     }
     if (isEditableElement(event.target)) return;
     const voteCard = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-vote-option]') : undefined;
-    const nextHumanVoter = state.players.find((player) => player.kind === 'human' && !state.vote?.ballots[player.id]);
-    if (voteCard && nextHumanVoter && (event.key === 'Enter' || event.key === ' ')) {
+    if (voteCard && (event.key === 'Enter' || event.key === ' ')) {
       const voteOption = voteCard.dataset.voteOption;
-      if (voteOption) {
-        event.preventDefault();
-        setState(applyCommand(state, { type: 'cast-vote', playerId: nextHumanVoter.id, optionId: voteOption }));
-        return;
-      }
+      if (voteOption) { event.preventDefault(); castVote(voteOption); return; }
     }
     if (event.key === 'Escape' && overlay) { overlay = undefined; render(); return; }
     const command = shortcutForKey(preferences, event.key);
@@ -271,26 +490,28 @@ export const startApp = (app: HTMLElement) => {
     event.preventDefault();
     if (command === 'help') { overlay = overlay === 'help' ? undefined : 'help'; render(); return; }
     if (command === 'settings') { overlay = overlay === 'settings' ? undefined : 'settings'; render(); return; }
+    if (command === 'pause') { togglePause(); return; }
     if (overlay || shotAnimation) return;
     if (command === 'shoot') shoot();
     if (command === 'powerDown') adjustPower(-.2);
     if (command === 'powerUp') adjustPower(.2);
-    const heldPowerUp = current().inventory;
-    if (command === 'usePowerUp' && heldPowerUp) useHeldPowerUp(heldPowerUp);
+    const keyboardPowerUp = current().inventory;
+    if (command === 'usePowerUp' && keyboardPowerUp) useHeldPowerUp(keyboardPowerUp);
   });
   const loop = (now: number) => {
     const elapsed = Math.min(1, (now - lastTick) / 1000);
     lastTick = now;
     const previousCalloutCount = callouts.length;
     callouts = callouts.filter((callout) => callout.expiresAt > now);
-    if (callouts.length !== previousCalloutCount) {
-      const calloutNode = app.querySelector<HTMLElement>('#callouts');
-      if (calloutNode) calloutNode.innerHTML = renderCallouts(callouts);
-    }
+    if (callouts.length !== previousCalloutCount) app.querySelector<HTMLElement>('#callouts')?.replaceChildren();
+    const calloutNode = app.querySelector<HTMLElement>('#callouts');
+    if (calloutNode && callouts.length !== previousCalloutCount) calloutNode.innerHTML = renderCallouts(callouts);
     const previousEmoteCount = liveEmotes.length;
     liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
     if (liveEmotes.length !== previousEmoteCount && !shotAnimation) drawBoard();
-    if (state.status === 'playing' && !shotAnimation) {
+    if (!online() && screen === 'game' && state.status === 'playing' && !state.paused && !shotAnimation) {
+      const previousStatus = state.status;
+      const previousPlayerIndex = state.turn.playerIndex;
       const next = tickTurn(state, elapsed);
       if (next !== state) {
         state = next;
@@ -299,17 +520,16 @@ export const startApp = (app: HTMLElement) => {
         renderControls();
         const status = app.querySelector<HTMLElement>('#status');
         if (status) status.textContent = renderStatus(view());
-        const calloutNode = app.querySelector<HTMLElement>('#callouts');
-        if (calloutNode) calloutNode.innerHTML = renderCallouts(callouts);
-        scheduleBot();
+        if (shouldScheduleBotAfterTick({ status: previousStatus, turn: { playerIndex: previousPlayerIndex } }, state)) scheduleBot();
       }
     }
+    pollController();
     requestAnimationFrame(loop);
   };
   applyPreferences();
   document.documentElement.classList.toggle('capture-mode', captureMode);
   recordStateFeedback(state);
   render();
-  scheduleBot();
+  if (!captureMode) window.clearTimeout(botTimeout); else scheduleBot();
   requestAnimationFrame(loop);
 };

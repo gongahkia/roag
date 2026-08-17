@@ -1,4 +1,4 @@
-export type ShortcutId = 'shoot' | 'powerDown' | 'powerUp' | 'usePowerUp' | 'help' | 'settings';
+export type ShortcutId = 'shoot' | 'powerDown' | 'powerUp' | 'usePowerUp' | 'pause' | 'help' | 'settings';
 
 export interface ShortcutBinding {
   id: ShortcutId;
@@ -7,9 +7,15 @@ export interface ShortcutBinding {
 }
 
 export interface GamePreferences {
-  version: 1;
+  version: 2;
   reducedMotion: boolean;
   highContrast: boolean;
+  masterVolume: number;
+  effectsVolume: number;
+  controllerDeadzone: number;
+  controllerAimSensitivity: number;
+  controllerVibration: boolean;
+  onlineServerUrl: string;
   bindings: Partial<Record<ShortcutId, string>>;
 }
 
@@ -24,6 +30,7 @@ export const SHORTCUTS: readonly ShortcutBinding[] = [
   { id: 'powerDown', label: 'Power down', defaultKey: '-' },
   { id: 'powerUp', label: 'Power up', defaultKey: '=' },
   { id: 'usePowerUp', label: 'Use chaos item', defaultKey: 'p' },
+  { id: 'pause', label: 'Pause', defaultKey: 'Escape' },
   { id: 'help', label: 'Show shortcuts', defaultKey: '?' },
   { id: 'settings', label: 'Open settings', defaultKey: 'F1' },
 ];
@@ -34,7 +41,7 @@ const fallbackStore = (): PreferencesStore | undefined => {
 };
 const shortcut = (id: ShortcutId) => SHORTCUTS.find((candidate) => candidate.id === id)!;
 
-export const defaultPreferences = (): GamePreferences => ({ version: 1, reducedMotion: false, highContrast: false, bindings: {} });
+export const defaultPreferences = (): GamePreferences => ({ version: 2, reducedMotion: false, highContrast: false, masterVolume: .8, effectsVolume: .8, controllerDeadzone: .18, controllerAimSensitivity: 1, controllerVibration: true, onlineServerUrl: '', bindings: {} });
 export const bindingFor = (preferences: GamePreferences, id: ShortcutId) => preferences.bindings[id] ?? shortcut(id).defaultKey;
 
 export const normalizePreferences = (value: unknown): GamePreferences => {
@@ -48,7 +55,20 @@ export const normalizePreferences = (value: unknown): GamePreferences => {
       if (typeof key === 'string' && key.length > 0 && key.length <= 32) bindings[entry.id] = normalizeKey(key);
     }
   }
-  const preferences: GamePreferences = { version: 1, reducedMotion: source.reducedMotion === true, highContrast: source.highContrast === true, bindings };
+  const bounded = (candidate: unknown, fallback: number, minimum: number, maximum: number) => typeof candidate === 'number' && Number.isFinite(candidate) ? Math.max(minimum, Math.min(maximum, candidate)) : fallback;
+  const onlineServerUrl = typeof source.onlineServerUrl === 'string' && source.onlineServerUrl.length <= 200 ? source.onlineServerUrl.trim() : '';
+  const preferences: GamePreferences = {
+    version: 2,
+    reducedMotion: source.reducedMotion === true,
+    highContrast: source.highContrast === true,
+    masterVolume: bounded(source.masterVolume, .8, 0, 1),
+    effectsVolume: bounded(source.effectsVolume, .8, 0, 1),
+    controllerDeadzone: bounded(source.controllerDeadzone, .18, .05, .5),
+    controllerAimSensitivity: bounded(source.controllerAimSensitivity, 1, .5, 2),
+    controllerVibration: source.controllerVibration !== false,
+    onlineServerUrl,
+    bindings,
+  };
   for (const entry of SHORTCUTS) {
     const key = bindingFor(preferences, entry.id);
     if (SHORTCUTS.some((other) => other.id !== entry.id && bindingFor(preferences, other.id) === key)) delete preferences.bindings[entry.id];

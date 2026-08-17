@@ -21,4 +21,13 @@ describe('game preferences', () => {
     const remapped = setShortcut(preferences, 'help', 'x');
     expect(bindingFor(remapped, 'help')).toBe('x');
   });
+
+  it('bounds persistent audio and controller settings while retaining the pause shortcut', () => {
+    const preferences = normalizePreferences({ masterVolume: 2, effectsVolume: -1, controllerDeadzone: .9, controllerAimSensitivity: .1 });
+    expect(preferences.masterVolume).toBe(1);
+    expect(preferences.effectsVolume).toBe(0);
+    expect(preferences.controllerDeadzone).toBe(.5);
+    expect(preferences.controllerAimSensitivity).toBe(.5);
+    expect(bindingFor(preferences, 'pause')).toBe('Escape');
+  });
 });
