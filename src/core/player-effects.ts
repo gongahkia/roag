@@ -94,7 +94,7 @@ export const adjustedShotFor = (player: Player, shot: ShotCommand, rules?: HoleR
 };
 
 export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhysicsModifiers => ({
-  mass: (player.ballForm === 'heavy' ? 1.65 : 1) + caddyCount(player, 'heavy ball') * .45,
+  mass: (player.ballForm === 'heavy' ? 1.65 : player.ballForm === 'anvil' ? 2.35 : 1) + caddyCount(player, 'heavy ball') * .45,
   iceSkates: hasCaddy(player, 'ice skates') || player.ballForm === 'ice',
   bankShot: hasCaddy(player, 'bank shot') || hasCaddy(player, 'backboard'),
   bouncy: player.ballForm === 'bouncy',
@@ -102,16 +102,22 @@ export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhys
   magnetBall: player.ballForm === 'magnet',
   portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
   portalSpeedMultiplier: (1 + caddyCount(player, 'portal savvy') * .18) * (rules?.portalSpeedMultiplier ?? 1),
-  hazardShield: player.hazardShield,
+  hazardShield: player.hazardShield || hasCaddy(player, 'first responder') || (player.ballForm === 'boomerang' && Boolean(player.redTee)),
   rollingResistanceMultiplier: (rules?.rollingResistanceMultiplier ?? 1) * (player.ballForm === 'sticky' ? 2.5 : 1),
   wallRestitutionMultiplier: (rules?.wallRestitutionMultiplier ?? 1) * (player.ballForm === 'sticky' ? .35 : 1),
-  terrainAccelerationMultiplier: rules?.terrainAccelerationMultiplier,
-  hazardImpulseMultiplier: rules?.hazardImpulseMultiplier,
+  terrainAccelerationMultiplier: (rules?.terrainAccelerationMultiplier ?? 1) * (1 + caddyCount(player, 'conveyor cultist') * .2),
+  hazardImpulseMultiplier: (rules?.hazardImpulseMultiplier ?? 1) * Math.max(.35, 1 - caddyCount(player, 'shock absorber') * .22),
   cupRadius: (rules?.cupRadius ?? .28) * (player.ballForm === 'orbit' ? 1.28 : 1) * (1 + caddyCount(player, 'cup reader') * .18),
   cupMagnet: player.cupMagnetArmed,
   slipstream: player.slipstreamArmed,
   reboundRig: player.reboundRigArmed,
   chipGravityMultiplier: (player.ballForm === 'glider' ? .58 : 1) * Math.max(.35, 1 - caddyCount(player, 'aerial ace') * .18),
+  roughRider: hasCaddy(player, 'rough rider'),
+  sandWedge: hasCaddy(player, 'sand wedge'),
+  gatecrasher: hasCaddy(player, 'gatecrasher'),
+  thornmail: hasCaddy(player, 'thornmail'),
+  anvilBall: player.ballForm === 'anvil',
+  mirrorBall: player.ballForm === 'mirror',
 });
 
 export const resetPlayerForCourse = (player: Player, course: Course, _rules?: HoleRules) => {

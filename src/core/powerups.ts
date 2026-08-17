@@ -1,6 +1,6 @@
 import { activePlayer, addMessage } from './game-state';
 import { BALL_RADIUS, MAX_SETTLE_SECONDS, floorHeightAt, simulateImpulse, tileAt } from './physics';
-import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, caddyCount, canStorePowerUp, hasCaddy, isBallForm, physicsModifiersFor, pocketsFor, storePowerUp, takePocketCard } from './player-effects';
+import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, caddyCount, canStorePowerUp, hasCaddy, isBallForm, physicsModifiersFor, pocketsFor, storePowerUp, syncPocketMirrors, takePocketCard } from './player-effects';
 import { Random } from './random';
 import type { ChronoCard, Course, GadgetKind, GameState, ItemPadKind, Player, Point, PowerUp } from './types';
 
@@ -180,7 +180,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   }
   if (powerUp === 'mugger' && target && target.id !== player.id) {
     const stolen = pocketsFor(target).shift();
-    if (stolen && canStorePowerUp(player)) pocketsFor(player).push(stolen);
+    if (stolen && canStorePowerUp(player)) { pocketsFor(player).push(stolen); syncPocketMirrors(player); syncPocketMirrors(target); }
     else { target.cash = Math.max(0, target.cash - 3); player.cash += 3; }
     addMessage(state, `${player.name} mugs ${target.name}`);
     used = true;
@@ -210,7 +210,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
     used = true;
   }
   if (powerUp === 'red tee') { player.redTee = { x: Math.floor(player.ball.x), y: Math.floor(player.ball.y) }; addMessage(state, `${player.name} plants a red tee`); used = true; }
-  if (powerUp === 'black flag' && target && target.id !== player.id) { target.frozenTurns = undefined; target.twoPuttsArmed = true; addMessage(state, `${player.name} waves a black flag at ${target.name}`); used = true; }
+  if (powerUp === 'black flag' && target && target.id !== player.id) { state.forcedNextPlayerId = target.id; addMessage(state, `${player.name} waves a black flag: ${target.name} plays next`); used = true; }
   if (powerUp === 'cherry bomb') {
     state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete).forEach((candidate) => {
       const distance = Math.hypot(candidate.ball.x - player.ball.x, candidate.ball.y - player.ball.y) || 1;
@@ -221,7 +221,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   }
   if (powerUp === 'copycat' && target) {
     const copied = pocketsFor(target)[0];
-    if (copied && canStorePowerUp(player)) { pocketsFor(player).push({ ...copied }); addMessage(state, `${player.name} copies ${target.name}'s ${copied.id}`); used = true; }
+    if (copied && canStorePowerUp(player)) { pocketsFor(player).push({ ...copied }); syncPocketMirrors(player); addMessage(state, `${player.name} copies ${target.name}'s ${copied.id}`); used = true; }
   }
   if (!isChrono(powerUp) && isBallForm(powerUp)) {
     if (powerUp === 'portal' && !portalExitExists(state.course, portalExitId)) return;

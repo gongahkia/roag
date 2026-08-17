@@ -1,5 +1,5 @@
 import { activePlayer, addMessage } from './game-state';
-import { simulateShot, type SimulationResult } from './physics';
+import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
 import { awardHoleCash, openShop, tickShop } from './shop';
@@ -12,15 +12,27 @@ const advanceCoursePhase = (state: GameState) => {
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
   const effectiveShot = player.forcedChip ? { ...shot, kind: 'chip' as const } : shot;
-  return simulateShot(state.course, player.ball, adjustedShotFor(player, effectiveShot, state.holeRules), undefined, {
-    modifiers: physicsModifiersFor(player, state.holeRules),
-    otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: physicsModifiersFor(candidate, state.holeRules) })),
+  const modifiersFor = (candidate: typeof player): BallPhysicsModifiers => ({
+    ...physicsModifiersFor(candidate, state.holeRules),
+    ghostBall: candidate.ballForm === 'ghost' || state.activeReality === 'everybody is ghost',
+    sidewaysGravity: state.activeReality === 'gravity is sideways',
+  });
+  const simulate = (candidateShot: ShotCommand) => simulateShot(state.course, player.ball, adjustedShotFor(player, candidateShot, state.holeRules), undefined, {
+    modifiers: modifiersFor(player),
+    otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
     collisions: state.holeRules.collisions,
     phase: state.coursePhase,
     phaseCount: state.holeRules.hazardPhaseCount,
     collectItems: (state.holeRules.powerUps && canStorePowerUp(player)) || state.course.itemPads.some((pad) => pad.kind === 'cash' && !pad.collected),
     gadgets: state.gadgets ?? [],
+    reality: state.activeReality,
   });
+  if (player.ballForm !== 'quantum' && state.activeReality !== 'two is one') return simulate(effectiveShot);
+  const branch = Math.PI / 24;
+  const left = simulate({ ...effectiveShot, angle: effectiveShot.angle - branch });
+  const right = simulate({ ...effectiveShot, angle: effectiveShot.angle + branch });
+  if (left.holed !== right.holed) return left.holed ? left : right;
+  return distanceToCup(state.course, left.ball) <= distanceToCup(state.course, right.ball) ? left : right;
 };
 
 const applySimulation = (state: GameState, playerIndex: number, result: SimulationResult) => {
@@ -77,6 +89,14 @@ const finishHole = (state: GameState) => {
 
 const advanceTurn = (state: GameState) => {
   const direction = state.activeReality === 'turns are backwards' ? -1 : 1;
+  if (state.forcedNextPlayerId) {
+    const index = state.players.findIndex((player) => player.id === state.forcedNextPlayerId && !player.ball.complete && player.ball.strokes < state.holeRules.strokeCap);
+    state.forcedNextPlayerId = undefined;
+    if (index >= 0) {
+      state.turn = { playerIndex: index, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+      return;
+    }
+  }
   for (let offset = 1; offset <= state.players.length; offset += 1) {
     const index = (state.turn.playerIndex + direction * offset + state.players.length * 2) % state.players.length;
     const player = state.players[index]!;
@@ -101,6 +121,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   }
   const playerIndex = state.turn.playerIndex;
   const forcedChip = player.forcedChip;
+  const affectedControls = player.controlInverted || player.timeDilated;
   const before = { ...player.ball };
   const result = simulatePlayerShot(state, playerIndex, shot);
   player.turboArmed = false;
@@ -109,12 +130,21 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.reboundRigArmed = false;
   player.sandbagged = false;
   player.forcedChip = undefined;
+  player.controlInverted = undefined;
+  player.timeDilated = undefined;
   applySimulation(state, playerIndex, result);
+  if (result.reset && player.redTee) {
+    const x = player.redTee.x + .5;
+    const y = player.redTee.y + .5;
+    player.ball = { ...player.ball, x, y, z: 0, vx: 0, vy: 0, vz: 0, falling: undefined };
+    addMessage(state, `${player.name}'s red tee rewinds their landing`);
+  }
   player.shotHistory = [...player.shotHistory, { hole: state.hole, before, after: { ...player.ball } }].slice(-12);
   const consumedForm = player.ballForm;
   player.ballForm = undefined;
   player.portalExitId = undefined;
   if (forcedChip) addMessage(state, `${player.name}'s airhorn forces a chip`);
+  if (affectedControls) addMessage(state, `${player.name} shakes off the temporal control glitch`);
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
   else if (result.reset) addMessage(state, `${player.name} falls into the void`);
   else addMessage(state, `${player.name} rolls to safety`);
@@ -132,6 +162,10 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     const index = state.course.route.findIndex((point) => point.x === state.course.cup.x && point.y === state.course.cup.y);
     const next = state.course.route[Math.min(state.course.route.length - 1, Math.max(1, index + 1))];
     if (next) state.course.cup = { ...next };
+  }
+  if (result.holed && hasCaddy(player, 'headwind')) {
+    state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete).forEach((candidate) => { candidate.timeDilated = Math.max(candidate.timeDilated ?? 0, caddyCount(player, 'headwind')); });
+    addMessage(state, `${player.name}'s headwind slows the remaining field`);
   }
   if (player.twoPuttsArmed && !player.ball.complete && player.ball.strokes < state.holeRules.strokeCap) {
     player.twoPuttsArmed = undefined;

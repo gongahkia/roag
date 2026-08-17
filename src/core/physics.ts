@@ -194,7 +194,11 @@ const isOnGround = (course: Course, ball: Ball) => {
   return Boolean(tile && tile.surface !== 'void' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
 };
 
-const rollingDecelerationFor = (tile: Tile, modifiers: BallPhysicsModifiers) => (tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface]) * (modifiers.rollingResistanceMultiplier ?? 1) * (modifiers.slipstream ? .66 : 1);
+const rollingDecelerationFor = (tile: Tile, modifiers: BallPhysicsModifiers) => {
+  const base = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
+  const roughBonus = tile.surface === 'rough' && modifiers.roughRider ? .52 : 1;
+  return base * roughBonus * (modifiers.rollingResistanceMultiplier ?? 1) * (modifiers.slipstream ? .66 : 1);
+};
 
 const downhillForceAt = (course: Course, ball: Ball, modifiers: BallPhysicsModifiers) => {
   const tile = tileAt(course, ball.x, ball.y);
@@ -258,8 +262,13 @@ export const portalPairs = (course: Course): readonly PortalPair[] => course.por
 
 export const portalEntranceAt = (course: Course, x: number, y: number): PortalPair | undefined => portalPairs(course).find((pair) => pair.entrance && pair.exit && pair.entrance.point.x === Math.floor(x) && pair.entrance.point.y === Math.floor(y));
 
-const portalExitFor = (course: Course, pair: PortalPair, requestedId?: string): PortalEndpoint | undefined => {
+const portalExitFor = (course: Course, pair: PortalPair, requestedId?: string, portalsArePlenty = false): PortalEndpoint | undefined => {
   if (requestedId) return portalPairs(course).find((candidate) => `${candidate.id}:exit` === requestedId)?.exit;
+  if (portalsArePlenty) {
+    const exits = portalPairs(course).map((candidate) => candidate.exit).filter((exit): exit is PortalEndpoint => Boolean(exit));
+    const sourceIndex = portalPairs(course).findIndex((candidate) => candidate.id === pair.id);
+    return exits[(sourceIndex + 1) % exits.length] ?? pair.exit;
+  }
   return pair.exit;
 };
 
@@ -273,14 +282,14 @@ const rotateVelocity = (velocity: Point, entrance: Point, exit: Point, speedMult
   };
 };
 
-const teleportThroughPortal = (course: Course, participant: Participant): boolean => {
+const teleportThroughPortal = (course: Course, participant: Participant, reality?: RealityCard): boolean => {
   if (participant.portalCooldown > 0) {
     participant.portalCooldown -= 1;
     return false;
   }
   const pair = portalEntranceAt(course, participant.ball.x, participant.ball.y);
   if (!pair?.entrance) return false;
-  const exit = portalExitFor(course, pair, participant.modifiers.portalExitId);
+  const exit = portalExitFor(course, pair, participant.modifiers.portalExitId, reality === 'portals are plenty');
   if (!exit) return false;
   const velocity = rotateVelocity(participant.ball, pair.entrance.direction, exit.direction, participant.modifiers.portalSpeedMultiplier ?? 1);
   participant.ball = {
@@ -342,6 +351,12 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
     ball.vx += direction.x * acceleration * STEP;
     ball.vy += direction.y * acceleration * STEP;
   }
+  if (modifiers.sidewaysGravity) ball.vx += .7 * STEP;
+  if (tile.surface === 'sand' && modifiers.sandWedge) {
+    const moving = planarSpeed(ball) || 1;
+    ball.vx += ball.vx / moving * .75 * STEP;
+    ball.vy += ball.vy / moving * .75 * STEP;
+  }
   if (modifiers.magnetBall) {
     const pad = course.itemPads.filter((candidate) => !candidate.collected).map((candidate) => ({ pad: candidate, distance: Math.hypot(candidate.point.x + .5 - ball.x, candidate.point.y + .5 - ball.y) })).filter((candidate) => candidate.distance > .05 && candidate.distance < 3.25).sort((left, right) => left.distance - right.distance)[0];
     if (pad) {
@@ -385,8 +400,8 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     return true;
   }
   if (feature?.kind === 'thorn') {
-    const dx = ball.x - feature.point.x - .5;
-    const dy = ball.y - feature.point.y - .5;
+    const dx = participant.modifiers.thornmail ? course.cup.x + .5 - ball.x : ball.x - feature.point.x - .5;
+    const dy = participant.modifiers.thornmail ? course.cup.y + .5 - ball.y : ball.y - feature.point.y - .5;
     const distance = Math.hypot(dx, dy) || 1;
     ball.vx += dx / distance * 2.4;
     ball.vy += dy / distance * 2.4;
@@ -454,14 +469,14 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
   return false;
 };
 
-const stepGroundTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
+const stepGroundTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
   ball.y += ball.vy * STEP;
   ball.vz = 0;
 
-  if (teleportThroughPortal(course, participant)) return;
+  if (teleportThroughPortal(course, participant, reality)) return;
 
   const tile = tileAt(course, ball.x, ball.y);
   if (!tile || tile.surface === 'void') {
@@ -475,8 +490,19 @@ const stepGroundTerrain = (course: Course, participant: Participant, phase: numb
     }
     return;
   }
-  if (tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase, phaseCount)) {
-    if (participant.modifiers.ghostBall && !participant.ghostUsed) {
+  const closedGate = reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, phase, phaseCount);
+  if (tile.surface === 'wall' || closedGate) {
+    if (tile.surface === 'wall' && reality === 'wall is cup') {
+      participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, complete: true };
+      return;
+    }
+    if (tile.surface === 'wall' && participant.modifiers.anvilBall && !participant.ghostUsed) {
+      participant.ghostUsed = true;
+      ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
+      applySurfaceForces(course, ball, tile, participant.modifiers);
+      return;
+    }
+    if ((participant.modifiers.ghostBall || (closedGate && participant.modifiers.gatecrasher)) && !participant.ghostUsed) {
       participant.ghostUsed = true;
       if (tile.surface === 'wall') {
         const normal = bounceNormal(previous, ball);
@@ -493,7 +519,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, phase: numb
       return;
     }
     const normal = bounceNormal(previous, ball);
-    const restitution = Math.min(.98, (participant.modifiers.bouncy ? .94 : participant.modifiers.reboundRig ? .9 : participant.modifiers.bankShot ? .82 : .52) * (participant.modifiers.wallRestitutionMultiplier ?? 1));
+    const restitution = Math.min(.98, (participant.modifiers.bouncy ? .94 : participant.modifiers.reboundRig ? .9 : participant.modifiers.bankShot ? .82 : .52) * (participant.modifiers.mirrorBall ? 1.18 : 1) * (participant.modifiers.wallRestitutionMultiplier ?? 1));
     const velocity = reflect(previous, normal, restitution);
     participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     return;
@@ -552,7 +578,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
   return false;
 };
 
-const stepAirborne = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
+const stepAirborne = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
@@ -572,7 +598,7 @@ const stepAirborne = (course: Course, participant: Participant, phase: number, p
     return;
   }
 
-  const blocked = tile.surface === 'wall' || closedGateAt(course, ball.x, ball.y, phase, phaseCount);
+  const blocked = tile.surface === 'wall' || (reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, phase, phaseCount));
   if (blocked) {
     const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : GATE_CLEARANCE_HEIGHT);
     if (ball.z - BALL_RADIUS > obstructionHeight) return;
@@ -590,16 +616,16 @@ const stepAirborne = (course: Course, participant: Participant, phase: number, p
   applySurfaceForces(course, ball, tile, participant.modifiers);
 };
 
-const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
+const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   if (participant.fallFramesRemaining > 0) {
     continueFall(participant);
     return;
   }
   if (participant.ball.vz > .001 || !isOnGround(course, participant.ball)) {
-    stepAirborne(course, participant, phase, phaseCount, gadgets, triggeredGadgets);
+    stepAirborne(course, participant, phase, phaseCount, gadgets, triggeredGadgets, reality);
     return;
   }
-  stepGroundTerrain(course, participant, phase, phaseCount, gadgets, triggeredGadgets);
+  stepGroundTerrain(course, participant, phase, phaseCount, gadgets, triggeredGadgets, reality);
 };
 
 const collideWithSweepers = (course: Course, participants: Participant[], phase: number, phaseCount: number) => {
@@ -629,7 +655,7 @@ const collideWithSweepers = (course: Course, participants: Participant[], phase:
   }
 };
 
-const collide = (course: Course, participants: Participant[]) => {
+const collide = (course: Course, participants: Participant[], reality?: RealityCard) => {
   for (let first = 0; first < participants.length; first += 1) {
     for (let second = first + 1; second < participants.length; second += 1) {
       const left = participants[first]!;
@@ -640,6 +666,13 @@ const collide = (course: Course, participants: Participant[]) => {
       const dy = right.ball.y - left.ball.y;
       const distance = Math.hypot(dx, dy);
       if (distance > BALL_DIAMETER) continue;
+      if (reality === 'ball is cup') {
+        if (first === 0 || second === 0) {
+          const active = participants[0]!;
+          active.ball = { ...active.ball, vx: 0, vy: 0, vz: 0, complete: true };
+        }
+        continue;
+      }
       const normal = distance > .0001 ? { x: dx / distance, y: dy / distance } : { x: 1, y: 0 };
       const relativeVelocity = (left.ball.vx - right.ball.vx) * normal.x + (left.ball.vy - right.ball.vy) * normal.y;
       const leftMass = left.modifiers.mass ?? 1;
@@ -671,7 +704,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
     ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0 })),
   ];
   const frames: SimulationFrame[] = [];
-  const cup = tileCenter(course.cup);
+  const cups = [tileCenter(course.cup), ...(options.reality === 'cups are many' ? course.itemPads.map((pad) => tileCenter(pad.point)) : [])];
   const phase = options.phase ?? 0;
   const phaseCount = options.phaseCount ?? 8;
   const itemPadIds = new Set<string>();
@@ -682,18 +715,19 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
     participants.forEach((participant) => {
-      if (!participant.ball.complete && (!isStopped(participant.ball) || canRollDownhill(course, participant.ball, participant.modifiers))) stepTerrain(course, participant, phase, phaseCount, options.gadgets ?? [], gadgetIds);
+      if (!participant.ball.complete && (!isStopped(participant.ball) || canRollDownhill(course, participant.ball, participant.modifiers))) stepTerrain(course, participant, phase, phaseCount, options.gadgets ?? [], gadgetIds, options.reality);
     });
     collideWithSweepers(course, participants, phase, phaseCount);
-    if (options.collisions && participants.length > 1) collide(course, participants);
+    if (options.collisions && participants.length > 1) collide(course, participants, options.reality);
 
     const active = participants[0]!;
     const activeTile = tileAt(course, active.ball.x, active.ball.y);
-    const cupCoverage = cupCoverageAt(Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y), active.modifiers.cupRadius ?? .28);
-    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && isOnGround(course, active.ball) && cupCoverage >= CUP_CAPTURE_COVERAGE && planarSpeed(active.ball) < 1.9) {
-      active.ball = { ...active.ball, x: cup.x, y: cup.y, z: floorHeightAt(course, cup.x, cup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
+    const captureCup = cups.find((cup) => cupCoverageAt(Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y), active.modifiers.cupRadius ?? .28) >= CUP_CAPTURE_COVERAGE);
+    if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && isOnGround(course, active.ball) && captureCup && planarSpeed(active.ball) < 1.9) {
+      active.ball = { ...active.ball, x: captureCup.x, y: captureCup.y, z: floorHeightAt(course, captureCup.x, captureCup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
       holed = true;
     }
+    if (active.ball.complete) holed = true;
     if (options.collectItems && !itemPadIds.size && !active.ball.complete) {
       const pad = course.itemPads.find((candidate) => !candidate.collected && Math.hypot(active.ball.x - candidate.point.x - .5, active.ball.y - candidate.point.y - .5) < .32);
       if (pad) itemPadIds.add(pad.id);
