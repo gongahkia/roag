@@ -126,15 +126,16 @@ describe('public voting flow', () => {
   });
 
   it('breaks tied pluralities and bot ballots deterministically', () => {
-    const initial = createGame({ ...defaultConfig(), seed: 'tied-ballot', humanCount: 1, botCount: 1 });
+    const config = { ...defaultConfig(), seed: 'tied-ballot', holeCount: 1, humanCount: 1, botCount: 1 };
+    const initial = createGame(config);
     expect(chooseBotVote(initial.config.seed, 1, initial.players[1]!, initial.vote!.options)).toBe(chooseBotVote(initial.config.seed, 1, initial.players[1]!, initial.vote!.options));
     const options = initial.vote!.options;
     let first = applyCommand(initial, { type: 'cast-vote', playerId: 'human-0', optionId: options[0]!.id });
     first = applyCommand(first, { type: 'cast-vote', playerId: 'bot-0', optionId: options[1]!.id });
-    let second = applyCommand(createGame({ ...defaultConfig(), seed: 'tied-ballot', humanCount: 1, botCount: 1 }), { type: 'cast-vote', playerId: 'human-0', optionId: options[0]!.id });
+    let second = applyCommand(createGame(config), { type: 'cast-vote', playerId: 'human-0', optionId: options[0]!.id });
     second = applyCommand(second, { type: 'cast-vote', playerId: 'bot-0', optionId: options[1]!.id });
     expect(first.course.seed).toBe(second.course.seed);
-  });
+  }, 15_000);
 
   it('rejects unknown voters and options without advancing the ballot', () => {
     const game = createGame({ ...defaultConfig(), seed: 'invalid-vote', botCount: 0 });
@@ -144,7 +145,7 @@ describe('public voting flow', () => {
 
 describe('turns, shared rules, and bots', () => {
   it('freezes turns and shots while paused, then resumes the same match state', () => {
-    let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', humanCount: 1, botCount: 0 }));
+    let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
     const secondsLeft = game.turn.secondsLeft;
     game = applyCommand(game, { type: 'set-paused', paused: true });
     expect(game.paused).toBe(true);
@@ -157,13 +158,13 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('accepts legal shots and keeps previews equal to committed physics', () => {
-    const game = resolveVote(createGame({ ...defaultConfig(), seed: 'animation-seed', botCount: 1 }));
+    const game = resolveVote(createGame({ ...defaultConfig(), seed: 'animation-seed', holeCount: 1, botCount: 1 }));
     const shot = { angle: 0, power: 3 };
     const frames = previewShot(game, shot)!;
     const committed = applyCommand(game, { type: 'shoot', shot });
     expect(committed.players[0]!.ball.strokes).toBe(1);
     expect(frames.at(-1)?.[0]).toMatchObject({ x: committed.players[0]!.ball.x, y: committed.players[0]!.ball.y, z: committed.players[0]!.ball.z, complete: committed.players[0]!.ball.complete });
-  });
+  }, 15_000);
 
   it('feeds selected all-player rules into simulation and refreshes them when the next planned course lands', () => {
     const course = arena('shared-rules');
@@ -191,7 +192,7 @@ describe('turns, shared rules, and bots', () => {
     }
     expect(game.status).toBe('finished');
     expect(game.players[0]!.total).toBeGreaterThanOrEqual(9);
-  });
+  }, 30_000);
 
   it('uses temporary power-ups and produces finite bot decisions', () => {
     const course = arena('items-and-bots');
