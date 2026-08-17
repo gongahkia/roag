@@ -475,8 +475,8 @@ const pickDistinct = <T>(random: Random, values: readonly T[], count: number) =>
 
 const randomHoleRules = (random: Random): HoleRules => {
   const rules = defaultHoleRules();
-  const startingItems = [undefined, 'turbo', 'shield', 'two putts', 'bouncy', 'magnet'] as const;
-  const boons = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger'] as const;
+  const startingItems = [undefined, 'turbo', 'shield', 'two putts', 'bouncy', 'magnet', 'glider', 'rescue drone', 'sky spring'] as const;
+  const boons = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger', 'aerial ace', 'cup reader', 'gadgeteer'] as const;
   const powerUps = random.chance(.82);
   return {
     ...rules,
