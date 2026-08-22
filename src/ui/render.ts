@@ -30,7 +30,6 @@ export interface Renderer {
   draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
   drawConstruction(frame: CourseConstructionFrame): void;
   drawOverview(course: Course, progress: number, focus?: Ball): void;
-  drawCampaign(frame: CampaignFrame): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
@@ -47,57 +46,6 @@ export interface CourseConstructionFrame {
   added: readonly WorldPoint[];
   focus?: Ball;
 }
-
-/** One deterministic course displayed on the persistent campaign atlas. */
-export interface CampaignIsland {
-  course: Course;
-  hole: number;
-  label: string;
-  /** Lets an incoming course use the same tile-by-tile arrival language as a normal build. */
-  buildProgress?: number;
-}
-
-export interface CampaignFrame {
-  islands: readonly CampaignIsland[];
-  focusIndex: number;
-  /** A camera multiplier: 1 reveals the atlas, larger values focus an individual island. */
-  zoom: number;
-  /** Controls how much of the route joining the incoming island has been established. */
-  bridgeProgress?: number;
-  title?: string;
-}
-
-export interface CampaignSlot {
-  index: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * Stable screen-space districts for the campaign. Keeping this pure makes the overview
- * independent of gameplay state and gives all clients the same visual ordering.
- */
-export const campaignSlotsFor = (count: number, width: number, height: number): CampaignSlot[] => {
-  const islands = Math.max(1, Math.floor(count));
-  const columns = islands === 1 ? 1 : islands <= 4 ? 2 : 3;
-  const rows = Math.ceil(islands / columns);
-  const gutter = Math.max(16, Math.min(width, height) * .045);
-  const cellWidth = (width - gutter * 2) / columns;
-  const cellHeight = (height - gutter * 2) / rows;
-  return Array.from({ length: islands }, (_, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    return {
-      index,
-      x: gutter + cellWidth * (column + .5),
-      y: gutter + cellHeight * (row + .5),
-      width: cellWidth,
-      height: cellHeight,
-    };
-  });
-};
 
 const themeTopColors: Record<Course['theme'], Partial<Record<Surface, string>>> = {
   balanced: {},
@@ -704,137 +652,10 @@ type TileAnimation = { kind: 'build' | 'remove'; tiles: ReadonlySet<string>; pro
 interface PaintOptions { overviewProgress?: number; overviewFocus?: Ball; tileAnimation?: TileAnimation; }
 const tileKey = (tile: Pick<VisibleTile, 'x' | 'y'>) => `${tile.x}:${tile.y}`;
 
-const drawCampaignIsland = (context: CanvasRenderingContext2D, island: CampaignIsland, slot: CampaignSlot, zoom: number, center: Point) => {
-  const metrics: ProjectionMetrics = { tileWidth: 20, tileHeight: 10, elevation: 6.8 };
-  const tiles = visibleTilesFor(island.course, metrics);
-  const bounds = boundsFor(tiles, metrics);
-  const fit = Math.max(.035, Math.min(slot.width * .76 / bounds.width, slot.height * .66 / bounds.height, 1.2));
-  const scale = fit * zoom;
-  const offset = { x: -(bounds.minX + bounds.maxX) / 2, y: -(bounds.minY + bounds.maxY) / 2 };
-  const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
-  const buildProgress = island.buildProgress === undefined ? undefined : clamped(island.buildProgress);
-
-  context.save();
-  context.translate(center.x, center.y);
-  context.scale(scale, scale);
-  const drawTile = (tile: VisibleTile) => {
-    const stagger = ((tile.x * 13 + tile.y * 7) % 23) / 23 * .58;
-    const arrived = buildProgress === undefined ? 1 : clamped((buildProgress - stagger) / .42);
-    if (arrived === 0) return;
-    const eased = 1 - (1 - arrived) ** 3;
-    const angle = ((tile.x * 19 + tile.y * 11) % 8) * Math.PI / 4;
-    const distance = metrics.tileWidth * (2.5 + ((tile.x + tile.y) % 3) * .35) * (1 - eased);
-    context.save();
-    context.translate(Math.cos(angle) * distance, Math.sin(angle) * distance - distance * .38);
-    context.globalAlpha = .22 + eased * .78;
-    for (let edge = 0; edge < 4; edge += 1) {
-      const first = tile.corners[edge]!;
-      const second = tile.corners[(edge + 1) % 4]!;
-      if ((first.y + second.y) / 2 <= tile.center.y) continue;
-      drawSide(context, tile, edge, neighborFor(island.course, tile.x, tile.y, directions[edge]!), offset, metrics);
-    }
-    polygon(context, tile.corners.map((point) => withOffset(point, offset)));
-    context.fillStyle = topColorFor(island.course, tile.tile.surface, tile.tile.theme);
-    context.fill();
-    drawPattern(context, tile, offset, metrics);
-    context.restore();
-  };
-  tiles.forEach(drawTile);
-
-  const worldOpacity = buildProgress === undefined ? 1 : clamped((buildProgress - .58) / .42);
-  context.save();
-  context.globalAlpha = worldOpacity;
-  tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
-  drawRouteMarkers(context, island.course, offset, metrics);
-  drawPortals(context, island.course, offset, metrics);
-  drawCourseFeatures(context, island.course, offset, metrics);
-  drawHazards(context, island.course, 0, offset, metrics);
-  context.restore();
-  context.restore();
-};
-
-const paintCampaignBackground = (context: CanvasRenderingContext2D, width: number, height: number) => {
-  const voidGradient = context.createRadialGradient(width * .48, height * .38, 8, width * .5, height * .5, Math.max(width, height));
-  voidGradient.addColorStop(0, '#fbfff8');
-  voidGradient.addColorStop(.58, '#e6f2dd');
-  voidGradient.addColorStop(1, '#cadfc8');
-  context.fillStyle = voidGradient;
-  context.fillRect(0, 0, width, height);
-  context.fillStyle = '#426f4740';
-  for (let index = 0; index < 58; index += 1) {
-    const x = ((Math.sin(index * 97.31) + 1) / 2) * width;
-    const y = ((Math.sin(index * 41.27 + 2) + 1) / 2) * height;
-    const size = index % 5 === 0 ? 2 : 1;
-    context.fillRect(x, y, size, size);
-  }
-};
-
-const paintCampaign = (context: CanvasRenderingContext2D, width: number, height: number, frame: CampaignFrame) => {
-  context.clearRect(0, 0, width, height);
-  paintCampaignBackground(context, width, height);
-  if (!frame.islands.length) return;
-  const slots = campaignSlotsFor(frame.islands.length, width, height);
-  const focus = slots[Math.max(0, Math.min(slots.length - 1, frame.focusIndex))]!;
-  const zoom = Math.max(.2, frame.zoom);
-  const pointFor = (slot: CampaignSlot): Point => ({ x: width * .5 + (slot.x - focus.x) * zoom, y: height * .5 + (slot.y - focus.y) * zoom });
-  const bridgeProgress = clamped(frame.bridgeProgress ?? 1);
-
-  context.save();
-  context.lineCap = 'round';
-  for (let index = 1; index < slots.length; index += 1) {
-    const from = pointFor(slots[index - 1]!);
-    const to = pointFor(slots[index]!);
-    const progress = index === slots.length - 1 ? bridgeProgress : 1;
-    const end = { x: from.x + (to.x - from.x) * progress, y: from.y + (to.y - from.y) * progress };
-    context.beginPath();
-    context.moveTo(from.x, from.y);
-    context.lineTo(end.x, end.y);
-    context.strokeStyle = '#6b936660';
-    context.lineWidth = Math.max(2, 4 * zoom);
-    context.setLineDash([Math.max(4, 7 * zoom), Math.max(5, 8 * zoom)]);
-    context.stroke();
-  }
-  context.setLineDash([]);
-  context.restore();
-
-  frame.islands.forEach((island, index) => drawCampaignIsland(context, island, slots[index]!, zoom, pointFor(slots[index]!)));
-
-  const labelOpacity = clamped(1 - (zoom - 1) / 1.8);
-  if (labelOpacity > .02) {
-    context.save();
-    context.globalAlpha = labelOpacity;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.font = '11px BigBlueTerm, ui-monospace, monospace';
-    frame.islands.forEach((island, index) => {
-      const slot = slots[index]!;
-      const point = pointFor(slot);
-      const label = `hole ${island.hole} · ${island.label}`;
-      const labelWidth = Math.min(slot.width * zoom * .9, context.measureText(label).width + 18);
-      const y = point.y - slot.height * zoom * .38;
-      context.fillStyle = '#18351cdb';
-      context.fillRect(point.x - labelWidth / 2, y - 10, labelWidth, 20);
-      context.strokeStyle = '#cfe5c8';
-      context.lineWidth = 1;
-      context.strokeRect(point.x - labelWidth / 2, y - 10, labelWidth, 20);
-      context.fillStyle = '#f9fff3';
-      context.fillText(label, point.x, y + 1);
-    });
-    if (frame.title) {
-      context.textAlign = 'left';
-      context.textBaseline = 'top';
-      context.fillStyle = '#1a4827';
-      context.font = '13px BigBlueTerm, ui-monospace, monospace';
-      context.fillText(frame.title, 18, 17);
-    }
-    context.restore();
-  }
-};
-
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
   type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball; options?: PaintOptions };
-  type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame } | { kind: 'campaign'; frame: CampaignFrame };
+  type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame };
   let latest: LatestFrame | undefined;
   let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean } | undefined;
 
@@ -964,8 +785,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     if (!latest) return;
-    if (latest.kind === 'campaign') paintCampaign(context, width, height, latest.frame);
-    else if (latest.kind === 'construction') paintConstruction(latest.frame);
+    if (latest.kind === 'construction') paintConstruction(latest.frame);
     else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options);
   };
   const observer = new ResizeObserver(resize);
@@ -987,12 +807,6 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       latest = { kind: 'course', course, players: [], hazardElapsedMs: 0, emotes: [], showItems: false, phaseCount: 8, gadgets: [], options };
       trackedCamera = undefined;
       paint(course, [], 0, undefined, [], false, 8, undefined, [], undefined, undefined, options);
-    },
-    drawCampaign(frame) {
-      latest = { kind: 'campaign', frame };
-      trackedCamera = undefined;
-      const { width, height } = canvas.getBoundingClientRect();
-      paintCampaign(context, width, height, frame);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();

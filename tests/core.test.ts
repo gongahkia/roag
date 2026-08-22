@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { chooseBotDecision, chooseBotVote } from '../src/core/bots';
+import { CAMPAIGN_EXCAVATION_RADIUS, expandCourseAtCup } from '../src/core/campaign';
 import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
 import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
-import { normalizeGameState } from '../src/core/game-state';
+import { expansionForTransition, normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
 import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
 import type { GameState } from '../src/core/types';
@@ -41,6 +42,20 @@ describe('course generation', () => {
     expect(first.score.playable).toBe(true);
     expect(candidates).toHaveLength(3);
     expect(candidates.every((course) => course.score.playable && course.score.solverShots.length > 0)).toBe(true);
+  });
+
+  it('stitches the next generated hole onto the completed cup without rebuilding the prior course', () => {
+    const previous = arena('campaign-previous');
+    const next = { ...arena('campaign-next'), theme: 'speedway' as const };
+    const first = expandCourseAtCup(previous, next);
+    const second = expandCourseAtCup(previous, next);
+    expect(first.course).toEqual(second.course);
+    expect(first.rotation).toBe(second.rotation);
+    expect(first.course.tee).toEqual(first.anchor);
+    expect(first.course.tiles[first.anchor.y * first.course.width + first.anchor.x]).toMatchObject({ surface: 'tee', theme: 'speedway' });
+    expect(first.excavated.every((point) => Math.max(Math.abs(point.x - first.anchor.x), Math.abs(point.y - first.anchor.y)) <= CAMPAIGN_EXCAVATION_RADIUS)).toBe(true);
+    expect(first.course.tiles[first.previous.tee.y * first.course.width + first.previous.tee.x]).toMatchObject({ surface: 'tee', theme: 'balanced' });
+    expect(first.added.length).toBeGreaterThan(0);
   });
 
   it('generates the requested dimensions into every voting package', () => {
@@ -249,9 +264,14 @@ describe('public voting flow', () => {
     game = resolveShop(game);
     expect(game.status).toBe('transitioning');
     expect(game.transition?.next.id).toBe(second.id);
+    const expansion = expansionForTransition(game)!;
     game = applyCommand(game, { type: 'complete-transition' });
     expect(game.status).toBe('playing');
-    expect(game.course.seed).toBe(second.course.seed);
+    expect(game.course.tee).toEqual(expansion.anchor);
+    expect(game.course.cup).toEqual(expansion.course.cup);
+    expect(game.course.tiles[game.course.tee.y * game.course.width + game.course.tee.x]?.surface).toBe('tee');
+    expect(game.players.every((player) => player.ball.x === game.course.tee.x + .5 && player.ball.y === game.course.tee.y + .5)).toBe(true);
+    expect(game.course.width * game.course.height).toBeGreaterThanOrEqual(second.course.width * second.course.height);
   });
 
   it('breaks tied pluralities and bot ballots deterministically', () => {
