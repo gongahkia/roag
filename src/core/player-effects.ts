@@ -1,4 +1,5 @@
 import { newBall, type BallPhysicsModifiers } from './physics';
+import { attachmentsFor, hasAttachment } from './strategy';
 import type { BallForm, CaddyId, ChronoCard, Course, HoleRules, Player, PocketCard, PowerUp, ShotCommand, Upgrade } from './types';
 
 export const BALL_FORMS: readonly BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'quantum', 'mirror', 'anvil', 'vampire', 'boomerang'];
@@ -88,43 +89,54 @@ export const pocketsFor = (player: Player) => {
 export const pocketCapacity = (player: Player) => 1 + caddyCount(player, 'scavenger');
 
 export const adjustedShotFor = (player: Player, shot: ShotCommand, rules?: HoleRules): ShotCommand => {
-  const multiplier = (player.turboArmed ? 1.55 : 1) * (player.sandbagged ? .7 : 1) * (1 + caddyCount(player, 'heavy ball') * .12) * (player.ballForm === 'heavy' ? 1.16 : 1) * (shot.kind === 'chip' ? 1 + caddyCount(player, 'aerial ace') * .1 : 1) * (player.timeDilated ? .5 : 1) * (rules?.launchMultiplier ?? 1);
-  const angle = player.controlInverted ? shot.angle + Math.PI : shot.angle;
+  const multiplier = (player.turboArmed || hasAttachment(player, 'tailwind') ? 1.55 : 1)
+    * (player.sandbagged || hasAttachment(player, 'sandbag slip') ? .7 : 1)
+    * (hasAttachment(player, 'headwind gust') ? .8 : 1)
+    * (1 + caddyCount(player, 'heavy ball') * .12)
+    * (player.ballForm === 'heavy' ? 1.16 : 1)
+    * (shot.kind === 'chip' ? 1 + caddyCount(player, 'aerial ace') * .1 : 1)
+    * (player.timeDilated || hasAttachment(player, 'slow clock') ? .5 : 1)
+    * (rules?.launchMultiplier ?? 1);
+  const angle = player.controlInverted || hasAttachment(player, 'club flip') || hasAttachment(player, 'frayed grip') ? shot.angle + Math.PI : shot.angle;
   return { ...shot, angle, power: shot.power * multiplier };
 };
 
-export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhysicsModifiers => ({
-  mass: (player.ballForm === 'heavy' ? 1.65 : player.ballForm === 'anvil' ? 2.35 : 1) + caddyCount(player, 'heavy ball') * .45,
-  iceSkates: hasCaddy(player, 'ice skates') || player.ballForm === 'ice',
+export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhysicsModifiers => {
+  const form = player.ballForm ?? (hasAttachment(player, 'ghost pass') ? 'ghost' : hasAttachment(player, 'soft landing') ? 'sticky' : undefined);
+  return {
+  mass: (form === 'heavy' ? 1.65 : form === 'anvil' ? 2.35 : 1) + caddyCount(player, 'heavy ball') * .45,
+  iceSkates: hasCaddy(player, 'ice skates') || form === 'ice',
   bankShot: hasCaddy(player, 'bank shot') || hasCaddy(player, 'backboard'),
-  bouncy: player.ballForm === 'bouncy',
-  ghostBall: player.ballForm === 'ghost',
-  magnetBall: player.ballForm === 'magnet',
-  portalExitId: player.ballForm === 'portal' ? player.portalExitId : undefined,
+  bouncy: form === 'bouncy',
+  ghostBall: form === 'ghost',
+  magnetBall: form === 'magnet',
+  portalExitId: form === 'portal' ? player.portalExitId : undefined,
   portalSpeedMultiplier: (1 + caddyCount(player, 'portal savvy') * .18) * (rules?.portalSpeedMultiplier ?? 1),
-  hazardShield: player.hazardShield || hasCaddy(player, 'first responder') || (player.ballForm === 'boomerang' && Boolean(player.redTee)),
-  rollingResistanceMultiplier: (rules?.rollingResistanceMultiplier ?? 1) * (player.ballForm === 'sticky' ? 2.5 : 1),
-  wallRestitutionMultiplier: (rules?.wallRestitutionMultiplier ?? 1) * (player.ballForm === 'sticky' ? .35 : 1),
+  hazardShield: player.hazardShield || hasAttachment(player, 'guardian pin') || hasAttachment(player, 'windbreak') || hasCaddy(player, 'first responder') || (form === 'boomerang' && Boolean(player.redTee)),
+  rollingResistanceMultiplier: (rules?.rollingResistanceMultiplier ?? 1) * (form === 'sticky' ? 2.5 : 1),
+  wallRestitutionMultiplier: (rules?.wallRestitutionMultiplier ?? 1) * (form === 'sticky' ? .35 : 1),
   terrainAccelerationMultiplier: (rules?.terrainAccelerationMultiplier ?? 1) * (1 + caddyCount(player, 'conveyor cultist') * .2),
   hazardImpulseMultiplier: (rules?.hazardImpulseMultiplier ?? 1) * Math.max(.35, 1 - caddyCount(player, 'shock absorber') * .22),
-  cupRadius: (rules?.cupRadius ?? .28) * (player.ballForm === 'orbit' ? 1.28 : 1) * (1 + caddyCount(player, 'cup reader') * .18),
-  cupMagnet: player.cupMagnetArmed,
-  slipstream: player.slipstreamArmed,
-  reboundRig: player.reboundRigArmed,
-  chipGravityMultiplier: (player.ballForm === 'glider' ? .58 : 1) * Math.max(.35, 1 - caddyCount(player, 'aerial ace') * .18),
+  cupRadius: (rules?.cupRadius ?? .28) * (form === 'orbit' ? 1.28 : 1) * (hasAttachment(player, 'line reader') ? 1.18 : 1) * (hasAttachment(player, 'steady hands') ? 1.14 : 1) * (1 + caddyCount(player, 'cup reader') * .18),
+  cupMagnet: player.cupMagnetArmed || hasAttachment(player, 'line reader'),
+  slipstream: player.slipstreamArmed || hasAttachment(player, 'fairway draft'),
+  reboundRig: player.reboundRigArmed || hasAttachment(player, 'banker advice'),
+  chipGravityMultiplier: (form === 'glider' ? .58 : 1) * Math.max(.35, 1 - caddyCount(player, 'aerial ace') * .18),
   roughRider: hasCaddy(player, 'rough rider'),
   sandWedge: hasCaddy(player, 'sand wedge'),
   gatecrasher: hasCaddy(player, 'gatecrasher'),
   thornmail: hasCaddy(player, 'thornmail'),
-  anvilBall: player.ballForm === 'anvil',
-  mirrorBall: player.ballForm === 'mirror',
-});
+  anvilBall: form === 'anvil',
+  mirrorBall: form === 'mirror',
+};
+};
 
 export const resetPlayerForCourse = (player: Player, course: Course, _rules?: HoleRules) => {
   player.ball = newBall(course);
   player.cash ??= 10;
   caddyStacks(player);
   player.pockets = pocketsFor(player).filter((card) => card.source === 'shop');
+  player.attachments = attachmentsFor(player).filter((attachment) => attachment.unit === 'hole');
   syncPocketMirrors(player);
   player.ballForm = undefined;
   player.portalExitId = undefined;
@@ -148,7 +160,8 @@ export const canStorePowerUp = (player: Player) => pocketsFor(player).length < p
 
 export const storePowerUp = (player: Player, powerUp: PowerUp, source: PocketCard['source'] = 'pad') => {
   if (!canStorePowerUp(player)) return false;
-  pocketsFor(player).push({ id: powerUp, source });
+  const pockets = pocketsFor(player);
+  pockets.push({ id: powerUp, source, instanceId: `${source}:${powerUp}:${pockets.length}` });
   syncPocketMirrors(player);
   return true;
 };
@@ -157,9 +170,9 @@ export const takePowerUp = (player: Player, powerUp: PowerUp) => {
   return takePocketCard(player, powerUp);
 };
 
-export const takePocketCard = (player: Player, powerUp: PowerUp | ChronoCard) => {
+export const takePocketCard = (player: Player, powerUp: PowerUp | ChronoCard, instanceId?: string) => {
   const pockets = pocketsFor(player);
-  const index = pockets.findIndex((card) => card.id === powerUp);
+  const index = pockets.findIndex((card) => card.id === powerUp && (!instanceId || card.instanceId === instanceId));
   if (index < 0) return false;
   pockets.splice(index, 1);
   syncPocketMirrors(player);

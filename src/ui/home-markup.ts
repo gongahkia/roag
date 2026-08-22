@@ -4,7 +4,7 @@ import type { GamePreferences } from '../preferences';
 import { escapeHtml } from './markup';
 
 export type HomePanel = 'play' | 'settings';
-export type HomeMode = 'modes' | 'local' | 'multiplayer';
+export type HomeMode = 'modes' | 'local' | 'multiplayer' | 'host' | 'join';
 
 export interface HomeView {
   panel: HomePanel;
@@ -28,10 +28,22 @@ const modeCards = () => `<section class="mode-grid"><article class="mode-card pa
 
 const localCard = (view: HomeView) => `<section class="setup-shell"><article class="home-card panel"><div class="card-back"><button data-home-mode="modes">← modes</button><p class="eyebrow">LOCAL PARTY</p></div><h2>couch campaign</h2><p>Pass the device between golfers. AI fills any enemy seats.</p>${configFields(view.config, 'local')}<button class="primary" data-start-local>start local game</button><button data-quick-start-local>quick start · no voting</button><p class="hint">Quick start randomly locks all configured holes before the first tee shot.</p></article></section>`;
 
-const multiplayerCards = (view: HomeView) => `<section class="home-grid multiplayer-grid"><article class="home-card panel"><div class="card-back"><button data-home-mode="modes">← modes</button><p class="eyebrow">HOST A ROOM</p></div><h2>open the clubhouse</h2><p>Choose the campaign rules, create a code, then invite your players into the lobby.</p><label>display name <input id="player-name" maxlength="16" value="${escapeHtml(view.playerName)}"></label><label>game server <input id="server-url" type="url" value="${escapeHtml(view.serverUrl)}" placeholder="ws://localhost:8787"></label>${configFields(view.config, 'online')}<button class="primary" data-create-room>create room</button><button data-create-quick-room>create quick-start room · no voting</button><p class="hint">Quick start makes the server randomly lock every configured hole before the match begins.</p></article><article class="home-card panel"><p class="eyebrow">JOIN A ROOM</p><h2>enter the clubhouse</h2><p>Use the room code shared by the host. The game configuration is locked by that lobby.</p><label>display name <input id="join-player-name" maxlength="16" value="${escapeHtml(view.playerName)}"></label><label>game server <input id="join-server-url" type="url" value="${escapeHtml(view.serverUrl)}" placeholder="ws://localhost:8787"></label><label>room code <input id="room-code" maxlength="6" value="${escapeHtml(view.roomCode)}" placeholder="ABC123"></label><button class="primary" data-join-room>join room</button><p class="hint">Need a code? Ask the host. The lobby shows who is connected before the match begins.</p></article></section>`;
+const multiplayerCards = () => `<section class="mode-grid"><article class="mode-card panel"><span aria-hidden="true">⌁</span><p class="eyebrow">HOST A ROOM</p><h2>open the clubhouse</h2><p>Choose the campaign rules, create a code, then invite your players into the lobby.</p><button class="primary" data-home-mode="host">host a room</button></article><article class="mode-card panel"><span aria-hidden="true">⌁</span><p class="eyebrow">JOIN A ROOM</p><h2>enter the clubhouse</h2><p>Use the room code shared by the host. The game configuration is locked by that lobby.</p><button class="primary" data-home-mode="join">join a room</button></article></section>`;
+
+const hostCard = (view: HomeView) => `<section class="setup-shell"><article class="home-card panel"><div class="card-back"><button data-home-mode="multiplayer">← rooms</button><p class="eyebrow">HOST A ROOM</p></div><h2>open the clubhouse</h2><p>Choose the campaign rules, create a code, then invite your players into the lobby.</p><label>display name <input id="player-name" maxlength="16" value="${escapeHtml(view.playerName)}"></label><label>game server <input id="server-url" type="url" value="${escapeHtml(view.serverUrl)}" placeholder="ws://localhost:8787"></label>${configFields(view.config, 'online')}<button class="primary" data-create-room>create room</button><button data-create-quick-room>create quick-start room · no voting</button><p class="hint">Quick start makes the server randomly lock every configured hole before the match begins.</p></article></section>`;
+
+const joinCard = (view: HomeView) => `<section class="setup-shell"><article class="home-card panel"><div class="card-back"><button data-home-mode="multiplayer">← rooms</button><p class="eyebrow">JOIN A ROOM</p></div><h2>enter the clubhouse</h2><p>Use the room code shared by the host. The game configuration is locked by that lobby.</p><label>display name <input id="join-player-name" maxlength="16" value="${escapeHtml(view.playerName)}"></label><label>game server <input id="join-server-url" type="url" value="${escapeHtml(view.serverUrl)}" placeholder="ws://localhost:8787"></label><label>room code <input id="room-code" maxlength="6" value="${escapeHtml(view.roomCode)}" placeholder="ABC123"></label><button class="primary" data-join-room>join room</button><p class="hint">Need a code? Ask the host. The lobby shows who is connected before the match begins.</p></article></section>`;
 
 export const renderHomeMarkup = (view: HomeView) => {
-  const playContent = view.mode === 'local' ? localCard(view) : view.mode === 'multiplayer' ? multiplayerCards(view) : modeCards();
+  const playContent = view.mode === 'local'
+    ? localCard(view)
+    : view.mode === 'host'
+      ? hostCard(view)
+      : view.mode === 'join'
+        ? joinCard(view)
+        : view.mode === 'multiplayer'
+          ? multiplayerCards()
+          : modeCards();
   return `<main class="home-shell"><header class="home-hero"><p class="eyebrow">ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1><p>Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.</p><nav><button data-home-panel="play" class="${view.panel === 'play' ? 'selected' : ''}">play</button><button data-home-panel="settings" class="${view.panel === 'settings' ? 'selected' : ''}">settings</button></nav></header>${view.panel === 'settings' ? settingsFields(view.preferences) : playContent}${view.notice ? `<p class="home-notice" role="status">${escapeHtml(view.notice)}</p>` : ''}</main>`;
 };
 

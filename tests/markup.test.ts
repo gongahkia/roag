@@ -15,19 +15,29 @@ describe('voting overlay markup', () => {
     expect(markup).not.toContain('id="online-seed"');
   });
 
-  it('separates hosting configuration from the lightweight join card', () => {
+  it('shows host and join choices before rendering either detailed room form', () => {
     const state = createGame(defaultConfig());
-    const markup = renderHomeMarkup({ panel: 'play', mode: 'multiplayer', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
-    expect(markup).toContain('HOST A ROOM');
-    expect(markup).toContain('JOIN A ROOM');
-    expect(markup).toContain('id="online-seed"');
-    expect(markup).toContain('id="online-course-width"');
-    expect(markup).toContain('id="online-course-height"');
-    expect(markup).not.toContain('max="24"');
-    expect(markup).not.toContain('max="16"');
-    expect(markup).toContain('id="join-player-name"');
-    expect(markup).toContain('id="join-server-url"');
-    expect(markup).toContain('data-create-quick-room');
+    const view = { panel: 'play' as const, config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false };
+    const choices = renderHomeMarkup({ ...view, mode: 'multiplayer' });
+    expect(choices).toContain('data-home-mode="host"');
+    expect(choices).toContain('data-home-mode="join"');
+    expect(choices).not.toContain('id="online-seed"');
+    expect(choices).not.toContain('id="join-player-name"');
+
+    const host = renderHomeMarkup({ ...view, mode: 'host' });
+    expect(host).toContain('id="online-seed"');
+    expect(host).toContain('id="online-course-width"');
+    expect(host).toContain('id="online-course-height"');
+    expect(host).not.toContain('max="24"');
+    expect(host).not.toContain('max="16"');
+    expect(host).toContain('data-create-quick-room');
+    expect(host).not.toContain('id="join-player-name"');
+
+    const join = renderHomeMarkup({ ...view, mode: 'join' });
+    expect(join).toContain('id="join-player-name"');
+    expect(join).toContain('id="join-server-url"');
+    expect(join).toContain('id="room-code"');
+    expect(join).not.toContain('id="online-seed"');
   });
 
   it('offers local quick start and reports a no-vote room rule to online guests', () => {
@@ -67,6 +77,23 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('click again or press Enter to place');
   });
 
+  it('renders visible player targets, instance durations, and attached strategy cards without blocking the putt', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'strategy-markup', humanCount: 1, botCount: 1 });
+    state.status = 'playing';
+    state.vote = undefined;
+    state.players[0]!.pockets = [{ id: 'tailwind', source: 'shop', instanceId: 'tailwind-1' }];
+    state.players[1]!.attachments = [{ id: 'effect-1', cardId: 'windbreak', effect: 'windbreak', casterId: state.players[0]!.id, polarity: 'boon', unit: 'round', remaining: 2 }];
+    state.turn.cardPlayed = true;
+    const markup = renderControlsMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(markup).toContain('play on');
+    expect(markup).toContain('human-0">golfer-1 (self)');
+    expect(markup).toContain('data-card-id="tailwind-1"');
+    expect(markup).toContain('one card committed this turn');
+    expect(markup).toContain('table cards');
+    expect(markup).toContain('windbreak (2 rounds)');
+    expect(markup).toMatch(/id="shoot" class="primary"(?! disabled)/);
+  });
+
   it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
     const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipVoting: true });
     openShop(state);
@@ -79,6 +106,15 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('class="merchant-ledger"');
   });
 
+  it('shows a strategy card’s rolled duration before the merchant purchase', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'merchant-duration', holeCount: 1, humanCount: 1, botCount: 0, skipVoting: true });
+    openShop(state);
+    state.shop!.shelf[0] = { id: 'fairway-draft', contentId: 'fairway draft', category: 'pocket', price: 5, duration: { unit: 'round', amount: 3 } };
+    const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(markup).toContain('fairway draft');
+    expect(markup).toContain('boon · 3 rounds');
+  });
+
   it('offers distinct putt and chip controls with an explicit chip cue', () => {
     const state = createGame({ ...defaultConfig(), seed: 'shot-modes', humanCount: 1, botCount: 0 });
     state.status = 'playing';
@@ -88,6 +124,9 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('data-shot-kind="chip"');
     expect(markup).toContain('clear walls · C');
     expect(markup).toContain('chip power');
+    expect(markup).toContain('scroll course · click a cell');
+    expect(markup.match(/data-power="/g)).toHaveLength(15);
+    expect(markup.match(/power-cell active/g)).toHaveLength(7);
   });
 
   it('removes the loading overlay after the full match plan is selected', () => {

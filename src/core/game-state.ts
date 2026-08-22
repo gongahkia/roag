@@ -34,6 +34,7 @@ const emptyPlayer = (id: string, index: number, kind: Player['kind'], skill: Pla
   cash: 10,
   caddies: [],
   pockets: [],
+  attachments: [],
   shotHistory: [],
   total: 0,
 });
@@ -80,11 +81,14 @@ export const normalizeGameState = (state: GameState): GameState => {
   });
   state.gadgets ??= [];
   state.holeFinishSequence ??= 0;
+  state.cardSequence ??= 0;
   if (state.shop) state.shop.opening ??= false;
   state.players.forEach((player) => {
     player.cash ??= 10;
     player.caddies ??= player.upgrades.map((id) => ({ id, stacks: 1 }));
-    player.pockets ??= [player.inventory, player.spareInventory].filter(Boolean).map((id) => ({ id: id!, source: 'pad' as const }));
+    player.pockets ??= [player.inventory, player.spareInventory].filter(Boolean).map((id, index) => ({ id: id!, source: 'pad' as const, instanceId: `legacy:${player.id}:${index}` }));
+    player.pockets.forEach((card, index) => { card.instanceId ??= `legacy:${player.id}:${index}`; });
+    player.attachments ??= [];
     player.shotHistory ??= [];
     player.upgrades = player.caddies.map((caddy) => caddy.id);
   });
@@ -136,7 +140,7 @@ const activatePlan = (state: GameState, plan: PlannedHole) => {
   state.holeFinishSequence = 0;
   state.gadgets = [];
   state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
-  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
 };
 
 const courseDimensionsFor = (config: GameConfig) => ({ width: config.courseWidth ?? COURSE_WIDTH, height: config.courseHeight ?? COURSE_HEIGHT });
@@ -171,9 +175,10 @@ export const createGameState = (config: GameConfig): GameState => {
     coursePlan,
     emotes: [],
     emoteSequence: 0,
+    cardSequence: 0,
     players,
     gadgets: [],
-    turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false },
+    turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false, cardPlayed: false },
     paused: false,
     status: firstPlan ? 'playing' : 'voting',
     messages: firstPlan ? [`quick start locked ${coursePlan.length} random courses — tee off`] : ['vote for the first course and house rules'],
@@ -189,7 +194,7 @@ export const cloneGameState = (state: GameState): GameState => ({
   coursePlan: (state.coursePlan ?? []).map(clonePlan),
   transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
   emotes: state.emotes.map((emote) => ({ ...emote })),
-  players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })),
+  players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })),
   gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),
   shop: state.shop ? { ...state.shop, shelf: state.shop.shelf.map((offer) => ({ ...offer })), buyerOrder: [...state.shop.buyerOrder], completedBuyerIds: [...state.shop.completedBuyerIds], rerollVotes: { ...state.shop.rerollVotes } } : undefined,
   turn: { ...state.turn },

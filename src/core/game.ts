@@ -29,7 +29,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     return state;
   }
   if (command.type === 'use-power-up' && state.status === 'playing') {
-    usePowerUp(state, command.powerUp, command.targetId, command.portalExitId, command.placement);
+    usePowerUp(state, command.powerUp, command.targetId, command.portalExitId, command.placement, command.cardId);
     return state;
   }
   if (command.type === 'arm-second-wind' && state.status === 'playing') {

@@ -295,7 +295,14 @@ export const aimPathFor = (course: Course, ball: Ball, shot: ShotCommand): AimPa
   const start = { x: ball.x, y: ball.y, z: ball.z + .15 };
   if (shot.kind !== 'chip') {
     const endpoint = { x: ball.x + Math.cos(shot.angle) * shot.power * .4, y: ball.y + Math.sin(shot.angle) * shot.power * .4 };
-    return [start, { ...endpoint, z: start.z + floorHeightAt(course, endpoint.x, endpoint.y) - startFloor }];
+    const segments = Math.max(2, Math.ceil(Math.hypot(endpoint.x - ball.x, endpoint.y - ball.y) * 4));
+    const clearance = start.z - startFloor;
+    return Array.from({ length: segments + 1 }, (_, index) => {
+      const progress = index / segments;
+      const x = ball.x + (endpoint.x - ball.x) * progress;
+      const y = ball.y + (endpoint.y - ball.y) * progress;
+      return { x, y, z: floorHeightAt(course, x, y) + clearance };
+    });
   }
   const velocity = shotVelocityFor(shot);
   const duration = chipFlightSeconds(shot);

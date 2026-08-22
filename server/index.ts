@@ -76,6 +76,7 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   if (source.type === 'arm-second-wind') return { type: 'arm-second-wind' };
   if (source.type === 'emote' && typeof source.playerId === 'string' && typeof source.emote === 'string' && emotes.has(source.emote)) return { type: 'emote', playerId: source.playerId, emote: source.emote as Emote };
   if (source.type === 'use-power-up' && typeof source.powerUp === 'string' && powerUps.has(source.powerUp as never)) {
+    const cardId = typeof source.cardId === 'string' && /^[a-zA-Z0-9:_-]{1,96}$/.test(source.cardId) ? source.cardId : undefined;
     const targetId = typeof source.targetId === 'string' && source.targetId.length <= 24 ? source.targetId : undefined;
     const portalExitId = typeof source.portalExitId === 'string' && source.portalExitId.length <= 80 ? source.portalExitId : undefined;
     const rawPlacement = source.placement;
@@ -83,7 +84,7 @@ const validCommand = (value: unknown): GameCommand | undefined => {
       && Number.isInteger((rawPlacement as Record<string, unknown>).x) && Number.isInteger((rawPlacement as Record<string, unknown>).y)
       ? { x: Number((rawPlacement as Record<string, unknown>).x), y: Number((rawPlacement as Record<string, unknown>).y) }
       : undefined;
-    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, targetId, portalExitId, placement };
+    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, cardId, targetId, portalExitId, placement };
   }
   if (source.type === 'shop-vote-reroll' && typeof source.playerId === 'string' && typeof source.approve === 'boolean') return { type: 'shop-vote-reroll', playerId: source.playerId, approve: source.approve };
   if (source.type === 'shop-buy' && typeof source.playerId === 'string' && typeof source.offerId === 'string' && (source.replaceCaddyId === undefined || (typeof source.replaceCaddyId === 'string' && CONTENT_BY_ID.get(source.replaceCaddyId as never)?.category === 'caddy'))) return { type: 'shop-buy', playerId: source.playerId, offerId: source.offerId, replaceCaddyId: source.replaceCaddyId as CaddyId | undefined };
@@ -220,7 +221,7 @@ const scheduleAutomation = (room: StoredRoom) => {
     if (!decision) return;
     let next = latest.game;
     if (decision.secondWind) next = applyCommand(next, { type: 'arm-second-wind' });
-    if (decision.powerUp) next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement });
+    if (decision.powerUp) next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement });
     updateGame(latest, applyCommand(next, { type: 'shoot', shot: decision.shot }));
   }, 650);
 };

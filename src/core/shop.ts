@@ -2,14 +2,22 @@ import { CADDIES, CONTENT } from './catalog';
 import { addMessage, beginCourseTransition } from './game-state';
 import { addCaddy, caddyCount, pocketCapacity, pocketsFor, removeCaddy, syncPocketMirrors } from './player-effects';
 import { Random } from './random';
+import { resolveHoleAttachments } from './strategy';
 import type { CaddyId, ContentCategory, ContentId, GameState, RealityCard, ShopOffer } from './types';
 
 const SHOP_SECONDS = 20;
 
 const contentFor = (categories: readonly ContentCategory[]) => CONTENT.filter((definition) => categories.includes(definition.category));
-const offer = (contentId: ContentId, index: number): ShopOffer => {
+const durationFor = (state: GameState, contentId: ContentId, source: string) => {
   const definition = CONTENT.find((candidate) => candidate.id === contentId)!;
-  return { id: `shop-${index}-${contentId.replaceAll(' ', '-')}`, contentId, category: definition.category, price: definition.price };
+  if (!definition.duration) return undefined;
+  const random = new Random(`${state.config.seed}:card-duration:${state.hole}:${source}:${contentId}`);
+  return { unit: definition.duration.unit, amount: random.int(definition.duration.min, definition.duration.max) } as const;
+};
+
+const offer = (state: GameState, contentId: ContentId, index: number, source: string): ShopOffer => {
+  const definition = CONTENT.find((candidate) => candidate.id === contentId)!;
+  return { id: `shop-${index}-${contentId.replaceAll(' ', '-')}`, contentId, category: definition.category, price: definition.price, duration: durationFor(state, contentId, source) };
 };
 
 const pick = (random: Random, categories: readonly ContentCategory[], selected: Set<ContentId>) => {
@@ -27,7 +35,7 @@ const shelfFor = (state: GameState, visit: number, reroll = 0) => {
     pick(random, ['pocket', 'form', 'gadget'], selected), pick(random, ['pocket', 'form', 'gadget'], selected),
     pick(random, ['reality'], selected), pick(random, ['chrono'], selected),
   ];
-  return ids.map((id, index) => offer(id, index));
+  return ids.map((id, index) => offer(state, id, index, `${visit}:${reroll}:${index}`));
 };
 
 const buyerOrderFor = (state: GameState, opening: boolean) => {
@@ -54,6 +62,7 @@ export const awardHoleCash = (state: GameState) => {
     player.cash += 4 + comeback;
     if (comeback) addMessage(state, `${player.name} collects a $${comeback} comeback bounty`);
   });
+  resolveHoleAttachments(state);
 };
 
 const resolveReroll = (state: GameState) => {
@@ -118,11 +127,11 @@ export const chooseBotShopOffer = (state: GameState, player: GameState['players'
     .sort((left, right) => right.score - left.score || left.shopOffer.id.localeCompare(right.shopOffer.id))[0]?.shopOffer;
 };
 
-const storePocket = (state: GameState, playerId: string, contentId: ContentId) => {
+const storePocket = (state: GameState, playerId: string, contentId: ContentId, duration?: ShopOffer['duration']) => {
   const player = state.players.find((candidate) => candidate.id === playerId)!;
   const pockets = pocketsFor(player);
   if (pockets.length >= pocketCapacity(player)) return false;
-  pockets.push({ id: contentId as never, source: 'shop' });
+  pockets.push({ id: contentId as never, source: 'shop', instanceId: `shop-card-${++state.cardSequence}`, duration: duration ? { ...duration } : undefined });
   syncPocketMirrors(player);
   return true;
 };
@@ -144,13 +153,13 @@ export const buyShopOffer = (state: GameState, playerId: string, offerId: string
     addCaddy(player, caddyId);
   } else if (shopOffer.category === 'reality') {
     state.queuedReality = shopOffer.contentId as RealityCard;
-  } else if (!storePocket(state, playerId, shopOffer.contentId)) return;
+  } else if (!storePocket(state, playerId, shopOffer.contentId, shopOffer.duration)) return;
   player.cash -= cost;
   shopOffer.sold = true;
   if (caddyCount(player, 'black market caddy') && ['pocket', 'form', 'gadget'].includes(shopOffer.category)) {
     const random = new Random(`${state.config.seed}:black-market:${state.hole}:${player.id}:${shopOffer.id}`);
     const bonus = pick(random, ['pocket'], new Set());
-    storePocket(state, player.id, bonus);
+    storePocket(state, player.id, bonus, durationFor(state, bonus, `black-market:${player.id}:${shopOffer.id}`));
   }
   addMessage(state, `${player.name} buys ${shopOffer.contentId} for $${cost}`);
   completeBuyer(state);

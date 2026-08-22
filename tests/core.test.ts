@@ -8,7 +8,7 @@ import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
 import { normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
-import { chooseBotShopOffer } from '../src/core/shop';
+import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
 import type { GameState } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
@@ -122,7 +122,7 @@ describe('course generation', () => {
 
 describe('clubhouse economy and reality cards', () => {
   it('defines a large, unique data-driven merchant catalog', () => {
-    expect(CONTENT).toHaveLength(100);
+    expect(CONTENT).toHaveLength(124);
     expect(new Set(CONTENT.map((entry) => entry.id)).size).toBe(CONTENT.length);
     expect(new Set(CONTENT.map((entry) => entry.category))).toEqual(new Set(['caddy', 'pocket', 'form', 'gadget', 'reality', 'chrono']));
   });
@@ -169,6 +169,17 @@ describe('clubhouse economy and reality cards', () => {
       secondsLeft: 20,
     };
     expect(chooseBotShopOffer(game, bot)?.id).toBe('reality-priority');
+  });
+
+  it('keeps a shop card’s visible duration on the purchased card instance', () => {
+    const game = gameOn(arena('shop-card-duration'), { botCount: 0, holeCount: 2 });
+    openShop(game, true);
+    game.shop!.rerollResolved = true;
+    game.shop!.shelf = [{ id: 'duration-offer', contentId: 'fairway draft', category: 'pocket', price: 5, duration: { unit: 'round', amount: 3 } }];
+    game.players[0]!.cash = 10;
+    buyShopOffer(game, game.players[0]!.id, 'duration-offer');
+    expect(game.players[0]!.pockets).toMatchObject([{ id: 'fairway draft', source: 'shop', duration: { unit: 'round', amount: 3 } }]);
+    expect(game.players[0]!.pockets[0]!.instanceId).toMatch(/^shop-card-/);
   });
 
   it('makes wall-is-cup and reverse controls deterministic simulation rules', () => {
@@ -262,6 +273,75 @@ describe('public voting flow', () => {
 });
 
 describe('turns, shared rules, and bots', () => {
+  it('plays one visible boon or curse onto any eligible player and consumes it on that player’s putt', () => {
+    let game = gameOn(arena('targeted-boon'));
+    const [caster, target] = game.players;
+    const casterId = caster!.id;
+    const targetId = target!.id;
+    game.players[0]!.pockets = [{ id: 'tailwind', source: 'shop', instanceId: 'tailwind-1' }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'tailwind', cardId: 'tailwind-1', targetId });
+    expect(game.players[0]!.pockets).toEqual([]);
+    expect(game.turn.cardPlayed).toBe(true);
+    expect(game.players[1]!.attachments).toMatchObject([{ cardId: 'tailwind', remaining: 1, unit: 'putt', casterId }]);
+    expect(applyCommand(game, { type: 'use-power-up', powerUp: 'tailwind', targetId })).toEqual(game);
+
+    game.turn = { ...game.turn, playerIndex: 1, cardPlayed: false };
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 3 } });
+    expect(game.players[1]!.attachments).toEqual([]);
+  });
+
+  it('blocks, reflects, and cleanses targetable strategy cards', () => {
+    let game = gameOn(arena('counterplay'));
+    const [, target] = game.players;
+    const targetId = target!.id;
+    game.players[0]!.pockets = [{ id: 'umbrella cart', source: 'shop', instanceId: 'umbrella-1', duration: { unit: 'round', amount: 2 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'umbrella cart', cardId: 'umbrella-1', targetId });
+    game.turn.cardPlayed = false;
+    game.players[0]!.pockets = [{ id: 'sandbag slip', source: 'shop', instanceId: 'sandbag-1' }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'sandbag slip', cardId: 'sandbag-1', targetId });
+    expect(game.players[1]!.attachments).toEqual([]);
+
+    game.turn.cardPlayed = false;
+    game.players[0]!.pockets = [{ id: 'headwind gust', source: 'shop', instanceId: 'headwind-1', duration: { unit: 'round', amount: 2 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'headwind gust', cardId: 'headwind-1', targetId });
+    expect(game.players[1]!.attachments).toHaveLength(1);
+    game.turn.cardPlayed = false;
+    game.players[0]!.pockets = [{ id: 'clean slate', source: 'shop', instanceId: 'clean-1' }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'clean slate', cardId: 'clean-1', targetId });
+    expect(game.players[1]!.attachments).toEqual([]);
+
+    game.turn.cardPlayed = false;
+    game.players[0]!.pockets = [{ id: 'mirror caddy', source: 'shop', instanceId: 'mirror-1', duration: { unit: 'round', amount: 2 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'mirror caddy', cardId: 'mirror-1', targetId });
+    game.turn.cardPlayed = false;
+    game.players[0]!.pockets = [{ id: 'sandbag slip', source: 'shop', instanceId: 'sandbag-2' }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'sandbag slip', cardId: 'sandbag-2', targetId });
+    expect(game.players[1]!.attachments).toEqual([]);
+    expect(game.players[0]!.attachments).toMatchObject([{ cardId: 'sandbag slip', polarity: 'curse' }]);
+  });
+
+  it('keeps round effects through a table rotation and resolves variable hole rewards', () => {
+    let game = gameOn(arena('strategy-expiry'), { holeCount: 2 });
+    const [, target] = game.players;
+    const targetId = target!.id;
+    game.players[0]!.pockets = [{ id: 'fairway draft', source: 'shop', instanceId: 'draft-1', duration: { unit: 'round', amount: 1 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'fairway draft', cardId: 'draft-1', targetId });
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.players[1]!.attachments).toHaveLength(1);
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 2 } });
+    expect(game.players[1]!.attachments).toEqual([]);
+
+    game.turn = { ...game.turn, playerIndex: 0, cardPlayed: false };
+    game.players[0]!.pockets = [{ id: 'sponsor tab', source: 'shop', instanceId: 'sponsor-1', duration: { unit: 'hole', amount: 1 } }];
+    const cash = game.players[1]!.cash;
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'sponsor tab', cardId: 'sponsor-1', targetId });
+    game.players.forEach((player) => { player.ball.complete = true; player.ball.strokes = 1; });
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(game.status).toBe('shopping');
+    expect(game.players[1]!.cash).toBe(cash + 6);
+    expect(game.players[1]!.attachments).toEqual([]);
+  });
+
   it('freezes turns and shots while paused, then resumes the same match state', () => {
     let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
     const secondsLeft = game.turn.secondsLeft;
@@ -345,15 +425,19 @@ describe('turns, shared rules, and bots', () => {
 
     player.inventory = 'sky spring';
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'sky spring', placement: { x: 4, y: 3 } });
+    expect(game.turn.cardPlayed).toBe(true);
+    game.turn.cardPlayed = false;
     game.players[0]!.inventory = 'popper pad';
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'popper pad', placement: { x: 5, y: 3 } });
     expect(game.gadgets).toHaveLength(2);
 
     const beforeDrone = game.players[0]!.ball.x;
+    game.turn.cardPlayed = false;
     game.players[0]!.inventory = 'rescue drone';
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'rescue drone' });
     expect(game.players[0]!.ball.x).toBeGreaterThan(beforeDrone);
 
+    game.turn.cardPlayed = false;
     game.players[0]!.inventory = 'airhorn';
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'airhorn', targetId: game.players[1]!.id });
     game.turn.playerIndex = 1;

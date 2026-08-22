@@ -3,6 +3,7 @@ import { distanceToCup, simulateShot, type BallPhysicsModifiers, type Simulation
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
 import { awardHoleCash, openShop, tickShop } from './shop';
+import { consumePuttAttachments, hasAttachment, tickRoundAttachments } from './strategy';
 import type { Ball, GameState, ShotCommand } from './types';
 
 const advanceCoursePhase = (state: GameState) => {
@@ -11,7 +12,7 @@ const advanceCoursePhase = (state: GameState) => {
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
-  const effectiveShot = player.forcedChip ? { ...shot, kind: 'chip' as const } : shot;
+  const effectiveShot = player.forcedChip || hasAttachment(player, 'forced chip') ? { ...shot, kind: 'chip' as const } : shot;
   const modifiersFor = (candidate: typeof player): BallPhysicsModifiers => ({
     ...physicsModifiersFor(candidate, state.holeRules),
     ghostBall: candidate.ballForm === 'ghost' || state.activeReality === 'everybody is ghost',
@@ -88,12 +89,17 @@ const finishHole = (state: GameState) => {
 };
 
 const advanceTurn = (state: GameState) => {
+  const beginTurn = (playerIndex: number) => {
+    const player = state.players[playerIndex]!;
+    tickRoundAttachments(state, player.id);
+    state.turn = { playerIndex, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
+  };
   const direction = state.activeReality === 'turns are backwards' ? -1 : 1;
   if (state.forcedNextPlayerId) {
     const index = state.players.findIndex((player) => player.id === state.forcedNextPlayerId && !player.ball.complete && player.ball.strokes < state.holeRules.strokeCap);
     state.forcedNextPlayerId = undefined;
     if (index >= 0) {
-      state.turn = { playerIndex: index, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+      beginTurn(index);
       return;
     }
   }
@@ -101,7 +107,7 @@ const advanceTurn = (state: GameState) => {
     const index = (state.turn.playerIndex + direction * offset + state.players.length * 2) % state.players.length;
     const player = state.players[index]!;
     if (!player.ball.complete && player.ball.strokes < state.holeRules.strokeCap) {
-      state.turn = { playerIndex: index, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+      beginTurn(index);
       return;
     }
   }
@@ -120,8 +126,8 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     return;
   }
   const playerIndex = state.turn.playerIndex;
-  const forcedChip = player.forcedChip;
-  const affectedControls = player.controlInverted || player.timeDilated;
+  const forcedChip = player.forcedChip || hasAttachment(player, 'forced chip');
+  const affectedControls = player.controlInverted || player.timeDilated || hasAttachment(player, 'club flip') || hasAttachment(player, 'slow clock') || hasAttachment(player, 'frayed grip');
   const before = { ...player.ball };
   const result = simulatePlayerShot(state, playerIndex, shot);
   player.turboArmed = false;
@@ -133,6 +139,8 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.controlInverted = undefined;
   player.timeDilated = undefined;
   applySimulation(state, playerIndex, result);
+  if (hasAttachment(player, 'mulligan relay')) player.twoPuttsArmed = true;
+  consumePuttAttachments(player);
   if (result.reset && player.redTee) {
     const x = player.redTee.x + .5;
     const y = player.redTee.y + .5;
@@ -171,7 +179,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   if (player.twoPuttsArmed && !player.ball.complete && player.ball.strokes < state.holeRules.strokeCap) {
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} takes the second putt${consumedForm ? ` after ${consumedForm} ball` : ''}`);
-    state.turn = { playerIndex, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false };
+    state.turn = { playerIndex, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: state.turn.cardPlayed };
     return;
   }
   advanceCoursePhase(state);
@@ -180,7 +188,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
   if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused || current.turn.shotInFlight) return current;
-  const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })), messages: [...current.messages] } as GameState;
+  const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })), messages: [...current.messages] } as GameState;
   if (state.status === 'shopping') {
     tickShop(state, elapsedSeconds);
     return state;

@@ -1,11 +1,12 @@
 import { distanceToCup, simulateShot, tileAt } from './physics';
+import { definitionFor } from './catalog';
 import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
-import type { Course, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind, VotingOption } from './types';
+import type { ChronoCard, Course, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind, VotingOption } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
-  powerUp?: { type: PowerUp; targetId?: string; portalExitId?: string; placement?: Point };
+  powerUp?: { type: PowerUp | ChronoCard; cardId?: string; targetId?: string; portalExitId?: string; placement?: Point };
   secondWind?: boolean;
   confidence: number;
 }
@@ -19,6 +20,12 @@ const clampedSkill = (player: Player, opponents: Player[]) => {
 const rankedTarget = (bot: Player, players: Player[]): Player | undefined => players
   .filter((player) => player.id !== bot.id && !player.ball.complete)
   .sort((left, right) => left.total + left.ball.strokes - (right.total + right.ball.strokes))[0];
+
+const boonTarget = (bot: Player, players: Player[]) => {
+  const eligible = players.filter((player) => !player.ball.complete);
+  const leader = Math.min(...eligible.map((player) => player.total + player.ball.strokes));
+  return eligible.sort((left, right) => (right.total + right.ball.strokes - leader) - (left.total + left.ball.strokes - leader) || (left.id === bot.id ? -1 : 1))[0] ?? bot;
+};
 
 const bestPortalExit = (course: Course) => course.portals?.filter((pair) => pair.exit).map((pair) => ({ id: `${pair.id}:exit`, distance: Math.hypot(course.cup.x - pair.exit!.point.x, course.cup.y - pair.exit!.point.y) })).sort((left, right) => left.distance - right.distance)[0]?.id;
 
@@ -76,16 +83,21 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   };
   const target = rankedTarget(bot, players);
   let powerUp: BotDecision['powerUp'];
-  const held = bot.inventory ?? bot.spareInventory;
+  const heldCard = bot.pockets[0] ?? (bot.inventory ? { id: bot.inventory, instanceId: undefined } : bot.spareInventory ? { id: bot.spareInventory, instanceId: undefined } : undefined);
+  const held = heldCard?.id;
   if (held && skill >= 5 && random.chance(0.18 + skill * 0.025)) {
-    if (held === 'turbo' || held === 'shield' || held === 'two putts' || held === 'heavy' || held === 'bouncy' || held === 'ghost' || held === 'magnet' || held === 'ice' || held === 'glider' || held === 'sticky' || held === 'orbit' || held === 'cup magnet' || held === 'slipstream' || held === 'rebound rig' || held === 'rescue drone') powerUp = { type: held };
+    const definition = definitionFor(held as never);
+    if (definition?.targetMode === 'player') {
+      const recipient = definition.polarity === 'curse' ? target : boonTarget(bot, players);
+      if (recipient) powerUp = { type: held, cardId: heldCard?.instanceId, targetId: recipient.id };
+    } else if (held === 'turbo' || held === 'shield' || held === 'two putts' || held === 'heavy' || held === 'bouncy' || held === 'ghost' || held === 'magnet' || held === 'ice' || held === 'glider' || held === 'sticky' || held === 'orbit' || held === 'cup magnet' || held === 'slipstream' || held === 'rebound rig' || held === 'rescue drone') powerUp = { type: held, cardId: heldCard?.instanceId };
     else if (held === 'portal') {
       const portalExitId = bestPortalExit(course);
-      if (portalExitId) powerUp = { type: held, portalExitId };
+      if (portalExitId) powerUp = { type: held, cardId: heldCard?.instanceId, portalExitId };
     } else if (held === 'popper pad' || held === 'snare patch' || held === 'blast mine' || held === 'slick patch' || held === 'sky spring') {
       const placement = gadgetPointFor(course, bot, gadgets);
-      if (placement) powerUp = { type: held, placement };
-    } else if (target) powerUp = { type: held, targetId: target.id };
+      if (placement) powerUp = { type: held, cardId: heldCard?.instanceId, placement };
+    } else if (target) powerUp = { type: held, cardId: heldCard?.instanceId, targetId: target.id };
   }
   return { shot, powerUp, secondWind: bot.secondWindAvailable && !bot.twoPuttsArmed && skill >= 6 && random.chance(.45), confidence: Math.max(0, 1 - selected.score / 150) };
 };

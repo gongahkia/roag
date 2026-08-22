@@ -43,6 +43,21 @@ describe('grounded physics invariants', () => {
     expect(Math.max(...arc.map((point) => point.z))).toBeGreaterThan(arc[0]!.z + .7);
   });
 
+  it('keeps putt guides above every intermediate point on a slope', () => {
+    const course = lane('fairway', 28);
+    course.tiles.forEach((tile, index) => {
+      const x = index % course.width;
+      tile.corners = [x * .2, (x + 1) * .2, (x + 1) * .2, x * .2];
+      tile.height = x * .2 + .1;
+    });
+    const ball = newBall(course);
+    const path = aimPathFor(course, ball, { angle: 0, power: 5, kind: 'putt' });
+    const clearance = path[0]!.z - floorHeightAt(course, path[0]!.x, path[0]!.y);
+
+    expect(path.length).toBeGreaterThan(2);
+    path.forEach((point) => expect(point.z).toBeCloseTo(floorHeightAt(course, point.x, point.y) + clearance, 6));
+  });
+
   it('never lets a descending chip settle on a wall tile', () => {
     const course = lane('fairway', 14);
     course.tiles[3 * course.width + 3] = { surface: 'wall', height: 0 };

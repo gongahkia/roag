@@ -2,7 +2,8 @@ export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
 export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal' | 'glider' | 'sticky' | 'orbit' | 'quantum' | 'mirror' | 'anvil' | 'vampire' | 'boomerang';
 export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch' | 'sky spring' | 'gravity well' | 'mirror plate' | 'toll booth' | 'control inverter' | 'portal gun';
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | 'club flipper' | 'time dilator' | 'mugger' | 'scramble' | 'gravity gloves' | 'bunker buster' | 'portal remote' | 'red tee' | 'black flag' | 'cherry bomb' | 'copycat' | GadgetKind | BallForm;
+export type StrategyCard = 'tailwind' | 'guardian pin' | 'line reader' | 'soft landing' | 'ghost pass' | 'mulligan relay' | 'clean slate' | 'fairway draft' | 'banker advice' | 'windbreak' | 'steady hands' | 'umbrella cart' | 'mirror caddy' | 'sponsor tab' | 'relay fund' | 'gadgeteer favor' | 'sandbag slip' | 'club flip' | 'slow clock' | 'forced chip' | 'headwind gust' | 'frayed grip' | 'bogey tax' | 'black pennant';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | 'club flipper' | 'time dilator' | 'mugger' | 'scramble' | 'gravity gloves' | 'bunker buster' | 'portal remote' | 'red tee' | 'black flag' | 'cherry bomb' | 'copycat' | GadgetKind | BallForm | StrategyCard;
 export type CaddyId = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer' | 'backboard' | 'pinball wizard' | 'rough rider' | 'sand wedge' | 'conveyor cultist' | 'gatecrasher' | 'thornmail' | 'air mail' | 'shock absorber' | 'first responder' | 'pickpocket' | 'revenge club' | 'headwind' | 'bogeyman' | 'coin slot' | 'broker' | 'echo chamber' | 'paradox partner' | 'hole hunter' | 'black market caddy';
 /** Kept as a public alias for saved games created before the clubhouse shop. */
 export type Upgrade = CaddyId;
@@ -10,6 +11,16 @@ export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' |
 export type ChronoCard = 'undo drive' | 'second chance' | 'echo putt' | 'future sight' | 'time theft' | 'frozen frame' | 'parallel parking' | 'grandfather clause';
 export type ContentId = CaddyId | PowerUp | RealityCard | ChronoCard;
 export type ContentCategory = 'caddy' | 'pocket' | 'form' | 'gadget' | 'reality' | 'chrono';
+export type CardTiming = 'immediate' | 'putt' | 'round' | 'hole';
+export type CardPolarity = 'boon' | 'curse' | 'neutral';
+export type CardTargetMode = 'player' | 'tile' | 'global';
+export type CardDurationUnit = 'round' | 'hole';
+
+export interface CardDurationRange {
+  unit: CardDurationUnit;
+  min: number;
+  max: number;
+}
 export const EMOTES = [
   { id: 'cheer', glyph: '\\o/', label: 'cheer' },
   { id: 'taunt', glyph: '>:]', label: 'taunt' },
@@ -290,6 +301,7 @@ export interface Player {
   controlInverted?: number;
   timeDilated?: number;
   redTee?: Point;
+  attachments?: CardAttachment[];
   /** The order a player sank this hole, used for the shared shop queue. */
   holeFinishOrder?: number;
   total: number;
@@ -303,6 +315,20 @@ export interface CaddyStack {
 export interface PocketCard {
   id: PowerUp | ChronoCard;
   source: 'shop' | 'pad';
+  /** Stable ID lets a player choose the correct copy when two cards share a name. */
+  instanceId?: string;
+  /** Shop cards with long lifetimes keep their visible roll after purchase. */
+  duration?: { unit: CardDurationUnit; amount: number };
+}
+
+export interface CardAttachment {
+  id: string;
+  cardId: StrategyCard;
+  effect: StrategyCard;
+  casterId: string;
+  polarity: Exclude<CardPolarity, 'neutral'>;
+  unit: 'putt' | CardDurationUnit;
+  remaining: number;
 }
 
 export interface ShotHistoryEntry {
@@ -316,6 +342,7 @@ export interface ShopOffer {
   contentId: ContentId;
   category: ContentCategory;
   price: number;
+  duration?: { unit: CardDurationUnit; amount: number };
   sold?: boolean;
 }
 
@@ -355,6 +382,8 @@ export interface TurnState {
   playerIndex: number;
   secondsLeft: number;
   shotInFlight: boolean;
+  /** Only one pocket card may be committed before each putt. */
+  cardPlayed?: boolean;
 }
 
 export interface EmoteEvent {
@@ -375,6 +404,7 @@ export interface GameState {
   transition?: CourseTransition;
   emotes: EmoteEvent[];
   emoteSequence: number;
+  cardSequence: number;
   players: Player[];
   gadgets: Gadget[];
   shop?: ShopState;
@@ -393,7 +423,7 @@ export type GameCommand =
   | { type: 'cast-vote'; playerId: string; optionId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
-  | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; targetId?: string; portalExitId?: string; placement?: Point }
+  | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }
   | { type: 'shop-vote-reroll'; playerId: string; approve: boolean }
   | { type: 'shop-buy'; playerId: string; offerId: string; replaceCaddyId?: CaddyId }

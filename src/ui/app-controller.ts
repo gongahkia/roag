@@ -15,11 +15,16 @@ import { createRenderer } from './render';
 interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
 interface LiveEmote extends EmoteEvent { expiresAt: number; }
-interface PlacementState { kind: GadgetKind; point?: Point; valid: boolean; confirmed: boolean; ownerId: string; }
+interface PlacementState { kind: GadgetKind; cardId?: string; point?: Point; valid: boolean; confirmed: boolean; ownerId: string; }
 type Screen = 'home' | 'lobby' | 'game';
 type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
 
 export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: BotScheduleSnapshot) => previous.status !== next.status || previous.turn.playerIndex !== next.turn.playerIndex;
+
+const MIN_POWER = 1;
+const MAX_POWER = 8;
+const POWER_STEP = .5;
+export const powerAfterWheel = (power: number, deltaY: number) => deltaY === 0 ? power : Math.max(MIN_POWER, Math.min(MAX_POWER, Number((power + (deltaY < 0 ? POWER_STEP : -POWER_STEP)).toFixed(1))));
 
 const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
 const readNumber = (app: HTMLElement, id: string, fallback: number) => {
@@ -327,13 +332,29 @@ export const startApp = (app: HTMLElement) => {
   const chooseAim = (event: PointerEvent) => {
     if (placement) { updatePlacement(event); return; }
     if (!renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
-    aim = { ...renderer.aimFromPointer(event, state.course, current().ball), kind: aim.kind };
+    const pointerAim = renderer.aimFromPointer(event, state.course, current().ball);
+    aim = { ...aim, angle: pointerAim.angle };
     drawBoard();
     renderControls();
   };
   const adjustPower = (amount: number) => {
-    aim = { ...aim, power: Math.max(1, Math.min(8, Number((aim.power + amount).toFixed(1)))) };
+    aim = { ...aim, power: Math.max(MIN_POWER, Math.min(MAX_POWER, Number((aim.power + amount).toFixed(1)))) };
     if (state.status !== 'playing' || state.paused) return;
+    drawBoard();
+    renderControls();
+  };
+  const setPower = (power: number) => {
+    if (!Number.isFinite(power) || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
+    aim = { ...aim, power: Math.max(MIN_POWER, Math.min(MAX_POWER, power)) };
+    drawBoard();
+    renderControls();
+  };
+  const adjustPowerFromWheel = (event: WheelEvent) => {
+    if (placement || !renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
+    event.preventDefault();
+    const next = powerAfterWheel(aim.power, event.deltaY);
+    if (next === aim.power) return;
+    aim = { ...aim, power: next };
     drawBoard();
     renderControls();
   };
@@ -373,29 +394,29 @@ export const startApp = (app: HTMLElement) => {
     requestAnimationFrame(animate);
   };
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
-  const useHeldPowerUp = (powerUp: PowerUp | ChronoCard) => {
+  const useHeldPowerUp = (powerUp: PowerUp | ChronoCard, cardId?: string) => {
     if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
     const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun']);
     if (gadgets.has(powerUp as PowerUp)) {
-      placement = { kind: powerUp as GadgetKind, ownerId: current().id, valid: false, confirmed: false };
+      placement = { kind: powerUp as GadgetKind, cardId, ownerId: current().id, valid: false, confirmed: false };
       playEffect(530, .08);
       drawBoard();
       renderControls();
       return;
     }
     const selectedTarget = app.querySelector<HTMLSelectElement>('#powerup-target')?.value;
-    const target = state.players.find((player) => player.id === selectedTarget && player.id !== current().id && !player.ball.complete)
-      ?? state.players.find((player) => player.id !== current().id && !player.ball.complete);
+    const target = state.players.find((player) => player.id === selectedTarget && !player.ball.complete)
+      ?? current();
     const portalExitId = app.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
     playEffect(530, .08);
-    dispatch({ type: 'use-power-up', powerUp, targetId: target?.id, portalExitId });
+    dispatch({ type: 'use-power-up', powerUp, cardId, targetId: target.id, portalExitId });
   };
   const confirmPlacement = () => {
     if (!placement || !placement.point || !placement.valid || state.status !== 'playing' || state.paused || current().id !== placement.ownerId || !canControlCurrent()) return;
     const pending = placement;
     placement = undefined;
     playEffect(530, .08);
-    dispatch({ type: 'use-power-up', powerUp: pending.kind, placement: pending.point });
+    dispatch({ type: 'use-power-up', powerUp: pending.kind, cardId: pending.cardId, placement: pending.point });
   };
   const selectPlacement = (event: PointerEvent) => {
     if (!placement) return;
@@ -452,7 +473,7 @@ export const startApp = (app: HTMLElement) => {
       const decision = botMove(state);
       if (!decision) return;
       if (decision.secondWind) setState(applyCommand(state, { type: 'arm-second-wind' }));
-      if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement }));
+      if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement }));
       playShot((decision.secondWind || decision.powerUp ? botMove(state)?.shot : undefined) ?? decision.shot);
     }, preferences.reducedMotion ? 180 : 650);
   };
@@ -460,11 +481,6 @@ export const startApp = (app: HTMLElement) => {
     const control = app.querySelector<HTMLElement>('#controls');
     if (!control) return;
     control.innerHTML = renderControlsMarkup(view());
-    app.querySelector<HTMLInputElement>('#power')?.addEventListener('input', (event) => {
-      aim = { ...aim, power: Number((event.target as HTMLInputElement).value) };
-      drawBoard();
-      renderControls();
-    });
     app.querySelectorAll<HTMLButtonElement>('[data-shot-kind]').forEach((button) => button.addEventListener('click', () => selectShotKind(button.dataset.shotKind === 'chip' ? 'chip' : 'putt')));
     app.querySelector<HTMLButtonElement>('#shoot')?.addEventListener('click', shoot);
     app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => dispatch({ type: 'arm-second-wind' }));
@@ -488,6 +504,7 @@ export const startApp = (app: HTMLElement) => {
     drawBoard(undefined, state.status === 'playing' ? aim : null);
     canvas.addEventListener('pointermove', chooseAim);
     canvas.addEventListener('pointerdown', selectPlacement);
+    canvas.addEventListener('wheel', adjustPowerFromWheel, { passive: false });
     renderControls();
   };
   const updatePreferences = (partial: Partial<typeof preferences>) => {
@@ -534,10 +551,10 @@ export const startApp = (app: HTMLElement) => {
     }
     if (edge(0)) shoot();
     if (edge(3)) selectShotKind(aim.kind === 'chip' ? 'putt' : 'chip');
-    const controllerPowerUp = current().inventory;
-    if (edge(1) && controllerPowerUp) useHeldPowerUp(controllerPowerUp);
-    if (edge(14)) adjustPower(-.2);
-    if (edge(15)) adjustPower(.2);
+    const controllerCard = current().pockets.find((card) => card.id === current().inventory) ?? current().pockets[0];
+    if (edge(1) && controllerCard) useHeldPowerUp(controllerCard.id, controllerCard.instanceId);
+    if (edge(14)) adjustPower(-POWER_STEP);
+    if (edge(15)) adjustPower(POWER_STEP);
   };
 
   app.addEventListener('click', (event) => {
@@ -561,8 +578,9 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
     const voteOption = target.closest<HTMLElement>('[data-vote-option]')?.dataset.voteOption;
     if (voteOption) { castVote(voteOption); return; }
+    if (element.dataset.power !== undefined) { setPower(Number(element.dataset.power)); return; }
     const powerUp = element.dataset.usePowerup as (PowerUp | ChronoCard) | undefined;
-    if (powerUp) { useHeldPowerUp(powerUp); return; }
+    if (powerUp) { useHeldPowerUp(powerUp, element.dataset.cardId || undefined); return; }
     const reroll = element.dataset.shopReroll;
     if (reroll && state.shop && !state.shop.rerollResolved) {
       const voter = online() ? state.players.find((player) => player.id === onlinePlayerId && state.shop!.rerollVotes[player.id] === undefined) : state.players.find((player) => player.kind === 'human' && state.shop!.rerollVotes[player.id] === undefined);
@@ -633,8 +651,8 @@ export const startApp = (app: HTMLElement) => {
     if (command === 'pause') { togglePause(); return; }
     if (overlay || shotAnimation) return;
     if (command === 'shoot') shoot();
-    if (command === 'powerDown') adjustPower(-.2);
-    if (command === 'powerUp') adjustPower(.2);
+    if (command === 'powerDown') adjustPower(-POWER_STEP);
+    if (command === 'powerUp') adjustPower(POWER_STEP);
     const keyboardPowerUp = current().inventory;
     if (command === 'usePowerUp' && keyboardPowerUp) useHeldPowerUp(keyboardPowerUp);
   });

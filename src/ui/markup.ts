@@ -66,26 +66,39 @@ export const renderControlsMarkup = (view: ViewModel) => {
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
-  const heldItems = (player.pockets.length ? player.pockets.map((card) => card.id) : [player.inventory, player.spareInventory].filter(Boolean)) as (PowerUp | ChronoCard)[];
-  const targeted = new Set<PowerUp | ChronoCard>(['bomb', 'freeze', 'swap', 'phase shift', 'sandbag', 'airhorn', 'club flipper', 'time dilator', 'mugger', 'black flag', 'copycat', 'grandfather clause']);
-  const targets = state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete);
-  const targetSelector = heldItems.some((powerUp) => targeted.has(powerUp)) && targets.length
-    ? `<label>target <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targets.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`).join('')}</select></label>`
+  const cardDisabled = disabled || state.turn.cardPlayed;
+  const heldCards = player.pockets.length ? player.pockets : [player.inventory, player.spareInventory].filter(Boolean).map((id, index) => ({ id: id!, source: 'pad' as const, instanceId: `legacy-ui-${index}`, duration: undefined }));
+  const heldItems = heldCards.map((card) => card.id) as (PowerUp | ChronoCard)[];
+  const tileCards = new Set<PowerUp | ChronoCard>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun', 'bunker buster']);
+  const targets = state.players.filter((candidate) => !candidate.ball.complete);
+  const targetSelector = heldItems.some((powerUp) => !tileCards.has(powerUp)) && targets.length
+    ? `<label>play on <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targets.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}${candidate.id === player.id ? ' (self)' : ''}</option>`).join('')}</select></label>`
     : '';
   const portalExits = state.course.portals?.filter((pair) => pair.exit).map((pair) => `<option value="${pair.id}:exit">${escapeHtml(pair.id)} exit</option>`).join('') ?? '';
+  const powerCells = Array.from({ length: 15 }, (_, index) => {
+    const power = Number((1 + index * .5).toFixed(1));
+    return `<button class="power-cell ${aim.power >= power ? 'active' : ''}" data-power="${power}" aria-label="set power ${power}" aria-pressed="${aim.power === power}" ${disabled ? 'disabled' : ''}></button>`;
+  }).join('');
   return `
     <div class="turn"><span style="--player:${player.color}"></span><strong>${escapeHtml(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}</small></div>
     <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
     <div class="shot-mode" role="group" aria-label="shot type"><button data-shot-kind="putt" class="${(aim.kind ?? 'putt') === 'putt' ? 'selected' : ''}" aria-pressed="${(aim.kind ?? 'putt') === 'putt'}" ${disabled ? 'disabled' : ''}>◌ putt<small>ground roll</small></button><button data-shot-kind="chip" class="${aim.kind === 'chip' ? 'selected' : ''}" aria-pressed="${aim.kind === 'chip'}" ${disabled ? 'disabled' : ''}>⌒ chip<small>clear walls · C</small></button></div>
-    <label>${aim.kind === 'chip' ? 'chip power' : 'putt power'} <input id="power" type="range" min="1" max="8" step="0.1" value="${aim.power}" ${disabled ? 'disabled' : ''}></label>
+    <div class="power-control" role="group" aria-label="${aim.kind === 'chip' ? 'chip' : 'putt'} power"><span>${aim.kind === 'chip' ? 'chip power' : 'putt power'} <b>${aim.power.toFixed(1)}</b></span><div class="power-cells" title="scroll on the course to change power">${powerCells}</div><small>scroll course · click a cell</small></div>
     <button id="shoot" class="primary" ${disabled ? 'disabled' : ''}>${aim.kind === 'chip' ? 'chip' : 'putt'} <kbd>${keyLabel(bindingFor(preferences, 'shoot'))}</kbd></button>
     ${player.ballForm ? `<span class="active-form">next shot: ${escapeHtml(player.ballForm)} ball</span>` : ''}
     ${player.forcedChip ? '<span class="active-form">airhorn: next shot is a chip</span>' : ''}
     ${heldItems.includes('portal') || heldItems.includes('portal remote') ? `<label>portal exit <select id="portal-exit" ${disabled ? 'disabled' : ''}>${portalExits}</select></label>` : ''}
     ${targetSelector}
-    ${heldItems.length ? heldItems.map((powerUp) => `<button data-use-powerup="${powerUp}" ${disabled ? 'disabled' : ''}>use ${escapeHtml(powerUp)}${powerUp === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`).join('') : '<span class="muted">no chaos item</span>'}
+    ${heldCards.length ? heldCards.map((card) => {
+      const definition = definitionFor(card.id as never);
+      const detail = card.duration ? `${card.duration.amount} ${card.duration.unit}${card.duration.amount === 1 ? '' : 's'}` : definition?.timing === 'putt' ? 'next putt' : definition?.timing === 'immediate' ? 'instant' : 'item';
+      const role = definition?.polarity && definition.polarity !== 'neutral' ? `${definition.polarity} · ` : '';
+      return `<button data-use-powerup="${escapeHtml(card.id)}" data-card-id="${escapeHtml(card.instanceId ?? '')}" ${cardDisabled ? 'disabled' : ''}>use ${escapeHtml(card.id)} <small>${role}${detail}</small>${card.id === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`;
+    }).join('') : '<span class="muted">no pocket card</span>'}
     ${placement ? `<p class="placement-status ${placement.valid ? 'valid' : 'invalid'}">${powerUpIcon[placement.kind]} ${escapeHtml(placement.kind)} · ${placement.point ? placement.valid ? placement.confirmed ? 'click again or press Enter to place' : 'click this tile to lock the preview' : 'choose an open playable tile' : 'click a tile to preview'} <button data-cancel-placement>cancel</button></p>` : ''}
     ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}
+    ${state.turn.cardPlayed ? '<p class="control-status">one card committed this turn</p>' : ''}
+    ${state.players.some((candidate) => candidate.attachments?.length) ? `<div class="card-effects"><strong>table cards</strong>${state.players.filter((candidate) => candidate.attachments?.length).map((candidate) => `<p><i style="background:${candidate.color}"></i>${escapeHtml(candidate.name)} · ${candidate.attachments!.map((attachment) => `${escapeHtml(attachment.cardId)} (${attachment.remaining} ${attachment.unit}${attachment.remaining === 1 ? '' : 's'})`).join(', ')}</p>`).join('')}</div>` : ''}
     <p id="status" class="control-status">${renderStatus(view)}</p>`;
 };
 
@@ -151,7 +164,8 @@ const renderShopOverlay = (view: ViewModel) => {
     const definition = definitionFor(offer.contentId)!;
     const disabled = offer.sold || !canBuy || buyerCash < Math.max(0, offer.price - (definition.category === 'caddy' ? brokerStacks : 0));
     const disabledReason = offer.sold ? 'already claimed' : !shop.rerollResolved ? 'waiting for the reroll vote' : buyer?.kind === 'bot' ? 'waiting for the bot shopper' : !canBuy ? 'waiting for the current shopper' : buyerCash < Math.max(0, offer.price - (definition.category === 'caddy' ? brokerStacks : 0)) ? 'not enough cash' : '';
-    return `<article class="merchant-card merchant-${definition.category} ${offer.sold ? 'sold' : ''}"><div class="merchant-card-top"><span>${definition.icon}</span><small>${definition.category}</small><b>$${offer.price}</b></div><h3>${escapeHtml(definition.id)}</h3><p>${escapeHtml(definition.description)}</p><footer>${offer.sold ? 'claimed' : `<button data-shop-buy="${offer.id}" ${disabled ? `disabled title="${disabledReason}"` : ''}>buy</button>`}</footer></article>`;
+    const lifetime = offer.duration ? `<small class="card-lifetime">${definition.polarity ?? 'card'} · ${offer.duration.amount} ${offer.duration.unit}${offer.duration.amount === 1 ? '' : 's'}</small>` : definition.timing ? `<small class="card-lifetime">${definition.polarity ?? 'card'} · ${definition.timing === 'putt' ? 'next putt' : definition.timing}</small>` : '';
+    return `<article class="merchant-card merchant-${definition.category} ${offer.sold ? 'sold' : ''}"><div class="merchant-card-top"><span>${definition.icon}</span><small>${definition.category}</small><b>$${offer.price}</b></div><h3>${escapeHtml(definition.id)}</h3><p>${escapeHtml(definition.description)}</p>${lifetime}<footer>${offer.sold ? 'claimed' : `<button data-shop-buy="${offer.id}" ${disabled ? `disabled title="${disabledReason}"` : ''}>buy</button>`}</footer></article>`;
   }).join('');
   const replacement = buyer && buyer.caddies.length >= 3 ? `<label class="merchant-replace">replace Caddy <select id="replace-caddy">${buyer.caddies.map((caddy) => `<option value="${escapeHtml(caddy.id)}">${escapeHtml(caddy.id)} ×${caddy.stacks}</option>`).join('')}</select></label>` : '';
   const reroll = !shop.rerollResolved
