@@ -48,6 +48,22 @@ const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): 
 };
 const shifted = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
 const hashFor = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
+const lineBetween = (from: Point, to: Point) => {
+  const points: Point[] = [];
+  let { x, y } = from;
+  const dx = Math.abs(to.x - x);
+  const dy = -Math.abs(to.y - y);
+  const stepX = x < to.x ? 1 : -1;
+  const stepY = y < to.y ? 1 : -1;
+  let error = dx + dy;
+  while (true) {
+    points.push({ x, y });
+    if (x === to.x && y === to.y) return points;
+    const twiceError = error * 2;
+    if (twiceError >= dy) { error += dy; x += stepX; }
+    if (twiceError <= dx) { error += dx; y += stepY; }
+  }
+};
 const transformedBounds = (course: Course, anchor: Point, rotation: Rotation) => {
   const corners = [
     { x: 0, y: 0 },
@@ -151,13 +167,28 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
   const added: Point[] = [];
+  const addTile = (point: Point) => { if (!added.some((candidate) => candidate.x === point.x && candidate.y === point.y)) added.push(point); };
   for (let y = 0; y < next.height; y += 1) for (let x = 0; x < next.width; x += 1) {
     const source = next.tiles[y * next.width + x]!;
     if (!isPlayable(source)) continue;
     const destination = transform({ x, y });
     tiles[destination.y * width + destination.x] = copyTile(source, next.theme, rotation);
-    added.push(destination);
+    addTile(destination);
   }
+  const previousApproach = previousEmbedded.route.at(-2) ?? previousEmbedded.tee;
+  const nextExit = transform(next.route[1] ?? next.cup);
+  const connector = [
+    ...lineBetween(anchor, previousApproach),
+    ...lineBetween(anchor, nextExit),
+  ].filter((point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS);
+  connector.forEach((point) => {
+    const index = point.y * width + point.x;
+    if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height || (point.x === anchor.x && point.y === anchor.y)) return;
+    if (!isPlayable(tiles[index])) {
+      tiles[index] = { surface: 'fairway', height: 0, theme: previous.theme };
+      addTile(point);
+    }
+  });
   const wasExcavated = (point: Point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS;
   const keepHazard = (hazard: CourseHazard) => !wasExcavated(hazard.point);
   const keepFeature = (feature: CourseFeature) => feature.kind === 'sinkhole'
