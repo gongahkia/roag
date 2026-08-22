@@ -56,6 +56,12 @@ describe('course generation', () => {
     expect(first.excavated.every((point) => Math.max(Math.abs(point.x - first.anchor.x), Math.abs(point.y - first.anchor.y)) <= CAMPAIGN_EXCAVATION_RADIUS)).toBe(true);
     expect(first.course.tiles[first.previous.tee.y * first.course.width + first.previous.tee.x]).toMatchObject({ surface: 'tee', theme: 'balanced' });
     expect(first.added.length).toBeGreaterThan(0);
+    expect(first.bridge).toEqual(second.bridge);
+    expect(first.bridge.some((point) => Math.max(Math.abs(point.x - first.anchor.x), Math.abs(point.y - first.anchor.y)) === CAMPAIGN_EXCAVATION_RADIUS)).toBe(true);
+    expect(first.bridge.every((point) => {
+      const surface = first.course.tiles[point.y * first.course.width + point.x]?.surface;
+      return surface !== 'void' && surface !== 'wall';
+    })).toBe(true);
   });
 
   it('generates the requested dimensions into every voting package', () => {

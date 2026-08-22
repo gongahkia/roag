@@ -15,6 +15,8 @@ export interface CourseExpansion {
   added: Point[];
   /** Prior-course tiles that are excavated around the previous cup. */
   excavated: Point[];
+  /** A narrow, face-connected fairway neck joining the old approach to the new route. */
+  bridge: Point[];
   /** The shared old-cup/new-tee tile in the stitched coordinate system. */
   anchor: Point;
   /** Converts balls and UI focus from the prior course into the stitched course. */
@@ -23,6 +25,7 @@ export interface CourseExpansion {
 }
 
 const isPlayable = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
+const isWalkable = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void' && tile.surface !== 'wall');
 const distanceFrom = (from: Point, to: Point) => Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
 const rotateDirection = ({ x, y }: Point, rotation: Rotation): Point => rotation === 0 ? { x, y } : rotation === 1 ? { x: -y, y: x } : rotation === 2 ? { x: -x, y: -y } : { x: y, y: -x };
 const rotatedCorners = (corners: Tile['corners'], rotation: Rotation): Tile['corners'] => {
@@ -48,21 +51,17 @@ const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): 
 };
 const shifted = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
 const hashFor = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
-const lineBetween = (from: Point, to: Point) => {
+const fairwayPath = (from: Point, to: Point) => {
   const points: Point[] = [];
   let { x, y } = from;
-  const dx = Math.abs(to.x - x);
-  const dy = -Math.abs(to.y - y);
-  const stepX = x < to.x ? 1 : -1;
-  const stepY = y < to.y ? 1 : -1;
-  let error = dx + dy;
-  while (true) {
-    points.push({ x, y });
-    if (x === to.x && y === to.y) return points;
-    const twiceError = error * 2;
-    if (twiceError >= dy) { error += dy; x += stepX; }
-    if (twiceError <= dx) { error += dx; y += stepY; }
-  }
+  points.push({ x, y });
+  while (x !== to.x) { x += x < to.x ? 1 : -1; points.push({ x, y }); }
+  while (y !== to.y) { y += y < to.y ? 1 : -1; points.push({ x, y }); }
+  return points;
+};
+const routePointBeyond = (route: readonly Point[], anchor: Point, reverse = false) => {
+  const points = reverse ? [...route].reverse() : route;
+  return points.find((point) => distanceFrom(point, anchor) > CAMPAIGN_EXCAVATION_RADIUS) ?? points.at(-1)!;
 };
 const transformedBounds = (course: Course, anchor: Point, rotation: Rotation) => {
   const corners = [
@@ -167,7 +166,13 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
   const added: Point[] = [];
-  const addTile = (point: Point) => { if (!added.some((candidate) => candidate.x === point.x && candidate.y === point.y)) added.push(point); };
+  const addedKeys = new Set<string>();
+  const addTile = (point: Point) => {
+    const key = `${point.x}:${point.y}`;
+    if (addedKeys.has(key)) return;
+    addedKeys.add(key);
+    added.push(point);
+  };
   for (let y = 0; y < next.height; y += 1) for (let x = 0; x < next.width; x += 1) {
     const source = next.tiles[y * next.width + x]!;
     if (!isPlayable(source)) continue;
@@ -175,17 +180,15 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     tiles[destination.y * width + destination.x] = copyTile(source, next.theme, rotation);
     addTile(destination);
   }
-  const previousApproach = previousEmbedded.route.at(-2) ?? previousEmbedded.tee;
-  const nextExit = transform(next.route[1] ?? next.cup);
-  const connector = [
-    ...lineBetween(anchor, previousApproach),
-    ...lineBetween(anchor, nextExit),
-  ].filter((point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS);
-  connector.forEach((point) => {
+  const previousApproach = routePointBeyond(previousEmbedded.route, anchor, true);
+  const nextExit = routePointBeyond(next.route.map(transform), anchor);
+  const bridge = [...fairwayPath(anchor, previousApproach), ...fairwayPath(anchor, nextExit)].filter((point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS);
+  bridge.forEach((point) => {
     const index = point.y * width + point.x;
     if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height || (point.x === anchor.x && point.y === anchor.y)) return;
-    if (!isPlayable(tiles[index])) {
-      tiles[index] = { surface: 'fairway', height: 0, theme: previous.theme };
+    if (!isWalkable(tiles[index])) {
+      const terrain = isPlayable(tiles[index]) ? tiles[index]! : previousEmbedded.tiles[index]!;
+      tiles[index] = { ...copyTile(terrain, terrain.theme ?? previous.theme), surface: 'fairway' };
       addTile(point);
     }
   });
@@ -223,5 +226,5 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
       ...next.itemPads.map((pad) => ({ ...pad, id: `${prefix}${pad.id}`, point: transform(pad.point) })),
     ],
   };
-  return { previous: previousEmbedded, course, added, excavated, anchor, offset, rotation };
+  return { previous: previousEmbedded, course, added, excavated, bridge, anchor, offset, rotation };
 };
