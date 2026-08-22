@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocket, WebSocketServer } from 'ws';
+import { COURSE_TRANSITION_DURATION_MS } from '../src/core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../src/core/game';
 import { CONTENT_BY_ID } from '../src/core/catalog';
 import { normalizeGameState } from '../src/core/game-state';
@@ -170,7 +171,7 @@ const scheduleAutomation = (room: StoredRoom) => {
         current.transitionTimeout = undefined;
         const latest = rooms.get(room.code);
         if (latest?.game?.status === 'transitioning' && !latest.game.paused) updateGame(latest, applyCommand(latest.game, { type: 'complete-transition' }));
-      }, 1_650);
+      }, COURSE_TRANSITION_DURATION_MS);
     }
     return;
   }

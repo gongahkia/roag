@@ -158,5 +158,6 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('last place');
     expect(markup).toContain('data-restart-run');
     expect(markup).toContain('app-shell finished');
+    expect(markup).toContain('complete course route remains visible');
   });
 });
