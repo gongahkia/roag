@@ -1,4 +1,5 @@
 import { defaultHoleRules, defaultTerrainSettings, generateCourse, generateVotingOptions } from './generator';
+import { expandCourseAtCup, type CourseExpansion } from './campaign';
 import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
@@ -129,14 +130,39 @@ const clonePlan = (plan: PlannedHole): PlannedHole => ({ ...plan, recipe: { terr
 
 export const courseForPlan = (plan: PlannedHole) => generateCourse(plan.courseSeed, plan.recipe.terrain, plan.recipe.rules.hazardPhaseCount);
 
+const applyReality = (course: Course, reality: GameState['queuedReality']) => {
+  if (reality === 'void is fairway') course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });
+  if (reality === 'fairway is ice') course.tiles.forEach((tile) => { if (tile.surface === 'fairway') tile.surface = 'ice'; });
+};
+
 const activatePlan = (state: GameState, plan: PlannedHole) => {
   state.course = cloneCourse(courseForPlan(plan));
-  if (state.queuedReality) {
-    state.activeReality = state.queuedReality;
-    state.queuedReality = undefined;
-    if (state.activeReality === 'void is fairway') state.course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });
-    if (state.activeReality === 'fairway is ice') state.course.tiles.forEach((tile) => { if (tile.surface === 'fairway') tile.surface = 'ice'; });
-  } else state.activeReality = undefined;
+  state.activeReality = state.queuedReality;
+  applyReality(state.course, state.queuedReality);
+  state.queuedReality = undefined;
+  state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
+  state.hazardElapsedMs = 0;
+  state.coursePhase = 0;
+  state.holeFinishSequence = 0;
+  state.gadgets = [];
+  state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
+  state.turn = { playerIndex: 0, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
+};
+
+/** Uses the same deterministic stitch for the client preview and the authoritative transition. */
+export const expansionForTransition = (state: Pick<GameState, 'course' | 'transition' | 'queuedReality'>): CourseExpansion | undefined => {
+  if (!state.transition) return undefined;
+  const next = cloneCourse(courseForPlan(state.transition.next));
+  applyReality(next, state.queuedReality);
+  return expandCourseAtCup(state.course, next);
+};
+
+const activateExpansion = (state: GameState, plan: PlannedHole) => {
+  const expansion = expansionForTransition(state);
+  if (!expansion) return;
+  state.course = expansion.course;
+  state.activeReality = state.queuedReality;
+  state.queuedReality = undefined;
   state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
   state.hazardElapsedMs = 0;
   state.coursePhase = 0;
@@ -239,7 +265,7 @@ export const castVote = (state: GameState, playerId: string, optionId: string) =
 
 export const completeTransition = (state: GameState) => {
   if (state.status !== 'transitioning' || !state.transition) return;
-  activatePlan(state, state.transition.next);
+  activateExpansion(state, state.transition.next);
   state.transition = undefined;
   state.status = 'playing';
   addMessage(state, `hole ${state.hole} is ready — tee off`);

@@ -28,10 +28,24 @@ const faceColors = {
 
 export interface Renderer {
   draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
+  drawConstruction(frame: CourseConstructionFrame): void;
+  drawOverview(course: Course): void;
   drawCampaign(frame: CampaignFrame): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
+}
+
+export interface CourseConstructionFrame {
+  previous: Course;
+  course: Course;
+  players: Player[];
+  hazardElapsedMs: number;
+  phaseCount: number;
+  progress: number;
+  excavated: readonly WorldPoint[];
+  added: readonly WorldPoint[];
+  focus?: Ball;
 }
 
 /** One deterministic course displayed on the persistent campaign atlas. */
@@ -187,6 +201,16 @@ export const cameraFor = (course: Course, width: number, height: number, focus?:
       y: clampOffset(height * .52 - point.y, height - paddingY - bounds.maxY, paddingY - bounds.minY, centered.y),
     },
   };
+};
+
+const overviewCameraFor = (course: Course, width: number, height: number): CameraLayout => {
+  const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
+  const unitTiles = visibleTilesFor(course, unitMetrics);
+  const bounds = boundsFor(unitTiles, unitMetrics);
+  const tileWidth = Math.max(2, Math.min(32, (width - 30) / bounds.width, (height - 42) / bounds.height));
+  const metrics = { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
+  const tiles = visibleTilesFor(course, metrics);
+  return { metrics, offset: centeredOffsetFor(tiles, metrics, width, height), followsFocus: false };
 };
 
 const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
@@ -661,6 +685,9 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 };
 
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
+type TileAnimation = { kind: 'build' | 'remove'; tiles: ReadonlySet<string>; progress: number };
+interface PaintOptions { overview?: boolean; tileAnimation?: TileAnimation; }
+const tileKey = (tile: Pick<VisibleTile, 'x' | 'y'>) => `${tile.x}:${tile.y}`;
 
 const drawCampaignIsland = (context: CanvasRenderingContext2D, island: CampaignIsland, slot: CampaignSlot, zoom: number, center: Point) => {
   const metrics: ProjectionMetrics = { tileWidth: 20, tileHeight: 10, elevation: 6.8 };

@@ -140,7 +140,7 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
   const previousEmbedded = embeddedPrevious(previous, width, height, offset);
   const anchor = shifted(rawAnchor, offset);
   const excavated: Point[] = [];
-  const tiles = previousEmbedded.tiles.map((tile) => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined }));
+  const tiles: Tile[] = previousEmbedded.tiles.map((tile): Tile => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined }));
   for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
     const point = { x, y };
     if (distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS && isPlayable(tiles[y * width + x])) {
