@@ -1,8 +1,8 @@
 import { presentFeedback } from '../feedback';
 import { chooseBotVote } from '../core/bots';
-import { COURSE_TRANSITION_DURATION_MS } from '../core/campaign';
+import { COURSE_TRANSITION_DURATION_MS, type CourseExpansion } from '../core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
-import { courseForPlan } from '../core/game-state';
+import { expansionForTransition } from '../core/game-state';
 import { canPlaceGadget } from '../core/powerups';
 import { chooseBotShopOffer } from '../core/shop';
 import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
@@ -11,7 +11,7 @@ import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, type HomeMode, type HomePanel } from './home-markup';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
-import { createRenderer, type CampaignIsland } from './render';
+import { createRenderer } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
@@ -27,7 +27,6 @@ const MAX_POWER = 8;
 const POWER_STEP = .5;
 export const powerAfterWheel = (power: number, deltaY: number) => deltaY === 0 ? power : Math.max(MIN_POWER, Math.min(MAX_POWER, Number((power + (deltaY < 0 ? POWER_STEP : -POWER_STEP)).toFixed(1))));
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
-const easeOutCubic = (value: number) => 1 - (1 - clamped(value)) ** 3;
 
 const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
 const readNumber = (app: HTMLElement, id: string, fallback: number) => {
@@ -71,10 +70,9 @@ export const startApp = (app: HTMLElement) => {
   let shotAnimation: ShotAnimation | undefined;
   let transitionFrame: number | undefined;
   let transitionProgress = 0;
-  let transitionCourse: GameState['course'] | undefined;
+  let transitionExpansion: CourseExpansion | undefined;
   let campaignOverviewFrame: number | undefined;
   let campaignOverviewProgress = 0;
-  const plannedCourseCache = new Map<string, GameState['course']>();
   let liveEmotes: LiveEmote[] = [];
   let seenEmoteIds = new Set<string>();
   let screen: Screen = captureMode ? 'game' : 'home';
@@ -159,53 +157,30 @@ export const startApp = (app: HTMLElement) => {
     oscillator.stop(audioContext.currentTime + duration);
   };
 
-  const plannedCourseFor = (plan: GameState['coursePlan'][number]) => {
-    const key = `${plan.courseSeed}:${plan.recipe.rules.hazardPhaseCount}`;
-    const cached = plannedCourseCache.get(key);
-    if (cached) return cached;
-    const course = courseForPlan(plan);
-    plannedCourseCache.set(key, course);
-    return course;
-  };
-  const campaignIslands = (incomingBuildProgress?: number): CampaignIsland[] => {
-    const count = state.status === 'transitioning' ? state.hole : state.coursePlan.length;
-    const currentIndex = state.status === 'transitioning' ? state.hole - 2 : state.hole - 1;
-    const incomingIndex = state.status === 'transitioning' ? state.hole - 1 : -1;
-    return state.coursePlan.slice(0, count).map((plan, index) => ({
-      course: index === currentIndex ? state.course : index === incomingIndex ? transitionCourse ?? plannedCourseFor(plan) : plannedCourseFor(plan),
-      hole: index + 1,
-      label: plan.label,
-      buildProgress: index === incomingIndex ? incomingBuildProgress : undefined,
-    }));
-  };
-  const drawCampaignTransition = () => {
-    const incomingIndex = state.hole - 1;
-    const progress = transitionProgress;
-    const zoom = progress < .36
-      ? 3.2 - 2.2 * easeOutCubic(progress / .36)
-      : progress > .76 ? 1 + 2.2 * easeOutCubic((progress - .76) / .24) : 1;
-    const focusIndex = progress < .68 ? Math.max(0, incomingIndex - 1) : incomingIndex;
-    renderer?.drawCampaign({
-      islands: campaignIslands(clamped((progress - .2) / .48)),
-      focusIndex,
-      zoom,
-      bridgeProgress: clamped((progress - .16) / .42),
-      title: progress < .7 ? `campaign route · hole ${state.hole - 1} joins hole ${state.hole}` : `hole ${state.hole} · teeing in`,
+  const playersInExpansion = (expansion: CourseExpansion) => state.players.map((player) => ({
+    ...player,
+    ball: { ...player.ball, x: player.ball.x + expansion.offset.x, y: player.ball.y + expansion.offset.y },
+  }));
+  const drawCourseTransition = () => {
+    const expansion = transitionExpansion;
+    if (!expansion || !state.transition) { renderer?.draw(state.course, state.players, state.hazardElapsedMs, undefined, [], false, state.holeRules.hazardPhaseCount, undefined, []); return; }
+    const players = playersInExpansion(expansion);
+    renderer?.drawConstruction({
+      previous: expansion.previous,
+      course: expansion.course,
+      players,
+      hazardElapsedMs: state.hazardElapsedMs,
+      phaseCount: state.transition.next.recipe.rules.hazardPhaseCount,
+      progress: transitionProgress,
+      excavated: expansion.excavated,
+      added: expansion.added,
+      focus: players[0]?.ball,
     });
   };
-  const drawCampaignOverview = () => {
-    const finalIndex = Math.max(0, state.coursePlan.length - 1);
-    renderer?.drawCampaign({
-      islands: campaignIslands(),
-      focusIndex: finalIndex,
-      zoom: 3.2 - 2.2 * easeOutCubic(campaignOverviewProgress),
-      bridgeProgress: 1,
-      title: campaignOverviewProgress > .6 ? 'complete campaign · every hole still standing' : undefined,
-    });
-  };
+  const drawCampaignOverview = () => renderer?.drawOverview(state.course, campaignOverviewProgress, state.players[0]?.ball);
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
-    if (state.status === 'transitioning' && state.transition) { drawCampaignTransition(); return; }
+    if (state.status === 'transitioning' && state.transition) { drawCourseTransition(); return; }
     if (state.status === 'finished') { drawCampaignOverview(); return; }
     const effectiveAim = drawAim && current().forcedChip ? { ...drawAim, kind: 'chip' as const } : drawAim;
     renderer?.draw(state.course, players, hazardElapsedForDraw(), placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball);
@@ -254,12 +229,12 @@ export const startApp = (app: HTMLElement) => {
     if (placement && (state.status !== 'playing' || !state.players.find((player) => player.id === placement!.ownerId && (player.inventory === placement!.kind || player.spareInventory === placement!.kind)))) placement = undefined;
     if (enteringTransition) {
       transitionProgress = 0;
-      transitionCourse = state.transition ? courseForPlan(state.transition.next) : undefined;
+      transitionExpansion = expansionForTransition(state);
     }
     if (state.status !== 'transitioning' && transitionFrame !== undefined) {
       window.cancelAnimationFrame(transitionFrame);
       transitionFrame = undefined;
-      transitionCourse = undefined;
+      transitionExpansion = undefined;
     }
     if (enteringFinished) campaignOverviewProgress = 0;
     if (state.status !== 'finished' && campaignOverviewFrame !== undefined) {

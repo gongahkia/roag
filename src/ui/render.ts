@@ -29,7 +29,7 @@ const faceColors = {
 export interface Renderer {
   draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
   drawConstruction(frame: CourseConstructionFrame): void;
-  drawOverview(course: Course): void;
+  drawOverview(course: Course, progress: number, focus?: Ball): void;
   drawCampaign(frame: CampaignFrame): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
@@ -203,14 +203,29 @@ export const cameraFor = (course: Course, width: number, height: number, focus?:
   };
 };
 
-const overviewCameraFor = (course: Course, width: number, height: number): CameraLayout => {
+const overviewCameraFor = (course: Course, width: number, height: number, focus: Ball | undefined, progress: number): CameraLayout => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
   const unitTiles = visibleTilesFor(course, unitMetrics);
   const bounds = boundsFor(unitTiles, unitMetrics);
   const tileWidth = Math.max(2, Math.min(32, (width - 30) / bounds.width, (height - 42) / bounds.height));
-  const metrics = { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
-  const tiles = visibleTilesFor(course, metrics);
-  return { metrics, offset: centeredOffsetFor(tiles, metrics, width, height), followsFocus: false };
+  const overviewMetrics = { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
+  const overviewTiles = visibleTilesFor(course, overviewMetrics);
+  const overviewOffset = centeredOffsetFor(overviewTiles, overviewMetrics, width, height);
+  const close = cameraFor(course, width, height, focus);
+  const amount = clamped(progress);
+  const metrics = {
+    tileWidth: close.metrics.tileWidth + (overviewMetrics.tileWidth - close.metrics.tileWidth) * amount,
+    tileHeight: close.metrics.tileHeight + (overviewMetrics.tileHeight - close.metrics.tileHeight) * amount,
+    elevation: close.metrics.elevation + (overviewMetrics.elevation - close.metrics.elevation) * amount,
+  };
+  return {
+    metrics,
+    offset: {
+      x: close.offset.x + (overviewOffset.x - close.offset.x) * amount,
+      y: close.offset.y + (overviewOffset.y - close.offset.y) * amount,
+    },
+    followsFocus: false,
+  };
 };
 
 const withOffset = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
@@ -686,7 +701,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
 type TileAnimation = { kind: 'build' | 'remove'; tiles: ReadonlySet<string>; progress: number };
-interface PaintOptions { overview?: boolean; tileAnimation?: TileAnimation; }
+interface PaintOptions { overviewProgress?: number; overviewFocus?: Ball; tileAnimation?: TileAnimation; }
 const tileKey = (tile: Pick<VisibleTile, 'x' | 'y'>) => `${tile.x}:${tile.y}`;
 
 const drawCampaignIsland = (context: CanvasRenderingContext2D, island: CampaignIsland, slot: CampaignSlot, zoom: number, center: Point) => {
@@ -846,9 +861,10 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#edf7e8');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const overview = options.overview === true;
-    const layout = overview
-      ? { ...overviewCameraFor(course, width, height), tiles: visibleTilesFor(course, overviewCameraFor(course, width, height).metrics) }
+    const overview = options.overviewProgress !== undefined;
+    const overviewLayout = overview ? overviewCameraFor(course, width, height, options.overviewFocus, options.overviewProgress!) : undefined;
+    const layout = overviewLayout
+      ? { ...overviewLayout, tiles: visibleTilesFor(course, overviewLayout.metrics) }
       : layoutFor(course, focus, true);
     const { metrics, offset, followsFocus, tiles: allTiles } = layout;
     const tiles = allTiles.filter((tile) => visibleInViewport(tile, offset, width, height, metrics));
@@ -966,10 +982,11 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       trackedCamera = undefined;
       paintConstruction(frame);
     },
-    drawOverview(course) {
-      latest = { kind: 'course', course, players: [], hazardElapsedMs: 0, emotes: [], showItems: false, phaseCount: 8, gadgets: [], options: { overview: true } };
+    drawOverview(course, progress, focus) {
+      const options = { overviewProgress: progress, overviewFocus: focus };
+      latest = { kind: 'course', course, players: [], hazardElapsedMs: 0, emotes: [], showItems: false, phaseCount: 8, gadgets: [], options };
       trackedCamera = undefined;
-      paint(course, [], 0, undefined, [], false, 8, undefined, [], undefined, undefined, { overview: true });
+      paint(course, [], 0, undefined, [], false, 8, undefined, [], undefined, undefined, options);
     },
     drawCampaign(frame) {
       latest = { kind: 'campaign', frame };
