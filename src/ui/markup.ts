@@ -32,7 +32,7 @@ const ruleSummary = (rules: HoleRules) => [
   `${rules.timerSeconds}s`, `cap ${rules.strokeCap}`, rules.collisions ? 'collisions' : 'no collisions',
   rules.powerUps ? `${Math.round(rules.recoveryBias * 100)}% recovery` : 'items off',
   `${Math.round(rules.launchMultiplier * 100)}% launch`, `${Math.round(rules.rollingResistanceMultiplier * 100)}% roll`,
-  `${rules.hazardPhaseCount} hazard phases`, `${Math.round(rules.scoreMultiplier * 100)}% score`,
+  `${rules.hazardPhaseCount}-step hazard pattern`, `${Math.round(rules.scoreMultiplier * 100)}% score`,
 ].join(' · ');
 const themeIcon: Record<VotingOption['recipe']['terrain']['theme'], string> = { balanced: '⛳', speedway: '⚡', 'hazard-run': '⚠', 'ice-rink': '❄', quarry: '⛏', drift: '↻', bloom: '✽', pulse: '⌁' };
 const themeDescriptor: Record<VotingOption['recipe']['terrain']['theme'], string> = { balanced: 'steady green', speedway: 'speed lanes', 'hazard-run': 'moving traps', 'ice-rink': 'long slides', quarry: 'hard climbs', drift: 'paired sinkholes', bloom: 'thorn knockback', pulse: 'launch fields' };
@@ -44,8 +44,8 @@ export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 
   if (state.status === 'shopping') return `clubhouse merchant · ${state.shop?.secondsLeft.toFixed(0) ?? 0}s remaining`;
   if (state.status === 'transitioning') return `rebuilding hole ${state.hole}/${state.config.holeCount}`;
   if (state.status === 'finished') return 'campaign complete — final standings are ready';
-  if (shotInFlight) return `${escapeHtml(current(state).name)}'s ball is in flight · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount} locked`;
-  return `${escapeHtml(current(state).name)} is taking a turn · hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}`;
+  if (shotInFlight) return `${escapeHtml(current(state).name)}'s ball is in flight · moving hazards are live`;
+  return `${escapeHtml(current(state).name)} is taking a turn · moving hazards are live`;
 };
 
 export const renderCallouts = (callouts: readonly Callout[]) => callouts.map((callout) => `<p class="callout ${callout.tone}">${escapeHtml(callout.message)}</p>`).join('');
@@ -80,7 +80,7 @@ export const renderControlsMarkup = (view: ViewModel) => {
     return `<button class="power-cell ${aim.power >= power ? 'active' : ''}" data-power="${power}" aria-label="set power ${power}" aria-pressed="${aim.power === power}" ${disabled ? 'disabled' : ''}></button>`;
   }).join('');
   return `
-    <div class="turn"><span style="--player:${player.color}"></span><strong>${escapeHtml(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazard ${state.coursePhase + 1}/${state.holeRules.hazardPhaseCount}</small></div>
+    <div class="turn"><span style="--player:${player.color}"></span><strong>${escapeHtml(player.name)}</strong><b>${state.turn.secondsLeft.toFixed(0)}s</b><small class="phase">hazards live</small></div>
     <div class="emote-buttons" aria-label="emotes">${EMOTES.map((emote) => `<button data-emote="${emote.id}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div>
     <div class="shot-mode" role="group" aria-label="shot type"><button data-shot-kind="putt" class="${(aim.kind ?? 'putt') === 'putt' ? 'selected' : ''}" aria-pressed="${(aim.kind ?? 'putt') === 'putt'}" ${disabled ? 'disabled' : ''}>◌ putt<small>ground roll</small></button><button data-shot-kind="chip" class="${aim.kind === 'chip' ? 'selected' : ''}" aria-pressed="${aim.kind === 'chip'}" ${disabled ? 'disabled' : ''}>⌒ chip<small>clear walls · C</small></button></div>
     <div class="power-control" role="group" aria-label="${aim.kind === 'chip' ? 'chip' : 'putt'} power"><span>${aim.kind === 'chip' ? 'chip power' : 'putt power'} <b>${aim.power.toFixed(1)}</b></span><div class="power-cells" title="scroll on the course to change power">${powerCells}</div><small>scroll course · click a cell</small></div>
@@ -220,7 +220,7 @@ const renderInspector = (view: ViewModel) => {
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : feature.kind === 'pulse' ? '⌁ pulse launch' : '◯ air ring boost').join(' · ') || 'none';
   const player = current(state);
   const caddies = player.caddies.map((caddy) => `${caddy.id}${caddy.stacks > 1 ? ` ×${caddy.stacks}` : ''}`).join(', ') || 'none';
-  return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>biome</dt><dd>${themeIcon[state.course.theme]} ${themeDescriptor[state.course.theme]}</dd><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>your cash</dt><dd>$${player.cash}</dd><dt>your Caddies</dt><dd>${escapeHtml(caddies)}</dd><dt>reality</dt><dd>${state.activeReality ?? state.queuedReality ?? 'stable'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>biome effects</dt><dd>${features}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>amber arm: sweeper · red/cyan: timed gate · cyan gust: airborne updraft · brown bar: chip-height blocker<br>↻ paired sinkhole · ✽ thorn knockback · ⌁ pulse launch · ◯ air-ring boost<br>gold $: cash pad · cyan +: recovery pad · violet !: chaos pad · ↑/⌁/✹/≋/⌃: player gadgets</p>`;
+  return `${renderLedger(view.ledger)}<h3>active package</h3><dl><dt>biome</dt><dd>${themeIcon[state.course.theme]} ${themeDescriptor[state.course.theme]}</dd><dt>rules</dt><dd>${escapeHtml(ruleSummary(state.holeRules))}</dd><dt>your cash</dt><dd>$${player.cash}</dd><dt>your Caddies</dt><dd>${escapeHtml(caddies)}</dd><dt>reality</dt><dd>${state.activeReality ?? state.queuedReality ?? 'stable'}</dd><dt>hazards</dt><dd>${state.course.hazards.map((hazard) => hazard.kind).join(' + ') || 'none'}</dd><dt>biome effects</dt><dd>${features}</dd><dt>portal pairs</dt><dd>${state.course.portals?.filter((pair) => pair.entrance && pair.exit).length ?? 0}</dd><dt>item pads</dt><dd>${state.course.itemPads.length}</dd></dl><h3>course legend</h3><p class="legend">fairway grass · rough · sand bunker · water ice<br>blue: slow mover · amber: standard mover · red: fast mover<br>colored arm: sweeper · colored gate: timed gate · cyan gust: airborne updraft · brown bar: chip-height blocker<br>↻ paired sinkhole · ✽ thorn knockback · ⌁ pulse launch · ◯ air-ring boost<br>gold $: cash pad · cyan +: recovery pad · violet !: chaos pad · ↑/⌁/✹/≋/⌃: player gadgets</p>`;
 };
 
 const renderDrawer = (view: ViewModel) => {

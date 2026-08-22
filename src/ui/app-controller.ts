@@ -56,6 +56,7 @@ export const startApp = (app: HTMLElement) => {
   let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
   let renderer: ReturnType<typeof createRenderer> | undefined;
   let lastTick = performance.now();
+  let lastOnlineHazardSyncAt = performance.now();
   let botTimeout: number | undefined;
   let preferences = loadPreferences();
   let overlay: Overlay;
@@ -88,6 +89,10 @@ export const startApp = (app: HTMLElement) => {
   let audioContext: AudioContext | undefined;
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
+  const hazardElapsedForDraw = () => {
+    if (!online() || state.status !== 'playing' || state.paused) return state.hazardElapsedMs;
+    return state.hazardElapsedMs + Math.max(0, performance.now() - lastOnlineHazardSyncAt);
+  };
   const current = () => state.players[state.turn.playerIndex]!;
   const canControlCurrent = () => !online() || current().id === onlinePlayerId;
   const view = (): ViewModel => ({
@@ -151,12 +156,12 @@ export const startApp = (app: HTMLElement) => {
   const drawBoard = (animationBalls?: readonly Ball[], drawAim: ShotCommand | null = aim) => {
     const players = animationBalls ? state.players.map((player, index) => ({ ...player, ball: animationBalls[index] ?? player.ball })) : state.players;
     if (state.status === 'transitioning' && state.transition) {
-      if (transitionProgress < .5) renderer?.draw(state.course, [], state.coursePhase, undefined, [], false, state.holeRules.hazardPhaseCount, 1 - transitionProgress * 2, []);
+      if (transitionProgress < .5) renderer?.draw(state.course, [], state.hazardElapsedMs, undefined, [], false, state.holeRules.hazardPhaseCount, 1 - transitionProgress * 2, []);
       else renderer?.draw(transitionCourse ?? courseForPlan(state.transition.next), [], 0, undefined, [], false, state.transition.next.recipe.rules.hazardPhaseCount, (transitionProgress - .5) * 2, []);
       return;
     }
     const effectiveAim = drawAim && current().forcedChip ? { ...drawAim, kind: 'chip' as const } : drawAim;
-    renderer?.draw(state.course, players, state.coursePhase, placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball);
+    renderer?.draw(state.course, players, hazardElapsedForDraw(), placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball);
   };
   const startTransition = (completeLocally: boolean) => {
     if (state.status !== 'transitioning') return;
@@ -202,7 +207,10 @@ export const startApp = (app: HTMLElement) => {
       if (state.status === 'transitioning') startTransition(true);
     } else if (enteringTransition) startTransition(false);
   };
-  const receiveGame = (next: GameState) => setState(next);
+  const receiveGame = (next: GameState) => {
+    lastOnlineHazardSyncAt = performance.now();
+    setState(next);
+  };
   const autoResolveCaptureVote = (source: GameState) => {
     let resolved = source;
     while (resolved.status === 'voting') {
@@ -382,14 +390,17 @@ export const startApp = (app: HTMLElement) => {
     const status = app.querySelector<HTMLElement>('#status');
     if (status) status.textContent = renderStatus(view());
     const animate = (now: number) => {
-      if (!shotAnimation || state !== inFlight) return;
+      if (!shotAnimation || shotAnimation.playerId !== player.id) return;
       const progress = Math.max(0, Math.min(1, (now - startedAt) / duration));
       const frame = Math.max(0, Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1))));
       shotAnimation.frame = frame;
       drawBoard(frames[frame]!, null);
       if (progress < 1) { requestAnimationFrame(animate); return; }
       shotAnimation = undefined;
-      setState(applyCommand(source, { type: 'shoot', shot }));
+      const resolved = applyCommand(source, { type: 'shoot', shot });
+      resolved.hazardElapsedMs = state.hazardElapsedMs;
+      resolved.coursePhase = state.coursePhase;
+      setState(resolved);
     };
     requestAnimationFrame(animate);
   };
@@ -667,7 +678,7 @@ export const startApp = (app: HTMLElement) => {
     const previousEmoteCount = liveEmotes.length;
     liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
     if (liveEmotes.length !== previousEmoteCount && !shotAnimation) drawBoard();
-    if (!online() && screen === 'game' && state.status === 'playing' && !state.paused && !shotAnimation) {
+    if (!online() && screen === 'game' && state.status === 'playing' && !state.paused) {
       const previousStatus = state.status;
       const previousPlayerIndex = state.turn.playerIndex;
       const next = tickTurn(state, elapsed);
@@ -681,6 +692,7 @@ export const startApp = (app: HTMLElement) => {
         if (shouldScheduleBotAfterTick({ status: previousStatus, turn: { playerIndex: previousPlayerIndex } }, state)) scheduleBot();
       }
     }
+    if (online() && screen === 'game' && state.status === 'playing' && !state.paused) drawBoard();
     pollController();
     requestAnimationFrame(loop);
   };

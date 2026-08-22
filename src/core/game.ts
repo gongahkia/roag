@@ -65,7 +65,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
 export const botMove = (state: GameState): BotDecision | undefined => {
   const player = activePlayer(state);
   if (player.kind !== 'bot' || state.status !== 'playing' || state.paused || state.turn.shotInFlight) return undefined;
-  return chooseBotDecision(state.course, player, state.players, state.coursePhase, state.holeRules, state.gadgets ?? []);
+  return chooseBotDecision(state.course, player, state.players, state.hazardElapsedMs, state.holeRules, state.gadgets ?? []);
 };
 
 export class LocalTransport implements GameTransport {

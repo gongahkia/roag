@@ -1,4 +1,5 @@
 import { defaultHoleRules, defaultTerrainSettings, generateCourse, generateVotingOptions } from './generator';
+import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
@@ -80,6 +81,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     option.recipe.terrain.height ??= COURSE_HEIGHT;
   });
   state.gadgets ??= [];
+  state.hazardElapsedMs ??= elapsedMsForPhase(state.coursePhase ?? 0);
   state.holeFinishSequence ??= 0;
   state.cardSequence ??= 0;
   if (state.shop) state.shop.opening ??= false;
@@ -136,6 +138,7 @@ const activatePlan = (state: GameState, plan: PlannedHole) => {
     if (state.activeReality === 'fairway is ice') state.course.tiles.forEach((tile) => { if (tile.surface === 'fairway') tile.surface = 'ice'; });
   } else state.activeReality = undefined;
   state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
+  state.hazardElapsedMs = 0;
   state.coursePhase = 0;
   state.holeFinishSequence = 0;
   state.gadgets = [];
@@ -170,6 +173,7 @@ export const createGameState = (config: GameConfig): GameState => {
     holeRules,
     hole: 1,
     holeFinishSequence: 0,
+    hazardElapsedMs: 0,
     coursePhase: 0,
     vote,
     coursePlan,

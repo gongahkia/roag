@@ -1,4 +1,4 @@
-import { closedGateAt, sweeperDirection } from './hazards';
+import { closedGateAt, elapsedMsForPhase, sweeperDirection } from './hazards';
 import type { Ball, Course, Gadget, Point, PortalEndpoint, PortalPair, RealityCard, ShotCommand, Surface, Tile } from './types';
 
 const STEP = 1 / 60;
@@ -75,6 +75,9 @@ export interface SimulationOptions {
   modifiers?: BallPhysicsModifiers;
   otherBalls?: readonly OtherBallSimulation[];
   collisions?: boolean;
+  /** Continuous obstacle clock at the instant this simulation begins. */
+  hazardElapsedMs?: number;
+  /** @deprecated use hazardElapsedMs; retained for deterministic legacy callers. */
   phase?: number;
   phaseCount?: number;
   collectItems?: boolean;
@@ -472,7 +475,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
   return false;
 };
 
-const stepGroundTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
+const stepGroundTerrain = (course: Course, participant: Participant, hazardElapsedMs: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
@@ -493,7 +496,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, phase: numb
     }
     return;
   }
-  const closedGate = reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, phase, phaseCount);
+  const closedGate = reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, hazardElapsedMs, phaseCount);
   if (tile.surface === 'wall' || closedGate) {
     if (tile.surface === 'wall' && reality === 'wall is cup') {
       participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, complete: true };
@@ -581,7 +584,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
   return false;
 };
 
-const stepAirborne = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
+const stepAirborne = (course: Course, participant: Participant, hazardElapsedMs: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
@@ -601,7 +604,7 @@ const stepAirborne = (course: Course, participant: Participant, phase: number, p
     return;
   }
 
-  const blocked = tile.surface === 'wall' || (reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, phase, phaseCount));
+  const blocked = tile.surface === 'wall' || (reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, hazardElapsedMs, phaseCount));
   if (blocked) {
     const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : GATE_CLEARANCE_HEIGHT);
     if (ball.z - BALL_RADIUS > obstructionHeight) return;
@@ -619,23 +622,23 @@ const stepAirborne = (course: Course, participant: Participant, phase: number, p
   applySurfaceForces(course, ball, tile, participant.modifiers);
 };
 
-const stepTerrain = (course: Course, participant: Participant, phase: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
+const stepTerrain = (course: Course, participant: Participant, hazardElapsedMs: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   if (participant.fallFramesRemaining > 0) {
     continueFall(participant);
     return;
   }
   if (participant.ball.vz > .001 || !isOnGround(course, participant.ball)) {
-    stepAirborne(course, participant, phase, phaseCount, gadgets, triggeredGadgets, reality);
+    stepAirborne(course, participant, hazardElapsedMs, phaseCount, gadgets, triggeredGadgets, reality);
     return;
   }
-  stepGroundTerrain(course, participant, phase, phaseCount, gadgets, triggeredGadgets, reality);
+  stepGroundTerrain(course, participant, hazardElapsedMs, phaseCount, gadgets, triggeredGadgets, reality);
 };
 
-const collideWithSweepers = (course: Course, participants: Participant[], phase: number, phaseCount: number) => {
+const collideWithSweepers = (course: Course, participants: Participant[], hazardElapsedMs: number, phaseCount: number) => {
   for (const hazard of course.hazards) {
     if (hazard.kind !== 'sweeper') continue;
     const center = { x: hazard.point.x + .5, y: hazard.point.y + .5 };
-    const direction = sweeperDirection(hazard, phase, phaseCount);
+    const direction = sweeperDirection(hazard, hazardElapsedMs, phaseCount);
     const perpendicular = { x: -direction.y, y: direction.x };
     for (const participant of participants) {
       if (participant.ball.complete || !isOnGround(course, participant.ball)) continue;
@@ -708,7 +711,7 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
   ];
   const frames: SimulationFrame[] = [];
   const cups = [tileCenter(course.cup), ...(options.reality === 'cups are many' ? course.itemPads.map((pad) => tileCenter(pad.point)) : [])];
-  const phase = options.phase ?? 0;
+  const initialHazardElapsedMs = options.hazardElapsedMs ?? elapsedMsForPhase(options.phase ?? 0);
   const phaseCount = options.phaseCount ?? 8;
   const itemPadIds = new Set<string>();
   const gadgetIds = new Set<string>();
@@ -717,10 +720,11 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
   let settled = false;
 
   for (let frame = 0; frame < maxSeconds / STEP; frame += 1) {
+    const hazardElapsedMs = initialHazardElapsedMs + frame * STEP * 1_000;
     participants.forEach((participant) => {
-      if (!participant.ball.complete && (!isStopped(participant.ball) || canRollDownhill(course, participant.ball, participant.modifiers))) stepTerrain(course, participant, phase, phaseCount, options.gadgets ?? [], gadgetIds, options.reality);
+      if (!participant.ball.complete && (!isStopped(participant.ball) || canRollDownhill(course, participant.ball, participant.modifiers))) stepTerrain(course, participant, hazardElapsedMs, phaseCount, options.gadgets ?? [], gadgetIds, options.reality);
     });
-    collideWithSweepers(course, participants, phase, phaseCount);
+    collideWithSweepers(course, participants, hazardElapsedMs, phaseCount);
     if (options.collisions && participants.length > 1) collide(course, participants, options.reality);
 
     const active = participants[0]!;
@@ -766,7 +770,10 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
 export const simulateShot = (course: Course, initial: Ball, shot: ShotCommand, maxSeconds = MAX_SETTLE_SECONDS, options: SimulationOptions = {}): SimulationResult => simulateMotion(course, applyShot(initial, shot), maxSeconds, options);
 
-export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = MAX_SETTLE_SECONDS, modifiers: BallPhysicsModifiers = {}, phase = 0, phaseCount = 8): SimulationResult => simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: 0 }, maxSeconds, { modifiers, phase, phaseCount });
+export const simulateImpulse = (course: Course, initial: Ball, velocity: Point, maxSeconds = MAX_SETTLE_SECONDS, modifiers: BallPhysicsModifiers = {}, timing: Pick<SimulationOptions, 'hazardElapsedMs' | 'phase' | 'phaseCount'> | number = 0, phaseCount = 8): SimulationResult => {
+  const options = typeof timing === 'number' ? { phase: timing, phaseCount } : timing;
+  return simulateMotion(course, { ...initial, vx: velocity.x, vy: velocity.y, vz: 0 }, maxSeconds, { modifiers, ...options });
+};
 
 export const distanceToCup = (course: Course, ball: Ball) => {
   const cup = tileCenter(course.cup);

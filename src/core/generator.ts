@@ -1,5 +1,5 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
-import { closedGateAt, COURSE_PHASES } from './hazards';
+import { closedGateAt, COURSE_PHASES, elapsedMsForPhase } from './hazards';
 import { Random } from './random';
 import type { Course, CourseScore, CourseTheme, HoleRules, Point, ShotCommand, Surface, TerrainSettings, Tile, VotingOption } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
@@ -201,7 +201,7 @@ const reachable = (course: Course, phase = 0, phaseCount = COURSE_PHASES): boole
     for (const direction of directions) {
       const next = { x: current.x + direction.x, y: current.y + direction.y };
       const tile = tileAt(course, next.x + 0.5, next.y + 0.5);
-      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, next.x + .5, next.y + .5, phase, phaseCount) && !seen.has(key(next))) queue.push(next);
+      if (tile && tile.surface !== 'void' && tile.surface !== 'wall' && !closedGateAt(course, next.x + .5, next.y + .5, elapsedMsForPhase(phase), phaseCount) && !seen.has(key(next))) queue.push(next);
     }
   }
   return false;
@@ -258,8 +258,8 @@ const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper
     }
   }
   const point = random.pick(choices.length ? choices : course.route.slice(2, -2));
-  if (kind === 'sweeper') course.hazards.push({ id: `sweeper-${index}`, kind: 'sweeper', point, phaseOffset: random.int(0, phaseCount - 1), radius: .78 });
-  else if (kind === 'gate') course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, phaseCount - 1) });
+  if (kind === 'sweeper') course.hazards.push({ id: `sweeper-${index}`, kind: 'sweeper', point, phaseOffset: random.int(0, phaseCount - 1), radius: .78, motionPeriodMs: random.pick([6_000, 8_000, 12_000]) });
+  else if (kind === 'gate') course.hazards.push({ id: `gate-${index}`, kind: 'gate', point, phaseOffset: random.int(0, phaseCount - 1), motionPeriodMs: random.pick([6_000, 8_000, 12_000]) });
   else if (kind === 'updraft') course.hazards.push({ id: `updraft-${index}`, kind: 'updraft', point, direction: random.pick(directions), radius: .72 + random.next() * .26, strength: 2.1 + random.next() * 1.2 });
   else course.hazards.push({ id: `low-bar-${index}`, kind: 'low-bar', point, clearance: .66 + random.next() * .22 });
 };

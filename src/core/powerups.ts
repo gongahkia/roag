@@ -127,7 +127,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   }
   if (powerUp === 'bomb' && target) {
     const distance = Math.hypot(target.ball.x - player.ball.x, target.ball.y - player.ball.y) || 1;
-    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, MAX_SETTLE_SECONDS, physicsModifiersFor(target, state.holeRules), state.coursePhase, state.holeRules.hazardPhaseCount);
+    const result = simulateImpulse(state.course, target.ball, { x: (target.ball.x - player.ball.x) / distance * 4.6, y: (target.ball.y - player.ball.y) / distance * 4.6 }, MAX_SETTLE_SECONDS, physicsModifiersFor(target, state.holeRules), { hazardElapsedMs: state.hazardElapsedMs, phaseCount: state.holeRules.hazardPhaseCount });
     target.ball = result.ball;
     target.hazardShield = target.hazardShield && !result.shieldUsed;
     addMessage(state, `${player.name} bombs ${target.name}`);
@@ -233,7 +233,7 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   if (powerUp === 'cherry bomb') {
     state.players.filter((candidate) => candidate.id !== player.id && !candidate.ball.complete).forEach((candidate) => {
       const distance = Math.hypot(candidate.ball.x - player.ball.x, candidate.ball.y - player.ball.y) || 1;
-      candidate.ball = simulateImpulse(state.course, candidate.ball, { x: (candidate.ball.x - player.ball.x) / distance * 3.8, y: (candidate.ball.y - player.ball.y) / distance * 3.8 }, MAX_SETTLE_SECONDS, physicsModifiersFor(candidate, state.holeRules), state.coursePhase, state.holeRules.hazardPhaseCount).ball;
+      candidate.ball = simulateImpulse(state.course, candidate.ball, { x: (candidate.ball.x - player.ball.x) / distance * 3.8, y: (candidate.ball.y - player.ball.y) / distance * 3.8 }, MAX_SETTLE_SECONDS, physicsModifiersFor(candidate, state.holeRules), { hazardElapsedMs: state.hazardElapsedMs, phaseCount: state.holeRules.hazardPhaseCount }).ball;
     });
     addMessage(state, `${player.name} detonates a cherry bomb`);
     used = true;

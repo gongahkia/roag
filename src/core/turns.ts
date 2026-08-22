@@ -1,14 +1,11 @@
 import { activePlayer, addMessage } from './game-state';
+import { HAZARD_PHASE_DURATION_MS } from './hazards';
 import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
 import { awardHoleCash, openShop, tickShop } from './shop';
 import { consumePuttAttachments, hasAttachment, tickRoundAttachments } from './strategy';
 import type { Ball, GameState, ShotCommand } from './types';
-
-const advanceCoursePhase = (state: GameState) => {
-  state.coursePhase = (state.coursePhase + 1) % state.holeRules.hazardPhaseCount;
-};
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
@@ -22,7 +19,7 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
     modifiers: modifiersFor(player),
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
     collisions: state.holeRules.collisions,
-    phase: state.coursePhase,
+    hazardElapsedMs: state.hazardElapsedMs,
     phaseCount: state.holeRules.hazardPhaseCount,
     collectItems: (state.holeRules.powerUps && canStorePowerUp(player)) || state.course.itemPads.some((pad) => pad.kind === 'cash' && !pad.collected),
     gadgets: state.gadgets ?? [],
@@ -121,7 +118,6 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     player.frozenTurns -= 1;
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} is frozen solid`);
-    advanceCoursePhase(state);
     advanceTurn(state);
     return;
   }
@@ -182,23 +178,25 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     state.turn = { playerIndex, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: state.turn.cardPlayed };
     return;
   }
-  advanceCoursePhase(state);
   advanceTurn(state);
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused || current.turn.shotInFlight) return current;
+  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused) return current;
   const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })), messages: [...current.messages] } as GameState;
+  const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
   if (state.status === 'shopping') {
-    tickShop(state, elapsedSeconds);
+    tickShop(state, elapsed);
     return state;
   }
-  state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsedSeconds);
+  state.hazardElapsedMs += elapsed * 1_000;
+  state.coursePhase = Math.floor(state.hazardElapsedMs / HAZARD_PHASE_DURATION_MS) % state.holeRules.hazardPhaseCount;
+  if (state.turn.shotInFlight) return state;
+  state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsed);
   if (state.turn.secondsLeft === 0) {
     const player = activePlayer(state);
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} timed out`);
-    advanceCoursePhase(state);
     advanceTurn(state);
   }
   return state;

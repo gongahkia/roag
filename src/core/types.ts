@@ -61,6 +61,8 @@ export interface SweeperHazard {
   point: Point;
   phaseOffset: number;
   radius: number;
+  /** Full rotation duration. Missing values in legacy courses use the standard pace. */
+  motionPeriodMs?: number;
 }
 
 export interface GateHazard {
@@ -68,6 +70,8 @@ export interface GateHazard {
   kind: 'gate';
   point: Point;
   phaseOffset: number;
+  /** Full open/closed pattern duration. Missing values in legacy courses use the standard pace. */
+  motionPeriodMs?: number;
 }
 
 export interface UpdraftHazard {
@@ -398,6 +402,9 @@ export interface GameState {
   holeRules: HoleRules;
   hole: number;
   holeFinishSequence: number;
+  /** Continuously advancing active-play clock used by sweepers and timed gates. */
+  hazardElapsedMs: number;
+  /** @deprecated retained for pre-real-time saved-game compatibility and seeded item IDs. */
   coursePhase: number;
   vote?: VoteState;
   coursePlan: PlannedHole[];

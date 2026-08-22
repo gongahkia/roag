@@ -35,6 +35,7 @@ interface RoomTimers {
   botFor?: string;
   botTimeout?: NodeJS.Timeout;
   transitionTimeout?: NodeJS.Timeout;
+  clockAt?: number;
 }
 
 const rooms = new Map<string, StoredRoom>();
@@ -144,6 +145,18 @@ const updateGame = (room: StoredRoom, game: GameState) => {
   scheduleAutomation(room);
 };
 
+/** Advance elapsed gameplay time immediately before an authoritative action and on the room heartbeat. */
+const advanceRoomClock = (room: StoredRoom, timestamp = now(), publish = true) => {
+  if (!room.game) return;
+  const timers = roomTimersFor(room);
+  const previous = timers.clockAt ?? timestamp;
+  timers.clockAt = timestamp;
+  const next = tickTurn(room.game, Math.max(0, timestamp - previous) / 1_000);
+  if (next === room.game) return;
+  if (publish) updateGame(room, next);
+  else room.game = next;
+};
+
 const scheduleAutomation = (room: StoredRoom) => {
   const game = room.game;
   const current = roomTimersFor(room);
@@ -217,6 +230,7 @@ const scheduleAutomation = (room: StoredRoom) => {
     current.botFor = undefined;
     const latest = rooms.get(room.code);
     if (!latest?.game || latest.game.paused) return;
+    advanceRoomClock(latest, now(), false);
     const decision = botMove(latest.game);
     if (!decision) return;
     let next = latest.game;
@@ -290,6 +304,7 @@ const startRoom = (session: Session) => {
   const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipVoting: room.config.skipVoting === true });
   game.players.filter((player) => player.kind === 'human').forEach((player, index) => { player.name = room.members[index]!.name; });
   room.phase = 'game';
+  roomTimersFor(room).clockAt = now();
   updateGame(room, game);
 };
 
@@ -302,7 +317,7 @@ const leaveRoom = (session: Session) => {
   broadcast(room);
 };
 
-const handleMessage = (session: Session, value: unknown) => {
+const handleMessage = (session: Session, value: unknown, timestamp = now()) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return report(session, 'invalid message');
   const message = value as ClientMessage;
   if (message.type === 'create-room') {
@@ -323,6 +338,7 @@ const handleMessage = (session: Session, value: unknown) => {
     if (!room) return report(session, 'join a room first');
     const command = validCommand(message.command);
     if (!command) return report(session, 'invalid command');
+    advanceRoomClock(room, timestamp);
     const denial = commandAllowed(room, session, command);
     if (denial) return report(session, denial);
     return updateGame(room, applyCommand(room.game!, command));
@@ -373,7 +389,7 @@ socketServer.on('connection', (socket) => {
     session.arrivals.push(timestamp);
     const messageSize = Array.isArray(raw) ? raw.reduce((total, chunk) => total + chunk.byteLength, 0) : raw.byteLength;
     if (messageSize > 64 * 1024) return report(session, 'message too large');
-    try { handleMessage(session, JSON.parse(raw.toString())); } catch { report(session, 'invalid JSON'); }
+    try { handleMessage(session, JSON.parse(raw.toString()), timestamp); } catch { report(session, 'invalid JSON'); }
   });
   socket.on('close', () => {
     sessions.delete(session);
@@ -387,9 +403,7 @@ socketServer.on('connection', (socket) => {
 
 setInterval(() => {
   rooms.forEach((room) => {
-    if (!room.game || room.game.paused || room.game.status === 'finished') return;
-    const next = tickTurn(room.game, .25);
-    if (next !== room.game) updateGame(room, next);
+    advanceRoomClock(room);
   });
 }, 250).unref();
 

@@ -1,4 +1,4 @@
-import { isGateOpen, sweeperDirection } from '../core/hazards';
+import { isGateOpen, motionColorFor, sweeperDirection } from '../core/hazards';
 import { CHIP_GRAVITY, chipFlightSeconds, floorHeightAt, shotVelocityFor, tileCornerHeights } from '../core/physics';
 import { EMOTES, type Ball, type Course, type EmoteEvent, type Gadget, type GadgetKind, type Player, type Point as WorldPoint, type PortalEndpoint, type ShotCommand, type Surface, type Tile } from '../core/types';
 
@@ -27,7 +27,7 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], phase: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
+  draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
   aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
   tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
   dispose(): void;
@@ -319,13 +319,14 @@ export const aimPathFor = (course: Course, ball: Ball, shot: ShotCommand): AimPa
   });
 };
 
-const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: number, offset: Point, metrics: ProjectionMetrics, phaseCount = 8) => {
+const drawHazards = (context: CanvasRenderingContext2D, course: Course, hazardElapsedMs: number, offset: Point, metrics: ProjectionMetrics, phaseCount = 8) => {
   for (const hazard of course.hazards) {
     const center = withOffset(project(hazard.point.x + .5, hazard.point.y + .5, heightAt(course, hazard.point) + .1, metrics), offset);
     if (hazard.kind === 'sweeper') {
-      const direction = sweeperDirection(hazard, phase, phaseCount);
+      const color = motionColorFor(hazard);
+      const direction = sweeperDirection(hazard, hazardElapsedMs, phaseCount);
       const end = withOffset(project(hazard.point.x + .5 + direction.x * hazard.radius, hazard.point.y + .5 + direction.y * hazard.radius, heightAt(course, hazard.point) + .13, metrics), offset);
-      context.strokeStyle = '#f0a232';
+      context.strokeStyle = color;
       context.lineWidth = Math.max(4, metrics.tileWidth * .11);
       context.beginPath();
       context.moveTo(center.x, center.y);
@@ -336,7 +337,7 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
       context.stroke();
       context.beginPath();
       context.arc(center.x, center.y, Math.max(4, metrics.tileWidth * .11), 0, Math.PI * 2);
-      context.fillStyle = '#d95a36';
+      context.fillStyle = color;
       context.fill();
       context.strokeStyle = '#ffffff';
       context.lineWidth = 1;
@@ -374,12 +375,13 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, phase: n
       context.stroke();
       continue;
     }
-    const open = isGateOpen(hazard, phase, phaseCount);
+    const color = motionColorFor(hazard);
+    const open = isGateOpen(hazard, hazardElapsedMs, phaseCount);
     const width = metrics.tileWidth * .23;
     const height = metrics.tileHeight * .48;
-    context.fillStyle = open ? '#7acbbd88' : '#d95a36d9';
+    context.fillStyle = open ? `${color}66` : `${color}d9`;
     context.fillRect(center.x - width, center.y - height, width * 2, height * 2);
-    context.strokeStyle = open ? '#1d7168' : '#ffffff';
+    context.strokeStyle = open ? color : '#ffffff';
     context.lineWidth = open ? 1.5 : 2;
     context.strokeRect(center.x - width, center.y - height, width * 2, height * 2);
     if (!open) {
@@ -608,7 +610,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  let latest: { course: Course; players: Player[]; phase: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball } | undefined;
+  let latest: { course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball } | undefined;
   let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean } | undefined;
 
   const layoutFor = (course: Course, focus?: Ball, advanceCamera = false) => {
@@ -626,7 +628,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { ...target, offset, tiles: visibleTilesFor(course, target.metrics) };
   };
 
-  const paint = (course: Course, players: Player[], phase: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball) => {
+  const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -671,7 +673,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     if (showItems) drawItemPads(context, course, offset, metrics);
     drawGadgets(context, course, gadgets, offset, metrics);
     if (placement) drawPlacement(context, course, placement, offset, metrics);
-    drawHazards(context, course, phase, offset, metrics, phaseCount);
+    drawHazards(context, course, hazardElapsedMs, offset, metrics, phaseCount);
     if (aim) {
       const player = players.find((candidate) => !candidate.ball.complete);
       if (player) {
@@ -712,16 +714,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    if (latest) paint(latest.course, latest.players, latest.phase, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus);
+    if (latest) paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, phase, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus) {
-      latest = { course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus };
-      paint(course, players, phase, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus);
+    draw(course, players, hazardElapsedMs, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus) {
+      latest = { course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus };
+      paint(course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus);
     },
     aimFromPointer(event, course, ball) {
       const rect = canvas.getBoundingClientRect();

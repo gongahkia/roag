@@ -405,7 +405,7 @@ describe('turns, shared rules, and bots', () => {
     game = applyCommand(game, { type: 'use-power-up', powerUp: 'freeze', targetId: game.players[1]!.id });
     expect(game.players[1]!.frozenTurns).toBe(1);
     const bot = game.players[1]!;
-    const decision = chooseBotDecision(game.course, bot, game.players, game.coursePhase, game.holeRules);
+    const decision = chooseBotDecision(game.course, bot, game.players, game.hazardElapsedMs, game.holeRules);
     expect(decision.shot.power).toBeGreaterThanOrEqual(1);
     expect(Number.isFinite(decision.shot.angle)).toBe(true);
     game.turn.playerIndex = 1;

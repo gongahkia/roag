@@ -127,6 +127,10 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('scroll course · click a cell');
     expect(markup.match(/data-power="/g)).toHaveLength(15);
     expect(markup.match(/power-cell active/g)).toHaveLength(7);
+    const inspector = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: 'intel', aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(inspector).toContain('blue: slow mover');
+    expect(inspector).toContain('amber: standard mover');
+    expect(inspector).toContain('red: fast mover');
   });
 
   it('removes the loading overlay after the full match plan is selected', () => {

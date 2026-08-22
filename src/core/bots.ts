@@ -50,7 +50,7 @@ const wallBetween = (course: Course, from: Point, to: Point) => {
   return false;
 };
 
-export const chooseBotDecision = (course: Course, bot: Player, players: Player[], phase = 0, rules?: HoleRules, gadgets: readonly Gadget[] = []): BotDecision => {
+export const chooseBotDecision = (course: Course, bot: Player, players: Player[], hazardElapsedMs = 0, rules?: HoleRules, gadgets: readonly Gadget[] = []): BotDecision => {
   const skill = clampedSkill(bot, players.filter((player) => player.id !== bot.id));
   const random = new Random(`${course.seed}:${bot.id}:${bot.ball.strokes}`);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
@@ -66,7 +66,7 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     for (const kind of shotKinds) {
       for (let power = 2; power <= 7.5; power += powerStep) {
         const shot: ShotCommand = { angle, power, kind };
-        const result = simulateShot(course, bot.ball, shot, undefined, { phase, phaseCount: rules?.hazardPhaseCount, modifiers: physicsModifiersFor(bot, rules) });
+        const result = simulateShot(course, bot.ball, shot, undefined, { hazardElapsedMs, phaseCount: rules?.hazardPhaseCount, modifiers: physicsModifiersFor(bot, rules) });
         const score = (result.holed ? -1000 : distanceToCup(course, result.ball) * 8)
           + result.ball.resetCount * 45
           + Math.max(0, result.ball.z - 1.4) * 3
