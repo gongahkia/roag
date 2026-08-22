@@ -96,7 +96,7 @@ const themeTopColors: Record<Course['theme'], Partial<Record<Surface, string>>> 
   pulse: { fairway: '#536c9b', rough: '#334873', sand: '#aeb5d1', booster: '#ef6a8d', conveyor: '#b58aea' },
 };
 
-const topColorFor = (course: Course, surface: Surface) => themeTopColors[course.theme]?.[surface] ?? topColors[surface];
+const topColorFor = (course: Course, surface: Surface, theme = course.theme) => themeTopColors[theme]?.[surface] ?? topColors[surface];
 
 const project = (x: number, y: number, z: number, metrics: ProjectionMetrics): Point => ({
   x: (x - y) * metrics.tileWidth / 2,
@@ -692,7 +692,7 @@ const drawCampaignIsland = (context: CanvasRenderingContext2D, island: CampaignI
       drawSide(context, tile, edge, neighborFor(island.course, tile.x, tile.y, directions[edge]!), offset, metrics);
     }
     polygon(context, tile.corners.map((point) => withOffset(point, offset)));
-    context.fillStyle = topColorFor(island.course, tile.tile.surface);
+    context.fillStyle = topColorFor(island.course, tile.tile.surface, tile.tile.theme);
     context.fill();
     drawPattern(context, tile, offset, metrics);
     context.restore();
@@ -840,7 +840,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         drawSide(context, tile, edge, neighborFor(course, tile.x, tile.y, directions[edge]!), offset, metrics);
       }
       polygon(context, tile.corners.map((point) => withOffset(point, offset)));
-      context.fillStyle = topColorFor(course, tile.tile.surface);
+      context.fillStyle = topColorFor(course, tile.tile.surface, tile.tile.theme);
       context.fill();
       drawPattern(context, tile, offset, metrics);
       context.restore();

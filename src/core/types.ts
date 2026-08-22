@@ -48,6 +48,8 @@ export interface Tile {
   /** shared clockwise corner heights: north-west, north-east, south-east, south-west */
   corners?: [number, number, number, number];
   direction?: { x: number; y: number };
+  /** Preserves each hole's palette after it becomes part of a stitched campaign course. */
+  theme?: CourseTheme;
 }
 
 export interface Point {
