@@ -108,6 +108,17 @@ describe('grounded physics invariants', () => {
     expect(result.ball.x).toBeLessThan(start.x);
   });
 
+  it('returns a chip that crossed void to its last legal ground position', () => {
+    const course = lane('fairway', 14);
+    const start = newBall(course);
+    const result = simulateShot(course, start, { angle: Math.PI, power: 4, kind: 'chip' });
+
+    expect(result.reset).toBe(true);
+    expect(tileAt(course, result.ball.x, result.ball.y)?.surface).not.toBe('void');
+    expect(result.ball).toMatchObject({ falling: undefined, vx: 0, vy: 0, vz: 0, resetCount: 1 });
+    expect(result.ball.x).toBeLessThan(start.x);
+  });
+
   it('uses a calibrated nonlinear fairway power curve and settles standard shots', () => {
     const course = lane();
     const low = travel(course, 1);

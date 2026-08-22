@@ -1,11 +1,15 @@
 import { activePlayer, addMessage } from './game-state';
-import { HAZARD_PHASE_DURATION_MS } from './hazards';
 import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
 import { awardHoleCash, openShop, tickShop } from './shop';
 import { consumePuttAttachments, hasAttachment, tickRoundAttachments } from './strategy';
 import type { Ball, GameState, ShotCommand } from './types';
+
+/** Preserves seeded legacy item and gadget identity; moving hazards use hazardElapsedMs instead. */
+const advanceLegacyCoursePhase = (state: GameState) => {
+  state.coursePhase = (state.coursePhase + 1) % state.holeRules.hazardPhaseCount;
+};
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
@@ -118,6 +122,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     player.frozenTurns -= 1;
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} is frozen solid`);
+    advanceLegacyCoursePhase(state);
     advanceTurn(state);
     return;
   }
@@ -178,6 +183,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
     state.turn = { playerIndex, secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: state.turn.cardPlayed };
     return;
   }
+  advanceLegacyCoursePhase(state);
   advanceTurn(state);
 };
 
@@ -190,13 +196,13 @@ export const tickTurn = (current: GameState, elapsedSeconds: number): GameState 
     return state;
   }
   state.hazardElapsedMs += elapsed * 1_000;
-  state.coursePhase = Math.floor(state.hazardElapsedMs / HAZARD_PHASE_DURATION_MS) % state.holeRules.hazardPhaseCount;
   if (state.turn.shotInFlight) return state;
   state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsed);
   if (state.turn.secondsLeft === 0) {
     const player = activePlayer(state);
     player.twoPuttsArmed = undefined;
     addMessage(state, `${player.name} timed out`);
+    advanceLegacyCoursePhase(state);
     advanceTurn(state);
   }
   return state;

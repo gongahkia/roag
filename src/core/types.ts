@@ -404,7 +404,7 @@ export interface GameState {
   holeFinishSequence: number;
   /** Continuously advancing active-play clock used by sweepers and timed gates. */
   hazardElapsedMs: number;
-  /** @deprecated retained for pre-real-time saved-game compatibility and seeded item IDs. */
+  /** Deterministic turn counter retained for saved-game compatibility and seeded item IDs; hazard movement uses hazardElapsedMs. */
   coursePhase: number;
   vote?: VoteState;
   coursePlan: PlannedHole[];

@@ -399,7 +399,6 @@ export const startApp = (app: HTMLElement) => {
       shotAnimation = undefined;
       const resolved = applyCommand(source, { type: 'shoot', shot });
       resolved.hazardElapsedMs = state.hazardElapsedMs;
-      resolved.coursePhase = state.coursePhase;
       setState(resolved);
     };
     requestAnimationFrame(animate);

@@ -114,6 +114,7 @@ interface Participant {
   portalCooldown: number;
   fallFramesRemaining: number;
   featureCooldown: number;
+  lastLegalBall?: Ball;
   returnBall?: Ball;
 }
 
@@ -323,9 +324,16 @@ const stopParticipant = (course: Course, participant: Participant) => {
   };
 };
 
-const beginFall = (participant: Participant, previous: Ball) => {
+const lastLegalBall = (course: Course, participant: Participant) => {
+  const tile = tileAt(course, participant.ball.x, participant.ball.y);
+  if (!tile || tile.surface === 'void' || tile.surface === 'wall') return;
+  participant.lastLegalBall = { ...participant.ball };
+};
+
+const beginFall = (course: Course, participant: Participant, previous: Ball) => {
+  const returnBall = participant.lastLegalBall ?? previous;
   participant.reset = true;
-  participant.returnBall = { ...previous, vx: 0, vy: 0, vz: 0, falling: undefined, resetCount: previous.resetCount + 1 };
+  participant.returnBall = { ...returnBall, z: floorHeightAt(course, returnBall.x, returnBall.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, falling: undefined, resetCount: previous.resetCount + 1 };
   participant.fallFramesRemaining = FALL_DURATION_FRAMES;
   participant.ball = { ...participant.ball, z: previous.z, vz: -FALL_GRAVITY * STEP, falling: true };
 };
@@ -477,6 +485,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
 
 const stepGroundTerrain = (course: Course, participant: Participant, hazardElapsedMs: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
+  lastLegalBall(course, participant);
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
   ball.y += ball.vy * STEP;
@@ -492,7 +501,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
       const velocity = reflect(previous, normal, .38);
       participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     } else {
-      beginFall(participant, previous);
+      beginFall(course, participant, previous);
     }
     return;
   }
@@ -517,7 +526,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
       }
       const passedTile = tileAt(course, ball.x, ball.y);
       if (!passedTile || passedTile.surface === 'void') {
-        beginFall(participant, previous);
+        beginFall(course, participant, previous);
         return;
       }
       ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
@@ -586,6 +595,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
 
 const stepAirborne = (course: Course, participant: Participant, hazardElapsedMs: number, phaseCount: number, gadgets: readonly Gadget[], triggeredGadgets: Set<string>, reality?: RealityCard) => {
   const previous = { ...participant.ball };
+  lastLegalBall(course, participant);
   const ball = participant.ball;
   ball.x += ball.vx * STEP;
   ball.y += ball.vy * STEP;
@@ -599,7 +609,7 @@ const stepAirborne = (course: Course, participant: Participant, hazardElapsedMs:
       participant.shieldUsed = true;
       bounceAirborneBall(course, participant, previous);
     } else {
-      beginFall(participant, previous);
+      beginFall(course, participant, previous);
     }
     return;
   }
@@ -706,8 +716,8 @@ const allSettled = (course: Course, participants: Participant[]) => participants
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
-    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0 },
-    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0 })),
+    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, lastLegalBall: { ...initial } },
+    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, lastLegalBall: { ...ball } })),
   ];
   const frames: SimulationFrame[] = [];
   const cups = [tileCenter(course.cup), ...(options.reality === 'cups are many' ? course.itemPads.map((pad) => tileCenter(pad.point)) : [])];
