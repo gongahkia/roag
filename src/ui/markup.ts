@@ -216,7 +216,7 @@ const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'voting') return `${renderLedger(view.ledger)}<p class="hint">Lock the whole match plan before tee-off. Courses stay hidden until play starts.</p>`;
   if (state.status === 'shopping') return `${renderLedger(view.ledger)}<p class="hint">The clubhouse merchant sells persistent Caddies, contraband, Reality Cards, and Chrono Cards.</p>`;
-  if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">The completed cup becomes the next tee: its final approach rebuilds into a fairway neck before the new route grows outward.</p>`;
+  if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">The completed cup becomes the next tee while the arena expands into open terrain. Previous fairways stay playable.</p>`;
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : feature.kind === 'pulse' ? '⌁ pulse launch' : '◯ air ring boost').join(' · ') || 'none';
   const player = current(state);
   const caddies = player.caddies.map((caddy) => `${caddy.id}${caddy.stacks > 1 ? ` ×${caddy.stacks}` : ''}`).join(', ') || 'none';

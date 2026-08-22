@@ -4,7 +4,7 @@ import { CAMPAIGN_EXCAVATION_RADIUS, expandCourseAtCup } from '../src/core/campa
 import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
 import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
-import { newBall, simulateShot, tileAt } from '../src/core/physics';
+import { newBall, simulateShot, tileAt, tileCornerHeights } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
 import { expansionForTransition, normalizeGameState } from '../src/core/game-state';
@@ -56,12 +56,25 @@ describe('course generation', () => {
     expect(first.excavated.every((point) => Math.max(Math.abs(point.x - first.anchor.x), Math.abs(point.y - first.anchor.y)) <= CAMPAIGN_EXCAVATION_RADIUS)).toBe(true);
     expect(first.course.tiles[first.previous.tee.y * first.course.width + first.previous.tee.x]).toMatchObject({ surface: 'tee', theme: 'balanced' });
     expect(first.added.length).toBeGreaterThan(0);
-    expect(first.bridge).toEqual(second.bridge);
-    expect(first.bridge.some((point) => Math.max(Math.abs(point.x - first.anchor.x), Math.abs(point.y - first.anchor.y)) === CAMPAIGN_EXCAVATION_RADIUS)).toBe(true);
-    expect(first.bridge.every((point) => {
-      const surface = first.course.tiles[point.y * first.course.width + point.x]?.surface;
-      return surface !== 'void' && surface !== 'wall';
-    })).toBe(true);
+    expect(first.previous.route.filter((point) => point.x !== first.anchor.x || point.y !== first.anchor.y).every((point) => first.course.tiles[point.y * first.course.width + point.x]?.surface === first.previous.tiles[point.y * first.course.width + point.x]?.surface)).toBe(true);
+    for (let y = 0; y < first.course.height; y += 1) for (let x = 0; x < first.course.width; x += 1) {
+      const tile = first.course.tiles[y * first.course.width + x]!;
+      if (tile.surface === 'void') continue;
+      if (x < first.course.width - 1) {
+        const right = first.course.tiles[y * first.course.width + x + 1]!;
+        if (right.surface !== 'void') {
+          expect(tileCornerHeights(tile)[1]).toBe(tileCornerHeights(right)[0]);
+          expect(tileCornerHeights(tile)[2]).toBe(tileCornerHeights(right)[3]);
+        }
+      }
+      if (y < first.course.height - 1) {
+        const below = first.course.tiles[(y + 1) * first.course.width + x]!;
+        if (below.surface !== 'void') {
+          expect(tileCornerHeights(tile)[3]).toBe(tileCornerHeights(below)[0]);
+          expect(tileCornerHeights(tile)[2]).toBe(tileCornerHeights(below)[1]);
+        }
+      }
+    }
   });
 
   it('generates the requested dimensions into every voting package', () => {

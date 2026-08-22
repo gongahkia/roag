@@ -13,10 +13,8 @@ export interface CourseExpansion {
   course: Course;
   /** New-course tiles that should arrive during the transition. */
   added: Point[];
-  /** Prior-course tiles that are excavated around the previous cup. */
+  /** Prior-course tiles rebuilt as the next hole arrives. */
   excavated: Point[];
-  /** A narrow, face-connected fairway neck joining the old approach to the new route. */
-  bridge: Point[];
   /** The shared old-cup/new-tee tile in the stitched coordinate system. */
   anchor: Point;
   /** Converts balls and UI focus from the prior course into the stitched course. */
@@ -25,7 +23,6 @@ export interface CourseExpansion {
 }
 
 const isPlayable = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
-const isWalkable = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void' && tile.surface !== 'wall');
 const distanceFrom = (from: Point, to: Point) => Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
 const rotateDirection = ({ x, y }: Point, rotation: Rotation): Point => rotation === 0 ? { x, y } : rotation === 1 ? { x: -y, y: x } : rotation === 2 ? { x: -x, y: -y } : { x: y, y: -x };
 const rotatedCorners = (corners: Tile['corners'], rotation: Rotation): Tile['corners'] => {
@@ -50,18 +47,33 @@ const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): 
   return { x: anchor.x + y, y: anchor.y - x };
 };
 const shifted = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
+const pointKey = (point: Point) => `${point.x}:${point.y}`;
 const hashFor = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
-const fairwayPath = (from: Point, to: Point) => {
-  const points: Point[] = [];
-  let { x, y } = from;
-  points.push({ x, y });
-  while (x !== to.x) { x += x < to.x ? 1 : -1; points.push({ x, y }); }
-  while (y !== to.y) { y += y < to.y ? 1 : -1; points.push({ x, y }); }
-  return points;
-};
-const routePointBeyond = (route: readonly Point[], anchor: Point, reverse = false) => {
-  const points = reverse ? [...route].reverse() : route;
-  return points.find((point) => distanceFrom(point, anchor) > CAMPAIGN_EXCAVATION_RADIUS) ?? points.at(-1)!;
+const smoothTerrain = (tiles: Tile[], width: number, height: number) => {
+  const vertexWidth = width + 1;
+  const vertexIndex = (x: number, y: number) => y * vertexWidth + x;
+  const vertices = Array.from({ length: vertexWidth * (height + 1) }, () => 0);
+  for (let y = 0; y <= height; y += 1) for (let x = 0; x <= width; x += 1) {
+    const nearby: number[] = [];
+    for (let tileY = y - 1; tileY <= y; tileY += 1) for (let tileX = x - 1; tileX <= x; tileX += 1) {
+      if (tileX < 0 || tileY < 0 || tileX >= width || tileY >= height) continue;
+      const tile = tiles[tileY * width + tileX]!;
+      if (isPlayable(tile)) nearby.push(tile.height);
+    }
+    vertices[vertexIndex(x, y)] = nearby.length ? nearby.reduce((sum, value) => sum + value, 0) / nearby.length : 0;
+  }
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const tile = tiles[y * width + x]!;
+    if (!isPlayable(tile)) continue;
+    const corners: [number, number, number, number] = [
+      vertices[vertexIndex(x, y)]!,
+      vertices[vertexIndex(x + 1, y)]!,
+      vertices[vertexIndex(x + 1, y + 1)]!,
+      vertices[vertexIndex(x, y + 1)]!,
+    ];
+    tile.corners = corners;
+    tile.height = corners.reduce((sum, value) => sum + value, 0) / corners.length;
+  }
 };
 const transformedBounds = (course: Course, anchor: Point, rotation: Rotation) => {
   const corners = [
@@ -139,7 +151,7 @@ const embeddedPrevious = (course: Course, width: number, height: number, offset:
 
 /**
  * Stitches a generated hole to the prior cup. Rotation is selected deterministically
- * by minimising overlap outside the fixed excavation neighborhood around that cup.
+ * by minimising overlap outside the small shared junction around that cup.
  */
 export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansion => {
   const rawAnchor = { ...previous.cup };
@@ -154,21 +166,15 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
   const height = maxY - minY + 1;
   const previousEmbedded = embeddedPrevious(previous, width, height, offset);
   const anchor = shifted(rawAnchor, offset);
-  const excavated: Point[] = [];
   const tiles: Tile[] = previousEmbedded.tiles.map((tile): Tile => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined }));
-  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-    const point = { x, y };
-    if (distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS && isPlayable(tiles[y * width + x])) {
-      excavated.push(point);
-      tiles[y * width + x] = { surface: 'void', height: 0 };
-    }
-  }
+  const anchorIndex = anchor.y * width + anchor.x;
+  const excavated = isPlayable(tiles[anchorIndex]) ? [{ ...anchor }] : [];
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
   const added: Point[] = [];
   const addedKeys = new Set<string>();
   const addTile = (point: Point) => {
-    const key = `${point.x}:${point.y}`;
+    const key = pointKey(point);
     if (addedKeys.has(key)) return;
     addedKeys.add(key);
     added.push(point);
@@ -177,27 +183,30 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     const source = next.tiles[y * next.width + x]!;
     if (!isPlayable(source)) continue;
     const destination = transform({ x, y });
-    tiles[destination.y * width + destination.x] = copyTile(source, next.theme, rotation);
-    addTile(destination);
-  }
-  const previousApproach = routePointBeyond(previousEmbedded.route, anchor, true);
-  const nextExit = routePointBeyond(next.route.map(transform), anchor);
-  const bridge = [...fairwayPath(anchor, previousApproach), ...fairwayPath(anchor, nextExit)].filter((point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS);
-  bridge.forEach((point) => {
-    const index = point.y * width + point.x;
-    if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height || (point.x === anchor.x && point.y === anchor.y)) return;
-    if (!isWalkable(tiles[index])) {
-      const terrain = isPlayable(tiles[index]) ? tiles[index]! : previousEmbedded.tiles[index]!;
-      tiles[index] = { ...copyTile(terrain, terrain.theme ?? previous.theme), surface: 'fairway' };
-      addTile(point);
+    const index = destination.y * width + destination.x;
+    const existing = previousEmbedded.tiles[index]!;
+    const transformed = copyTile(source, next.theme, rotation);
+    if (destination.x === anchor.x && destination.y === anchor.y) {
+      tiles[index] = isPlayable(existing)
+        ? { ...transformed, height: existing.height, corners: existing.corners ? [...existing.corners] as [number, number, number, number] : undefined }
+        : transformed;
+      addTile(destination);
+    } else if (!isPlayable(existing) || source.surface === 'cup') {
+      tiles[index] = transformed;
+      addTile(destination);
     }
-  });
-  const wasExcavated = (point: Point) => distanceFrom(point, anchor) <= CAMPAIGN_EXCAVATION_RADIUS;
-  const keepHazard = (hazard: CourseHazard) => !wasExcavated(hazard.point);
+  }
+  const wasAdded = (point: Point) => addedKeys.has(pointKey(point));
+  const wasRebuilt = (point: Point) => wasAdded(point) && isPlayable(previousEmbedded.tiles[point.y * width + point.x]);
+  const keepHazard = (hazard: CourseHazard) => !wasRebuilt(hazard.point);
   const keepFeature = (feature: CourseFeature) => feature.kind === 'sinkhole'
-    ? !wasExcavated(feature.entrance) && !wasExcavated(feature.exit)
-    : !wasExcavated(feature.point);
-  const keepPortal = (portal: PortalPair) => (!portal.entrance || !wasExcavated(portal.entrance.point)) && (!portal.exit || !wasExcavated(portal.exit.point));
+    ? !wasRebuilt(feature.entrance) && !wasRebuilt(feature.exit)
+    : !wasRebuilt(feature.point);
+  const keepPortal = (portal: PortalPair) => (!portal.entrance || !wasRebuilt(portal.entrance.point)) && (!portal.exit || !wasRebuilt(portal.exit.point));
+  const addNewFeature = (feature: CourseFeature) => feature.kind === 'sinkhole'
+    ? wasAdded(transform(feature.entrance)) && wasAdded(transform(feature.exit))
+    : wasAdded(transform(feature.point));
+  const addNewPortal = (portal: PortalPair) => (!portal.entrance || wasAdded(transform(portal.entrance.point))) && (!portal.exit || wasAdded(transform(portal.exit.point)));
   const prefix = `hole-${next.id}:`;
   const course: Course = {
     ...next,
@@ -211,20 +220,21 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     route: next.route.map(transform),
     hazards: [
       ...translateHazards(previousEmbedded.hazards.filter(keepHazard), (point) => ({ ...point }), (value) => ({ ...value })),
-      ...translateHazards(next.hazards, transform, (value) => rotateDirection(value, rotation), prefix),
+      ...translateHazards(next.hazards.filter((hazard) => wasAdded(transform(hazard.point))), transform, (value) => rotateDirection(value, rotation), prefix),
     ],
     features: [
       ...translateFeatures(previousEmbedded.features.filter(keepFeature), (point) => ({ ...point }), (value) => ({ ...value })),
-      ...translateFeatures(next.features ?? [], transform, (value) => rotateDirection(value, rotation), prefix),
+      ...translateFeatures((next.features ?? []).filter(addNewFeature), transform, (value) => rotateDirection(value, rotation), prefix),
     ],
     portals: [
       ...(translatePortals(previousEmbedded.portals?.filter(keepPortal), (point) => ({ ...point }), (value) => ({ ...value })) ?? []),
-      ...(translatePortals(next.portals, transform, (value) => rotateDirection(value, rotation), prefix) ?? []),
+      ...(translatePortals(next.portals?.filter(addNewPortal), transform, (value) => rotateDirection(value, rotation), prefix) ?? []),
     ],
     itemPads: [
-      ...previousEmbedded.itemPads.filter((pad) => !wasExcavated(pad.point)),
-      ...next.itemPads.map((pad) => ({ ...pad, id: `${prefix}${pad.id}`, point: transform(pad.point) })),
+      ...previousEmbedded.itemPads.filter((pad) => !wasRebuilt(pad.point)),
+      ...next.itemPads.filter((pad) => wasAdded(transform(pad.point))).map((pad) => ({ ...pad, id: `${prefix}${pad.id}`, point: transform(pad.point) })),
     ],
   };
-  return { previous: previousEmbedded, course, added, excavated, bridge, anchor, offset, rotation };
+  smoothTerrain(course.tiles, width, height);
+  return { previous: previousEmbedded, course, added, excavated, anchor, offset, rotation };
 };
