@@ -818,8 +818,8 @@ const paintCampaign = (context: CanvasRenderingContext2D, width: number, height:
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball };
-  type LatestFrame = CourseFrame | { kind: 'campaign'; frame: CampaignFrame };
+  type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball; options?: PaintOptions };
+  type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame } | { kind: 'campaign'; frame: CampaignFrame };
   let latest: LatestFrame | undefined;
   let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean } | undefined;
 
@@ -838,7 +838,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     return { ...target, offset, tiles: visibleTilesFor(course, target.metrics) };
   };
 
-  const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball) => {
+  const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball, options: PaintOptions = {}) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -846,20 +846,28 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     voidGradient.addColorStop(1, '#edf7e8');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
-    const { metrics, offset, followsFocus, tiles: allTiles } = layoutFor(course, focus, true);
+    const overview = options.overview === true;
+    const layout = overview
+      ? { ...overviewCameraFor(course, width, height), tiles: visibleTilesFor(course, overviewCameraFor(course, width, height).metrics) }
+      : layoutFor(course, focus, true);
+    const { metrics, offset, followsFocus, tiles: allTiles } = layout;
     const tiles = allTiles.filter((tile) => visibleInViewport(tile, offset, width, height, metrics));
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     const clampedBuild = buildProgress === undefined ? undefined : Math.max(0, Math.min(1, buildProgress));
     const drawTile = (tile: VisibleTile) => {
       const stagger = ((tile.x * 13 + tile.y * 7) % 23) / 23 * .58;
-      const arrived = clampedBuild === undefined ? 1 : Math.max(0, Math.min(1, (clampedBuild - stagger) / .42));
+      const animation = options.tileAnimation?.tiles.has(tileKey(tile)) ? options.tileAnimation : undefined;
+      const build = clampedBuild ?? (animation?.kind === 'build' ? clamped(animation.progress) : undefined);
+      const arrived = build === undefined ? 1 : Math.max(0, Math.min(1, (build - stagger) / .42));
       if (arrived === 0) return;
       const eased = 1 - (1 - arrived) ** 3;
       const angle = ((tile.x * 19 + tile.y * 11) % 8) * Math.PI / 4;
-      const distance = metrics.tileWidth * (2.5 + ((tile.x + tile.y) % 3) * .35) * (1 - eased);
+      const removal = animation?.kind === 'remove' ? Math.max(0, Math.min(1, (clamped(animation.progress) - stagger) / .42)) : 0;
+      if (removal === 1) return;
+      const distance = metrics.tileWidth * (2.5 + ((tile.x + tile.y) % 3) * .35) * (animation?.kind === 'remove' ? removal : 1 - eased);
       context.save();
       context.translate(Math.cos(angle) * distance, Math.sin(angle) * distance - distance * .38);
-      context.globalAlpha = .22 + eased * .78;
+      context.globalAlpha = animation?.kind === 'remove' ? 1 - removal * .78 : .22 + eased * .78;
       for (let edge = 0; edge < 4; edge += 1) {
         const first = tile.corners[edge]!;
         const second = tile.corners[(edge + 1) % 4]!;
@@ -918,6 +926,21 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     }
   };
 
+  const paintConstruction = (frame: CourseConstructionFrame) => {
+    const excavation = new Set(frame.excavated.map((point) => `${point.x}:${point.y}`));
+    const additions = new Set(frame.added.map((point) => `${point.x}:${point.y}`));
+    const split = .34;
+    if (frame.progress < split) {
+      paint(frame.previous, frame.players, frame.hazardElapsedMs, undefined, [], false, frame.phaseCount, undefined, [], undefined, frame.focus, {
+        tileAnimation: { kind: 'remove', tiles: excavation, progress: frame.progress / split },
+      });
+      return;
+    }
+    paint(frame.course, frame.players, frame.hazardElapsedMs, undefined, [], false, frame.phaseCount, undefined, [], undefined, frame.focus, {
+      tileAnimation: { kind: 'build', tiles: additions, progress: (frame.progress - split) / (1 - split) },
+    });
+  };
+
   const resize = () => {
     const ratio = window.devicePixelRatio || 1;
     const { width, height } = canvas.getBoundingClientRect();
@@ -926,7 +949,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     if (!latest) return;
     if (latest.kind === 'campaign') paintCampaign(context, width, height, latest.frame);
-    else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus);
+    else if (latest.kind === 'construction') paintConstruction(latest.frame);
+    else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
@@ -936,6 +960,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     draw(course, players, hazardElapsedMs, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus) {
       latest = { kind: 'course', course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus };
       paint(course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus);
+    },
+    drawConstruction(frame) {
+      latest = { kind: 'construction', frame };
+      trackedCamera = undefined;
+      paintConstruction(frame);
+    },
+    drawOverview(course) {
+      latest = { kind: 'course', course, players: [], hazardElapsedMs: 0, emotes: [], showItems: false, phaseCount: 8, gadgets: [], options: { overview: true } };
+      trackedCamera = undefined;
+      paint(course, [], 0, undefined, [], false, 8, undefined, [], undefined, undefined, { overview: true });
     },
     drawCampaign(frame) {
       latest = { kind: 'campaign', frame };
