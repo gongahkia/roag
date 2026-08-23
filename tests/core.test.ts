@@ -66,6 +66,10 @@ describe('course generation', () => {
     })).toBe(true);
     expect(first.course.tiles[first.course.cup.y * first.course.width + first.course.cup.x]?.height).toBeCloseTo(3);
     expect(first.course.tiles[first.anchor.y * first.course.width + first.anchor.x - 1]?.surface).not.toBe('wall');
+    expect(first.excavated.filter((point) => point.x !== first.anchor.x || point.y !== first.anchor.y).every((point) => {
+      const tile = first.course.tiles[point.y * first.course.width + point.x];
+      return tile?.surface !== 'void';
+    })).toBe(true);
     for (let y = 0; y < first.course.height; y += 1) for (let x = 0; x < first.course.width; x += 1) {
       const tile = first.course.tiles[y * first.course.width + x]!;
       if (tile.surface === 'void') continue;

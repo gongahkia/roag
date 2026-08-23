@@ -11,7 +11,7 @@ export interface CourseExpansion {
   previous: Course;
   /** The authoritative stitched course that takes effect after the build animation. */
   course: Course;
-  /** New-course tiles that should arrive during the transition. */
+  /** Tiles that should arrive during the transition, including the rebuilt junction. */
   added: Point[];
   /** Prior-course tiles rebuilt as the next hole arrives. */
   excavated: Point[];
@@ -226,6 +226,18 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
       tiles[index] = transformed;
       addTile(destination);
     }
+  }
+  // The old retaining walls deliberately disappear before the next hole arrives.
+  // Leave their cells as playable terrain in the finished course so the shared tee
+  // is an expanding junction rather than a thin, jagged gap between two boards.
+  // New-course tiles still take priority where they overlap this apron.
+  const junctionHeight = tiles[anchorIndex]!.height;
+  for (const point of excavated) {
+    if (point.x === anchor.x && point.y === anchor.y) continue;
+    const index = point.y * width + point.x;
+    if (isPlayable(tiles[index])) continue;
+    tiles[index] = { surface: 'fairway', height: junctionHeight, theme: next.theme };
+    addTile(point);
   }
   const wasAdded = (point: Point) => addedKeys.has(pointKey(point));
   const wasRebuilt = (point: Point) => wasAdded(point) && isPlayable(previousEmbedded.tiles[point.y * width + point.x]);
