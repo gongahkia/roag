@@ -1,4 +1,4 @@
-import { CADDIES, CONTENT } from './catalog';
+import { CADDIES, CONTENT, definitionFor } from './catalog';
 import { addMessage, beginCourseTransition } from './game-state';
 import { addCaddy, caddyCount, pocketCapacity, pocketsFor, removeCaddy, syncPocketMirrors } from './player-effects';
 import { Random } from './random';
@@ -100,6 +100,31 @@ const completeBuyer = (state: GameState) => {
 
 const offerCostFor = (player: GameState['players'][number], shopOffer: ShopOffer) => Math.max(0, shopOffer.price - (shopOffer.category === 'caddy' ? caddyCount(player, 'broker') : 0));
 
+const terrainDemandFor = (state: GameState, contentId: ContentId) => {
+  const surfaceCount = (surface: string) => state.course.tiles.filter((tile) => tile.surface === surface).length;
+  const gustCount = (state.course.features ?? []).filter((feature) => feature.kind === 'gust').length;
+  const elevation = Math.max(...state.course.tiles.map((tile) => tile.height));
+  const values: Partial<Record<ContentId, number>> = {
+    'cushion keeper': surfaceCount('cushion') * .35,
+    'cushion map': surfaceCount('cushion') * .2,
+    'spring coach': surfaceCount('spring') * .4,
+    'spring polish': surfaceCount('spring') * .25,
+    'bumper apprentice': surfaceCount('bumper') * .4,
+    'bumper wax': surfaceCount('bumper') * .25,
+    'slope scout': elevation * 1.4,
+    'slope stabilizer': elevation * .75,
+    'wind warden': gustCount * 1.8,
+    'wind sock': gustCount * 1.1,
+    'wind sail': gustCount * 1.1,
+    'grounds crew': elevation * .8,
+    'bank holiday': surfaceCount('bumper') * .35,
+    'spring fling': surfaceCount('booster') * .25,
+    'high winds': gustCount * .9,
+    'cushion league': surfaceCount('sand') * .2,
+  };
+  return values[contentId] ?? 0;
+};
+
 /**
  * Picks a legal, deterministic preference rather than whichever card happens to
  * be first on the shared shelf. Keeping this in core makes local and server
@@ -122,7 +147,9 @@ export const chooseBotShopOffer = (state: GameState, player: GameState['players'
     })
     .map((shopOffer) => {
       const duplicateCaddy = shopOffer.category === 'caddy' && player.caddies.some((caddy) => caddy.id === shopOffer.contentId);
-      return { shopOffer, score: categoryValue[shopOffer.category] + (duplicateCaddy ? .35 : 0) + random.next() };
+      const definition = definitionFor(shopOffer.contentId);
+      const boonBonus = definition?.polarity === 'boon' ? .45 : 0;
+      return { shopOffer, score: categoryValue[shopOffer.category] + terrainDemandFor(state, shopOffer.contentId) + boonBonus + (duplicateCaddy ? .35 : 0) + random.next() };
     })
     .sort((left, right) => right.score - left.score || left.shopOffer.id.localeCompare(right.shopOffer.id))[0]?.shopOffer;
 };

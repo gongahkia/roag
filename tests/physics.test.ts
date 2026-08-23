@@ -150,6 +150,38 @@ describe('grounded physics invariants', () => {
     expect(Math.hypot(skates.ball.vx, skates.ball.vy, skates.ball.vz)).toBe(0);
   });
 
+  it('makes cushion turf brake hard, spring tiles launch putts, and bumper banks clear under high chips', () => {
+    const fairway = travel(lane('fairway'), 3);
+    const cushion = travel(lane('cushion'), 3);
+    const springCourse = lane('fairway', 28);
+    springCourse.tiles[3 * springCourse.width + 3] = { surface: 'spring', height: 0 };
+    const bumperCourse = lane('fairway', 28);
+    bumperCourse.tiles[3 * bumperCourse.width + 3] = { surface: 'bumper', height: 0 };
+    const launch = simulateShot(springCourse, newBall(springCourse), { angle: 0, power: 3 }, 1.2);
+    const bank = simulateShot(bumperCourse, newBall(bumperCourse), { angle: 0, power: 5 }, 1.2);
+    const chip = simulateShot(bumperCourse, newBall(bumperCourse), { angle: 0, power: 5, kind: 'chip' }, 1.2);
+
+    expect(cushion.distance).toBeLessThan(fairway.distance * .55);
+    expect(Math.max(...launch.frames.map((frame) => frame.ball.z))).toBeGreaterThan(.7);
+    expect(bank.frames.some((frame) => frame.ball.vx < 0)).toBe(true);
+    expect(bank.ball.x).toBeLessThan(3);
+    expect(chip.ball.x).toBeGreaterThan(3.5);
+  });
+
+  it('applies gust lanes to ground and airborne balls while respecting per-player gust resistance', () => {
+    const plain = lane('fairway', 40);
+    const gusty = lane('fairway', 40);
+    gusty.features = [{ id: 'gust', kind: 'gust', point: { x: 4, y: 3 }, direction: { x: 1, y: 0 }, radius: 1.25, strength: 8 }];
+    const flat = simulateShot(plain, newBall(plain), { angle: 0, power: 3 }, 1.2);
+    const pushed = simulateShot(gusty, newBall(gusty), { angle: 0, power: 3 }, 1.2);
+    const resisted = simulateShot(gusty, newBall(gusty), { angle: 0, power: 3 }, 1.2, { modifiers: { gustMultiplier: .25 } });
+    const airborne = simulateShot(gusty, newBall(gusty), { angle: 0, power: 3, kind: 'chip' }, 1.2);
+
+    expect(pushed.ball.x).toBeGreaterThan(flat.ball.x + .35);
+    expect(resisted.ball.x).toBeLessThan(pushed.ball.x);
+    expect(airborne.ball.x).toBeGreaterThan(simulateShot(plain, newBall(plain), { angle: 0, power: 3, kind: 'chip' }, 1.2).ball.x + .35);
+  });
+
   it('uses continuous shared-height ramps without vertical snapping', () => {
     const course = lane();
     for (let index = 0; index < course.tiles.length; index += 1) {

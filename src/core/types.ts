@@ -2,12 +2,12 @@ export const COURSE_WIDTH = 20;
 export const COURSE_HEIGHT = 14;
 export type BallForm = 'heavy' | 'bouncy' | 'ghost' | 'magnet' | 'ice' | 'portal' | 'glider' | 'sticky' | 'orbit' | 'quantum' | 'mirror' | 'anvil' | 'vampire' | 'boomerang';
 export type GadgetKind = 'popper pad' | 'snare patch' | 'blast mine' | 'slick patch' | 'sky spring' | 'gravity well' | 'mirror plate' | 'toll booth' | 'control inverter' | 'portal gun';
-export type StrategyCard = 'tailwind' | 'guardian pin' | 'line reader' | 'soft landing' | 'ghost pass' | 'mulligan relay' | 'clean slate' | 'fairway draft' | 'banker advice' | 'windbreak' | 'steady hands' | 'umbrella cart' | 'mirror caddy' | 'sponsor tab' | 'relay fund' | 'gadgeteer favor' | 'sandbag slip' | 'club flip' | 'slow clock' | 'forced chip' | 'headwind gust' | 'frayed grip' | 'bogey tax' | 'black pennant';
-export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | 'club flipper' | 'time dilator' | 'mugger' | 'scramble' | 'gravity gloves' | 'bunker buster' | 'portal remote' | 'red tee' | 'black flag' | 'cherry bomb' | 'copycat' | GadgetKind | BallForm | StrategyCard;
-export type CaddyId = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer' | 'backboard' | 'pinball wizard' | 'rough rider' | 'sand wedge' | 'conveyor cultist' | 'gatecrasher' | 'thornmail' | 'air mail' | 'shock absorber' | 'first responder' | 'pickpocket' | 'revenge club' | 'headwind' | 'bogeyman' | 'coin slot' | 'broker' | 'echo chamber' | 'paradox partner' | 'hole hunter' | 'black market caddy';
+export type StrategyCard = 'tailwind' | 'guardian pin' | 'line reader' | 'soft landing' | 'ghost pass' | 'mulligan relay' | 'clean slate' | 'fairway draft' | 'banker advice' | 'windbreak' | 'steady hands' | 'umbrella cart' | 'mirror caddy' | 'sponsor tab' | 'relay fund' | 'gadgeteer favor' | 'sandbag slip' | 'club flip' | 'slow clock' | 'forced chip' | 'headwind gust' | 'frayed grip' | 'bogey tax' | 'black pennant' | 'anchor line' | 'spring ticket' | 'cushion call' | 'bumper lease' | 'shared draft' | 'wind sail' | 'grounds crew' | 'rescue pact' | 'clubhouse pool' | 'sticky forecast' | 'crosswind debt' | 'dead bounce';
+export type PowerUp = 'turbo' | 'shield' | 'bomb' | 'freeze' | 'swap' | 'two putts' | 'cup magnet' | 'slipstream' | 'rebound rig' | 'phase shift' | 'sandbag' | 'rescue drone' | 'airhorn' | 'club flipper' | 'time dilator' | 'mugger' | 'scramble' | 'gravity gloves' | 'bunker buster' | 'portal remote' | 'red tee' | 'black flag' | 'cherry bomb' | 'copycat' | 'wind sock' | 'slope stabilizer' | 'spring polish' | 'bumper wax' | 'cushion map' | GadgetKind | BallForm | StrategyCard;
+export type CaddyId = 'heavy ball' | 'ice skates' | 'extra charge' | 'bank shot' | 'hazard shield' | 'chaos magnet' | 'portal savvy' | 'second wind' | 'scavenger' | 'aerial ace' | 'cup reader' | 'gadgeteer' | 'backboard' | 'pinball wizard' | 'rough rider' | 'sand wedge' | 'conveyor cultist' | 'gatecrasher' | 'thornmail' | 'air mail' | 'shock absorber' | 'first responder' | 'pickpocket' | 'revenge club' | 'headwind' | 'bogeyman' | 'coin slot' | 'broker' | 'echo chamber' | 'paradox partner' | 'hole hunter' | 'black market caddy' | 'cushion keeper' | 'spring coach' | 'bumper apprentice' | 'slope scout' | 'wind warden';
 /** Kept as a public alias for saved games created before the clubhouse shop. */
 export type Upgrade = CaddyId;
-export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' | 'gravity is sideways' | 'cup walks' | 'everybody is ghost' | 'two is one' | 'portals are plenty' | 'turns are backwards' | 'gates are open' | 'cups are many' | 'ball is cup';
+export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' | 'gravity is sideways' | 'cup walks' | 'everybody is ghost' | 'two is one' | 'portals are plenty' | 'turns are backwards' | 'gates are open' | 'cups are many' | 'ball is cup' | 'bank holiday' | 'spring fling' | 'high winds' | 'cushion league';
 export type ChronoCard = 'undo drive' | 'second chance' | 'echo putt' | 'future sight' | 'time theft' | 'frozen frame' | 'parallel parking' | 'grandfather clause';
 export type ContentId = CaddyId | PowerUp | RealityCard | ChronoCard;
 export type ContentCategory = 'caddy' | 'pocket' | 'form' | 'gadget' | 'reality' | 'chrono';
@@ -40,7 +40,10 @@ export type Surface =
   | 'tee'
   | 'cup'
   | 'booster'
-  | 'conveyor';
+  | 'conveyor'
+  | 'cushion'
+  | 'spring'
+  | 'bumper';
 
 export interface Tile {
   surface: Surface;
@@ -124,7 +127,16 @@ export interface AirRingFeature {
   boost: number;
 }
 
-export type CourseFeature = SinkholeFeature | ThornFeature | PulseFeature | AirRingFeature;
+export interface GustFeature {
+  id: string;
+  kind: 'gust';
+  point: Point;
+  direction: Point;
+  radius: number;
+  strength: number;
+}
+
+export type CourseFeature = SinkholeFeature | ThornFeature | PulseFeature | AirRingFeature | GustFeature;
 export interface PortalEndpoint {
   point: Point;
   direction: Point;
@@ -136,7 +148,9 @@ export interface PortalPair {
   exit?: PortalEndpoint;
 }
 export type ItemPadKind = 'recovery' | 'chaos' | 'cash';
-export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry' | 'drift' | 'bloom' | 'pulse';
+export type CourseTheme = 'balanced' | 'speedway' | 'hazard-run' | 'ice-rink' | 'quarry' | 'drift' | 'bloom' | 'pulse' | 'carnival' | 'marsh' | 'zephyr';
+export type CourseArchetype = 'ribbon' | 'switchback' | 'fork' | 'courtyard' | 'slalom';
+export type CourseSizeProfile = 'compact' | 'standard' | 'full';
 
 export interface TerrainSettings {
   width: number;
@@ -150,11 +164,16 @@ export interface TerrainSettings {
   branches: number;
   chaos: number;
   theme: CourseTheme;
+  archetype: CourseArchetype;
+  sizeProfile: CourseSizeProfile;
   roughRate: number;
   sandRate: number;
   iceRate: number;
   boosterRate: number;
   conveyorRate: number;
+  cushionRate: number;
+  springRate: number;
+  bumperCount: number;
   wallCount: number;
   sweeperCount: number;
   gateCount: number;
@@ -167,6 +186,7 @@ export interface TerrainSettings {
   updraftCount: number;
   lowBarCount: number;
   airRingCount: number;
+  gustCount: number;
   variation: number;
 }
 
@@ -230,6 +250,8 @@ export interface Course {
   id: string;
   seed: string;
   theme: CourseTheme;
+  archetype?: CourseArchetype;
+  sizeProfile?: CourseSizeProfile;
   width: number;
   height: number;
   tiles: Tile[];
@@ -306,6 +328,11 @@ export interface Player {
   forcedChip?: boolean;
   controlInverted?: number;
   timeDilated?: number;
+  gustReversed?: boolean;
+  slopeStabilized?: boolean;
+  springPolished?: boolean;
+  bumperWaxed?: boolean;
+  cushionMapped?: boolean;
   redTee?: Point;
   attachments?: CardAttachment[];
   /** The order a player sank this hole, used for the shared shop queue. */

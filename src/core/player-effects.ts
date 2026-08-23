@@ -4,9 +4,9 @@ import type { BallForm, CaddyId, ChronoCard, Course, HoleRules, Player, PocketCa
 
 export const BALL_FORMS: readonly BallForm[] = ['heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'quantum', 'mirror', 'anvil', 'vampire', 'boomerang'];
 export const GADGET_POWER_UPS: readonly PowerUp[] = ['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun'];
-export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'glider', 'sticky', 'orbit', 'boomerang', 'cup magnet', 'slipstream', 'rebound rig', 'rescue drone', 'red tee', 'gravity gloves', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'phase shift', 'sandbag'];
-export const CHAOS_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'quantum', 'mirror', 'anvil', 'vampire', 'boomerang', 'cup magnet', 'slipstream', 'rebound rig', 'rescue drone', 'airhorn', 'club flipper', 'time dilator', 'mugger', 'scramble', 'gravity gloves', 'bunker buster', 'portal remote', 'red tee', 'black flag', 'cherry bomb', 'copycat', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun', 'phase shift', 'sandbag'];
-export const UPGRADES: readonly Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger', 'aerial ace', 'cup reader', 'gadgeteer', 'backboard', 'pinball wizard', 'rough rider', 'sand wedge', 'conveyor cultist', 'gatecrasher', 'thornmail', 'air mail', 'shock absorber', 'first responder', 'pickpocket', 'revenge club', 'headwind', 'bogeyman', 'coin slot', 'broker', 'echo chamber', 'paradox partner', 'hole hunter', 'black market caddy'];
+export const RECOVERY_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'glider', 'sticky', 'orbit', 'boomerang', 'cup magnet', 'slipstream', 'rebound rig', 'rescue drone', 'red tee', 'gravity gloves', 'wind sock', 'slope stabilizer', 'spring polish', 'bumper wax', 'cushion map', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'phase shift', 'sandbag'];
+export const CHAOS_POWER_UPS: readonly PowerUp[] = ['turbo', 'shield', 'bomb', 'freeze', 'swap', 'two putts', 'heavy', 'bouncy', 'ghost', 'magnet', 'ice', 'portal', 'glider', 'sticky', 'orbit', 'quantum', 'mirror', 'anvil', 'vampire', 'boomerang', 'cup magnet', 'slipstream', 'rebound rig', 'rescue drone', 'airhorn', 'club flipper', 'time dilator', 'mugger', 'scramble', 'gravity gloves', 'bunker buster', 'portal remote', 'red tee', 'black flag', 'cherry bomb', 'copycat', 'wind sock', 'slope stabilizer', 'spring polish', 'bumper wax', 'cushion map', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun', 'phase shift', 'sandbag'];
+export const UPGRADES: readonly Upgrade[] = ['heavy ball', 'ice skates', 'extra charge', 'bank shot', 'hazard shield', 'chaos magnet', 'portal savvy', 'second wind', 'scavenger', 'aerial ace', 'cup reader', 'gadgeteer', 'backboard', 'pinball wizard', 'rough rider', 'sand wedge', 'conveyor cultist', 'gatecrasher', 'thornmail', 'air mail', 'shock absorber', 'first responder', 'pickpocket', 'revenge club', 'headwind', 'bogeyman', 'coin slot', 'broker', 'echo chamber', 'paradox partner', 'hole hunter', 'black market caddy', 'cushion keeper', 'spring coach', 'bumper apprentice', 'slope scout', 'wind warden'];
 
 export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
   'heavy ball': '+12% launch power and 1.45× collision mass',
@@ -41,6 +41,11 @@ export const UPGRADE_DESCRIPTIONS: Record<Upgrade, string> = {
   'paradox partner': 'one position rewind',
   'hole hunter': 'trick shots enlarge the cup',
   'black market caddy': 'contraband buys include a bonus card',
+  'cushion keeper': 'cushion turf holds less drag',
+  'spring coach': 'spring tiles launch higher and farther',
+  'bumper apprentice': 'bumper banks retain more speed',
+  'slope scout': 'downhill pull is reduced',
+  'wind warden': 'gust lanes push less per stack',
 };
 
 export const isBallForm = (powerUp: PowerUp): powerUp is BallForm => BALL_FORMS.includes(powerUp as BallForm);
@@ -112,14 +117,14 @@ export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhys
   magnetBall: form === 'magnet',
   portalExitId: form === 'portal' ? player.portalExitId : undefined,
   portalSpeedMultiplier: (1 + caddyCount(player, 'portal savvy') * .18) * (rules?.portalSpeedMultiplier ?? 1),
-  hazardShield: player.hazardShield || hasAttachment(player, 'guardian pin') || hasAttachment(player, 'windbreak') || hasCaddy(player, 'first responder') || (form === 'boomerang' && Boolean(player.redTee)),
+  hazardShield: player.hazardShield || hasAttachment(player, 'guardian pin') || hasAttachment(player, 'windbreak') || hasAttachment(player, 'rescue pact') || hasCaddy(player, 'first responder') || (form === 'boomerang' && Boolean(player.redTee)),
   rollingResistanceMultiplier: (rules?.rollingResistanceMultiplier ?? 1) * (form === 'sticky' ? 2.5 : 1),
   wallRestitutionMultiplier: (rules?.wallRestitutionMultiplier ?? 1) * (form === 'sticky' ? .35 : 1),
   terrainAccelerationMultiplier: (rules?.terrainAccelerationMultiplier ?? 1) * (1 + caddyCount(player, 'conveyor cultist') * .2),
-  hazardImpulseMultiplier: (rules?.hazardImpulseMultiplier ?? 1) * Math.max(.35, 1 - caddyCount(player, 'shock absorber') * .22),
+  hazardImpulseMultiplier: (rules?.hazardImpulseMultiplier ?? 1) * (hasAttachment(player, 'anchor line') ? .28 : 1) * Math.max(.35, 1 - caddyCount(player, 'shock absorber') * .22),
   cupRadius: (rules?.cupRadius ?? .28) * (form === 'orbit' ? 1.28 : 1) * (hasAttachment(player, 'line reader') ? 1.18 : 1) * (hasAttachment(player, 'steady hands') ? 1.14 : 1) * (1 + caddyCount(player, 'cup reader') * .18),
   cupMagnet: player.cupMagnetArmed || hasAttachment(player, 'line reader'),
-  slipstream: player.slipstreamArmed || hasAttachment(player, 'fairway draft'),
+  slipstream: player.slipstreamArmed || hasAttachment(player, 'fairway draft') || hasAttachment(player, 'shared draft'),
   reboundRig: player.reboundRigArmed || hasAttachment(player, 'banker advice'),
   chipGravityMultiplier: (form === 'glider' ? .58 : 1) * Math.max(.35, 1 - caddyCount(player, 'aerial ace') * .18),
   roughRider: hasCaddy(player, 'rough rider'),
@@ -128,6 +133,11 @@ export const physicsModifiersFor = (player: Player, rules?: HoleRules): BallPhys
   thornmail: hasCaddy(player, 'thornmail'),
   anvilBall: form === 'anvil',
   mirrorBall: form === 'mirror',
+  cushionDragMultiplier: (player.cushionMapped || hasAttachment(player, 'cushion call') ? .42 : 1) * (hasAttachment(player, 'sticky forecast') ? 1.7 : 1) * Math.max(.3, 1 - caddyCount(player, 'cushion keeper') * .2),
+  springLiftMultiplier: (player.springPolished || hasAttachment(player, 'spring ticket') ? 1.42 : 1) * (1 + caddyCount(player, 'spring coach') * .16),
+  bumperRestitutionMultiplier: (player.bumperWaxed || hasAttachment(player, 'bumper lease') ? 1.28 : 1) * (hasAttachment(player, 'dead bounce') ? .45 : 1) * (1 + caddyCount(player, 'bumper apprentice') * .13),
+  slopeGravityMultiplier: (player.slopeStabilized || hasAttachment(player, 'anchor line') ? .25 : 1) * (hasAttachment(player, 'grounds crew') ? .55 : 1) * Math.max(.3, 1 - caddyCount(player, 'slope scout') * .18),
+  gustMultiplier: (player.gustReversed ? -1 : 1) * (hasAttachment(player, 'crosswind debt') ? -.65 : 1) * (hasAttachment(player, 'wind sail') ? 1.45 : 1) * Math.max(.3, 1 - caddyCount(player, 'wind warden') * .2),
 };
 };
 
@@ -152,6 +162,11 @@ export const resetPlayerForCourse = (player: Player, course: Course, _rules?: Ho
   player.forcedChip = undefined;
   player.controlInverted = undefined;
   player.timeDilated = undefined;
+  player.gustReversed = undefined;
+  player.slopeStabilized = undefined;
+  player.springPolished = undefined;
+  player.bumperWaxed = undefined;
+  player.cushionMapped = undefined;
   player.redTee = undefined;
   player.holeFinishOrder = undefined;
 };

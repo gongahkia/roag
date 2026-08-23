@@ -49,9 +49,11 @@ export const cloneCourse = (course: Course): Course => ({
   cup: { ...course.cup },
   hazards: course.hazards.map((hazard) => hazard.kind === 'updraft' ? { ...hazard, point: { ...hazard.point }, direction: { ...hazard.direction } } : { ...hazard, point: { ...hazard.point } }),
   theme: course.theme ?? 'balanced',
+  archetype: course.archetype ?? 'ribbon',
+  sizeProfile: course.sizeProfile ?? 'standard',
   features: (course.features ?? []).map((feature) => feature.kind === 'sinkhole'
     ? { ...feature, entrance: { ...feature.entrance }, exit: { ...feature.exit } }
-    : feature.kind === 'pulse'
+    : feature.kind === 'pulse' || feature.kind === 'gust'
       ? { ...feature, point: { ...feature.point }, direction: { ...feature.direction } }
       : { ...feature, point: { ...feature.point } }),
   portals: course.portals?.map((pair) => ({ ...pair, entrance: pair.entrance ? { point: { ...pair.entrance.point }, direction: { ...pair.entrance.direction } } : undefined, exit: pair.exit ? { point: { ...pair.exit.point }, direction: { ...pair.exit.direction } } : undefined })),
@@ -63,8 +65,26 @@ export const normalizeGameState = (state: GameState): GameState => {
   state.config.courseWidth ??= COURSE_WIDTH;
   state.config.courseHeight ??= COURSE_HEIGHT;
   state.config.skipVoting ??= false;
+  const normalizeTerrain = (terrain: ReturnType<typeof defaultTerrainSettings>) => {
+    terrain.archetype ??= 'ribbon';
+    terrain.sizeProfile ??= 'standard';
+    terrain.cushionRate ??= 0;
+    terrain.springRate ??= 0;
+    terrain.bumperCount ??= 0;
+    terrain.gustCount ??= 0;
+    terrain.sinkholePairs ??= 0;
+    terrain.thornCount ??= 0;
+    terrain.pulseCount ??= 0;
+    terrain.updraftCount ??= 0;
+    terrain.lowBarCount ??= 0;
+    terrain.airRingCount ??= 0;
+    terrain.width ??= COURSE_WIDTH;
+    terrain.height ??= COURSE_HEIGHT;
+  };
   const normalizeCourse = (course: Course) => {
     course.theme ??= 'balanced';
+    course.archetype ??= 'ribbon';
+    course.sizeProfile ??= 'standard';
     course.features ??= [];
     course.portals ??= [];
     course.itemPads ??= [];
@@ -72,14 +92,7 @@ export const normalizeGameState = (state: GameState): GameState => {
   normalizeCourse(state.course);
   state.vote?.options.forEach((option) => {
     normalizeCourse(option.course);
-    option.recipe.terrain.sinkholePairs ??= 0;
-    option.recipe.terrain.thornCount ??= 0;
-    option.recipe.terrain.pulseCount ??= 0;
-    option.recipe.terrain.updraftCount ??= 0;
-    option.recipe.terrain.lowBarCount ??= 0;
-    option.recipe.terrain.airRingCount ??= 0;
-    option.recipe.terrain.width ??= COURSE_WIDTH;
-    option.recipe.terrain.height ??= COURSE_HEIGHT;
+    normalizeTerrain(option.recipe.terrain);
   });
   state.gadgets ??= [];
   state.hazardElapsedMs ??= elapsedMsForPhase(state.coursePhase ?? 0);
@@ -96,6 +109,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     player.upgrades = player.caddies.map((caddy) => caddy.id);
   });
   state.coursePlan ??= [];
+  state.coursePlan.forEach((plan) => normalizeTerrain(plan.recipe.terrain));
   if (state.status !== 'voting' && state.coursePlan.length < state.hole) {
     state.coursePlan.push({ id: `legacy-hole-${state.hole}`, label: `legacy hole ${state.hole}`, courseSeed: state.course.seed, recipe: { terrain: defaultTerrainSettings(), rules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] } } });
   }
@@ -133,6 +147,8 @@ export const courseForPlan = (plan: PlannedHole) => generateCourse(plan.courseSe
 const applyReality = (course: Course, reality: GameState['queuedReality']) => {
   if (reality === 'void is fairway') course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });
   if (reality === 'fairway is ice') course.tiles.forEach((tile) => { if (tile.surface === 'fairway') tile.surface = 'ice'; });
+  if (reality === 'spring fling') course.tiles.forEach((tile) => { if (tile.surface === 'booster') tile.surface = 'spring'; });
+  if (reality === 'cushion league') course.tiles.forEach((tile) => { if (tile.surface === 'sand') tile.surface = 'cushion'; });
 };
 
 const activatePlan = (state: GameState, plan: PlannedHole) => {

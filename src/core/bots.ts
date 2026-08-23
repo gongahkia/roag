@@ -36,7 +36,7 @@ const gadgetPointFor = (course: Course, bot: Player, gadgets: readonly Gadget[])
     || course.hazards.some((hazard) => hazard.point.x === point.x && hazard.point.y === point.y);
   const candidates = course.route.slice(3, -2).filter((point) => {
     const tile = tileAt(course, point.x + .5, point.y + .5);
-    return tile && ['fairway', 'rough', 'sand', 'ice', 'booster', 'conveyor'].includes(tile.surface) && !used(point);
+    return tile && ['fairway', 'rough', 'sand', 'ice', 'booster', 'conveyor', 'cushion', 'spring'].includes(tile.surface) && !used(point);
   });
   return candidates.length ? candidates[(bot.ball.strokes + bot.id.length) % candidates.length] : undefined;
 };
@@ -45,7 +45,8 @@ const wallBetween = (course: Course, from: Point, to: Point) => {
   const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) * 4));
   for (let step = 1; step < steps; step += 1) {
     const progress = step / steps;
-    if (tileAt(course, from.x + (to.x - from.x) * progress, from.y + (to.y - from.y) * progress)?.surface === 'wall') return true;
+    const surface = tileAt(course, from.x + (to.x - from.x) * progress, from.y + (to.y - from.y) * progress)?.surface;
+    if (surface === 'wall' || surface === 'bumper') return true;
   }
   return false;
 };
@@ -90,6 +91,9 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
     if (definition?.targetMode === 'player') {
       const recipient = definition.polarity === 'curse' ? target : boonTarget(bot, players);
       if (recipient) powerUp = { type: held, cardId: heldCard?.instanceId, targetId: recipient.id };
+    } else if (held === 'wind sock' || held === 'slope stabilizer' || held === 'spring polish' || held === 'bumper wax' || held === 'cushion map') {
+      const recipient = boonTarget(bot, players);
+      powerUp = { type: held, cardId: heldCard?.instanceId, targetId: recipient.id };
     } else if (held === 'turbo' || held === 'shield' || held === 'two putts' || held === 'heavy' || held === 'bouncy' || held === 'ghost' || held === 'magnet' || held === 'ice' || held === 'glider' || held === 'sticky' || held === 'orbit' || held === 'cup magnet' || held === 'slipstream' || held === 'rebound rig' || held === 'rescue drone') powerUp = { type: held, cardId: heldCard?.instanceId };
     else if (held === 'portal') {
       const portalExitId = bestPortalExit(course);

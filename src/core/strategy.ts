@@ -39,27 +39,42 @@ export const attachStrategyCard = (state: GameState, caster: Player, initialTarg
     }
   }
 
+  const paired = (card.id === 'shared draft' || card.id === 'rescue pact') && target.id !== caster.id;
+  const recipients = paired ? [target, caster] : [target];
+  if (definition.polarity === 'boon' && recipients.some((recipient) => hasAttachment(recipient, 'black pennant'))) {
+    const blocked = recipients.find((recipient) => hasAttachment(recipient, 'black pennant'))!;
+    return { applied: false, target, message: `${blocked.name}'s black pennant rejects the boon` };
+  }
   const duration = card.duration ?? (definition.timing === 'putt' ? { unit: 'putt' as const, amount: 1 } : undefined);
   if (!duration) return { applied: false, target };
-  const current = attachmentsFor(target);
-  const existing = current.find((attachment) => attachment.effect === card.id);
-  if (existing) {
-    existing.remaining = Math.max(existing.remaining, duration.amount);
-    existing.casterId = caster.id;
-    return { applied: true, target, message: `${caster.name} refreshes ${card.id} on ${target.name}` };
-  }
-  if (current.length >= 4) return { applied: false, target, message: `${target.name} cannot carry more than four card effects` };
-  const attachment: CardAttachment = {
-    id: `effect-${++state.cardSequence}`,
-    cardId: card.id as StrategyCard,
-    effect: card.id as StrategyCard,
-    casterId: caster.id,
-    polarity: definition.polarity as 'boon' | 'curse',
-    unit: duration.unit,
-    remaining: duration.amount,
-  };
-  target.attachments = [...current, attachment];
-  return { applied: true, target, message: `${caster.name} plays ${card.id} on ${target.name}` };
+  const blockedRecipient = recipients.find((recipient) => {
+    const current = attachmentsFor(recipient);
+    return !current.some((attachment) => attachment.effect === card.id) && current.length >= 4;
+  });
+  if (blockedRecipient) return { applied: false, target, message: `${blockedRecipient.name} cannot carry more than four card effects` };
+  let refreshed = false;
+  recipients.forEach((recipient) => {
+    const current = attachmentsFor(recipient);
+    const existing = current.find((attachment) => attachment.effect === card.id);
+    if (existing) {
+      existing.remaining = Math.max(existing.remaining, duration.amount);
+      existing.casterId = caster.id;
+      refreshed = true;
+      return;
+    }
+    const attachment: CardAttachment = {
+      id: `effect-${++state.cardSequence}`,
+      cardId: card.id as StrategyCard,
+      effect: card.id as StrategyCard,
+      casterId: caster.id,
+      polarity: definition.polarity as 'boon' | 'curse',
+      unit: duration.unit,
+      remaining: duration.amount,
+    };
+    recipient.attachments = [...current, attachment];
+  });
+  const recipientLabel = paired ? `${target.name} and ${caster.name}` : target.name;
+  return { applied: true, target, message: `${caster.name} ${refreshed ? 'refreshes' : 'plays'} ${card.id} on ${recipientLabel}` };
 };
 
 export const consumePuttAttachments = (player: Player) => {
@@ -84,6 +99,11 @@ export const resolveHoleAttachments = (state: GameState) => {
       if (attachment.effect === 'sponsor tab') player.cash += 2;
       if (attachment.effect === 'relay fund') player.cash += 4;
       if (attachment.effect === 'bogey tax') player.cash = Math.max(0, player.cash - 2);
+      if (attachment.effect === 'clubhouse pool') {
+        player.cash += 2;
+        const caster = state.players.find((candidate) => candidate.id === attachment.casterId);
+        if (caster && caster.id !== player.id) caster.cash += 2;
+      }
     });
     player.attachments = attachmentsFor(player).flatMap((attachment) => {
       if (attachment.unit !== 'hole') return [attachment];

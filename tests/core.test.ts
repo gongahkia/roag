@@ -86,11 +86,14 @@ describe('course generation', () => {
     }
   });
 
-  it('generates the requested dimensions into every voting package', () => {
+  it('uses compact, standard, and full vote packages within the host dimensions', () => {
     const options = generateVotingOptions('sized-course', 1, { width: 24, height: 16 });
     expect(options).toHaveLength(3);
-    expect(options.every((option) => option.course.width === 24 && option.course.height === 16)).toBe(true);
-    expect(options.every((option) => option.recipe.terrain.width === 24 && option.recipe.terrain.height === 16)).toBe(true);
+    expect(options.map((option) => option.recipe.terrain.sizeProfile)).toEqual(['compact', 'standard', 'full']);
+    expect(options.map((option) => option.course.width)).toEqual([16, 20, 24]);
+    expect(options.map((option) => option.course.height)).toEqual([11, 13, 16]);
+    expect(options.every((option) => option.course.width === option.recipe.terrain.width && option.course.height === option.recipe.terrain.height)).toBe(true);
+    expect(options.every((option) => option.course.width <= 24 && option.course.height <= 16)).toBe(true);
   });
 
   it('keeps large requested dimensions instead of clamping them to the old board limit', () => {
@@ -99,8 +102,10 @@ describe('course generation', () => {
     const options = generateVotingOptions('large-options', 1, dimensions);
     expect(course).toMatchObject(dimensions);
     expect(course.cup.x).toBeGreaterThan(24);
-    expect(options.every((option) => option.course.width === dimensions.width && option.course.height === dimensions.height)).toBe(true);
-    expect(options.every((option) => option.recipe.rules.strokeCap >= 13)).toBe(true);
+    expect(options.map((option) => option.recipe.terrain.sizeProfile)).toEqual(['compact', 'standard', 'full']);
+    expect(options[2]!.course).toMatchObject(dimensions);
+    expect(options.every((option) => option.course.width <= dimensions.width && option.course.height <= dimensions.height)).toBe(true);
+    expect(options[2]!.recipe.rules.strokeCap).toBeGreaterThanOrEqual(13);
   });
 
   it('keeps voting packages free of shared boons and starting supplies', () => {
@@ -119,9 +124,9 @@ describe('course generation', () => {
     }
   });
 
-  it('exposes deterministic granular recipes including independent surface, hazard, portal, and pad quantities', () => {
+  it('exposes deterministic granular recipes including independent surface, hazard, portal, pad, and gust quantities', () => {
     const terrain = randomTerrainSettings('granularity', 2);
-    const generated = generateCourse('granularity-course', { ...terrain, wallCount: 5, sweeperCount: 2, gateCount: 2, portalPairs: 2, recoveryPads: 3, chaosPads: 4, updraftCount: 2, lowBarCount: 2, airRingCount: 2 });
+    const generated = generateCourse('granularity-course', { ...terrain, wallCount: 5, sweeperCount: 2, gateCount: 2, portalPairs: 2, recoveryPads: 3, chaosPads: 4, updraftCount: 2, lowBarCount: 2, airRingCount: 2, gustCount: 2 });
     expect(terrain).toEqual(randomTerrainSettings('granularity', 2));
     expect(generated.hazards.filter((hazard) => hazard.kind === 'sweeper')).toHaveLength(2);
     expect(generated.hazards.filter((hazard) => hazard.kind === 'gate')).toHaveLength(2);
@@ -131,7 +136,34 @@ describe('course generation', () => {
     expect(generated.hazards.filter((hazard) => hazard.kind === 'updraft')).toHaveLength(2);
     expect(generated.hazards.filter((hazard) => hazard.kind === 'low-bar')).toHaveLength(2);
     expect(generated.features.filter((feature) => feature.kind === 'air-ring')).toHaveLength(2);
+    expect(generated.features.filter((feature) => feature.kind === 'gust')).toHaveLength(2);
   });
+
+  it('keeps new terrain tiles off the primary route while retaining deterministic specialist terrain', () => {
+    const spring = generateCourse('spring-terrain', { ...defaultTerrainSettings(), density: 1, roughRate: 0, sandRate: 0, iceRate: 0, boosterRate: 0, conveyorRate: 0, cushionRate: 0, springRate: 1, bumperCount: 3, gustCount: 2, theme: 'carnival' });
+    const cushion = generateCourse('cushion-terrain', { ...defaultTerrainSettings(), density: 1, roughRate: 0, sandRate: 0, iceRate: 0, boosterRate: 0, conveyorRate: 0, cushionRate: 1, springRate: 0, bumperCount: 0, gustCount: 0, theme: 'marsh' });
+    expect(spring.tiles.some((tile) => tile.surface === 'spring')).toBe(true);
+    expect(spring.tiles.filter((tile) => tile.surface === 'bumper')).toHaveLength(5);
+    expect(spring.features.filter((feature) => feature.kind === 'gust')).toHaveLength(2);
+    expect(cushion.tiles.some((tile) => tile.surface === 'cushion')).toBe(true);
+    expect([...spring.route, ...cushion.route].every((point) => {
+      const course = spring.route.includes(point) ? spring : cushion;
+      const tile = tileAt(course, point.x + .5, point.y + .5);
+      return tile?.surface !== 'spring' && tile?.surface !== 'bumper' && tile?.surface !== 'void';
+    })).toBe(true);
+  });
+
+  it('keeps a seeded ballot corpus varied and reproducible across terrain, shape, and size', () => {
+    const corpus = ['terrain-corpus-01', 'terrain-corpus-02', 'terrain-corpus-03', 'terrain-corpus-04'];
+    for (const seed of corpus) {
+      const first = generateVotingOptions(seed, 2, { width: 28, height: 18 });
+      const second = generateVotingOptions(seed, 2, { width: 28, height: 18 });
+      expect(first.map((option) => option.course)).toEqual(second.map((option) => option.course));
+      expect(new Set(first.map((option) => option.course.theme)).size).toBe(3);
+      expect(new Set(first.map((option) => option.course.archetype)).size).toBe(3);
+      expect(first.every((option) => option.course.score.playable)).toBe(true);
+    }
+  }, 30_000);
 
   it('keeps generated courses guarded and solver-playable', () => {
     const course = generateCourse('edge-seed', { ...defaultTerrainSettings(), wallCount: 3 });
@@ -165,7 +197,7 @@ describe('course generation', () => {
 
 describe('clubhouse economy and reality cards', () => {
   it('defines a large, unique data-driven merchant catalog', () => {
-    expect(CONTENT).toHaveLength(124);
+    expect(CONTENT).toHaveLength(150);
     expect(new Set(CONTENT.map((entry) => entry.id)).size).toBe(CONTENT.length);
     expect(new Set(CONTENT.map((entry) => entry.category))).toEqual(new Set(['caddy', 'pocket', 'form', 'gadget', 'reality', 'chrono']));
   });
@@ -255,10 +287,11 @@ describe('public voting flow', () => {
     expect(first.coursePlan).toHaveLength(3);
     expect(first.coursePlan).toEqual(second.coursePlan);
     expect(first.course.seed).toBe(first.coursePlan[0]!.courseSeed);
-    expect(first.course).toMatchObject({ width: 24, height: 16 });
-    expect(first.coursePlan.every((plan) => plan.recipe.terrain.width === 24 && plan.recipe.terrain.height === 16)).toBe(true);
+    expect(first.course.width).toBeLessThanOrEqual(24);
+    expect(first.course.height).toBeLessThanOrEqual(16);
+    expect(first.coursePlan.every((plan) => plan.recipe.terrain.width <= 24 && plan.recipe.terrain.height <= 16)).toBe(true);
     expect(first.players.every((player) => player.caddies.length === 0 && player.cash === 10)).toBe(true);
-  });
+  }, 15_000);
 
   it('keeps named ballots public and editable until the final ballot locks the whole match plan', () => {
     let game = createGame({ ...defaultConfig(), seed: 'public-ballot', holeCount: 1, humanCount: 2, botCount: 1 });
@@ -390,6 +423,44 @@ describe('turns, shared rules, and bots', () => {
     expect(game.players[1]!.attachments).toEqual([]);
   });
 
+  it('supports targeted terrain boons and pairs co-op strategy attachments for caster and recipient', () => {
+    let game = gameOn(arena('terrain-coop'));
+    const [caster, target] = game.players;
+    const targetId = target!.id;
+    game.players[0]!.pockets = [{ id: 'wind sock', source: 'shop', instanceId: 'wind-sock-1' }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'wind sock', cardId: 'wind-sock-1', targetId });
+    expect(game.players[1]!.gustReversed).toBe(true);
+    expect(game.players[0]!.pockets).toEqual([]);
+
+    game.turn = { ...game.turn, cardPlayed: false };
+    game.players[0]!.pockets = [{ id: 'shared draft', source: 'shop', instanceId: 'shared-draft-1', duration: { unit: 'round', amount: 2 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'shared draft', cardId: 'shared-draft-1', targetId });
+    expect(game.players[0]!.attachments).toMatchObject([{ cardId: 'shared draft', casterId: caster!.id, remaining: 2 }]);
+    expect(game.players[1]!.attachments).toMatchObject([{ cardId: 'shared draft', casterId: caster!.id, remaining: 2 }]);
+
+    game.turn = { ...game.turn, cardPlayed: false };
+    game.players[0]!.pockets = [{ id: 'rescue pact', source: 'shop', instanceId: 'rescue-pact-1', duration: { unit: 'hole', amount: 1 } }];
+    game = applyCommand(game, { type: 'use-power-up', powerUp: 'rescue pact', cardId: 'rescue-pact-1', targetId });
+    expect(game.players[0]!.attachments?.some((attachment) => attachment.cardId === 'rescue pact' && attachment.casterId === caster!.id && attachment.unit === 'hole')).toBe(true);
+    expect(game.players[1]!.attachments?.some((attachment) => attachment.cardId === 'rescue pact' && attachment.casterId === caster!.id && attachment.unit === 'hole')).toBe(true);
+  });
+
+  it('applies specialist Caddy and terrain card modifiers without changing unrelated physics', () => {
+    const player = gameOn(arena('terrain-modifiers')).players[0]!;
+    player.upgrades = ['cushion keeper', 'spring coach', 'bumper apprentice', 'slope scout', 'wind warden'];
+    player.cushionMapped = true;
+    player.springPolished = true;
+    player.bumperWaxed = true;
+    player.slopeStabilized = true;
+    player.gustReversed = true;
+    const modifiers = physicsModifiersFor(player);
+    expect(modifiers.cushionDragMultiplier).toBeLessThan(.4);
+    expect(modifiers.springLiftMultiplier).toBeGreaterThan(1.5);
+    expect(modifiers.bumperRestitutionMultiplier).toBeGreaterThan(1.3);
+    expect(modifiers.slopeGravityMultiplier).toBeLessThan(.25);
+    expect(modifiers.gustMultiplier).toBeLessThan(0);
+  });
+
   it('freezes turns and shots while paused, then resumes the same match state', () => {
     let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
     const secondsLeft = game.turn.secondsLeft;
@@ -505,7 +576,7 @@ describe('turns, shared rules, and bots', () => {
     game = tickTurn({ ...game, turn: { ...game.turn, secondsLeft: .1 } }, 1);
     expect(game.turn.secondsLeft).toBe(game.holeRules.timerSeconds);
     game.players[0]!.total = 3;
-    expect(['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'cup magnet', 'slipstream', 'rebound rig', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'phase shift', 'sandbag']).toContain(powerUpFor(game, game.players[0]!, 'chaos', 'recovery-bias'));
+    expect(['turbo', 'shield', 'two putts', 'bouncy', 'ice', 'magnet', 'cup magnet', 'slipstream', 'rebound rig', 'wind sock', 'slope stabilizer', 'spring polish', 'bumper wax', 'cushion map', 'popper pad', 'snare patch', 'blast mine', 'slick patch', 'phase shift', 'sandbag']).toContain(powerUpFor(game, game.players[0]!, 'chaos', 'recovery-bias'));
   });
 
   it('preserves item-specific effects that the shared rules can enable', () => {

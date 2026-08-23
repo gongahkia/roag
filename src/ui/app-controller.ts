@@ -3,6 +3,7 @@ import { chooseBotVote } from '../core/bots';
 import { COURSE_TRANSITION_DURATION_MS, type CourseExpansion } from '../core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { expansionForTransition } from '../core/game-state';
+import { tileAt } from '../core/physics';
 import { canPlaceGadget } from '../core/powerups';
 import { chooseBotShopOffer } from '../core/shop';
 import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
@@ -68,6 +69,7 @@ export const startApp = (app: HTMLElement) => {
   let ledger: LedgerEntry[] = [];
   let callouts: TimedCallout[] = [];
   let shotAnimation: ShotAnimation | undefined;
+  let terrainCue: string | undefined;
   let transitionFrame: number | undefined;
   let transitionProgress = 0;
   let transitionExpansion: CourseExpansion | undefined;
@@ -155,6 +157,15 @@ export const startApp = (app: HTMLElement) => {
     oscillator.connect(gain).connect(audioContext.destination);
     oscillator.start();
     oscillator.stop(audioContext.currentTime + duration);
+  };
+  const playTerrainCue = (ball: Ball) => {
+    const tile = tileAt(state.course, ball.x, ball.y);
+    const gust = (state.course.features ?? []).some((feature) => feature.kind === 'gust'
+      && Math.hypot(ball.x - feature.point.x - .5, ball.y - feature.point.y - .5) <= feature.radius);
+    const cue = tile?.surface === 'spring' ? 'spring' : tile?.surface === 'cushion' ? 'cushion' : gust ? 'gust' : undefined;
+    if (!cue || cue === terrainCue) return;
+    terrainCue = cue;
+    playEffect(cue === 'spring' ? 780 : cue === 'gust' ? 460 : 180, cue === 'spring' ? .1 : .055);
   };
 
   const playersInExpansion = (expansion: CourseExpansion) => state.players.map((player) => ({
@@ -428,6 +439,7 @@ export const startApp = (app: HTMLElement) => {
     const duration = Math.min(2_200, Math.max(360, frames.length * 11));
     const startedAt = performance.now();
     shotAnimation = { playerId: player.id, frame: 0 };
+    terrainCue = undefined;
     state = inFlight;
     vibrate();
     playEffect(240, .09);
@@ -439,6 +451,7 @@ export const startApp = (app: HTMLElement) => {
       const progress = Math.max(0, Math.min(1, (now - startedAt) / duration));
       const frame = Math.max(0, Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1))));
       shotAnimation.frame = frame;
+      playTerrainCue(frames[frame]![source.turn.playerIndex]!);
       drawBoard(frames[frame]!, null);
       if (progress < 1) { requestAnimationFrame(animate); return; }
       shotAnimation = undefined;

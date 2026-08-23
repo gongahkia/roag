@@ -36,6 +36,9 @@ const rollingDeceleration: Record<Surface, number> = {
   cup: 0.92,
   booster: 0.82,
   conveyor: 0.92,
+  cushion: 3.25,
+  spring: 0.82,
+  bumper: 0,
 };
 
 export interface BallPhysicsModifiers {
@@ -64,6 +67,11 @@ export interface BallPhysicsModifiers {
   anvilBall?: boolean;
   mirrorBall?: boolean;
   sidewaysGravity?: boolean;
+  cushionDragMultiplier?: number;
+  springLiftMultiplier?: number;
+  bumperRestitutionMultiplier?: number;
+  slopeGravityMultiplier?: number;
+  gustMultiplier?: number;
 }
 
 export interface OtherBallSimulation {
@@ -198,13 +206,13 @@ const isOnGround = (course: Course, ball: Ball) => {
   // A wall is an obstruction, never a valid landing surface. Treating it as
   // ground allowed a chip at rest on a wall to settle before another collision
   // step could reflect it.
-  return Boolean(tile && tile.surface !== 'void' && tile.surface !== 'wall' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
+  return Boolean(tile && tile.surface !== 'void' && tile.surface !== 'wall' && tile.surface !== 'bumper' && Math.abs(ball.z - floorHeightAt(course, ball.x, ball.y) - BALL_RADIUS) < .01);
 };
 
 const rollingDecelerationFor = (tile: Tile, modifiers: BallPhysicsModifiers) => {
   const base = tile.surface === 'ice' && modifiers.iceSkates ? .36 : rollingDeceleration[tile.surface];
   const roughBonus = tile.surface === 'rough' && modifiers.roughRider ? .52 : 1;
-  return base * roughBonus * (modifiers.rollingResistanceMultiplier ?? 1) * (modifiers.slipstream ? .66 : 1);
+  return base * roughBonus * (modifiers.rollingResistanceMultiplier ?? 1) * (modifiers.slipstream ? .66 : 1) * (tile.surface === 'cushion' ? (modifiers.cushionDragMultiplier ?? 1) : 1);
 };
 
 const downhillForceAt = (course: Course, ball: Ball, modifiers: BallPhysicsModifiers) => {
@@ -216,7 +224,7 @@ const downhillForceAt = (course: Course, ball: Ball, modifiers: BallPhysicsModif
   const direction = { x: -gradient.x / steepness, y: -gradient.y / steepness };
   return {
     direction,
-    acceleration: steepness * SLOPE_GRAVITY * HEIGHT_TO_WORLD,
+    acceleration: steepness * SLOPE_GRAVITY * HEIGHT_TO_WORLD * (modifiers.slopeGravityMultiplier ?? 1),
     rollingDeceleration: rollingDecelerationFor(tile, modifiers),
   };
 };
@@ -326,7 +334,7 @@ const stopParticipant = (course: Course, participant: Participant) => {
 
 const lastLegalBall = (course: Course, participant: Participant) => {
   const tile = tileAt(course, participant.ball.x, participant.ball.y);
-  if (!tile || tile.surface === 'void' || tile.surface === 'wall') return;
+  if (!tile || tile.surface === 'void' || tile.surface === 'wall' || tile.surface === 'bumper') return;
   participant.lastLegalBall = { ...participant.ball };
 };
 
@@ -394,16 +402,35 @@ const applySurfaceForces = (course: Course, ball: Ball, tile: Tile, modifiers: B
     ball.vx -= ball.vx / currentSpeed * reduction;
     ball.vy -= ball.vy / currentSpeed * reduction;
   }
+  if (tile.surface === 'cushion' && planarSpeed(ball) < .72) {
+    ball.vx = 0;
+    ball.vy = 0;
+  }
+  limitPlanarSpeed(ball);
+};
+
+const applyGustForces = (course: Course, participant: Participant, airborne = false) => {
+  const ball = participant.ball;
+  for (const feature of course.features ?? []) {
+    if (feature.kind !== 'gust') continue;
+    const distance = Math.hypot(ball.x - feature.point.x - .5, ball.y - feature.point.y - .5);
+    if (distance > feature.radius) continue;
+    const force = feature.strength * (1 - distance / feature.radius) * STEP * (participant.modifiers.gustMultiplier ?? 1);
+    ball.vx += feature.direction.x * force;
+    ball.vy += feature.direction.y * force;
+    if (airborne) ball.vz += Math.abs(force) * .14;
+  }
   limitPlanarSpeed(ball);
 };
 
 const applyCourseInteractions = (course: Course, participant: Participant, gadgets: readonly Gadget[], triggeredGadgets: Set<string>) => {
   const ball = participant.ball;
+  applyGustForces(course, participant);
   if (participant.featureCooldown > 0) {
     participant.featureCooldown -= 1;
     return false;
   }
-  const feature = (course.features ?? []).find((candidate) => candidate.kind !== 'air-ring' && (candidate.kind === 'sinkhole'
+  const feature = (course.features ?? []).find((candidate) => candidate.kind !== 'air-ring' && candidate.kind !== 'gust' && (candidate.kind === 'sinkhole'
     ? Math.hypot(ball.x - candidate.entrance.x - .5, ball.y - candidate.entrance.y - .5) < .34
     : Math.hypot(ball.x - candidate.point.x - .5, ball.y - candidate.point.y - .5) < (candidate.kind === 'thorn' ? candidate.radius : .4)));
   if (feature?.kind === 'sinkhole') {
@@ -506,7 +533,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
     return;
   }
   const closedGate = reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, hazardElapsedMs, phaseCount);
-  if (tile.surface === 'wall' || closedGate) {
+  if (tile.surface === 'wall' || tile.surface === 'bumper' || closedGate) {
     if (tile.surface === 'wall' && reality === 'wall is cup') {
       participant.ball = { ...previous, vx: 0, vy: 0, vz: 0, complete: true };
       return;
@@ -534,7 +561,8 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
       return;
     }
     const normal = bounceNormal(previous, ball);
-    const restitution = Math.min(.98, (participant.modifiers.bouncy ? .94 : participant.modifiers.reboundRig ? .9 : participant.modifiers.bankShot ? .82 : .52) * (participant.modifiers.mirrorBall ? 1.18 : 1) * (participant.modifiers.wallRestitutionMultiplier ?? 1));
+    const baseRestitution = tile.surface === 'bumper' ? .84 : participant.modifiers.bouncy ? .94 : participant.modifiers.reboundRig ? .9 : participant.modifiers.bankShot ? .82 : .52;
+    const restitution = Math.min(.98, baseRestitution * (participant.modifiers.mirrorBall ? 1.18 : 1) * (participant.modifiers.wallRestitutionMultiplier ?? 1) * (tile.surface === 'bumper' ? (participant.modifiers.bumperRestitutionMultiplier ?? 1) : 1));
     const velocity = reflect(previous, normal, restitution);
     participant.ball = { ...previous, ...velocity, z: floorHeightAt(course, previous.x, previous.y) + BALL_RADIUS, vz: 0 };
     return;
@@ -542,6 +570,12 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
 
   ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
   if (applyCourseInteractions(course, participant, gadgets, triggeredGadgets)) return;
+  if (tile.surface === 'spring' && participant.featureCooldown === 0) {
+    ball.vz = 3.25 * (participant.modifiers.springLiftMultiplier ?? 1);
+    ball.vx *= 1.08;
+    ball.vy *= 1.08;
+    participant.featureCooldown = 10;
+  }
   applySurfaceForces(course, ball, tile, participant.modifiers);
 };
 
@@ -558,6 +592,7 @@ const bounceAirborneBall = (course: Course, participant: Participant, previous: 
 
 const applyAirborneInteractions = (course: Course, participant: Participant, previous: Ball): boolean => {
   const ball = participant.ball;
+  applyGustForces(course, participant, true);
   const lowBar = course.hazards.find((hazard) => hazard.kind === 'low-bar'
     && Math.hypot(ball.x - hazard.point.x - .5, ball.y - hazard.point.y - .5) < .42);
   if (lowBar?.kind === 'low-bar') {
@@ -614,9 +649,9 @@ const stepAirborne = (course: Course, participant: Participant, hazardElapsedMs:
     return;
   }
 
-  const blocked = tile.surface === 'wall' || (reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, hazardElapsedMs, phaseCount));
+  const blocked = tile.surface === 'wall' || tile.surface === 'bumper' || (reality !== 'gates are open' && closedGateAt(course, ball.x, ball.y, hazardElapsedMs, phaseCount));
   if (blocked) {
-    const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : GATE_CLEARANCE_HEIGHT);
+    const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : tile.surface === 'bumper' ? .26 : GATE_CLEARANCE_HEIGHT);
     if (ball.z - BALL_RADIUS > obstructionHeight) return;
     bounceAirborneBall(course, participant, previous);
     return;

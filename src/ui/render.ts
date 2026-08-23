@@ -17,6 +17,9 @@ const topColors: Record<Surface, string> = {
   cup: '#d2edbd',
   booster: '#e49b36',
   conveyor: '#75a8d0',
+  cushion: '#9aab79',
+  spring: '#b788e7',
+  bumper: '#d85f79',
 };
 
 const faceColors = {
@@ -56,6 +59,9 @@ const themeTopColors: Record<Course['theme'], Partial<Record<Surface, string>>> 
   drift: { fairway: '#c5976d', rough: '#996b55', sand: '#e3c383', ice: '#b6d8d8' },
   bloom: { fairway: '#b482aa', rough: '#774a7a', sand: '#e4b4c8', booster: '#e498ba' },
   pulse: { fairway: '#536c9b', rough: '#334873', sand: '#aeb5d1', booster: '#ef6a8d', conveyor: '#b58aea' },
+  carnival: { fairway: '#d68c7d', rough: '#a55262', spring: '#b685ea', bumper: '#e95671', booster: '#f0b43f' },
+  marsh: { fairway: '#769b6b', rough: '#4f7345', cushion: '#a8b375', sand: '#b5a277', ice: '#9fc9c5' },
+  zephyr: { fairway: '#78adc1', rough: '#4f8296', ice: '#bce4ef', conveyor: '#79b7d4', spring: '#9e9ee7' },
 };
 
 const topColorFor = (course: Course, surface: Surface, theme = course.theme) => themeTopColors[theme]?.[surface] ?? topColors[surface];
@@ -248,6 +254,24 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
     context.moveTo(center.x - inset, center.y + 3);
     context.lineTo(center.x + inset, center.y - 3);
     context.stroke();
+  } else if (tile.tile.surface === 'cushion') {
+    context.fillStyle = '#eff6cf33';
+    for (let stripe = -2; stripe <= 2; stripe += 1) context.fillRect(center.x - inset, center.y + stripe * 3, inset * 2, 1.5);
+  } else if (tile.tile.surface === 'spring') {
+    context.fillStyle = '#fff5ffcc';
+    for (let spring = -1; spring <= 1; spring += 1) {
+      context.beginPath();
+      context.moveTo(center.x + spring * 5 - 3, center.y + 4);
+      context.lineTo(center.x + spring * 5, center.y - 4);
+      context.lineTo(center.x + spring * 5 + 3, center.y + 4);
+      context.fill();
+    }
+  } else if (tile.tile.surface === 'bumper') {
+    context.fillStyle = '#fff0f3';
+    context.fillRect(center.x - inset, center.y - 2, inset * 2, 4);
+    context.strokeStyle = '#702842';
+    context.lineWidth = 1.2;
+    context.strokeRect(center.x - inset, center.y - 2, inset * 2, 4);
   } else if (tile.tile.surface === 'tee') {
     context.fillStyle = '#f9fff4';
     context.fillRect(center.x - inset, center.y - 2, inset * 2, 4);
@@ -511,6 +535,17 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
       return;
     }
     const direction = screenDirection(feature.point.x, feature.point.y, feature.direction, metrics);
+    if (feature.kind === 'gust') {
+      context.beginPath();
+      context.arc(center.x, center.y, size * 1.1, 0, Math.PI * 2);
+      context.strokeStyle = '#8ee8ffff';
+      context.lineWidth = 1.6;
+      context.setLineDash([3, 3]);
+      context.stroke();
+      context.setLineDash([]);
+      drawChevron(context, center, direction, size * .78, '#e9feff');
+      return;
+    }
     context.beginPath();
     context.arc(center.x, center.y, size, 0, Math.PI * 2);
     context.fillStyle = '#f26c9fb8';

@@ -151,6 +151,9 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .vote-card.theme-drift { color: #8f5b3d; border-color: #c69168; background: linear-gradient(155deg, #fffaf5, #f4e4d6); }
 .vote-card.theme-bloom { color: #783d74; border-color: #ad74a7; background: linear-gradient(155deg, #fffaff, #f3e1f1); }
 .vote-card.theme-pulse { color: #44558c; border-color: #7488c8; background: linear-gradient(155deg, #f8f9ff, #e4e7f8); }
+.vote-card.theme-carnival { color: #a15a21; border-color: #dfa44d; background: linear-gradient(155deg, #fffaf1, #ffedcf); }
+.vote-card.theme-marsh { color: #587043; border-color: #91ad77; background: linear-gradient(155deg, #f8fbf2, #e3efcf); }
+.vote-card.theme-zephyr { color: #28788a; border-color: #71b8c5; background: linear-gradient(155deg, #f4fcfd, #d9f1f4); }
 .vote-card > header { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .55rem; align-items: start; margin-bottom: .75rem; }
 .package-number { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; color: currentColor; font-size: .78rem; font-weight: 700; }
 .card-kicker { margin: 0 0 .16rem; color: currentColor; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }

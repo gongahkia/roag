@@ -141,7 +141,7 @@ const translateHazards = (hazards: readonly CourseHazard[], point: (point: Point
   : { ...hazard, id: `${prefix}${hazard.id}`, point: point(hazard.point) });
 const translateFeatures = (features: readonly CourseFeature[], point: (point: Point) => Point, direction: (value: Point) => Point, prefix = ''): CourseFeature[] => features.map((feature) => feature.kind === 'sinkhole'
   ? { ...feature, id: `${prefix}${feature.id}`, entrance: point(feature.entrance), exit: point(feature.exit) }
-  : feature.kind === 'pulse'
+  : feature.kind === 'pulse' || feature.kind === 'gust'
     ? { ...feature, id: `${prefix}${feature.id}`, point: point(feature.point), direction: direction(feature.direction) }
     : { ...feature, id: `${prefix}${feature.id}`, point: point(feature.point) });
 const translatePortals = (portals: readonly PortalPair[] | undefined, point: (point: Point) => Point, direction: (value: Point) => Point, prefix = '') => portals?.map((portal) => ({

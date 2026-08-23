@@ -14,11 +14,16 @@ const advanceLegacyCoursePhase = (state: GameState) => {
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
   const effectiveShot = player.forcedChip || hasAttachment(player, 'forced chip') ? { ...shot, kind: 'chip' as const } : shot;
-  const modifiersFor = (candidate: typeof player): BallPhysicsModifiers => ({
-    ...physicsModifiersFor(candidate, state.holeRules),
+  const modifiersFor = (candidate: typeof player): BallPhysicsModifiers => {
+    const base = physicsModifiersFor(candidate, state.holeRules);
+    return {
+    ...base,
     ghostBall: candidate.ballForm === 'ghost' || state.activeReality === 'everybody is ghost',
     sidewaysGravity: state.activeReality === 'gravity is sideways',
-  });
+    bumperRestitutionMultiplier: (base.bumperRestitutionMultiplier ?? 1) * (state.activeReality === 'bank holiday' ? 1.26 : 1),
+    gustMultiplier: (base.gustMultiplier ?? 1) * (state.activeReality === 'high winds' ? 1.6 : 1),
+  };
+  };
   const simulate = (candidateShot: ShotCommand) => simulateShot(state.course, player.ball, adjustedShotFor(player, candidateShot, state.holeRules), undefined, {
     modifiers: modifiersFor(player),
     otherBalls: state.players.filter((_, index) => index !== playerIndex).map((candidate) => ({ ball: candidate.ball, modifiers: modifiersFor(candidate) })),
@@ -139,6 +144,11 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.forcedChip = undefined;
   player.controlInverted = undefined;
   player.timeDilated = undefined;
+  player.gustReversed = undefined;
+  player.slopeStabilized = undefined;
+  player.springPolished = undefined;
+  player.bumperWaxed = undefined;
+  player.cushionMapped = undefined;
   applySimulation(state, playerIndex, result);
   if (hasAttachment(player, 'mulligan relay')) player.twoPuttsArmed = true;
   consumePuttAttachments(player);

@@ -242,6 +242,31 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
     const copied = pocketsFor(target)[0];
     if (copied && canStorePowerUp(player)) { pocketsFor(player).push({ ...copied, instanceId: `copy-${++state.cardSequence}` }); syncPocketMirrors(player); addMessage(state, `${player.name} copies ${target.name}'s ${copied.id}`); used = true; }
   }
+  if (powerUp === 'wind sock') {
+    recipient.gustReversed = true;
+    addMessage(state, `${player.name} turns the gusts for ${recipient.name}`);
+    used = true;
+  }
+  if (powerUp === 'slope stabilizer') {
+    recipient.slopeStabilized = true;
+    addMessage(state, `${player.name} steadies ${recipient.name} against the slope`);
+    used = true;
+  }
+  if (powerUp === 'spring polish') {
+    recipient.springPolished = true;
+    addMessage(state, `${player.name} tunes ${recipient.name}'s next spring launch`);
+    used = true;
+  }
+  if (powerUp === 'bumper wax') {
+    recipient.bumperWaxed = true;
+    addMessage(state, `${player.name} waxes ${recipient.name}'s next bumper bank`);
+    used = true;
+  }
+  if (powerUp === 'cushion map') {
+    recipient.cushionMapped = true;
+    addMessage(state, `${player.name} maps a soft landing for ${recipient.name}`);
+    used = true;
+  }
   if (!isChrono(powerUp) && isBallForm(powerUp)) {
     if (powerUp === 'portal' && !portalExitExists(state.course, portalExitId)) return;
     recipient.ballForm = powerUp;

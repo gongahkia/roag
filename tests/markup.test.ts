@@ -57,7 +57,10 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('class="vote-card-grid"');
     expect(markup.match(/class="vote-card /g)).toHaveLength(3);
     expect(markup).toContain('class="course-glyphs"');
-    expect(markup).toContain('title="course dimensions"');
+    expect(markup).toContain('title="course dimensions and size profile"');
+    expect(markup).toContain('title="route archetype"');
+    expect(markup).toContain('title="gust lanes"');
+    expect(markup).toContain('title="spring and cushion turf"');
     expect(markup).toContain('air hazards: updrafts and low bars');
     expect(markup).toContain('air rings');
     expect(markup).toContain('data-vote-option="hole-1-option-1"');
