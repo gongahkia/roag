@@ -9,7 +9,7 @@
     "dev:online": "npm run server",
     "build": "tsc --noEmit && vite build",
     "check:server": "tsc --noEmit -p server/tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --poolOptions.threads.singleThread=true",
     "check": "npm run build && npm run check:server && npm run test",
     "capture:levels": "node scripts/capture-levels.mjs"
   },
