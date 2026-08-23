@@ -57,6 +57,17 @@ const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): 
 const shifted = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
 const pointKey = (point: Point) => `${point.x}:${point.y}`;
 const hashFor = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
+const finalApproachDirection = (route: readonly Point[]) => {
+  const end = route.at(-1);
+  if (!end) return undefined;
+  for (let index = route.length - 2; index >= 0; index -= 1) {
+    const point = route[index]!;
+    const x = Math.sign(end.x - point.x);
+    const y = Math.sign(end.y - point.y);
+    if (x || y) return { x, y };
+  }
+  return undefined;
+};
 const smoothTerrain = (tiles: Tile[], width: number, height: number) => {
   const vertexWidth = width + 1;
   const vertexIndex = (x: number, y: number) => y * vertexWidth + x;
@@ -100,6 +111,7 @@ const transformedBounds = (course: Course, anchor: Point, rotation: Rotation) =>
 
 const rotationFor = (previous: Course, next: Course, anchor: Point) => {
   const preferred = hashFor(`${previous.seed}:${next.seed}`) % 4;
+  const approach = finalApproachDirection(previous.route);
   const score = (rotation: Rotation) => {
     let collision = 0;
     let localPressure = 0;
@@ -113,12 +125,14 @@ const rotationFor = (previous: Course, next: Course, anchor: Point) => {
         else localPressure += 1;
       }
     }
-    return [collision, localPressure, (rotation - preferred + 4) % 4] as const;
+    const heading = rotateDirection({ x: 1, y: 0 }, rotation);
+    const sidePenalty = approach ? Math.abs(heading.x * approach.x + heading.y * approach.y) : 0;
+    return [collision, sidePenalty, localPressure, (rotation - preferred + 4) % 4] as const;
   };
   return ([0, 1, 2, 3] as Rotation[]).sort((left, right) => {
     const leftScore = score(left);
     const rightScore = score(right);
-    return leftScore[0] - rightScore[0] || leftScore[1] - rightScore[1] || leftScore[2] - rightScore[2];
+    return leftScore[1] - rightScore[1] || leftScore[0] - rightScore[0] || leftScore[2] - rightScore[2] || leftScore[3] - rightScore[3];
   })[0]!;
 };
 
@@ -176,7 +190,14 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
   const anchor = shifted(rawAnchor, offset);
   const tiles: Tile[] = previousEmbedded.tiles.map((tile): Tile => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined }));
   const anchorIndex = anchor.y * width + anchor.x;
-  const excavated = isPlayable(tiles[anchorIndex]) ? [{ ...anchor }] : [];
+  const excavated: Point[] = isPlayable(tiles[anchorIndex]) ? [{ ...anchor }] : [];
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const point = { x, y };
+    const index = y * width + x;
+    if (distanceFrom(point, anchor) > CAMPAIGN_EXCAVATION_RADIUS || tiles[index]!.surface !== 'wall') continue;
+    excavated.push(point);
+    tiles[index] = { surface: 'void', height: 0 };
+  }
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
   const elevationOffset = tiles[anchorIndex]!.height - next.tiles[next.tee.y * next.width + next.tee.x]!.height;
