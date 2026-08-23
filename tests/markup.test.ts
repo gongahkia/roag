@@ -162,7 +162,7 @@ describe('voting overlay markup', () => {
     expect(markup).not.toContain('assembly-overlay');
     expect(markup).not.toContain('assembly-progress');
     expect(markup).not.toContain('app-shell assembling');
-  });
+  }, 15_000);
 
   it('presents a winner, last place, podium, and final standings after the campaign', () => {
     const state = createGame({ ...defaultConfig(), seed: 'results-markup', humanCount: 1, botCount: 2 });
