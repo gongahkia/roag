@@ -672,7 +672,7 @@ export const startApp = (app: HTMLElement) => {
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const preference = target.dataset.preference as keyof typeof preferences | undefined;
-    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration') updatePreferences({ [preference]: (target as HTMLInputElement).checked });
+    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration' || preference === 'showMerchantHoldings') updatePreferences({ [preference]: (target as HTMLInputElement).checked });
     const range = target.dataset.preferenceRange as keyof typeof preferences | undefined;
     if (range === 'masterVolume' || range === 'effectsVolume' || range === 'controllerDeadzone' || range === 'controllerAimSensitivity') updatePreferences({ [range]: Number(target.value) });
     const selection = target.dataset.preferenceSelect as keyof typeof preferences | undefined;

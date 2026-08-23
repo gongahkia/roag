@@ -97,6 +97,9 @@ describe('voting overlay markup', () => {
   it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
     const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipVoting: true });
     openShop(state);
+    state.players[0]!.caddies = [{ id: 'heavy ball', stacks: 2 }];
+    state.players[0]!.pockets = [{ id: 'future sight', source: 'shop', instanceId: 'future-sight-1', duration: { unit: 'round', amount: 2 } }];
+    state.players[1]!.attachments = [{ id: 'windbreak-1', cardId: 'windbreak', effect: 'windbreak', casterId: state.players[0]!.id, polarity: 'boon', unit: 'round', remaining: 2 }];
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(markup).toContain('class="merchant-overlay"');
     expect(markup).toContain('THE NINETEENTH HOLE · SHARED MARKET');
@@ -104,6 +107,14 @@ describe('voting overlay markup', () => {
     expect(markup).toContain('Caddies stack');
     expect(markup).toContain('data-shop-reroll="yes"');
     expect(markup).toContain('class="merchant-ledger"');
+    expect(markup).toContain('table holdings');
+    expect(markup).toContain('<small>boons</small> heavy ball ×2');
+    expect(markup).toContain('<small>cards</small> future sight (2 rounds)');
+    expect(markup).toContain('<small>effects</small> windbreak (2 rounds)');
+
+    const hidden = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), showMerchantHoldings: false }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(hidden).toContain('table ledger');
+    expect(hidden).toContain('<span class="merchant-holdings hidden">holdings hidden</span>');
   });
 
   it('shows a strategy card’s rolled duration before the merchant purchase', () => {
@@ -136,6 +147,7 @@ describe('voting overlay markup', () => {
     expect(cursorControls).toContain('move cursor to set power · click a cell');
     const settings = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: 'settings', drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(settings).toContain('data-preference-select="mousePowerMode"');
+    expect(settings).toContain('data-preference="showMerchantHoldings"');
   });
 
   it('removes the loading overlay after the full match plan is selected', () => {
