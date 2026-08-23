@@ -37,6 +37,14 @@ const copyTile = (tile: Tile, theme: Course['theme'], rotation: Rotation = 0): T
   corners: rotatedCorners(tile.corners, rotation),
   direction: tile.direction ? rotateDirection(tile.direction, rotation) : undefined,
 });
+const raisedTile = (tile: Tile, theme: Course['theme'], rotation: Rotation, elevationOffset: number): Tile => {
+  const copied = copyTile(tile, theme, rotation);
+  return {
+    ...copied,
+    height: copied.height + elevationOffset,
+    corners: copied.corners ? copied.corners.map((height) => height + elevationOffset) as [number, number, number, number] : undefined,
+  };
+};
 const tileAt = (course: Course, point: Point) => point.x < 0 || point.y < 0 || point.x >= course.width || point.y >= course.height ? undefined : course.tiles[point.y * course.width + point.x];
 const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): Point => {
   const x = point.x - tee.x;
@@ -171,6 +179,8 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
   const excavated = isPlayable(tiles[anchorIndex]) ? [{ ...anchor }] : [];
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
+  const elevationOffset = tiles[anchorIndex]!.height - next.tiles[next.tee.y * next.width + next.tee.x]!.height;
+  const routeTiles = new Set(next.route.map(pointKey));
   const added: Point[] = [];
   const addedKeys = new Set<string>();
   const addTile = (point: Point) => {
@@ -185,13 +195,13 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     const destination = transform({ x, y });
     const index = destination.y * width + destination.x;
     const existing = previousEmbedded.tiles[index]!;
-    const transformed = copyTile(source, next.theme, rotation);
+    const transformed = raisedTile(source, next.theme, rotation, elevationOffset);
     if (destination.x === anchor.x && destination.y === anchor.y) {
       tiles[index] = isPlayable(existing)
         ? { ...transformed, height: existing.height, corners: existing.corners ? [...existing.corners] as [number, number, number, number] : undefined }
         : transformed;
       addTile(destination);
-    } else if (!isPlayable(existing) || source.surface === 'cup') {
+    } else if (!isPlayable(existing) || source.surface === 'cup' || routeTiles.has(pointKey({ x, y }))) {
       tiles[index] = transformed;
       addTile(destination);
     }

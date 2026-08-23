@@ -46,7 +46,9 @@ describe('course generation', () => {
 
   it('stitches the next generated hole onto the completed cup without rebuilding the prior course', () => {
     const previous = arena('campaign-previous');
+    previous.tiles[previous.cup.y * previous.width + previous.cup.x] = { surface: 'cup', height: 3, corners: [3, 3, 3, 3] };
     const next = { ...arena('campaign-next'), theme: 'speedway' as const };
+    next.route = [next.tee, { x: next.tee.x + 1, y: next.tee.y }, { x: next.tee.x + 2, y: next.tee.y }, next.cup];
     const first = expandCourseAtCup(previous, next);
     const second = expandCourseAtCup(previous, next);
     expect(first.course).toEqual(second.course);
@@ -57,6 +59,11 @@ describe('course generation', () => {
     expect(first.course.tiles[first.previous.tee.y * first.course.width + first.previous.tee.x]).toMatchObject({ surface: 'tee', theme: 'balanced' });
     expect(first.added.length).toBeGreaterThan(0);
     expect(first.previous.route.filter((point) => point.x !== first.anchor.x || point.y !== first.anchor.y).every((point) => first.course.tiles[point.y * first.course.width + point.x]?.surface === first.previous.tiles[point.y * first.course.width + point.x]?.surface)).toBe(true);
+    expect(first.course.route.every((point) => {
+      const surface = first.course.tiles[point.y * first.course.width + point.x]?.surface;
+      return surface !== 'void' && surface !== 'wall';
+    })).toBe(true);
+    expect(first.course.tiles[first.course.cup.y * first.course.width + first.course.cup.x]?.height).toBeCloseTo(3);
     for (let y = 0; y < first.course.height; y += 1) for (let x = 0; x < first.course.width; x += 1) {
       const tile = first.course.tiles[y * first.course.width + x]!;
       if (tile.surface === 'void') continue;

@@ -62,7 +62,7 @@ export const startApp = (app: HTMLElement) => {
   let botTimeout: number | undefined;
   let preferences = loadPreferences();
   let overlay: Overlay;
-  let drawer: Drawer = captureMode ? undefined : 'intel';
+  let drawer: Drawer;
   let rebinding: ShortcutId | undefined;
   let lastFeedbackMessage: string | undefined;
   let ledger: LedgerEntry[] = [];
@@ -291,7 +291,7 @@ export const startApp = (app: HTMLElement) => {
     pendingReconnectToken = undefined;
     onlineConnected = false;
     config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipVoting: selected.skipVoting };
-    drawer = captureMode ? undefined : 'intel';
+    drawer = undefined;
     overlay = undefined;
     liveEmotes = [];
     seenEmoteIds = new Set();
@@ -385,7 +385,7 @@ export const startApp = (app: HTMLElement) => {
     if (placement) { updatePlacement(event); return; }
     if (!renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
     const pointerAim = renderer.aimFromPointer(event, state.course, current().ball);
-    aim = { ...aim, angle: pointerAim.angle };
+    aim = { ...aim, angle: pointerAim.angle, ...(preferences.mousePowerMode === 'cursor' ? { power: pointerAim.power } : {}) };
     drawBoard();
     renderControls();
   };
@@ -403,6 +403,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const adjustPowerFromWheel = (event: WheelEvent) => {
     if (placement || !renderer || state.status !== 'playing' || state.paused || current().kind !== 'human' || !canControlCurrent()) return;
+    if (preferences.mousePowerMode !== 'scroll') return;
     event.preventDefault();
     const next = powerAfterWheel(aim.power, event.deltaY);
     if (next === aim.power) return;
@@ -669,11 +670,13 @@ export const startApp = (app: HTMLElement) => {
     if (binding) { rebinding = binding; render(); }
   });
   app.addEventListener('change', (event) => {
-    const target = event.target as HTMLInputElement;
+    const target = event.target as HTMLInputElement | HTMLSelectElement;
     const preference = target.dataset.preference as keyof typeof preferences | undefined;
-    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration') updatePreferences({ [preference]: target.checked });
+    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration') updatePreferences({ [preference]: (target as HTMLInputElement).checked });
     const range = target.dataset.preferenceRange as keyof typeof preferences | undefined;
     if (range === 'masterVolume' || range === 'effectsVolume' || range === 'controllerDeadzone' || range === 'controllerAimSensitivity') updatePreferences({ [range]: Number(target.value) });
+    const selection = target.dataset.preferenceSelect as keyof typeof preferences | undefined;
+    if (selection === 'mousePowerMode' && (target.value === 'scroll' || target.value === 'cursor')) updatePreferences({ mousePowerMode: target.value });
   });
   window.addEventListener('gamepadconnected', (event) => { controllerName = event.gamepad.id || 'controller'; render(); });
   window.addEventListener('gamepaddisconnected', () => { controllerName = undefined; gamepadButtons = []; render(); });

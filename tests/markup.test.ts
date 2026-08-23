@@ -131,6 +131,11 @@ describe('voting overlay markup', () => {
     expect(inspector).toContain('blue: slow mover');
     expect(inspector).toContain('amber: standard mover');
     expect(inspector).toContain('red: fast mover');
+    expect(markup).not.toContain('COURSE INTEL');
+    const cursorControls = renderControlsMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), mousePowerMode: 'cursor' }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(cursorControls).toContain('move cursor to set power · click a cell');
+    const settings = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: 'settings', drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(settings).toContain('data-preference-select="mousePowerMode"');
   });
 
   it('removes the loading overlay after the full match plan is selected', () => {

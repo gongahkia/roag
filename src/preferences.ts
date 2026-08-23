@@ -1,4 +1,5 @@
 export type ShortcutId = 'shoot' | 'powerDown' | 'powerUp' | 'usePowerUp' | 'pause' | 'help' | 'settings';
+export type MousePowerMode = 'scroll' | 'cursor';
 
 export interface ShortcutBinding {
   id: ShortcutId;
@@ -7,7 +8,7 @@ export interface ShortcutBinding {
 }
 
 export interface GamePreferences {
-  version: 2;
+  version: 3;
   reducedMotion: boolean;
   highContrast: boolean;
   masterVolume: number;
@@ -15,6 +16,7 @@ export interface GamePreferences {
   controllerDeadzone: number;
   controllerAimSensitivity: number;
   controllerVibration: boolean;
+  mousePowerMode: MousePowerMode;
   onlineServerUrl: string;
   bindings: Partial<Record<ShortcutId, string>>;
 }
@@ -41,7 +43,7 @@ const fallbackStore = (): PreferencesStore | undefined => {
 };
 const shortcut = (id: ShortcutId) => SHORTCUTS.find((candidate) => candidate.id === id)!;
 
-export const defaultPreferences = (): GamePreferences => ({ version: 2, reducedMotion: false, highContrast: false, masterVolume: .8, effectsVolume: .8, controllerDeadzone: .18, controllerAimSensitivity: 1, controllerVibration: true, onlineServerUrl: '', bindings: {} });
+export const defaultPreferences = (): GamePreferences => ({ version: 3, reducedMotion: false, highContrast: false, masterVolume: .8, effectsVolume: .8, controllerDeadzone: .18, controllerAimSensitivity: 1, controllerVibration: true, mousePowerMode: 'scroll', onlineServerUrl: '', bindings: {} });
 export const bindingFor = (preferences: GamePreferences, id: ShortcutId) => preferences.bindings[id] ?? shortcut(id).defaultKey;
 
 export const normalizePreferences = (value: unknown): GamePreferences => {
@@ -58,7 +60,7 @@ export const normalizePreferences = (value: unknown): GamePreferences => {
   const bounded = (candidate: unknown, fallback: number, minimum: number, maximum: number) => typeof candidate === 'number' && Number.isFinite(candidate) ? Math.max(minimum, Math.min(maximum, candidate)) : fallback;
   const onlineServerUrl = typeof source.onlineServerUrl === 'string' && source.onlineServerUrl.length <= 200 ? source.onlineServerUrl.trim() : '';
   const preferences: GamePreferences = {
-    version: 2,
+    version: 3,
     reducedMotion: source.reducedMotion === true,
     highContrast: source.highContrast === true,
     masterVolume: bounded(source.masterVolume, .8, 0, 1),
@@ -66,6 +68,7 @@ export const normalizePreferences = (value: unknown): GamePreferences => {
     controllerDeadzone: bounded(source.controllerDeadzone, .18, .05, .5),
     controllerAimSensitivity: bounded(source.controllerAimSensitivity, 1, .5, 2),
     controllerVibration: source.controllerVibration !== false,
+    mousePowerMode: source.mousePowerMode === 'cursor' ? 'cursor' : 'scroll',
     onlineServerUrl,
     bindings,
   };
