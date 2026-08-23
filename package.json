@@ -9,7 +9,10 @@
     "dev:online": "npm run server",
     "build": "tsc --noEmit && vite build",
     "check:server": "tsc --noEmit -p server/tsconfig.json",
-    "test": "vitest run --poolOptions.threads.singleThread=true",
+    "test": "npm run test:core-foundation && npm run test:core-turns && npm run test:other",
+    "test:core-foundation": "vitest run tests/core.test.ts -t 'course generation|clubhouse economy|public voting'",
+    "test:core-turns": "vitest run tests/core.test.ts -t 'turns, shared rules, and bots'",
+    "test:other": "vitest run tests/app-controller.test.ts tests/feedback.test.ts tests/hazards.test.ts tests/markup.test.ts tests/physics.test.ts tests/preferences.test.ts tests/render.test.ts",
     "check": "npm run build && npm run check:server && npm run test",
     "capture:levels": "node scripts/capture-levels.mjs"
   },
