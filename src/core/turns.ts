@@ -1,4 +1,4 @@
-import { activePlayer, addMessage } from './game-state';
+import { activePlayer, addMessage, cloneGameState, tickDie } from './game-state';
 import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
@@ -198,9 +198,13 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused) return current;
-  const state = { ...current, turn: { ...current.turn }, players: current.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })), messages: [...current.messages] } as GameState;
+  if ((current.status !== 'playing' && current.status !== 'shopping' && current.status !== 'rolling') || current.paused) return current;
+  const state = cloneGameState(current);
   const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
+  if (state.status === 'rolling') {
+    tickDie(state, elapsed);
+    return state;
+  }
   if (state.status === 'shopping') {
     tickShop(state, elapsed);
     return state;

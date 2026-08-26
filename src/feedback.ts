@@ -7,9 +7,9 @@ export interface FeedbackPresentation {
 
 export const presentFeedback = (message: string): FeedbackPresentation => {
   const value = message.toLowerCase();
-  if (/(sink|campaign complete|wins the vote|winner)/.test(value)) return { tone: 'good', major: true };
+  if (/(sink|campaign complete|lands face-up|winner)/.test(value)) return { tone: 'good', major: true };
   if (/(void|timeout|freeze|bomb)/.test(value)) return { tone: 'danger', major: true };
   if (/(turbo|swap)/.test(value)) return { tone: 'chaos', major: true };
-  if (/(vote|tee off|ballot)/.test(value)) return { tone: 'info', major: false };
+  if (/(die|tee off|wager)/.test(value)) return { tone: 'info', major: false };
   return { tone: 'neutral', major: false };
 };

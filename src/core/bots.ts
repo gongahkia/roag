@@ -2,7 +2,7 @@ import { distanceToCup, simulateShot, tileAt } from './physics';
 import { definitionFor } from './catalog';
 import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
-import type { ChronoCard, Course, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind, VotingOption } from './types';
+import type { ChronoCard, Course, DieState, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
@@ -106,7 +106,20 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   return { shot, powerUp, secondWind: bot.secondWindAvailable && !bot.twoPuttsArmed && skill >= 6 && random.chance(.45), confidence: Math.max(0, 1 - selected.score / 150) };
 };
 
-export const chooseBotVote = (seed: string, hole: number, bot: Player, options: readonly VotingOption[]): string => {
-  const random = new Random(`${seed}:hole:${hole}:vote:${bot.id}`);
-  return random.pick(options).id;
+export type BotDieAction =
+  | { type: 'add-die-side'; playerId: string }
+  | { type: 'augment-die-face'; playerId: string; faceId: string }
+  | { type: 'ready-die-roll'; playerId: string };
+
+/** A small deterministic stake keeps bots involved without draining their shop budget. */
+export const chooseBotDieAction = (seed: string, hole: number, bot: Player, die: DieState): BotDieAction => {
+  const wager = die.wagers[bot.id] ?? { addedSides: 0, augmentations: {}, ready: false };
+  const random = new Random(`${seed}:hole:${hole}:die:${bot.id}:${wager.addedSides}:${Object.values(wager.augmentations).reduce((total, count) => total + count, 0)}`);
+  const sideCost = 1 + wager.addedSides;
+  if (bot.cash >= sideCost && random.chance(.22)) return { type: 'add-die-side', playerId: bot.id };
+  const face = random.pick(die.faces);
+  const augmented = wager.augmentations[face.id] ?? 0;
+  const augmentationCost = 1 + Math.floor(augmented / 2);
+  if (bot.cash >= augmentationCost && random.chance(.48)) return { type: 'augment-die-face', playerId: bot.id, faceId: face.id };
+  return { type: 'ready-die-roll', playerId: bot.id };
 };

@@ -1,7 +1,7 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
 import { closedGateAt, COURSE_PHASES, elapsedMsForPhase } from './hazards';
 import { Random } from './random';
-import type { Course, CourseArchetype, CourseScore, CourseSizeProfile, CourseTheme, HoleRules, Point, ShotCommand, Surface, TerrainSettings, Tile, VotingOption } from './types';
+import type { Course, CourseArchetype, CoursePackage, CourseScore, CourseSizeProfile, CourseTheme, HoleRules, Point, ShotCommand, Surface, TerrainSettings, Tile } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
 
 const directions = [
@@ -564,7 +564,7 @@ export const defaultHoleRules = (): HoleRules => ({
   sharedBoons: [],
 });
 
-const votingLabels = ['steady hands', 'hazard holiday', 'speed council', 'ice caucus', 'quarry motion', 'chaos compact'];
+const packageLabels = ['steady hands', 'hazard holiday', 'speed council', 'ice caucus', 'quarry motion', 'chaos compact'];
 
 const randomHoleRules = (random: Random, dimensions: CourseDimensions): HoleRules => {
   const rules = defaultHoleRules();
@@ -595,7 +595,7 @@ const randomHoleRules = (random: Random, dimensions: CourseDimensions): HoleRule
 
 const optionLabel = (terrain: TerrainSettings, rules: HoleRules, index: number) => {
   const pace = rules.timerSeconds <= 18 ? 'quickfire' : rules.timerSeconds >= 30 ? 'long clock' : 'standard clock';
-  return `${votingLabels[index % votingLabels.length]} · ${terrain.archetype} ${terrain.sizeProfile} · ${pace}`;
+  return `${packageLabels[index % packageLabels.length]} · ${terrain.archetype} ${terrain.sizeProfile} · ${pace}`;
 };
 
 const guaranteedFallbackCourse = (seed: string, phaseCount: number, dimensions: CourseDimensions): Course => {
@@ -610,9 +610,9 @@ const guaranteedFallbackCourse = (seed: string, phaseCount: number, dimensions: 
   return course;
 };
 
-export const generateVotingOptions = (seed: string, hole: number, dimensions: Partial<CourseDimensions> = {}): VotingOption[] => {
+export const generateCoursePackages = (seed: string, hole: number, dimensions: Partial<CourseDimensions> = {}): CoursePackage[] => {
   const courseSize = normalizeDimensions(dimensions);
-  const options: VotingOption[] = [];
+  const options: CoursePackage[] = [];
   const seenCourses = new Set<string>();
   for (let attempt = 0; options.length < 3 && attempt < 96; attempt += 1) {
     const index = options.length;
@@ -622,7 +622,7 @@ export const generateVotingOptions = (seed: string, hole: number, dimensions: Pa
     const terrain = {
       ...randomTerrainSettings(`${seed}:hole:${hole}`, attempt + 1, optionSize),
       variation: hole * 100 + attempt,
-      // keep the ballot readable: retries may change the layout seed, but not
+      // keep the package set readable: retries may change the layout seed, but not
       // the biome assigned to this particular compact/standard/full slot.
       theme: themes[(hole * 3 + index) % themes.length]!,
       archetype: archetypes[(hole + index) % archetypes.length]!,

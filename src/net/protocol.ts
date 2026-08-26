@@ -8,7 +8,7 @@ export interface LobbyConfig {
   maxHumans: number;
   courseWidth: number;
   courseHeight: number;
-  skipVoting: boolean;
+  skipDieBets: boolean;
 }
 
 export interface LobbyMember {

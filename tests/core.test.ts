@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { chooseBotDecision, chooseBotVote } from '../src/core/bots';
+import { chooseBotDecision, chooseBotDieAction } from '../src/core/bots';
 import { CAMPAIGN_EXCAVATION_RADIUS, expandCourseAtCup } from '../src/core/campaign';
 import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
-import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateVotingOptions, randomTerrainSettings } from '../src/core/generator';
+import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateCoursePackages, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt, tileCornerHeights } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
@@ -13,11 +13,11 @@ import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
 import type { GameState } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
-const resolveVote = (game: ReturnType<typeof createGame>, optionIndex = 0) => {
+const resolveDie = (game: ReturnType<typeof createGame>) => {
   let resolved = game;
-  while (resolved.status === 'voting') {
-    const optionId = resolved.vote!.options[Math.min(optionIndex, resolved.vote!.options.length - 1)]!.id;
-    resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'cast-vote', playerId: player.id, optionId }), resolved);
+  while (resolved.status === 'rolling') {
+    if (!resolved.die?.roll) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), resolved);
+    resolved = tickTurn(resolved, 2);
   }
   return resolved;
 };
@@ -90,8 +90,8 @@ describe('course generation', () => {
     }
   });
 
-  it('uses compact, standard, and full vote packages within the host dimensions', () => {
-    const options = generateVotingOptions('sized-course', 1, { width: 24, height: 16 });
+  it('uses compact, standard, and full course packages within the host dimensions', () => {
+    const options = generateCoursePackages('sized-course', 1, { width: 24, height: 16 });
     expect(options).toHaveLength(3);
     expect(options.map((option) => option.recipe.terrain.sizeProfile)).toEqual(['compact', 'standard', 'full']);
     expect(options.map((option) => option.course.width)).toEqual([16, 20, 24]);
@@ -103,7 +103,7 @@ describe('course generation', () => {
   it('keeps large requested dimensions instead of clamping them to the old board limit', () => {
     const dimensions = { width: 64, height: 36 };
     const course = generateCourse('large-course', { ...defaultTerrainSettings(), ...dimensions });
-    const options = generateVotingOptions('large-options', 1, dimensions);
+    const options = generateCoursePackages('large-options', 1, dimensions);
     expect(course).toMatchObject(dimensions);
     expect(course.cup.x).toBeGreaterThan(24);
     expect(options.map((option) => option.recipe.terrain.sizeProfile)).toEqual(['compact', 'standard', 'full']);
@@ -112,13 +112,13 @@ describe('course generation', () => {
     expect(options[2]!.recipe.rules.strokeCap).toBeGreaterThanOrEqual(13);
   });
 
-  it('keeps voting packages free of shared boons and starting supplies', () => {
-    const options = generateVotingOptions('clubhouse-only', 1);
+  it('keeps generated packages free of shared boons and starting supplies', () => {
+    const options = generateCoursePackages('clubhouse-only', 1);
     expect(options.every((option) => option.recipe.rules.sharedBoons.length === 0 && option.recipe.rules.startingPowerUp === undefined)).toBe(true);
   });
 
   it('keeps solver routes inside playable terrain and across every configured phase', () => {
-    const options = generateVotingOptions('phase-set', 3);
+    const options = generateCoursePackages('phase-set', 3);
     expect(options).toHaveLength(3);
     for (const option of options) {
       expect(option.course.route.every((point) => tileAt(option.course, point.x + .5, point.y + .5)?.surface !== 'void')).toBe(true);
@@ -157,10 +157,10 @@ describe('course generation', () => {
     })).toBe(true);
   });
 
-  it('keeps a seeded ballot corpus varied and reproducible across terrain, shape, and size', () => {
+  it('keeps a seeded package corpus varied and reproducible across terrain, shape, and size', () => {
     const corpus = ['terrain-corpus-01', 'terrain-corpus-02'];
-    const generated = corpus.map((seed) => generateVotingOptions(seed, 2, { width: 28, height: 18 }));
-    const reproduced = generateVotingOptions(corpus[0]!, 2, { width: 28, height: 18 });
+    const generated = corpus.map((seed) => generateCoursePackages(seed, 2, { width: 28, height: 18 }));
+    const reproduced = generateCoursePackages(corpus[0]!, 2, { width: 28, height: 18 });
     expect(generated[0]!.map((option) => option.course)).toEqual(reproduced.map((option) => option.course));
     for (const options of generated) {
       expect(new Set(options.map((option) => option.course.theme)).size).toBe(3);
@@ -273,6 +273,7 @@ describe('clubhouse economy and reality cards', () => {
   });
 });
 
+/* Retired public-ballot coverage. The active coverage below exercises the die flow.
 describe('public voting flow', () => {
   it('starts every match with three reproducible public voting options and no build state', () => {
     const first = createGame({ ...defaultConfig(), seed: 'ballot-seed', humanCount: 2, botCount: 1 });
@@ -327,6 +328,8 @@ describe('public voting flow', () => {
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     expect(game.status).toBe('shopping');
     game = resolveShop(game);
+    expect(game.status).toBe('rolling');
+    game = resolveDie(game);
     expect(game.status).toBe('transitioning');
     expect(game.transition?.next.id).toBe(second.id);
     const expansion = expansionForTransition(game)!;
@@ -354,6 +357,77 @@ describe('public voting flow', () => {
   it('rejects unknown voters and options without advancing the ballot', () => {
     const game = createGame({ ...defaultConfig(), seed: 'invalid-vote', botCount: 0 });
     expect(applyCommand(game, { type: 'cast-vote', playerId: 'unknown', optionId: 'missing' })).toEqual(game);
+  });
+}); */
+
+describe('shared course die flow', () => {
+  it('starts every match with six reproducible complete course faces', () => {
+    const first = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
+    const second = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
+    expect(first.status).toBe('rolling');
+    expect(first.die?.faces).toHaveLength(6);
+    expect(first.die?.faces.map((face) => face.id)).toEqual(second.die?.faces.map((face) => face.id));
+    expect(first.die?.faces.map((face) => face.course.tiles)).toEqual(second.die?.faces.map((face) => face.course.tiles));
+    expect(first.die?.faces.every((face) => face.weight === 1 && face.recipe.rules.hazardPhaseCount > 0)).toBe(true);
+  });
+
+  it('allows uncapped paid sides and paid weighting before every shared roll', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'weighted-die', holeCount: 1, humanCount: 1, botCount: 0 });
+    game.players[0]!.cash = 40;
+    const faceId = game.die!.faces[0]!.id;
+    game = applyCommand(game, { type: 'add-die-side', playerId: 'human-0' });
+    game = applyCommand(game, { type: 'add-die-side', playerId: 'human-0' });
+    game = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
+    game = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
+    expect(game.die?.faces).toHaveLength(8);
+    expect(game.die?.faces.find((face) => face.id === faceId)?.weight).toBe(3);
+    expect(game.players[0]!.cash).toBe(35);
+    expect(game.die?.wagers['human-0']).toMatchObject({ addedSides: 2, augmentations: { [faceId]: 2 } });
+    game = applyCommand(game, { type: 'ready-die-roll', playerId: 'human-0' });
+    expect(game.die?.roll).toBeDefined();
+    game = tickTurn(game, 2);
+    expect(game.status).toBe('playing');
+    expect(game.coursePlan).toHaveLength(1);
+  });
+
+  it('uses the same weighted result for the same wagers and makes bots deterministic participants', () => {
+    const config = { ...defaultConfig(), seed: 'deterministic-die', holeCount: 1, humanCount: 1, botCount: 1 };
+    const initial = createGame(config);
+    const bot = initial.players[1]!;
+    expect(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!)).toEqual(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!));
+    const faceId = initial.die!.faces[2]!.id;
+    const resolve = (game: ReturnType<typeof createGame>) => {
+      let next = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
+      next = applyCommand(next, { type: 'ready-die-roll', playerId: 'human-0' });
+      next = applyCommand(next, { type: 'ready-die-roll', playerId: 'bot-0' });
+      return tickTurn(next, 2);
+    };
+    expect(resolve(initial).course.seed).toBe(resolve(createGame(config)).course.seed);
+  }, 15_000);
+
+  it('opens a fresh die after the merchant instead of locking future holes up front', () => {
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'per-hole-die', holeCount: 2, humanCount: 1, botCount: 0 }));
+    expect(game.coursePlan).toHaveLength(1);
+    game.players[0]!.ball.complete = true;
+    game.players[0]!.ball.strokes = 1;
+    game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    game = resolveShop(game);
+    expect(game.status).toBe('rolling');
+    expect(game.die?.faces).toHaveLength(6);
+    expect(game.coursePlan).toHaveLength(1);
+    game = resolveDie(game);
+    expect(game.status).toBe('transitioning');
+    expect(game.coursePlan).toHaveLength(2);
+    const expansion = expansionForTransition(game)!;
+    game = applyCommand(game, { type: 'complete-transition' });
+    expect(game.status).toBe('playing');
+    expect(game.course.tee).toEqual(expansion.anchor);
+  }, 15_000);
+
+  it('rejects unknown die bettors and faces', () => {
+    const game = createGame({ ...defaultConfig(), seed: 'invalid-die', botCount: 0 });
+    expect(applyCommand(game, { type: 'add-die-side', playerId: 'unknown' })).toEqual(game);
+    expect(applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId: 'missing' })).toEqual(game);
   });
 });
 
@@ -466,7 +540,7 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('freezes turns and shots while paused, then resumes the same match state', () => {
-    let game = resolveVote(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
     const secondsLeft = game.turn.secondsLeft;
     game = applyCommand(game, { type: 'set-paused', paused: true });
     expect(game.paused).toBe(true);
@@ -479,7 +553,7 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('accepts legal shots and keeps previews equal to committed physics', () => {
-    const game = resolveVote(createGame({ ...defaultConfig(), seed: 'animation-seed', holeCount: 1, botCount: 1 }));
+    const game = resolveDie(createGame({ ...defaultConfig(), seed: 'animation-seed', holeCount: 1, botCount: 1 }));
     const shot = { angle: 0, power: 3 };
     const frames = previewShot(game, shot)!;
     const committed = applyCommand(game, { type: 'shoot', shot });
@@ -499,6 +573,8 @@ describe('turns, shared rules, and bots', () => {
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     expect(game.status).toBe('shopping');
     game = resolveShop(game);
+    expect(game.status).toBe('rolling');
+    game = resolveDie(game);
     expect(game.status).toBe('transitioning');
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
     game = applyCommand(game, { type: 'complete-transition' });
@@ -506,7 +582,7 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('scores each resolved hole and finishes after the configured ninth hole', () => {
-    let game = resolveVote(createGame({ ...defaultConfig(), seed: 'nine-hole', humanCount: 1, botCount: 0 }));
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', humanCount: 1, botCount: 0 }));
     for (let hole = 1; hole <= 9; hole += 1) {
       game.players[0]!.ball.complete = true;
       game.players[0]!.ball.strokes = 1;
@@ -514,12 +590,14 @@ describe('turns, shared rules, and bots', () => {
       if (hole < 9) {
         expect(game.status).toBe('shopping');
         game = resolveShop(game);
+        expect(game.status).toBe('rolling');
+        game = resolveDie(game);
         game = applyCommand(game, { type: 'complete-transition' });
       }
     }
     expect(game.status).toBe('finished');
     expect(game.players[0]!.total).toBeGreaterThanOrEqual(9);
-  }, 30_000);
+  }, 120_000);
 
   it('uses temporary power-ups and produces finite bot decisions', () => {
     const course = arena('items-and-bots');

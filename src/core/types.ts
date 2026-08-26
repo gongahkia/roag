@@ -216,7 +216,8 @@ export interface HoleRecipe {
   rules: HoleRules;
 }
 
-export interface VotingOption {
+/** A complete generated course package that can occupy one face of the pre-hole die. */
+export interface CoursePackage {
   id: string;
   label: string;
   recipe: HoleRecipe;
@@ -230,9 +231,31 @@ export interface PlannedHole {
   courseSeed: string;
 }
 
-export interface VoteState {
-  options: VotingOption[];
-  ballots: Record<string, string>;
+export interface DieFace extends CoursePackage {
+  /** Base chance weight plus every paid augmentation on this face. */
+  weight: number;
+  addedBy?: string;
+  augmentations: Record<string, number>;
+}
+
+export interface DieWager {
+  /** Used to scale the cost of a player's successive extra faces. */
+  addedSides: number;
+  /** Paid chance-weight additions keyed by die face. */
+  augmentations: Record<string, number>;
+  ready: boolean;
+}
+
+export interface DieRoll {
+  faceId: string;
+  secondsLeft: number;
+}
+
+export interface DieState {
+  faces: DieFace[];
+  wagers: Record<string, DieWager>;
+  secondsLeft: number;
+  roll?: DieRoll;
 }
 
 export interface CourseTransition {
@@ -407,8 +430,8 @@ export interface GameConfig {
   botSkill: number | 'adaptive';
   courseWidth?: number;
   courseHeight?: number;
-  /** Lock a seed-selected package for every hole before the first tee shot. */
-  skipVoting?: boolean;
+  /** Skip the shared die window and use seed-selected automatic rolls. */
+  skipDieBets?: boolean;
 }
 
 export interface TurnState {
@@ -435,7 +458,7 @@ export interface GameState {
   hazardElapsedMs: number;
   /** Deterministic turn counter retained for saved-game compatibility and seeded item IDs; hazard movement uses hazardElapsedMs. */
   coursePhase: number;
-  vote?: VoteState;
+  die?: DieState;
   coursePlan: PlannedHole[];
   transition?: CourseTransition;
   emotes: EmoteEvent[];
@@ -450,13 +473,15 @@ export interface GameState {
   forcedNextPlayerId?: string;
   turn: TurnState;
   paused: boolean;
-  status: 'voting' | 'shopping' | 'transitioning' | 'playing' | 'finished';
+  status: 'rolling' | 'shopping' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
 }
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
-  | { type: 'cast-vote'; playerId: string; optionId: string }
+  | { type: 'add-die-side'; playerId: string }
+  | { type: 'augment-die-face'; playerId: string; faceId: string }
+  | { type: 'ready-die-roll'; playerId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; portalExitId?: string; placement?: Point }

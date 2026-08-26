@@ -8,6 +8,7 @@ import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../s
 import { CONTENT_BY_ID } from '../src/core/catalog';
 import { normalizeGameState } from '../src/core/game-state';
 import { chooseBotShopOffer } from '../src/core/shop';
+import { chooseBotDieAction } from '../src/core/bots';
 import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
@@ -61,9 +62,9 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseWidth = source.courseWidth === undefined ? 20 : Number(source.courseWidth);
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
-  const skipVoting = source.skipVoting === true;
+  const skipDieBets = source.skipDieBets === true || source.skipVoting === true;
   if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
-  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipVoting };
+  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipDieBets };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -73,7 +74,9 @@ const validCommand = (value: unknown): GameCommand | undefined => {
     const kind = shot.kind === 'chip' ? 'chip' : shot.kind === undefined || shot.kind === 'putt' ? 'putt' : undefined;
     return typeof shot.angle === 'number' && typeof shot.power === 'number' && Number.isFinite(shot.angle) && Number.isFinite(shot.power) && kind ? { type: 'shoot', shot: { angle: shot.angle, power: shot.power, kind } } : undefined;
   }
-  if (source.type === 'cast-vote' && typeof source.playerId === 'string' && typeof source.optionId === 'string' && source.playerId.length <= 24 && source.optionId.length <= 80) return { type: 'cast-vote', playerId: source.playerId, optionId: source.optionId };
+  if (source.type === 'add-die-side' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'add-die-side', playerId: source.playerId };
+  if (source.type === 'augment-die-face' && typeof source.playerId === 'string' && typeof source.faceId === 'string' && source.playerId.length <= 24 && source.faceId.length <= 80) return { type: 'augment-die-face', playerId: source.playerId, faceId: source.faceId };
+  if (source.type === 'ready-die-roll' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'ready-die-roll', playerId: source.playerId };
   if (source.type === 'set-paused' && typeof source.paused === 'boolean') return { type: 'set-paused', paused: source.paused };
   if (source.type === 'arm-second-wind') return { type: 'arm-second-wind' };
   if (source.type === 'emote' && typeof source.playerId === 'string' && typeof source.emote === 'string' && emotes.has(source.emote)) return { type: 'emote', playerId: source.playerId, emote: source.emote as Emote };
@@ -175,19 +178,19 @@ const scheduleAutomation = (room: StoredRoom) => {
     }
     return;
   }
-  if (game.status === 'voting' && game.vote) {
-    const bot = game.players.find((player) => player.kind === 'bot' && !game.vote!.ballots[player.id]);
-    if (!bot || current.botFor === `vote:${bot.id}`) return;
+  if (game.status === 'rolling' && game.die && !game.die.roll) {
+    const bot = game.players.find((player) => player.kind === 'bot' && !game.die!.wagers[player.id]?.ready);
+    if (!bot || current.botFor === `die:${bot.id}`) return;
     if (current.botTimeout) clearTimeout(current.botTimeout);
-    current.botFor = `vote:${bot.id}`;
+    current.botFor = `die:${bot.id}`;
     current.botTimeout = setTimeout(() => {
       current.botTimeout = undefined;
       current.botFor = undefined;
       const latest = rooms.get(room.code);
-      const vote = latest?.game?.vote;
-      if (!latest?.game || latest.game.paused || latest.game.status !== 'voting' || !vote || vote.ballots[bot.id]) return;
-      const option = vote.options[(bot.id.length + latest.game.hole) % vote.options.length]!;
-      updateGame(latest, applyCommand(latest.game, { type: 'cast-vote', playerId: bot.id, optionId: option.id }));
+      const die = latest?.game?.die;
+      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || !die || die.roll || die.wagers[bot.id]?.ready) return;
+      const action = chooseBotDieAction(latest.game.config.seed, latest.game.hole, bot, die);
+      updateGame(latest, applyCommand(latest.game, action));
     }, 520);
     return;
   }
@@ -248,7 +251,7 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   if (command.type === 'set-paused') return session.playerId === room.hostId ? undefined : 'only the host can pause the room';
   if (game.paused) return 'the match is paused';
   const active = game.players[game.turn.playerIndex];
-  if (command.type === 'cast-vote') return command.playerId === session.playerId ? undefined : 'you can only cast your own ballot';
+  if (command.type === 'add-die-side' || command.type === 'augment-die-face' || command.type === 'ready-die-roll') return command.playerId === session.playerId ? undefined : 'you can only place your own die wager';
   if (command.type === 'emote') return command.playerId === session.playerId ? undefined : 'you can only send your own emote';
   if (command.type === 'shop-vote-reroll') return command.playerId === session.playerId ? undefined : 'you can only cast your own merchant ballot';
   if (command.type === 'shop-buy' || command.type === 'shop-sell-caddy' || command.type === 'shop-skip') {
@@ -302,7 +305,7 @@ const startRoom = (session: Session) => {
   if (session.playerId !== room.hostId) return report(session, 'only the host can start the room');
   if (room.phase !== 'lobby') return report(session, 'room already started');
   if (room.members.some((member) => ![...sessions].some((candidate) => candidate.roomCode === room.code && candidate.playerId === member.id && candidate.socket.readyState === WebSocket.OPEN))) return report(session, 'wait for every player to reconnect');
-  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipVoting: room.config.skipVoting === true });
+  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipDieBets: room.config.skipDieBets === true });
   game.players.filter((player) => player.kind === 'human').forEach((player, index) => { player.name = room.members[index]!.name; });
   room.phase = 'game';
   roomTimersFor(room).clockAt = now();
@@ -355,7 +358,9 @@ const loadRooms = () => {
       if (room.code && room.config && room.members && room.reconnectTokens) {
         room.config.courseWidth ??= 20;
         room.config.courseHeight ??= 14;
-        room.config.skipVoting ??= false;
+        const legacyConfig = room.config as LobbyConfig & { skipVoting?: boolean };
+        room.config.skipDieBets ??= legacyConfig.skipVoting === true;
+        delete legacyConfig.skipVoting;
         if (room.game) room.game = normalizeGameState(room.game);
         rooms.set(room.code, room);
       }

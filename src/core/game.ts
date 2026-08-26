@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { activePlayer, castVote, cloneGameState, completeTransition, createGameState, defaultConfig, setPaused } from './game-state';
+import { activePlayer, addDieSide, augmentDieFace, cloneGameState, completeTransition, createGameState, defaultConfig, readyDieRoll, setPaused } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
 import { buyShopOffer, sellShopCaddy, skipShopBuyer, voteShopReroll } from './shop';
@@ -12,8 +12,16 @@ export const createGame = (config: GameConfig): GameState => createGameState(con
 
 export const applyCommand = (current: GameState, command: GameCommand): GameState => {
   const state = cloneGameState(current);
-  if (command.type === 'cast-vote') {
-    castVote(state, command.playerId, command.optionId);
+  if (command.type === 'add-die-side') {
+    addDieSide(state, command.playerId);
+    return state;
+  }
+  if (command.type === 'augment-die-face') {
+    augmentDieFace(state, command.playerId, command.faceId);
+    return state;
+  }
+  if (command.type === 'ready-die-roll') {
+    readyDieRoll(state, command.playerId);
     return state;
   }
   if (command.type === 'complete-transition') {
