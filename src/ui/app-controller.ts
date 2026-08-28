@@ -319,7 +319,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const launchLocalMatch = (quickStart: boolean) => {
     launch = quickStart
-      ? { quickStart: true, title: 'rolling up the course', detail: 'Preparing seeded automatic die results for the round.' }
+      ? { quickStart: true, title: 'loading the course', detail: 'Preparing seeded automatic slot results for the round.' }
       : { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
     screen = 'launching';
     render();

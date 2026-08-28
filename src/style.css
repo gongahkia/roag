@@ -186,6 +186,7 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .slot-reel::before { top: 0; background: linear-gradient(#6a1b25b8, transparent); }
 .slot-reel::after { bottom: 0; background: linear-gradient(transparent, #6a1b25b8); }
 .slot-reel-track { display: grid; grid-auto-rows: 5.1rem; transform: translateY(0); }
+.slot-stop { display: grid; grid-template-rows: 3.25rem 1.85rem; height: 5.1rem; }
 .slot-symbol { display: grid; place-items: center; align-content: end; height: 3.25rem; color: #7a2530; font-family: Georgia, serif; font-size: 2.55rem; line-height: 1; text-shadow: 0 1px 0 #fff, 0 2px 2px #7a202944; }
 .slot-symbol-label { display: grid; height: 1.85rem; place-items: start center; padding: 0 .15rem; overflow: hidden; color: #5d2228; font-size: .46rem; font-weight: 800; letter-spacing: .055em; line-height: 1.15; text-align: center; text-transform: uppercase; }
 .slot-reel.is-spinning .slot-reel-track { animation: slot-reel-spin .82s cubic-bezier(.17, .72, .22, 1) var(--slot-delay) forwards; }

@@ -241,7 +241,7 @@ export interface DieFace extends CoursePackage {
 export interface DieWager {
   /** Used to scale the cost of a player's successive extra faces. */
   addedSides: number;
-  /** Paid chance-weight additions keyed by die face. */
+  /** Paid chance-weight additions keyed by course slot-machine stop. */
   augmentations: Record<string, number>;
   ready: boolean;
 }
