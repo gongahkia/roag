@@ -5,7 +5,7 @@ import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, renderQuickStartLaunchMarkup } from '../src/ui/home-markup';
 
-describe('course die markup', () => {
+describe('course slot machine markup', () => {
   it('keeps the clubhouse focused on choosing a play mode before exposing setup forms', () => {
     const state = createGame(defaultConfig());
     const markup = renderHomeMarkup({ panel: 'play', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
@@ -63,7 +63,7 @@ describe('course die markup', () => {
     expect(join).not.toContain('id="online-seed"');
   });
 
-  it('offers local quick start and reports automatic die rules to online guests', () => {
+  it('offers local quick start and reports automatic slot rules to online guests', () => {
     const state = createGame(defaultConfig());
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(local).toContain('data-quick-start-local');
