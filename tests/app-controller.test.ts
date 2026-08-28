@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aimFromPull, PULL_MAX_DISTANCE, shouldScheduleBotAfterTick } from '../src/ui/app-controller';
+import { aimFromPull, PULL_MAX_DISTANCE, shouldScheduleBotAfterTick, shotKindForPointerButton } from '../src/ui/app-controller';
 import type { GameState } from '../src/core/types';
 
 const snapshot = (status: GameState['status'], playerIndex: number) => ({ status, turn: { playerIndex } });
@@ -11,6 +11,12 @@ describe('bot scheduling', () => {
     expect(aim.power).toBe(8);
     expect(aimFromPull({ angle: .4, power: 3, kind: 'chip' }, 0, 0)).toEqual({ angle: .4, power: 3, kind: 'chip' });
     expect(aimFromPull({ angle: 0, power: 1, kind: 'putt' }, 0, PULL_MAX_DISTANCE).angle).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it('uses the mouse button to select a putt or chip before the pull begins', () => {
+    expect(shotKindForPointerButton(0)).toBe('putt');
+    expect(shotKindForPointerButton(2)).toBe('chip');
+    expect(shotKindForPointerButton(0, true)).toBe('chip');
   });
 
   it('preserves a pending bot timeout while only the active turn countdown changes', () => {

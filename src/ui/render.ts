@@ -315,7 +315,7 @@ const drawPortalEndpoint = (context: CanvasRenderingContext2D, endpoint: PortalE
   const direction = screenDirection(endpoint.point.x, endpoint.point.y, endpoint.direction, metrics);
   drawChevron(context, center, direction, radius * .52, color);
   context.fillStyle = '#ffffff';
-  context.font = `${Math.max(7, metrics.tileWidth * .13)}px BigBlueTerm, ui-monospace, monospace`;
+  context.font = `${Math.max(7, metrics.tileWidth * .13)}px Inter, ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText(label, center.x, center.y - radius * .9);
@@ -470,7 +470,7 @@ const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset:
     context.lineWidth = 1.2;
     context.stroke();
     context.fillStyle = '#1c4321';
-    context.font = `${Math.max(8, metrics.tileWidth * .16)}px BigBlueTerm, ui-monospace, monospace`;
+    context.font = `${Math.max(8, metrics.tileWidth * .16)}px Inter, ui-sans-serif, system-ui, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(pad.kind === 'recovery' ? '+' : pad.kind === 'cash' ? '$' : '!', center.x, center.y + 1);
@@ -493,7 +493,7 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
         context.stroke();
       });
       context.fillStyle = '#ffffff';
-      context.font = `${Math.max(8, metrics.tileWidth * .18)}px BigBlueTerm, ui-monospace, monospace`;
+      context.font = `${Math.max(8, metrics.tileWidth * .18)}px Inter, ui-sans-serif, system-ui, sans-serif`;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText('↻', entrance.x, entrance.y);
@@ -512,7 +512,7 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
       context.lineWidth = 2;
       context.stroke();
       context.fillStyle = '#fff7cf';
-      context.font = `${Math.max(8, metrics.tileWidth * .16)}px BigBlueTerm, ui-monospace, monospace`;
+      context.font = `${Math.max(8, metrics.tileWidth * .16)}px Inter, ui-sans-serif, system-ui, sans-serif`;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText('↯', elevated.x, elevated.y);
@@ -568,7 +568,7 @@ const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets:
     context.strokeStyle = '#ffffff';
     context.lineWidth = 1.3;
     context.stroke();
-    context.font = `${Math.max(8, metrics.tileWidth * .17)}px BigBlueTerm, ui-monospace, monospace`;
+    context.font = `${Math.max(8, metrics.tileWidth * .17)}px Inter, ui-sans-serif, system-ui, sans-serif`;
     context.fillStyle = '#18221b';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -587,7 +587,7 @@ const drawPlacement = (context: CanvasRenderingContext2D, course: Course, placem
   context.setLineDash([4, 3]);
   context.stroke();
   context.setLineDash([]);
-  context.font = `${Math.max(10, metrics.tileWidth * .22)}px BigBlueTerm, ui-monospace, monospace`;
+  context.font = `${Math.max(10, metrics.tileWidth * .22)}px Inter, ui-sans-serif, system-ui, sans-serif`;
   context.fillStyle = placement.valid ? gadgetColor[placement.kind] : '#ed5e55';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
@@ -643,7 +643,7 @@ const drawBall = (context: CanvasRenderingContext2D, player: Player, offset: Poi
   context.fill();
   const labels = statusLabels(player);
   if (!labels.length) return;
-  context.font = `${Math.max(7, metrics.tileWidth * .12)}px BigBlueTerm, ui-monospace, monospace`;
+  context.font = `${Math.max(7, metrics.tileWidth * .12)}px Inter, ui-sans-serif, system-ui, sans-serif`;
   const rows = [labels.slice(0, 3).join(' '), labels.slice(3).join(' ')].filter(Boolean);
   rows.forEach((row, index) => {
     const width = context.measureText(row).width + 6;
@@ -666,7 +666,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
     const definition = EMOTES.find((candidate) => candidate.id === event.emote);
     if (!player || !definition) return;
     const point = withOffset(project(player.ball.x, player.ball.y, player.ball.z + .62, metrics), offset);
-    context.font = '12px BigBlueTerm, ui-monospace, monospace';
+    context.font = '12px Inter, ui-sans-serif, system-ui, sans-serif';
     const width = Math.max(23, context.measureText(definition.glyph).width + 10);
     const x = point.x + (index % 3 - 1) * 8 - width / 2;
     const y = point.y - 18 - Math.floor(index / 3) * 11;
@@ -791,7 +791,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.restore();
     if (followsFocus) {
       context.fillStyle = '#17311bba';
-      context.font = '10px BigBlueTerm, ui-monospace, monospace';
+      context.font = '10px Inter, ui-sans-serif, system-ui, sans-serif';
       context.textAlign = 'right';
       context.textBaseline = 'bottom';
       context.fillText('FOLLOW CAM', width - 12, height - 10);

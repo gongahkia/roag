@@ -3,7 +3,7 @@ import { applyCommand, createGame, defaultConfig, tickTurn } from '../src/core/g
 import { openShop } from '../src/core/shop';
 import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
-import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderQuickStartLaunchMarkup } from '../src/ui/home-markup';
+import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, renderQuickStartLaunchMarkup } from '../src/ui/home-markup';
 
 describe('course die markup', () => {
   it('keeps the clubhouse focused on choosing a play mode before exposing setup forms', () => {
@@ -12,6 +12,10 @@ describe('course die markup', () => {
     expect(markup).toContain('data-home-mode="local"');
     expect(markup).toContain('data-home-mode="local-multiplayer"');
     expect(markup).toContain('data-home-mode="multiplayer"');
+    expect(markup).toContain('home-settings-button');
+    expect(markup).toContain('aria-label="open settings"');
+    expect(markup).toContain('couch campaign');
+    expect(markup).toContain('ONE SCREEN · 2+ GOLFERS');
     expect(markup).not.toContain('ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH');
     expect(markup).not.toContain('Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.');
     expect(markup).not.toContain('id="local-seed"');
@@ -65,6 +69,9 @@ describe('course die markup', () => {
     expect(local).toContain('seeded automatic die rolls');
     expect(renderQuickStartLaunchMarkup()).toContain('class="quick-start-whirlwind"');
     expect(renderQuickStartLaunchMarkup()).toContain('rolling up the course');
+    const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
+    expect(normalLaunch).toContain('MATCH SETUP');
+    expect(normalLaunch).toContain('class="launch-progress"');
     const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: { ...lobbyConfigFromGame({ ...state.config, skipDieBets: true }), skipDieBets: true }, members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
     expect(lobby).toContain('seeded automatic die rolls');
     expect(lobby).toContain('start quick match');
@@ -143,14 +150,17 @@ describe('course die markup', () => {
     expect(markup).toContain('boon · 3 rounds');
   });
 
-  it('renders the pull-back controller, mapped strength meter, and in-course match HUD', () => {
+  it('renders direct left/right course pulls, a strength meter, and modern reaction controls', () => {
     const state = createGame({ ...defaultConfig(), seed: 'shot-modes', humanCount: 1, botCount: 0 });
     state.status = 'playing';
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4, kind: 'chip' }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(markup).toContain('data-shot-kind="putt"');
-    expect(markup).toContain('data-shot-kind="chip"');
-    expect(markup).toContain('id="pull-ball"');
-    expect(markup).toContain('DRAG BACK · RELEASE TO STRIKE');
+    expect(markup).not.toContain('data-shot-kind="putt"');
+    expect(markup).not.toContain('data-shot-kind="chip"');
+    expect(markup).not.toContain('id="pull-ball"');
+    expect(markup).not.toContain('DRAG BACK · RELEASE TO STRIKE');
+    expect(markup).toContain('class="reaction-dock"');
+    expect(markup).toContain('send cheer reaction');
+    expect(markup).toContain('🙌');
     expect(markup).toContain('class="hud-leaderboard"');
     expect(markup).toContain('class="hud-course"');
     expect(markup).toContain('class="hud-timer"');
@@ -162,7 +172,7 @@ describe('course die markup', () => {
     expect(inspector).toContain('red: fast mover');
     expect(markup).not.toContain('COURSE INTEL');
     const settings = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: 'settings', drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(settings).toContain('mouse shots: drag the ball back, then release to strike');
+    expect(settings).toContain('mouse shots: left-drag to putt or right-drag to chip, then release to strike');
     expect(settings).not.toContain('data-preference-select="mousePowerMode"');
     expect(settings).toContain('data-preference="showMerchantHoldings"');
   });

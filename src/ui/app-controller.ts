@@ -10,7 +10,7 @@ import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, Game
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
-import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderQuickStartLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
+import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
 import { createRenderer } from './render';
 
@@ -38,6 +38,7 @@ export const aimFromPull = (aim: ShotCommand, pullX: number, pullY: number): Sho
     power: Number((MIN_POWER + boundedDistance / PULL_MAX_DISTANCE * (MAX_POWER - MIN_POWER)).toFixed(1)),
   };
 };
+export const shotKindForPointerButton = (button: number, forcedChip = false): ShotCommand['kind'] => forcedChip || button === 2 ? 'chip' : 'putt';
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
 
 const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
@@ -106,6 +107,8 @@ export const startApp = (app: HTMLElement) => {
   let placement: PlacementState | undefined;
   let audioContext: AudioContext | undefined;
   let quickStartTimeout: number | undefined;
+  let launchFrame: number | undefined;
+  let launch = { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
   const hazardElapsedForDraw = () => {
@@ -303,6 +306,28 @@ export const startApp = (app: HTMLElement) => {
       skipDieBets: false,
     };
   };
+  const launchLocalMatch = (quickStart: boolean) => {
+    launch = quickStart
+      ? { quickStart: true, title: 'rolling up the course', detail: 'Preparing seeded automatic die results for the round.' }
+      : { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
+    screen = 'launching';
+    render();
+    window.clearTimeout(quickStartTimeout);
+    if (launchFrame !== undefined) window.cancelAnimationFrame(launchFrame);
+    const begin = () => {
+      quickStartTimeout = undefined;
+      if (screen !== 'launching') return;
+      screen = 'game';
+      setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
+    };
+    launchFrame = window.requestAnimationFrame(() => {
+      launchFrame = window.requestAnimationFrame(() => {
+        launchFrame = undefined;
+        const launchDelay = quickStart ? QUICK_START_LAUNCH_DURATION_MS : 320;
+        quickStartTimeout = window.setTimeout(begin, preferences.reducedMotion ? 80 : launchDelay);
+      });
+    });
+  };
   const startLocal = (prefix: 'local' | 'local-multiplayer', skipDieBets = false) => {
     const selected = { ...readConfig(prefix), skipDieBets };
     const minimumHumans = prefix === 'local-multiplayer' ? 2 : 1;
@@ -321,20 +346,7 @@ export const startApp = (app: HTMLElement) => {
     liveEmotes = [];
     seenEmoteIds = new Set();
     notice = undefined;
-    if (skipDieBets) {
-      screen = 'launching';
-      render();
-      window.clearTimeout(quickStartTimeout);
-      quickStartTimeout = window.setTimeout(() => {
-        quickStartTimeout = undefined;
-        if (screen !== 'launching') return;
-        screen = 'game';
-        setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
-      }, preferences.reducedMotion ? 80 : QUICK_START_LAUNCH_DURATION_MS);
-      return;
-    }
-    screen = 'game';
-    setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
+    launchLocalMatch(skipDieBets);
   };
   const setupGame = () => {
     const seed = readText(app, 'seed', config.seed);
@@ -384,7 +396,12 @@ export const startApp = (app: HTMLElement) => {
         if (codeForToken) storeToken(codeForToken, reconnectToken);
         render();
       },
-      onError(messageText) { if (onlineClient === client) { notice = messageText; render(); } },
+      onError(messageText) {
+        if (onlineClient !== client) return;
+        notice = messageText;
+        if (screen === 'launching' && room) screen = 'lobby';
+        render();
+      },
       onConnection(connected) {
         if (onlineClient !== client) return;
         onlineConnected = connected;
@@ -395,6 +412,13 @@ export const startApp = (app: HTMLElement) => {
     onlineClient = client;
     render();
     client.connect(url, () => client.send(message));
+  };
+  const startOnlineMatch = () => {
+    if (!onlineClient || !room) return;
+    launch = { quickStart: room.config.skipDieBets, title: 'starting shared match', detail: 'The host server is assembling the opening course for the table.' };
+    screen = 'launching';
+    render();
+    onlineClient.send({ type: 'start-room' });
   };
   const createOnlineRoom = (skipDieBets = false) => {
     const selected = { ...readConfig('online'), skipDieBets };
@@ -428,11 +452,6 @@ export const startApp = (app: HTMLElement) => {
     if (value) value.textContent = aim.power.toFixed(1);
     const label = app.querySelector<HTMLElement>('#hud-shot-label');
     if (label) label.textContent = `${shotKind.toUpperCase()} STRENGTH`;
-    app.querySelectorAll<HTMLButtonElement>('.hud-shot-mode [data-shot-kind]').forEach((button) => {
-      const selected = button.dataset.shotKind === shotKind;
-      button.classList.toggle('selected', selected);
-      button.setAttribute('aria-pressed', String(selected));
-    });
   };
   const updateLiveMatchHud = () => {
     const timer = app.querySelector<HTMLElement>('#hud-turn-timer');
@@ -495,15 +514,10 @@ export const startApp = (app: HTMLElement) => {
     requestAnimationFrame(animate);
   };
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
-  const bindMatchHud = () => {
-    app.querySelectorAll<HTMLButtonElement>('.hud-shot-mode [data-shot-kind]').forEach((button) => button.addEventListener('click', () => selectShotKind(button.dataset.shotKind === 'chip' ? 'chip' : 'putt')));
-    const ball = app.querySelector<HTMLButtonElement>('#pull-ball');
-    if (!ball) return;
+  const bindCourseInput = (canvas: HTMLCanvasElement) => {
     let pull: { pointerId: number; originX: number; originY: number; distance: number } | undefined;
-    const resetBall = () => {
-      ball.style.setProperty('--pull-x', '0px');
-      ball.style.setProperty('--pull-y', '0px');
-      ball.classList.remove('dragging');
+    const resetPull = () => {
+      canvas.classList.remove('pulling', 'chip-pull');
     };
     const updatePull = (event: PointerEvent) => {
       if (!pull || pull.pointerId !== event.pointerId) return;
@@ -514,8 +528,6 @@ export const startApp = (app: HTMLElement) => {
       const pullX = rawX * scale;
       const pullY = rawY * scale;
       pull.distance = Math.hypot(pullX, pullY);
-      ball.style.setProperty('--pull-x', `${pullX}px`);
-      ball.style.setProperty('--pull-y', `${pullY}px`);
       aim = aimFromPull(aim, pullX, pullY);
       drawBoard();
       updateAimHud();
@@ -524,24 +536,33 @@ export const startApp = (app: HTMLElement) => {
       if (!pull || pull.pointerId !== event.pointerId) return;
       const distance = pull.distance;
       pull = undefined;
-      if (ball.hasPointerCapture(event.pointerId)) ball.releasePointerCapture(event.pointerId);
-      resetBall();
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      resetPull();
       if (distance >= 12) shoot();
     };
-    ball.addEventListener('pointerdown', (event) => {
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    canvas.addEventListener('pointerdown', (event) => {
+      if (placement) { selectPlacement(event); return; }
+      if (event.button !== 0 && event.button !== 2) return;
       if (state.status !== 'playing' || state.paused || shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
       event.preventDefault();
-      const rect = ball.getBoundingClientRect();
-      pull = { pointerId: event.pointerId, originX: rect.left + rect.width / 2, originY: rect.top + rect.height / 2, distance: 0 };
-      ball.setPointerCapture(event.pointerId);
-      ball.classList.add('dragging');
+      aim = { ...aim, kind: shotKindForPointerButton(event.button, current().forcedChip) };
+      pull = { pointerId: event.pointerId, originX: event.clientX, originY: event.clientY, distance: 0 };
+      canvas.setPointerCapture(event.pointerId);
+      canvas.classList.add('pulling');
+      canvas.classList.toggle('chip-pull', aim.kind === 'chip');
+      drawBoard();
+      updateAimHud();
     });
-    ball.addEventListener('pointermove', updatePull);
-    ball.addEventListener('pointerup', releasePull);
-    ball.addEventListener('pointercancel', (event) => {
+    canvas.addEventListener('pointermove', (event) => {
+      if (pull) updatePull(event);
+      else updatePlacement(event);
+    });
+    canvas.addEventListener('pointerup', releasePull);
+    canvas.addEventListener('pointercancel', (event) => {
       if (!pull || pull.pointerId !== event.pointerId) return;
       pull = undefined;
-      resetBall();
+      resetPull();
     });
   };
   const useHeldPowerUp = (powerUp: PowerUp | ChronoCard, cardId?: string) => {
@@ -655,7 +676,7 @@ export const startApp = (app: HTMLElement) => {
       return;
     }
     if (screen === 'launching') {
-      app.innerHTML = renderQuickStartLaunchMarkup();
+      app.innerHTML = renderMatchLaunchMarkup(launch);
       return;
     }
     app.innerHTML = renderAppMarkup(view());
@@ -664,9 +685,7 @@ export const startApp = (app: HTMLElement) => {
     if (!canvas) return;
     renderer = createRenderer(canvas);
     drawBoard(undefined, state.status === 'playing' ? aim : null);
-    canvas.addEventListener('pointermove', updatePlacement);
-    canvas.addEventListener('pointerdown', selectPlacement);
-    bindMatchHud();
+    bindCourseInput(canvas);
     renderControls();
   };
   const updatePreferences = (partial: Partial<typeof preferences>) => {
@@ -733,7 +752,7 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
     if (element.hasAttribute('data-create-quick-room')) { createOnlineRoom(true); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }
-    if (element.hasAttribute('data-start-room')) { onlineClient?.send({ type: 'start-room' }); return; }
+    if (element.hasAttribute('data-start-room')) { startOnlineMatch(); return; }
     if (element.hasAttribute('data-leave-lobby')) { onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
     if (element.hasAttribute('data-restart-run')) { if (online()) { screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
     if (element.hasAttribute('data-toggle-pause')) { togglePause(); return; }
