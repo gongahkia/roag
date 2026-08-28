@@ -15,6 +15,8 @@ describe('course die markup', () => {
     expect(markup).toContain('home-settings-button');
     expect(markup).toContain('aria-label="open settings"');
     expect(markup).toContain('couch campaign');
+    expect(markup).toContain('class="title-golf-ball"');
+    expect(markup).toContain('class="title-cursing-emoji"');
     expect(markup).toContain('ONE SCREEN · 2+ GOLFERS');
     expect(markup).not.toContain('ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH');
     expect(markup).not.toContain('Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.');
@@ -66,24 +68,27 @@ describe('course die markup', () => {
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(local).toContain('data-quick-start-local');
     expect(local).toContain('class="quick-start-button"');
-    expect(local).toContain('seeded automatic die rolls');
+    expect(local).toContain('seeded automatic slot results');
     expect(renderQuickStartLaunchMarkup()).toContain('class="quick-start-whirlwind"');
-    expect(renderQuickStartLaunchMarkup()).toContain('rolling up the course');
+    expect(renderQuickStartLaunchMarkup()).toContain('loading the course');
     const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
     expect(normalLaunch).toContain('MATCH SETUP');
     expect(normalLaunch).toContain('class="launch-progress"');
     const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: { ...lobbyConfigFromGame({ ...state.config, skipDieBets: true }), skipDieBets: true }, members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
-    expect(lobby).toContain('seeded automatic die rolls');
+    expect(lobby).toContain('seeded automatic slot results');
     expect(lobby).toContain('start quick match');
   });
 
-  it('keeps the shared die in the foreground with a foldable 3D paper net and weighted full-package faces', () => {
+  it('keeps the shared course slot machine in the foreground with weighted full-package stops', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(markup).toContain('class="die-overlay"');
-    expect(markup).toContain('id="course-die"');
-    expect(markup).toContain('class="die-scene"');
-    expect(markup).toContain('unfolded paper net');
+    expect(markup).toContain('class="slot-machine');
+    expect(markup).toContain('COURSE SLOTS');
+    expect(markup).toContain('class="slot-lever"');
+    expect(markup).toContain('PULL TO SPIN');
+    expect(markup).not.toContain('course-die');
+    expect(markup).not.toContain('paper net');
     expect(markup.match(/class="die-face /g)).toHaveLength(6);
     expect(markup).toContain('class="course-glyphs"');
     expect(markup).toContain('data-add-die-side');
@@ -91,6 +96,11 @@ describe('course die markup', () => {
     expect(markup).toContain('data-ready-die-roll');
     expect(markup).toContain('weight +1');
     expect(markup).toContain('app-shell rolling');
+
+    const spinning = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), state);
+    const spinningMarkup = renderAppMarkup({ state: spinning, config: spinning.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(spinningMarkup).toContain('slot-machine is-spinning');
+    expect(spinningMarkup.match(/slot-reel is-spinning/g)).toHaveLength(3);
   });
 
   it('renders target selection and click-confirmed gadget placement guidance for new items', () => {

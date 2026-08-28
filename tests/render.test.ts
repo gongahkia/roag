@@ -4,7 +4,7 @@ import { createArena } from './fixtures';
 import { cameraFor } from '../src/ui/render';
 
 describe('dynamic course camera', () => {
-  it('fits compact levels and follows the focus ball across oversized levels', () => {
+  it('follows the active ball on compact and oversized courses', () => {
     const fullCourse = (seed: string, width: number, height: number) => {
       const course = createArena(seed);
       course.width = width;
@@ -19,7 +19,8 @@ describe('dynamic course camera', () => {
     };
     const compact = fullCourse('camera-compact', 16, 10);
     const compactCamera = cameraFor(compact, 700, 500, newBall(compact));
-    expect(compactCamera.followsFocus).toBe(false);
+    expect(compactCamera.followsFocus).toBe(true);
+    expect(compactCamera.offset).not.toEqual(cameraFor(compact, 700, 500).offset);
 
     const large = fullCourse('camera-large', 96, 48);
     const tee = newBall(large);

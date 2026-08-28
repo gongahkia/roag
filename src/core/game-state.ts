@@ -255,7 +255,7 @@ export const createGameState = (config: GameConfig): GameState => {
     turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false, cardPlayed: false },
     paused: false,
     status: firstPlan ? 'playing' : 'rolling',
-    messages: firstPlan ? [`quick start rolled ${coursePlan.length} random courses — tee off`] : ['add sides, weight a face, then ready the hole die'],
+    messages: firstPlan ? [`quick start selected ${coursePlan.length} random courses — tee off`] : ['add reel stops, weight a stop, then pull the course slots'],
   };
   return state;
 };
@@ -294,7 +294,7 @@ const startDieRoll = (state: GameState) => {
     if (remaining < 0) { selected = face; break; }
   }
   die.roll = { faceId: selected.id, secondsLeft: DIE_ROLL_SECONDS };
-  addMessage(state, `the ${die.faces.length}-sided course die starts to tumble`);
+  addMessage(state, `the ${die.faces.length}-stop course slot machine starts to spin`);
 };
 
 const resolveDieRoll = (state: GameState) => {
@@ -307,14 +307,14 @@ const resolveDieRoll = (state: GameState) => {
   if (state.hole === 1) {
     activatePlan(state, planned);
     state.status = 'playing';
-    addMessage(state, `${selected.label} lands face-up — tee off`);
+    addMessage(state, `${selected.label} locks in — tee off`);
     return;
   }
   state.transition = { next: clonePlan(planned) };
   state.gadgets = [];
   state.paused = false;
   state.status = 'transitioning';
-  addMessage(state, `${selected.label} lands face-up — rebuilding hole ${state.hole}`);
+  addMessage(state, `${selected.label} locks in — rebuilding hole ${state.hole}`);
 };
 
 export const addDieSide = (state: GameState, playerId: string) => {
@@ -328,7 +328,7 @@ export const addDieSide = (state: GameState, playerId: string) => {
   wager.addedSides += 1;
   const face = dieFaceAt(state.config, state.hole, state.die.faces.length, playerId);
   state.die.faces.push(face);
-  addMessage(state, `${player.name} adds a wild die side for $${cost}`);
+  addMessage(state, `${player.name} adds a wild reel stop for $${cost}`);
 };
 
 export const augmentDieFace = (state: GameState, playerId: string, faceId: string) => {
@@ -353,7 +353,7 @@ export const readyDieRoll = (state: GameState, playerId: string) => {
   if (wager.ready) return;
   wager.ready = true;
   const player = state.players.find((candidate) => candidate.id === playerId)!;
-  addMessage(state, `${player.name} is ready to roll`);
+  addMessage(state, `${player.name} is ready to pull the lever`);
   if (state.players.every((candidate) => wagerFor(state.die!, candidate.id).ready)) startDieRoll(state);
 };
 
@@ -397,7 +397,7 @@ export const beginCourseTransition = (state: GameState) => {
     if (!next) return;
     state.transition = { next: clonePlan(next) };
     state.status = 'transitioning';
-    addMessage(state, `hole ${state.hole - 1} complete — automatic die result rebuilds hole ${state.hole}`);
+    addMessage(state, `hole ${state.hole - 1} complete — automatic slot result rebuilds hole ${state.hole}`);
     return;
   }
   state.die = newDie(state.config, nextHole, state.players);

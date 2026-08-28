@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aimFromPull, PULL_MAX_DISTANCE, shouldScheduleBotAfterTick, shotKindForPointerButton } from '../src/ui/app-controller';
+import { aimFromPull, controllerDirectionForAxes, PULL_MAX_DISTANCE, shouldScheduleBotAfterTick, shotKindForPointerButton } from '../src/ui/app-controller';
 import type { GameState } from '../src/core/types';
 
 const snapshot = (status: GameState['status'], playerIndex: number) => ({ status, turn: { playerIndex } });
@@ -17,6 +17,14 @@ describe('bot scheduling', () => {
     expect(shotKindForPointerButton(0)).toBe('putt');
     expect(shotKindForPointerButton(2)).toBe('chip');
     expect(shotKindForPointerButton(0, true)).toBe('chip');
+  });
+
+  it('maps either controller stick axis to one predictable menu direction', () => {
+    expect(controllerDirectionForAxes(0, 0)).toBeUndefined();
+    expect(controllerDirectionForAxes(.9, .2)).toBe('right');
+    expect(controllerDirectionForAxes(-.8, .1)).toBe('left');
+    expect(controllerDirectionForAxes(.2, -.9)).toBe('up');
+    expect(controllerDirectionForAxes(.1, .8)).toBe('down');
   });
 
   it('preserves a pending bot timeout while only the active turn countdown changes', () => {

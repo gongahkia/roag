@@ -11,8 +11,7 @@ import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
-import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
-import type { CourseDieScene } from './course-die';
+import { escapeHtml, type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
 import { createRenderer } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
@@ -21,6 +20,8 @@ interface LiveEmote extends EmoteEvent { expiresAt: number; }
 interface PlacementState { kind: GadgetKind; cardId?: string; point?: Point; valid: boolean; confirmed: boolean; ownerId: string; }
 type Screen = 'home' | 'lobby' | 'launching' | 'game';
 type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
+type ControllerDirection = 'up' | 'down' | 'left' | 'right';
+interface ControllerTextEntry { targetId: string; label: string; value: string; }
 
 export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: BotScheduleSnapshot) => previous.status !== next.status || previous.turn.playerIndex !== next.turn.playerIndex;
 
@@ -40,6 +41,11 @@ export const aimFromPull = (aim: ShotCommand, pullX: number, pullY: number): Sho
   };
 };
 export const shotKindForPointerButton = (button: number, forcedChip = false): ShotCommand['kind'] => forcedChip || button === 2 ? 'chip' : 'putt';
+export const controllerDirectionForAxes = (x: number, y: number, deadzone = .6): ControllerDirection | undefined => {
+  if (Math.max(Math.abs(x), Math.abs(y)) < deadzone) return undefined;
+  if (Math.abs(x) > Math.abs(y)) return x < 0 ? 'left' : 'right';
+  return y < 0 ? 'up' : 'down';
+};
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
 
 const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
@@ -71,8 +77,6 @@ export const startApp = (app: HTMLElement) => {
   let state = createGame(config);
   let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
   let renderer: ReturnType<typeof createRenderer> | undefined;
-  let dieScene: CourseDieScene | undefined;
-  let dieSceneVersion = 0;
   let lastTick = performance.now();
   let lastOnlineHazardSyncAt = performance.now();
   let botTimeout: number | undefined;
@@ -107,6 +111,10 @@ export const startApp = (app: HTMLElement) => {
   let controllerName: string | undefined;
   let localMultiplayer = false;
   let gamepadButtons: boolean[] = [];
+  let controllerAxisDirection: ControllerDirection | undefined;
+  let controllerNavigationMode = false;
+  let controllerFocusIndex = 0;
+  let controllerTextEntry: ControllerTextEntry | undefined;
   let placement: PlacementState | undefined;
   let audioContext: AudioContext | undefined;
   let quickStartTimeout: number | undefined;
@@ -463,9 +471,9 @@ export const startApp = (app: HTMLElement) => {
   const updatePhaseTimer = () => {
     if (state.status === 'rolling' && state.die) {
       const prompt = app.querySelector<HTMLElement>('#die-prompt');
-      if (prompt) prompt.textContent = state.die.roll ? `rolling… ${state.die.roll.secondsLeft.toFixed(1)}s` : 'place a wager or ready the die';
+      if (prompt) prompt.textContent = state.die.roll ? `spinning… ${state.die.roll.secondsLeft.toFixed(1)}s` : 'place a wager or pull the lever';
       const timer = app.querySelector<HTMLElement>('#die-timer');
-      if (timer) timer.textContent = state.die.roll ? 'the selected face becomes this hole' : `${state.players.filter((player) => state.die!.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${state.die.secondsLeft.toFixed(0)}s`;
+      if (timer) timer.textContent = state.die.roll ? 'the selected stop becomes this hole' : `${state.players.filter((player) => state.die!.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${state.die.secondsLeft.toFixed(0)}s`;
     }
     if (state.status === 'shopping' && state.shop) app.querySelector<HTMLElement>('#merchant-timer')?.replaceChildren(`${state.shop.secondsLeft.toFixed(0)} seconds`);
   };
@@ -664,43 +672,38 @@ export const startApp = (app: HTMLElement) => {
   const renderControls = () => {
     const control = app.querySelector<HTMLElement>('#controls');
     if (!control) return;
-    control.innerHTML = renderControlsMarkup(view());
+    const markup = renderControlsMarkup(view()).trim();
+    control.hidden = !markup;
+    control.innerHTML = markup;
     app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => dispatch({ type: 'arm-second-wind' }));
   };
   const render = () => {
-    const sceneVersion = ++dieSceneVersion;
     renderer?.dispose();
     renderer = undefined;
-    dieScene?.dispose();
-    dieScene = undefined;
     if (screen === 'home') {
       app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
+      renderControllerUi();
       return;
     }
     if (screen === 'lobby') {
       if (room) app.innerHTML = renderLobbyMarkup(room, onlinePlayerId, onlineConnected, notice);
+      renderControllerUi();
       return;
     }
     if (screen === 'launching') {
       app.innerHTML = renderMatchLaunchMarkup(launch);
+      renderControllerUi();
       return;
     }
     app.innerHTML = renderAppMarkup(view());
     app.querySelector<HTMLButtonElement>('#new-run')?.addEventListener('click', setupGame);
-    const dieCanvas = app.querySelector<HTMLCanvasElement>('#course-die');
-    const dieState = state.die;
-    if (dieCanvas && dieState) {
-      void import('./course-die').then(({ createCourseDieScene }) => {
-        if (sceneVersion !== dieSceneVersion || !dieCanvas.isConnected) return;
-        dieScene = createCourseDieScene(dieCanvas, dieState.faces, Boolean(dieState.roll), dieState.roll?.faceId, dieState.roll?.secondsLeft, preferences.reducedMotion);
-      });
-    }
     const canvas = app.querySelector<HTMLCanvasElement>('#course');
     if (!canvas) return;
     renderer = createRenderer(canvas);
     drawBoard(undefined, state.status === 'playing' ? aim : null);
     bindCourseInput(canvas);
     renderControls();
+    renderControllerUi();
   };
   const updatePreferences = (partial: Partial<typeof preferences>) => {
     preferences = { ...preferences, ...partial };
@@ -708,16 +711,184 @@ export const startApp = (app: HTMLElement) => {
     applyPreferences();
     render();
   };
+  const controllerNavigationIsActive = () => Boolean(controllerTextEntry) || screen !== 'game' || controllerNavigationMode || Boolean(overlay) || Boolean(drawer) || state.paused || state.status !== 'playing';
+  const controllerFocusableElements = () => {
+    const selector = 'button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled)';
+    const all = Array.from(app.querySelectorAll<HTMLElement>(selector));
+    if (controllerTextEntry) return all.filter((element) => Boolean(element.closest('.controller-keyboard')));
+    if (screen === 'game' && controllerNavigationMode && !overlay && !drawer && !state.paused && state.status === 'playing') {
+      return all.filter((element) => Boolean(element.closest('.title-actions, #controls, .reaction-dock')));
+    }
+    const scope = overlay
+      ? app.querySelector<HTMLElement>('.overlay')
+      : drawer
+        ? app.querySelector<HTMLElement>('.drawer')
+        : state.paused
+          ? app.querySelector<HTMLElement>('.pause-overlay')
+          : state.status === 'rolling'
+            ? app.querySelector<HTMLElement>('.die-overlay')
+            : state.status === 'shopping'
+              ? app.querySelector<HTMLElement>('.merchant-overlay')
+              : state.status === 'finished'
+                ? app.querySelector<HTMLElement>('.results-overlay')
+                : screen === 'home' && homePanel === 'play' && homeMode === 'modes'
+                  ? app.querySelector<HTMLElement>('.mode-grid')
+                  : screen === 'home' && homePanel === 'settings'
+                    ? app.querySelector<HTMLElement>('.home-settings')
+                    : screen === 'lobby'
+                      ? app.querySelector<HTMLElement>('.lobby-card')
+                      : app;
+    return scope ? Array.from(scope.querySelectorAll<HTMLElement>(selector)) : [];
+  };
+  const setControllerFocus = (index: number) => {
+    const elements = controllerFocusableElements();
+    app.querySelectorAll('.controller-focused').forEach((element) => element.classList.remove('controller-focused'));
+    if (!elements.length) { controllerFocusIndex = 0; return; }
+    controllerFocusIndex = (index % elements.length + elements.length) % elements.length;
+    const element = elements[controllerFocusIndex]!;
+    element.classList.add('controller-focused');
+    element.focus({ preventScroll: true });
+  };
+  const moveControllerFocus = (direction: ControllerDirection) => {
+    const elements = controllerFocusableElements();
+    if (!elements.length) return;
+    const current = elements[controllerFocusIndex];
+    if (!current) { setControllerFocus(0); return; }
+    const currentRect = current.getBoundingClientRect();
+    const currentX = currentRect.left + currentRect.width / 2;
+    const currentY = currentRect.top + currentRect.height / 2;
+    const candidate = elements
+      .map((element, index) => {
+        const rect = element.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const primary = direction === 'left' ? currentX - x : direction === 'right' ? x - currentX : direction === 'up' ? currentY - y : y - currentY;
+        const cross = direction === 'left' || direction === 'right' ? Math.abs(y - currentY) : Math.abs(x - currentX);
+        return { index, primary, score: primary * 4 + cross };
+      })
+      .filter((item) => item.primary > 2)
+      .sort((left, right) => left.score - right.score)[0];
+    if (candidate) setControllerFocus(candidate.index);
+    else setControllerFocus(controllerFocusIndex + (direction === 'up' || direction === 'left' ? -1 : 1));
+    vibrate();
+  };
+  const adjustControllerValue = (delta: number) => {
+    const element = controllerFocusableElements()[controllerFocusIndex];
+    if (element instanceof HTMLSelectElement) {
+      element.selectedIndex = (element.selectedIndex + delta + element.options.length) % element.options.length;
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      vibrate();
+      return true;
+    }
+    if (!(element instanceof HTMLInputElement) || !['number', 'range'].includes(element.type)) return false;
+    const step = Number(element.step) || 1;
+    const minimum = element.min === '' ? -Infinity : Number(element.min);
+    const maximum = element.max === '' ? Infinity : Number(element.max);
+    const decimals = element.step.includes('.') ? element.step.split('.')[1]!.length : 0;
+    const next = Math.max(minimum, Math.min(maximum, (Number(element.value) || 0) + step * delta));
+    element.value = decimals ? next.toFixed(decimals) : String(Math.round(next));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    vibrate();
+    return true;
+  };
+  const renderControllerKeyboard = () => {
+    if (!controllerTextEntry) return '';
+    const rows = ['abcdefghi', 'jklmnopqr', 'stuvwxyz', '0123456789', '-./:'];
+    const keyRows = rows.map((row) => `<div>${[...row].map((key) => `<button data-controller-key="${key}" aria-label="type ${key}">${key}</button>`).join('')}</div>`).join('');
+    return `<section class="controller-keyboard" role="dialog" aria-modal="true" aria-label="controller text entry"><header><span>controller text entry</span><strong>${escapeHtml(controllerTextEntry.label)}</strong><output>${escapeHtml(controllerTextEntry.value) || ' '}</output></header><div class="controller-key-grid">${keyRows}</div><footer><button data-controller-key="space">space</button><button data-controller-key="backspace">delete</button><button class="primary" data-controller-key="confirm">done</button><button data-controller-key="cancel">cancel</button></footer></section>`;
+  };
+  const controllerCanGoBack = () => Boolean(controllerTextEntry) || (screen === 'game' && controllerNavigationMode) || Boolean(overlay) || Boolean(drawer) || state.paused || (screen === 'home' && (homePanel === 'settings' || homeMode !== 'modes')) || screen === 'lobby';
+  const renderControllerUi = () => {
+    app.querySelector('.controller-hints')?.remove();
+    app.querySelector('.controller-keyboard')?.remove();
+    app.querySelectorAll('.controller-focused').forEach((element) => element.classList.remove('controller-focused'));
+    if (!controllerName) return;
+    const courseControls = screen === 'game' && state.status === 'playing' && !controllerNavigationIsActive();
+    const content = controllerTextEntry
+      ? '<kbd>D-pad</kbd> choose <kbd>A</kbd> type <kbd>B</kbd> cancel'
+      : screen === 'launching'
+        ? 'preparing match'
+        : courseControls
+          ? '<kbd>LS</kbd> aim <kbd>A</kbd> shoot <kbd>Y</kbd> putt / chip <kbd>B</kbd> item <kbd>D-pad</kbd> power <kbd>View</kbd> menus <kbd>Menu</kbd> pause'
+          : `<kbd>D-pad</kbd> navigate <kbd>A</kbd> select${controllerCanGoBack() ? ' <kbd>B</kbd> back' : ''}${screen === 'game' ? ' <kbd>Menu</kbd> pause' : ''}`;
+    app.insertAdjacentHTML('beforeend', `<aside class="controller-hints" aria-live="polite"><strong>controller · ${escapeHtml(controllerName)}</strong><span>${content}</span></aside>${renderControllerKeyboard()}`);
+    if (controllerNavigationIsActive()) setControllerFocus(controllerFocusIndex);
+  };
+  const openControllerTextEntry = (input: HTMLInputElement) => {
+    if (!input.id) return;
+    const label = input.labels?.[0]?.textContent?.trim().replace(/\s+/g, ' ') || input.getAttribute('aria-label') || 'text';
+    controllerTextEntry = { targetId: input.id, label, value: input.value };
+    controllerFocusIndex = 0;
+    renderControllerUi();
+  };
+  const editControllerText = (key: string) => {
+    if (!controllerTextEntry) return;
+    const input = app.querySelector<HTMLInputElement>(`#${CSS.escape(controllerTextEntry.targetId)}`);
+    if (!input) { controllerTextEntry = undefined; renderControllerUi(); return; }
+    if (key === 'cancel') { controllerTextEntry = undefined; renderControllerUi(); return; }
+    if (key === 'confirm') {
+      input.value = controllerTextEntry.value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      controllerTextEntry = undefined;
+      renderControllerUi();
+      return;
+    }
+    if (key === 'backspace') controllerTextEntry.value = controllerTextEntry.value.slice(0, -1);
+    else {
+      const character = key === 'space' ? ' ' : key;
+      const maximum = input.maxLength > 0 ? input.maxLength : Infinity;
+      controllerTextEntry.value = `${controllerTextEntry.value}${character}`.slice(0, maximum);
+    }
+    app.querySelector<HTMLOutputElement>('.controller-keyboard output')!.textContent = controllerTextEntry.value || ' ';
+  };
+  const activateControllerFocus = () => {
+    const element = controllerFocusableElements()[controllerFocusIndex];
+    if (!element) return;
+    if (element instanceof HTMLInputElement) {
+      if (element.type === 'checkbox') element.click();
+      else if (element.type === 'text' || element.type === 'url') openControllerTextEntry(element);
+      else adjustControllerValue(1);
+      return;
+    }
+    if (element instanceof HTMLSelectElement) { adjustControllerValue(1); return; }
+    element.click();
+  };
+  const cancelControllerNavigation = () => {
+    if (controllerTextEntry) { controllerTextEntry = undefined; renderControllerUi(); return; }
+    if (screen === 'game' && controllerNavigationMode) { controllerNavigationMode = false; renderControllerUi(); return; }
+    if (overlay) { overlay = undefined; rebinding = undefined; render(); return; }
+    if (drawer) { drawer = undefined; render(); return; }
+    if (state.paused) { togglePause(); return; }
+    if (screen === 'home') {
+      if (homePanel === 'settings') { homePanel = 'play'; render(); return; }
+      if (homeMode !== 'modes') { homeMode = 'modes'; render(); return; }
+    }
+    if (screen === 'lobby') app.querySelector<HTMLButtonElement>('[data-leave-lobby]')?.click();
+  };
   const pollController = () => {
-    if (screen !== 'game') return;
     const pad = navigator.getGamepads?.().find((candidate) => candidate?.connected);
-    if (!pad) { gamepadButtons = []; return; }
+    if (!pad) { gamepadButtons = []; controllerAxisDirection = undefined; return; }
     if (!controllerName) { controllerName = pad.id || 'controller'; render(); }
     const pressed = (index: number) => Boolean(pad.buttons[index]?.pressed);
     const edge = (index: number) => pressed(index) && !gamepadButtons[index];
     gamepadButtons = pad.buttons.map((button) => button.pressed);
-    if (edge(9)) togglePause();
-    if (overlay || state.paused || shotAnimation || state.status !== 'playing' || current().kind !== 'human' || !canControlCurrent()) return;
+    const axisDirection = controllerDirectionForAxes(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+    const axisEdge = axisDirection && axisDirection !== controllerAxisDirection ? axisDirection : undefined;
+    controllerAxisDirection = axisDirection;
+    if (screen === 'game' && edge(9)) togglePause();
+    if (controllerNavigationIsActive()) {
+      const direction = edge(12) ? 'up' : edge(13) ? 'down' : edge(14) ? 'left' : edge(15) ? 'right' : axisEdge;
+      if (direction) {
+        if ((direction === 'left' || direction === 'right') && adjustControllerValue(direction === 'left' ? -1 : 1)) return;
+        moveControllerFocus(direction);
+      }
+      if (edge(0)) activateControllerFocus();
+      if (edge(1)) cancelControllerNavigation();
+      return;
+    }
+    if (screen !== 'game') return;
+    if (edge(8)) { controllerNavigationMode = true; controllerFocusIndex = 0; renderControllerUi(); return; }
+    if (shotAnimation || state.status !== 'playing' || current().kind !== 'human' || !canControlCurrent()) return;
     if (placement) {
       const origin = placement.point ?? { x: Math.floor(current().ball.x), y: Math.floor(current().ball.y) };
       const left = edge(14);
@@ -755,6 +926,8 @@ export const startApp = (app: HTMLElement) => {
   app.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const element = target.closest<HTMLElement>('button') ?? target;
+    const controllerKey = element.dataset.controllerKey;
+    if (controllerKey) { editControllerText(controllerKey); return; }
     const homeTarget = element.dataset.homePanel as HomePanel | undefined;
     if (homeTarget) { homePanel = homeTarget; if (homeTarget === 'play') homeMode = 'modes'; notice = undefined; render(); return; }
     const homeModeTarget = element.dataset.homeMode as HomeMode | undefined;
@@ -821,8 +994,8 @@ export const startApp = (app: HTMLElement) => {
     const selection = target.dataset.preferenceSelect as keyof typeof preferences | undefined;
     if (selection === 'mousePowerMode' && (target.value === 'scroll' || target.value === 'cursor')) updatePreferences({ mousePowerMode: target.value });
   });
-  window.addEventListener('gamepadconnected', (event) => { controllerName = event.gamepad.id || 'controller'; render(); });
-  window.addEventListener('gamepaddisconnected', () => { controllerName = undefined; gamepadButtons = []; render(); });
+  window.addEventListener('gamepadconnected', (event) => { controllerName = event.gamepad.id || 'controller'; controllerFocusIndex = 0; render(); });
+  window.addEventListener('gamepaddisconnected', () => { controllerName = undefined; gamepadButtons = []; controllerAxisDirection = undefined; controllerNavigationMode = false; controllerTextEntry = undefined; render(); });
   window.addEventListener('keydown', (event) => {
     if (rebinding) {
       if (event.key === 'Escape') { rebinding = undefined; render(); return; }

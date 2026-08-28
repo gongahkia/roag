@@ -141,18 +141,18 @@ export const cameraFor = (course: Course, width: number, height: number, focus?:
   const tiles = visibleTilesFor(course, metrics);
   const centered = centeredOffsetFor(tiles, metrics, width, height);
   const bounds = boundsFor(tiles, metrics);
-  const followsFocus = Boolean(focus && (bounds.width > width - 38 || bounds.height > height - 54));
+  const followsFocus = Boolean(focus);
   if (!focus || !followsFocus) return { metrics, offset: centered, followsFocus: false };
   const point = project(focus.x, focus.y, focus.z, metrics);
   const paddingX = 19;
   const paddingY = 27;
-  const clampOffset = (value: number, minimum: number, maximum: number, fallback: number) => minimum <= maximum ? Math.max(minimum, Math.min(maximum, value)) : fallback;
+  const clampOffset = (value: number, minimum: number, maximum: number) => minimum <= maximum ? Math.max(minimum, Math.min(maximum, value)) : value;
   return {
     metrics,
     followsFocus,
     offset: {
-      x: clampOffset(width * .5 - point.x, width - paddingX - bounds.maxX, paddingX - bounds.minX, centered.x),
-      y: clampOffset(height * .52 - point.y, height - paddingY - bounds.maxY, paddingY - bounds.minY, centered.y),
+      x: clampOffset(width * .5 - point.x, width - paddingX - bounds.maxX, paddingX - bounds.minX),
+      y: clampOffset(height * .56 - point.y, height - paddingY - bounds.maxY, paddingY - bounds.minY),
     },
   };
 };
