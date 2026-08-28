@@ -30,12 +30,18 @@ const faceColors = {
 };
 
 export interface Renderer {
-  draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball): void;
+  draw(course: Course, players: Player[], hazardElapsedMs: number, aim?: ShotCommand, emotes?: readonly EmoteEvent[], showItems?: boolean, phaseCount?: number, buildProgress?: number, gadgets?: readonly Gadget[], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball, camera?: CourseCamera): void;
   drawConstruction(frame: CourseConstructionFrame): void;
   drawOverview(course: Course, progress: number, focus?: Ball): void;
-  aimFromPointer(event: PointerEvent, course: Course, ball: Ball): { angle: number; power: number };
-  tileFromPointer(event: PointerEvent, course: Course): WorldPoint | undefined;
+  aimFromPointer(event: PointerEvent, course: Course, ball: Ball, camera?: CourseCamera): { angle: number; power: number };
+  tileFromPointer(event: PointerEvent, course: Course, camera?: CourseCamera): WorldPoint | undefined;
   dispose(): void;
+}
+
+export interface CourseCamera {
+  mode: 'follow' | 'free';
+  zoom: number;
+  pan: Point;
 }
 
 export interface CourseConstructionFrame {
@@ -113,12 +119,12 @@ const boundsFor = (tiles: readonly VisibleTile[], metrics: ProjectionMetrics) =>
   return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 };
 
-const metricsFor = (course: Course, width: number, height: number, includeVoid = false): ProjectionMetrics => {
+const metricsFor = (course: Course, width: number, height: number, includeVoid = false, zoom = 1): ProjectionMetrics => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
   const bounds = boundsFor(visibleTilesFor(course, unitMetrics, includeVoid), unitMetrics);
   const fittedTileWidth = Math.min(64, (width - 38) / bounds.width, (height - 54) / bounds.height);
   const readableTileWidth = course.width * course.height > 360 ? 16 : 12;
-  const tileWidth = Math.max(readableTileWidth, fittedTileWidth);
+  const tileWidth = Math.max(readableTileWidth, fittedTileWidth) * Math.max(.65, Math.min(3.2, zoom));
   return { tileWidth, tileHeight: tileWidth / 2, elevation: tileWidth * .34 };
 };
 
@@ -136,8 +142,8 @@ export interface CameraLayout {
   followsFocus: boolean;
 }
 
-export const cameraFor = (course: Course, width: number, height: number, focus?: Pick<Ball, 'x' | 'y' | 'z'>): CameraLayout => {
-  const metrics = metricsFor(course, width, height);
+export const cameraFor = (course: Course, width: number, height: number, focus?: Pick<Ball, 'x' | 'y' | 'z'>, zoom = 1): CameraLayout => {
+  const metrics = metricsFor(course, width, height, false, zoom);
   const tiles = visibleTilesFor(course, metrics);
   const centered = centeredOffsetFor(tiles, metrics, width, height);
   const bounds = boundsFor(tiles, metrics);
@@ -689,27 +695,31 @@ const tileKey = (tile: Pick<VisibleTile, 'x' | 'y'>) => `${tile.x}:${tile.y}`;
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const context = canvas.getContext('2d')!;
-  type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball; options?: PaintOptions };
+  type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball; options?: PaintOptions; camera?: CourseCamera };
   type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame };
   let latest: LatestFrame | undefined;
-  let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean } | undefined;
+  let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean; mode: CourseCamera['mode']; zoom: number; pan: Point } | undefined;
 
-  const layoutFor = (course: Course, focus?: Ball, advanceCamera = false) => {
+  const layoutFor = (course: Course, focus?: Ball, advanceCamera = false, camera?: CourseCamera) => {
     const { width, height } = canvas.getBoundingClientRect();
-    const target = cameraFor(course, width, height, focus);
+    const mode = camera?.mode === 'free' ? 'free' : 'follow';
+    const zoom = Math.max(.65, Math.min(3.2, camera?.zoom ?? 1));
+    const pan = camera?.pan ?? { x: 0, y: 0 };
+    const target = cameraFor(course, width, height, mode === 'follow' ? focus : undefined, zoom);
+    const targetOffset = { x: target.offset.x + pan.x, y: target.offset.y + pan.y };
     const previous = trackedCamera;
-    const reusable = Boolean(previous && previous.courseId === course.id && previous.width === width && previous.height === height && previous.followsFocus === target.followsFocus);
-    let offset = target.offset;
+    const reusable = Boolean(previous && previous.courseId === course.id && previous.width === width && previous.height === height && previous.followsFocus === target.followsFocus && previous.mode === mode && previous.zoom === zoom && previous.pan.x === pan.x && previous.pan.y === pan.y);
+    let offset = targetOffset;
     if (previous && reusable) {
       offset = advanceCamera && target.followsFocus
-        ? { x: previous.offset.x + (target.offset.x - previous.offset.x) * .18, y: previous.offset.y + (target.offset.y - previous.offset.y) * .18 }
+        ? { x: previous.offset.x + (targetOffset.x - previous.offset.x) * .18, y: previous.offset.y + (targetOffset.y - previous.offset.y) * .18 }
         : previous.offset;
     }
-    if (advanceCamera || !reusable) trackedCamera = { courseId: course.id, width, height, offset, followsFocus: target.followsFocus };
+    if (advanceCamera || !reusable) trackedCamera = { courseId: course.id, width, height, offset, followsFocus: target.followsFocus, mode, zoom, pan: { ...pan } };
     return { ...target, offset, tiles: visibleTilesFor(course, target.metrics) };
   };
 
-  const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball, options: PaintOptions = {}) => {
+  const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball, options: PaintOptions = {}, camera?: CourseCamera) => {
     const { width, height } = canvas.getBoundingClientRect();
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
@@ -721,7 +731,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const overviewLayout = overview ? overviewCameraFor(course, width, height, options.overviewFocus, options.overviewProgress!) : undefined;
     const layout = overviewLayout
       ? { ...overviewLayout, tiles: visibleTilesFor(course, overviewLayout.metrics) }
-      : layoutFor(course, focus, true);
+      : layoutFor(course, focus, true, camera);
     const { metrics, offset, followsFocus, tiles: allTiles } = layout;
     const tiles = allTiles.filter((tile) => visibleInViewport(tile, offset, width, height, metrics));
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
@@ -789,12 +799,12 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
     drawEmotes(context, players, emotes, offset, metrics);
     context.restore();
-    if (followsFocus) {
+    if (followsFocus || camera?.mode === 'free') {
       context.fillStyle = '#17311bba';
       context.font = '10px Inter, ui-sans-serif, system-ui, sans-serif';
       context.textAlign = 'right';
       context.textBaseline = 'bottom';
-      context.fillText('FOLLOW CAM', width - 12, height - 10);
+      context.fillText(camera?.mode === 'free' ? 'FREE ROAM' : 'FOLLOW CAM', width - 12, height - 10);
     }
   };
 
@@ -821,16 +831,16 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     if (!latest) return;
     if (latest.kind === 'construction') paintConstruction(latest.frame);
-    else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options);
+    else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options, latest.camera);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
   resize();
 
   return {
-    draw(course, players, hazardElapsedMs, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus) {
-      latest = { kind: 'course', course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus };
-      paint(course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus);
+    draw(course, players, hazardElapsedMs, aim, emotes = [], showItems = true, phaseCount = 8, buildProgress, gadgets = [], placement, focus, camera) {
+      latest = { kind: 'course', course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus, camera };
+      paint(course, players, hazardElapsedMs, aim, emotes, showItems, phaseCount, buildProgress, gadgets, placement, focus, undefined, camera);
     },
     drawConstruction(frame) {
       latest = { kind: 'construction', frame };
@@ -843,9 +853,9 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       trackedCamera = undefined;
       paint(course, [], 0, undefined, [], false, 8, undefined, [], undefined, undefined, options);
     },
-    aimFromPointer(event, course, ball) {
+    aimFromPointer(event, course, ball, camera) {
       const rect = canvas.getBoundingClientRect();
-      const { metrics, offset } = layoutFor(course, ball);
+      const { metrics, offset } = layoutFor(course, ball, false, camera);
       const ballPoint = withOffset(project(ball.x, ball.y, ball.z + .08, metrics), offset);
       const viewDelta = { x: event.clientX - rect.left - ballPoint.x, y: event.clientY - rect.top - ballPoint.y };
       const worldDelta = { x: viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight, y: -viewDelta.x / metrics.tileWidth + viewDelta.y / metrics.tileHeight };
@@ -854,10 +864,10 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         power: Math.max(1, Math.min(8, Math.hypot(worldDelta.x, worldDelta.y) * 1.7)),
       };
     },
-    tileFromPointer(event, course) {
+    tileFromPointer(event, course, camera) {
       const rect = canvas.getBoundingClientRect();
       const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-      const layout = layoutFor(course, latest?.kind === 'course' && latest.course === course ? latest.focus : undefined);
+      const layout = layoutFor(course, latest?.kind === 'course' && latest.course === course ? latest.focus : undefined, false, camera);
       const tiles = layout.tiles.filter((tile) => visibleInViewport(tile, layout.offset, rect.width, rect.height, layout.metrics));
       const { offset } = layout;
       const contains = (points: readonly Point[]) => {
