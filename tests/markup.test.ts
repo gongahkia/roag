@@ -77,11 +77,13 @@ describe('course die markup', () => {
     expect(lobby).toContain('start quick match');
   });
 
-  it('keeps the shared die in the foreground with top-down 3D geometry and weighted full-package faces', () => {
+  it('keeps the shared die in the foreground with a foldable 3D paper net and weighted full-package faces', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(markup).toContain('class="die-overlay"');
-    expect(markup).toContain('class="die-3d ');
+    expect(markup).toContain('id="course-die"');
+    expect(markup).toContain('class="die-scene"');
+    expect(markup).toContain('unfolded paper net');
     expect(markup.match(/class="die-face /g)).toHaveLength(6);
     expect(markup).toContain('class="course-glyphs"');
     expect(markup).toContain('data-add-die-side');
@@ -128,6 +130,7 @@ describe('course die markup', () => {
     expect(markup).toContain('class="merchant-overlay"');
     expect(markup).toContain('THE NINETEENTH HOLE · SHARED MARKET');
     expect(markup.match(/class="merchant-card /g)).toHaveLength(7);
+    expect(markup.match(/class="merchant-card-icon"/g)).toHaveLength(7);
     expect(markup).toContain('Caddies stack');
     expect(markup).toContain('data-shop-reroll="yes"');
     expect(markup).toContain('class="merchant-ledger"');

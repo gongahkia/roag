@@ -12,6 +12,7 @@ import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
 import { type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
+import type { CourseDieScene } from './course-die';
 import { createRenderer } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
@@ -70,6 +71,8 @@ export const startApp = (app: HTMLElement) => {
   let state = createGame(config);
   let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
   let renderer: ReturnType<typeof createRenderer> | undefined;
+  let dieScene: CourseDieScene | undefined;
+  let dieSceneVersion = 0;
   let lastTick = performance.now();
   let lastOnlineHazardSyncAt = performance.now();
   let botTimeout: number | undefined;
@@ -665,8 +668,11 @@ export const startApp = (app: HTMLElement) => {
     app.querySelector<HTMLButtonElement>('#second-wind')?.addEventListener('click', () => dispatch({ type: 'arm-second-wind' }));
   };
   const render = () => {
+    const sceneVersion = ++dieSceneVersion;
     renderer?.dispose();
     renderer = undefined;
+    dieScene?.dispose();
+    dieScene = undefined;
     if (screen === 'home') {
       app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
       return;
@@ -681,6 +687,14 @@ export const startApp = (app: HTMLElement) => {
     }
     app.innerHTML = renderAppMarkup(view());
     app.querySelector<HTMLButtonElement>('#new-run')?.addEventListener('click', setupGame);
+    const dieCanvas = app.querySelector<HTMLCanvasElement>('#course-die');
+    const dieState = state.die;
+    if (dieCanvas && dieState) {
+      void import('./course-die').then(({ createCourseDieScene }) => {
+        if (sceneVersion !== dieSceneVersion || !dieCanvas.isConnected) return;
+        dieScene = createCourseDieScene(dieCanvas, dieState.faces, Boolean(dieState.roll), dieState.roll?.faceId, dieState.roll?.secondsLeft, preferences.reducedMotion);
+      });
+    }
     const canvas = app.querySelector<HTMLCanvasElement>('#course');
     if (!canvas) return;
     renderer = createRenderer(canvas);
