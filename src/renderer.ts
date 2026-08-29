@@ -14,7 +14,7 @@ import { isStoryPageComplete, storyText, type LoadingState, type StoryState, typ
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason, seasonLabel } from './season'
-import { drawActorSprite, drawEffectSprite, drawHubNpcSprite, drawHubTileSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
+import { drawActorSprite, drawEffectSprite, drawItemSprite, drawPropSprite, drawTileSprite, textureAtlas, type HeroAnimation } from './sprites'
 import { propDefinition } from './props'
 import { rewardOfferFor } from './reward-contract'
 import { SLOT_NAMES, TERMINAL_HEIGHT, TERMINAL_WIDTH, type AutoplayDiagnostic, type AutoplayMode, type Biome, type CourierDraft, type CourierMenuView, type GroundItem, type Hero, type Modal, type Point, type RunAnalysis, type RunMetricSample, type RunState, type Tile } from './types'
@@ -36,13 +36,13 @@ const runeTileGlyph: Record<string, [string, string, string]> = {
   wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714'], smoke: ['≈', '#a3a8b3', '#13161b'], lift: ['↕', '#e9c47e', '#1b170d'], breakwall: ['▓', '#bc8266', '#1c1210'], current: ['≋', '#8edce1', '#0a1920'], deepWater: ['≈', '#4b8ca0', '#061019'], anchor: ['⚓', '#82cbd1', '#0a1820'], cliffWall: ['▲', '#71809d', '#101725'], ledge: ['=', '#c2d4dc', '#101725'], graveSoil: [';', '#95836f', '#17120e'], cairn: ['▲', '#b9aa94', '#17120e'], ossuary: ['□', '#d9d3c5', '#17120e'], spiritPath: ['·', '#c9a6db', '#17101b'], saltMirror: ['◇', '#fff0ab', '#1a170d'], brine: ['≈', '#77c4cb', '#0a1920'], ice: ['═', '#bfeeff', '#0b1821'], frostRime: ['*', '#dff8ff', '#111b24']
 }
 const outpostAsciiGlyph = {
-  grass: ['·', '#4e7947', '#18301c'], path: ['.', '#c49d69', '#473924'], cobble: [':', '#9aa6b2', '#26313b'], water: ['~', '#5c9fca', '#12374a'], bridge: ['=', '#d8ae73', '#47321c'], fence: ['#', '#a58562', '#18301c'], routeBoard: ['R', '#f4d26a', '#34304b']
+  deck: ['·', '#62748b', '#101722'], corridor: ['═', '#b9c9dc', '#172638'], bulkhead: ['▓', '#74889d', '#1a2633'], viewport: ['*', '#79aef4', '#07101c'], airlock: ['≡', '#e2bc70', '#241e14'], hull: ['█', '#6d8095', '#0a1019'], flightConsole: ['⌘', '#f4d26a', '#24334a']
 } as const
 const outpostRuneGlyph = {
-  grass: ['♧', '#79a96b', '#112113'], path: ['·', '#d2ae78', '#2a2015'], cobble: ['░', '#aab5c1', '#1b2530'], water: ['≈', '#72b7d2', '#0a1621'], bridge: ['═', '#e0bd79', '#2b1e10'], fence: ['▓', '#b0936b', '#162317'], routeBoard: ['R', '#f4d26a', '#30263f']
+  deck: ['·', '#7389a2', '#0d131d'], corridor: ['═', '#d1dfef', '#132338'], bulkhead: ['▓', '#8da0b4', '#15212d'], viewport: ['✦', '#9ac6ff', '#050d19'], airlock: ['≡', '#f1cd83', '#20190f'], hull: ['█', '#7b8da2', '#080e16'], flightConsole: ['⌘', '#ffe181', '#1d304a']
 } as const
 const outpostDecorationGlyph: Record<number, [string, string, string]> = {
-  8: ['A', '⌂', colors.gold], 9: ['!', '✦', colors.gold], 10: ['*', '✶', colors.red], 11: ['T', '♣', colors.green], 12: ['|', '╫', '#b99b72'], 13: ['"', '♧', colors.green], 15: ['?', '▣', colors.gold], 16: ['$', '⚑', colors.gold], 17: ['&', '⚒', colors.gold], 18: ['H', '⌂', colors.green], 19: ['o', '◉', colors.dim], 20: ['|', '║', colors.dim], 21: ['*', '✧', colors.green]
+  8: ['A', '⌂', colors.gold], 9: ['!', '✦', colors.gold], 10: ['!', '✶', colors.red], 11: ['·', '✧', colors.blue], 12: ['|', '╫', '#b9c8d8'], 13: ['+', '⊞', colors.blue], 15: ['?', '▣', colors.gold], 16: ['$', '▣', colors.gold], 17: ['&', '⚒', colors.gold], 18: ['C', '◉', colors.green], 19: ['o', '◉', colors.dim], 20: ['|', '║', colors.dim], 21: ['*', '✧', colors.green]
 }
 const areaList = (areas: readonly Biome[]): string => areas.map(area => biomeName[area]).join(', ')
 const jomonMasthead = jomonMastheadSource.trimEnd()
@@ -384,7 +384,7 @@ export class TerminalRenderer {
     const routeSteps = Math.max(0, Math.max(Math.abs(position.x - routeBoard.point.x), Math.abs(position.y - routeBoard.point.y)) - 1)
     this.ctx.fillStyle = colors.ink
     this.ctx.fillRect(0, 0, MAP_WIDTH * CW, MAP_HEIGHT * CH)
-    this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil, hub?.hero?.origin))
+    this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil))
     this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
     if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.companionAction, route.companionControlMode)
@@ -443,37 +443,27 @@ export class TerminalRenderer {
     this.ctx.restore()
   }
 
-  private drawOutpostScene(x: number, y: number, hero: { x: number; y: number }, vignette: 'opening' | 'succession' | 'ending' | undefined, page: number, walking: boolean, heroOrigin: CourierDraft['origin'] = 'mineborn'): void {
-    const tileSprite = { grass: 0, path: 1, cobble: 2, water: 4, bridge: 5, fence: 7, routeBoard: 1 } as const
-    const base = { grass: '#18301c', path: '#473924', cobble: '#26313b', water: '#12374a', bridge: '#47321c', fence: '#18301c', routeBoard: '#34304b' } as const
+  private drawOutpostScene(x: number, y: number, hero: { x: number; y: number }, vignette: 'opening' | 'succession' | 'ending' | undefined, page: number, walking: boolean): void {
     outpostMap.tiles.forEach((tile, index) => {
       const column = index % outpostMap.width
       const row = Math.floor(index / outpostMap.width)
-      if (this.spriteMode) {
-        this.ctx.fillStyle = base[tile]
-        this.ctx.fillRect((x + column) * CW, (y + row) * CH, CW, CH)
-        if (tile !== 'grass' || (column * 7 + row * 11) % 17 === 0) drawHubTileSprite(this.ctx, tileSprite[tile], x + column, y + row)
-        return
-      }
       const [glyph, color, background] = (this.runeMode ? outpostRuneGlyph : outpostAsciiGlyph)[tile]
       this.cell(x + column, y + row, glyph, color, background)
     })
     outpostMap.decorations.forEach(decoration => {
-      if (this.spriteMode) { drawHubTileSprite(this.ctx, decoration.tile, x + decoration.x, y + decoration.y, decoration.scale); return }
       const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
       this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
     })
+    this.text(x + 13, y + 1, '[ JOMON VOYAGER // CARRIER DECK ]', colors.gold)
+    this.text(x + 5, y + 12, 'SUPPLY', colors.dim)
+    this.text(x + 35, y + 12, 'GEAR', colors.dim)
+    this.text(x + 20, y + 23, 'CREW', colors.dim)
     const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
     const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
-    if (this.spriteMode) {
-      drawHubNpcSprite(this.ctx, 'keeper', x + keeper.x, y + keeper.y, walking && vignette === 'ending')
-      drawHubNpcSprite(this.ctx, 'porter', x + porter.x, y + porter.y, walking && vignette === 'succession')
-      drawActorSprite(this.ctx, undefined, true, x + hero.x, y + hero.y, false, this.heroFacingLeft, walking ? 'walk' : 'idle', heroOrigin)
-      return
-    }
     this.cell(x + keeper.x, y + keeper.y, this.runeMode ? '♜' : 'K', colors.gold)
     this.cell(x + porter.x, y + porter.y, this.runeMode ? '♟' : 'P', '#c7976f')
-    this.cell(x + hero.x, y + hero.y, this.runeMode ? '☉' : '@', colors.text)
+    const specialistGlyph = this.runeMode ? (walking ? '◉' : '☉') : walking ? '◌' : '@'
+    this.cell(x + hero.x, y + hero.y, specialistGlyph, colors.text)
   }
 
   private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {

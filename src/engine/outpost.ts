@@ -1,6 +1,6 @@
 import { MAP_HEIGHT, MAP_WIDTH, type Direction, type Point } from '../types'
 
-export type OutpostTile = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'fence' | 'routeBoard'
+export type OutpostTile = 'deck' | 'corridor' | 'bulkhead' | 'viewport' | 'airlock' | 'hull' | 'flightConsole'
 export type OutpostDestination = 'routes' | 'roster' | 'shop' | 'outfitter'
 export interface OutpostDecoration { tile: number; x: number; y: number; scale?: number }
 export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point }
@@ -12,31 +12,31 @@ const inBounds = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < MAP_
 const deltas: Record<Direction, Point> = { nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 }, w: { x: -1, y: 0 }, wait: { x: 0, y: 0 }, e: { x: 1, y: 0 }, sw: { x: -1, y: 1 }, s: { x: 0, y: 1 }, se: { x: 1, y: 1 } }
 
 const buildOutpost = (): OutpostMap => {
-  const tiles = Array<OutpostTile>(MAP_WIDTH * MAP_HEIGHT).fill('grass')
+  const tiles = Array<OutpostTile>(MAP_WIDTH * MAP_HEIGHT).fill('deck')
   const blocked = new Set<number>()
   const decorations: OutpostDecoration[] = []
   const set = (x: number, y: number, tile: OutpostTile, blocks = false): void => { if (inBounds(x, y)) { tiles[at(x, y)] = tile; if (blocks) blocked.add(at(x, y)); else blocked.delete(at(x, y)) } }
   const rect = (x: number, y: number, width: number, height: number, tile: OutpostTile, blocks = false): void => { for (let row = y; row < y + height; row++) for (let column = x; column < x + width; column++) set(column, row, tile, blocks) }
-  rect(0, 0, MAP_WIDTH, 1, 'fence', true)
-  rect(0, MAP_HEIGHT - 1, MAP_WIDTH, 1, 'fence', true)
-  rect(0, 0, 1, MAP_HEIGHT, 'fence', true)
-  rect(MAP_WIDTH - 1, 0, 1, MAP_HEIGHT, 'fence', true)
-  rect(1, 3, 4, 23, 'water', true)
-  rect(43, 4, 4, 20, 'water', true)
-  rect(20, 1, 8, 4, 'water', true)
-  rect(22, 3, 4, 2, 'bridge')
-  rect(23, 4, 3, 29, 'path')
-  set(23, 9, 'routeBoard')
-  rect(4, 16, 40, 3, 'path')
-  rect(21, 21, 7, 9, 'cobble')
-  rect(5, 10, 9, 6, 'cobble', true)
-  rect(34, 10, 9, 6, 'cobble', true)
-  rect(20, 22, 9, 6, 'cobble', true)
-  rect(7, 15, 3, 2, 'path')
-  rect(37, 15, 3, 2, 'path')
-  rect(23, 20, 3, 10, 'path')
-  rect(21, 30, 7, 4, 'path')
-  rect(23, 29, 3, 5, 'path')
+  rect(0, 0, MAP_WIDTH, 1, 'hull', true)
+  rect(0, MAP_HEIGHT - 1, MAP_WIDTH, 1, 'hull', true)
+  rect(0, 0, 1, MAP_HEIGHT, 'hull', true)
+  rect(MAP_WIDTH - 1, 0, 1, MAP_HEIGHT, 'hull', true)
+  rect(1, 3, 4, 23, 'viewport', true)
+  rect(43, 4, 4, 20, 'viewport', true)
+  rect(20, 1, 8, 4, 'viewport', true)
+  rect(22, 3, 4, 2, 'airlock')
+  rect(23, 4, 3, 29, 'corridor')
+  set(23, 9, 'flightConsole')
+  rect(4, 16, 40, 3, 'corridor')
+  rect(21, 21, 7, 9, 'bulkhead')
+  rect(5, 10, 9, 6, 'bulkhead', true)
+  rect(34, 10, 9, 6, 'bulkhead', true)
+  rect(20, 22, 9, 6, 'bulkhead', true)
+  rect(7, 15, 3, 2, 'corridor')
+  rect(37, 15, 3, 2, 'corridor')
+  rect(23, 20, 3, 10, 'corridor')
+  rect(21, 30, 7, 4, 'airlock')
+  rect(23, 29, 3, 5, 'corridor')
   for (let x = 3; x < MAP_WIDTH - 3; x += 6) decorations.push({ tile: 11, x, y: 1, scale: 3 }, { tile: 11, x, y: 26, scale: 3 })
   decorations.push(
     { tile: 8, x: 21, y: 30, scale: 4 },
