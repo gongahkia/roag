@@ -18,6 +18,7 @@ interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
 interface LiveEmote extends EmoteEvent { expiresAt: number; }
 interface PlacementState { kind: GadgetKind; cardId?: string; point?: Point; valid: boolean; confirmed: boolean; ownerId: string; }
+interface CameraState { mode: 'follow' | 'free'; zoom: number; pan: Point; }
 type Screen = 'home' | 'lobby' | 'launching' | 'game';
 type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
 type ControllerDirection = 'up' | 'down' | 'left' | 'right';
@@ -28,6 +29,10 @@ export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: 
 const MIN_POWER = 1;
 const MAX_POWER = 8;
 const POWER_STEP = .5;
+const DEFAULT_CAMERA_ZOOM = 1.7;
+const MIN_CAMERA_ZOOM = .8;
+const MAX_CAMERA_ZOOM = 3;
+const CAMERA_ZOOM_STEP = .2;
 export const PULL_MAX_DISTANCE = 170;
 const QUICK_START_LAUNCH_DURATION_MS = 1_250;
 export const aimFromPull = (aim: ShotCommand, pullX: number, pullY: number): ShotCommand => {
@@ -76,6 +81,7 @@ export const startApp = (app: HTMLElement) => {
   let config: GameConfig = { ...defaultConfig(), ...(requestedSeed ? { seed: requestedSeed } : {}) };
   let state = createGame(config);
   let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
+  let camera: CameraState = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
   let renderer: ReturnType<typeof createRenderer> | undefined;
   let lastTick = performance.now();
   let lastOnlineHazardSyncAt = performance.now();
@@ -94,6 +100,9 @@ export const startApp = (app: HTMLElement) => {
   let transitionExpansion: CourseExpansion | undefined;
   let campaignOverviewFrame: number | undefined;
   let campaignOverviewProgress = 0;
+  let cameraGlideFrom: Ball | undefined;
+  let cameraGlideFrame: number | undefined;
+  let courseIntroTimeout: number | undefined;
   let liveEmotes: LiveEmote[] = [];
   let seenEmoteIds = new Set<string>();
   let screen: Screen = captureMode ? 'game' : 'home';
@@ -119,6 +128,7 @@ export const startApp = (app: HTMLElement) => {
   let audioContext: AudioContext | undefined;
   let quickStartTimeout: number | undefined;
   let launchFrame: number | undefined;
+  let homeHoleRollTimeout: number | undefined;
   let launch = { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
@@ -136,6 +146,7 @@ export const startApp = (app: HTMLElement) => {
     drawer,
     rebinding,
     aim,
+    camera: { mode: camera.mode, zoom: camera.zoom },
     placement,
     shotInFlight: Boolean(shotAnimation),
     ledger,
@@ -221,7 +232,8 @@ export const startApp = (app: HTMLElement) => {
     if (state.status === 'transitioning' && state.transition) { drawCourseTransition(); return; }
     if (state.status === 'finished') { drawCampaignOverview(); return; }
     const effectiveAim = drawAim && current().forcedChip ? { ...drawAim, kind: 'chip' as const } : drawAim;
-    renderer?.draw(state.course, players, hazardElapsedForDraw(), placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball);
+    renderer?.draw(state.course, players, hazardElapsedForDraw(), placement ? undefined : effectiveAim ?? undefined, liveEmotes, state.holeRules.powerUps, state.holeRules.hazardPhaseCount, undefined, state.gadgets ?? [], placement, players[state.turn.playerIndex]?.ball, camera, cameraGlideFrom);
+    cameraGlideFrom = undefined;
   };
   const startTransition = (completeLocally: boolean) => {
     if (state.status !== 'transitioning') return;
@@ -260,7 +272,35 @@ export const startApp = (app: HTMLElement) => {
     };
     campaignOverviewFrame = requestAnimationFrame(animate);
   };
+  const glideCameraToCurrentPlayer = () => {
+    if (cameraGlideFrame !== undefined) window.cancelAnimationFrame(cameraGlideFrame);
+    const duration = preferences.reducedMotion ? 100 : 680;
+    const startedAt = performance.now();
+    const animate = (now: number) => {
+      if (screen !== 'game' || state.status !== 'playing' || camera.mode !== 'follow') { cameraGlideFrame = undefined; return; }
+      drawBoard();
+      if (now - startedAt < duration) { cameraGlideFrame = requestAnimationFrame(animate); return; }
+      cameraGlideFrame = undefined;
+    };
+    cameraGlideFrame = requestAnimationFrame(animate);
+  };
+  const showCourseIntro = () => {
+    window.clearTimeout(courseIntroTimeout);
+    app.querySelector<HTMLElement>('.course-intro')?.remove();
+    const stage = app.querySelector<HTMLElement>('.course-stage');
+    if (!stage) return;
+    const banner = document.createElement('aside');
+    banner.className = 'course-intro';
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    banner.innerHTML = `<span>COURSE</span><strong>${state.hole}<small>/${state.config.holeCount}</small></strong>`;
+    stage.append(banner);
+    courseIntroTimeout = window.setTimeout(() => banner.remove(), preferences.reducedMotion ? 120 : 1_500);
+  };
   const setState = (next: GameState) => {
+    const switchingPlayers = camera.mode === 'follow' && state.status === 'playing' && next.status === 'playing' && state.turn.playerIndex !== next.turn.playerIndex;
+    const introducingCourse = state.status !== 'playing' && next.status === 'playing';
+    if (switchingPlayers) cameraGlideFrom = { ...state.players[state.turn.playerIndex]!.ball };
     const enteringTransition = state.status !== 'transitioning' && next.status === 'transitioning';
     const enteringFinished = state.status !== 'finished' && next.status === 'finished';
     state = next;
@@ -283,6 +323,8 @@ export const startApp = (app: HTMLElement) => {
     recordStateFeedback(state);
     syncEmotes(state);
     render();
+    if (switchingPlayers) glideCameraToCurrentPlayer();
+    if (introducingCourse) showCourseIntro();
     if (!online()) {
       scheduleBot();
       if (state.status === 'transitioning') startTransition(true);
@@ -318,6 +360,7 @@ export const startApp = (app: HTMLElement) => {
     };
   };
   const launchLocalMatch = (quickStart: boolean) => {
+    camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
     launch = quickStart
       ? { quickStart: true, title: 'loading the course', detail: 'Preparing seeded automatic slot results for the round.' }
       : { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
@@ -338,6 +381,25 @@ export const startApp = (app: HTMLElement) => {
         quickStartTimeout = window.setTimeout(begin, preferences.reducedMotion ? 80 : launchDelay);
       });
     });
+  };
+  const puttIntoHomeHole = (hole: HTMLElement) => {
+    const green = hole.closest<HTMLElement>('[data-home-green]');
+    const ball = green?.querySelector<HTMLElement>('#clubhouse-ball');
+    const mode = hole.dataset.homeMode as HomeMode | undefined;
+    if (!green || !ball || !mode || homeHoleRollTimeout !== undefined) return false;
+    const greenBounds = green.getBoundingClientRect();
+    const cupBounds = hole.querySelector<HTMLElement>('.green-hole-cup')?.getBoundingClientRect() ?? hole.getBoundingClientRect();
+    green.dataset.putting = 'true';
+    ball.classList.add('rolling');
+    ball.style.left = `${cupBounds.left + cupBounds.width / 2 - greenBounds.left}px`;
+    ball.style.top = `${cupBounds.top + cupBounds.height / 2 - greenBounds.top}px`;
+    homeHoleRollTimeout = window.setTimeout(() => {
+      homeHoleRollTimeout = undefined;
+      homeMode = mode;
+      notice = undefined;
+      render();
+    }, preferences.reducedMotion ? 80 : 680);
+    return true;
   };
   const startLocal = (prefix: 'local' | 'local-multiplayer', skipDieBets = false) => {
     const selected = { ...readConfig(prefix), skipDieBets };
@@ -368,6 +430,7 @@ export const startApp = (app: HTMLElement) => {
     if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
     liveEmotes = [];
     seenEmoteIds = new Set();
+    camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
     setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
   };
   const dispatch = (command: GameCommand) => {
@@ -393,6 +456,7 @@ export const startApp = (app: HTMLElement) => {
         if (pendingReconnectToken) storeToken(nextRoom.code, pendingReconnectToken);
         if (nextRoom.phase === 'game' && nextRoom.game) {
           config = nextRoom.game.config;
+          if (screen !== 'game') camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
           screen = 'game';
           receiveGame(nextRoom.game);
         } else {
@@ -449,7 +513,7 @@ export const startApp = (app: HTMLElement) => {
 
   const updatePlacement = (event: PointerEvent) => {
     if (!renderer || !placement || state.status !== 'playing' || state.paused || !canControlCurrent()) return;
-    const point = renderer.tileFromPointer(event, state.course);
+    const point = renderer.tileFromPointer(event, state.course, camera);
     placement = { ...placement, point, valid: canPlaceGadget(state, placement.ownerId, point), confirmed: false };
     drawBoard();
     renderControls();
@@ -491,6 +555,26 @@ export const startApp = (app: HTMLElement) => {
     updateAimHud();
     renderControls();
   };
+  const refreshCameraHud = () => {
+    const status = app.querySelector<HTMLElement>('#hud-camera-status');
+    if (status) status.textContent = camera.mode === 'free' ? 'FREE ROAM · DRAG TO PAN' : `FOLLOW BALL · ${Math.round(camera.zoom * 100)}%`;
+  };
+  const adjustCameraZoom = (amount: number) => {
+    const zoom = Math.max(MIN_CAMERA_ZOOM, Math.min(MAX_CAMERA_ZOOM, Number((camera.zoom + amount).toFixed(1))));
+    if (zoom === camera.zoom) return;
+    camera = { ...camera, zoom };
+    drawBoard();
+    refreshCameraHud();
+  };
+  const toggleCameraMode = () => {
+    camera = { mode: camera.mode === 'follow' ? 'free' : 'follow', zoom: camera.zoom, pan: { x: 0, y: 0 } };
+    render();
+  };
+  const panCamera = (x: number, y: number) => {
+    if (camera.mode !== 'free') return;
+    camera = { ...camera, pan: { x: camera.pan.x + x, y: camera.pan.y + y } };
+    drawBoard();
+  };
   const playShot = (shot: ShotCommand) => {
     if (state.status !== 'playing' || state.paused || shotAnimation || !canControlCurrent()) return;
     if (online()) { vibrate(); playEffect(240, .09); dispatch({ type: 'shoot', shot }); return; }
@@ -527,6 +611,7 @@ export const startApp = (app: HTMLElement) => {
   const shoot = () => { if (state.status === 'playing' && current().kind === 'human' && canControlCurrent()) playShot(aim); };
   const bindCourseInput = (canvas: HTMLCanvasElement) => {
     let pull: { pointerId: number; originX: number; originY: number; distance: number } | undefined;
+    let freePan: { pointerId: number; x: number; y: number } | undefined;
     const resetPull = () => {
       canvas.classList.remove('pulling', 'chip-pull');
     };
@@ -554,6 +639,14 @@ export const startApp = (app: HTMLElement) => {
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     canvas.addEventListener('pointerdown', (event) => {
       if (placement) { selectPlacement(event); return; }
+      if (camera.mode === 'free') {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        freePan = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+        canvas.setPointerCapture(event.pointerId);
+        canvas.classList.add('free-panning');
+        return;
+      }
       if (event.button !== 0 && event.button !== 2) return;
       if (state.status !== 'playing' || state.paused || shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
       event.preventDefault();
@@ -566,15 +659,35 @@ export const startApp = (app: HTMLElement) => {
       updateAimHud();
     });
     canvas.addEventListener('pointermove', (event) => {
-      if (pull) updatePull(event);
+      if (freePan?.pointerId === event.pointerId) {
+        panCamera(event.clientX - freePan.x, event.clientY - freePan.y);
+        freePan = { ...freePan, x: event.clientX, y: event.clientY };
+      } else if (pull) updatePull(event);
       else updatePlacement(event);
     });
-    canvas.addEventListener('pointerup', releasePull);
+    canvas.addEventListener('pointerup', (event) => {
+      if (freePan?.pointerId === event.pointerId) {
+        freePan = undefined;
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        canvas.classList.remove('free-panning');
+        return;
+      }
+      releasePull(event);
+    });
     canvas.addEventListener('pointercancel', (event) => {
+      if (freePan?.pointerId === event.pointerId) {
+        freePan = undefined;
+        canvas.classList.remove('free-panning');
+        return;
+      }
       if (!pull || pull.pointerId !== event.pointerId) return;
       pull = undefined;
       resetPull();
     });
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      adjustCameraZoom(event.deltaY < 0 ? CAMERA_ZOOM_STEP : -CAMERA_ZOOM_STEP);
+    }, { passive: false });
   };
   const useHeldPowerUp = (powerUp: PowerUp | ChronoCard, cardId?: string) => {
     if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
@@ -602,7 +715,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const selectPlacement = (event: PointerEvent) => {
     if (!placement) return;
-    const point = renderer?.tileFromPointer(event, state.course);
+    const point = renderer?.tileFromPointer(event, state.course, camera);
     const valid = canPlaceGadget(state, placement.ownerId, point);
     if (placement.confirmed && placement.point?.x === point?.x && placement.point?.y === point?.y && placement.valid && valid) { confirmPlacement(); return; }
     placement = { ...placement, point, valid, confirmed: true };
@@ -681,6 +794,7 @@ export const startApp = (app: HTMLElement) => {
     renderer?.dispose();
     renderer = undefined;
     if (screen === 'home') {
+      if (homeHoleRollTimeout !== undefined) { window.clearTimeout(homeHoleRollTimeout); homeHoleRollTimeout = undefined; }
       app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
       renderControllerUi();
       return;
@@ -717,7 +831,7 @@ export const startApp = (app: HTMLElement) => {
     const all = Array.from(app.querySelectorAll<HTMLElement>(selector));
     if (controllerTextEntry) return all.filter((element) => Boolean(element.closest('.controller-keyboard')));
     if (screen === 'game' && controllerNavigationMode && !overlay && !drawer && !state.paused && state.status === 'playing') {
-      return all.filter((element) => Boolean(element.closest('.title-actions, #controls, .reaction-dock')));
+      return all.filter((element) => Boolean(element.closest('.title-actions, #controls, .reaction-dock, .hud-camera')));
     }
     const scope = overlay
       ? app.querySelector<HTMLElement>('.overlay')
@@ -732,7 +846,7 @@ export const startApp = (app: HTMLElement) => {
               : state.status === 'finished'
                 ? app.querySelector<HTMLElement>('.results-overlay')
                 : screen === 'home' && homePanel === 'play' && homeMode === 'modes'
-                  ? app.querySelector<HTMLElement>('.mode-grid')
+                  ? app.querySelector<HTMLElement>('.clubhouse-green')
                   : screen === 'home' && homePanel === 'settings'
                     ? app.querySelector<HTMLElement>('.home-settings')
                     : screen === 'lobby'
@@ -809,7 +923,9 @@ export const startApp = (app: HTMLElement) => {
       : screen === 'launching'
         ? 'preparing match'
         : courseControls
-          ? '<kbd>LS</kbd> aim <kbd>A</kbd> shoot <kbd>Y</kbd> putt / chip <kbd>B</kbd> item <kbd>D-pad</kbd> power <kbd>View</kbd> menus <kbd>Menu</kbd> pause'
+          ? camera.mode === 'free'
+            ? '<kbd>LS</kbd> pan <kbd>LB/RB</kbd> zoom <kbd>X</kbd> follow ball <kbd>View</kbd> menus <kbd>Menu</kbd> pause'
+            : '<kbd>LS</kbd> aim <kbd>A</kbd> shoot <kbd>Y</kbd> putt / chip <kbd>B</kbd> item <kbd>D-pad</kbd> power <kbd>LB/RB</kbd> zoom <kbd>X</kbd> free roam <kbd>View</kbd> menus <kbd>Menu</kbd> pause'
           : `<kbd>D-pad</kbd> navigate <kbd>A</kbd> select${controllerCanGoBack() ? ' <kbd>B</kbd> back' : ''}${screen === 'game' ? ' <kbd>Menu</kbd> pause' : ''}`;
     app.insertAdjacentHTML('beforeend', `<aside class="controller-hints" aria-live="polite"><strong>controller · ${escapeHtml(controllerName)}</strong><span>${content}</span></aside>${renderControllerKeyboard()}`);
     if (controllerNavigationIsActive()) setControllerFocus(controllerFocusIndex);
@@ -888,6 +1004,9 @@ export const startApp = (app: HTMLElement) => {
     }
     if (screen !== 'game') return;
     if (edge(8)) { controllerNavigationMode = true; controllerFocusIndex = 0; renderControllerUi(); return; }
+    if (edge(4)) adjustCameraZoom(-CAMERA_ZOOM_STEP);
+    if (edge(5)) adjustCameraZoom(CAMERA_ZOOM_STEP);
+    if (edge(2)) { toggleCameraMode(); return; }
     if (shotAnimation || state.status !== 'playing' || current().kind !== 'human' || !canControlCurrent()) return;
     if (placement) {
       const origin = placement.point ?? { x: Math.floor(current().ball.x), y: Math.floor(current().ball.y) };
@@ -911,6 +1030,10 @@ export const startApp = (app: HTMLElement) => {
     const x = pad.axes[0] ?? 0;
     const y = pad.axes[1] ?? 0;
     const magnitude = Math.hypot(x, y);
+    if (camera.mode === 'free') {
+      if (magnitude > preferences.controllerDeadzone) panCamera(x * 12, y * 12);
+      return;
+    }
     if (magnitude > preferences.controllerDeadzone) {
       const nextAim = { angle: Math.atan2(y, x), power: Math.max(1, Math.min(8, magnitude * 8 * preferences.controllerAimSensitivity)), kind: aim.kind };
       if (Math.abs(nextAim.angle - aim.angle) > .01 || Math.abs(nextAim.power - aim.power) > .05) { aim = nextAim; drawBoard(); updateAimHud(); renderControls(); }
@@ -931,7 +1054,13 @@ export const startApp = (app: HTMLElement) => {
     const homeTarget = element.dataset.homePanel as HomePanel | undefined;
     if (homeTarget) { homePanel = homeTarget; if (homeTarget === 'play') homeMode = 'modes'; notice = undefined; render(); return; }
     const homeModeTarget = element.dataset.homeMode as HomeMode | undefined;
-    if (homeModeTarget) { homeMode = homeModeTarget; notice = undefined; render(); return; }
+    if (homeModeTarget) {
+      if (screen === 'home' && homePanel === 'play' && homeMode === 'modes' && element.classList.contains('green-hole') && puttIntoHomeHole(element)) return;
+      homeMode = homeModeTarget;
+      notice = undefined;
+      render();
+      return;
+    }
     if (element.hasAttribute('data-start-local')) { startLocal('local'); return; }
     if (element.hasAttribute('data-quick-start-local')) { startLocal('local', true); return; }
     if (element.hasAttribute('data-start-local-multiplayer')) { startLocal('local-multiplayer'); return; }
@@ -943,6 +1072,9 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-leave-lobby')) { onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
     if (element.hasAttribute('data-restart-run')) { if (online()) { screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
     if (element.hasAttribute('data-toggle-pause')) { togglePause(); return; }
+    if (element.hasAttribute('data-camera-mode')) { toggleCameraMode(); return; }
+    const cameraZoom = element.dataset.cameraZoom;
+    if (cameraZoom === 'in' || cameraZoom === 'out') { adjustCameraZoom(cameraZoom === 'in' ? CAMERA_ZOOM_STEP : -CAMERA_ZOOM_STEP); return; }
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }

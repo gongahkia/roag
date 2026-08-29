@@ -19,6 +19,7 @@ export interface ViewModel {
   aim: ShotCommand;
   placement?: { kind: GadgetKind; point?: Point; valid: boolean; confirmed?: boolean };
   shotInFlight: boolean;
+  camera?: { mode: 'follow' | 'free'; zoom: number };
   multiplayer: MultiplayerView;
   ledger: readonly LedgerEntry[];
   callouts: readonly Callout[];
@@ -60,6 +61,7 @@ const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>
 
 const renderMatchHud = (view: ViewModel) => {
   const { state, aim, multiplayer, shotInFlight } = view;
+  const camera = view.camera ?? { mode: 'follow' as const, zoom: 1 };
   if (state.status !== 'playing') return '';
   const player = current(state);
   const disabled = state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
@@ -69,7 +71,8 @@ const renderMatchHud = (view: ViewModel) => {
     .map((candidate, index) => `<li class="${candidate.id === player.id ? 'active' : ''}"><span>${index + 1}</span><i style="background:${candidate.color}"></i><strong>${escapeHtml(candidate.name)}</strong><b>${candidate.total}</b></li>`)
     .join('');
   const shotKind = player.forcedChip ? 'chip' : aim.kind ?? 'putt';
-  return `<section class="match-hud" aria-label="match heads-up display"><section class="hud-course"><p>COURSE</p><strong>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</strong><small>hole ${state.hole} · par ${state.course.score.estimatedStrokes} · ${state.course.width}×${state.course.height}</small></section><section class="hud-timer"><p>ON THE TEE</p><strong>${escapeHtml(player.name)}</strong><b id="hud-turn-timer">${state.turn.secondsLeft.toFixed(0)}<small>s</small></b></section><section class="hud-leaderboard" aria-label="leaderboard"><header><span>LEADERBOARD</span><small>total</small></header><ol>${leaderboard}</ol></section><section class="reaction-dock" aria-label="reactions"><span>reactions</span><div>${EMOTES.map((emote) => `<button data-emote="${emote.id}" type="button" aria-label="send ${emote.label} reaction" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div></section><section class="hud-strength" aria-label="${shotKind} strength; drag with the left button to putt or the right button to chip"><div class="hud-strength-heading"><span id="hud-shot-label">${shotKind === 'chip' ? 'CHIP' : 'PUTT'} STRENGTH</span><b id="hud-strength-value">${aim.power.toFixed(1)}</b></div><div id="hud-strength-meter" class="hud-strength-meter" style="--strength:${strength}%"><i></i></div></section></section>`;
+  const cameraStatus = camera.mode === 'free' ? 'FREE ROAM · DRAG TO PAN' : `FOLLOW BALL · ${Math.round(camera.zoom * 100)}%`;
+  return `<section class="match-hud" aria-label="match heads-up display"><section class="hud-course"><p>COURSE</p><strong>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</strong><small>hole ${state.hole} · par ${state.course.score.estimatedStrokes} · ${state.course.width}×${state.course.height}</small></section><section class="hud-timer"><p>ON THE TEE</p><strong>${escapeHtml(player.name)}</strong><b id="hud-turn-timer">${state.turn.secondsLeft.toFixed(0)}<small>s</small></b></section><section class="hud-leaderboard" aria-label="leaderboard"><header><span>LEADERBOARD</span><small>total</small></header><ol>${leaderboard}</ol></section><section class="reaction-dock" aria-label="reactions"><span>reactions</span><div>${EMOTES.map((emote) => `<button data-emote="${emote.id}" type="button" aria-label="send ${emote.label} reaction" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div></section><section class="hud-camera" aria-label="camera controls"><span id="hud-camera-status">${cameraStatus}</span><div><button data-camera-zoom="out" type="button" aria-label="zoom out" title="zoom out">−</button><button data-camera-mode type="button" aria-pressed="${camera.mode === 'free'}">${camera.mode === 'free' ? 'follow ball' : 'free roam'}</button><button data-camera-zoom="in" type="button" aria-label="zoom in" title="zoom in">+</button></div></section><section class="hud-strength" aria-label="${shotKind} strength; drag with the left button to putt or the right button to chip"><div class="hud-strength-heading"><span id="hud-shot-label">${shotKind === 'chip' ? 'CHIP' : 'PUTT'} STRENGTH</span><b id="hud-strength-value">${aim.power.toFixed(1)}</b></div><div id="hud-strength-meter" class="hud-strength-meter" style="--strength:${strength}%"><i></i></div></section></section>`;
 };
 
 export const renderControlsMarkup = (view: ViewModel) => {

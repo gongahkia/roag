@@ -30,5 +30,8 @@ describe('dynamic course camera', () => {
     expect(fromTee.followsFocus).toBe(true);
     expect(fromTee.metrics.tileWidth).toBeGreaterThanOrEqual(16);
     expect(fromCup.offset).not.toEqual(fromTee.offset);
+
+    const close = cameraFor(compact, 700, 500, newBall(compact), 1.7);
+    expect(close.metrics.tileWidth).toBeGreaterThan(compactCamera.metrics.tileWidth);
   });
 });

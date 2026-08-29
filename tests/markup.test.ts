@@ -17,7 +17,9 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('couch campaign');
     expect(markup).toContain('class="title-golf-ball"');
     expect(markup).toContain('class="title-cursing-emoji"');
-    expect(markup).toContain('ONE SCREEN · 2+ GOLFERS');
+    expect(markup).toContain('class="clubhouse-green"');
+    expect(markup).toContain('class="green-hole green-hole-local"');
+    expect(markup).toContain('2+ golfers · one screen');
     expect(markup).not.toContain('ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH');
     expect(markup).not.toContain('Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.');
     expect(markup).not.toContain('id="local-seed"');
@@ -69,11 +71,11 @@ describe('course slot machine markup', () => {
     expect(local).toContain('data-quick-start-local');
     expect(local).toContain('class="quick-start-button"');
     expect(local).toContain('seeded automatic slot results');
-    expect(renderQuickStartLaunchMarkup()).toContain('class="quick-start-whirlwind"');
-    expect(renderQuickStartLaunchMarkup()).toContain('loading the course');
+    expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
+    expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
     const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
-    expect(normalLaunch).toContain('MATCH SETUP');
-    expect(normalLaunch).toContain('class="launch-progress"');
+    expect(normalLaunch).toContain('class="match-loading-ball"');
+    expect(normalLaunch).not.toContain('MATCH SETUP');
     const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: { ...lobbyConfigFromGame({ ...state.config, skipDieBets: true }), skipDieBets: true }, members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
     expect(lobby).toContain('seeded automatic slot results');
     expect(lobby).toContain('start quick match');
@@ -178,6 +180,9 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('class="hud-course"');
     expect(markup).toContain('class="hud-timer"');
     expect(markup).toContain('id="hud-strength-meter"');
+    expect(markup).toContain('class="hud-camera"');
+    expect(markup).toContain('data-camera-mode');
+    expect(markup).toContain('data-camera-zoom="in"');
     expect(markup).not.toContain('power-cell');
     const inspector = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: 'intel', aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(inspector).toContain('blue: slow mover');
