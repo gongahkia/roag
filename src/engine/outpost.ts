@@ -53,10 +53,10 @@ const buildOutpost = (): OutpostMap => {
     decorations,
     spawn: { x: 24, y: 29 },
     interactables: [
-      { destination: 'routes', name: 'route board', point: { x: 23, y: 9 } },
-      { destination: 'shop', name: 'supply stall', point: { x: 8, y: 16 } },
-      { destination: 'outfitter', name: 'outfitter', point: { x: 38, y: 16 } },
-      { destination: 'roster', name: 'companion lodge', point: { x: 24, y: 21 } }
+      { destination: 'routes', name: 'flight console', point: { x: 23, y: 9 } },
+      { destination: 'shop', name: 'supply locker', point: { x: 8, y: 16 } },
+      { destination: 'outfitter', name: 'gear bay', point: { x: 38, y: 16 } },
+      { destination: 'roster', name: 'crew bay', point: { x: 24, y: 21 } }
     ]
   }
 }

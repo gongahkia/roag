@@ -716,7 +716,7 @@ function redraw(): void {
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
   const campaignStatus = hubCampaignStatus(campaign.cycle)
-  canvas.setAttribute('aria-label', `Jomon courier game. ${campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  canvas.setAttribute('aria-label', `Jomon Voyager landing expedition. ${campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -738,12 +738,12 @@ function handleHubInput(key: string, run = false): boolean {
         records = transfer.records
         activeCourier.heir = structuredClone(heir)
         hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-        hubNotice = `${campaign.cycle.currentTier === 'ngPlus' ? 'NG+' : 'NG++'} continuation recorded. Press E / ENTER to travel.`
+        hubNotice = `${campaign.cycle.currentTier === 'ngPlus' ? 'NG+' : 'NG++'} revised route recorded. Press E / ENTER to launch.`
         route = { screen: 'area', biome: campaign.selectedBiome }
         persistActiveCourier()
         return true
       }
-      hubNotice = 'ENTER / E continues. C / ESC stays at the outpost.'
+      hubNotice = 'ENTER / E accepts the revised route. C / ESC docks at New Edo.'
       return true
     }
     if (action === 'roster') {
@@ -803,7 +803,7 @@ function handleHubInput(key: string, run = false): boolean {
     const interaction = outpostInteraction(hubPosition)
     if (!interaction) { hubNotice = 'No service is within reach.'; return true }
     hubNotice = undefined
-    if (interaction.destination === 'routes' && campaign.cycle.completedCap) hubNotice = 'NG++ is complete. No further escalation is available.'
+    if (interaction.destination === 'routes' && campaign.cycle.completedCap) hubNotice = 'The Voyager has completed every available route.'
     else if (interaction.destination === 'routes' && campaignContinuationPending(campaign.cycle)) route = { ...route, hubAction: 'continuation' }
     else if (interaction.destination === 'routes') route = { ...route, screen: 'area' }
     else route = { ...route, hubAction: interaction.destination }

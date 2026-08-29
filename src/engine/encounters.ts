@@ -38,26 +38,26 @@ const alignmentEncounterKinds = ['minePact', 'mineKami', 'wildsPact', 'wildsKami
 type AlignmentEncounterKind = typeof alignmentEncounterKinds[number]
 interface AlignmentProfile { title: string; alignment: Alignment; cost: 'health' | 'focus' | 'cash'; value: number; reward: ItemId; gold: number }
 const alignmentProfiles: Record<AlignmentEncounterKind, AlignmentProfile> = {
-  minePact: { title: 'TSUKI NO KUMI', alignment: 'villagePact', cost: 'cash', value: 35, reward: 'bombPack', gold: 70 },
-  mineKami: { title: 'ISHI NO KAMI', alignment: 'kami', cost: 'focus', value: 2, reward: 'ward', gold: 45 },
-  wildsPact: { title: 'MORI NO KUMI', alignment: 'villagePact', cost: 'cash', value: 30, reward: 'ropeBundle', gold: 65 },
-  wildsKami: { title: 'KODAMA NO RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'sight', gold: 45 },
-  cavernsPact: { title: 'MIZU NO KUMI', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'bridgeKit', gold: 60 },
-  cavernsKami: { title: 'MIZU KAMI NO RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'focusTonic', gold: 55 },
-  ruinsPact: { title: 'MURA NO KUMI', alignment: 'villagePact', cost: 'cash', value: 40, reward: 'mapScroll', gold: 80 },
-  ruinsKami: { title: 'SHIMENAWA RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'wardScript', gold: 65 },
-  furnacePact: { title: 'TATARA KUMI', alignment: 'villagePact', cost: 'health', value: 3, reward: 'fireJar', gold: 90 },
-  furnaceKami: { title: 'HI NO KAMI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'tonic', gold: 75 },
-  floodedPact: { title: 'MINATO KUMI', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'portableWinch', gold: 90 },
-  floodedKami: { title: 'WATATSUMI RITE', alignment: 'kami', cost: 'health', value: 2, reward: 'grappleLine', gold: 70 },
-  cliffsPact: { title: 'YAMA KUMI', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'cliffSpool', gold: 75 },
-  cliffsKami: { title: 'KAZE KAMI RITE', alignment: 'kami', cost: 'health', value: 3, reward: 'sight', gold: 70 },
-  burialPact: { title: 'SATO KUMI', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'mend', gold: 85 },
-  burialKami: { title: 'SOREI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'ancestorToken', gold: 75 },
-  saltPact: { title: 'SHIO KUMI', alignment: 'villagePact', cost: 'health', value: 3, reward: 'bridgeKit', gold: 95 },
-  saltKami: { title: 'HI KAMI RITE', alignment: 'kami', cost: 'focus', value: 3, reward: 'fireJar', gold: 80 },
-  frostPact: { title: 'YUKI KUMI', alignment: 'villagePact', cost: 'cash', value: 50, reward: 'mend', gold: 100 },
-  frostKami: { title: 'YUKI KAMI RITE', alignment: 'kami', cost: 'health', value: 3, reward: 'ward', gold: 80 }
+  minePact: { title: 'KESTREL PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 35, reward: 'bombPack', gold: 70 },
+  mineKami: { title: 'KESTREL IDEALIST PLAN', alignment: 'kami', cost: 'focus', value: 2, reward: 'ward', gold: 45 },
+  wildsPact: { title: 'VERDANT PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 30, reward: 'ropeBundle', gold: 65 },
+  wildsKami: { title: 'VERDANT IDEALIST PLAN', alignment: 'kami', cost: 'health', value: 2, reward: 'sight', gold: 45 },
+  cavernsPact: { title: 'PELAGOS PRACTICAL PLAN', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'bridgeKit', gold: 60 },
+  cavernsKami: { title: 'PELAGOS IDEALIST PLAN', alignment: 'kami', cost: 'health', value: 2, reward: 'focusTonic', gold: 55 },
+  ruinsPact: { title: 'ORISON PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 40, reward: 'mapScroll', gold: 80 },
+  ruinsKami: { title: 'ORISON IDEALIST PLAN', alignment: 'kami', cost: 'focus', value: 3, reward: 'wardScript', gold: 65 },
+  furnacePact: { title: 'HELION PRACTICAL PLAN', alignment: 'villagePact', cost: 'health', value: 3, reward: 'fireJar', gold: 90 },
+  furnaceKami: { title: 'HELION IDEALIST PLAN', alignment: 'kami', cost: 'focus', value: 3, reward: 'tonic', gold: 75 },
+  floodedPact: { title: 'NERIDA PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'portableWinch', gold: 90 },
+  floodedKami: { title: 'NERIDA IDEALIST PLAN', alignment: 'kami', cost: 'health', value: 2, reward: 'grappleLine', gold: 70 },
+  cliffsPact: { title: 'AERIE PRACTICAL PLAN', alignment: 'villagePact', cost: 'focus', value: 2, reward: 'cliffSpool', gold: 75 },
+  cliffsKami: { title: 'AERIE IDEALIST PLAN', alignment: 'kami', cost: 'health', value: 3, reward: 'sight', gold: 70 },
+  burialPact: { title: 'MEMORIAL PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 45, reward: 'mend', gold: 85 },
+  burialKami: { title: 'MEMORIAL IDEALIST PLAN', alignment: 'kami', cost: 'focus', value: 3, reward: 'ancestorToken', gold: 75 },
+  saltPact: { title: 'HALCYON PRACTICAL PLAN', alignment: 'villagePact', cost: 'health', value: 3, reward: 'bridgeKit', gold: 95 },
+  saltKami: { title: 'HALCYON IDEALIST PLAN', alignment: 'kami', cost: 'focus', value: 3, reward: 'fireJar', gold: 80 },
+  frostPact: { title: 'BOREALIS PRACTICAL PLAN', alignment: 'villagePact', cost: 'cash', value: 50, reward: 'mend', gold: 100 },
+  frostKami: { title: 'BOREALIS IDEALIST PLAN', alignment: 'kami', cost: 'health', value: 3, reward: 'ward', gold: 80 }
 }
 const alignmentProfileFor = (kind: FloorEncounter['kind']): AlignmentProfile | undefined => alignmentEncounterKinds.includes(kind as AlignmentEncounterKind) ? alignmentProfiles[kind as AlignmentEncounterKind] : undefined
 const existingEncounterAlignment: Partial<Record<FloorEncounter['kind'], Alignment>> = {
@@ -67,7 +67,7 @@ const existingEncounterAlignment: Partial<Record<FloorEncounter['kind'], Alignme
 }
 export const encounterTitle = (kind: FloorEncounter['kind']): string => {
   const title = alignmentProfileFor(kind)?.title ?? expansionProfileFor(kind)?.title
-  return title ?? (kind === 'wayfarer' ? 'TABIBITO' : kind === 'bloodBargain' ? 'SEALED PACT' : kind === 'stormCache' ? 'KAZE CACHE' : kind === 'windTrial' ? 'KAZE TRIAL' : kind === 'ancestorDebt' ? 'SOREI DEBT' : kind === 'tombAuction' ? 'KOFUN MARKET' : kind === 'oathwell' ? 'OATH WELL' : kind === 'cursedObject' ? 'CURSED OBJECT' : 'SHIFTING CHAMBER')
+  return title ?? (kind === 'wayfarer' ? 'STRANDED CREW' : kind === 'bloodBargain' ? 'SEALED PROTOCOL' : kind === 'stormCache' ? 'VECTOR CACHE' : kind === 'windTrial' ? 'VECTOR TEST' : kind === 'ancestorDebt' ? 'ARCHIVE DEBT' : kind === 'tombAuction' ? 'SALVAGE EXCHANGE' : kind === 'oathwell' ? 'PROTOCOL WELL' : kind === 'cursedObject' ? 'CORRUPTED OBJECT' : 'SHIFTING CHAMBER')
 }
 
 const traversalRewards = ['grappleLine', 'bridgeKit', 'steamJetpack', 'portableWinch'] as const
@@ -97,7 +97,7 @@ const applySocialOffer = (state: RunState, source: FloorEncounter): void => {
 }
 const socialHostile = (state: RunState, source: FloorEncounter): void => {
   const social = source.social!
-  const actor: Actor = { id: `social-hostile:${source.id}`, role: 'ally', kind: 'ally', name: `${social.faction === 'kami' ? 'Offended ritualist' : 'Angered trail rival'}`, x: source.x, y: source.y, health: 12, maxHealth: 12, attack: 4, defense: 9, speed: 90, energy: 0, glyph: '!', color: social.faction === 'kami' ? '#b6d8ff' : '#f7c677', hostile: true, ai: 'chase', tags: ['social', social.faction, social.role], status: [`social:${social.id}:hostile`] }
+  const actor: Actor = { id: `social-hostile:${source.id}`, role: 'ally', kind: 'ally', name: social.faction === 'kami' ? 'Idealist holdout' : 'Pragmatic rival', x: source.x, y: source.y, health: 12, maxHealth: 12, attack: 4, defense: 9, speed: 90, energy: 0, glyph: '!', color: social.faction === 'kami' ? '#b6d8ff' : '#f7c677', hostile: true, ai: 'chase', tags: ['social', social.faction, social.role], status: [`social:${social.id}:hostile`] }
   state.floor.actors.push(actor)
 }
 const resolve = (state: RunState, source: FloorEncounter, outcome: string, events: ActionResult): ActionResult => {
@@ -136,8 +136,8 @@ export const encounterOptions = (state: RunState, source: FloorEncounter): Encou
     const cost = alignment.cost === 'health' ? `Lose ${alignment.value} HP` : alignment.cost === 'focus' ? `Spend ${alignment.value} focus` : `Spend ${alignment.value} cash`
     const available = alignment.cost === 'health' ? state.hero.health > alignment.value + 2 : alignment.cost === 'focus' ? state.hero.focus >= alignment.value : state.hero.gold >= alignment.value
     return [
-      { label: alignment.alignment === 'kami' ? 'MAKE THE RITE' : 'JOIN THE PACT', detail: `${cost}; gain ${alignment.gold} cash and ${ITEM[alignment.reward].name}.`, available },
-      { label: alignment.alignment === 'kami' ? 'KEEP THE VIGIL' : 'CARRY THE WORD', detail: `Lose 2 HP; reveal the floor and gain ${alignment.reward ? ITEM[alignment.reward].name : 'a route tool'}.`, available: state.hero.health > 4 },
+      { label: alignment.alignment === 'kami' ? 'BACK IDEALISM' : 'BACK PRAGMATISM', detail: `${cost}; gain ${alignment.gold} cash and ${ITEM[alignment.reward].name}.`, available },
+      { label: alignment.alignment === 'kami' ? 'PROTECT THE POSSIBILITY' : 'SECURE THE ROUTE', detail: `Lose 2 HP; reveal the floor and gain ${alignment.reward ? ITEM[alignment.reward].name : 'a route tool'}.`, available: state.hero.health > 4 },
       { label: 'LEAVE', detail: 'Pass the gathering without answer.', available: true }
     ]
   }
@@ -208,7 +208,7 @@ export const openEncounter = (state: RunState): ActionResult | undefined => {
   state.modal = { kind: 'encounter', encounterId: source.id }
   const expansion = expansionProfileFor(source.kind)
   const alignment = alignmentProfileFor(source.kind)
-  log(state, source.social ? `A ${source.social.role} of ${source.social.faction} signals: ${source.social.goal}.` : alignment ? `${alignment.title} waits for your answer.` : expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A wandering wayfarer calls from the side trail.' : source.kind === 'bloodBargain' ? 'A sealed bargain waits for an answer.' : source.kind === 'cursedObject' ? 'A cursed object hums from the side trail.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'The cliff wind presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'The dead offer a price.' : source.kind === 'oathwell' ? 'An oathwell asks for a binding.' : 'The chamber walls grind, awaiting a command.')
+  log(state, source.social ? `A ${source.social.role} signals: ${source.social.goal}.` : alignment ? `${alignment.title} waits for your answer.` : expansion ? `${expansion.title} presents a dangerous offer.` : source.kind === 'wayfarer' ? 'A stranded specialist calls from the landing zone.' : source.kind === 'bloodBargain' ? 'A sealed protocol waits for an answer.' : source.kind === 'cursedObject' ? 'A corrupted object hums beside the route.' : source.kind === 'stormCache' || source.kind === 'windTrial' ? 'A vector anomaly presents a dangerous offer.' : source.kind === 'ancestorDebt' || source.kind === 'tombAuction' ? 'An archive offers a price.' : source.kind === 'oathwell' ? 'A protocol well requests confirmation.' : 'The chamber walls grind, awaiting a command.')
   return [event('encounter'), event('menu')]
 }
 

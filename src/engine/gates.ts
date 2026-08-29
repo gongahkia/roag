@@ -118,7 +118,7 @@ export const resolveAreaGate = (state: RunState, gate: AreaGate, choice: number,
   state.gateDestination = gate.unlockedDestination.biome
   const alignment: Alignment = alternative.kind === 'body' || alternative.kind === 'oath' || alternative.tags.some(tag => ['ward', 'astral', 'relic', 'script', 'arcane'].includes(tag)) ? 'kami' : 'villagePact'
   const sacrificeMessage = candidate ? consequence === 'permanent' ? `${candidate.name} is permanently lost holding the passage.` : `${candidate.name} holds the passage and returns injured to the Lodge.` : undefined
-  return { resolved: true, destination: gate.unlockedDestination.biome, ...(sacrificedNpc ? { sacrificedNpc } : {}), ...(sacrificedCompanion ? { sacrificedCompanion } : {}), ...(consequence ? { consequence } : {}), ...(lineageEvent ? { lineageEvent } : {}), alignment, message: sacrificeMessage ? `${sacrificeMessage} ${biomeName[gate.unlockedDestination.biome]} trail opened.` : `${biomeName[gate.unlockedDestination.biome]} trail opened.` }
+  return { resolved: true, destination: gate.unlockedDestination.biome, ...(sacrificedNpc ? { sacrificedNpc } : {}), ...(sacrificedCompanion ? { sacrificedCompanion } : {}), ...(consequence ? { consequence } : {}), ...(lineageEvent ? { lineageEvent } : {}), alignment, message: sacrificeMessage ? `${sacrificeMessage} ${biomeName[gate.unlockedDestination.biome]} landing route opened.` : `${biomeName[gate.unlockedDestination.biome]} landing route opened.` }
 }
 
 export const gateModalLines = (gate: AreaGate, choice?: number, confirming = false, candidates: readonly GateSacrificeCandidate[] = [], offeringId?: string, consequence?: GateSacrificeConsequence): string[] => {

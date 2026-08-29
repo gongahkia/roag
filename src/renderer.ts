@@ -270,7 +270,7 @@ export class TerminalRenderer {
   private createCourier(draft: CourierDraft): void {
     const origin = courierOrigins[draft.origin]
     const calling = courierCallings[draft.calling]
-    const death = draft.deathMode === 'checkpoint' ? ['LODGE REST', 'Death returns you to the last cleared lodge.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery and generation.']
+    const death = draft.deathMode === 'checkpoint' ? ['MEDBAY RETURN', 'Death returns you to the last cleared landing checkpoint.'] : ['IRON EXPEDITION', 'Death ends this specialist\'s mission record.']
     this.box(6, 3, 84, 53, 'CREATE LANDING SPECIALIST')
     const name = draft.name.trim()
     this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
@@ -310,11 +310,11 @@ export class TerminalRenderer {
     const season = mineSeason(route.heirSeed ?? 0)
     const x = 3
     const y = 2
-    this.box(x, y, 90, 56, story?.scene.title ?? 'VILLAGE TRAILHEAD')
+    this.box(x, y, 90, 56, story?.scene.title ?? 'JOMON VOYAGER // AIRLOCK')
     if (!story) {
       this.drawOutpostViewport(24, 5, { x: 24, y: 29 }, () => this.drawOutpostScene(24, 5, { x: 24, y: 29 }, 'opening', 0, false))
       this.text(x + 5, 44, seasonLabel(season), season.color)
-      this.text(x + 5, 47, 'The village entrusts you with a coastal warning.', colors.text)
+      this.text(x + 5, 47, 'The carrier prepares a landing file for the next colony.', colors.text)
       this.text(x + 5, 50, season.scene, colors.text)
       this.text(x + 5, 54, `ENTER continue · ESC title · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
       return
@@ -347,12 +347,12 @@ export class TerminalRenderer {
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
     const biomeTransition = loading?.kind === 'biome'
-    const title = biomeTransition ? 'TRAIL COMPLETE' : 'PREPARING THE TRAIL'
-    const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'Village Outpost'
-    const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'MARKING THE NEXT ROUTE'
+    const title = biomeTransition ? 'COLONY COMPLETE' : 'PREPARING LANDING'
+    const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'JOMON VOYAGER'
+    const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'LOADING MISSION FILE'
     this.box(27, 13, 42, 25, title)
     this.text(48 - Math.floor(message.length / 2), 24, message, colors.text)
-    this.text(48 - Math.floor((biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.').length / 2), 27, biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.', colors.dim)
+    this.text(48 - Math.floor((biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.').length / 2), 27, biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.', colors.dim)
     this.text(48 - Math.floor('Please stand by.'.length / 2), 30, 'Please stand by.', colors.dim)
   }
 
@@ -394,27 +394,27 @@ export class TerminalRenderer {
   private hubSidebar(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
     const hero = hub?.hero
     const campaign = hub?.campaign
-    this.text(50, 1, 'OUTPOST', colors.gold)
-    this.text(50, 2, 'VILLAGE TRAILHEAD', colors.text)
+    this.text(50, 1, 'CARRIER HUB', colors.gold)
+    this.text(50, 2, 'JOMON VOYAGER', colors.text)
     this.ruleHorizontal(50, 3, 45)
     if (hero) this.courierSheet(hero)
-    else this.text(50, 6, 'Courier record unavailable.', colors.red)
-    this.text(50, 32, 'OPEN TRAILS', colors.gold)
+    else this.text(50, 6, 'Specialist record unavailable.', colors.red)
+    this.text(50, 32, 'OPEN LANDINGS', colors.gold)
     this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
-    this.text(50, 36, `CAMPAIGN: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, campaign?.terminal ? colors.gold : campaign?.continuationPending ? colors.green : colors.dim)
+    this.text(50, 36, `VOYAGE: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, campaign?.terminal ? colors.gold : campaign?.continuationPending ? colors.green : colors.dim)
     this.text(50, 37, `HISTORY: ${campaign?.historyLabel ?? 'BASE ACTIVE'}`.slice(0, 45), colors.text)
     this.text(50, 38, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
     campaign?.difficultyLines.forEach((line, index) => this.text(50, 39 + index, line, colors.text))
     this.text(50, 42, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
     this.text(50, 44, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
-    this.text(50, 45, nearby ? nearby.name.toUpperCase() : `ROUTE BOARD · ↑ ${routeSteps}`, colors.green)
+    this.text(50, 45, nearby ? nearby.name.toUpperCase() : `FLIGHT CONSOLE · ↑ ${routeSteps}`, colors.green)
     this.text(50, 47, `AUTOPILOT: ${autoplayModeLabel(this.lastAutoplayMode)}`, this.lastAutoplayMode === 'off' ? colors.dim : colors.green)
     if (hero) this.boonRelicLists(hero, 49)
   }
 
   private hubLog(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
-    const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Route Board: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} north.`
-    const lines = [hub?.notice ?? context, hub?.notice ? context : `Open trails: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
+    const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Flight console: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} north.`
+    const lines = [hub?.notice ?? context, hub?.notice ? context : `Open landings: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
     this.ruleHorizontal(0, 35, 48)
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
@@ -480,7 +480,7 @@ export class TerminalRenderer {
     if (action === 'continuation') {
       const campaign = hub?.campaign
       const carryover = hub?.carryover
-      this.box(49, 3, 46, 46, 'CONTINUE CAMPAIGN')
+      this.box(49, 3, 46, 46, 'NEW EDO OR CONTINUE')
       let y = 6
       const text = (value: string, color = colors.text) => { this.text(52, y++, value.slice(0, 40), color) }
       const wrapped = (value: string, color = colors.text) => this.wrap(value, 40).forEach(line => text(line, color))
@@ -490,7 +490,7 @@ export class TerminalRenderer {
       campaign?.difficultyLines.forEach(line => text(line))
       wrapped(campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', colors.green)
       y++
-      text('READ-ONLY CARRYOVER — NO RESET', colors.gold)
+      text('RETAINED VOYAGER REFITS — NO RESET', colors.gold)
       text(`CASH: ${carryover?.currency ?? 0}`, colors.text)
       wrapped(`ITEMS: ${carryover?.items.join(', ') || 'none'}`)
       wrapped(`TOOLS: ${carryover?.tools.join(', ') || 'none'}`)
@@ -498,8 +498,8 @@ export class TerminalRenderer {
       wrapped(`INJURIES: ${carryover?.injuries.join(', ') || 'none'}`)
       wrapped(`LOSSES: ${carryover?.losses.join(', ') || 'none'}`)
       y++
-      text('Currency, items, tools, and roster remain.', colors.dim)
-      text('ENTER / E continue · C / ESC stay', colors.green)
+      text('Dock at New Edo with C / ESC.', colors.dim)
+      text('ENTER / E accepts a harder revised route.', colors.green)
       return
     }
     this.box(53, action === 'roster' ? 19 : 22, 40, action === 'roster' ? 23 : 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : 'COMPANION LODGE')

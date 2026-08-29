@@ -33,8 +33,8 @@ export const hubCampaignStatus = (cycle: CampaignCycle): HubCampaignStatus => {
     `THREAT +${current.modifiers.threat} · ELITE +${current.modifiers.eliteChance} · GUARD ${current.modifiers.guardianPattern}`,
     `HAZARD ×${numberLabel(current.modifiers.hazardMultiplier)} · REWARDS ×${numberLabel(current.modifiers.rewardMultiplier)}`
   ]
-  const nextLabel = terminal ? 'TERMINAL: NG++ complete — no next tier.' : continuationPending ? `NEXT: ${tierLabel(next!)} ready at the route board.` : next ? `NEXT: finish ${tierLabel(cycle.currentTier)} to unlock ${tierLabel(next)}.` : 'NEXT: finish NG++ to complete the terminal tier.'
-  return { tier: cycle.currentTier, tierLabel: tierLabel(cycle.currentTier), completedTiers, completedLabel, historyLabel, packageName: current.name, packageRationale: current.rationale, difficultyLines, nextLabel, continuationPending, terminal, accessibleLabel: `Campaign tier ${tierLabel(cycle.currentTier)}. Completed tiers: ${completedLabel}. Fixed difficulty package ${current.name}: ${difficultyLines.join('; ')}. ${nextLabel}` }
+  const nextLabel = terminal ? 'TERMINAL: every Voyager route is complete.' : continuationPending ? `NEXT: ${tierLabel(next!)} revised route ready at the flight console.` : next ? `NEXT: finish ${tierLabel(cycle.currentTier)} to unlock ${tierLabel(next)}.` : 'NEXT: finish NG++ to complete the final route.'
+  return { tier: cycle.currentTier, tierLabel: tierLabel(cycle.currentTier), completedTiers, completedLabel, historyLabel, packageName: current.name, packageRationale: current.rationale, difficultyLines, nextLabel, continuationPending, terminal, accessibleLabel: `Voyager route tier ${tierLabel(cycle.currentTier)}. Completed tiers: ${completedLabel}. Fixed difficulty package ${current.name}: ${difficultyLines.join('; ')}. ${nextLabel}` }
 }
 
 export const hubCarryoverSummary = (hero: Hero, companions: readonly Companion[]): HubCarryoverSummary => {
@@ -43,7 +43,7 @@ export const hubCarryoverSummary = (hero: Hero, companions: readonly Companion[]
   const tools = (hero.traversalTools ?? []).map(id => toolFor(id).name)
   const injuries = roster.filter(entry => !entry.permanentlyLost && entry.injury !== 'healthy').map(entry => `${entry.name} (${entry.status})`)
   const losses = roster.filter(entry => entry.permanentlyLost).map(entry => entry.name)
-  return { currency: hero.gold, items, tools, roster, injuries, losses, accessibleLabel: `Carryover is read-only and retains ${hero.gold} cash; items: ${items.join(', ') || 'none'}; tools: ${tools.join(', ') || 'none'}; roster: ${roster.map(entry => `${entry.name} ${entry.status}`).join(', ') || 'none'}; injuries: ${injuries.join(', ') || 'none'}; losses: ${losses.join(', ') || 'none'}.` }
+  return { currency: hero.gold, items, tools, roster, injuries, losses, accessibleLabel: `Voyager refits are retained: ${hero.gold} cash; items: ${items.join(', ') || 'none'}; tools: ${tools.join(', ') || 'none'}; roster: ${roster.map(entry => `${entry.name} ${entry.status}`).join(', ') || 'none'}; injuries: ${injuries.join(', ') || 'none'}; losses: ${losses.join(', ') || 'none'}.` }
 }
 
 export const createHubState = (seed: number): HubState => ({ season: streamSeed(seed, 'generation', 'hub-season') % 4, supplies: ['tonic', 'ropeBundle', 'rock'], rescued: [], unlockedAreas: ['mine'], completedAreas: [] })

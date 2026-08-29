@@ -153,8 +153,8 @@ export function descend(state: RunState): ActionResult {
   if (state.floor.escalation) recordAreaArcPhase(areaArc, state.floor.escalation.phase)
   state.areaArc = areaArc
   state.companions = progressCompanionRecovery(state.companions ?? [], state.rescuedNpcs)
-  for (const companion of state.companions.filter(companion => companion.injury === 'recovering' && companion.recoveryFloors === 0)) log(state, `${companion.name}'s Lodge recovery is ready to conclude.`)
-  if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} is crossed. Return to the village outpost.`); return [event('areaComplete')] }
+  for (const companion of state.companions.filter(companion => companion.injury === 'recovering' && companion.recoveryFloors === 0)) log(state, `${companion.name}'s medbay recovery is ready to conclude.`)
+  if (areaFloor === 3) { state.modal = undefined; log(state, `${biomeName[state.area ?? state.floor.biome]} survey complete. Return to the Jomon Voyager.`); return [event('areaComplete')] }
   const nextAreaFloor = areaFloor + 1
   const routePosition = Math.max(0, (state.areaOrder ?? []).indexOf(biome))
   state.floor = generateAreaFloor(state.seed, biome, nextAreaFloor, routePosition, state.campaignCycle)
@@ -169,7 +169,7 @@ export function descend(state: RunState): ActionResult {
   synchronizePartyActors(state, 'floorTransition')
   state.modal = { kind: 'trailcraft' }
   log(state, `You continue through ${biomeName[state.floor.biome]}.`)
-  log(state, 'Trail cleared: choose a trailcraft.')
+  log(state, 'Landing zone cleared: choose a field upgrade.')
   refreshFov(state)
   return [event('floor')]
 }

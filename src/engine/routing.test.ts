@@ -24,4 +24,9 @@ describe('screen routing', () => {
     expect(navigate(route, 'n', false)).toMatchObject({ screen: 'approach' })
     expect(navigate(route, 'l', true)).toMatchObject({ screen: 'level' })
   })
+
+  it('holds input while an inter-colony transit is playing', () => {
+    const transit = { screen: 'transit' as const, biome: 'wilds' as const }
+    expect(navigate(transit, 'Enter', false)).toBe(transit)
+  })
 })
