@@ -163,6 +163,12 @@ export const cameraFor = (course: Course, width: number, height: number, focus?:
   };
 };
 
+/** Maps a world position to the centered isometric course view used when no camera follows a ball. */
+export const screenPointForWorld = (course: Course, width: number, height: number, point: Pick<Ball, 'x' | 'y' | 'z'>, zoom = 1): Point => {
+  const layout = cameraFor(course, width, height, undefined, zoom);
+  return withOffset(project(point.x, point.y, point.z, layout.metrics), layout.offset);
+};
+
 const overviewCameraFor = (course: Course, width: number, height: number, focus: Ball | undefined, progress: number): CameraLayout => {
   const unitMetrics = { tileWidth: 1, tileHeight: .5, elevation: .34 };
   const unitTiles = visibleTilesFor(course, unitMetrics);

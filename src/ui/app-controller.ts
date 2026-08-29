@@ -3,16 +3,16 @@ import { chooseBotDieAction } from '../core/bots';
 import { COURSE_TRANSITION_DURATION_MS, type CourseExpansion } from '../core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { expansionForTransition } from '../core/game-state';
-import { tileAt } from '../core/physics';
+import { newBall, simulateShot, tileAt } from '../core/physics';
 import { canPlaceGadget } from '../core/powerups';
 import { chooseBotShopOffer } from '../core/shop';
-import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
+import type { Ball, ChronoCard, Course, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Player, Point, PowerUp, ShotCommand } from '../core/types';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
 import { escapeHtml, type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
-import { createRenderer } from './render';
+import { createRenderer, screenPointForWorld } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
 interface ShotAnimation { playerId: string; frame: number; }
@@ -23,6 +23,8 @@ type Screen = 'home' | 'lobby' | 'launching' | 'game';
 type BotScheduleSnapshot = Pick<GameState, 'status'> & { turn: Pick<GameState['turn'], 'playerIndex'> };
 type ControllerDirection = 'up' | 'down' | 'left' | 'right';
 interface ControllerTextEntry { targetId: string; label: string; value: string; }
+interface HomeTargetZone { center: Point; tiles: Point[]; }
+interface HomeCourseTarget { element: HTMLButtonElement; zone: HomeTargetZone; }
 
 export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: BotScheduleSnapshot) => previous.status !== next.status || previous.turn.playerIndex !== next.turn.playerIndex;
 
@@ -52,6 +54,85 @@ export const controllerDirectionForAxes = (x: number, y: number, deadzone = .6):
   return y < 0 ? 'up' : 'down';
 };
 const clamped = (value: number) => Math.max(0, Math.min(1, value));
+
+const homeTargetPoints = (count: number): Point[] => {
+  if (count === 1) return [{ x: 3, y: 8 }];
+  if (count === 2) return [{ x: 2, y: 10 }, { x: 7, y: 6 }];
+  return [{ x: 1, y: 13 }, { x: 6, y: 6 }, { x: 16, y: 2 }];
+};
+
+const targetZone = (origin: Point, width = 1, height = 1): HomeTargetZone => ({
+  center: { x: origin.x + width / 2, y: origin.y + height / 2 },
+  tiles: Array.from({ length: width * height }, (_, index) => ({ x: origin.x + index % width, y: origin.y + Math.floor(index / width) })),
+});
+
+const homeTargetZones = (count: number): HomeTargetZone[] => count === 3
+  ? [targetZone({ x: 2, y: 10 }, 5, 4), targetZone({ x: 5, y: 5 }, 5, 4), targetZone({ x: 14, y: 2 }, 5, 4)]
+  : homeTargetPoints(count).map((point) => targetZone(point));
+
+const homeCourseFor = (targets: readonly HomeTargetZone[]): Course => {
+  const width = 24;
+  const height = 18;
+  const tee = { x: 10, y: 14 };
+  const tiles: Course['tiles'] = Array.from({ length: width * height }, (_, index) => {
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const edge = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+    return { surface: edge ? 'wall' as const : 'fairway' as const, height: edge ? .55 : 0 };
+  });
+  const writeSurface = (point: Point, surface: 'tee' | 'cup' | 'wall') => { tiles[point.y * width + point.x] = { surface, height: surface === 'wall' ? .55 : 0 }; };
+  writeSurface(tee, 'tee');
+  const cupTiles = targets.flatMap((target) => target.tiles);
+  targets.forEach((target) => target.tiles.forEach((tile) => writeSurface(tile, target.tiles.length > 1 ? 'tee' : 'cup')));
+  const targetBackboards = targets.flatMap((target) => {
+    if (target.tiles.length === 1) return [];
+    const minX = Math.min(...target.tiles.map((tile) => tile.x));
+    const maxX = Math.max(...target.tiles.map((tile) => tile.x));
+    const minY = Math.min(...target.tiles.map((tile) => tile.y));
+    const maxY = Math.max(...target.tiles.map((tile) => tile.y));
+    const dx = target.center.x - tee.x;
+    const dy = target.center.y - tee.y;
+    return Math.abs(dx) > Math.abs(dy)
+      ? Array.from({ length: maxY - minY + 1 }, (_, index) => ({ x: dx < 0 ? minX - 1 : maxX + 1, y: minY + index }))
+      : Array.from({ length: maxX - minX + 1 }, (_, index) => ({ x: minX + index, y: dy < 0 ? minY - 1 : maxY + 1 }));
+  });
+  targetBackboards.forEach((tile) => writeSurface(tile, 'wall'));
+  const cup = cupTiles[0] ?? { x: 8, y: 5 };
+  return {
+    id: `clubhouse-${cupTiles.map((target) => `${target.x}-${target.y}`).join('-') || 'practice'}`,
+    seed: 'clubhouse',
+    theme: 'balanced',
+    archetype: 'courtyard',
+    sizeProfile: 'compact',
+    width,
+    height,
+    tiles,
+    tee,
+    cup,
+    route: [tee, cup],
+    hazards: [],
+    features: [],
+    portals: [],
+    itemPads: cupTiles.map((point, index) => ({ id: `clubhouse-cup-${index}`, point, kind: 'cash' as const, collected: true })),
+    score: { playable: true, estimatedStrokes: 1, hazards: 0, elevation: 0, routes: 1, novelty: 0, total: 1, solverShots: [] },
+  };
+};
+
+const homePlayerFor = (ball: Ball): Player => ({
+  id: 'clubhouse-player',
+  name: 'golfer',
+  color: '#f8f7e7',
+  kind: 'human',
+  skill: 5,
+  ball,
+  upgrades: [],
+  cash: 0,
+  caddies: [],
+  pockets: [],
+  attachments: [],
+  shotHistory: [],
+  total: 0,
+});
 
 const readText = (app: HTMLElement, id: string, fallback: string) => app.querySelector<HTMLInputElement>(`#${id}`)?.value.trim() || fallback;
 const readNumber = (app: HTMLElement, id: string, fallback: number) => {
@@ -128,7 +209,8 @@ export const startApp = (app: HTMLElement) => {
   let audioContext: AudioContext | undefined;
   let quickStartTimeout: number | undefined;
   let launchFrame: number | undefined;
-  let homeHoleRollTimeout: number | undefined;
+  let homeCourseObserver: ResizeObserver | undefined;
+  let homePuttFrame: number | undefined;
   let launch = { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
@@ -382,24 +464,105 @@ export const startApp = (app: HTMLElement) => {
       });
     });
   };
-  const puttIntoHomeHole = (hole: HTMLElement) => {
-    const green = hole.closest<HTMLElement>('[data-home-green]');
-    const ball = green?.querySelector<HTMLElement>('#clubhouse-ball');
-    const mode = hole.dataset.homeMode as HomeMode | undefined;
-    if (!green || !ball || !mode || homeHoleRollTimeout !== undefined) return false;
-    const greenBounds = green.getBoundingClientRect();
-    const cupBounds = hole.querySelector<HTMLElement>('.green-hole-cup')?.getBoundingClientRect() ?? hole.getBoundingClientRect();
-    green.dataset.putting = 'true';
-    ball.classList.add('rolling');
-    ball.style.left = `${cupBounds.left + cupBounds.width / 2 - greenBounds.left}px`;
-    ball.style.top = `${cupBounds.top + cupBounds.height / 2 - greenBounds.top}px`;
-    homeHoleRollTimeout = window.setTimeout(() => {
-      homeHoleRollTimeout = undefined;
-      homeMode = mode;
-      notice = undefined;
-      render();
-    }, preferences.reducedMotion ? 80 : 680);
-    return true;
+  const bindHomeCourse = (canvas: HTMLCanvasElement) => {
+    const targetElements = Array.from(app.querySelectorAll<HTMLButtonElement>('[data-home-putt-target]'));
+    const targetZones = homeTargetZones(targetElements.length);
+    const targets: HomeCourseTarget[] = targetElements.map((element, index) => ({ element, zone: targetZones[index]! }));
+    const course = homeCourseFor(targets.map((target) => target.zone));
+    let ball = newBall(course);
+    let aim: ShotCommand = { angle: -Math.PI / 2, power: 4, kind: 'putt' };
+    let putting = false;
+    let pull: { pointerId: number; originX: number; originY: number; distance: number } | undefined;
+    const status = app.querySelector<HTMLOutputElement>('.home-course-status');
+  const draw = (drawAim: ShotCommand | null = aim) => renderer?.draw(course, [homePlayerFor(ball)], 0, drawAim ?? undefined, [], false, 8, undefined, [], undefined, undefined);
+    const positionTargets = () => {
+      const bounds = canvas.getBoundingClientRect();
+      targets.forEach((target) => {
+        const position = screenPointForWorld(course, bounds.width, bounds.height, { ...target.zone.center, z: .1 });
+        target.element.style.setProperty('--target-x', `${position.x}px`);
+        target.element.style.setProperty('--target-y', `${position.y}px`);
+      });
+    };
+    const updateStatus = (message = `${aim.kind} strength ${aim.power.toFixed(1)} · land on a signed target to continue`) => {
+      if (status) status.textContent = message;
+    };
+    const playPutt = () => {
+      if (putting) return;
+      const result = simulateShot(course, ball, aim, 12, { reality: 'cups are many', modifiers: { cupRadius: .7 } });
+      const landedTarget = result.holed
+        ? targets.find((target) => target.zone.tiles.some((tile) => Math.hypot(result.ball.x - tile.x - .5, result.ball.y - tile.y - .5) < .25))
+        : undefined;
+      const frames = result.frames;
+      if (!frames.length) {
+        ball = result.ball;
+        draw();
+        updateStatus('the ball stays in play · line up another putt');
+        return;
+      }
+      putting = true;
+      const duration = Math.min(1_500, Math.max(380, frames.length * 9));
+      const startedAt = performance.now();
+      updateStatus(landedTarget ? `nice putt · ${landedTarget.element.textContent?.trim()}` : 'missed the target · ball stays in play');
+      const animate = (now: number) => {
+        if (screen !== 'home' && screen !== 'lobby') return;
+        const progress = Math.max(0, Math.min(1, (now - startedAt) / duration));
+        const frame = frames[Math.min(frames.length - 1, Math.floor(progress * (frames.length - 1)))]!;
+        ball = frame.ball;
+        draw(null);
+        if (progress < 1) { homePuttFrame = window.requestAnimationFrame(animate); return; }
+        homePuttFrame = undefined;
+        putting = false;
+        if (landedTarget) { landedTarget.element.click(); return; }
+        draw();
+      };
+      homePuttFrame = window.requestAnimationFrame(animate);
+    };
+    const resetPull = () => canvas.classList.remove('pulling', 'chip-pull');
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    canvas.addEventListener('pointerdown', (event) => {
+      if ((event.button !== 0 && event.button !== 2) || putting) return;
+      event.preventDefault();
+      aim = { ...aim, kind: shotKindForPointerButton(event.button) };
+      pull = { pointerId: event.pointerId, originX: event.clientX, originY: event.clientY, distance: 0 };
+      canvas.setPointerCapture(event.pointerId);
+      canvas.classList.add('pulling');
+      canvas.classList.toggle('chip-pull', aim.kind === 'chip');
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      if (!pull || pull.pointerId !== event.pointerId) return;
+      const rawX = event.clientX - pull.originX;
+      const rawY = event.clientY - pull.originY;
+      const distance = Math.hypot(rawX, rawY);
+      const scale = distance > PULL_MAX_DISTANCE ? PULL_MAX_DISTANCE / distance : 1;
+      const pullX = rawX * scale;
+      const pullY = rawY * scale;
+      pull.distance = Math.hypot(pullX, pullY);
+      aim = aimFromPull(aim, pullX, pullY);
+      draw();
+      updateStatus();
+    });
+    const releasePull = (event: PointerEvent) => {
+      if (!pull || pull.pointerId !== event.pointerId) return;
+      const distance = pull.distance;
+      pull = undefined;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      resetPull();
+      if (distance >= 12) playPutt();
+    };
+    canvas.addEventListener('pointerup', releasePull);
+    canvas.addEventListener('pointercancel', (event) => {
+      if (!pull || pull.pointerId !== event.pointerId) return;
+      pull = undefined;
+      resetPull();
+    });
+    homeCourseObserver = new ResizeObserver(() => {
+      positionTargets();
+      draw();
+    });
+    homeCourseObserver.observe(canvas);
+    positionTargets();
+    draw();
+    updateStatus();
   };
   const startLocal = (prefix: 'local' | 'local-multiplayer', skipDieBets = false) => {
     const selected = { ...readConfig(prefix), skipDieBets };
@@ -793,14 +956,26 @@ export const startApp = (app: HTMLElement) => {
   const render = () => {
     renderer?.dispose();
     renderer = undefined;
+    homeCourseObserver?.disconnect();
+    homeCourseObserver = undefined;
+    if (homePuttFrame !== undefined) { window.cancelAnimationFrame(homePuttFrame); homePuttFrame = undefined; }
     if (screen === 'home') {
-      if (homeHoleRollTimeout !== undefined) { window.clearTimeout(homeHoleRollTimeout); homeHoleRollTimeout = undefined; }
       app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
+      const canvas = app.querySelector<HTMLCanvasElement>('#home-course-canvas');
+      if (canvas) {
+        renderer = createRenderer(canvas);
+        bindHomeCourse(canvas);
+      }
       renderControllerUi();
       return;
     }
     if (screen === 'lobby') {
       if (room) app.innerHTML = renderLobbyMarkup(room, onlinePlayerId, onlineConnected, notice);
+      const canvas = app.querySelector<HTMLCanvasElement>('#home-course-canvas');
+      if (canvas) {
+        renderer = createRenderer(canvas);
+        bindHomeCourse(canvas);
+      }
       renderControllerUi();
       return;
     }
@@ -846,11 +1021,11 @@ export const startApp = (app: HTMLElement) => {
               : state.status === 'finished'
                 ? app.querySelector<HTMLElement>('.results-overlay')
                 : screen === 'home' && homePanel === 'play' && homeMode === 'modes'
-                  ? app.querySelector<HTMLElement>('.clubhouse-green')
+                  ? app.querySelector<HTMLElement>('.home-course')
                   : screen === 'home' && homePanel === 'settings'
                     ? app.querySelector<HTMLElement>('.home-settings')
                     : screen === 'lobby'
-                      ? app.querySelector<HTMLElement>('.lobby-card')
+                      ? app.querySelector<HTMLElement>('.home-course')
                       : app;
     return scope ? Array.from(scope.querySelectorAll<HTMLElement>(selector)) : [];
   };
@@ -1055,7 +1230,6 @@ export const startApp = (app: HTMLElement) => {
     if (homeTarget) { homePanel = homeTarget; if (homeTarget === 'play') homeMode = 'modes'; notice = undefined; render(); return; }
     const homeModeTarget = element.dataset.homeMode as HomeMode | undefined;
     if (homeModeTarget) {
-      if (screen === 'home' && homePanel === 'play' && homeMode === 'modes' && element.classList.contains('green-hole') && puttIntoHomeHole(element)) return;
       homeMode = homeModeTarget;
       notice = undefined;
       render();

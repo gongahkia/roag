@@ -17,8 +17,11 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('couch campaign');
     expect(markup).toContain('class="title-golf-ball"');
     expect(markup).toContain('class="title-cursing-emoji"');
-    expect(markup).toContain('class="clubhouse-green"');
-    expect(markup).toContain('class="green-hole green-hole-local"');
+    expect(markup).toContain('class="home-course"');
+    expect(markup).toContain('id="home-course-canvas"');
+    expect(markup).toContain('data-home-putt-target="0" data-home-mode="local"');
+    expect(markup).toContain('left-drag to putt or right-drag to chip');
+    expect(markup).toContain('target tiles · solo or pass the club');
     expect(markup).toContain('2+ golfers · one screen');
     expect(markup).not.toContain('ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH');
     expect(markup).not.toContain('Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.');
@@ -69,7 +72,8 @@ describe('course slot machine markup', () => {
     const state = createGame(defaultConfig());
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(local).toContain('data-quick-start-local');
-    expect(local).toContain('class="quick-start-button"');
+    expect(local).toContain('data-home-putt-target="1" data-quick-start-local');
+    expect(local).toContain('sink <b>start campaign</b> or <b>quick start</b>');
     expect(local).toContain('seeded automatic slot results');
     expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
     expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
