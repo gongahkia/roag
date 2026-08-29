@@ -15,21 +15,26 @@ export interface LoadingState {
   fromBiome?: Biome
   toBiome?: Biome
 }
+export interface TransitState {
+  fromBiome: Biome
+  toBiome?: Biome
+  startedAt: number
+}
 
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]
 const characters = (value: string): string[] => Array.from(value)
-const elderNames = ['Ame', 'Kaya', 'Mori', 'Sumi', 'Tama', 'Ume']
-const chiefNames = ['Hana', 'Kiri', 'Nagi', 'Sayo', 'Toki', 'Yuki']
-export const villageElderName = (seed: number): string => pick(seed, 'lore:elder', elderNames)
-export const shrineChiefName = (seed: number): string => pick(seed, 'lore:chief', chiefNames)
+const commanderNames = ['Ari', 'Cato', 'Iris', 'Mara', 'Niko', 'Sable']
+const navigatorNames = ['Aster', 'Dara', 'Juno', 'Keen', 'Mika', 'Sol']
+export const villageElderName = (seed: number): string => pick(seed, 'lore:commander', commanderNames)
+export const shrineChiefName = (seed: number): string => pick(seed, 'lore:navigator', navigatorNames)
 
 export const openingLore = (seed: number, courierName: string): LoreScene => {
   const elder = villageElderName(seed)
   const chief = shrineChiefName(seed)
   return {
-    title: 'MURA NO MICHI', vignette: 'opening', pages: [
-      `${elder} (village elder): ${courierName}, take this warning to ${chief} (shrine chief).\nThe coast has armed.`,
-      `${elder}: Carry it through the old roads.\nIf ${chief} reads it, the villages can answer.`
+    title: 'JOMON VOYAGER // LANDING BRIEF', vignette: 'opening', pages: [
+      `${elder} (mission commander): ${courierName}, your landing team is cleared.\nNew Edo is still beyond the route.`,
+      `${chief} (navigation): Survey each colony, recover its people, and return with a route the Voyager can trust.`
     ]
   }
 }
@@ -38,9 +43,9 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
   const elder = villageElderName(successorSeed)
   const chief = shrineChiefName(successorSeed)
   return {
-    title: 'KAKO NO MICHI', vignette: 'succession', pages: [
-      `${elder} (village elder): ${record.heirName} did not reach ${chief}.\nThe warning died in ${biomeName[record.biome]}.`,
-      `${elder}: That generation ends. The coast will not wait.\nAnother courier must carry the warning.`
+    title: 'JOMON VOYAGER // RELIEF BRIEF', vignette: 'succession', pages: [
+      `${elder} (mission commander): ${record.heirName}'s survey ended on ${biomeName[record.biome]}.\nTheir record is incomplete.`,
+      `${chief} (navigation): The carrier cannot wait in orbit.\nAnother specialist must take the landing file.`
     ]
   }
 }
@@ -48,19 +53,19 @@ export const successionLore = (record: LegacyRecord, successorSeed: number): Lor
 export const endingLore = (state: RunState, completedAreas: readonly Biome[], alignment: Readonly<Record<Alignment, number>> = state.alignment ?? { kami: 0, villagePact: 0 }): LoreScene => {
   const elder = villageElderName(state.seed)
   const chief = shrineChiefName(state.seed)
-  const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the old road'
+  const route = completedAreas.length ? completedAreas.map(area => biomeName[area]).join(', ') : 'the outer route'
   const ending = deliveryEndingFor(alignment)
   const result = ending === 'both'
-    ? `${chief} (shrine chief): The kami have heard.\n${elder}: The villages will stand together. The coast holds.`
+    ? `${chief} (navigation): The route is sound.\n${elder}: New Edo receives both the data and the people who made it home.`
     : ending === 'kami'
-      ? `${chief} (shrine chief): The rite is set.\nThe kami guide the watchfires on the coast.`
+      ? `${chief} (navigation): The idealist record changes our approach.\nNew Edo will meet the unknown with open hands.`
       : ending === 'villagePact'
-        ? `${elder} (village elder): The pact is carried.\nThe coastal villages gather their guards.`
-        : `${chief} (shrine chief): The warning is read.\nThe villages have time to choose their answer.`
+        ? `${elder} (mission commander): The practical route holds.\nNew Edo will have what it needs to survive.`
+        : `${chief} (navigation): The survey is complete.\nNew Edo has time to choose its next horizon.`
   return {
-    title: 'SAIGO NO MICHI', vignette: 'ending', pages: [
-      `${state.hero.name}: The warning from the inland villages.\n${chief}: I have it.`,
-      `${elder}: The courier crossed ${route}.\n${chief}: The road has done its work.`,
+    title: 'JOMON VOYAGER // NEW EDO', vignette: 'ending', pages: [
+      `${state.hero.name}: Landing reports delivered.\n${chief}: New Edo has the route.`,
+      `${elder}: The Jomon Voyager crossed ${route}.\n${chief}: The carrier has done its work.`,
       result
     ]
   }

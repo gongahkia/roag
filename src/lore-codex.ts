@@ -1,38 +1,34 @@
 export interface LoreCodexPage { title: string; lines: readonly string[] }
 
 export const LORE_CODEX_PAGES: readonly LoreCodexPage[] = [
-  { title: 'KOTOBA · WORDS', lines: [
-    'JOMON: the rope-pattern pottery tradition that gives this world its name.',
-    'MURA: village. KUMI: a working group or pact. MICHI: road or way.',
-    'KAMI: a spirit or sacred presence. RITE names the act of asking or thanks.',
-    'These are Japanese words used for this alternate-history fiction.'
+  { title: 'JOMON VOYAGER', lines: [
+    'Jomon Voyager is a generation carrier on the final approach to New Edo.',
+    'The carrier holds landing crews, route archives, and the people displaced by the long voyage.',
+    'Each colony survey adds a safe approach, recovered supplies, and a record for the crews that follow.'
   ] },
-  { title: 'THE WARNING', lines: [
-    'The coastal villages face an armed threat.',
-    'A courier carries the inland warning to the shrine chief before the coast is cut off.',
-    'A completed delivery buys the villages time. The route taken shapes their answer.'
+  { title: 'THE ROUTE', lines: [
+    'The Voyager visits isolated colony worlds before committing to its permanent docking at New Edo.',
+    'Landing specialists secure a four-zone survey on every world, then the carrier burns for the next destination.',
+    'The route is dangerous, but it is not a mystery to solve: it is work that has to be done.'
   ] },
-  { title: 'PEOPLE', lines: [
-    'The village elder gives the warning and keeps the courier road open.',
-    'The shrine chief receives the warning and calls the coast to answer.',
-    'Couriers are not chosen heroes. They are the people who take the road.'
+  { title: 'CREW', lines: [
+    'Mission command assigns landings. Navigation maintains the colony approaches and jump windows.',
+    'Specialists are not chosen heroes. They are crew members trained to bring a useful report home.',
+    'Rescued colonists can join the expedition roster between landings.'
   ] },
-  { title: 'TWO ANSWERS', lines: [
-    'VILLAGE PACT: people share guards, food, routes, and warnings.',
-    'KAMI: people seek protection and direction through a local rite.',
-    'Both answers can stand together. Neither is a score or a faction meter.'
+  { title: 'TWO DOCTRINES', lines: [
+    'PRAGMATISM: preserve resources, secure routes, and make the next landing safer.',
+    'IDEALISM: protect possibilities, honor local lives, and risk more for a better future.',
+    'Both doctrines can guide the Voyager. Neither is a score or a faction meter.'
   ] },
-  { title: 'THE ROADS', lines: [
-    'Obsidian Mine · Moss Wilds · Echo Caverns · Ceremonial Precinct · Cinder Furnace.',
-    'Flooded Ruins · Wind Cliffs · Burial Grounds · Salt Flats · Frost Reliquary.',
-    'Each road is a fictional place shaped by the land, tools, and travel of this world.'
+  { title: 'COLONY ARCHIVE', lines: [
+    'Kestrel · Verdant · Pelagos · Orison · Helion.',
+    'Nerida · Aerie · Memorial · Halcyon · Borealis.',
+    'Every colony is a different world with a distinct landing environment and a route worth recording.'
   ] },
-  { title: 'HISTORY & SOURCES', lines: [
-    'This is alternate history, not a reconstruction of Jomon belief or language.',
-    'Jomon communities left no readable written myth or personal-name corpus.',
-    'Sources: UNESCO, Jomon Prehistoric Sites of Northern Japan (whc.unesco.org/en/list/1632).',
-    'The Metropolitan Museum of Art, Dogu (metmuseum.org/art/collection/search/45569).',
-    'Encyclopaedia Britannica, Jomon culture (britannica.com/topic/Jomon-culture).',
-    'Later Japanese terms are used as fiction and are not presented as documented Jomon practice.'
+  { title: 'VOYAGER PROTOCOL', lines: [
+    'A landing report is a promise to the next crew: conditions observed, risks named, and no false certainty.',
+    'The archive contains mission logs, recovered route data, and records from previous expeditions.',
+    'New Edo is the Voyager’s intended home, not a reward that makes the journey meaningless.'
   ] }
 ]

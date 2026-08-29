@@ -10,7 +10,7 @@ import { CELL_HEIGHT as CH, CELL_WIDTH as CW, MAP_HEIGHT, MAP_WIDTH, cameraFrame
 import { telegraphBeam } from './renderer/telegraph-overlay'
 import { isTelegraphVisible, presentTelegraph } from './renderer/telegraphs'
 import { flowGlyph, showMotionAt, terrainInspection, terminalGlyph, terminalTileGlyph, terrainVisual, visualIdentitySnapshot, type VisualIdentityState } from './renderer/visual-grammar'
-import { isStoryPageComplete, storyText, type LoadingState, type StoryState } from './lore'
+import { isStoryPageComplete, storyText, type LoadingState, type StoryState, type TransitState } from './lore'
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { defaultSettings, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { mineSeason, seasonLabel } from './season'
@@ -49,15 +49,15 @@ const jomonMasthead = jomonMastheadSource.trimEnd()
 const jomonMastheadWidth = Math.max(...jomonMasthead.split('\n').map(line => line.length))
 const spriteFrameInterval = 80
 const courierOrigins = {
-  mineborn: { label: 'ISHI NO KO', description: 'Raised among stone dust and worked roads. You know the inland warning must reach the coast.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
-  mosswalker: { label: 'MORI NO KO', description: 'A road reader who finds safe ground beneath root, rain, and bramble.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
-  cavernSeeker: { label: 'ANA NO KO', description: 'A lamp carrier who reads sound and water in the buried dark.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } },
-  tidebound: { label: 'UMI NO KO', description: 'A coast-road courier who turns current and rain into a way forward.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
+  mineborn: { label: 'ENGINEERING DECK', description: 'A field mechanic trained to keep fragile systems alive under pressure.', stats: { strength: 3, agility: 1, vitality: 3, intellect: 1 } },
+  mosswalker: { label: 'HABITAT DECK', description: 'A biosphere specialist who reads living terrain and finds stable ground.', stats: { strength: 1, agility: 3, vitality: 3, intellect: 1 } },
+  cavernSeeker: { label: 'NAVIGATION DECK', description: 'A survey specialist who reads echoes, pressure, and buried routes.', stats: { strength: 1, agility: 2, vitality: 2, intellect: 3 } },
+  tidebound: { label: 'MEDICAL DECK', description: 'An expedition medic trained to turn changing conditions into a way forward.', stats: { strength: 2, agility: 3, vitality: 1, intellect: 2 } }
 } as const
 const courierCallings = {
-  trailguard: { label: 'MICHI MAMORI', description: 'Carry a woven guard. Hold the road when the way closes.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: 'Woven Guard', effect: 'extra defence' }, { name: 'Vital Tonic', effect: 'restore health' }] },
-  pathmaker: { label: 'MICHI TSUKURI', description: 'Carry fire-ash and rope. Make a road through bad ground.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: '6 Fire-ash', effect: 'clear obstacles' }, { name: '6 Ropes', effect: 'cross pits' }, { name: 'Trail Map', effect: 'reveal floor' }] },
-  spiritbearer: { label: 'KAMI MAMORI', description: 'Carry a focus tonic and a Sight Charm for the unseen road.', kit: [{ name: 'Courier Cord', effect: 'reach 2 strike' }, { name: 'Focus Tonic', effect: 'restore focus' }, { name: 'Sight Charm', effect: 'reveal surroundings' }] }
+  trailguard: { label: 'SECURITY SPECIALIST', description: 'Carry a field tether and guard plate. Hold the landing zone when it closes.', kit: [{ name: 'Field Tether', effect: 'reach 2 strike' }, { name: 'Guard Plate', effect: 'extra defence' }, { name: 'Med Gel', effect: 'restore health' }] },
+  pathmaker: { label: 'SYSTEMS SPECIALIST', description: 'Carry breaching charges and line spools. Make a path through damaged ground.', kit: [{ name: 'Field Tether', effect: 'reach 2 strike' }, { name: '6 Breach Charges', effect: 'clear obstacles' }, { name: '6 Line Spools', effect: 'cross pits' }, { name: 'Survey Map', effect: 'reveal floor' }] },
+  spiritbearer: { label: 'XENOARCHIVIST', description: 'Carry focus gel and a scanner module for conditions no route file explains.', kit: [{ name: 'Field Tether', effect: 'reach 2 strike' }, { name: 'Focus Gel', effect: 'restore focus' }, { name: 'Scanner Module', effect: 'reveal surroundings' }] }
 } as const
 
 export class TerminalRenderer {
@@ -77,6 +77,7 @@ export class TerminalRenderer {
   private lastHub?: HubView
   private lastStory?: StoryState
   private lastLoading?: LoadingState
+  private lastTransit?: TransitState
   private lastAnalysis?: RunAnalysis
   private lastCourierMenu?: CourierMenuView
   private lastCourierDraft?: CourierDraft
@@ -148,13 +149,14 @@ export class TerminalRenderer {
     this.effects.trigger(events, state, this.canvas, effectId)
   }
 
-  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis, courierMenu?: CourierMenuView, courierDraft?: CourierDraft, autoplayMode: AutoplayMode = 'off'): void {
+  render(route: ScreenRoute, state: RunState | undefined, records?: { bestDepth: number; wins: number; deaths: number }, hub?: HubView, story?: StoryState, loading?: LoadingState, analysis?: RunAnalysis, courierMenu?: CourierMenuView, courierDraft?: CourierDraft, autoplayMode: AutoplayMode = 'off', transit?: TransitState): void {
     this.lastRoute = route
     this.lastState = state
     this.lastRecords = records
     this.lastHub = hub
     this.lastStory = story
     this.lastLoading = loading
+    this.lastTransit = transit
     this.lastAnalysis = analysis
     this.lastCourierMenu = courierMenu
     this.lastCourierDraft = courierDraft
@@ -179,6 +181,7 @@ export class TerminalRenderer {
     else if (route.screen === 'hub') this.hub(route, hub, now)
     else if (route.screen === 'area') this.area(route)
     else if (route.screen === 'loading') this.loading(state, loading, now)
+    else if (route.screen === 'transit' && transit) this.transit(transit, now)
     else if (route.screen === 'analysis' && analysis) this.analysis(analysis)
     else if (!state || state.status === 'title') this.title()
     else {
@@ -192,7 +195,7 @@ export class TerminalRenderer {
     this.persistenceNotice()
     this.ctx.restore()
     this.effects.drawFlash(this.ctx, this.canvas, now)
-    if (this.effects.needsFrame(now) || route.screen === 'loading' || Boolean(story)) this.scheduleRender()
+    if (this.effects.needsFrame(now) || route.screen === 'loading' || route.screen === 'transit' || Boolean(story)) this.scheduleRender()
     else if (route.screen === 'level' && state?.floor.tiles.some(tile => tile.visible && tile.flow)) this.scheduleRender(180)
     else if ((this.spriteMode && route.screen === 'level' && state) || (route.screen === 'hub' && now < this.hubAnimationUntil) || (route.screen === 'createCourier' && courierDraft?.focus === 0)) this.scheduleRender(spriteFrameInterval)
   }
@@ -206,7 +209,7 @@ export class TerminalRenderer {
       if (this.pendingAnimationFrame !== undefined) return
       this.pendingAnimationFrame = requestAnimationFrame(() => {
         this.pendingAnimationFrame = undefined
-        this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode)
+        this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode, this.lastTransit)
       })
       return
     }
@@ -228,8 +231,8 @@ export class TerminalRenderer {
       return
     }
     const entries = menu?.entries ?? []
-    this.text(18, 23, 'WHICH COURIER SHALL YOU PLAY?', colors.text)
-    if (!entries.length) this.text(18, 26, '(No active couriers. Please create a new one.)', colors.dim)
+    this.text(18, 23, 'WHICH LANDING SPECIALIST IS ON DUTY?', colors.text)
+    if (!entries.length) this.text(18, 26, '(No active crew records. Please create a specialist.)', colors.dim)
     else entries.slice(0, 8).forEach((entry, index) => {
       const selected = entry.id === menu?.selectedId
       const marker = selected ? '>' : ' '
@@ -238,8 +241,8 @@ export class TerminalRenderer {
     })
     if (entries.length) {
       const selected = entries.find(entry => entry.id === menu?.selectedId) ?? entries[0]
-      const status = selected.floor ? `trail ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'at the village outpost'
-      this.text(18, 43, `${selected.name} waits in ${selected.area ? biomeName[selected.area] : 'the village'} · ${status}.`, colors.dim)
+      const status = selected.floor ? `landing ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'aboard the Jomon Voyager'
+      this.text(18, 43, `${selected.name} waits at ${selected.area ? biomeName[selected.area] : 'the carrier'} · ${status}.`, colors.dim)
     }
     const controls = entries.length
       ? ['[L]/ENTER  resume · [↑↓]  change selection', '[N]  create courier · [D]  delete courier · [W]  codex']
@@ -257,7 +260,7 @@ export class TerminalRenderer {
 
   private codex(page: number): void {
     const current = LORE_CODEX_PAGES[Math.max(0, Math.min(page, LORE_CODEX_PAGES.length - 1))]!
-    this.box(8, 5, 80, 50, 'KOTOBA · LORE CODEX')
+    this.box(8, 5, 80, 50, 'JOMON VOYAGER · MISSION ARCHIVE')
     this.text(14, 11, current.title, colors.gold)
     this.ruleHorizontal(14, 13, 68)
     current.lines.flatMap(line => this.wrap(line, 66)).forEach((line, index) => this.text(14, 17 + index * 3, line, colors.text))
@@ -268,7 +271,7 @@ export class TerminalRenderer {
     const origin = courierOrigins[draft.origin]
     const calling = courierCallings[draft.calling]
     const death = draft.deathMode === 'checkpoint' ? ['LODGE REST', 'Death returns you to the last cleared lodge.'] : ['IRON TRAIL', 'Death ends this courier\'s delivery and generation.']
-    this.box(6, 3, 84, 53, 'CREATE COURIER')
+    this.box(6, 3, 84, 53, 'CREATE LANDING SPECIALIST')
     const name = draft.name.trim()
     this.creatorField(10, 11, 'NAME', name || 'Unnamed Courier', draft.focus === 0, !name, draft.focus === 0 && Math.floor(performance.now() / 500) % 2 === 0)
     this.creatorField(10, 17, 'ORIGIN', origin.label, draft.focus === 1)
@@ -351,6 +354,27 @@ export class TerminalRenderer {
     this.text(48 - Math.floor(message.length / 2), 24, message, colors.text)
     this.text(48 - Math.floor((biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.').length / 2), 27, biomeTransition ? 'THE WARNING MOVES ON.' : 'The village gathers provisions.', colors.dim)
     this.text(48 - Math.floor('Please stand by.'.length / 2), 30, 'Please stand by.', colors.dim)
+  }
+
+  private transit(transit: TransitState, now: number): void {
+    const elapsed = now - transit.startedAt
+    const destination = transit.toBiome ? biomeName[transit.toBiome] : 'NEW EDO'
+    const progress = Math.min(1, elapsed / 3400)
+    this.ctx.fillStyle = '#05070b'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    for (let index = 0; index < 42; index++) {
+      const x = (index * 37 + Math.floor(elapsed / 16) * ((index % 3) + 1)) % 94
+      const y = 4 + (index * 17) % 43
+      this.text(x, y, index % 7 === 0 ? '✦' : '·', index % 7 === 0 ? colors.gold : colors.dim)
+    }
+    const shipX = Math.max(5, Math.min(76, Math.floor(5 + progress * 71)))
+    this.text(shipX, 28, '<==[ JOMON VOYAGER ]==>', colors.green)
+    this.box(20, 10, 56, 10, 'CARRIER TRANSIT')
+    const route = `${biomeName[transit.fromBiome]}  →  ${destination}`
+    this.text(48 - Math.floor(route.length / 2), 14, route, colors.text)
+    const phase = progress < .33 ? 'DEPARTURE BURN' : progress < .77 ? 'CRUISING BETWEEN STARS' : 'APPROACH WINDOW CONFIRMED'
+    this.text(48 - Math.floor(phase.length / 2), 17, phase, colors.gold)
+    this.text(48 - Math.floor('ANY KEY skips transit'.length / 2), 48, 'ANY KEY skips transit', colors.dim)
   }
 
   private hub(route: ScreenRoute, hub: HubView | undefined, now: number): void {

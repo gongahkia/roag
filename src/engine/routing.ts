@@ -2,7 +2,7 @@ import type { Biome, CompanionControlMode } from '../types'
 import type { HubAction } from './hub'
 import type { CompanionLodgeAction } from './companions'
 
-export type Screen = 'title' | 'splash' | 'codex' | 'createCourier' | 'approach' | 'hub' | 'area' | 'level' | 'loading' | 'analysis'
+export type Screen = 'title' | 'splash' | 'codex' | 'createCourier' | 'approach' | 'hub' | 'area' | 'level' | 'loading' | 'transit' | 'analysis'
 export interface ScreenRoute { screen: Screen; biome: Biome; heirSeed?: number; hubAction?: HubAction; companionAction?: { id: string; action: CompanionLodgeAction }; companionControlMode?: CompanionControlMode; codexPage?: number }
 
 export const initialRoute = (): ScreenRoute => ({ screen: 'title', biome: 'mine' })
@@ -19,6 +19,6 @@ export const navigate = (route: ScreenRoute, key: string, hasSavedRun: boolean):
   if (route.screen === 'approach') return key === 'Enter' ? { ...route, screen: 'hub' } : key === 'Escape' ? { ...route, screen: 'title' } : route
   if (route.screen === 'hub') return key === 'Escape' ? { ...route, screen: 'title' } : route
   if (route.screen === 'area') return command === 'e' || key === 'Enter' ? { ...route, screen: 'level' } : key === 'Escape' ? { ...route, screen: 'hub' } : route
-  if (route.screen === 'loading' || route.screen === 'analysis') return route
+  if (route.screen === 'loading' || route.screen === 'transit' || route.screen === 'analysis') return route
   return key === 'Escape' ? { ...route, screen: 'area' } : route
 }

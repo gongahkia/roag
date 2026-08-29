@@ -113,6 +113,12 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'oathShard', name: 'Oath Shard', glyph: '☠', color: '#e7c680', value: 200, findable: false, tags: ['curse'] }
 ]
 
+const voyagerTerms: ReadonlyArray<readonly [string, string]> = [
+  ['Courier', 'Field'], ['Obsidian', 'Alloy'], ['Cinder', 'Thermal'], ['Soot', 'Carbon'], ['Tide', 'Flux'], ['Sunstone', 'Solar'], ['Spirit', 'Signal'], ['Charm', 'Module'], ['Talisman', 'Module'], ['Tonic', 'Gel'], ['Trail', 'Survey'], ['Map', 'Survey Chart'], ['Rope', 'Line'], ['Fire-ash', 'Breach'], ['Fire', 'Thermal'], ['Stone', 'Hull'], ['Moss', 'Biofilter'], ['Bark', 'Composite'], ['Resin', 'Signal'], ['Feather', 'Micrograv'], ['Reed', 'Glide'], ['Wind', 'Vector'], ['Gale', 'Vector'], ['Sky', 'Star'], ['Grave', 'Memorial'], ['Ancestor', 'Archive'], ['Tomb', 'Archive'], ['Mourning', 'Archive'], ['Cursed', 'Corrupted'], ['Oath', 'Protocol']
+]
+const voyagerName = (name: string): string => voyagerTerms.reduce((current, [source, replacement]) => current.replaceAll(source, replacement), name)
+ITEMS.forEach(item => { item.name = voyagerName(item.name) })
+
 export const ITEM = Object.fromEntries(ITEMS.map(item => [item.id, item])) as Record<string, ItemDefinition>
 export const itemById = (id: string): ItemDefinition | undefined => ITEM[id]
 export const isItemId = (id: unknown): id is ItemId => typeof id === 'string' && itemById(id) !== undefined
@@ -130,6 +136,8 @@ export const SCRIPTS: ScriptDefinition[] = [
   { itemId: 'gate', id: 'gate', school: 'astral', tags: ['teleport'], focusCost: 3, shape: 'line', range: 1, upgrades: ['range', 'focusCost'] }
 ]
 export const SCRIPT_BY_ITEM = Object.fromEntries(SCRIPTS.map(script => [script.itemId, script])) as Record<string, ScriptDefinition>
+
+const colonyMonsterPrefix: Record<Biome, string> = { mine: 'Kestrel', wilds: 'Verdant', caverns: 'Pelagos', ruins: 'Orison', furnace: 'Helion', floodedRuins: 'Nerida', cliffs: 'Aerie', burial: 'Memorial', saltFlats: 'Halcyon', frostReliquary: 'Borealis' }
 
 export const MONSTERS: MonsterDefinition[] = [
   { id: 'rat', name: 'Field Rat', glyph: 'r', color: '#b8a598', health: 5, attack: 2, defense: 8, speed: 110, ai: 'chase', xp: 6, biome: 'mine' },
@@ -213,6 +221,7 @@ export const MONSTERS: MonsterDefinition[] = [
   { id: 'shardHound', name: 'Shard Hound', glyph: 'h', color: '#9dc7e2', health: 27, attack: 16, defense: 19, speed: 125, ai: 'chase', xp: 86, biome: 'frostReliquary', tags: ['frostReliquary', 'ice', 'mobility'] },
   { id: 'reliquaryWarden', name: 'The Reliquary Warden', glyph: 'R', color: '#f0fbff', health: 146, attack: 22, defense: 28, speed: 95, ai: 'guardian', xp: 350, biome: 'frostReliquary', tags: ['frostReliquary', 'frost', 'ice', 'guardian', 'duel'] }
 ]
+MONSTERS.forEach(monster => { monster.name = `${colonyMonsterPrefix[monster.biome]} ${voyagerName(monster.name)}` })
 export const MONSTER = Object.fromEntries(MONSTERS.map(monster => [monster.id, monster])) as Record<string, MonsterDefinition>
 export const monsterById = (id: string): MonsterDefinition | undefined => MONSTER[id]
 export const isMonsterId = (id: unknown): id is string => typeof id === 'string' && monsterById(id) !== undefined
@@ -236,13 +245,13 @@ export const SKILLS: SkillDefinition[] = [
   ...(['Iron Grip', 'Cleave', 'Breaker', 'Counter', 'Unstoppable', 'Titan'] as const).map((name, i) => ({ id: `str${i + 1}`, name, stat: 'strength' as StatName, level: i + 1, text: ['Strength +1, melee damage +1', 'Strength +1, melee damage +1', 'Strength +1, break rubble', 'Strength +1, guard 2 damage', 'Strength +1, melee knockback', 'Strength +1, melee damage +2'][i], tags: ['strength'], prerequisites: i ? [`str${i}`] : [] })),
   ...(['Quick Step', 'Sure Aim', 'Skirmisher', 'Evasion', 'Fleet', 'Ghostwalk'] as const).map((name, i) => ({ id: `agi${i + 1}`, name, stat: 'agility' as StatName, level: i + 1, text: ['Agility +1, move +1 floor tile', 'Agility +1, melee reach +1', 'Agility +1, evade telegraphs 20%', 'Agility +1, dodge +3', 'Agility +1, move +1 floor tile', 'Agility +1, evade telegraphs +35%'][i], tags: ['agility'], prerequisites: i ? [`agi${i}`] : [] })),
   ...(['Hardy', 'Forager', 'Stalwart', 'Recovery', 'Ironblood', 'Last Stand'] as const).map((name, i) => ({ id: `vit${i +1}`, name, stat: 'vitality' as StatName, level: i + 1, text: ['Vitality +1, maximum health +2', 'Vitality +1, recovery +1', 'Vitality +1, shield 1 damage', 'Vitality +1, recovery +3', 'Vitality +1, hazards -2 damage', 'Vitality +1, rescue recovery +6'][i], tags: ['vitality'], prerequisites: i ? [`vit${i}`] : [] })),
-  ...(['Spark', 'Insight', 'Ritualist', 'Sky Reader', 'Spirit Walker', 'Wayfinder'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: ['Intellect +1, charms cost 1 less', 'Intellect +1, focus recovery +1', 'Intellect +1, charm range +1', 'Intellect +1, wards shield 2', 'Intellect +1, charm range +1', 'Intellect +1, focus recovery +1, sky paths'][i], tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
+  ...(['Spark', 'Insight', 'Field Theorist', 'Star Reader', 'Signal Walker', 'Routefinder'] as const).map((name, i) => ({ id: `int${i + 1}`, name, stat: 'intellect' as StatName, level: i + 1, text: ['Intellect +1, modules cost 1 less', 'Intellect +1, focus recovery +1', 'Intellect +1, module range +1', 'Intellect +1, shields absorb 2', 'Intellect +1, module range +1', 'Intellect +1, focus recovery +1, star routes'][i], tags: ['intellect'], prerequisites: i ? [`int${i}`] : [] }))
 ]
 const SKILL = Object.fromEntries(SKILLS.map(skill => [skill.id, skill])) as Record<string, SkillDefinition>
 export const isSkillId = (id: unknown): id is string => typeof id === 'string' && SKILL[id] !== undefined
 
 export const biomeForFloor = (index: number): Biome => (['mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary'] as const)[Math.floor(index / 4)]
-export const biomeName: Record<Biome, string> = { mine: 'Obsidian Mine', wilds: 'Cedar Wilds', caverns: 'Sea Caves', ruins: 'Ceremonial Precinct', furnace: 'Cinder Furnace', floodedRuins: 'Flooded Ruins', cliffs: 'Windcarved Cliffs', burial: 'Barrow Fields', saltFlats: 'Mirror Salt Flats', frostReliquary: 'Frost Basin' }
+export const biomeName: Record<Biome, string> = { mine: 'Kestrel Colony', wilds: 'Verdant Colony', caverns: 'Pelagos Colony', ruins: 'Orison Colony', furnace: 'Helion Colony', floodedRuins: 'Nerida Colony', cliffs: 'Aerie Colony', burial: 'Memorial Colony', saltFlats: 'Halcyon Colony', frostReliquary: 'Borealis Colony' }
 export const SHOP_STOCK: Record<Biome, ItemId[]> = {
   mine: ['tonic', 'bombPack', 'ropeBundle', 'auger', 'grappleLine', 'portableWinch', 'pickaxe', 'cap', 'key'],
   wilds: ['tonic', 'machete', 'focusTonic', 'root', 'waterScript', 'lull', 'boots', 'fireJar', 'mapScroll', 'reedGlider', 'grappleLine', 'bridgeKit', 'cordmarkTalisman', 'reedstepBoots'],

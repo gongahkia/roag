@@ -10,7 +10,7 @@ import { addCompanionLeads, beginCompanionRecovery, buyHubItem, campaignContinua
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
-import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState } from './lore'
+import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState, type TransitState } from './lore'
 import { LORE_CODEX_PAGES } from './lore-codex'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
@@ -46,6 +46,8 @@ let gameZoom = loadGameZoom()
 let story: StoryState | undefined
 let storyExit: 'hub' | 'analysis' = 'hub'
 let loading: LoadingState | undefined
+let transit: TransitState | undefined
+let finishTransit: (() => void) | undefined
 let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
 let analysisNext: 'checkpoint' | 'succession' | 'session' | 'victory' | undefined
@@ -107,6 +109,11 @@ window.addEventListener('keydown', keyboardEvent => {
     if (delta) { keyboardEvent.preventDefault(); renderer.panCamera(delta[0], delta[1]); return }
   }
   if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (route.screen === 'transit') {
+    keyboardEvent.preventDefault()
+    finishTransit?.()
+    return
+  }
   if (bootstrapState !== 'ready') {
     keyboardEvent.preventDefault()
     if (bootstrapState === 'error' && keyboardEvent.key === 'F2') void bootstrapCouriers()
@@ -475,8 +482,19 @@ function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openi
   beginLoadingTransition({ screen: 'loading', biome: campaign.selectedBiome, heirSeed: seed }, { kind: 'trailhead' }, () => beginTrailhead(seed, scene, nextHero))
 }
 
-function beginBiomeTransition(fromBiome: ScreenRoute['biome'], toBiome: ScreenRoute['biome'] | undefined, onComplete: () => void): void {
-  beginLoadingTransition({ ...route, screen: 'loading', biome: toBiome ?? fromBiome }, { kind: 'biome', fromBiome, toBiome }, onComplete)
+function beginVoyagerTransit(fromBiome: ScreenRoute['biome'], toBiome: ScreenRoute['biome'] | undefined, onComplete: () => void): void {
+  route = { ...route, screen: 'transit', biome: toBiome ?? fromBiome }
+  transit = { fromBiome, toBiome, startedAt: performance.now() }
+  const complete = () => {
+    if (finishTransit !== complete) return
+    finishTransit = undefined
+    transit = undefined
+    onComplete()
+    redraw()
+  }
+  finishTransit = complete
+  window.setTimeout(complete, 3400)
+  redraw()
 }
 
 function acceptedCampaignSeed(requestedSeed: number): number {
@@ -553,7 +571,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
   if (successor) {
     campaign = unlockCampaignArea(campaign, successor)
     hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-    beginBiomeTransition(completed, successor, () => {
+    beginVoyagerTransit(completed, successor, () => {
       const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, completedState.companionDeathMode ?? activeCourier?.identity.companionDeathMode ?? 'injury')
       next.turn = completedState.turn
       next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
@@ -569,8 +587,12 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
     })
     return 'transitioning'
   }
-  persistActiveCourier()
-  return 'finished'
+  beginVoyagerTransit(completed, undefined, () => {
+    if (!state) return
+    state.status = 'victory'
+    finish(true)
+  })
+  return 'transitioning'
 }
 
 function unlockGateDestination(): void {
@@ -695,7 +717,7 @@ function redraw(): void {
   canvas.dataset.notice = hubNotice ?? ''
   const campaignStatus = hubCampaignStatus(campaign.cycle)
   canvas.setAttribute('aria-label', `Jomon courier game. ${campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
 

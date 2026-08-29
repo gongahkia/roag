@@ -2,7 +2,7 @@ import type { Alignment, DeliveryEnding, RunState } from '../types'
 import { log } from './shared'
 
 export const ALIGNMENT_THRESHOLD = 4
-export const alignmentLine = (alignment: Alignment): string => alignment === 'kami' ? 'You tend toward the kami.' : 'You tend toward the village pact.'
+export const alignmentLine = (alignment: Alignment): string => alignment === 'kami' ? 'Your report favors idealism.' : 'Your report favors pragmatism.'
 export const tend = (state: RunState, alignment: Alignment): void => {
   state.alignment ??= { kami: 0, villagePact: 0 }
   state.alignment[alignment]++
