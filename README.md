@@ -1,9 +1,9 @@
 [![](https://img.shields.io/badge/jomon_1.0.0-passing-green)](https://github.com/gongahkia/jomon/releases/tag/1.0.0)
 ![](https://github.com/gongahkia/jomon/actions/workflows/pages.yml/badge.svg)
 
-# `Jomon Voyager`
+# `Jomon`
 
-[ASCII](https://en.wikipedia.org/wiki/ASCII)-art based [procedurally-generated](https://en.wikipedia.org/wiki/Procedural_generation) space-exploration [roguelike](https://en.wikipedia.org/wiki/Roguelike) that lives in the browser. Lead a landing specialist from the generation carrier Jomon Voyager through colony worlds on the route to New Edo, with an optional autoplay mode.
+[ASCII](https://en.wikipedia.org/wiki/ASCII)-art based [procedurally-generated](https://en.wikipedia.org/wiki/Procedural_generation) space-exploration [roguelike](https://en.wikipedia.org/wiki/Roguelike) that lives in the browser. 
 
 ## Stack
 
