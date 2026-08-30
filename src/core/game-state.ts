@@ -348,7 +348,7 @@ const totalWeight = (reel: SlotReel) => reel.stops.reduce((total, stop) => total
 const startDieRoll = (state: GameState) => {
   const die = state.die;
   if (!die || !isWagering(die)) return;
-  const selected = die.reels.map((reel, reelIndex) => {
+  const selected = die.reels.map((reel) => {
     const random = new Random(`${state.config.seed}:slot:${state.hole}:${die.rerolls}:${reel.id}:${reel.stops.map((stop) => `${stop.id}:${stop.weight}`).join('|')}`);
     let remaining = random.next() * totalWeight(reel);
     let stop = reel.stops[reel.stops.length - 1]!;

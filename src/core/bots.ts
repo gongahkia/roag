@@ -2,7 +2,7 @@ import { distanceToCup, simulateShot, tileAt } from './physics';
 import { definitionFor } from './catalog';
 import { physicsModifiersFor } from './player-effects';
 import { Random } from './random';
-import type { ChronoCard, Course, DieState, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind } from './types';
+import type { ChronoCard, Course, DieState, GameCommand, Gadget, HoleRules, Player, Point, PowerUp, ShotCommand, ShotKind } from './types';
 
 export interface BotDecision {
   shot: ShotCommand;
@@ -106,20 +106,20 @@ export const chooseBotDecision = (course: Course, bot: Player, players: Player[]
   return { shot, powerUp, secondWind: bot.secondWindAvailable && !bot.twoPuttsArmed && skill >= 6 && random.chance(.45), confidence: Math.max(0, 1 - selected.score / 150) };
 };
 
-export type BotDieAction =
-  | { type: 'add-die-side'; playerId: string }
-  | { type: 'augment-die-face'; playerId: string; faceId: string }
-  | { type: 'ready-die-roll'; playerId: string };
+export type BotDieAction = Extract<GameCommand, { type: 'add-slot-stop' | 'augment-slot-stop' | 'ready-slot-spin' }>;
 
 /** A small deterministic stake keeps bots involved without draining their shop budget. */
 export const chooseBotDieAction = (seed: string, hole: number, bot: Player, die: DieState): BotDieAction => {
-  const wager = die.wagers[bot.id] ?? { addedSides: 0, augmentations: {}, ready: false };
-  const random = new Random(`${seed}:hole:${hole}:die:${bot.id}:${wager.addedSides}:${Object.values(wager.augmentations).reduce((total, count) => total + count, 0)}`);
-  const sideCost = 1 + wager.addedSides;
-  if (bot.cash >= sideCost && random.chance(.22)) return { type: 'add-die-side', playerId: bot.id };
-  const face = random.pick(die.faces);
-  const augmented = wager.augmentations[face.id] ?? 0;
+  const wager = die.wagers[bot.id] ?? { addedStops: 0, augmentations: {}, ready: false };
+  const random = new Random(`${seed}:hole:${hole}:slot:${bot.id}:${wager.addedStops}:${Object.values(wager.augmentations).reduce((total, count) => total + count, 0)}`);
+  const primaryReels = die.reels.filter((reel) => reel.kind !== 'chaos');
+  const reel = random.pick(primaryReels);
+  const sideCost = 1 + wager.addedStops;
+  if (bot.cash >= sideCost && random.chance(.22)) return { type: 'add-slot-stop', playerId: bot.id, reelId: reel.id };
+  const stop = random.pick(reel.stops);
+  const key = `${reel.id}:${stop.id}`;
+  const augmented = wager.augmentations[key] ?? 0;
   const augmentationCost = 1 + Math.floor(augmented / 2);
-  if (bot.cash >= augmentationCost && random.chance(.48)) return { type: 'augment-die-face', playerId: bot.id, faceId: face.id };
-  return { type: 'ready-die-roll', playerId: bot.id };
+  if (bot.cash >= augmentationCost && random.chance(.48)) return { type: 'augment-slot-stop', playerId: bot.id, reelId: reel.id, stopId: stop.id };
+  return { type: 'ready-slot-spin', playerId: bot.id };
 };
