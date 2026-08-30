@@ -147,6 +147,7 @@ export function descend(state: RunState): ActionResult {
   if (tile?.kind !== 'exit') { log(state, 'You are not at the exit.'); return [] }
   if (state.floor.objective.status !== 'complete') { log(state, `Objective incomplete: ${state.floor.objective.label}.`); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
+  if (state.travel) { state.modal = undefined; log(state, 'Far airlock reached. Preparing the landing file.'); return [event('connectorComplete')] }
   const areaFloor = state.areaFloor ?? state.floor.index % 4
   const biome = state.area ?? state.floor.biome
   const areaArc = state.areaArc?.biome === biome ? state.areaArc : areaArcStateFor(state.seed, biome)

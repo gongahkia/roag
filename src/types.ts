@@ -379,6 +379,7 @@ export interface RunState {
   areaFloor?: number
   areaArc?: AreaArcState
   areaOrder?: Biome[]
+  travel?: { version: 1; fromSiteId: string; toSiteId: string; linkId: string }
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
@@ -426,6 +427,8 @@ export interface GalaxySite {
   integrity: number
   ecology: number
   construction: number
+  supplies: number
+  salvage: number
   lastChangedAt: number
 }
 export interface GalaxySector { id: string; name: string; x: number; y: number; discovered: boolean; siteIds: string[] }
