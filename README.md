@@ -33,6 +33,16 @@ $ npm run build
 $ npm run preview
 ```
 
+## Verification
+
+```console
+$ npm run test:autoplay:tasks
+$ npm run test:e2e:install
+$ npm run test:e2e
+```
+
+`test:autoplay:tasks` runs the deterministic task queue against the headless engine. It verifies tactical play plus Voyager discovery, connector residency, cargo delivery and recovery, landing conditions, and sector simulation. `test:e2e` exercises the browser entry and input path with Playwright.
+
 ## Controls
 
 | Key | Action |
