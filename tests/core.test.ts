@@ -360,32 +360,35 @@ describe('public voting flow', () => {
   });
 }); */
 
-describe('shared course die flow', () => {
-  it('starts every match with six reproducible complete course faces', () => {
+describe('shared course slot flow', () => {
+  it('starts every match with three reproducible component reels', () => {
     const first = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
     const second = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
     expect(first.status).toBe('rolling');
-    expect(first.die?.faces).toHaveLength(6);
-    expect(first.die?.faces.map((face) => face.id)).toEqual(second.die?.faces.map((face) => face.id));
-    expect(first.die?.faces.map((face) => face.course.tiles)).toEqual(second.die?.faces.map((face) => face.course.tiles));
-    expect(first.die?.faces.every((face) => face.weight === 1 && face.recipe.rules.hazardPhaseCount > 0)).toBe(true);
+    expect(first.die?.reels).toHaveLength(3);
+    expect(first.die?.reels.map((reel) => reel.stops.map((stop) => stop.id))).toEqual(second.die?.reels.map((reel) => reel.stops.map((stop) => stop.id)));
+    expect(first.die?.reels.map((reel) => reel.kind)).toEqual(['biome', 'layout', 'rules']);
+    expect(first.die?.reels.every((reel) => reel.stops.every((stop) => stop.weight === 1))).toBe(true);
   });
 
-  it('allows uncapped paid sides and paid weighting before every shared roll', () => {
+  it('loads generated stops and duplicate tickets before every shared spin', () => {
     let game = createGame({ ...defaultConfig(), seed: 'weighted-die', holeCount: 1, humanCount: 1, botCount: 0 });
     game.players[0]!.cash = 40;
-    const faceId = game.die!.faces[0]!.id;
-    game = applyCommand(game, { type: 'add-die-side', playerId: 'human-0' });
-    game = applyCommand(game, { type: 'add-die-side', playerId: 'human-0' });
-    game = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
-    game = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
-    expect(game.die?.faces).toHaveLength(8);
-    expect(game.die?.faces.find((face) => face.id === faceId)?.weight).toBe(3);
+    const reelId = game.die!.reels[0]!.id;
+    const stopId = game.die!.reels[0]!.stops[0]!.id;
+    game = applyCommand(game, { type: 'add-slot-stop', playerId: 'human-0', reelId });
+    game = applyCommand(game, { type: 'add-slot-stop', playerId: 'human-0', reelId });
+    game = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
+    game = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
+    expect(game.die?.reels[0]?.stops).toHaveLength(5);
+    expect(game.die?.reels[0]?.stops.find((stop) => stop.id === stopId)?.weight).toBe(3);
     expect(game.players[0]!.cash).toBe(35);
-    expect(game.die?.wagers['human-0']).toMatchObject({ addedSides: 2, augmentations: { [faceId]: 2 } });
-    game = applyCommand(game, { type: 'ready-die-roll', playerId: 'human-0' });
+    expect(game.die?.wagers['human-0']).toMatchObject({ addedStops: 2, augmentations: { [`${reelId}:${stopId}`]: 2 } });
+    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
     expect(game.die?.roll).toBeDefined();
     game = tickTurn(game, 2);
+    expect(game.die?.phase).toBe('revealed');
+    game = tickTurn(game, 10);
     expect(game.status).toBe('playing');
     expect(game.coursePlan).toHaveLength(1);
   });
@@ -395,17 +398,19 @@ describe('shared course die flow', () => {
     const initial = createGame(config);
     const bot = initial.players[1]!;
     expect(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!)).toEqual(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!));
-    const faceId = initial.die!.faces[2]!.id;
+    const reelId = initial.die!.reels[2]!.id;
+    const stopId = initial.die!.reels[2]!.stops[0]!.id;
     const resolve = (game: ReturnType<typeof createGame>) => {
-      let next = applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId });
-      next = applyCommand(next, { type: 'ready-die-roll', playerId: 'human-0' });
-      next = applyCommand(next, { type: 'ready-die-roll', playerId: 'bot-0' });
-      return tickTurn(next, 2);
+      let next = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
+      next = applyCommand(next, { type: 'ready-slot-spin', playerId: 'human-0' });
+      next = applyCommand(next, { type: 'ready-slot-spin', playerId: 'bot-0' });
+      next = tickTurn(next, 2);
+      return tickTurn(next, 10);
     };
     expect(resolve(initial).course.seed).toBe(resolve(createGame(config)).course.seed);
   }, 15_000);
 
-  it('opens a fresh die after the merchant instead of locking future holes up front', () => {
+  it('opens a fresh slot machine after the merchant instead of locking future holes up front', () => {
     let game = resolveDie(createGame({ ...defaultConfig(), seed: 'per-hole-die', holeCount: 2, humanCount: 1, botCount: 0 }));
     expect(game.coursePlan).toHaveLength(1);
     game.players[0]!.ball.complete = true;
@@ -413,7 +418,7 @@ describe('shared course die flow', () => {
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     game = resolveShop(game);
     expect(game.status).toBe('rolling');
-    expect(game.die?.faces).toHaveLength(6);
+    expect(game.die?.reels).toHaveLength(3);
     expect(game.coursePlan).toHaveLength(1);
     game = resolveDie(game);
     expect(game.status).toBe('transitioning');
@@ -424,10 +429,10 @@ describe('shared course die flow', () => {
     expect(game.course.tee).toEqual(expansion.anchor);
   }, 15_000);
 
-  it('rejects unknown die bettors and faces', () => {
+  it('rejects unknown slot bettors and stops', () => {
     const game = createGame({ ...defaultConfig(), seed: 'invalid-die', botCount: 0 });
-    expect(applyCommand(game, { type: 'add-die-side', playerId: 'unknown' })).toEqual(game);
-    expect(applyCommand(game, { type: 'augment-die-face', playerId: 'human-0', faceId: 'missing' })).toEqual(game);
+    expect(applyCommand(game, { type: 'add-slot-stop', playerId: 'unknown', reelId: 'biome' })).toEqual(game);
+    expect(applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId: 'biome', stopId: 'missing' })).toEqual(game);
   });
 });
 

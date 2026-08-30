@@ -29,6 +29,21 @@ export interface RoomSnapshot {
   updatedAt: number;
 }
 
+/** High-frequency authoritative clock data; full course snapshots are sent only after discrete changes. */
+export interface RoomClock {
+  roomCode: string;
+  status: GameState['status'];
+  turnSecondsLeft?: number;
+  hazardElapsedMs: number;
+  die?: {
+    phase: NonNullable<GameState['die']>['phase'];
+    secondsLeft: number;
+    rollSecondsLeft?: number;
+    revealedSecondsLeft?: number;
+    rerollPotSecondsLeft?: number;
+  };
+}
+
 export type ClientMessage =
   | { type: 'create-room'; name: string; config: LobbyConfig }
   | { type: 'join-room'; code: string; name: string; reconnectToken?: string }
@@ -39,4 +54,5 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: 'joined'; playerId: string; reconnectToken: string }
   | { type: 'room-state'; room: RoomSnapshot }
+  | { type: 'room-tick'; clock: RoomClock }
   | { type: 'error'; message: string };

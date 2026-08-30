@@ -84,7 +84,7 @@ describe('course slot machine markup', () => {
     expect(lobby).toContain('start quick match');
   });
 
-  it('keeps the shared course slot machine in the foreground with weighted full-package stops', () => {
+  it('keeps the shared course slot machine in the foreground with physical component tickets', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(markup).toContain('class="die-overlay"');
@@ -94,15 +94,17 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('PULL TO SPIN');
     expect(markup).not.toContain('course-die');
     expect(markup).not.toContain('paper net');
-    expect(markup.match(/class="die-face /g)).toHaveLength(6);
-    expect(markup).toContain('class="course-glyphs"');
-    expect(markup).toContain('data-add-die-side');
-    expect(markup).toContain('data-augment-die-face="hole-1-die-1"');
-    expect(markup).toContain('data-ready-die-roll');
-    expect(markup).toContain('weight +1');
+    expect(markup).toContain('class="slot-reel-control"');
+    expect(markup).toContain('biome reel');
+    expect(markup).toContain('layout reel');
+    expect(markup).toContain('rules reel');
+    expect(markup).toContain('data-add-slot-stop="biome"');
+    expect(markup).toContain('data-augment-slot-stop');
+    expect(markup).toContain('data-ready-slot-spin');
+    expect(markup).toContain('physical tickets');
     expect(markup).toContain('app-shell rolling');
 
-    const spinning = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), state);
+    const spinning = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), state);
     const spinningMarkup = renderAppMarkup({ state: spinning, config: spinning.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(spinningMarkup).toContain('slot-machine is-spinning');
     expect(spinningMarkup.match(/slot-reel is-spinning/g)).toHaveLength(3);
@@ -200,8 +202,9 @@ describe('course slot machine markup', () => {
 
   it('removes the die overlay once the shared roll resolves', () => {
     let state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
-    state = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), state);
+    state = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), state);
     state = tickTurn(state, 2);
+    state = tickTurn(state, 10);
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(state.status).toBe('playing');
     expect(markup).not.toContain('die-overlay');
