@@ -8,6 +8,7 @@ import { PROP_IDS } from './props'
 import { campaignCycleErrors, cloneCampaignCycle, DEFAULT_AREA_ORDER, LEGACY_AREA_ORDER, initialCampaignCycle, initialCampaignRoute, isCampaignAreaOrder, isLegacyCampaignAreaOrder } from './engine/campaign'
 import { cloneCarryoverDiagnostics } from './engine/carryover'
 import { cloneCompanions, companionLeadsForRescues } from './engine/companions'
+import { migrateGalaxy } from './engine/galaxy'
 
 const DB = 'jomon-expedition-v2'
 const STORE = 'state'
@@ -35,6 +36,7 @@ interface CampaignRouteRecord {
   alignment?: Record<Alignment, number>
   reputation?: SocialReputation
   cycle?: CampaignCycle
+  galaxy?: unknown
 }
 
 export class SerialWriteQueue {
@@ -215,7 +217,8 @@ export const migrateCampaignRoute = (value: unknown): CampaignRouteState => {
   const companionControlMode = value.companionControlMode ?? 'autonomous'
   const companionControlHistory = value.companionControlHistory === undefined ? [{ sequence: 0, mode: 'autonomous' as const, source: 'migration' as const }] : value.companionControlHistory.map(event => ({ ...event }))
   const companions = (value.companions === undefined ? companionLeadsForRescues(rescuedNpcs) : cloneCompanions(value.companions, rescuedNpcs)).map(companion => ({ ...companion, controlMode: companionControlMode }))
-  return { version: 5, areaOrder: value.version === 4 || value.version === 5 ? [...value.areaOrder!] : value.version === 3 ? [...value.areaOrder!] : [...LEGACY_AREA_ORDER], completedAreas: [...value.completedAreas], unlockedAreas: [...value.unlockedAreas], selectedBiome: value.selectedBiome, rescuedNpcs, companions, companionControlMode, companionControlHistory, carryoverDiagnostics: cloneCarryoverDiagnostics(value.carryoverDiagnostics ?? []), lineageEvents: (value.lineageEvents ?? []).map(event => ({ ...event })), legacyRecords: copyLegacyRecords(value.legacyRecords ?? []), alignment: { kami: value.alignment?.kami ?? 0, villagePact: value.alignment?.villagePact ?? 0 }, reputation: { trailfolk: value.reputation?.trailfolk ?? 0, kami: value.reputation?.kami ?? 0 }, cycle: value.cycle ? cloneCampaignCycle(value.cycle) : initialCampaignCycle() }
+  const galaxy = migrateGalaxy(value.galaxy)
+  return { version: 5, areaOrder: value.version === 4 || value.version === 5 ? [...value.areaOrder!] : value.version === 3 ? [...value.areaOrder!] : [...LEGACY_AREA_ORDER], completedAreas: [...value.completedAreas], unlockedAreas: [...value.unlockedAreas], selectedBiome: value.selectedBiome, rescuedNpcs, companions, companionControlMode, companionControlHistory, carryoverDiagnostics: cloneCarryoverDiagnostics(value.carryoverDiagnostics ?? []), lineageEvents: (value.lineageEvents ?? []).map(event => ({ ...event })), legacyRecords: copyLegacyRecords(value.legacyRecords ?? []), alignment: { kami: value.alignment?.kami ?? 0, villagePact: value.alignment?.villagePact ?? 0 }, reputation: { trailfolk: value.reputation?.trailfolk ?? 0, kami: value.reputation?.kami ?? 0 }, cycle: value.cycle ? cloneCampaignCycle(value.cycle) : initialCampaignCycle(), ...(galaxy ? { galaxy } : {}) }
 }
 
 const database = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {

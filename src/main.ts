@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createHubState, equipHubItem, event, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, discoverLinkedSites, equipHubItem, event, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, saveGalaxySite, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -15,7 +15,7 @@ import { LORE_CODEX_PAGES } from './lore-codex'
 import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
 import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
 import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
-import { type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
+import { type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type GalaxyState, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
 import { getTile } from './world'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
 
@@ -145,6 +145,7 @@ window.addEventListener('keydown', keyboardEvent => {
   if (route.screen !== 'level') {
     const input = command ?? keyboardEvent.key
     if (route.screen === 'hub' && handleHubInput(input, keyboardEvent.shiftKey)) { audio.play([event('menu')]); redraw(); return }
+    if (route.screen === 'sector' && handleSectorInput(input)) { audio.play([event('menu')]); redraw(); return }
     let nextRoute = navigate(route, input, Boolean(saved))
     if (nextRoute === route) return
     if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
@@ -433,11 +434,26 @@ function handleSettingsInput(key: string): void {
 
 function start(): void {
   if (!activeCourier) return
+  const galaxy = galaxyForVoyager(route.heirSeed ?? state?.seed ?? campaign.galaxy?.seed ?? 1)
+  const siteId = route.siteId ?? galaxy?.activeSiteId
+  const site = galaxy && siteId ? galaxy.sites[siteId] : undefined
+  if (galaxy && (!site || !site.discovered)) { hubNotice = 'That landing approach has not been physically surveyed.'; route = { ...route, screen: 'hub' }; return }
   if (campaign.cycle.completedCap) { hubNotice = 'NG++ is complete. No further escalation is available.'; route = { ...route, screen: 'hub' }; return }
   if (campaignContinuationPending(campaign.cycle)) { hubNotice = 'Confirm the next campaign tier at the route board first.'; route = { ...route, screen: 'hub' }; return }
-  campaign = { ...campaign, selectedBiome: route.biome }
+  const biome = site?.biome ?? route.biome
+  campaign = { ...campaign, selectedBiome: biome, ...(galaxy && siteId ? { galaxy: setActiveGalaxySite(galaxy, siteId) } : {}) }
   hubNotice = undefined
-  state = newRun(route.heirSeed, route.biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier.identity.companionDeathMode)
+  const snapshot = campaign.galaxy && siteId ? galaxySnapshot(campaign.galaxy, siteId) : undefined
+  state = snapshot ?? newRun(route.heirSeed, biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier.identity.companionDeathMode)
+  if (snapshot && heir) {
+    state.hero = structuredClone(heir)
+    state.hero.x = state.floor.start.x
+    state.hero.y = state.floor.start.y
+    state.status = 'playing'
+    state.modal = undefined
+    state.messages.unshift(`Returning to the evolving ${site?.name ?? biome} landing.`)
+  }
+  state.area = biome
   state.alignment = { ...campaign.alignment }
   state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
   renderer.setHeroFacingLeft(false)
@@ -450,6 +466,13 @@ function start(): void {
   persistActiveCourier()
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
+}
+
+function galaxyForVoyager(seed: number): GalaxyState | undefined {
+  if (!heir) return campaign.galaxy ? reconcileGalaxy(campaign.galaxy) : undefined
+  const galaxy = reconcileGalaxy(campaign.galaxy ?? createGalaxy(seed, heir))
+  campaign = { ...campaign, galaxy }
+  return galaxy
 }
 
 function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {

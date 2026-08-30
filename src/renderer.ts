@@ -179,6 +179,7 @@ export class TerminalRenderer {
     else if (route.screen === 'createCourier' && courierDraft) this.createCourier(courierDraft)
     else if (route.screen === 'approach') this.approach(route, story, now)
     else if (route.screen === 'hub') this.hub(route, hub, now)
+    else if (route.screen === 'sector') this.sector(route, hub)
     else if (route.screen === 'area') this.area(route)
     else if (route.screen === 'loading') this.loading(state, loading, now)
     else if (route.screen === 'transit' && transit) this.transit(transit, now)
@@ -556,6 +557,28 @@ export class TerminalRenderer {
     this.text(27, 32, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
     this.text(27, 35, campaign?.terminal ? 'No active next-tier control.' : 'E / ENTER  travel', campaign?.terminal ? colors.dim : colors.green)
     this.text(27, 38, 'ESC        return to hub', colors.dim)
+  }
+
+  private sector(route: ScreenRoute, hub?: HubView): void {
+    const galaxy = hub?.galaxy
+    if (!galaxy) { this.box(22, 18, 52, 20, 'SECTOR NAVIGATION'); this.text(27, 26, 'Galaxy telemetry is unavailable.', colors.red); this.text(27, 32, 'ESC return to the Voyager', colors.dim); return }
+    const known = Object.values(galaxy.sites).filter(site => site.discovered).sort((left, right) => left.id.localeCompare(right.id))
+    const selected = galaxy.sites[route.siteId ?? galaxy.activeSiteId] ?? galaxy.sites[galaxy.activeSiteId]!
+    this.box(4, 3, 88, 51, 'JOMON VOYAGER // PHYSICAL ROUTE CHART')
+    this.text(8, 7, `SECTOR DAY ${galaxy.sectorDay.toFixed(1).padStart(5, ' ')} · ${galaxy.sectors.filter(sector => sector.discovered).length}/${galaxy.sectors.length} SECTORS CONTACTED`, colors.gold)
+    this.text(8, 10, 'KNOWN APPROACHES', colors.green)
+    known.slice(0, 12).forEach((site, index) => {
+      const active = site.id === selected.id
+      const marker = active ? '>' : site.completed ? '✓' : '·'
+      const control = site.control === 'voyager' ? 'VOYAGER' : site.control.replace(/([A-Z])/g, ' $1').toUpperCase()
+      this.text(8, 12 + index * 2, `${marker} ${site.name.slice(0, 34).padEnd(34)} ${control.slice(0, 12).padEnd(12)} ${site.completed ? 'SURVEYED' : 'OPEN'}`, active ? colors.gold : site.completed ? colors.green : colors.text)
+    })
+    this.box(54, 31, 34, 17, 'SELECTED LANDING')
+    this.wrap(selected.name, 29).slice(0, 2).forEach((line, index) => this.text(57, 34 + index, line, colors.gold))
+    this.text(57, 38, `integrity ${String(selected.integrity).padStart(3)} · ecology ${String(selected.ecology).padStart(3)}`, colors.text)
+    this.text(57, 40, `control: ${selected.control.toUpperCase()}`, colors.text)
+    this.text(57, 42, `${selected.links.filter(id => galaxy.sites[id]?.discovered).length} physical link${selected.links.filter(id => galaxy.sites[id]?.discovered).length === 1 ? '' : 's'} charted`, colors.dim)
+    this.text(8, 51, 'ARROWS select landing · ENTER walk the route · ESC return to the bridge', colors.green)
   }
 
   private stage(state: RunState): void {

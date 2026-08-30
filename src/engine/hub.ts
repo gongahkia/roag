@@ -1,7 +1,7 @@
 import { streamSeed } from '../rng'
 import { ITEM, shopStock } from '../content'
 import { CAMPAIGN_DIFFICULTY_PACKAGES } from '../campaign-difficulty'
-import type { Biome, CampaignCycle, CampaignTier, Companion, CompanionControlMode, CompanionDeathMode, Hero, HubState, ItemId, Point } from '../types'
+import type { Biome, CampaignCycle, CampaignTier, Companion, CompanionControlMode, CompanionDeathMode, GalaxyState, Hero, HubState, ItemId, Point } from '../types'
 import { toolFor } from './buildcraft'
 import { purchaseBlocker } from './economy'
 
@@ -9,8 +9,8 @@ export type HubAction = 'routes' | 'roster' | 'shop' | 'outfitter' | 'continuati
 export interface HubCampaignStatus { tier: CampaignTier; tierLabel: string; completedTiers: CampaignTier[]; completedLabel: string; historyLabel: string; packageName: string; packageRationale: string; difficultyLines: string[]; nextLabel: string; continuationPending: boolean; terminal: boolean; accessibleLabel: string }
 export interface HubCarryoverRosterEntry { name: string; status: string; injury: string; permanentlyLost: boolean }
 export interface HubCarryoverSummary { currency: number; items: string[]; tools: string[]; roster: HubCarryoverRosterEntry[]; injuries: string[]; losses: string[]; accessibleLabel: string }
-export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string; position?: Point; cycle?: CampaignCycle; carryover?: HubCarryoverSummary; companions?: Companion[]; companionControlMode?: CompanionControlMode; companionDeathMode?: CompanionDeathMode }
-export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string; position?: Point; cycle?: CampaignCycle; campaign?: HubCampaignStatus; carryover?: HubCarryoverSummary; companions?: Companion[]; companionControlMode?: CompanionControlMode; companionDeathMode?: CompanionDeathMode }
+export interface HubOptions { hero?: Hero; biome?: Biome; notice?: string; position?: Point; cycle?: CampaignCycle; carryover?: HubCarryoverSummary; companions?: Companion[]; companionControlMode?: CompanionControlMode; companionDeathMode?: CompanionDeathMode; galaxy?: GalaxyState }
+export interface HubView { courierName: string; state: HubState; hero?: Hero; stock?: ItemId[]; equipment?: ItemId[]; notice?: string; position?: Point; cycle?: CampaignCycle; campaign?: HubCampaignStatus; carryover?: HubCarryoverSummary; companions?: Companion[]; companionControlMode?: CompanionControlMode; companionDeathMode?: CompanionDeathMode; galaxy?: GalaxyState }
 export interface HubMutation { changed: boolean; message: string }
 
 const packLimit = 12
@@ -60,7 +60,8 @@ export const hubView = (courierName: string, state: HubState, options: HubOption
   ...(options.carryover ? { carryover: { ...options.carryover, items: [...options.carryover.items], tools: [...options.carryover.tools], roster: options.carryover.roster.map(entry => ({ ...entry })), injuries: [...options.carryover.injuries], losses: [...options.carryover.losses] } } : {}),
   ...(options.companions ? { companions: structuredClone(options.companions) } : {}),
   ...(options.companionControlMode ? { companionControlMode: options.companionControlMode } : {}),
-  ...(options.companionDeathMode ? { companionDeathMode: options.companionDeathMode } : {})
+  ...(options.companionDeathMode ? { companionDeathMode: options.companionDeathMode } : {}),
+  ...(options.galaxy ? { galaxy: structuredClone(options.galaxy) } : {})
 })
 
 export const buyHubItem = (hero: Hero, id: ItemId): HubMutation => {
