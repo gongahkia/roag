@@ -58,6 +58,49 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
   return state
 }
 
+export function newTransitRun(seed: number, area: Biome, inheritedHero: Hero, travel: NonNullable<RunState['travel']>, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER, cycle: CampaignCycle = initialCampaignCycle(), companions: readonly Companion[] = [], companionDeathMode: CompanionDeathMode = 'injury'): RunState {
+  const state = newRun(seed, area, 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, cycle, companions, companionDeathMode)
+  const floor = state.floor
+  const center = Math.floor(floor.height / 2)
+  floor.tiles.forEach(tile => { tile.kind = 'wall'; tile.explored = false; tile.visible = false; delete tile.flow; delete tile.elevation })
+  const carve = (x: number, y: number, radius = 2) => {
+    for (let dy = -radius; dy <= radius; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const px = x + dx
+      const py = y + dy
+      if (px > 0 && px < floor.width - 1 && py > 0 && py < floor.height - 1) floor.tiles[py * floor.width + px]!.kind = 'floor'
+    }
+  }
+  for (let x = 2; x < floor.width - 2; x++) {
+    const y = center + Math.round(Math.sin(x / 7) * 3)
+    carve(x, y)
+    if (x % 13 === 0) for (let branch = 1; branch < 7; branch++) carve(x, y + (x % 26 ? branch : -branch), 1)
+  }
+  const start = { x: 2, y: center }
+  const exit = { x: floor.width - 3, y: center + Math.round(Math.sin((floor.width - 3) / 7) * 3) }
+  floor.tiles[start.y * floor.width + start.x]!.kind = 'floor'
+  floor.tiles[exit.y * floor.width + exit.x]!.kind = 'exit'
+  floor.start = start
+  floor.exit = exit
+  floor.layoutId = 'voyager-link-corridor'
+  floor.actors = []
+  floor.items = []
+  floor.props = []
+  floor.encounters = []
+  floor.milestones = []
+  floor.sideSpaces = []
+  floor.secretRooms = []
+  floor.secretRoutes = []
+  floor.ecology = []
+  floor.guardianDefeated = true
+  floor.objective = { id: `link:${travel.linkId}`, kind: 'survey', status: 'complete', label: 'Reach the far airlock' }
+  state.travel = travel
+  state.hero.x = start.x
+  state.hero.y = start.y
+  state.messages = [`Link corridor ${travel.linkId} is live. Walk to the far airlock.`, 'This route streams between surveyed landings; it is not a cinematic jump.']
+  refreshFov(state)
+  return state
+}
+
 export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], cycle: CampaignCycle = initialCampaignCycle(), companions: readonly Companion[] = [], companionDeathMode: CompanionDeathMode = 'injury'): RunState => {
   const areaOrder = campaignOrderForSeed(seed)
   return newRun(seed, areaOrder[0], 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, cycle, companions, companionDeathMode)
