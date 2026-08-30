@@ -24,7 +24,7 @@ export type SocialRole = 'trader' | 'strandedExplorer' | 'rival' | 'caretaker' |
 export type SocialOffer = 'routeReveal' | 'supplyCache' | 'shortcut'
 export type SocialConsequence = 'alliance' | 'hostility' | 'routeChange'
 export type SocialDisposition = 'neutral' | 'allied' | 'hostile'
-export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime'
+export type TileKind = 'wall' | 'floor' | 'exit' | 'door' | 'lockedDoor' | 'water' | 'lava' | 'pit' | 'rope' | 'spikes' | 'dart' | 'fireVent' | 'crumble' | 'boulder' | 'web' | 'gas' | 'support' | 'rail' | 'rubble' | 'bramble' | 'darkness' | 'crate' | 'chest' | 'altar' | 'shop' | 'rescue' | 'smoke' | 'lift' | 'breakwall' | 'current' | 'deepWater' | 'anchor' | 'cliffWall' | 'ledge' | 'graveSoil' | 'cairn' | 'ossuary' | 'spiritPath' | 'saltMirror' | 'brine' | 'ice' | 'frostRime' | 'airlock'
 export type ActorRole = 'hero' | 'monster' | 'merchant' | 'ally' | 'guardian'
 export const MONSTER_ROLES = ['guard', 'skirmisher', 'artillery', 'controller', 'ambusher', 'pursuer', 'support', 'scavenger', 'apex'] as const
 export type MonsterRole = typeof MONSTER_ROLES[number]
@@ -196,6 +196,8 @@ export interface Floor {
   actors: Actor[]
   items: GroundItem[]
   props: Prop[]
+  airlocks?: Array<{ id: string; x: number; y: number; destinationSiteId?: string; label: string }>
+  routeCache?: { linkId: string; x: number; y: number }
   encounters?: FloorEncounter[]
   start: Point
   exit: Point
@@ -379,7 +381,7 @@ export interface RunState {
   areaFloor?: number
   areaArc?: AreaArcState
   areaOrder?: Biome[]
-  travel?: { version: 1; fromSiteId: string; toSiteId: string; linkId: string }
+  travel?: { version: 1; fromSiteId: string; toSiteId: string; linkId: string; chunkCount: number; residentStart: number; activeChunk: number; situations: ReadonlyArray<'quiet' | 'patrol' | 'hazard' | 'trader' | 'ecology'> }
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
@@ -394,10 +396,15 @@ export interface RunState {
   companionDeathMode?: CompanionDeathMode
 }
 
-export type GalaxyCourierRoutine = 'recover' | 'maintain' | 'research' | 'scout' | 'socialize'
+export type GalaxyCourierRoutine = 'recover' | 'maintain' | 'research' | 'scout' | 'socialize' | 'trade'
 export type GalaxyCourierStatus = 'available' | 'away' | 'injured' | 'dead' | 'retired'
 export type GalaxyFactionId = 'voyager' | 'salvagers' | 'relayGuild' | 'voidborn' | 'settlers'
-export type GalaxyEventKind = 'territory' | 'ecology' | 'rivalry' | 'construction' | 'loss' | 'discovery'
+export type CargoKind = 'provisions' | 'components' | 'salvage' | 'biosamples'
+export interface GalaxyMarket { stock: Record<CargoKind, number>; demand: Record<CargoKind, number>; prices: Record<CargoKind, number> }
+export interface GalaxyCargo { kind: CargoKind; units: number; contractId?: string }
+export interface GalaxyContract { id: string; sourceSiteId: string; destinationSiteId: string; cargo: GalaxyCargo; fee: number; deadlineDay: number; factionId: GalaxyFactionId; status: 'open' | 'active' | 'completed' | 'failed'; collateral: number }
+export interface GalaxyRouteCache { id: string; linkId: string; chunk: number; cargo: GalaxyCargo[]; recovered: boolean }
+export type GalaxyEventKind = 'territory' | 'ecology' | 'rivalry' | 'construction' | 'loss' | 'discovery' | 'trade'
 export interface GalaxyCourier {
   id: string
   name: string
@@ -429,6 +436,7 @@ export interface GalaxySite {
   construction: number
   supplies: number
   salvage: number
+  market: GalaxyMarket
   lastChangedAt: number
 }
 export interface GalaxySector { id: string; name: string; x: number; y: number; discovered: boolean; siteIds: string[] }
@@ -450,6 +458,9 @@ export interface GalaxyState {
   events: GalaxyEvent[]
   siteSnapshots: Record<string, GalaxySiteSnapshot>
   sharedStash: ItemId[]
+  cargo: GalaxyCargo[]
+  contracts: GalaxyContract[]
+  routeCaches: GalaxyRouteCache[]
 }
 
 export type Modal =

@@ -1,6 +1,6 @@
 import { biomeName } from '../content'
 import { rngFor } from '../rng'
-import type { Biome, GalaxyCourier, GalaxyCourierRoutine, GalaxyEvent, GalaxyFaction, GalaxyFactionId, GalaxySite, GalaxySiteSnapshot, GalaxyState, Hero, RunState } from '../types'
+import type { Biome, CargoKind, GalaxyCourier, GalaxyCourierRoutine, GalaxyEvent, GalaxyFaction, GalaxyFactionId, GalaxyMarket, GalaxySite, GalaxySiteSnapshot, GalaxyState, Hero, RunState } from '../types'
 
 export const OUTER_SECTOR_COUNT = 20
 export const SITES_PER_SECTOR = 10
@@ -34,6 +34,12 @@ const copySnapshot = (snapshot: GalaxySiteSnapshot): GalaxySiteSnapshot => ({ ve
 const siteName = (biome: Biome, sector: string): string => `${biomeName[biome].replace(' Colony', '')} // ${sector}`
 const initialFaction = (sector: number, index: number): GalaxyFactionId => (['salvagers', 'relayGuild', 'voidborn', 'settlers'] as const)[(sector * 7 + index * 3) % 4]!
 const courierId = (index: number) => `voyager-crew-${index}`
+const cargoKinds: readonly CargoKind[] = ['provisions', 'components', 'salvage', 'biosamples']
+const marketFor = (rng: ReturnType<typeof rngFor>): GalaxyMarket => {
+  const stock = {} as GalaxyMarket['stock']; const demand = {} as GalaxyMarket['demand']; const prices = {} as GalaxyMarket['prices']
+  for (const kind of cargoKinds) { stock[kind] = 8 + rng.int(0, 18); demand[kind] = 6 + rng.int(0, 16); prices[kind] = 8 + rng.int(0, 12) }
+  return { stock, demand, prices }
+}
 const crewHero = (primary: Hero, template: Pick<GalaxyCourier, 'name' | 'origin' | 'calling'>, index: number): Hero => {
   const hero = structuredClone(primary)
   hero.name = template.name
@@ -66,7 +72,7 @@ export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): Gal
         x: Math.round(Math.cos(angle) * distance * 10) + (siteIndex % 5) * 3,
         y: Math.round(Math.sin(angle) * distance * 7) + Math.floor(siteIndex / 5) * 3,
         links: [], discovered: sectorIndex === 0 && siteIndex === 0, completed: false,
-        control: initialFaction(sectorIndex, siteIndex), integrity: 55 + rng.int(0, 35), ecology: 35 + rng.int(0, 40), construction: 0, lastChangedAt: now
+        control: initialFaction(sectorIndex, siteIndex), integrity: 55 + rng.int(0, 35), ecology: 35 + rng.int(0, 40), construction: 0, supplies: 30 + rng.int(0, 45), salvage: 25 + rng.int(0, 55), market: marketFor(rng), lastChangedAt: now
       }
       return currentId
     })
@@ -88,10 +94,10 @@ export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): Gal
   const activeId = siteId(0, 0)
   const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'voyager specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [], hero: structuredClone(primary) }
   const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), rivalId: index === 1 ? courierId(3) : undefined, personalItems: [], hero: crewHero(primary, template, index) }))]
-  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, lastClockAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [] }
+  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, lastClockAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [], cargo: [], contracts: [], routeCaches: [] }
 }
 
-export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, copySite(site)])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash] })
+export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, { ...copySite(site), market: structuredClone(site.market) }])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash], cargo: galaxy.cargo.map(cargo => ({ ...cargo })), contracts: galaxy.contracts.map(contract => ({ ...contract, cargo: { ...contract.cargo } })), routeCaches: galaxy.routeCaches.map(cache => ({ ...cache, cargo: cache.cargo.map(cargo => ({ ...cargo })) })) })
 
 const appendEvent = (galaxy: GalaxyState, event: GalaxyEvent): void => {
   galaxy.events.unshift(event)
@@ -117,9 +123,17 @@ const shiftSite = (galaxy: GalaxyState, site: GalaxySite, tick: number): void =>
     }
   } else {
     site.construction = clamp(site.construction + Math.abs(change))
+    site.supplies = clamp(site.supplies + rng.int(-8, 12))
+    site.salvage = clamp(site.salvage + rng.int(-10, 10))
     appendEvent(galaxy, { id: eventId(galaxy, tick, `${site.id}:construction`), at: galaxy.lastSimulatedAt, kind: 'construction', siteId: site.id, headline: `${site.name}: new structures detected`, detail: 'Autonomous crews altered the site while the Voyager was away.' })
   }
   site.lastChangedAt = galaxy.lastSimulatedAt
+  for (const kind of cargoKinds) {
+    const market = site.market
+    market.stock[kind] = clamp(market.stock[kind] + rng.int(-3, 4))
+    market.demand[kind] = clamp(market.demand[kind] + rng.int(-2, 3))
+    market.prices[kind] = clamp(8 + Math.round((market.demand[kind] - market.stock[kind]) / 3) + (site.control === 'voidborn' ? 4 : 0), 3, 30)
+  }
 }
 const evolveCouriers = (galaxy: GalaxyState, tick: number): void => {
   const rng = rngFor(galaxy.seed, 'galaxy', 'crew', tick)
@@ -127,6 +141,16 @@ const evolveCouriers = (galaxy: GalaxyState, tick: number): void => {
     if (courier.status === 'dead' || courier.status === 'retired') continue
     if (courier.id === galaxy.activeCourierId) continue
     courier.affinity = clamp(courier.affinity + rng.int(-3, 3), -100, 100)
+    if (courier.routine === 'trade') {
+      const sites = Object.values(galaxy.sites)
+      const site = sites[rng.int(0, sites.length - 1)]
+      if (site) {
+        const kind = cargoKinds[rng.int(0, cargoKinds.length - 1)]!
+        site.market.stock[kind] = clamp(site.market.stock[kind] + rng.int(1, 4))
+        site.market.demand[kind] = clamp(site.market.demand[kind] - 1)
+        appendEvent(galaxy, { id: eventId(galaxy, tick, `${courier.id}:trade`), at: galaxy.lastSimulatedAt, kind: 'construction', siteId: site.id, courierId: courier.id, headline: `${courier.name} completed a trade survey`, detail: `${courier.name} improved ${kind} availability at ${site.name}; the Voyager cargo hold was not altered.` })
+      }
+    }
     if (rng.chance(4)) {
       courier.status = 'injured'
       appendEvent(galaxy, { id: eventId(galaxy, tick, `${courier.id}:injured`), at: galaxy.lastSimulatedAt, kind: 'loss', courierId: courier.id, headline: `${courier.name} was injured off-watch`, detail: `${courier.name}'s ${courier.routine} shift encountered a sector hazard.` })
@@ -171,6 +195,10 @@ export const discoverLinkedSites = (source: GalaxyState, sourceId: string, now =
     const sector = galaxy.sectors.find(candidate => candidate.id === destination.sectorId)
     if (sector) sector.discovered = true
     appendEvent(galaxy, { id: `event:${galaxy.seed}:link:${sourceId}:${id}`, at: now, kind: 'discovery', siteId: id, headline: `Route to ${destination.name} surveyed`, detail: `A physical approach has been found from ${site.name}.` })
+    if (!galaxy.contracts.some(contract => contract.sourceSiteId === sourceId && contract.destinationSiteId === id && contract.status === 'open')) {
+      const kind = cargoKinds[rngFor(galaxy.seed, 'galaxy', 'contract', sourceId, id).int(0, cargoKinds.length - 1)]!
+      galaxy.contracts.push({ id: `contract:${sourceId}:${id}`, sourceSiteId: sourceId, destinationSiteId: id, cargo: { kind, units: 2 }, fee: destination.market.prices[kind] * 3, deadlineDay: galaxy.sectorDay + 18, factionId: destination.control, status: 'open', collateral: destination.market.prices[kind] })
+    }
   }
   appendEvent(galaxy, { id: `event:${galaxy.seed}:complete:${sourceId}:${now}`, at: now, kind: 'discovery', siteId: sourceId, headline: `${site.name} survey archived`, detail: 'The Voyager has preserved this landing as a persistent site.' })
   return galaxy
@@ -209,6 +237,111 @@ export const saveGalaxySite = (source: GalaxyState, siteIdValue: string, run: Ru
   galaxy.siteSnapshots[siteIdValue] = { version: 1, run: structuredClone(run), savedAt: now }
   return galaxy
 }
+
+const factionPressure: Record<GalaxyFactionId, { health: number; attack: number; defense: number; reward: number; label: string }> = {
+  voyager: { health: 0, attack: 0, defense: 0, reward: 1.1, label: 'Voyager survey teams keep the approach supplied.' },
+  salvagers: { health: 0, attack: 1, defense: 0, reward: 1.3, label: 'Salvager patrols contest valuable caches.' },
+  relayGuild: { health: -1, attack: 0, defense: 0, reward: 1.2, label: 'Relay Guild infrastructure shortens routes but prices supplies.' },
+  voidborn: { health: 2, attack: 1, defense: 1, reward: 1.45, label: 'Voidborn pressure turns every approach into a fight.' },
+  settlers: { health: -1, attack: 0, defense: 0, reward: .9, label: 'Settler routes are safer, but most salvage is already spoken for.' }
+}
+
+export const applyGalaxySiteConditions = (run: RunState, site: GalaxySite): RunState => {
+  const pressure = factionPressure[site.control]
+  const integrityPressure = site.integrity < 40 ? 1 : 0
+  const ecologyPressure = site.ecology < 40 ? 1 : 0
+  const healthMultiplier = 1 + Math.max(0, pressure.health + integrityPressure) * .12
+  const attackBonus = pressure.attack + ecologyPressure
+  const defenseBonus = pressure.defense + (site.construction > 65 ? 1 : 0)
+  for (const actor of run.floor.actors) {
+    if (!actor.hostile) continue
+    actor.maxHealth = Math.max(1, Math.round(actor.maxHealth * healthMultiplier))
+    actor.health = Math.min(actor.maxHealth, Math.round(actor.health * healthMultiplier))
+    actor.attack += attackBonus
+    actor.defense += defenseBonus
+  }
+  run.floor.difficulty = { ...(run.floor.difficulty ?? { routePosition: 0, threat: 0, healthMultiplier: 1, attackBonus: 0, defenseBonus: 0, eliteChance: 0, guardianPattern: 0 }), healthMultiplier, attackBonus, defenseBonus, rewardMultiplier: pressure.reward }
+  const terrain = run.floor.tiles.filter((tile, index) => tile.kind === 'floor' && index !== run.floor.start.y * run.floor.width + run.floor.start.x)
+  if (site.ecology < 35) terrain.filter((_, index) => index % 37 === 0).forEach(tile => { tile.kind = 'gas' })
+  if (site.integrity < 35) terrain.filter((_, index) => index % 41 === 0).forEach(tile => { tile.kind = 'rubble' })
+  run.messages.unshift(`${site.name}: ${pressure.label}`)
+  if (site.ecology < 35) run.messages.unshift('Ecology alert: invasive spores have altered the landing route.')
+  if (site.integrity < 35) run.messages.unshift('Integrity alert: collapse debris has narrowed the landing route.')
+  return run
+}
+
+export const recordGalaxyLanding = (source: GalaxyState, siteIdValue: string, run: RunState, now = Date.now()): GalaxyState => {
+  const galaxy = cloneGalaxy(source)
+  const site = galaxy.sites[siteIdValue]
+  if (!site) return galaxy
+  const pressure = factionPressure[site.control]
+  const kills = run.telemetry?.kills ?? 0
+  const reward = Math.max(4, Math.round((6 + kills + Math.floor(site.salvage / 18)) * pressure.reward))
+  run.hero.gold += reward
+  site.salvage = clamp(site.salvage - Math.max(2, reward / 2))
+  site.supplies = clamp(site.supplies + 4 + Math.min(10, kills))
+  site.integrity = clamp(site.integrity + 3)
+  site.ecology = clamp(site.ecology + (site.ecology < 45 ? 2 : 0))
+  site.construction = clamp(site.construction + 2)
+  site.lastChangedAt = now
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:landing:${siteIdValue}:${now}`, at: now, kind: 'construction', siteId: siteIdValue, headline: `${site.name}: landing returned ${reward} credits`, detail: `Survey work increased supplies to ${site.supplies} and stabilized the approach.` })
+  return galaxy
+}
+export const galaxyRouteLength = (galaxy: GalaxyState, fromSiteId: string, toSiteId: string): number => 1 + rngFor(galaxy.seed, 'galaxy', 'link', [fromSiteId, toSiteId].sort().join('::')).int(0, 4)
+export const galaxyRouteSituation = (galaxy: GalaxyState, fromSiteId: string, toSiteId: string, chunk: number): 'quiet' | 'patrol' | 'hazard' | 'trader' | 'ecology' => {
+  const outcomes = ['quiet', 'patrol', 'hazard', 'trader', 'ecology'] as const
+  return outcomes[rngFor(galaxy.seed, 'galaxy', 'route-situation', [fromSiteId, toSiteId].sort().join('::'), chunk, Math.floor(galaxy.sectorDay / 6)).int(0, outcomes.length - 1)]!
+}
+export const acceptGalaxyContract = (source: GalaxyState, fromSiteId: string, toSiteId: string): { galaxy: GalaxyState; message: string } => {
+  const galaxy = cloneGalaxy(source)
+  const contract = galaxy.contracts.find(candidate => candidate.sourceSiteId === fromSiteId && candidate.destinationSiteId === toSiteId && candidate.status === 'open')
+  if (!contract) return { galaxy, message: 'No open contract is registered for this airlock.' }
+  if (galaxy.cargo.reduce((total, cargo) => total + cargo.units, 0) + contract.cargo.units > 12) return { galaxy, message: 'Voyager cargo hold lacks capacity for this contract.' }
+  const sourceSite = galaxy.sites[fromSiteId]
+  if (!sourceSite || sourceSite.market.stock[contract.cargo.kind] < contract.cargo.units) return { galaxy, message: 'The source market cannot load that cargo today.' }
+  sourceSite.market.stock[contract.cargo.kind] -= contract.cargo.units
+  galaxy.cargo.push({ ...contract.cargo, contractId: contract.id })
+  contract.status = 'active'
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${contract.id}:accepted`, at: Date.now(), kind: 'trade', siteId: fromSiteId, headline: 'Contract cargo loaded', detail: `${contract.cargo.units} units of ${contract.cargo.kind} are bound for ${galaxy.sites[toSiteId]?.name ?? toSiteId}.` })
+  return { galaxy, message: `Loaded ${contract.cargo.units} units of ${contract.cargo.kind}.` }
+}
+export const deliverGalaxyContracts = (source: GalaxyState, siteId: string, hero: Hero): { galaxy: GalaxyState; message?: string } => {
+  const galaxy = cloneGalaxy(source)
+  const deliverable = galaxy.contracts.filter(contract => contract.destinationSiteId === siteId && contract.status === 'active' && contract.deadlineDay >= galaxy.sectorDay)
+  if (!deliverable.length) return { galaxy }
+  let fee = 0
+  for (const contract of deliverable) {
+    contract.status = 'completed'
+    fee += contract.fee
+    galaxy.cargo = galaxy.cargo.filter(cargo => cargo.contractId !== contract.id)
+    galaxy.sites[siteId]!.market.stock[contract.cargo.kind] = clamp(galaxy.sites[siteId]!.market.stock[contract.cargo.kind] + contract.cargo.units)
+  }
+  hero.gold += fee
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${siteId}:${Date.now()}:delivered`, at: Date.now(), kind: 'trade', siteId, headline: 'Contract delivered', detail: `${deliverable.length} delivery${deliverable.length === 1 ? '' : 'ies'} paid ${fee} credits.` })
+  return { galaxy, message: `Delivery complete: ${fee} credits.` }
+}
+export const abandonGalaxyCargo = (source: GalaxyState, linkId: string, chunk: number): GalaxyState => {
+  const galaxy = cloneGalaxy(source)
+  const cargo = galaxy.cargo.filter(candidate => candidate.contractId)
+  if (!cargo.length) return galaxy
+  galaxy.cargo = galaxy.cargo.filter(candidate => !candidate.contractId)
+  for (const contract of galaxy.contracts) if (cargo.some(candidate => candidate.contractId === contract.id)) contract.status = 'failed'
+  galaxy.routeCaches.push({ id: `cache:${linkId}:${chunk}:${Date.now()}`, linkId, chunk, cargo, recovered: false })
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:cache:${linkId}:${Date.now()}`, at: Date.now(), kind: 'loss', headline: 'Contract cargo abandoned', detail: 'A recoverable route cache marks the last known position of the cargo.' })
+  return galaxy
+}
+export const recoverGalaxyRouteCaches = (source: GalaxyState, linkId: string): { galaxy: GalaxyState; message: string } => {
+  const galaxy = cloneGalaxy(source)
+  const caches = galaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered)
+  const cargo = caches.flatMap(cache => cache.cargo)
+  const capacity = 12 - galaxy.cargo.reduce((total, entry) => total + entry.units, 0)
+  const recovered = cargo.reduce((total, entry) => total + entry.units, 0)
+  if (!caches.length) return { galaxy, message: 'No recoverable cargo cache is recorded on this route.' }
+  if (recovered > capacity) return { galaxy, message: 'Voyager cargo hold lacks room for the recovered cache.' }
+  galaxy.cargo.push(...cargo.map(entry => ({ ...entry, contractId: undefined })))
+  caches.forEach(cache => { cache.recovered = true })
+  return { galaxy, message: `Recovered ${recovered} cargo units. The failed contracts remain closed.` }
+}
 export const galaxySnapshot = (galaxy: GalaxyState, siteIdValue: string): RunState | undefined => galaxy.siteSnapshots[siteIdValue] ? structuredClone(galaxy.siteSnapshots[siteIdValue].run) : undefined
 export const availableGalaxySites = (galaxy: GalaxyState): GalaxySite[] => Object.values(galaxy.sites).filter(site => site.discovered).sort((left, right) => left.id.localeCompare(right.id))
 export const galaxyChronicle = (galaxy: GalaxyState): readonly GalaxyEvent[] => galaxy.events
@@ -219,6 +352,14 @@ export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
   try {
     const legacy = value as unknown as GalaxyState
     const galaxy: GalaxyState = { ...legacy, lastClockAt: typeof (value as Record<string, unknown>).lastClockAt === 'number' ? legacy.lastClockAt : legacy.lastSimulatedAt, sharedStash: Array.isArray((value as Record<string, unknown>).sharedStash) ? [...legacy.sharedStash] : [] }
+    galaxy.cargo ??= []
+    galaxy.contracts ??= []
+    galaxy.routeCaches ??= []
+    for (const site of Object.values(galaxy.sites)) {
+      site.supplies ??= 45
+      site.salvage ??= 45
+      site.market ??= { stock: { provisions: 12, components: 12, salvage: 12, biosamples: 12 }, demand: { provisions: 12, components: 12, salvage: 12, biosamples: 12 }, prices: { provisions: 10, components: 10, salvage: 10, biosamples: 10 } }
+    }
     if (!galaxy.sites[galaxy.activeSiteId] || !galaxy.couriers.some(courier => courier.id === galaxy.activeCourierId)) return undefined
     return cloneGalaxy(galaxy)
   } catch { return undefined }

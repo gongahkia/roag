@@ -6,7 +6,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, discoverLinkedSites, equipHubItem, event, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, loseGalaxyCourier, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, addCompanionLeads, advanceTransitWindow, applyGalaxySiteConditions, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, deliverGalaxyContracts, discoverLinkedSites, equipHubItem, event, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, loseGalaxyCourier, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recoverGalaxyRouteCaches, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -477,6 +477,8 @@ function start(): void {
   state.area = biome
   state.alignment = { ...campaign.alignment }
   state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
+  if (!snapshot && site) applyGalaxySiteConditions(state, site)
+  if (site && galaxy) attachGalaxyAirlocks(state, galaxy, site.id)
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   activeCourier.heir = structuredClone(state.hero)
@@ -487,6 +489,20 @@ function start(): void {
   persistActiveCourier()
   audio.play([event('menu')])
   renderer.trigger([event('floor')], state)
+}
+
+function attachGalaxyAirlocks(game: RunState, galaxy: GalaxyState, siteId: string): void {
+  const site = galaxy.sites[siteId]
+  if (!site || game.floor.airlocks?.length) return
+  const destinations = site.links.filter(id => galaxy.sites[id]?.discovered)
+  const candidates = game.floor.tiles.flatMap((tile, index) => tile.kind === 'floor' && Math.max(Math.abs(index % game.floor.width - game.floor.start.x), Math.abs(Math.floor(index / game.floor.width) - game.floor.start.y)) <= 8 ? [{ x: index % game.floor.width, y: Math.floor(index / game.floor.width) }] : [])
+  const targets = [...destinations, 'voyager']
+  game.floor.airlocks = targets.flatMap((destination, index) => {
+    const point = candidates[index * 2 + 1]
+    if (!point) return []
+    game.floor.tiles[point.y * game.floor.width + point.x]!.kind = 'airlock'
+    return [{ id: `airlock:${siteId}:${destination}`, x: point.x, y: point.y, ...(destination === 'voyager' ? {} : { destinationSiteId: destination }), label: destination === 'voyager' ? 'Jomon Voyager return airlock' : `Route airlock to ${galaxy.sites[destination]!.name}` }]
+  })
 }
 
 function galaxyForVoyager(seed: number): GalaxyState | undefined {
@@ -613,7 +629,9 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
   const galaxy = galaxyForVoyager(completedState.seed)
   const siteId = route.siteId ?? galaxy?.activeSiteId
   if (galaxy && siteId) {
-    const savedSite = saveGalaxySite(galaxy, siteId, completedState)
+    const landed = recordGalaxyLanding(galaxy, siteId, completedState)
+    completedState.messages.unshift(`Landing yield secured: ${completedState.hero.gold} credits carried by ${activeCourier?.identity.name ?? completedState.hero.name}.`)
+    const savedSite = saveGalaxySite(landed, siteId, completedState)
     campaign = { ...campaign, galaxy: discoverLinkedSites(savedSite, siteId) }
     hub = { ...hub, rescued: campaign.rescuedNpcs }
     beginVoyagerTransit(completed, undefined, () => {
@@ -653,6 +671,54 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
     finish(true)
   })
   return 'transitioning'
+}
+
+function beginConnectorTravel(galaxy: GalaxyState, originId: string, destinationId: string): void {
+  const origin = galaxy.sites[originId]
+  const destination = galaxy.sites[destinationId]
+  if (!origin || !destination || !heir) return
+  const savedOrigin = state ? saveGalaxySite(galaxy, originId, state) : galaxy
+  const accepted = acceptGalaxyContract(savedOrigin, origin.id, destination.id)
+  campaign = { ...campaign, galaxy: accepted.galaxy }
+  const linkId = [origin.id, destination.id].sort().join('::')
+  const chunkCount = galaxyRouteLength(accepted.galaxy, origin.id, destination.id)
+  const situations = Array.from({ length: chunkCount }, (_, chunk) => galaxyRouteSituation(accepted.galaxy, origin.id, destination.id, chunk))
+  const travel = newTransitRun(accepted.galaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
+  if (accepted.galaxy.routeCaches.some(cache => cache.linkId === linkId && !cache.recovered)) {
+    const x = Math.max(3, Math.floor(travel.floor.width / 2))
+    const y = Math.floor(travel.floor.height / 2)
+    travel.floor.routeCache = { linkId, x, y }
+    travel.messages.unshift('A recoverable cargo cache is marked in this route window. Operate beside it to retrieve its contents.')
+  }
+  travel.messages.unshift(accepted.message)
+  travel.alignment = { ...campaign.alignment }
+  travel.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
+  state = travel
+  saved = structuredClone(travel)
+  route = { screen: 'level', biome: destination.biome, siteId: destination.id }
+  renderer.setHeroFacingLeft(false)
+  resetAutoplaySession()
+  if (activeCourier) activeCourier.checkpoint = structuredClone(travel)
+  persistActiveCourier()
+  audio.play([event('floor')])
+}
+
+function completeConnector(): void {
+  if (!state?.travel) return
+  const destination = state.travel.toSiteId
+  heir = structuredClone(state.hero)
+  if (activeCourier) activeCourier.heir = structuredClone(heir)
+  state = undefined
+  saved = undefined
+  route = { screen: 'level', biome: campaign.galaxy?.sites[destination]?.biome ?? route.biome, siteId: destination }
+  start()
+  const landed = state as RunState | undefined
+  if (landed && campaign.galaxy) {
+    const delivered = deliverGalaxyContracts(campaign.galaxy, destination, landed.hero)
+    campaign = { ...campaign, galaxy: delivered.galaxy }
+    if (delivered.message) landed.messages.unshift(delivered.message)
+    persistActiveCourier()
+  }
 }
 
 function unlockGateDestination(): void {
@@ -910,7 +976,8 @@ function handleSectorInput(key: string): boolean {
   const galaxy = galaxyForVoyager(state?.seed ?? campaign.galaxy?.seed ?? 1)
   if (!galaxy) { route = { ...route, screen: 'hub' }; return true }
   if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, screen: 'hub', siteId: undefined }; return true }
-  const sites = availableGalaxySites(galaxy)
+  const origin = galaxy.sites[galaxy.activeSiteId]
+  const sites = availableGalaxySites(galaxy).filter(site => site.id === origin?.id || Boolean(origin?.links.includes(site.id)))
   if (!sites.length) return true
   const current = Math.max(0, sites.findIndex(site => site.id === (route.siteId ?? galaxy.activeSiteId)))
   if (key === 'ArrowUp' || key === 'ArrowLeft' || key === 'ArrowDown' || key === 'ArrowRight') {
@@ -921,11 +988,11 @@ function handleSectorInput(key: string): boolean {
   }
   if (key === 'Enter' || key.toLowerCase() === 'e') {
     const selected = sites[current]!
-    const origin = galaxy.sites[galaxy.activeSiteId]!
+    if (!origin) return true
     const launch = () => { route = { ...route, screen: 'level', biome: selected.biome, siteId: selected.id }; start() }
     route = { ...route, biome: selected.biome, siteId: selected.id }
     if (selected.id === origin.id) launch()
-    else beginVoyagerTransit(origin.biome, selected.biome, launch)
+    else beginConnectorTravel(galaxy, origin.id, selected.id)
     return true
   }
   return true
@@ -952,7 +1019,8 @@ function finish(won: boolean): void {
   if (!won && !checkpointDeath) {
     campaign = recordDeath(campaign, state, state.hero.name)
     if (campaign.galaxy) {
-      campaign = { ...campaign, galaxy: loseGalaxyCourier(campaign.galaxy, campaign.galaxy.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`) }
+      const abandoned = state.travel ? abandonGalaxyCargo(campaign.galaxy, state.travel.linkId, Math.max(0, Math.floor(state.hero.x / Math.max(1, state.floor.width / state.travel.chunkCount)))) : campaign.galaxy
+      campaign = { ...campaign, galaxy: loseGalaxyCourier(abandoned, abandoned.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`) }
       hubNotice = `${state.hero.name}'s death is recorded. Another Voyager specialist can continue the sector.`
     } else {
       const record = campaign.legacyRecords.at(-1)
@@ -1015,6 +1083,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
     }
   } else if (options.run && !game.modal) events = run(game, command)
   else events = performTracked(game, command)
+  if (advanceTransitWindow(game)) renderer.recenterCamera()
   if (game.hero.level > previousLevel) events.push(event('level'))
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
   if (game.hero.x !== previousX || game.hero.y !== previousY) renderer.recenterCamera()
@@ -1038,8 +1107,30 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   audio.play(events)
   renderer.trigger(events, game, options.spellEffect)
   if (hasEvent(events, 'suspend')) { suspendRun(); return }
-  if (hasEvent(events, 'floor')) { saved = structuredClone(game); checkpointActiveCourier() }
+  if (hasEvent(events, 'floor')) {
+    const galaxy = campaign.galaxy
+    const siteId = route.siteId ?? galaxy?.activeSiteId
+    if (galaxy && siteId) attachGalaxyAirlocks(game, galaxy, siteId)
+    saved = structuredClone(game); checkpointActiveCourier()
+  }
   if (hasEvent(events, 'rescue')) persistRescuedRoster()
+  if (hasEvent(events, 'connectorComplete')) { completeConnector(); redraw(); return }
+  const cache = events.find(entry => entry.type === 'routeCache')
+  if (cache?.id && campaign.galaxy) {
+    const recovered = recoverGalaxyRouteCaches(campaign.galaxy, cache.id)
+    campaign = { ...campaign, galaxy: recovered.galaxy }
+    game.floor.routeCache = undefined
+    game.messages.unshift(recovered.message)
+  }
+  const departure = events.find(entry => entry.type === 'routeDeparture')
+  if (departure) {
+    const galaxy = campaign.galaxy
+    const origin = galaxy?.activeSiteId
+    if (departure.id === 'voyager') {
+      state = undefined; saved = undefined; hubPosition = outpostSpawn(); route = { screen: 'hub', biome: game.floor.biome }; persistActiveCourier(); redraw(); return
+    }
+    if (galaxy && origin && departure.id && galaxy.sites[departure.id]) { beginConnectorTravel(galaxy, origin, departure.id); redraw(); return }
+  }
   const areaResult = hasEvent(events, 'areaComplete') ? completeArea() : undefined
   if (hasEvent(events, 'gateResolved')) unlockGateDestination()
   if (areaResult === 'transitioning') { redraw(); return }

@@ -77,6 +77,10 @@ export function operate(state: RunState): ActionResult {
   const encounter = openEncounter(state)
   if (encounter) return encounter
   const tile = getTile(state.floor, state.hero.x, state.hero.y)
+  const routeCache = state.floor.routeCache
+  if (routeCache && Math.max(Math.abs(routeCache.x - state.hero.x), Math.abs(routeCache.y - state.hero.y)) <= 1) { log(state, 'A marked Voyager cargo cache is ready for recovery.'); return [event('routeCache', routeCache.linkId)] }
+  const airlock = state.floor.airlocks?.find(candidate => Math.max(Math.abs(candidate.x - state.hero.x), Math.abs(candidate.y - state.hero.y)) <= 1)
+  if (airlock) { log(state, `${airlock.label} ready.`); return [event('routeDeparture', airlock.destinationSiteId ?? 'voyager')] }
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
   const container = nearbyContainer(state)
@@ -147,7 +151,10 @@ export function descend(state: RunState): ActionResult {
   if (tile?.kind !== 'exit') { log(state, 'You are not at the exit.'); return [] }
   if (state.floor.objective.status !== 'complete') { log(state, `Objective incomplete: ${state.floor.objective.label}.`); return [] }
   if (!state.floor.guardianDefeated) { log(state, 'A guardian still seals the route.'); return [] }
-  if (state.travel) { state.modal = undefined; log(state, 'Far airlock reached. Preparing the landing file.'); return [event('connectorComplete')] }
+  if (state.travel) {
+    if (state.travel.residentStart + Math.min(3, state.travel.chunkCount - state.travel.residentStart) < state.travel.chunkCount) { log(state, 'This is a service hatch, not the far airlock. Continue through the route.'); return [] }
+    state.modal = undefined; log(state, 'Far airlock reached. Preparing the landing file.'); return [event('connectorComplete')]
+  }
   const areaFloor = state.areaFloor ?? state.floor.index % 4
   const biome = state.area ?? state.floor.biome
   const areaArc = state.areaArc?.biome === biome ? state.areaArc : areaArcStateFor(state.seed, biome)

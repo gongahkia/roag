@@ -61,8 +61,12 @@ export function newRun(seed = Math.floor(Math.random() * 0x7fffffff), area: Biom
 export function newTransitRun(seed: number, area: Biome, inheritedHero: Hero, travel: NonNullable<RunState['travel']>, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], areaOrder: readonly Biome[] = DEFAULT_AREA_ORDER, cycle: CampaignCycle = initialCampaignCycle(), companions: readonly Companion[] = [], companionDeathMode: CompanionDeathMode = 'injury'): RunState {
   const state = newRun(seed, area, 0, inheritedHero, rescuedNpcs, legacyRecords, areaOrder, cycle, companions, companionDeathMode)
   const floor = state.floor
+  const patrolTemplate = structuredClone(floor.actors.find(actor => actor.hostile))
+  const chunkWidth = floor.width
+  const residentCount = Math.min(3, travel.chunkCount - travel.residentStart)
+  floor.width *= residentCount
+  floor.tiles = Array.from({ length: floor.width * floor.height }, () => ({ kind: 'wall' as const, explored: false, visible: false }))
   const center = Math.floor(floor.height / 2)
-  floor.tiles.forEach(tile => { tile.kind = 'wall'; tile.explored = false; tile.visible = false; delete tile.flow; delete tile.elevation })
   const carve = (x: number, y: number, radius = 2) => {
     for (let dy = -radius; dy <= radius; dy++) for (let dx = -1; dx <= 1; dx++) {
       const px = x + dx
@@ -70,13 +74,19 @@ export function newTransitRun(seed: number, area: Biome, inheritedHero: Hero, tr
       if (px > 0 && px < floor.width - 1 && py > 0 && py < floor.height - 1) floor.tiles[py * floor.width + px]!.kind = 'floor'
     }
   }
+  const routeOffset = [...travel.linkId].reduce((total, char) => total + char.charCodeAt(0), 0)
   for (let x = 2; x < floor.width - 2; x++) {
-    const y = center + Math.round(Math.sin(x / 7) * 3)
+    const localChunk = Math.min(residentCount - 1, Math.floor(x / chunkWidth))
+    const chunk = travel.residentStart + localChunk
+    const y = center + Math.round(Math.sin((x + routeOffset + travel.residentStart * chunkWidth) / 7) * 3)
     carve(x, y)
     if (x % 13 === 0) for (let branch = 1; branch < 7; branch++) carve(x, y + (x % 26 ? branch : -branch), 1)
+    const situation = travel.situations[chunk]
+    if (situation === 'hazard' && x % 19 === 0) floor.tiles[y * floor.width + x]!.kind = 'gas'
+    if (situation === 'ecology' && x % 23 === 0) floor.tiles[y * floor.width + x]!.kind = 'bramble'
   }
   const start = { x: 2, y: center }
-  const exit = { x: floor.width - 3, y: center + Math.round(Math.sin((floor.width - 3) / 7) * 3) }
+  const exit = { x: floor.width - 3, y: center + Math.round(Math.sin((floor.width - 3 + routeOffset + travel.residentStart * chunkWidth) / 7) * 3) }
   floor.tiles[start.y * floor.width + start.x]!.kind = 'floor'
   floor.tiles[exit.y * floor.width + exit.x]!.kind = 'exit'
   floor.start = start
@@ -91,14 +101,39 @@ export function newTransitRun(seed: number, area: Biome, inheritedHero: Hero, tr
   floor.secretRooms = []
   floor.secretRoutes = []
   floor.ecology = []
+  for (let localChunk = 0; localChunk < residentCount; localChunk++) {
+    const chunk = travel.residentStart + localChunk
+    const x = Math.min(floor.width - 5, localChunk * chunkWidth + Math.floor(chunkWidth * .62))
+    const y = center + Math.round(Math.sin((x + routeOffset) / 7) * 3)
+    if (travel.situations[chunk] === 'patrol' && patrolTemplate) floor.actors.push({ ...patrolTemplate, id: `route-patrol:${travel.linkId}:${chunk}`, x, y, health: patrolTemplate.maxHealth, maxHealth: patrolTemplate.maxHealth })
+    if (travel.situations[chunk] === 'trader') floor.actors.push({ id: `route-trader:${travel.linkId}:${chunk}`, role: 'merchant', kind: 'merchant', name: 'route trader', x, y, health: 1, maxHealth: 1, attack: 0, defense: 0, speed: 0, energy: 0, glyph: '$', color: '#f4d26a', hostile: false })
+  }
   floor.guardianDefeated = true
-  floor.objective = { id: `link:${travel.linkId}`, kind: 'survey', status: 'complete', label: 'Reach the far airlock' }
+  floor.objective = { id: `link:${travel.linkId}`, kind: 'recoverSupplies', status: 'complete', label: 'Reach the far airlock' }
   state.travel = travel
   state.hero.x = start.x
   state.hero.y = start.y
-  state.messages = [`Link corridor ${travel.linkId} is live. Walk to the far airlock.`, 'This route streams between surveyed landings; it is not a cinematic jump.']
+  state.messages = [`Link ${travel.linkId} streams through ${travel.chunkCount} physical partitions.`, `Resident chunks ${travel.residentStart + 1}-${travel.residentStart + residentCount}; route situations: ${travel.situations.slice(travel.residentStart, travel.residentStart + residentCount).join(', ')}.`]
   refreshFov(state)
   return state
+}
+
+export function advanceTransitWindow(state: RunState): boolean {
+  const travel = state.travel
+  if (!travel || travel.chunkCount <= 3) return false
+  const chunkWidth = Math.floor(state.floor.width / Math.min(3, travel.chunkCount - travel.residentStart))
+  const shiftForward = state.hero.x >= chunkWidth * 2 && travel.residentStart + 3 < travel.chunkCount
+  const shiftBackward = state.hero.x < chunkWidth && travel.residentStart > 0
+  if (!shiftForward && !shiftBackward) return false
+  const residentStart = travel.residentStart + (shiftForward ? 1 : -1)
+  const nextTravel = { ...travel, residentStart, activeChunk: Math.max(0, Math.min(travel.chunkCount - 1, residentStart + 1)) }
+  const next = newTransitRun(state.seed, state.area ?? state.floor.biome, state.hero, nextTravel, state.rescuedNpcs, [], state.areaOrder, state.campaignCycle, state.companions, state.companionDeathMode)
+  state.floor = next.floor
+  state.travel = nextTravel
+  state.hero.x += shiftForward ? -chunkWidth : chunkWidth
+  state.hero.y = Math.max(1, Math.min(state.floor.height - 2, state.hero.y))
+  refreshFov(state)
+  return true
 }
 
 export const newSeededCampaignRun = (seed: number, inheritedHero?: Hero, rescuedNpcs: readonly RescuedNpc[] = [], legacyRecords: readonly LegacyRecord[] = [], cycle: CampaignCycle = initialCampaignCycle(), companions: readonly Companion[] = [], companionDeathMode: CompanionDeathMode = 'injury'): RunState => {
