@@ -20,6 +20,15 @@ curl --fail --silent "$URL" >/dev/null
 "${CLI[@]}" eval "el => { localStorage.clear(); sessionStorage.clear() }" e3
 "${CLI[@]}" reload
 "${CLI[@]}" snapshot
+boot="$("${CLI[@]}" eval "document.querySelector('.boot-activate')?.textContent")"
+grep --fixed-strings --quiet 'Initialize Voyager' <<<"$boot"
+"${CLI[@]}" click '.boot-activate'
+for _ in {1..40}; do
+  route="$("${CLI[@]}" eval "document.querySelector('#game')?.dataset.route")"
+  if test "$route" != "undefined"; then break; fi
+  sleep .1
+done
+test "$route" != "undefined"
 "${CLI[@]}" click '#game'
 focus="$("${CLI[@]}" eval "document.activeElement?.id")"
 grep --fixed-strings --quiet 'game' <<<"$focus"

@@ -821,7 +821,8 @@ function syncAutoplay(): void {
     autoplayTimer = undefined
     return
   }
-  if (!autoplayFeature) {
+  const feature = autoplayFeature
+  if (!feature) {
     void loadAutoplayFeature().then(() => {
       if (!canAutoplay()) return
       resetAutoplaySession()
@@ -862,8 +863,8 @@ function syncAutoplay(): void {
       return
     }
     if (!state) return
-    const context = autoplayContext ??= autoplayFeature.createAutoplayContext()
-    const decision = autoplayFeature.autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, context)
+    const context = autoplayContext ??= feature.createAutoplayContext()
+    const decision = feature.autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, context)
     if (!decision) {
       const reason = context.lastReason ?? 'no legal progress action'
       const unsupported = reason === 'unsupported direct companion control'
@@ -875,7 +876,7 @@ function syncAutoplay(): void {
       return
     }
     executeGameplayCommand(decision.command, { autoplay: decision })
-  }, autoplayFeature.AUTOPLAY_TURN_MS)
+  }, feature.AUTOPLAY_TURN_MS)
 }
 
 function redraw(): void {
