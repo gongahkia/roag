@@ -36,10 +36,10 @@ const runeTileGlyph: Record<string, [string, string, string]> = {
   wall: ['▓', '#79879b', '#131925'], floor: ['·', '#4a586b', '#080b12'], exit: ['>', '#f4d26a', '#15130c'], door: ['+', '#d1a66e', '#16110d'], lockedDoor: ['#', '#e9c965', '#17130b'], water: ['~', '#72b7d2', '#0a1621'], lava: ['~', '#f27a60', '#1c0d0b'], pit: [' ', '#202b38', '#030407'], rope: ['║', '#d8ae73', '#17140d'], spikes: ['^', '#d9dce1', '#15181d'], dart: ['>', '#d9dce1', '#15181d'], fireVent: ['^', '#ff855d', '#1b0d0b'], crumble: [',', '#b89a77', '#15110e'], boulder: ['O', '#a7a0a0', '#15171b'], web: ['%', '#d8dce1', '#17181d'], gas: ['*', '#9bc585', '#10170f'], support: ['╫', '#b99b72', '#17130e'], rail: ['╪', '#d7b95f', '#15130d'], rubble: ['░', '#a7afb8', '#11151d'], bramble: ['♧', '#7da56e', '#0e160d'], darkness: ['·', '#47556a', '#080b12'], crate: ['□', '#c69a6b', '#17120d'], chest: ['▣', '#f4d26a', '#1b150b'], altar: ['_', '#d2a4e8', '#17101b'], shop: ['$', '#f4d26a', '#1a150b'], rescue: ['&', '#8ae0b3', '#0d1714'], smoke: ['≈', '#a3a8b3', '#13161b'], lift: ['↕', '#e9c47e', '#1b170d'], breakwall: ['▓', '#bc8266', '#1c1210'], current: ['≋', '#8edce1', '#0a1920'], deepWater: ['≈', '#4b8ca0', '#061019'], anchor: ['⚓', '#82cbd1', '#0a1820'], cliffWall: ['▲', '#71809d', '#101725'], ledge: ['=', '#c2d4dc', '#101725'], graveSoil: [';', '#95836f', '#17120e'], cairn: ['▲', '#b9aa94', '#17120e'], ossuary: ['□', '#d9d3c5', '#17120e'], spiritPath: ['·', '#c9a6db', '#17101b'], saltMirror: ['◇', '#fff0ab', '#1a170d'], brine: ['≈', '#77c4cb', '#0a1920'], ice: ['═', '#bfeeff', '#0b1821'], frostRime: ['*', '#dff8ff', '#111b24']
 }
 const outpostAsciiGlyph = {
-  deck: ['·', '#62748b', '#101722'], corridor: ['═', '#b9c9dc', '#172638'], bulkhead: ['▓', '#74889d', '#1a2633'], viewport: ['*', '#79aef4', '#07101c'], airlock: ['≡', '#e2bc70', '#241e14'], hull: ['█', '#6d8095', '#0a1019'], flightConsole: ['⌘', '#f4d26a', '#24334a']
+  space: ['·', '#36445f', '#05070b'], deck: ['·', '#62748b', '#101722'], corridor: ['═', '#b9c9dc', '#172638'], bulkhead: ['▓', '#74889d', '#1a2633'], viewport: ['*', '#79aef4', '#07101c'], airlock: ['≡', '#e2bc70', '#241e14'], hull: ['█', '#6d8095', '#0a1019'], flightConsole: ['⌘', '#f4d26a', '#24334a']
 } as const
 const outpostRuneGlyph = {
-  deck: ['·', '#7389a2', '#0d131d'], corridor: ['═', '#d1dfef', '#132338'], bulkhead: ['▓', '#8da0b4', '#15212d'], viewport: ['✦', '#9ac6ff', '#050d19'], airlock: ['≡', '#f1cd83', '#20190f'], hull: ['█', '#7b8da2', '#080e16'], flightConsole: ['⌘', '#ffe181', '#1d304a']
+  space: ['·', '#435574', '#05070b'], deck: ['·', '#7389a2', '#0d131d'], corridor: ['═', '#d1dfef', '#132338'], bulkhead: ['▓', '#8da0b4', '#15212d'], viewport: ['✦', '#9ac6ff', '#050d19'], airlock: ['≡', '#f1cd83', '#20190f'], hull: ['█', '#7b8da2', '#080e16'], flightConsole: ['⌘', '#ffe181', '#1d304a']
 } as const
 const outpostDecorationGlyph: Record<number, [string, string, string]> = {
   8: ['A', '⌂', colors.gold], 9: ['!', '✦', colors.gold], 10: ['!', '✶', colors.red], 11: ['·', '✧', colors.blue], 12: ['|', '╫', '#b9c8d8'], 13: ['+', '⊞', colors.blue], 15: ['?', '▣', colors.gold], 16: ['$', '▣', colors.gold], 17: ['&', '⚒', colors.gold], 18: ['C', '◉', colors.green], 19: ['o', '◉', colors.dim], 20: ['|', '║', colors.dim], 21: ['*', '✧', colors.green]
@@ -413,7 +413,7 @@ export class TerminalRenderer {
   }
 
   private hubLog(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
-    const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Flight console: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} north.`
+    const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Bridge flight console: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} away.`
     const lines = [hub?.notice ?? context, hub?.notice ? context : `Open landings: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
     this.ruleHorizontal(0, 35, 48)
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
@@ -448,18 +448,24 @@ export class TerminalRenderer {
       const column = index % outpostMap.width
       const row = Math.floor(index / outpostMap.width)
       const [glyph, color, background] = (this.runeMode ? outpostRuneGlyph : outpostAsciiGlyph)[tile]
-      this.cell(x + column, y + row, glyph, color, background)
+      if (tile === 'space') {
+        const star = (column * 17 + row * 31) % 29 === 0
+        this.cell(x + column, y + row, star ? (this.runeMode ? '✦' : '*') : glyph, star ? colors.blue : color, background)
+      } else this.cell(x + column, y + row, glyph, color, background)
     })
     outpostMap.decorations.forEach(decoration => {
       const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
       this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
     })
-    this.text(x + 13, y + 1, '[ JOMON VOYAGER // CARRIER DECK ]', colors.gold)
-    this.text(x + 5, y + 12, 'SUPPLY', colors.dim)
-    this.text(x + 35, y + 12, 'GEAR', colors.dim)
-    this.text(x + 20, y + 23, 'CREW', colors.dim)
-    const keeper = vignette === 'ending' ? { x: 24, y: 13 } : { x: 24, y: 11 }
-    const porter = vignette === 'succession' && page === 0 ? { x: 21, y: 17 } : { x: 26, y: 12 }
+    this.text(x + 12, y + 1, '[ JOMON VOYAGER // CARRIER DECK ]', colors.gold)
+    this.text(x + 6, y + 11, 'BRIDGE', colors.dim)
+    this.text(x + 15, y + 10, 'HABITAT', colors.dim)
+    this.text(x + 22, y + 12, 'CARGO', colors.dim)
+    this.text(x + 21, y + 27, 'ENGINEERING', colors.dim)
+    this.text(x + 35, y + 11, 'SCIENCE', colors.dim)
+    this.text(x + 40, y + 22, 'DOCK', colors.dim)
+    const keeper = vignette === 'ending' ? { x: 27, y: 14 } : { x: 27, y: 9 }
+    const porter = vignette === 'succession' && page === 0 ? { x: 24, y: 17 } : { x: 29, y: 18 }
     this.cell(x + keeper.x, y + keeper.y, this.runeMode ? '♜' : 'K', colors.gold)
     this.cell(x + porter.x, y + porter.y, this.runeMode ? '♟' : 'P', '#c7976f')
     const specialistGlyph = this.runeMode ? (walking ? '◉' : '☉') : walking ? '◌' : '@'

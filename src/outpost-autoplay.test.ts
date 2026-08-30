@@ -6,7 +6,7 @@ import type { Direction } from './types'
 const directions: Record<string, Direction> = { i: 'nw', o: 'n', p: 'ne', k: 'w', ';': 'e', ',': 'sw', '.': 's', '/': 'se' }
 
 describe('outpostAutoplayCommand', () => {
-  it('finds the route board from the village spawn', () => {
+  it('finds the bridge flight console from the docking airlock', () => {
     let position = outpostSpawn()
     for (let step = 0; step < 100; step++) {
       const command = outpostAutoplayCommand(position)
@@ -17,10 +17,10 @@ describe('outpostAutoplayCommand', () => {
       }
       position = moveOutpost(position, directions[command!]).position
     }
-    throw new Error('route board was not reached')
+    throw new Error('bridge flight console was not reached')
   })
 
-  it('interacts only when the route board is nearby', () => {
-    expect(outpostAutoplayCommand({ x: 23, y: 8 })).toBe('c')
+  it('interacts only when the bridge flight console is nearby', () => {
+    expect(outpostAutoplayCommand({ x: 8, y: 15 })).toBe('c')
   })
 })
