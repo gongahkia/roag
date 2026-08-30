@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Golf With Your Enemies rooms database
+
+[Service]
+Type=oneshot
+User=golf
+WorkingDirectory=/opt/golf-with-your-enemies
+EnvironmentFile=/etc/golf-with-your-enemies.env
+ExecStart=/usr/bin/node scripts/backup-server.mjs

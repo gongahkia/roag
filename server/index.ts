@@ -52,10 +52,10 @@ const upgradeArrivals = new Map<string, number[]>();
 const roomArrivals = new Map<string, number[]>();
 const json = (value: unknown) => JSON.stringify(value);
 const now = () => Date.now();
-const clientIp = (request: import('node:http').IncomingMessage, socket: import('node:net').Socket) => {
+const clientIp = (request: import('node:http').IncomingMessage, socket: import('node:stream').Duplex) => {
   const forwarded = trustProxy ? request.headers['x-forwarded-for'] : undefined;
   const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined;
-  return firstForwarded || socket.remoteAddress || 'unknown';
+  return firstForwarded || (socket as { remoteAddress?: string }).remoteAddress || 'unknown';
 };
 const withinRate = (bucket: Map<string, number[]>, key: string, limit: number, windowMs: number) => {
   const timestamp = now();
