@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { mkdirSync } from 'node:fs';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocket, WebSocketServer } from 'ws';
 import { COURSE_TRANSITION_DURATION_MS } from '../src/core/campaign';
@@ -10,13 +10,16 @@ import { normalizeGameState } from '../src/core/game-state';
 import { chooseBotShopOffer } from '../src/core/shop';
 import { chooseBotDieAction } from '../src/core/bots';
 import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
-import type { ClientMessage, LobbyConfig, LobbyMember, RoomSnapshot, ServerMessage } from '../src/net/protocol';
+import type { ClientMessage, LobbyConfig, LobbyMember, RoomClock, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
 const port = Number(process.env.PORT ?? 8787);
+const host = process.env.HOST ?? '127.0.0.1';
 const allowedOrigins = new Set((process.env.APP_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean));
 const databasePath = process.env.GAME_DATABASE ?? 'data/golf-with-your-enemies.sqlite';
-const configuredCourseTileBudget = Number(process.env.MAX_COURSE_TILES ?? 262_144);
-const maxCourseTiles = Number.isSafeInteger(configuredCourseTileBudget) && configuredCourseTileBudget >= 140 ? configuredCourseTileBudget : 262_144;
+const configuredCourseTileBudget = Number(process.env.MAX_COURSE_TILES ?? 4096);
+const maxCourseTiles = Number.isSafeInteger(configuredCourseTileBudget) && configuredCourseTileBudget >= 140 ? configuredCourseTileBudget : 4096;
+const roomTtlMs = Math.max(60 * 60 * 1_000, Number(process.env.ROOM_TTL_HOURS ?? 168) * 60 * 60 * 1_000);
+const trustProxy = process.env.TRUST_PROXY === 'true';
 const databaseDirectory = databasePath.includes('/') ? databasePath.slice(0, databasePath.lastIndexOf('/')) : '';
 if (databaseDirectory) mkdirSync(databaseDirectory, { recursive: true });
 const database = new DatabaseSync(databasePath);
@@ -24,10 +27,12 @@ database.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; CREATE TABLE
 
 interface StoredRoom extends RoomSnapshot {
   reconnectTokens: Record<string, string>;
+  passphraseHash?: string;
 }
 
 interface Session {
   socket: WebSocket;
+  ip: string;
   playerId?: string;
   roomCode?: string;
   arrivals: number[];
@@ -43,15 +48,42 @@ interface RoomTimers {
 const rooms = new Map<string, StoredRoom>();
 const sessions = new Set<Session>();
 const timers = new Map<string, RoomTimers>();
+const upgradeArrivals = new Map<string, number[]>();
+const roomArrivals = new Map<string, number[]>();
 const json = (value: unknown) => JSON.stringify(value);
 const now = () => Date.now();
+const clientIp = (request: import('node:http').IncomingMessage, socket: import('node:net').Socket) => {
+  const forwarded = trustProxy ? request.headers['x-forwarded-for'] : undefined;
+  const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined;
+  return firstForwarded || socket.remoteAddress || 'unknown';
+};
+const withinRate = (bucket: Map<string, number[]>, key: string, limit: number, windowMs: number) => {
+  const timestamp = now();
+  const arrivals = (bucket.get(key) ?? []).filter((arrival) => timestamp - arrival < windowMs);
+  if (arrivals.length >= limit) return false;
+  arrivals.push(timestamp);
+  bucket.set(key, arrivals);
+  return true;
+};
 const randomId = (bytes = 18) => randomBytes(bytes).toString('base64url');
 const roomCode = () => randomBytes(3).toString('hex').toUpperCase();
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('base64url');
+const hashPassphrase = (passphrase: string) => {
+  const salt = randomBytes(16).toString('base64url');
+  return `${salt}:${scryptSync(passphrase, salt, 32).toString('base64url')}`;
+};
+const passphraseMatches = (passphrase: string, encoded: string | undefined) => {
+  if (!encoded) return false;
+  const [salt, expected] = encoded.split(':');
+  if (!salt || !expected) return false;
+  const actual = scryptSync(passphrase, salt, 32).toString('base64url');
+  return actual.length === expected.length && timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+};
 const powerUps = new Set([...CONTENT_BY_ID.values()].filter((definition) => definition.category !== 'caddy' && definition.category !== 'reality').map((definition) => definition.id));
 const emotes = new Set(['cheer', 'taunt', 'panic', 'wow', 'gg']);
 
 const safeName = (value: unknown) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16 ? value.trim().replace(/[^a-zA-Z0-9 _-]/g, '') : undefined;
+const safePassphrase = (value: unknown) => typeof value === 'string' && value.trim().length >= 4 && value.trim().length <= 128 ? value : undefined;
 const validConfig = (value: unknown): LobbyConfig | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const source = value as Record<string, unknown>;
@@ -124,6 +156,31 @@ const broadcast = (room: StoredRoom) => {
   sessions.forEach((session) => { if (session.roomCode === room.code) send(session, message); });
 };
 
+const clockFor = (room: StoredRoom): RoomClock | undefined => {
+  const game = room.game;
+  if (!game) return undefined;
+  return {
+    roomCode: room.code,
+    status: game.status,
+    turnSecondsLeft: game.status === 'playing' ? game.turn.secondsLeft : undefined,
+    hazardElapsedMs: game.hazardElapsedMs,
+    die: game.die ? {
+      phase: game.die.phase,
+      secondsLeft: game.die.secondsLeft,
+      rollSecondsLeft: game.die.roll?.secondsLeft,
+      revealedSecondsLeft: game.die.revealed?.secondsLeft,
+      rerollPotSecondsLeft: game.die.rerollPot?.secondsLeft,
+    } : undefined,
+  };
+};
+
+const broadcastTick = (room: StoredRoom) => {
+  const clock = clockFor(room);
+  if (!clock) return;
+  const message: ServerMessage = { type: 'room-tick', clock };
+  sessions.forEach((session) => { if (session.roomCode === room.code) send(session, message); });
+};
+
 const report = (session: Session, message: string) => send(session, { type: 'error', message });
 
 const roomFor = (session: Session) => session.roomCode ? rooms.get(session.roomCode) : undefined;
@@ -151,6 +208,15 @@ const updateGame = (room: StoredRoom, game: GameState) => {
   scheduleAutomation(room);
 };
 
+const discreteStateChange = (previous: GameState, next: GameState) => {
+  const dieSignature = (game: GameState) => game.die ? `${game.die.phase}:${game.die.roll?.stopIds.join(',') ?? ''}:${game.die.revealed?.plan.id ?? ''}:${game.die.rerolls}` : '';
+  return previous.status !== next.status
+    || previous.paused !== next.paused
+    || previous.turn.playerIndex !== next.turn.playerIndex
+    || previous.turn.shotInFlight !== next.turn.shotInFlight
+    || dieSignature(previous) !== dieSignature(next);
+};
+
 /** Advance elapsed gameplay time immediately before an authoritative action and on the room heartbeat. */
 const advanceRoomClock = (room: StoredRoom, timestamp = now(), publish = true) => {
   if (!room.game) return;
@@ -159,8 +225,11 @@ const advanceRoomClock = (room: StoredRoom, timestamp = now(), publish = true) =
   timers.clockAt = timestamp;
   const next = tickTurn(room.game, Math.max(0, timestamp - previous) / 1_000);
   if (next === room.game) return;
-  if (publish) updateGame(room, next);
-  else room.game = next;
+  if (publish && discreteStateChange(room.game, next)) updateGame(room, next);
+  else {
+    room.game = next;
+    if (publish) broadcastTick(room);
+  }
 };
 
 const scheduleAutomation = (room: StoredRoom) => {
@@ -172,11 +241,12 @@ const scheduleAutomation = (room: StoredRoom) => {
   }
   if (game.status === 'transitioning') {
     if (!current.transitionTimeout) {
+      const remaining = Math.max(0, COURSE_TRANSITION_DURATION_MS - Math.max(0, now() - room.updatedAt));
       current.transitionTimeout = setTimeout(() => {
         current.transitionTimeout = undefined;
         const latest = rooms.get(room.code);
         if (latest?.game?.status === 'transitioning' && !latest.game.paused) updateGame(latest, applyCommand(latest.game, { type: 'complete-transition' }));
-      }, COURSE_TRANSITION_DURATION_MS);
+      }, remaining);
     }
     return;
   }
@@ -281,13 +351,13 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   return undefined;
 };
 
-const createRoom = (session: Session, name: string, config: LobbyConfig) => {
+const createRoom = (session: Session, name: string, config: LobbyConfig, passphrase: string) => {
   leaveRoom(session);
   let code = roomCode();
   while (rooms.has(code)) code = roomCode();
   const host: LobbyMember = { id: 'human-0', name, slot: 0, connected: true, host: true };
   const reconnectToken = randomId();
-  const room: StoredRoom = { code, hostId: host.id, config, members: [host], phase: 'lobby', reconnectTokens: { [host.id]: tokenHash(reconnectToken) }, updatedAt: now() };
+  const room: StoredRoom = { code, hostId: host.id, config, members: [host], phase: 'lobby', reconnectTokens: { [host.id]: tokenHash(reconnectToken) }, passphraseHash: hashPassphrase(passphrase), updatedAt: now() };
   rooms.set(code, room);
   session.roomCode = code;
   session.playerId = host.id;
@@ -296,10 +366,11 @@ const createRoom = (session: Session, name: string, config: LobbyConfig) => {
   broadcast(room);
 };
 
-const joinRoom = (session: Session, requestedCode: string, name: string, reconnectToken?: string) => {
+const joinRoom = (session: Session, requestedCode: string, name: string, passphrase?: string, reconnectToken?: string) => {
   const room = rooms.get(requestedCode.toUpperCase());
   if (!room) return report(session, 'room not found');
   const reconnecting = reconnectToken ? room.members.find((member) => room.reconnectTokens[member.id] === tokenHash(reconnectToken)) : undefined;
+  if (!reconnecting && !passphraseMatches(passphrase ?? '', room.passphraseHash)) return report(session, 'incorrect room passphrase');
   if (room.phase === 'game' && !reconnecting) return report(session, 'this game has already started');
   if (!reconnecting && room.members.length >= room.config.maxHumans) return report(session, 'room is full');
   const member = reconnecting ?? { id: `human-${room.members.length}`, name, slot: room.members.length, connected: true, host: false };
@@ -341,16 +412,18 @@ const leaveRoom = (session: Session) => {
 const handleMessage = (session: Session, value: unknown, timestamp = now()) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return report(session, 'invalid message');
   const message = value as ClientMessage;
+  if ((message.type === 'create-room' || message.type === 'join-room') && !withinRate(roomArrivals, session.ip, 12, 10 * 60_000)) return report(session, 'too many room attempts; try again later');
   if (message.type === 'create-room') {
     const name = safeName(message.name);
     const config = validConfig(message.config);
-    if (!name || !config) return report(session, 'invalid room details');
-    return createRoom(session, name, config);
+    const passphrase = safePassphrase(message.passphrase);
+    if (!name || !config || !passphrase) return report(session, 'enter a room passphrase of at least four characters');
+    return createRoom(session, name, config, passphrase);
   }
   if (message.type === 'join-room') {
     const name = safeName(message.name);
     if (!name || typeof message.code !== 'string' || !/^[a-fA-F0-9]{6}$/.test(message.code)) return report(session, 'invalid room code');
-    return joinRoom(session, message.code, name, typeof message.reconnectToken === 'string' ? message.reconnectToken : undefined);
+    return joinRoom(session, message.code, name, safePassphrase(message.passphrase), typeof message.reconnectToken === 'string' ? message.reconnectToken : undefined);
   }
   if (message.type === 'leave-room') return leaveRoom(session);
   if (message.type === 'start-room') return startRoom(session);
@@ -386,24 +459,68 @@ const loadRooms = () => {
 };
 
 loadRooms();
-const httpServer = createServer((_, response) => {
+rooms.forEach((room) => {
+  roomTimersFor(room).clockAt = now();
+  scheduleAutomation(room);
+});
+const pruneExpiredRooms = () => {
+  const cutoff = now() - roomTtlMs;
+  rooms.forEach((room) => {
+    const connected = [...sessions].some((session) => session.roomCode === room.code && session.socket.readyState === WebSocket.OPEN);
+    if (connected || room.updatedAt >= cutoff) return;
+    clearAutomation(room);
+    timers.delete(room.code);
+    rooms.delete(room.code);
+    database.prepare('DELETE FROM rooms WHERE code = ?').run(room.code);
+    console.info(JSON.stringify({ event: 'room_expired', room: room.code }));
+  });
+};
+const httpServer = createServer((request, response) => {
+  const path = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname;
+  if (path === '/readyz') {
+    try {
+      database.prepare('SELECT 1').get();
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(json({ ready: true }));
+    } catch {
+      response.writeHead(503, { 'content-type': 'application/json' });
+      response.end(json({ ready: false }));
+    }
+    return;
+  }
+  if (path === '/healthz') {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(json({ healthy: true }));
+    return;
+  }
+  if (path === '/metrics') {
+    response.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' });
+    response.end(`golf_rooms ${rooms.size}\ngolf_sessions ${sessions.size}\n`);
+    return;
+  }
   response.writeHead(200, { 'content-type': 'application/json' });
   response.end(json({ service: 'golf-with-your-enemies', rooms: rooms.size }));
 });
 const socketServer = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 
 httpServer.on('upgrade', (request, socket, head) => {
+  const ip = clientIp(request, socket);
+  if (!withinRate(upgradeArrivals, ip, 24, 60_000)) {
+    socket.write('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
   const origin = request.headers.origin;
   if (!origin || !allowedOrigins.has(origin)) {
     socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     socket.destroy();
     return;
   }
-  socketServer.handleUpgrade(request, socket, head, (webSocket) => socketServer.emit('connection', webSocket));
+  socketServer.handleUpgrade(request, socket, head, (webSocket) => socketServer.emit('connection', webSocket, ip));
 });
 
-socketServer.on('connection', (socket) => {
-  const session: Session = { socket, arrivals: [] };
+socketServer.on('connection', (socket, ip: string) => {
+  const session: Session = { socket, ip, arrivals: [] };
   sessions.add(session);
   socket.on('message', (raw) => {
     const timestamp = now();
@@ -424,10 +541,29 @@ socketServer.on('connection', (socket) => {
   });
 });
 
-setInterval(() => {
+const roomHeartbeat = setInterval(() => {
   rooms.forEach((room) => {
     advanceRoomClock(room);
   });
 }, 250).unref();
 
-httpServer.listen(port, () => console.log(`Golf server listening on :${port}`));
+setInterval(pruneExpiredRooms, 60 * 60_000).unref();
+
+let shuttingDown = false;
+const shutdown = (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  clearInterval(roomHeartbeat);
+  rooms.forEach((room) => persist(room));
+  socketServer.clients.forEach((socket) => socket.close(1012, 'server restart'));
+  socketServer.close();
+  httpServer.close(() => {
+    database.close();
+    console.info(JSON.stringify({ event: 'server_stopped', signal }));
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 8_000).unref();
+};
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+httpServer.listen(port, host, () => console.info(JSON.stringify({ event: 'server_started', host, port })));

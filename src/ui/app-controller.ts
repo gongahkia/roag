@@ -60,9 +60,12 @@ const readNumber = (app: HTMLElement, id: string, fallback: number) => {
 };
 const validCourseDimensions = (width: number, height: number) => Number.isSafeInteger(width) && width >= 14 && Number.isSafeInteger(height) && height >= 10 && Number.isSafeInteger(width * height);
 const browserServerUrl = () => {
+  const configured = import.meta.env.VITE_GAME_SERVER_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
   const secure = window.location.protocol === 'https:';
-  const port = window.location.port === '5173' || !window.location.port ? '8787' : window.location.port;
-  return `${secure ? 'wss' : 'ws'}://${window.location.hostname}:${port}`;
+  if (window.location.port === '5173') return `ws://${window.location.hostname}:8787`;
+  const port = window.location.port ? `:${window.location.port}` : '';
+  return `${secure ? 'wss' : 'ws'}://${window.location.hostname}${port}`;
 };
 const validServerUrl = (value: string) => {
   try {
@@ -110,6 +113,7 @@ export const startApp = (app: HTMLElement) => {
   let homeMode: HomeMode = 'modes';
   let playerName = 'golfer-1';
   let requestedRoomCode = '';
+  let roomPassphrase = '';
   let serverUrl = preferences.onlineServerUrl || browserServerUrl();
   let notice: string | undefined;
   let onlineClient: OnlineClient | undefined;
@@ -117,6 +121,9 @@ export const startApp = (app: HTMLElement) => {
   let onlinePlayerId: string | undefined;
   let pendingReconnectToken: string | undefined;
   let onlineConnected = false;
+  let reconnectTimer: number | undefined;
+  let reconnectAttempts = 0;
+  let reconnectMessage: Extract<ClientMessage, { type: 'join-room' }> | undefined;
   let controllerName: string | undefined;
   let gamepadButtons: boolean[] = [];
   let controllerAxisDirection: ControllerDirection | undefined;
@@ -414,6 +421,22 @@ export const startApp = (app: HTMLElement) => {
     if (online()) { onlineClient?.send({ type: 'command', command }); return; }
     setState(applyCommand(state, command));
   };
+  const cancelReconnect = () => {
+    if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+    reconnectAttempts = 0;
+    reconnectMessage = undefined;
+  };
+  const scheduleReconnect = (source: OnlineClient) => {
+    if (!reconnectMessage || reconnectTimer !== undefined || screen === 'home') return;
+    const delay = Math.min(10_000, 500 * 2 ** reconnectAttempts);
+    reconnectAttempts += 1;
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = undefined;
+      if (onlineClient !== source || !reconnectMessage) return;
+      connectOnline({ ...reconnectMessage, reconnectToken: getStoredToken(reconnectMessage.code) ?? reconnectMessage.reconnectToken }, reconnectMessage.code);
+    }, delay);
+  };
   const connectOnline = (message: ClientMessage, codeForToken?: string) => {
     const url = validServerUrl(serverUrl);
     if (!url) { notice = 'enter a ws:// or wss:// game server address'; render(); return; }
@@ -439,6 +462,8 @@ export const startApp = (app: HTMLElement) => {
           screen = 'lobby';
           render();
         }
+        const reconnectToken = pendingReconnectToken ?? getStoredToken(nextRoom.code) ?? undefined;
+        if (reconnectToken) reconnectMessage = { type: 'join-room', code: nextRoom.code, name: playerName, reconnectToken };
       },
       onTick(clock) {
         if (onlineClient !== client || !room?.game || room.code !== clock.roomCode || state.status !== clock.status) return;
@@ -470,7 +495,9 @@ export const startApp = (app: HTMLElement) => {
       onConnection(connected) {
         if (onlineClient !== client) return;
         onlineConnected = connected;
-        notice = connected ? undefined : 'connection lost — rejoin with your room code to restore your seat';
+        notice = connected ? undefined : 'connection lost — reconnecting to your room…';
+        if (connected) reconnectAttempts = 0;
+        else scheduleReconnect(client);
         render();
       },
     });
@@ -488,17 +515,21 @@ export const startApp = (app: HTMLElement) => {
   const createOnlineRoom = (skipDieBets = false) => {
     const selected = { ...readConfig('online'), skipDieBets };
     playerName = readText(app, 'player-name', playerName);
+    roomPassphrase = readText(app, 'room-passphrase', roomPassphrase);
     serverUrl = readText(app, 'server-url', serverUrl);
+    if (roomPassphrase.length < 4) { notice = 'choose a room passphrase of at least four characters'; render(); return; }
     if (selected.maxHumans + selected.botCount > 12) { notice = 'choose between one and twelve total players'; render(); return; }
     if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose whole-number level dimensions of at least 14×10 tiles'; render(); return; }
-    connectOnline({ type: 'create-room', name: playerName, config: selected });
+    connectOnline({ type: 'create-room', name: playerName, config: selected, passphrase: roomPassphrase });
   };
   const joinOnlineRoom = () => {
     playerName = readText(app, 'join-player-name', playerName);
     serverUrl = readText(app, 'join-server-url', serverUrl);
     requestedRoomCode = readText(app, 'room-code', requestedRoomCode).toUpperCase();
+    roomPassphrase = readText(app, 'join-room-passphrase', roomPassphrase);
     if (!/^[A-F0-9]{6}$/.test(requestedRoomCode)) { notice = 'enter the six-character room code'; render(); return; }
-    connectOnline({ type: 'join-room', code: requestedRoomCode, name: playerName, reconnectToken: getStoredToken(requestedRoomCode) ?? undefined }, requestedRoomCode);
+    if (!getStoredToken(requestedRoomCode) && roomPassphrase.length < 4) { notice = 'enter the room passphrase'; render(); return; }
+    connectOnline({ type: 'join-room', code: requestedRoomCode, name: playerName, passphrase: roomPassphrase || undefined, reconnectToken: getStoredToken(requestedRoomCode) ?? undefined }, requestedRoomCode);
   };
 
   const updatePlacement = (event: PointerEvent) => {
@@ -792,7 +823,7 @@ export const startApp = (app: HTMLElement) => {
     renderer?.dispose();
     renderer = undefined;
     if (screen === 'home') {
-      app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, serverUrl, connected: onlineConnected, notice });
+      app.innerHTML = renderHomeMarkup({ panel: homePanel, mode: homeMode, config: lobbyConfigFromGame(config), preferences, playerName, roomCode: requestedRoomCode, passphrase: roomPassphrase, serverUrl, connected: onlineConnected, notice });
       renderControllerUi();
       return;
     }
@@ -1063,8 +1094,8 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-create-quick-room')) { createOnlineRoom(true); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }
     if (element.hasAttribute('data-start-room')) { startOnlineMatch(); return; }
-    if (element.hasAttribute('data-leave-lobby')) { onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
-    if (element.hasAttribute('data-restart-run')) { if (online()) { screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
+    if (element.hasAttribute('data-leave-lobby')) { cancelReconnect(); onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
+    if (element.hasAttribute('data-restart-run')) { if (online()) { cancelReconnect(); screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
     if (element.hasAttribute('data-toggle-pause')) { togglePause(); return; }
     if (element.hasAttribute('data-camera-mode')) { toggleCameraMode(); return; }
     const cameraZoom = element.dataset.cameraZoom;

@@ -45,8 +45,8 @@ export interface RoomClock {
 }
 
 export type ClientMessage =
-  | { type: 'create-room'; name: string; config: LobbyConfig }
-  | { type: 'join-room'; code: string; name: string; reconnectToken?: string }
+  | { type: 'create-room'; name: string; config: LobbyConfig; passphrase: string }
+  | { type: 'join-room'; code: string; name: string; passphrase?: string; reconnectToken?: string }
   | { type: 'start-room' }
   | { type: 'command'; command: GameCommand }
   | { type: 'leave-room' };

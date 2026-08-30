@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx server/index.ts",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=server-dist/index.mjs",
+    "start:server": "node server-dist/index.mjs",
     "dev:online": "npm run server",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run build:server",
     "check:server": "tsc --noEmit -p server/tsconfig.json",
     "test": "npm run test:core-foundation && npm run test:core-turns && npm run test:other",
     "test:core-foundation": "vitest run tests/core.test.ts -t 'course generation|clubhouse economy|shared course die'",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^22.15.3",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.12",
     "tsx": "^4.23.12",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
