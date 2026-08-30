@@ -404,18 +404,28 @@ export class TerminalRenderer {
   private hubSidebar(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
     const hero = hub?.hero
     const campaign = hub?.campaign
+    const galaxy = hub?.galaxy
+    const knownSites = galaxy ? Object.values(galaxy.sites).filter(site => site.discovered) : []
     this.text(50, 1, 'CARRIER HUB', colors.gold)
     this.text(50, 2, 'JOMON VOYAGER', colors.text)
     this.ruleHorizontal(50, 3, 45)
     if (hero) this.courierSheet(hero)
     else this.text(50, 6, 'Specialist record unavailable.', colors.red)
-    this.text(50, 32, 'OPEN LANDINGS', colors.gold)
-    this.wrap(areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
-    this.text(50, 36, `VOYAGE: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, campaign?.terminal ? colors.gold : campaign?.continuationPending ? colors.green : colors.dim)
-    this.text(50, 37, `HISTORY: ${campaign?.historyLabel ?? 'BASE ACTIVE'}`.slice(0, 45), colors.text)
-    this.text(50, 38, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
-    campaign?.difficultyLines.forEach((line, index) => this.text(50, 39 + index, line, colors.text))
-    this.text(50, 42, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
+    this.text(50, 32, galaxy ? 'PHYSICAL LANDINGS' : 'OPEN LANDINGS', colors.gold)
+    this.wrap(galaxy ? knownSites.map(site => site.name).join(', ') : areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
+    if (galaxy) {
+      const active = galaxy.couriers.find(courier => courier.id === galaxy.activeCourierId)
+      this.text(50, 36, `SECTOR DAY ${galaxy.sectorDay.toFixed(1)} · ${knownSites.length}/210 SITES KNOWN`, colors.green)
+      this.text(50, 37, `ACTIVE: ${active?.name ?? 'UNASSIGNED'}`.slice(0, 45), colors.text)
+      this.text(50, 38, `CHRONICLE: ${galaxy.events[0]?.headline ?? 'quiet watch'}`.slice(0, 45), colors.gold)
+      this.wrap(galaxy.events[0]?.detail ?? 'Walk to the flight console to chart a physical route.', 43).slice(0, 2).forEach((line, index) => this.text(50, 40 + index, line, colors.dim))
+    } else {
+      this.text(50, 36, `VOYAGE: ${campaign?.tierLabel ?? 'BASE'} · DONE ${campaign?.completedLabel ?? 'NONE'}`, campaign?.terminal ? colors.gold : campaign?.continuationPending ? colors.green : colors.dim)
+      this.text(50, 37, `HISTORY: ${campaign?.historyLabel ?? 'BASE ACTIVE'}`.slice(0, 45), colors.text)
+      this.text(50, 38, `FIXED: ${campaign?.packageName ?? 'Base Route'}`, colors.gold)
+      campaign?.difficultyLines.forEach((line, index) => this.text(50, 39 + index, line, colors.text))
+      this.text(50, 42, campaign?.nextLabel ?? 'NEXT: finish BASE to unlock NG+.', campaign?.terminal ? colors.gold : colors.green)
+    }
     this.text(50, 44, nearby ? 'NEARBY' : 'NEXT STOP', colors.gold)
     this.text(50, 45, nearby ? nearby.name.toUpperCase() : `FLIGHT CONSOLE · ↑ ${routeSteps}`, colors.green)
     this.text(50, 47, `AUTOPILOT: ${autoplayModeLabel(this.lastAutoplayMode)}`, this.lastAutoplayMode === 'off' ? colors.dim : colors.green)
@@ -424,7 +434,8 @@ export class TerminalRenderer {
 
   private hubLog(hub: HubView | undefined, nearby: ReturnType<typeof outpostInteraction>, routeSteps: number): void {
     const context = nearby ? `${nearby.name}: C / ENTER to interact.` : `Bridge flight console: ${routeSteps} tile${routeSteps === 1 ? '' : 's'} away.`
-    const lines = [hub?.notice ?? context, hub?.notice ? context : `Open landings: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.`]
+    const known = hub?.galaxy ? Object.values(hub.galaxy.sites).filter(site => site.discovered).length : undefined
+    const lines = [hub?.notice ?? context, hub?.notice ? context : known === undefined ? `Open landings: ${areaList(hub?.state.unlockedAreas ?? ['mine'])}.` : `Physical landings charted: ${known}. Chronicle events are recorded between voyages.`]
     this.ruleHorizontal(0, 35, 48)
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
@@ -506,6 +517,20 @@ export class TerminalRenderer {
       y++
       text('Dock at New Edo with C / ESC.', colors.dim)
       text('ENTER / E accepts a harder revised route.', colors.green)
+      return
+    }
+    if (action === 'crew') {
+      const galaxy = hub?.galaxy
+      this.box(49, 3, 46, 35, 'VOYAGER DUTY ROSTER')
+      if (!galaxy) { this.text(52, 8, 'Crew telemetry unavailable.', colors.red); return }
+      galaxy.couriers.slice(0, 5).forEach((courier, index) => {
+        const active = courier.id === galaxy.activeCourierId
+        this.text(52, 7 + index * 5, `${active ? '>' : String(index + 1)} ${courier.name.toUpperCase()}`.slice(0, 38), active ? colors.gold : courier.status === 'available' ? colors.text : colors.red)
+        this.text(55, 8 + index * 5, `${courier.role.toUpperCase()} · ${courier.status.toUpperCase()}`.slice(0, 35), colors.dim)
+        this.text(55, 9 + index * 5, `${courier.routine.toUpperCase()} · affinity ${courier.affinity >= 0 ? '+' : ''}${courier.affinity}`, colors.green)
+      })
+      this.text(52, 32, '1-5 select active specialist', colors.green)
+      this.text(52, 34, 'ESC return to carrier duties', colors.dim)
       return
     }
     this.box(53, action === 'roster' ? 19 : 22, 40, action === 'roster' ? 23 : 17, action === 'shop' ? 'SUPPLY STALL' : action === 'outfitter' ? 'OUTFITTER' : 'COMPANION LODGE')

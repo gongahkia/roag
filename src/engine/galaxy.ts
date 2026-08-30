@@ -34,6 +34,20 @@ const copySnapshot = (snapshot: GalaxySiteSnapshot): GalaxySiteSnapshot => ({ ve
 const siteName = (biome: Biome, sector: string): string => `${biomeName[biome].replace(' Colony', '')} // ${sector}`
 const initialFaction = (sector: number, index: number): GalaxyFactionId => (['salvagers', 'relayGuild', 'voidborn', 'settlers'] as const)[(sector * 7 + index * 3) % 4]!
 const courierId = (index: number) => `voyager-crew-${index}`
+const crewHero = (primary: Hero, template: Pick<GalaxyCourier, 'name' | 'origin' | 'calling'>, index: number): Hero => {
+  const hero = structuredClone(primary)
+  hero.name = template.name
+  hero.origin = template.origin
+  hero.calling = template.calling
+  hero.deathMode = 'ironTrail'
+  hero.health = hero.maxHealth
+  hero.focus = hero.maxFocus
+  hero.gold = 0
+  hero.inventory = index % 2 ? ['tonic', 'rock', 'ropeBundle'] : ['focusTonic', 'rock', 'bombPack']
+  hero.equipment = { mainHand: index % 2 ? 'whip' : 'tideSpear' }
+  hero.stats = { ...hero.stats, strength: Math.max(1, hero.stats.strength + (index === 0 ? 1 : 0)), agility: Math.max(1, hero.stats.agility + (index === 1 ? 1 : 0)), vitality: Math.max(1, hero.stats.vitality + (index === 3 ? 1 : 0)), intellect: Math.max(1, hero.stats.intellect + (index === 2 ? 1 : 0)) }
+  return hero
+}
 
 export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): GalaxyState => {
   const sectors = [] as GalaxyState['sectors']
@@ -72,12 +86,12 @@ export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): Gal
     sites[destination]!.links.push(source.id)
   }
   const activeId = siteId(0, 0)
-  const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'voyager specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [] }
-  const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), rivalId: index === 1 ? courierId(3) : undefined, personalItems: [] }))]
-  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {} }
+  const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'voyager specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [], hero: structuredClone(primary) }
+  const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), rivalId: index === 1 ? courierId(3) : undefined, personalItems: [], hero: crewHero(primary, template, index) }))]
+  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [] }
 }
 
-export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, copySite(site)])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems] })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])) })
+export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, copySite(site)])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash] })
 
 const appendEvent = (galaxy: GalaxyState, event: GalaxyEvent): void => {
   galaxy.events.unshift(event)
@@ -167,6 +181,22 @@ export const setCourierRoutine = (source: GalaxyState, courierId: string, routin
   const galaxy = cloneGalaxy(source)
   const courier = galaxy.couriers.find(candidate => candidate.id === courierId)
   if (courier && courier.status !== 'dead' && courier.status !== 'retired') courier.routine = routine
+  return galaxy
+}
+export const selectGalaxyCourier = (source: GalaxyState, courierId: string): { galaxy: GalaxyState; hero?: Hero } => {
+  const galaxy = cloneGalaxy(source)
+  const courier = galaxy.couriers.find(candidate => candidate.id === courierId)
+  if (!courier || courier.status !== 'available') return { galaxy }
+  galaxy.activeCourierId = courier.id
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:handoff:${courier.id}:${Date.now()}`, at: Date.now(), kind: 'discovery', courierId: courier.id, headline: `${courier.name} takes the landing watch`, detail: `${courier.role} has been assigned as the Voyager's active specialist.` })
+  return { galaxy, hero: structuredClone(courier.hero) }
+}
+export const loseGalaxyCourier = (source: GalaxyState, courierId: string, detail: string, now = Date.now()): GalaxyState => {
+  const galaxy = cloneGalaxy(source)
+  const courier = galaxy.couriers.find(candidate => candidate.id === courierId)
+  if (!courier) return galaxy
+  courier.status = 'dead'
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:loss:${courier.id}:${now}`, at: now, kind: 'loss', courierId: courier.id, headline: `${courier.name} is lost`, detail })
   return galaxy
 }
 export const saveGalaxySite = (source: GalaxyState, siteIdValue: string, run: RunState, now = Date.now()): GalaxyState => {

@@ -409,6 +409,7 @@ export interface GalaxyCourier {
   rivalId?: string
   siteId?: string
   personalItems: ItemId[]
+  hero: Hero
 }
 export interface GalaxyFaction { id: GalaxyFactionId; name: string; influence: number; disposition: number }
 export interface GalaxySite {
@@ -444,6 +445,7 @@ export interface GalaxyState {
   factions: GalaxyFaction[]
   events: GalaxyEvent[]
   siteSnapshots: Record<string, GalaxySiteSnapshot>
+  sharedStash: ItemId[]
 }
 
 export type Modal =

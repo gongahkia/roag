@@ -4,9 +4,9 @@ import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLa
 import { autoplayReplayMetadata } from './autoplay-runner'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
-import { ITEM } from './content'
+import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { addCompanionLeads, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, discoverLinkedSites, equipHubItem, event, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, saveGalaxySite, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { addCompanionLeads, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, discoverLinkedSites, equipHubItem, event, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, loseGalaxyCourier, moveOutpost, navigate, newHero, newRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -374,6 +374,7 @@ function persistActiveCourier(restoreCheckpoint = false): void {
   if (state?.status === 'playing' && state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
   if (state?.status === 'playing' && state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
   if (state?.status === 'playing') campaign = { ...campaign, companions: cloneCompanions(state.companions ?? campaign.companions, campaign.rescuedNpcs) }
+  synchronizeActiveGalaxyCourier()
   activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
   if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
   activeCourier.campaign = campaign
@@ -381,6 +382,21 @@ function persistActiveCourier(restoreCheckpoint = false): void {
   saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
   couriers = couriers.map(courier => courier.identity.id === activeCourier!.identity.id ? activeCourier! : courier)
   persistCourier(activeCourier, selectedCourierId)
+}
+
+function synchronizeActiveGalaxyCourier(): void {
+  const galaxy = campaign.galaxy
+  const currentHero = state?.status === 'playing' ? state.hero : heir
+  if (!galaxy || !currentHero) return
+  const current = galaxy.couriers.find(courier => courier.id === galaxy.activeCourierId)
+  if (!current) return
+  campaign = {
+    ...campaign,
+    galaxy: {
+      ...galaxy,
+      couriers: galaxy.couriers.map(courier => courier.id === current.id ? { ...courier, name: currentHero.name, origin: currentHero.origin, calling: currentHero.calling, hero: structuredClone(currentHero), personalItems: [...courier.personalItems] } : courier)
+    }
+  }
 }
 
 function checkpointActiveCourier(): void {
@@ -593,6 +609,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
   const completed = completedState.area ?? completedState.floor.biome
   heir = structuredClone(completedState.hero)
   campaign = { ...campaign, companions: cloneCompanions(completedState.companions ?? campaign.companions, campaign.rescuedNpcs) }
+  synchronizeActiveGalaxyCourier()
   const galaxy = galaxyForVoyager(completedState.seed)
   const siteId = route.siteId ?? galaxy?.activeSiteId
   if (galaxy && siteId) {
@@ -768,6 +785,21 @@ function redraw(): void {
 function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
+    if (action === 'crew') {
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+      const index = Number(key) - 1
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const courier = galaxy?.couriers[index]
+      if (!galaxy || !courier) { hubNotice = 'Choose a listed Voyager specialist (1-5).'; return true }
+      const selected = selectGalaxyCourier(galaxy, courier.id)
+      if (!selected.hero) { hubNotice = `${courier.name} is unavailable (${courier.status}).`; return true }
+      campaign = { ...campaign, galaxy: selected.galaxy }
+      heir = selected.hero
+      if (activeCourier) activeCourier.heir = structuredClone(heir)
+      hubNotice = `${heir.name} takes the landing watch. Their previous duty resumes autonomously.`
+      persistActiveCourier()
+      return true
+    }
     if (action === 'continuation') {
       if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined }; return true }
       if (key === 'Enter' || key.toLowerCase() === 'e') {
@@ -916,11 +948,16 @@ function finish(won: boolean): void {
   const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
   if (!won && !checkpointDeath) {
     campaign = recordDeath(campaign, state, state.hero.name)
-    const record = campaign.legacyRecords.at(-1)
-    if (!record) throw new Error('missing death legacy record')
-    pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
-    inheritedCampaign = structuredClone(campaign)
-    successorParentId = activeCourier?.identity.id
+    if (campaign.galaxy) {
+      campaign = { ...campaign, galaxy: loseGalaxyCourier(campaign.galaxy, campaign.galaxy.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`) }
+      hubNotice = `${state.hero.name}'s death is recorded. Another Voyager specialist can continue the sector.`
+    } else {
+      const record = campaign.legacyRecords.at(-1)
+      if (!record) throw new Error('missing death legacy record')
+      pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
+      inheritedCampaign = structuredClone(campaign)
+      successorParentId = activeCourier?.identity.id
+    }
   }
   records.bestDepth = Math.max(records.bestDepth, state.floor.index + 1)
   if (won) records.wins++
@@ -930,10 +967,10 @@ function finish(won: boolean): void {
   analysis = analysisFor(state, won ? 'complete' : 'lost')
   records.analyses.unshift(analysis)
   records.analyses = records.analyses.slice(0, 20)
-  analysisNext = won ? 'victory' : checkpointDeath ? 'checkpoint' : 'succession'
+  analysisNext = won || Boolean(campaign.galaxy) ? 'victory' : checkpointDeath ? 'checkpoint' : 'succession'
   if (checkpointDeath && activeCourier?.checkpoint) saved = structuredClone(activeCourier.checkpoint)
   else saved = undefined
-  if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = true }
+  if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = !campaign.galaxy }
   if (won) {
     story = createStory(endingLore(state, campaign.completedAreas, campaign.alignment), performance.now())
     storyExit = 'analysis'
