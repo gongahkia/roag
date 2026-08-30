@@ -921,8 +921,11 @@ function handleSectorInput(key: string): boolean {
   }
   if (key === 'Enter' || key.toLowerCase() === 'e') {
     const selected = sites[current]!
-    route = { ...route, screen: 'level', biome: selected.biome, siteId: selected.id }
-    start()
+    const origin = galaxy.sites[galaxy.activeSiteId]!
+    const launch = () => { route = { ...route, screen: 'level', biome: selected.biome, siteId: selected.id }; start() }
+    route = { ...route, biome: selected.biome, siteId: selected.id }
+    if (selected.id === origin.id) launch()
+    else beginVoyagerTransit(origin.biome, selected.biome, launch)
     return true
   }
   return true

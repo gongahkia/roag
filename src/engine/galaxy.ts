@@ -88,7 +88,7 @@ export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): Gal
   const activeId = siteId(0, 0)
   const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'voyager specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [], hero: structuredClone(primary) }
   const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), rivalId: index === 1 ? courierId(3) : undefined, personalItems: [], hero: crewHero(primary, template, index) }))]
-  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [] }
+  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, lastClockAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [] }
 }
 
 export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, copySite(site)])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash] })
@@ -139,13 +139,17 @@ const evolveCouriers = (galaxy: GalaxyState, tick: number): void => {
 
 export const reconcileGalaxy = (source: GalaxyState, now = Date.now()): GalaxyState => {
   const galaxy = cloneGalaxy(source)
-  const elapsed = Math.max(0, Math.min(GALAXY_OFFLINE_CAP_MS, now - galaxy.lastSimulatedAt))
+  const clockElapsed = Math.max(0, Math.min(GALAXY_OFFLINE_CAP_MS, now - galaxy.lastClockAt))
+  galaxy.sectorDay += clockElapsed / GALAXY_HOUR_MS
+  galaxy.lastClockAt = now
+  const rawElapsed = Math.max(0, now - galaxy.lastSimulatedAt)
+  const elapsed = Math.min(GALAXY_OFFLINE_CAP_MS, rawElapsed)
+  if (rawElapsed > GALAXY_OFFLINE_CAP_MS) galaxy.lastSimulatedAt = now - elapsed
   const ticks = Math.floor(elapsed / GALAXY_TICK_MS)
   if (!ticks) return galaxy
   for (let offset = 1; offset <= ticks; offset++) {
     const tick = Math.floor(galaxy.sectorDay * GALAXY_HOUR_MS / GALAXY_TICK_MS) + offset
     galaxy.lastSimulatedAt += GALAXY_TICK_MS
-    galaxy.sectorDay += GALAXY_TICK_MS / GALAXY_HOUR_MS
     const candidates = Object.values(galaxy.sites)
     const site = candidates[rngFor(galaxy.seed, 'galaxy', 'site', tick).int(0, candidates.length - 1)]
     if (site) shiftSite(galaxy, site, tick)
@@ -213,7 +217,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
   if (!isRecord(value) || value.version !== 1 || typeof value.seed !== 'number' || !Array.isArray(value.sectors) || !isRecord(value.sites) || !Array.isArray(value.couriers) || !Array.isArray(value.factions) || !Array.isArray(value.events) || !isRecord(value.siteSnapshots)) return undefined
   try {
-    const galaxy = value as unknown as GalaxyState
+    const legacy = value as unknown as GalaxyState
+    const galaxy: GalaxyState = { ...legacy, lastClockAt: typeof (value as Record<string, unknown>).lastClockAt === 'number' ? legacy.lastClockAt : legacy.lastSimulatedAt, sharedStash: Array.isArray((value as Record<string, unknown>).sharedStash) ? [...legacy.sharedStash] : [] }
     if (!galaxy.sites[galaxy.activeSiteId] || !galaxy.couriers.some(courier => courier.id === galaxy.activeCourierId)) return undefined
     return cloneGalaxy(galaxy)
   } catch { return undefined }

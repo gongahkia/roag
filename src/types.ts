@@ -436,6 +436,7 @@ export interface GalaxyState {
   seed: number
   createdAt: number
   lastSimulatedAt: number
+  lastClockAt: number
   sectorDay: number
   activeSiteId: string
   activeCourierId: string

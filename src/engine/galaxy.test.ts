@@ -30,4 +30,13 @@ describe('persistent galaxy', () => {
     expect(evolved.sectorDay).toBe(12)
     expect(evolved.events.length).toBeGreaterThan(saved.events.length)
   })
+
+  it('keeps the visible clock continuous between major simulation turns', () => {
+    const galaxy = createGalaxy(101, newHero(), 0)
+    const hour = reconcileGalaxy(galaxy, GALAXY_HOUR_MS)
+    const secondHour = reconcileGalaxy(hour, 2 * GALAXY_HOUR_MS)
+    expect(hour.sectorDay).toBe(1)
+    expect(secondHour.sectorDay).toBe(2)
+    expect(secondHour.events).toHaveLength(hour.events.length)
+  })
 })
