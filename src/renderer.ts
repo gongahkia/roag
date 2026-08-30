@@ -1,5 +1,5 @@
 import { ITEM, biomeName } from './content'
-import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay'
+import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'

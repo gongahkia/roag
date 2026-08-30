@@ -33,13 +33,16 @@ function bootVoyager(): void {
     canvas.removeEventListener('pointerdown', load)
     canvas.removeEventListener('focus', load)
     window.removeEventListener('keydown', loadFromKey)
+    window.removeEventListener('vite:preloadError', recoverFromPreloadError)
     activate.removeEventListener('click', load)
   }
-  const retry = () => {
+  const showReload = () => {
     loading = false
     activate.disabled = false
-    activate.textContent = 'Retry initialization'
-    draw('Initialization failed', 'Select retry to load the current Voyager build.')
+    activate.textContent = 'Reload Voyager'
+    removeListeners()
+    activate.addEventListener('click', () => location.reload(), { once: true })
+    draw('A new Voyager build is available', 'Reload to retrieve the current mission systems.')
   }
   const load = () => {
     if (loading) return
@@ -48,20 +51,22 @@ function bootVoyager(): void {
     activate.textContent = 'Loading Voyager…'
     draw('Loading mission systems…', 'The carrier is preparing the active game modules.')
     void import('./main').then(() => {
+      loading = false
       removeListeners()
       activate.remove()
       canvas.focus()
-    }).catch(retry)
+    }).catch(showReload)
   }
   const loadFromKey = (keyboardEvent: KeyboardEvent) => {
     if (keyboardEvent.metaKey || keyboardEvent.ctrlKey || keyboardEvent.altKey) return
     keyboardEvent.preventDefault()
     load()
   }
-  window.addEventListener('vite:preloadError', event => {
+  const recoverFromPreloadError = (event: Event) => {
     event.preventDefault()
-    if (loading) retry()
-  })
+    if (loading) showReload()
+  }
+  window.addEventListener('vite:preloadError', recoverFromPreloadError)
   canvas.addEventListener('pointerdown', load, { once: true })
   canvas.addEventListener('focus', load, { once: true })
   window.addEventListener('keydown', loadFromKey)

@@ -23,8 +23,7 @@ export const AUTOPLAY_MAX_TURNS = 800
 export const autoplayTurnBudget = (state: RunState): number => Math.ceil(AUTOPLAY_MAX_TURNS * state.floor.tiles.length / (48 * 35))
 const AUTOPLAY_MAX_NON_TURN_COMMANDS = 8
 const AUTOPLAY_MAX_RECOVERY_REPEATS = 8
-export const autoplayModes: readonly AutoplayMode[] = ['off', 'visible', 'omniscient']
-export const autoplayPolicies: readonly AutoplayPolicy[] = ['survival', 'clear', 'explore', 'legacy']
+export { autoplayModes, autoplayPolicies, autoplayModeLabel, autoplayPolicyLabel, nextAutoplayMode, nextAutoplayPolicy } from './autoplay-controls'
 const directionCommands: Record<Direction, string> = { nw: 'i', n: 'o', ne: 'p', w: 'k', wait: 'l', e: ';', sw: ',', s: '.', se: '/' }
 const blockedTiles = new Set<TileKind>(['wall', 'lava', 'pit', 'rubble', 'bramble', 'crate', 'chest', 'deepWater', 'breakwall', 'cliffWall'])
 const hazardTiles = new Set<TileKind>(['spikes', 'dart', 'fireVent', 'gas', 'smoke', 'crumble', 'boulder'])
@@ -98,10 +97,6 @@ export interface AutoplayContext { visits: Map<string, number>; strategicVisits:
 export interface AutoplayTransitionSnapshot { stateKey: string; progressKey: string; position: string; strategicDistance: number; area?: string; areaFloor?: number; objectiveId: string; objectiveStatus: string; guardianDefeated: boolean; turn: number; modal?: string }
 
 export const createAutoplayContext = (): AutoplayContext => ({ visits: new Map(), strategicVisits: new Map(), failed: new Map(), recoveryVisits: new Map(), closedMerchants: new Set(), rejectedObjectiveTargets: new Set(), recentPositions: [], resourceDiagnostics: [], toolDiagnostics: [], optionalDiagnostics: [], objectiveTargetCount: 0, shopTurns: 0, noProgressTurns: 0, noTurnCommands: 0, loopRecoveries: 0 })
-export const nextAutoplayMode = (mode: AutoplayMode): AutoplayMode => autoplayModes[(autoplayModes.indexOf(mode) + 1) % autoplayModes.length]
-export const nextAutoplayPolicy = (policy: AutoplayPolicy): AutoplayPolicy => autoplayPolicies[(autoplayPolicies.indexOf(policy) + 1) % autoplayPolicies.length]
-export const autoplayModeLabel = (mode: AutoplayMode): string => mode === 'visible' ? 'VISIBLE' : mode === 'omniscient' ? 'FULL MAP' : 'OFF'
-export const autoplayPolicyLabel = (policy: AutoplayPolicy): string => policy === 'clear' ? 'CLEAR RATE' : policy === 'explore' ? 'EXPLORE' : policy === 'legacy' ? 'LEGACY' : 'SURVIVAL'
 
 export const autoplayStateFingerprint = (state: RunState): string => {
   const hero = state.hero
