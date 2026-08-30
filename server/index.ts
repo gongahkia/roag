@@ -275,8 +275,9 @@ const scheduleAutomation = (room: StoredRoom) => {
       current.botTimeout = undefined;
       current.botFor = undefined;
       const latest = rooms.get(room.code);
-      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || latest.game.die?.phase !== 'revealed' || !latest.game.die.rerollPot || bot.cash < 1) return;
-      const wantsReroll = latest.game.holeRules.scoreMultiplier >= 1 || bot.skill === 'adaptive' || bot.skill >= 5;
+      const latestBot = latest?.game?.players.find((player) => player.id === bot.id);
+      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || latest.game.die?.phase !== 'revealed' || !latest.game.die.rerollPot || !latestBot || latestBot.cash < 1) return;
+      const wantsReroll = latest.game.holeRules.scoreMultiplier >= 1 || latestBot.skill === 'adaptive' || latestBot.skill >= 5;
       if (wantsReroll) updateGame(latest, applyCommand(latest.game, { type: 'contribute-reroll', playerId: bot.id }));
     }, 420);
     return;
