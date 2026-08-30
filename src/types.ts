@@ -224,6 +224,14 @@ export interface Floor {
   difficulty?: DifficultyContext
 }
 
+/** A compact record of mutations to an evicted route partition. */
+export interface TransitChunkMemory {
+  terrain: Array<{ index: number; kind: TileKind; elevation?: Tile['elevation']; flow?: Tile['flow'] }>
+  actors: Actor[]
+  items: GroundItem[]
+  props: Prop[]
+}
+
 export interface Hero {
   name: string
   origin: CourierOrigin
@@ -381,7 +389,7 @@ export interface RunState {
   areaFloor?: number
   areaArc?: AreaArcState
   areaOrder?: Biome[]
-  travel?: { version: 1; fromSiteId: string; toSiteId: string; linkId: string; chunkCount: number; residentStart: number; activeChunk: number; situations: ReadonlyArray<'quiet' | 'patrol' | 'hazard' | 'trader' | 'ecology'> }
+  travel?: { version: 1; fromSiteId: string; toSiteId: string; linkId: string; chunkCount: number; residentStart: number; activeChunk: number; situations: ReadonlyArray<'quiet' | 'patrol' | 'hazard' | 'trader' | 'ecology'>; chunks?: Record<string, TransitChunkMemory>; routeCacheChunks?: number[] }
   gateDestination?: Biome
   rescuedNpcs?: RescuedNpc[]
   lineageEvents?: LineageEvent[]
