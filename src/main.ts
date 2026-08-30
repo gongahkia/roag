@@ -683,11 +683,9 @@ function beginConnectorTravel(galaxy: GalaxyState, originId: string, destination
   const linkId = [origin.id, destination.id].sort().join('::')
   const chunkCount = galaxyRouteLength(accepted.galaxy, origin.id, destination.id)
   const situations = Array.from({ length: chunkCount }, (_, chunk) => galaxyRouteSituation(accepted.galaxy, origin.id, destination.id, chunk))
-  const travel = newTransitRun(accepted.galaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
-  if (accepted.galaxy.routeCaches.some(cache => cache.linkId === linkId && !cache.recovered)) {
-    const x = Math.max(3, Math.floor(travel.floor.width / 2))
-    const y = Math.floor(travel.floor.height / 2)
-    travel.floor.routeCache = { linkId, x, y }
+  const routeCacheChunks = accepted.galaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered).map(cache => cache.chunk)
+  const travel = newTransitRun(accepted.galaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations, ...(routeCacheChunks.length ? { routeCacheChunks } : {}) }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
+  if (routeCacheChunks.length) {
     travel.messages.unshift('A recoverable cargo cache is marked in this route window. Operate beside it to retrieve its contents.')
   }
   travel.messages.unshift(accepted.message)
@@ -992,7 +990,6 @@ function handleSectorInput(key: string): boolean {
     const launch = () => { route = { ...route, screen: 'level', biome: selected.biome, siteId: selected.id }; start() }
     route = { ...route, biome: selected.biome, siteId: selected.id }
     if (selected.id === origin.id) launch()
-    else beginConnectorTravel(galaxy, origin.id, selected.id)
     return true
   }
   return true
@@ -1083,10 +1080,11 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
     }
   } else if (options.run && !game.modal) events = run(game, command)
   else events = performTracked(game, command)
-  if (advanceTransitWindow(game)) renderer.recenterCamera()
+  const rebased = advanceTransitWindow(game)
+  if (rebased) renderer.shiftCameraWindow(game.hero.x - previousX, game.hero.y - previousY)
   if (game.hero.level > previousLevel) events.push(event('level'))
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
-  if (game.hero.x !== previousX || game.hero.y !== previousY) renderer.recenterCamera()
+  if (!rebased && (game.hero.x !== previousX || game.hero.y !== previousY)) renderer.recenterCamera()
   if (options.autoplay && autoplayBefore && autoplayFingerprint) {
     recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
     autoplayTrace.push({
@@ -1120,6 +1118,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
     const recovered = recoverGalaxyRouteCaches(campaign.galaxy, cache.id)
     campaign = { ...campaign, galaxy: recovered.galaxy }
     game.floor.routeCache = undefined
+    if (game.travel) game.travel = { ...game.travel, routeCacheChunks: [] }
     game.messages.unshift(recovered.message)
   }
   const departure = events.find(entry => entry.type === 'routeDeparture')

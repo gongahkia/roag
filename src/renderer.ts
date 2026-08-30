@@ -610,7 +610,7 @@ export class TerminalRenderer {
     this.text(57, 42, `supply ${String(selected.supplies).padStart(3)} · salvage ${String(selected.salvage).padStart(3)}`, colors.text)
     this.text(57, 44, `cargo: P${selected.market.prices.provisions} C${selected.market.prices.components} S${selected.market.prices.salvage} B${selected.market.prices.biosamples}`, colors.dim)
     this.text(57, 46, `${selected.links.filter(id => galaxy.sites[id]?.discovered).length} physical link${selected.links.filter(id => galaxy.sites[id]?.discovered).length === 1 ? '' : 's'} charted`, colors.dim)
-    this.text(8, 51, 'ARROWS select landing · ENTER walk the route · ESC return to the bridge', colors.green)
+    this.text(8, 51, 'ARROWS inspect routes · ENTER deploy at current landing · ESC bridge', colors.green)
   }
 
   private stage(state: RunState): void {

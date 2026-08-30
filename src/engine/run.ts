@@ -24,7 +24,7 @@ const routeY = (travel: NonNullable<RunState['travel']>, chunkWidth: number, chu
 const routeTerrain = (travel: NonNullable<RunState['travel']>, chunkWidth: number, height: number, chunk: number): Tile[] => {
   const width = chunkWidth
   const center = Math.floor(height / 2)
-  const tiles = Array.from({ length: width * height }, () => ({ kind: 'wall' as const, explored: false, visible: false }))
+  const tiles: Tile[] = Array.from({ length: width * height }, () => ({ kind: 'wall', explored: false, visible: false }))
   const carve = (x: number, y: number, radius = 2) => {
     for (let dy = -radius; dy <= radius; dy++) for (let dx = -1; dx <= 1; dx++) {
       const px = x + dx
@@ -41,14 +41,13 @@ const routeTerrain = (travel: NonNullable<RunState['travel']>, chunkWidth: numbe
     if (situation === 'ecology' && (chunk * width + x) % 23 === 0) tiles[y * width + x]!.kind = 'bramble'
   }
   tiles[center * width + 2]!.kind = 'floor'
-  tiles[routeY(travel, chunkWidth, chunk, width - 3, center) * width + width - 3]!.kind = 'exit'
   return tiles
 }
 
 const routeActors = (travel: NonNullable<RunState['travel']>, chunkWidth: number, height: number, chunk: number, patrolTemplate: Actor | undefined): Actor[] => {
   const x = Math.min(chunkWidth - 5, Math.floor(chunkWidth * .62))
   const y = routeY(travel, chunkWidth, chunk, x, Math.floor(height / 2))
-  if (travel.situations[chunk] === 'patrol' && patrolTemplate) return [cloneActor(patrolTemplate, x, y)]
+  if (travel.situations[chunk] === 'patrol' && patrolTemplate) return [{ ...cloneActor(patrolTemplate, x, y), id: `route-patrol:${travel.linkId}:${chunk}`, health: patrolTemplate.maxHealth, maxHealth: patrolTemplate.maxHealth }]
   if (travel.situations[chunk] === 'trader') return [{ id: `route-trader:${travel.linkId}:${chunk}`, role: 'merchant', kind: 'merchant', name: 'route trader', x, y, health: 1, maxHealth: 1, attack: 0, defense: 0, speed: 0, energy: 0, glyph: '$', color: '#f4d26a', hostile: false }]
   return []
 }
@@ -58,11 +57,17 @@ const restoredChunk = (travel: NonNullable<RunState['travel']>, chunkWidth: numb
   const memory = travel.chunks?.[routeChunkKey(chunk)]
   for (const change of memory?.terrain ?? []) {
     const tile = tiles[change.index]
-    if (tile) Object.assign(tile, structuredClone(change), { explored: false, visible: false })
+    if (tile) {
+      tile.kind = change.kind
+      tile.elevation = change.elevation
+      tile.flow = change.flow ? structuredClone(change.flow) : undefined
+      tile.explored = false
+      tile.visible = false
+    }
   }
   return {
     tiles,
-    actors: memory ? memory.actors.map(actor => cloneActor(actor)) : routeActors(travel, chunkWidth, height, chunk, patrolTemplate).map(actor => ({ ...actor, id: actor.id.includes(':') ? actor.id : `route-patrol:${travel.linkId}:${chunk}` })),
+    actors: memory ? memory.actors.map(actor => cloneActor(actor)) : routeActors(travel, chunkWidth, height, chunk, patrolTemplate),
     items: (memory?.items ?? []).map(item => cloneItem(item)),
     props: (memory?.props ?? []).map(prop => cloneProp(prop))
   }
@@ -84,6 +89,8 @@ const rememberTransitWindow = (state: RunState): NonNullable<RunState['travel']>
     const baseline = routeTerrain(travel, chunkWidth, state.floor.height, chunk)
     const offset = localChunk * chunkWidth
     const terrain = baseline.flatMap((tile, index) => {
+      const serviceExit = localChunk === residentCount - 1 && index === routeY(travel, chunkWidth, chunk, chunkWidth - 3, Math.floor(state.floor.height / 2)) * chunkWidth + chunkWidth - 3
+      if (serviceExit) return []
       const memory = rememberedTerrain(state.floor.tiles[Math.floor(index / chunkWidth) * state.floor.width + offset + index % chunkWidth]!, tile)
       return memory ? [{ ...memory, index }] : []
     })
@@ -167,6 +174,7 @@ export function newTransitRun(seed: number, area: Biome, inheritedHero: Hero, tr
   const start = { x: 2, y: center }
   const lastChunk = travel.residentStart + residentCount - 1
   const exit = { x: floor.width - 3, y: routeY(travel, chunkWidth, lastChunk, chunkWidth - 3, center) }
+  floor.tiles[exit.y * floor.width + exit.x]!.kind = 'exit'
   floor.start = start
   floor.exit = exit
   floor.layoutId = 'voyager-link-corridor'
@@ -209,6 +217,7 @@ export function advanceTransitWindow(state: RunState): boolean {
   state.travel = nextTravel
   state.hero.x += shiftForward ? -chunkWidth : chunkWidth
   state.hero.y = Math.max(1, Math.min(state.floor.height - 2, state.hero.y))
+  synchronizePartyActors(state, 'spawn')
   refreshFov(state)
   return true
 }
