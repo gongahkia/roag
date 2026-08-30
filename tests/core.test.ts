@@ -434,6 +434,31 @@ describe('shared course slot flow', () => {
     expect(applyCommand(game, { type: 'add-slot-stop', playerId: 'unknown', reelId: 'biome' })).toEqual(game);
     expect(applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId: 'biome', stopId: 'missing' })).toEqual(game);
   });
+
+  it('refunds an unfinished reroll pot and allows two funded rerolls with chaos reels', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'reroll-slots', holeCount: 1, humanCount: 1, botCount: 0 });
+    game.players[0]!.cash = 20;
+    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
+    game = tickTurn(game, 2);
+    const beforeRefund = game.players[0]!.cash;
+    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
+    game = tickTurn(game, 10);
+    expect(game.players[0]!.cash).toBe(beforeRefund);
+
+    game = createGame({ ...defaultConfig(), seed: 'reroll-slots', holeCount: 1, humanCount: 1, botCount: 0 });
+    game.players[0]!.cash = 20;
+    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
+    game = tickTurn(game, 2);
+    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
+    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
+    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
+    expect(game.die?.phase).toBe('reroll-wagering');
+    game = applyCommand(game, { type: 'add-chaos-reel', playerId: 'human-0' });
+    expect(game.die?.reels.filter((reel) => reel.kind === 'chaos')).toHaveLength(1);
+    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
+    game = tickTurn(game, 2);
+    expect(game.die?.revealed?.plan.label).toContain('·');
+  });
 });
 
 describe('turns, shared rules, and bots', () => {

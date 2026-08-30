@@ -12,7 +12,7 @@
     "build": "tsc --noEmit && vite build && npm run build:server",
     "check:server": "tsc --noEmit -p server/tsconfig.json",
     "test": "npm run test:core-foundation && npm run test:core-turns && npm run test:other",
-    "test:core-foundation": "vitest run tests/core.test.ts -t 'course generation|clubhouse economy|shared course die'",
+    "test:core-foundation": "vitest run tests/core.test.ts -t 'course generation|clubhouse economy|shared course slot'",
     "test:core-turns": "vitest run tests/core.test.ts -t 'plays one visible|blocks, reflects|keeps round effects|supports targeted|applies specialist|freezes turns|accepts legal' && vitest run tests/core.test.ts -t 'feeds selected|uses temporary|adds aerial|keeps timers|preserves item|places one legal' && vitest run tests/core.test.ts -t 'scores each resolved'",
     "test:other": "vitest run tests/app-controller.test.ts tests/feedback.test.ts tests/hazards.test.ts tests/markup.test.ts tests/physics.test.ts tests/preferences.test.ts tests/render.test.ts",
     "check": "npm run build && npm run check:server && npm run test",

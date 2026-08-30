@@ -135,7 +135,7 @@ const renderDieOverlay = (view: ViewModel) => {
   if (state.status !== 'rolling' || !die) return '';
   const ownPlayer = multiplayer.online
     ? state.players.find((player) => player.id === multiplayer.playerId)
-    : state.players.find((player) => player.kind === 'human' && !die.wagers[player.id]?.ready);
+    : state.players.find((player) => player.kind === 'human' && (die.phase === 'revealed' || !die.wagers[player.id]?.ready));
   const ownWager = ownPlayer ? die.wagers[ownPlayer.id] : undefined;
   const canBet = Boolean(ownPlayer && (die.phase === 'wagering' || die.phase === 'reroll-wagering') && !ownWager?.ready);
   const stopIcon = (stop: typeof die.reels[number]['stops'][number], kind: typeof die.reels[number]['kind']) => {
