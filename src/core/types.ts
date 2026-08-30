@@ -216,7 +216,7 @@ export interface HoleRecipe {
   rules: HoleRules;
 }
 
-/** A complete generated course package that can occupy one face of the pre-hole die. */
+/** A complete generated course package used by the generator and legacy saves. */
 export interface CoursePackage {
   id: string;
   label: string;
@@ -231,31 +231,60 @@ export interface PlannedHole {
   courseSeed: string;
 }
 
-export interface DieFace extends CoursePackage {
-  /** Base chance weight plus every paid augmentation on this face. */
+export type SlotReelKind = 'biome' | 'layout' | 'rules' | 'chaos';
+export type ChaosModifier = 'fast greens' | 'bumper bank' | 'weather front' | 'hazard bloom';
+
+/** A physical ticket on one reel. Its weight is the number of matching tickets loaded on that strip. */
+export interface SlotStop {
+  id: string;
+  label: string;
   weight: number;
   addedBy?: string;
   augmentations: Record<string, number>;
+  terrain?: TerrainSettings;
+  theme?: CourseTheme;
+  archetype?: CourseArchetype;
+  sizeProfile?: CourseSizeProfile;
+  rules?: HoleRules;
+  chaos?: ChaosModifier;
 }
 
-export interface DieWager {
-  /** Used to scale the cost of a player's successive extra faces. */
-  addedSides: number;
-  /** Paid chance-weight additions keyed by course slot-machine stop. */
+export interface SlotReel {
+  id: string;
+  kind: SlotReelKind;
+  label: string;
+  stops: SlotStop[];
+}
+
+export interface SlotWager {
+  /** Used to scale a player's successive generated stops. */
+  addedStops: number;
+  /** Paid duplicate-ticket additions keyed by reel stop. */
   augmentations: Record<string, number>;
   ready: boolean;
 }
 
-export interface DieRoll {
-  faceId: string;
+export interface SlotRoll {
+  stopIds: string[];
   secondsLeft: number;
 }
 
-export interface DieState {
-  faces: DieFace[];
-  wagers: Record<string, DieWager>;
+export interface RerollPot {
+  target: number;
+  contributions: Record<string, number>;
   secondsLeft: number;
-  roll?: DieRoll;
+}
+
+/** Authoritative state for the pre-hole machine. `DieState` remains the field name for saved-game compatibility. */
+export interface DieState {
+  reels: SlotReel[];
+  wagers: Record<string, SlotWager>;
+  secondsLeft: number;
+  phase: 'wagering' | 'spinning' | 'revealed' | 'reroll-wagering';
+  rerolls: number;
+  roll?: SlotRoll;
+  revealed?: { plan: PlannedHole; secondsLeft: number };
+  rerollPot?: RerollPot;
 }
 
 export interface CourseTransition {
@@ -479,9 +508,11 @@ export interface GameState {
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
-  | { type: 'add-die-side'; playerId: string }
-  | { type: 'augment-die-face'; playerId: string; faceId: string }
-  | { type: 'ready-die-roll'; playerId: string }
+  | { type: 'add-slot-stop'; playerId: string; reelId: string }
+  | { type: 'augment-slot-stop'; playerId: string; reelId: string; stopId: string }
+  | { type: 'add-chaos-reel'; playerId: string }
+  | { type: 'contribute-reroll'; playerId: string }
+  | { type: 'ready-slot-spin'; playerId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; portalExitId?: string; placement?: Point }

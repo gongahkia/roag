@@ -4,7 +4,7 @@ import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
-import { COURSE_HEIGHT, COURSE_WIDTH, type Course, type CoursePackage, type DieFace, type DieState, type DieWager, type GameConfig, type GameState, type PlannedHole, type Player } from './types';
+import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type CoursePackage, type DieState, type GameConfig, type GameState, type PlannedHole, type Player, type SlotReel, type SlotReelKind, type SlotStop, type SlotWager } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 
@@ -98,12 +98,8 @@ export const normalizeGameState = (state: GameState): GameState => {
     course.itemPads ??= [];
   };
   normalizeCourse(state.course);
-  state.die?.faces.forEach((face) => {
-    normalizeCourse(face.course);
-    normalizeTerrain(face.recipe.terrain);
-    face.weight ??= 1;
-    face.augmentations ??= {};
-  });
+  const legacyDie = state.die as unknown as { faces?: CoursePackage[]; reels?: SlotReel[] } | undefined;
+  if (legacyDie?.faces && !legacyDie.reels) state.die = newDie(state.config, state.hole, state.players);
   state.gadgets ??= [];
   state.hazardElapsedMs ??= elapsedMsForPhase(state.coursePhase ?? 0);
   state.holeFinishSequence ??= 0;
@@ -138,19 +134,6 @@ export const normalizeGameState = (state: GameState): GameState => {
   state.emoteSequence ??= 0;
   return state;
 };
-
-const clonePackage = (option: CoursePackage): CoursePackage => ({
-  ...option,
-  course: cloneCourse(option.course),
-  recipe: { terrain: { ...option.recipe.terrain }, rules: { ...option.recipe.rules, sharedBoons: [...option.recipe.rules.sharedBoons] } },
-});
-
-const planFromPackage = (option: CoursePackage): PlannedHole => ({
-  id: option.id,
-  label: option.label,
-  courseSeed: option.course.seed,
-  recipe: { terrain: { ...option.recipe.terrain }, rules: { ...option.recipe.rules, sharedBoons: [...option.recipe.rules.sharedBoons] } },
-});
 
 const clonePlan = (plan: PlannedHole): PlannedHole => ({ ...plan, recipe: { terrain: { ...plan.recipe.terrain }, rules: { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] } } });
 
@@ -202,28 +185,104 @@ const activateExpansion = (state: GameState, plan: PlannedHole) => {
 
 const courseDimensionsFor = (config: GameConfig) => ({ width: config.courseWidth ?? COURSE_WIDTH, height: config.courseHeight ?? COURSE_HEIGHT });
 
-const DIE_SECONDS = 18;
-const DIE_ROLL_SECONDS = 1.15;
+const SLOT_SECONDS = 18;
+const SLOT_SPIN_SECONDS = 1.15;
+const REVEAL_SECONDS = 8;
+const REROLL_TARGETS = [3, 5] as const;
+const CHAOS_MODIFIERS: readonly ChaosModifier[] = ['fast greens', 'bumper bank', 'weather front', 'hazard bloom'];
+const reelLabel: Record<SlotReelKind, string> = { biome: 'biome', layout: 'layout', rules: 'rules', chaos: 'chaos' };
 
-const dieFaceAt = (config: GameConfig, hole: number, index: number, addedBy?: string): DieFace => {
-  const packages = generateCoursePackages(`${config.seed}:die:${hole}:batch:${Math.floor(index / 3)}`, hole, courseDimensionsFor(config));
-  const source = packages[index % packages.length]!;
-  return { ...clonePackage(source), id: `hole-${hole}-die-${index + 1}`, weight: 1, addedBy, augmentations: {} };
+const cloneRules = (rules: ReturnType<typeof defaultHoleRules>) => ({ ...rules, sharedBoons: [...rules.sharedBoons] });
+const cloneStop = (stop: SlotStop): SlotStop => ({ ...stop, terrain: stop.terrain ? { ...stop.terrain } : undefined, rules: stop.rules ? cloneRules(stop.rules) : undefined, augmentations: { ...stop.augmentations } });
+const cloneReel = (reel: SlotReel): SlotReel => ({ ...reel, stops: reel.stops.map(cloneStop) });
+
+const sourcePackage = (config: GameConfig, hole: number, kind: SlotReelKind, index: number) => {
+  const packages = generateCoursePackages(`${config.seed}:slots:${hole}:${kind}:batch:${Math.floor(index / 3)}`, hole, courseDimensionsFor(config));
+  return packages[index % packages.length]!;
 };
 
-const wagersFor = (players: readonly Player[]) => Object.fromEntries(players.map((player) => [player.id, { addedSides: 0, augmentations: {}, ready: false } satisfies DieWager]));
+const stopFromPackage = (config: GameConfig, hole: number, kind: Exclude<SlotReelKind, 'chaos'>, index: number, addedBy?: string): SlotStop => {
+  const source = sourcePackage(config, hole, kind, index);
+  if (kind === 'biome') return { id: `hole-${hole}-${kind}-${index + 1}`, label: source.recipe.terrain.theme.replace(/-/g, ' '), theme: source.recipe.terrain.theme, weight: 1, addedBy, augmentations: {} };
+  if (kind === 'layout') return { id: `hole-${hole}-${kind}-${index + 1}`, label: `${source.recipe.terrain.archetype} · ${source.recipe.terrain.sizeProfile}`, terrain: { ...source.recipe.terrain }, archetype: source.recipe.terrain.archetype, sizeProfile: source.recipe.terrain.sizeProfile, weight: 1, addedBy, augmentations: {} };
+  return { id: `hole-${hole}-${kind}-${index + 1}`, label: `${source.recipe.rules.timerSeconds}s · cap ${source.recipe.rules.strokeCap}`, rules: cloneRules(source.recipe.rules), weight: 1, addedBy, augmentations: {} };
+};
+
+const chaosStop = (hole: number, reelIndex: number, index: number): SlotStop => {
+  const chaos = CHAOS_MODIFIERS[index % CHAOS_MODIFIERS.length]!;
+  return { id: `hole-${hole}-chaos-${reelIndex + 1}-${index + 1}`, label: chaos, chaos, weight: 1, augmentations: {} };
+};
+
+const reelFor = (config: GameConfig, hole: number, kind: Exclude<SlotReelKind, 'chaos'>): SlotReel => ({
+  id: kind,
+  kind,
+  label: reelLabel[kind],
+  stops: Array.from({ length: 3 }, (_, index) => stopFromPackage(config, hole, kind, index)),
+});
+
+const chaosReel = (hole: number, index: number): SlotReel => ({
+  id: `chaos-${index + 1}`,
+  kind: 'chaos',
+  label: `chaos ${index + 1}`,
+  stops: Array.from({ length: CHAOS_MODIFIERS.length }, (_, stopIndex) => chaosStop(hole, index, stopIndex)),
+});
+
+const wagersFor = (players: readonly Player[]) => Object.fromEntries(players.map((player) => [player.id, { addedStops: 0, augmentations: {}, ready: false } satisfies SlotWager]));
 
 const newDie = (config: GameConfig, hole: number, players: readonly Player[]): DieState => ({
-  faces: Array.from({ length: 6 }, (_, index) => dieFaceAt(config, hole, index)),
+  reels: [reelFor(config, hole, 'biome'), reelFor(config, hole, 'layout'), reelFor(config, hole, 'rules')],
   wagers: wagersFor(players),
-  secondsLeft: DIE_SECONDS,
+  secondsLeft: SLOT_SECONDS,
+  phase: 'wagering',
+  rerolls: 0,
 });
+
+const selectedStop = (die: DieState, reelId: string, stopId: string) => die.reels.find((reel) => reel.id === reelId)?.stops.find((stop) => stop.id === stopId);
+const selectedStops = (die: DieState) => die.roll?.stopIds.map((stopId, index) => selectedStop(die, die.reels[index]?.id ?? '', stopId)).filter((stop): stop is SlotStop => Boolean(stop)) ?? [];
+
+const applyChaos = (terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>, chaos: ChaosModifier) => {
+  if (chaos === 'fast greens') {
+    rules.rollingResistanceMultiplier = Math.max(.55, rules.rollingResistanceMultiplier * .8);
+    rules.scoreMultiplier = Math.max(rules.scoreMultiplier, 1.25);
+  }
+  if (chaos === 'bumper bank') {
+    terrain.bumperCount += 2;
+    terrain.wallCount += 2;
+  }
+  if (chaos === 'weather front') {
+    terrain.gustCount += 2;
+    terrain.updraftCount += 1;
+  }
+  if (chaos === 'hazard bloom') {
+    terrain.sweeperCount += 1;
+    terrain.gateCount += 1;
+    terrain.thornCount += 1;
+    terrain.pulseCount += 1;
+  }
+};
+
+const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined => {
+  const [biome, layout, rules, ...chaos] = selectedStops(die);
+  if (!biome?.theme || !layout?.terrain || !rules?.rules) return undefined;
+  const terrain = { ...layout.terrain, theme: biome.theme };
+  const holeRules = cloneRules(rules.rules);
+  chaos.forEach((stop) => { if (stop.chaos) applyChaos(terrain, holeRules, stop.chaos); });
+  const labels = [biome.label, layout.label, rules.label, ...chaos.map((stop) => stop.label)];
+  const ids = die.roll?.stopIds.join(':') ?? 'unknown';
+  return {
+    id: `hole-${state.hole}-slot-${die.rerolls}-${ids}`,
+    label: labels.join(' · '),
+    courseSeed: `${state.config.seed}:slots:${state.hole}:${die.rerolls}:${ids}`,
+    recipe: { terrain, rules: holeRules },
+  };
+};
 
 const quickStartPlan = (config: GameConfig): PlannedHole[] => Array.from({ length: config.holeCount }, (_, index) => {
   const hole = index + 1;
-  const faces = newDie(config, hole, []).faces;
-  const selected = faces[new Random(`${config.seed}:quick-die:hole:${hole}`).int(0, faces.length - 1)]!;
-  return planFromPackage(selected);
+  const die = newDie(config, hole, []);
+  die.roll = { stopIds: die.reels.map((reel, reelIndex) => reel.stops[new Random(`${config.seed}:quick-slot:${hole}:${reelIndex}`).int(0, reel.stops.length - 1)]!.id), secondsLeft: 0 };
+  const state = { config, hole } as GameState;
+  return planFromRoll(state, die)!;
 });
 
 export const createGameState = (config: GameConfig): GameState => {
@@ -231,7 +290,7 @@ export const createGameState = (config: GameConfig): GameState => {
   const coursePlan = resolvedConfig.skipDieBets ? quickStartPlan(resolvedConfig) : [];
   const firstPlan = coursePlan[0];
   const starterDie = firstPlan ? undefined : newDie(resolvedConfig, 1, []);
-  const course = firstPlan ? cloneCourse(courseForPlan(firstPlan)) : cloneCourse(starterDie!.faces[0]!.course);
+  const course = firstPlan ? cloneCourse(courseForPlan(firstPlan)) : cloneCourse(sourcePackage(resolvedConfig, 1, 'layout', 0).course);
   const holeRules = firstPlan ? { ...firstPlan.recipe.rules, sharedBoons: [...firstPlan.recipe.rules.sharedBoons] } : defaultHoleRules();
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
   players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
@@ -266,9 +325,11 @@ export const cloneGameState = (state: GameState): GameState => ({
   holeRules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] },
   die: state.die ? {
     ...state.die,
-    faces: state.die.faces.map((face) => ({ ...clonePackage(face), weight: face.weight, addedBy: face.addedBy, augmentations: { ...face.augmentations } })),
+    reels: state.die.reels.map(cloneReel),
     wagers: Object.fromEntries(Object.entries(state.die.wagers).map(([playerId, wager]) => [playerId, { ...wager, augmentations: { ...wager.augmentations } }])),
-    roll: state.die.roll ? { ...state.die.roll } : undefined,
+    roll: state.die.roll ? { ...state.die.roll, stopIds: [...state.die.roll.stopIds] } : undefined,
+    revealed: state.die.revealed ? { plan: clonePlan(state.die.revealed.plan), secondsLeft: state.die.revealed.secondsLeft } : undefined,
+    rerollPot: state.die.rerollPot ? { ...state.die.rerollPot, contributions: { ...state.die.rerollPot.contributions } } : undefined,
   } : undefined,
   coursePlan: (state.coursePlan ?? []).map(clonePlan),
   transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
@@ -280,94 +341,155 @@ export const cloneGameState = (state: GameState): GameState => ({
   messages: [...state.messages],
 });
 
-const wagerFor = (die: DieState, playerId: string) => die.wagers[playerId] ??= { addedSides: 0, augmentations: {}, ready: false };
+const wagerFor = (die: DieState, playerId: string) => die.wagers[playerId] ??= { addedStops: 0, augmentations: {}, ready: false };
+const isWagering = (die: DieState) => die.phase === 'wagering' || die.phase === 'reroll-wagering';
+const totalWeight = (reel: SlotReel) => reel.stops.reduce((total, stop) => total + stop.weight, 0);
 
 const startDieRoll = (state: GameState) => {
   const die = state.die;
-  if (!die || die.roll) return;
-  const totalWeight = die.faces.reduce((total, face) => total + face.weight, 0);
-  const random = new Random(`${state.config.seed}:die:${state.hole}:${die.faces.map((face) => `${face.id}:${face.weight}`).join('|')}`);
-  let remaining = random.next() * totalWeight;
-  let selected = die.faces[die.faces.length - 1]!;
-  for (const face of die.faces) {
-    remaining -= face.weight;
-    if (remaining < 0) { selected = face; break; }
-  }
-  die.roll = { faceId: selected.id, secondsLeft: DIE_ROLL_SECONDS };
-  addMessage(state, `the ${die.faces.length}-stop course slot machine starts to spin`);
+  if (!die || !isWagering(die)) return;
+  const selected = die.reels.map((reel, reelIndex) => {
+    const random = new Random(`${state.config.seed}:slot:${state.hole}:${die.rerolls}:${reel.id}:${reel.stops.map((stop) => `${stop.id}:${stop.weight}`).join('|')}`);
+    let remaining = random.next() * totalWeight(reel);
+    let stop = reel.stops[reel.stops.length - 1]!;
+    for (const candidate of reel.stops) {
+      remaining -= candidate.weight;
+      if (remaining < 0) { stop = candidate; break; }
+    }
+    return stop.id;
+  });
+  die.roll = { stopIds: selected, secondsLeft: SLOT_SPIN_SECONDS + Math.max(0, die.reels.length - 3) * .14 };
+  die.phase = 'spinning';
+  addMessage(state, `${die.reels.length} course reels start to spin`);
 };
 
-const resolveDieRoll = (state: GameState) => {
-  const die = state.die;
-  const selected = die?.faces.find((face) => face.id === die.roll?.faceId);
-  if (!die || !selected) return;
-  const planned = planFromPackage(selected);
+const commitPlan = (state: GameState, planned: PlannedHole) => {
   state.coursePlan = [...(state.coursePlan ?? []), planned];
   state.die = undefined;
   if (state.hole === 1) {
     activatePlan(state, planned);
     state.status = 'playing';
-    addMessage(state, `${selected.label} locks in — tee off`);
+    addMessage(state, `${planned.label} locks in — tee off`);
     return;
   }
   state.transition = { next: clonePlan(planned) };
   state.gadgets = [];
   state.paused = false;
   state.status = 'transitioning';
-  addMessage(state, `${selected.label} locks in — rebuilding hole ${state.hole}`);
+  addMessage(state, `${planned.label} locks in — rebuilding hole ${state.hole}`);
 };
 
-export const addDieSide = (state: GameState, playerId: string) => {
-  if (state.status !== 'rolling' || !state.die || state.die.roll) return;
+const resolveDieRoll = (state: GameState) => {
+  const die = state.die;
+  if (!die) return;
+  const planned = planFromRoll(state, die);
+  if (!planned) return;
+  die.phase = 'revealed';
+  die.revealed = { plan: planned, secondsLeft: REVEAL_SECONDS };
+  die.rerollPot = die.rerolls < REROLL_TARGETS.length ? { target: REROLL_TARGETS[die.rerolls]!, contributions: {}, secondsLeft: REVEAL_SECONDS } : undefined;
+  addMessage(state, `${planned.label} is on the payline`);
+};
+
+export const addSlotStop = (state: GameState, playerId: string, reelId: string) => {
+  const die = state.die;
+  if (state.status !== 'rolling' || !die || !isWagering(die)) return;
   const player = state.players.find((candidate) => candidate.id === playerId);
-  if (!player) return;
-  const wager = wagerFor(state.die, playerId);
-  const cost = 1 + wager.addedSides;
+  const reel = die.reels.find((candidate) => candidate.id === reelId && candidate.kind !== 'chaos');
+  if (!player || !reel) return;
+  const wager = wagerFor(die, playerId);
+  const cost = 1 + wager.addedStops;
   if (player.cash < cost) return;
   player.cash -= cost;
-  wager.addedSides += 1;
-  const face = dieFaceAt(state.config, state.hole, state.die.faces.length, playerId);
-  state.die.faces.push(face);
-  addMessage(state, `${player.name} adds a wild reel stop for $${cost}`);
+  wager.addedStops += 1;
+  reel.stops.push(stopFromPackage(state.config, state.hole, reel.kind as Exclude<SlotReelKind, 'chaos'>, reel.stops.length, playerId));
+  addMessage(state, `${player.name} loads a wild ${reel.label} ticket for $${cost}`);
 };
 
-export const augmentDieFace = (state: GameState, playerId: string, faceId: string) => {
-  if (state.status !== 'rolling' || !state.die || state.die.roll) return;
+export const augmentSlotStop = (state: GameState, playerId: string, reelId: string, stopId: string) => {
+  const die = state.die;
+  if (state.status !== 'rolling' || !die || !isWagering(die)) return;
   const player = state.players.find((candidate) => candidate.id === playerId);
-  const face = state.die.faces.find((candidate) => candidate.id === faceId);
-  if (!player || !face) return;
-  const wager = wagerFor(state.die, playerId);
-  const existing = wager.augmentations[faceId] ?? 0;
+  const reel = die.reels.find((candidate) => candidate.id === reelId);
+  const stop = reel?.stops.find((candidate) => candidate.id === stopId);
+  if (!player || !reel || !stop) return;
+  const wager = wagerFor(die, playerId);
+  const key = `${reel.id}:${stop.id}`;
+  const existing = wager.augmentations[key] ?? 0;
   const cost = 1 + Math.floor(existing / 2);
   if (player.cash < cost) return;
   player.cash -= cost;
-  wager.augmentations[faceId] = existing + 1;
-  face.augmentations[playerId] = (face.augmentations[playerId] ?? 0) + 1;
-  face.weight += 1;
-  addMessage(state, `${player.name} weights ${face.label} for $${cost}`);
+  wager.augmentations[key] = existing + 1;
+  stop.augmentations[playerId] = (stop.augmentations[playerId] ?? 0) + 1;
+  stop.weight += 1;
+  addMessage(state, `${player.name} loads another ${stop.label} ticket for $${cost}`);
 };
 
-export const readyDieRoll = (state: GameState, playerId: string) => {
-  if (state.status !== 'rolling' || !state.die || state.die.roll || !state.players.some((player) => player.id === playerId)) return;
-  const wager = wagerFor(state.die, playerId);
+export const addChaosReel = (state: GameState, playerId: string) => {
+  const die = state.die;
+  if (state.status !== 'rolling' || !die || die.phase !== 'reroll-wagering') return;
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  const chaosCount = die.reels.filter((reel) => reel.kind === 'chaos').length;
+  const cost = 2 + chaosCount;
+  if (!player || chaosCount >= 2 || player.cash < cost) return;
+  player.cash -= cost;
+  die.reels.push(chaosReel(state.hole, chaosCount));
+  addMessage(state, `${player.name} bolts on chaos reel ${chaosCount + 1} for $${cost}`);
+};
+
+export const contributeReroll = (state: GameState, playerId: string) => {
+  const die = state.die;
+  if (state.status !== 'rolling' || !die || die.phase !== 'revealed' || !die.rerollPot) return;
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!player || player.cash < 1) return;
+  player.cash -= 1;
+  die.rerollPot.contributions[playerId] = (die.rerollPot.contributions[playerId] ?? 0) + 1;
+  const total = Object.values(die.rerollPot.contributions).reduce((sum, amount) => sum + amount, 0);
+  if (total < die.rerollPot.target) return;
+  die.rerolls += 1;
+  die.phase = 'reroll-wagering';
+  die.secondsLeft = SLOT_SECONDS;
+  die.roll = undefined;
+  die.revealed = undefined;
+  die.rerollPot = undefined;
+  Object.values(die.wagers).forEach((wager) => { wager.ready = false; });
+  addMessage(state, `the shared reroll pot lands — load the machine again`);
+};
+
+export const readySlotSpin = (state: GameState, playerId: string) => {
+  const die = state.die;
+  if (state.status !== 'rolling' || !die || !isWagering(die) || !state.players.some((player) => player.id === playerId)) return;
+  const wager = wagerFor(die, playerId);
   if (wager.ready) return;
   wager.ready = true;
   const player = state.players.find((candidate) => candidate.id === playerId)!;
   addMessage(state, `${player.name} is ready to pull the lever`);
-  if (state.players.every((candidate) => wagerFor(state.die!, candidate.id).ready)) startDieRoll(state);
+  if (state.players.every((candidate) => wagerFor(die, candidate.id).ready)) startDieRoll(state);
 };
 
 export const tickDie = (state: GameState, elapsedSeconds: number) => {
   if (state.status !== 'rolling' || !state.die || state.paused) return false;
+  const die = state.die;
   const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
-  if (state.die.roll) {
-    state.die.roll.secondsLeft = Math.max(0, state.die.roll.secondsLeft - elapsed);
-    if (state.die.roll.secondsLeft === 0) resolveDieRoll(state);
+  if (die.phase === 'spinning' && die.roll) {
+    die.roll.secondsLeft = Math.max(0, die.roll.secondsLeft - elapsed);
+    if (die.roll.secondsLeft === 0) resolveDieRoll(state);
     return true;
   }
-  state.die.secondsLeft = Math.max(0, state.die.secondsLeft - elapsed);
-  if (state.die.secondsLeft === 0) {
-    state.players.forEach((player) => { wagerFor(state.die!, player.id).ready = true; });
+  if (die.phase === 'revealed' && die.revealed) {
+    die.revealed.secondsLeft = Math.max(0, die.revealed.secondsLeft - elapsed);
+    if (die.rerollPot) die.rerollPot.secondsLeft = die.revealed.secondsLeft;
+    if (die.revealed.secondsLeft === 0) {
+      if (die.rerollPot) Object.entries(die.rerollPot.contributions).forEach(([playerId, amount]) => {
+        const player = state.players.find((candidate) => candidate.id === playerId);
+        if (player) player.cash += amount;
+      });
+      commitPlan(state, die.revealed.plan);
+    }
+    return true;
+  }
+  die.secondsLeft = Math.max(0, die.secondsLeft - elapsed);
+  if (die.secondsLeft === 0) {
+    state.players.forEach((player) => { wagerFor(die, player.id).ready = true; });
     startDieRoll(state);
   }
   return true;
