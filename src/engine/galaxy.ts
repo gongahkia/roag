@@ -170,7 +170,16 @@ export const reconcileGalaxy = (source: GalaxyState, now = Date.now()): GalaxySt
   const elapsed = Math.min(GALAXY_OFFLINE_CAP_MS, rawElapsed)
   if (rawElapsed > GALAXY_OFFLINE_CAP_MS) galaxy.lastSimulatedAt = now - elapsed
   const ticks = Math.floor(elapsed / GALAXY_TICK_MS)
-  if (!ticks) return galaxy
+  const expireContracts = () => {
+    for (const contract of galaxy.contracts) {
+      if ((contract.status === 'open' || contract.status === 'active') && contract.deadlineDay < galaxy.sectorDay) {
+        contract.status = 'failed'
+        galaxy.cargo = galaxy.cargo.filter(cargo => cargo.contractId !== contract.id)
+        appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${contract.id}:expired`, at: now, kind: 'trade', siteId: contract.destinationSiteId, headline: 'Contract window expired', detail: `${contract.cargo.units} units of ${contract.cargo.kind} are no longer accepted at ${galaxy.sites[contract.destinationSiteId]?.name ?? contract.destinationSiteId}.` })
+      }
+    }
+  }
+  if (!ticks) { expireContracts(); return galaxy }
   for (let offset = 1; offset <= ticks; offset++) {
     const tick = Math.floor(galaxy.sectorDay * GALAXY_HOUR_MS / GALAXY_TICK_MS) + offset
     galaxy.lastSimulatedAt += GALAXY_TICK_MS
@@ -179,6 +188,7 @@ export const reconcileGalaxy = (source: GalaxyState, now = Date.now()): GalaxySt
     if (site) shiftSite(galaxy, site, tick)
     evolveCouriers(galaxy, tick)
   }
+  expireContracts()
   return galaxy
 }
 
