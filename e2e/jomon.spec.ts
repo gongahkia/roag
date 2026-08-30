@@ -1,15 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { autoplayTaskCatalog } from '../src/autoplay-task-catalog'
 
-const activate = async (page: Page): Promise<void> => {
+const loadGame = async (page: Page): Promise<void> => {
   await page.goto('/')
-  await expect(page.locator('.boot-activate')).toHaveText('Initialize Voyager')
-  await page.locator('.boot-activate').click()
   await expect(page.locator('#game')).toHaveAttribute('data-route', /splash|title/)
 }
 
-test('boots through the deferred Voyager entry and accepts keyboard input', async ({ page }) => {
-  await activate(page)
+test('opens the Voyager immediately and accepts keyboard input', async ({ page }) => {
+  await loadGame(page)
   await page.locator('#game').click()
   await page.keyboard.press('n')
   await expect(page.locator('#game')).toHaveAttribute('data-route', 'createCourier')
@@ -19,7 +17,7 @@ test('boots through the deferred Voyager entry and accepts keyboard input', asyn
 })
 
 test('retains player-facing visual and zoom controls before route selection', async ({ page }) => {
-  await activate(page)
+  await loadGame(page)
   await page.locator('#game').click()
   await page.keyboard.press('v')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('jomon-visual-mode'))).toBe('runes')

@@ -19,4 +19,9 @@ describe('autoplay task suite', () => {
     expect(report.passed).toBe(false)
     expect(report.results).toMatchObject([{ id: 'alpha', status: 'blocked' }, { id: 'beta', status: 'blocked' }])
   })
+
+  it('keeps clock-backed cargo fixture evidence reproducible', () => {
+    const task = autoplayTaskCatalog().find(entry => entry.id === 'voyager.cargo-recovery')!
+    expect(task.run()).toEqual(task.run())
+  })
 })
