@@ -118,7 +118,6 @@ export const startApp = (app: HTMLElement) => {
   let pendingReconnectToken: string | undefined;
   let onlineConnected = false;
   let controllerName: string | undefined;
-  let localMultiplayer = false;
   let gamepadButtons: boolean[] = [];
   let controllerAxisDirection: ControllerDirection | undefined;
   let controllerNavigationMode = false;
@@ -150,7 +149,7 @@ export const startApp = (app: HTMLElement) => {
     shotInFlight: Boolean(shotAnimation),
     ledger,
     callouts,
-    multiplayer: { online: online(), connected: onlineConnected, roomCode: room?.code, playerId: onlinePlayerId, host: room?.hostId === onlinePlayerId, controllerName, localMultiplayer },
+    multiplayer: { online: online(), connected: onlineConnected, roomCode: room?.code, playerId: onlinePlayerId, host: room?.hostId === onlinePlayerId, controllerName },
   });
   const applyPreferences = () => {
     document.documentElement.classList.toggle('reduced-motion', preferences.reducedMotion);
@@ -344,7 +343,7 @@ export const startApp = (app: HTMLElement) => {
   };
   if (captureMode) state = autoResolveCaptureDie(state);
 
-  const readConfig = (prefix: 'local' | 'local-multiplayer' | 'online'): LobbyConfig => {
+  const readConfig = (prefix: 'local' | 'online'): LobbyConfig => {
     const fallback = lobbyConfigFromGame(config);
     const rawSkill = app.querySelector<HTMLSelectElement>(`#${prefix}-skill`)?.value;
     return {
@@ -381,10 +380,9 @@ export const startApp = (app: HTMLElement) => {
       });
     });
   };
-  const startLocal = (prefix: 'local' | 'local-multiplayer', skipDieBets = false) => {
-    const selected = { ...readConfig(prefix), skipDieBets };
-    const minimumHumans = prefix === 'local-multiplayer' ? 2 : 1;
-    if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < minimumHumans || selected.botCount > 4) { notice = minimumHumans === 2 ? 'choose between two and twelve total players' : 'choose between one and twelve total players'; render(); return; }
+  const startLocal = (skipDieBets = false) => {
+    const selected = { ...readConfig('local'), skipDieBets };
+    if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
     if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose whole-number level dimensions of at least 14×10 tiles'; render(); return; }
     onlineClient?.disconnect();
     onlineClient = undefined;
@@ -392,7 +390,6 @@ export const startApp = (app: HTMLElement) => {
     onlinePlayerId = undefined;
     pendingReconnectToken = undefined;
     onlineConnected = false;
-    localMultiplayer = prefix === 'local-multiplayer';
     config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipDieBets: selected.skipDieBets };
     drawer = undefined;
     overlay = undefined;
@@ -428,7 +425,6 @@ export const startApp = (app: HTMLElement) => {
     onlinePlayerId = undefined;
     pendingReconnectToken = undefined;
     onlineConnected = false;
-    localMultiplayer = false;
     const client = new OnlineClient({
       onRoom(nextRoom) {
         if (onlineClient !== client) return;
@@ -1039,10 +1035,8 @@ export const startApp = (app: HTMLElement) => {
       render();
       return;
     }
-    if (element.hasAttribute('data-start-local')) { startLocal('local'); return; }
-    if (element.hasAttribute('data-quick-start-local')) { startLocal('local', true); return; }
-    if (element.hasAttribute('data-start-local-multiplayer')) { startLocal('local-multiplayer'); return; }
-    if (element.hasAttribute('data-quick-start-local-multiplayer')) { startLocal('local-multiplayer', true); return; }
+    if (element.hasAttribute('data-start-local')) { startLocal(); return; }
+    if (element.hasAttribute('data-quick-start-local')) { startLocal(true); return; }
     if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
     if (element.hasAttribute('data-create-quick-room')) { createOnlineRoom(true); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }

@@ -7,7 +7,7 @@ export type Drawer = 'run' | 'intel' | undefined;
 
 export interface LedgerEntry { message: string; tone: string; }
 export interface Callout { message: string; tone: string; }
-export interface MultiplayerView { online: boolean; connected: boolean; roomCode?: string; playerId?: string; host: boolean; controllerName?: string; localMultiplayer?: boolean; }
+export interface MultiplayerView { online: boolean; connected: boolean; roomCode?: string; playerId?: string; host: boolean; controllerName?: string; }
 
 export interface ViewModel {
   state: GameState;
@@ -261,6 +261,6 @@ export const renderAppMarkup = (view: ViewModel) => {
   const { state } = view;
   const progress = `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
   const shellState = state.status === 'rolling' ? 'rolling' : state.status === 'shopping' ? 'shopping' : state.status === 'transitioning' ? 'transitioning' : state.status === 'finished' ? 'finished' : '';
-  const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.localMultiplayer ? view.multiplayer.controllerName ? `LOCAL MULTIPLAYER · PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL MULTIPLAYER' : view.multiplayer.controllerName ? `PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PARTY';
+  const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.controllerName ? `LOCAL PLAY · PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PLAY';
   return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'rolling' ? 'slots' : 'intel'}</button><button data-open-overlay="help">? help</button><button class="icon-button" data-open-overlay="settings" aria-label="open settings" title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.1 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2.1-1.5Z"/></svg></button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas>${renderMatchHud(view)}<div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderDieOverlay(view)}${renderShopOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
 };

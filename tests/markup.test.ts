@@ -10,37 +10,36 @@ describe('course slot machine markup', () => {
     const state = createGame(defaultConfig());
     const markup = renderHomeMarkup({ panel: 'play', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(markup).toContain('data-home-mode="local"');
-    expect(markup).toContain('data-home-mode="local-multiplayer"');
     expect(markup).toContain('data-home-mode="multiplayer"');
     expect(markup).toContain('home-settings-button');
     expect(markup).toContain('aria-label="open settings"');
-    expect(markup).toContain('couch campaign');
+    expect(markup).toContain('local play');
     expect(markup).toContain('class="title-golf-ball"');
     expect(markup).toContain('class="title-cursing-emoji"');
     expect(markup).toContain('class="title-menu panel"');
-    expect(markup).toContain('choose campaign');
-    expect(markup).toContain('choose local multiplayer');
+    expect(markup).toContain('choose local play');
     expect(markup).not.toContain('home-course-canvas');
     expect(markup).not.toContain('data-home-putt-target');
-    expect(markup).toContain('two or more players on one device');
+    expect(markup).toContain('up to eight golfers');
     expect(markup).not.toContain('ASCII ISOMETRIC MINI GOLF · ONLINE OR COUCH');
     expect(markup).not.toContain('Seeded nine-hole party golf with public ballots, chaos items, and server-authoritative online rooms.');
     expect(markup).not.toContain('id="local-seed"');
-    expect(markup).not.toContain('id="local-multiplayer-seed"');
+    expect(markup).not.toContain('local-multiplayer');
     expect(markup).not.toContain('id="online-seed"');
   });
 
-  it('offers a separate shared-screen local multiplayer setup with two or more human seats', () => {
+  it('uses one local setup for solo play and pass-and-play', () => {
     const state = createGame(defaultConfig());
-    const markup = renderHomeMarkup({ panel: 'play', mode: 'local-multiplayer', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
-    expect(markup).toContain('id="local-multiplayer-seed"');
-    expect(markup).toContain('data-start-local-multiplayer');
-    expect(markup).toContain('data-quick-start-local-multiplayer');
-    expect(markup).toContain('active-ball camera');
-    expect(markup).not.toContain('<option value="1" selected>1</option>');
+    const markup = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
+    expect(markup).toContain('id="local-seed"');
+    expect(markup).toContain('data-start-local');
+    expect(markup).toContain('data-quick-start-local');
+    expect(markup).toContain('solo play or add seats for pass-and-play');
+    expect(markup).toContain('<option value="1" selected>1</option>');
+    expect(markup).toContain('<option value="8" >8</option>');
 
-    const game = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true, localMultiplayer: true }, ledger: [], callouts: [] });
-    expect(game).toContain('LOCAL MULTIPLAYER');
+    const game = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(game).toContain('LOCAL PLAY');
   });
 
   it('shows host and join choices before rendering either detailed room form', () => {
