@@ -74,9 +74,11 @@ const validCommand = (value: unknown): GameCommand | undefined => {
     const kind = shot.kind === 'chip' ? 'chip' : shot.kind === undefined || shot.kind === 'putt' ? 'putt' : undefined;
     return typeof shot.angle === 'number' && typeof shot.power === 'number' && Number.isFinite(shot.angle) && Number.isFinite(shot.power) && kind ? { type: 'shoot', shot: { angle: shot.angle, power: shot.power, kind } } : undefined;
   }
-  if (source.type === 'add-die-side' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'add-die-side', playerId: source.playerId };
-  if (source.type === 'augment-die-face' && typeof source.playerId === 'string' && typeof source.faceId === 'string' && source.playerId.length <= 24 && source.faceId.length <= 80) return { type: 'augment-die-face', playerId: source.playerId, faceId: source.faceId };
-  if (source.type === 'ready-die-roll' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'ready-die-roll', playerId: source.playerId };
+  if (source.type === 'add-slot-stop' && typeof source.playerId === 'string' && typeof source.reelId === 'string' && source.playerId.length <= 24 && source.reelId.length <= 40) return { type: 'add-slot-stop', playerId: source.playerId, reelId: source.reelId };
+  if (source.type === 'augment-slot-stop' && typeof source.playerId === 'string' && typeof source.reelId === 'string' && typeof source.stopId === 'string' && source.playerId.length <= 24 && source.reelId.length <= 40 && source.stopId.length <= 96) return { type: 'augment-slot-stop', playerId: source.playerId, reelId: source.reelId, stopId: source.stopId };
+  if (source.type === 'add-chaos-reel' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'add-chaos-reel', playerId: source.playerId };
+  if (source.type === 'contribute-reroll' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'contribute-reroll', playerId: source.playerId };
+  if (source.type === 'ready-slot-spin' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'ready-slot-spin', playerId: source.playerId };
   if (source.type === 'set-paused' && typeof source.paused === 'boolean') return { type: 'set-paused', paused: source.paused };
   if (source.type === 'arm-second-wind') return { type: 'arm-second-wind' };
   if (source.type === 'emote' && typeof source.playerId === 'string' && typeof source.emote === 'string' && emotes.has(source.emote)) return { type: 'emote', playerId: source.playerId, emote: source.emote as Emote };
@@ -178,20 +180,35 @@ const scheduleAutomation = (room: StoredRoom) => {
     }
     return;
   }
-  if (game.status === 'rolling' && game.die && !game.die.roll) {
+  if (game.status === 'rolling' && game.die && (game.die.phase === 'wagering' || game.die.phase === 'reroll-wagering')) {
     const bot = game.players.find((player) => player.kind === 'bot' && !game.die!.wagers[player.id]?.ready);
-    if (!bot || current.botFor === `die:${bot.id}`) return;
+    if (!bot || current.botFor === `slot:${bot.id}`) return;
     if (current.botTimeout) clearTimeout(current.botTimeout);
-    current.botFor = `die:${bot.id}`;
+    current.botFor = `slot:${bot.id}`;
     current.botTimeout = setTimeout(() => {
       current.botTimeout = undefined;
       current.botFor = undefined;
       const latest = rooms.get(room.code);
       const die = latest?.game?.die;
-      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || !die || die.roll || die.wagers[bot.id]?.ready) return;
+      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || !die || (die.phase !== 'wagering' && die.phase !== 'reroll-wagering') || die.wagers[bot.id]?.ready) return;
       const action = chooseBotDieAction(latest.game.config.seed, latest.game.hole, bot, die);
       updateGame(latest, applyCommand(latest.game, action));
     }, 520);
+    return;
+  }
+  if (game.status === 'rolling' && game.die?.phase === 'revealed' && game.die.rerollPot) {
+    const bot = game.players.find((player) => player.kind === 'bot' && player.cash > 0 && !game.die!.rerollPot!.contributions[player.id]);
+    if (!bot || current.botFor === `reroll:${bot.id}`) return;
+    if (current.botTimeout) clearTimeout(current.botTimeout);
+    current.botFor = `reroll:${bot.id}`;
+    current.botTimeout = setTimeout(() => {
+      current.botTimeout = undefined;
+      current.botFor = undefined;
+      const latest = rooms.get(room.code);
+      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || latest.game.die?.phase !== 'revealed' || !latest.game.die.rerollPot || bot.cash < 1) return;
+      const wantsReroll = latest.game.holeRules.scoreMultiplier >= 1 || bot.skill === 'adaptive' || bot.skill >= 5;
+      if (wantsReroll) updateGame(latest, applyCommand(latest.game, { type: 'contribute-reroll', playerId: bot.id }));
+    }, 420);
     return;
   }
   if (game.status === 'shopping' && game.shop) {
@@ -251,7 +268,7 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   if (command.type === 'set-paused') return session.playerId === room.hostId ? undefined : 'only the host can pause the room';
   if (game.paused) return 'the match is paused';
   const active = game.players[game.turn.playerIndex];
-  if (command.type === 'add-die-side' || command.type === 'augment-die-face' || command.type === 'ready-die-roll') return command.playerId === session.playerId ? undefined : 'you can only place your own die wager';
+  if (command.type === 'add-slot-stop' || command.type === 'augment-slot-stop' || command.type === 'add-chaos-reel' || command.type === 'contribute-reroll' || command.type === 'ready-slot-spin') return command.playerId === session.playerId ? undefined : 'you can only place your own slot wager';
   if (command.type === 'emote') return command.playerId === session.playerId ? undefined : 'you can only send your own emote';
   if (command.type === 'shop-vote-reroll') return command.playerId === session.playerId ? undefined : 'you can only cast your own merchant ballot';
   if (command.type === 'shop-buy' || command.type === 'shop-sell-caddy' || command.type === 'shop-skip') {

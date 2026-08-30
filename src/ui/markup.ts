@@ -41,7 +41,7 @@ const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb:
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.paused) return 'match paused';
-  if (state.status === 'rolling') return state.die?.roll ? `the ${state.die.faces.length}-stop course slot machine is spinning` : `hole ${state.hole}/${state.config.holeCount} · slot wagers close in ${state.die?.secondsLeft.toFixed(0) ?? 0}s`;
+  if (state.status === 'rolling') return state.die?.phase === 'spinning' ? `the ${state.die.reels.length}-reel course machine is spinning` : state.die?.phase === 'revealed' ? `course revealed · ${state.die.revealed?.secondsLeft.toFixed(0) ?? 0}s to fund a reroll` : `hole ${state.hole}/${state.config.holeCount} · slot wagers close in ${state.die?.secondsLeft.toFixed(0) ?? 0}s`;
   if (state.status === 'shopping') return `clubhouse merchant · ${state.shop?.secondsLeft.toFixed(0) ?? 0}s remaining`;
   if (state.status === 'transitioning') return `expanding the campaign to hole ${state.hole}/${state.config.holeCount}`;
   if (state.status === 'finished') return 'campaign complete — the full route is on display';
@@ -137,35 +137,50 @@ const renderDieOverlay = (view: ViewModel) => {
     ? state.players.find((player) => player.id === multiplayer.playerId)
     : state.players.find((player) => player.kind === 'human' && !die.wagers[player.id]?.ready);
   const ownWager = ownPlayer ? die.wagers[ownPlayer.id] : undefined;
-  const canBet = Boolean(ownPlayer && !die.roll && !ownWager?.ready);
-  const sideCost = ownWager ? 1 + ownWager.addedSides : 1;
-  const totalWeight = die.faces.reduce((total, face) => total + face.weight, 0);
-  const selectedId = die.roll?.faceId;
-  const packageFace = (face: typeof die.faces[number], index: number) => {
-    const { terrain, rules } = face.recipe;
-    const odds = Math.round(face.weight / totalWeight * 100);
-    const augmentationCost = ownWager ? 1 + Math.floor((ownWager.augmentations[face.id] ?? 0) / 2) : 1;
-    const augmentedBy = Object.entries(face.augmentations).map(([playerId, amount]) => `${escapeHtml(state.players.find((player) => player.id === playerId)?.name ?? playerId)} +${amount}`).join(' · ');
-    return `<article class="die-face theme-${terrain.theme} ${selectedId === face.id ? 'landed' : ''}" aria-label="course reel stop ${index + 1}: ${escapeHtml(face.label)}"><header><span class="die-face-number">${index + 1}</span><div><p class="card-kicker">${themeIcon[terrain.theme]} ${themeDescriptor[terrain.theme]}</p><h2>${escapeHtml(face.label)}</h2></div><strong>${face.weight}<small>weight · ${odds}%</small></strong></header><div class="course-glyphs"><span>▣ ${terrain.width}×${terrain.height} · ${terrain.sizeProfile}</span><span>⌁ ${terrain.archetype}</span><span>⚠ ${terrain.sweeperCount}+${terrain.gateCount}</span><span>⌃ ${terrain.updraftCount} · 〰 ${terrain.gustCount}</span><span>◉ ${terrain.portalPairs}</span><span>✚ ${terrain.recoveryPads} · ✹ ${terrain.chaosPads}</span></div><div class="rule-chip-grid"><span>⏱ ${rules.timerSeconds}s</span><span>🎯 cap ${rules.strokeCap}</span><span>${rules.collisions ? '● collisions' : '○ no collisions'}</span><span>${rules.powerUps ? '🎁 items on' : '⊘ items off'}</span><span>★ ${Math.round(rules.scoreMultiplier * 100)}% score</span></div><footer>${face.addedBy ? `<small>added by ${escapeHtml(state.players.find((player) => player.id === face.addedBy)?.name ?? face.addedBy)}</small>` : '<small>base reel stop</small>'}${augmentedBy ? `<small>${augmentedBy}</small>` : ''}${canBet ? `<button data-augment-die-face="${face.id}" ${ownPlayer!.cash < augmentationCost ? 'disabled' : ''}>weight +1 · $${augmentationCost}</button>` : ''}</footer></article>`;
+  const canBet = Boolean(ownPlayer && (die.phase === 'wagering' || die.phase === 'reroll-wagering') && !ownWager?.ready);
+  const stopIcon = (stop: typeof die.reels[number]['stops'][number], kind: typeof die.reels[number]['kind']) => {
+    if (kind === 'biome' && stop.theme) return themeIcon[stop.theme];
+    if (kind === 'layout') return '⌁';
+    if (kind === 'rules') return '⚑';
+    return '✦';
   };
+  const totalWeight = (reel: typeof die.reels[number]) => reel.stops.reduce((total, stop) => total + stop.weight, 0);
+  const selectedStop = (reelIndex: number) => die.roll ? die.reels[reelIndex]?.stops.find((stop) => stop.id === die.roll?.stopIds[reelIndex]) : undefined;
+  const slotSymbol = (stop: typeof die.reels[number]['stops'][number], kind: typeof die.reels[number]['kind']) => `<span class="slot-stop"><span class="slot-symbol" aria-hidden="true">${stopIcon(stop, kind)}</span><span class="slot-symbol-label">${escapeHtml(stop.label)}</span></span>`;
+  const slotReel = (reel: typeof die.reels[number], reelIndex: number) => {
+    const landed = selectedStop(reelIndex);
+    const physicalStrip = reel.stops.flatMap((stop) => Array.from({ length: stop.weight }, () => stop));
+    const spinning = die.phase === 'spinning' && landed;
+    const visible = landed ?? physicalStrip[reelIndex % physicalStrip.length] ?? reel.stops[0]!;
+    const stops = spinning ? [...physicalStrip, landed] : [visible];
+    return `<div class="slot-reel ${spinning ? 'is-spinning' : ''}" style="--slot-stop:${stops.length * 5.1}rem;--slot-delay:${reelIndex * .1}s" aria-label="${escapeHtml(reel.label)} reel"><div class="slot-reel-track">${stops.map((stop) => slotSymbol(stop, reel.kind)).join('')}</div></div>`;
+  };
+  const reelControls = die.reels.map((reel) => {
+    const weight = totalWeight(reel);
+    const canAddWild = canBet && reel.kind !== 'chaos';
+    const wildCost = ownWager ? 1 + ownWager.addedStops : 1;
+    const stops = reel.stops.map((stop) => {
+      const odds = Math.round(stop.weight / weight * 100);
+      const key = `${reel.id}:${stop.id}`;
+      const ticketCost = ownWager ? 1 + Math.floor((ownWager.augmentations[key] ?? 0) / 2) : 1;
+      return `<li class="${selectedStop(die.reels.indexOf(reel))?.id === stop.id ? 'landed' : ''}"><span>${stopIcon(stop, reel.kind)}</span><strong>${escapeHtml(stop.label)}</strong><small>${stop.weight} ticket${stop.weight === 1 ? '' : 's'} · ${odds}%</small>${canBet ? `<button data-augment-slot-stop data-reel-id="${reel.id}" data-stop-id="${stop.id}" ${ownPlayer!.cash < ticketCost ? 'disabled' : ''}>load +1 · $${ticketCost}</button>` : ''}</li>`;
+    }).join('');
+    return `<section class="slot-reel-control"><header><strong>${escapeHtml(reel.label)} reel</strong><small>${weight} physical tickets</small></header><ol>${stops}</ol>${canAddWild ? `<button data-add-slot-stop="${reel.id}" ${ownPlayer!.cash < wildCost ? 'disabled' : ''}>add wild stop · $${wildCost}</button>` : ''}</section>`;
+  }).join('');
   const bettors = state.players.map((player) => {
     const wager = die.wagers[player.id];
-    return `<li class="${wager?.ready ? 'ready' : ''}"><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><span>$${player.cash}</span><small>${wager?.ready ? 'ready' : `${wager?.addedSides ?? 0} added · ${Object.values(wager?.augmentations ?? {}).reduce((total, amount) => total + amount, 0)} weight`}</small></li>`;
+    return `<li class="${wager?.ready ? 'ready' : ''}"><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><span>$${player.cash}</span><small>${wager?.ready ? 'ready' : `${wager?.addedStops ?? 0} wild stops · ${Object.values(wager?.augmentations ?? {}).reduce((total, amount) => total + amount, 0)} tickets`}</small></li>`;
   }).join('');
-  const selectedFace = selectedId ? die.faces.find((face) => face.id === selectedId) : undefined;
-  const slotSymbol = (face: typeof die.faces[number]) => `<span class="slot-stop"><span class="slot-symbol" aria-hidden="true">${themeIcon[face.recipe.terrain.theme]}</span><span class="slot-symbol-label">${escapeHtml(themeDescriptor[face.recipe.terrain.theme])}</span></span>`;
-  const slotReel = (reel: number) => {
-    if (!selectedFace) {
-      const face = die.faces[(reel * 2) % die.faces.length]!;
-      return `<div class="slot-reel"><div class="slot-reel-track">${slotSymbol(face)}</div></div>`;
-    }
-    const stopCount = 9 + reel;
-    const stops = Array.from({ length: stopCount }, (_, index) => die.faces[(selectedId!.length + index * (reel + 1) + reel) % die.faces.length]!);
-    return `<div class="slot-reel is-spinning" style="--slot-stop:${stopCount * 5.1}rem;--slot-delay:${reel * .08}s"><div class="slot-reel-track">${stops.map(slotSymbol).join('')}${slotSymbol(selectedFace)}</div></div>`;
-  };
-  const slotMachine = `<section class="slot-machine ${die.roll ? 'is-spinning' : ''}" role="img" aria-label="${die.roll ? `three reels spinning for ${escapeHtml(selectedFace?.label ?? 'the selected course')}` : 'three-reel course slot machine ready for wagers'}"><header class="slot-machine-marquee"><span aria-hidden="true">◆</span><strong>COURSE SLOTS</strong><span aria-hidden="true">◆</span></header><div class="slot-machine-cabinet"><div class="slot-machine-reels">${[0, 1, 2].map(slotReel).join('')}</div><i class="slot-payline" aria-hidden="true"></i><div class="slot-lever" aria-hidden="true"><span></span><i></i></div></div><footer><span>${die.roll ? 'spinning for the next hole' : 'load the reels'}</span><strong>${die.roll ? escapeHtml(selectedFace?.label ?? 'course selected') : 'PULL TO SPIN'}</strong></footer></section>`;
-  const prompt = die.roll ? `spinning… ${die.roll.secondsLeft.toFixed(1)}s` : canBet ? multiplayer.online ? 'place your wager, then pull the lever' : `pass the device to ${escapeHtml(ownPlayer!.name)} · place a wager or pull the lever` : 'waiting for the other golfers';
-  return `<section class="die-overlay" role="dialog" aria-modal="true" aria-label="course slot machine for hole ${state.hole}"><div class="die-panel"><header class="die-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · SHARED COURSE SLOTS</p><h1>${die.roll ? 'the <em>course slots</em> spin' : 'load the <em>next hole</em>'}</h1><p id="die-prompt">${prompt}</p></header><section class="die-table"><section class="die-visual">${slotMachine}<p>${die.roll ? 'the weighted reels are locking in a course package' : 'each reel stop is a complete course package'}</p></section><div class="die-actions">${canBet ? `<button class="primary" data-add-die-side ${ownPlayer!.cash < sideCost ? 'disabled' : ''}>add wild reel stop · $${sideCost}</button><button data-ready-die-roll>pull the lever</button><small>new reel stops rise $1, $2, $3… · weighting the same stop rises every two boosts</small>` : `<strong>${die.roll ? 'no more bets' : 'wager locked'}</strong>`}</div><ol class="die-bettors">${bettors}</ol></section><section class="die-face-grid">${die.faces.map(packageFace).join('')}</section><footer class="die-panel-footer"><span>${die.faces.length} reel stops · total weight ${totalWeight}</span><span id="die-timer">${die.roll ? 'the selected stop becomes this hole' : `${state.players.filter((player) => die.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${die.secondsLeft.toFixed(0)}s`}</span></footer></div></section>`;
+  const title = die.phase === 'spinning' ? 'the <em>course slots</em> spin' : die.phase === 'revealed' ? 'the <em>course</em> is revealed' : die.phase === 'reroll-wagering' ? 'reload the <em>chaos slots</em>' : 'load the <em>next hole</em>';
+  const prompt = die.phase === 'spinning' ? `spinning… ${die.roll?.secondsLeft.toFixed(1) ?? '0.0'}s`
+    : die.phase === 'revealed' ? `reroll pot: $${Object.values(die.rerollPot?.contributions ?? {}).reduce((total, amount) => total + amount, 0)}/$${die.rerollPot?.target ?? 0} · ${die.revealed?.secondsLeft.toFixed(0) ?? 0}s`
+      : canBet ? multiplayer.online ? 'load physical tickets, then pull the lever' : `pass the device to ${escapeHtml(ownPlayer!.name)} · load tickets or pull the lever` : 'waiting for the other golfers';
+  const actions = die.phase === 'revealed'
+    ? die.rerollPot && ownPlayer ? `<button class="primary" data-contribute-reroll ${ownPlayer.cash < 1 ? 'disabled' : ''}>feed reroll pot · $1</button><small>reach $${die.rerollPot.target} to reopen the machine; an unfinished pot is refunded.</small>` : '<strong>final course locked</strong>'
+    : canBet ? `<button class="primary" data-ready-slot-spin>pull the lever</button>${die.phase === 'reroll-wagering' ? `<button data-add-chaos-reel ${die.reels.filter((reel) => reel.kind === 'chaos').length >= 2 || ownPlayer!.cash < 2 + die.reels.filter((reel) => reel.kind === 'chaos').length ? 'disabled' : ''}>bolt on chaos reel · $${2 + die.reels.filter((reel) => reel.kind === 'chaos').length}</button>` : ''}<small>ticket duplicates are the displayed odds. Every stopped reel is used to build the hole.</small>` : `<strong>${die.phase === 'spinning' ? 'no more bets' : 'wager locked'}</strong>`;
+  const slotMachine = `<section class="slot-machine ${die.phase === 'spinning' ? 'is-spinning' : ''}" aria-label="course slot machine"><header class="slot-machine-marquee"><span aria-hidden="true">◆</span><strong>COURSE SLOTS</strong><span aria-hidden="true">◆</span></header><div class="slot-machine-cabinet"><div class="slot-machine-reels ${die.reels.length > 3 ? 'with-chaos' : ''}">${die.reels.map(slotReel).join('')}</div><i class="slot-payline" aria-hidden="true"></i><div class="slot-lever" aria-hidden="true"><span></span><i></i></div></div><footer><span>${die.phase === 'spinning' ? 'independent reels locking' : 'physical tickets set the odds'}</span><strong>${die.revealed ? escapeHtml(die.revealed.plan.label) : 'PULL TO SPIN'}</strong></footer></section>`;
+  const resultTicket = die.revealed ? `<section class="slot-result-ticket"><span>PAYLINE COURSE</span><strong>${escapeHtml(die.revealed.plan.label)}</strong><small>${die.revealed.plan.recipe.terrain.width}×${die.revealed.plan.recipe.terrain.height} · ${die.revealed.plan.recipe.rules.timerSeconds}s · cap ${die.revealed.plan.recipe.rules.strokeCap}</small></section>` : '';
+  return `<section class="die-overlay" role="dialog" aria-modal="true" aria-label="course slot machine for hole ${state.hole}"><div class="die-panel"><header class="die-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · SHARED COURSE SLOTS</p><h1>${title}</h1><p id="die-prompt">${prompt}</p></header><section class="die-table"><section class="die-visual">${slotMachine}${resultTicket}<p>biome, layout, and rules stop independently; extra chaos reels modify the same generated hole.</p></section><div class="die-actions">${actions}</div><ol class="die-bettors">${bettors}</ol></section><section class="slot-reel-controls">${reelControls}</section><footer class="die-panel-footer"><span>${die.reels.length} reels · ${die.reels.reduce((total, reel) => total + totalWeight(reel), 0)} physical tickets</span><span id="die-timer">${die.phase === 'revealed' ? 'course commits when the reveal clock expires' : `${state.players.filter((player) => die.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${die.secondsLeft.toFixed(0)}s`}</span></footer></div></section>`;
 };
 
 const renderShopOverlay = (view: ViewModel) => {

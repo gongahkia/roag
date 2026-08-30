@@ -16,8 +16,8 @@ import { createArena as arena, gameOn } from './fixtures';
 const resolveDie = (game: ReturnType<typeof createGame>) => {
   let resolved = game;
   while (resolved.status === 'rolling') {
-    if (!resolved.die?.roll) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), resolved);
-    resolved = tickTurn(resolved, 2);
+    if (resolved.die && (resolved.die.phase === 'wagering' || resolved.die.phase === 'reroll-wagering')) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), resolved);
+    resolved = tickTurn(resolved, 10);
   }
   return resolved;
 };

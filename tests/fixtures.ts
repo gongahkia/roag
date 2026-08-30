@@ -26,8 +26,8 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
   let game = createGame({ ...defaultConfig(), seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options });
   while (game.status === 'rolling') {
-    if (!game.die?.roll) for (const player of game.players) game = applyCommand(game, { type: 'ready-die-roll', playerId: player.id });
-    game = tickTurn(game, 2);
+    if (game.die && (game.die.phase === 'wagering' || game.die.phase === 'reroll-wagering')) for (const player of game.players) game = applyCommand(game, { type: 'ready-slot-spin', playerId: player.id });
+    game = tickTurn(game, 10);
   }
   game.course = course;
   game.players.forEach((player) => { player.ball = newBall(course); });

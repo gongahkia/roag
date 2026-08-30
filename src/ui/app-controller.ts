@@ -336,7 +336,7 @@ export const startApp = (app: HTMLElement) => {
   const autoResolveCaptureDie = (source: GameState) => {
     let resolved = source;
     while (resolved.status === 'rolling') {
-      if (!resolved.die?.roll) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-die-roll', playerId: player.id }), resolved);
+      if (resolved.die && (resolved.die.phase === 'wagering' || resolved.die.phase === 'reroll-wagering')) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), resolved);
       resolved = tickTurn(resolved, 2);
     }
     return resolved;
@@ -705,17 +705,25 @@ export const startApp = (app: HTMLElement) => {
   const diePlayer = () => online()
     ? state.players.find((player) => player.id === onlinePlayerId && !state.die?.wagers[player.id]?.ready)
     : state.players.find((player) => player.kind === 'human' && !state.die?.wagers[player.id]?.ready);
-  const addDieSide = () => {
+  const addSlotStop = (reelId: string) => {
     const player = diePlayer();
-    if (player) { playEffect(660, .06); dispatch({ type: 'add-die-side', playerId: player.id }); }
+    if (player) { playEffect(660, .06); dispatch({ type: 'add-slot-stop', playerId: player.id, reelId }); }
   };
-  const augmentDieFace = (faceId: string) => {
+  const augmentSlotStop = (reelId: string, stopId: string) => {
     const player = diePlayer();
-    if (player) { playEffect(720, .06); dispatch({ type: 'augment-die-face', playerId: player.id, faceId }); }
+    if (player) { playEffect(720, .06); dispatch({ type: 'augment-slot-stop', playerId: player.id, reelId, stopId }); }
   };
-  const readyDieRoll = () => {
+  const addChaosReel = () => {
     const player = diePlayer();
-    if (player) { playEffect(490, .08); dispatch({ type: 'ready-die-roll', playerId: player.id }); }
+    if (player) { playEffect(310, .08); dispatch({ type: 'add-chaos-reel', playerId: player.id }); }
+  };
+  const contributeReroll = () => {
+    const player = online() ? state.players.find((candidate) => candidate.id === onlinePlayerId) : state.players.find((candidate) => candidate.kind === 'human');
+    if (player) { playEffect(580, .06); dispatch({ type: 'contribute-reroll', playerId: player.id }); }
+  };
+  const readySlotSpin = () => {
+    const player = diePlayer();
+    if (player) { playEffect(490, .08); dispatch({ type: 'ready-slot-spin', playerId: player.id }); }
   };
   const togglePause = () => {
     if (state.status === 'finished' || (online() && room?.hostId !== onlinePlayerId)) return;
@@ -725,11 +733,11 @@ export const startApp = (app: HTMLElement) => {
   const scheduleBot = () => {
     window.clearTimeout(botTimeout);
     if (online() || state.paused) return;
-    if (state.status === 'rolling' && state.die && !state.die.roll) {
+    if (state.status === 'rolling' && state.die && (state.die.phase === 'wagering' || state.die.phase === 'reroll-wagering')) {
       const bot = state.players.find((player) => player.kind === 'bot' && !state.die!.wagers[player.id]?.ready);
       if (!bot) return;
       botTimeout = window.setTimeout(() => {
-        if (state.status !== 'rolling' || !state.die || state.die.roll || state.die.wagers[bot.id]?.ready) return;
+        if (state.status !== 'rolling' || !state.die || (state.die.phase !== 'wagering' && state.die.phase !== 'reroll-wagering') || state.die.wagers[bot.id]?.ready) return;
         setState(applyCommand(state, chooseBotDieAction(state.config.seed, state.hole, bot, state.die)));
       }, preferences.reducedMotion ? 100 : 520);
       return;
@@ -1050,10 +1058,17 @@ export const startApp = (app: HTMLElement) => {
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-    if (element.hasAttribute('data-add-die-side')) { addDieSide(); return; }
-    const dieFace = element.dataset.augmentDieFace;
-    if (dieFace) { augmentDieFace(dieFace); return; }
-    if (element.hasAttribute('data-ready-die-roll')) { readyDieRoll(); return; }
+    const slotReel = element.dataset.addSlotStop;
+    if (slotReel) { addSlotStop(slotReel); return; }
+    if (element.hasAttribute('data-augment-slot-stop')) {
+      const reelId = element.dataset.reelId;
+      const stopId = element.dataset.stopId;
+      if (reelId && stopId) augmentSlotStop(reelId, stopId);
+      return;
+    }
+    if (element.hasAttribute('data-add-chaos-reel')) { addChaosReel(); return; }
+    if (element.hasAttribute('data-contribute-reroll')) { contributeReroll(); return; }
+    if (element.hasAttribute('data-ready-slot-spin')) { readySlotSpin(); return; }
     const powerUp = element.dataset.usePowerup as (PowerUp | ChronoCard) | undefined;
     if (powerUp) { useHeldPowerUp(powerUp, element.dataset.cardId || undefined); return; }
     const reroll = element.dataset.shopReroll;
