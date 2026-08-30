@@ -308,7 +308,7 @@ export interface CampaignCycle { version: 1; currentTier: CampaignTier; complete
 export interface CampaignCarryoverInventoryDiagnostic { before: ItemId[]; after: ItemId[]; added: ItemId[]; removed: ItemId[] }
 export interface CampaignCarryoverRosterDiagnostic { before: Companion[]; after: Companion[]; added: string[]; removed: string[]; changed: string[] }
 export interface CampaignCarryoverDiagnostic { version: 1; fromTier: CampaignTier; toTier: CampaignTier; inventory: CampaignCarryoverInventoryDiagnostic; roster: CampaignCarryoverRosterDiagnostic }
-export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; companionControlMode: CompanionControlMode; companionControlHistory: CompanionControlModeEvent[]; carryoverDiagnostics: CampaignCarryoverDiagnostic[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle }
+export interface CampaignRouteState { version: 3 | 4 | 5; areaOrder: Biome[]; completedAreas: Biome[]; unlockedAreas: Biome[]; selectedBiome: Biome; rescuedNpcs: RescuedNpc[]; companions: Companion[]; companionControlMode: CompanionControlMode; companionControlHistory: CompanionControlModeEvent[]; carryoverDiagnostics: CampaignCarryoverDiagnostic[]; lineageEvents: LineageEvent[]; legacyRecords: LegacyRecord[]; alignment: Record<Alignment, number>; reputation?: SocialReputation; cycle: CampaignCycle; galaxy?: GalaxyState }
 
 export interface LegacyRecord {
   id: string
@@ -391,6 +391,59 @@ export interface RunState {
   replayHero?: Hero
   companions?: Companion[]
   companionDeathMode?: CompanionDeathMode
+}
+
+export type GalaxyCourierRoutine = 'recover' | 'maintain' | 'research' | 'scout' | 'socialize'
+export type GalaxyCourierStatus = 'available' | 'away' | 'injured' | 'dead' | 'retired'
+export type GalaxyFactionId = 'voyager' | 'salvagers' | 'relayGuild' | 'voidborn' | 'settlers'
+export type GalaxyEventKind = 'territory' | 'ecology' | 'rivalry' | 'construction' | 'loss' | 'discovery'
+export interface GalaxyCourier {
+  id: string
+  name: string
+  role: string
+  origin: CourierOrigin
+  calling: CourierCalling
+  routine: GalaxyCourierRoutine
+  status: GalaxyCourierStatus
+  affinity: number
+  rivalId?: string
+  siteId?: string
+  personalItems: ItemId[]
+}
+export interface GalaxyFaction { id: GalaxyFactionId; name: string; influence: number; disposition: number }
+export interface GalaxySite {
+  id: string
+  sectorId: string
+  name: string
+  biome: Biome
+  x: number
+  y: number
+  links: string[]
+  discovered: boolean
+  completed: boolean
+  control: GalaxyFactionId
+  integrity: number
+  ecology: number
+  construction: number
+  lastChangedAt: number
+}
+export interface GalaxySector { id: string; name: string; x: number; y: number; discovered: boolean; siteIds: string[] }
+export interface GalaxyEvent { id: string; at: number; kind: GalaxyEventKind; siteId?: string; courierId?: string; headline: string; detail: string }
+export interface GalaxySiteSnapshot { version: 1; run: RunState; savedAt: number }
+export interface GalaxyState {
+  version: 1
+  seed: number
+  createdAt: number
+  lastSimulatedAt: number
+  sectorDay: number
+  activeSiteId: string
+  activeCourierId: string
+  sectors: GalaxySector[]
+  sites: Record<string, GalaxySite>
+  couriers: GalaxyCourier[]
+  factions: GalaxyFaction[]
+  events: GalaxyEvent[]
+  siteSnapshots: Record<string, GalaxySiteSnapshot>
 }
 
 export type Modal =
