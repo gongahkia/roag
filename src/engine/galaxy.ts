@@ -302,7 +302,7 @@ export const galaxyRouteSituation = (galaxy: GalaxyState, fromSiteId: string, to
   const outcomes = ['quiet', 'patrol', 'hazard', 'trader', 'ecology'] as const
   return outcomes[rngFor(galaxy.seed, 'galaxy', 'route-situation', [fromSiteId, toSiteId].sort().join('::'), chunk, Math.floor(galaxy.sectorDay / 6)).int(0, outcomes.length - 1)]!
 }
-export const acceptGalaxyContract = (source: GalaxyState, fromSiteId: string, toSiteId: string): { galaxy: GalaxyState; message: string } => {
+export const acceptGalaxyContract = (source: GalaxyState, fromSiteId: string, toSiteId: string, now = Date.now()): { galaxy: GalaxyState; message: string } => {
   const galaxy = cloneGalaxy(source)
   const contract = galaxy.contracts.find(candidate => candidate.sourceSiteId === fromSiteId && candidate.destinationSiteId === toSiteId && candidate.status === 'open')
   if (!contract) return { galaxy, message: 'No open contract is registered for this airlock.' }
@@ -312,10 +312,10 @@ export const acceptGalaxyContract = (source: GalaxyState, fromSiteId: string, to
   sourceSite.market.stock[contract.cargo.kind] -= contract.cargo.units
   galaxy.cargo.push({ ...contract.cargo, contractId: contract.id })
   contract.status = 'active'
-  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${contract.id}:accepted`, at: Date.now(), kind: 'trade', siteId: fromSiteId, headline: 'Contract cargo loaded', detail: `${contract.cargo.units} units of ${contract.cargo.kind} are bound for ${galaxy.sites[toSiteId]?.name ?? toSiteId}.` })
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${contract.id}:accepted`, at: now, kind: 'trade', siteId: fromSiteId, headline: 'Contract cargo loaded', detail: `${contract.cargo.units} units of ${contract.cargo.kind} are bound for ${galaxy.sites[toSiteId]?.name ?? toSiteId}.` })
   return { galaxy, message: `Loaded ${contract.cargo.units} units of ${contract.cargo.kind}.` }
 }
-export const deliverGalaxyContracts = (source: GalaxyState, siteId: string, hero: Hero): { galaxy: GalaxyState; message?: string } => {
+export const deliverGalaxyContracts = (source: GalaxyState, siteId: string, hero: Hero, now = Date.now()): { galaxy: GalaxyState; message?: string } => {
   const galaxy = cloneGalaxy(source)
   const deliverable = galaxy.contracts.filter(contract => contract.destinationSiteId === siteId && contract.status === 'active' && contract.deadlineDay >= galaxy.sectorDay)
   if (!deliverable.length) return { galaxy }
@@ -327,17 +327,17 @@ export const deliverGalaxyContracts = (source: GalaxyState, siteId: string, hero
     galaxy.sites[siteId]!.market.stock[contract.cargo.kind] = clamp(galaxy.sites[siteId]!.market.stock[contract.cargo.kind] + contract.cargo.units)
   }
   hero.gold += fee
-  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${siteId}:${Date.now()}:delivered`, at: Date.now(), kind: 'trade', siteId, headline: 'Contract delivered', detail: `${deliverable.length} delivery${deliverable.length === 1 ? '' : 'ies'} paid ${fee} credits.` })
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:contract:${siteId}:${now}:delivered`, at: now, kind: 'trade', siteId, headline: 'Contract delivered', detail: `${deliverable.length} delivery${deliverable.length === 1 ? '' : 'ies'} paid ${fee} credits.` })
   return { galaxy, message: `Delivery complete: ${fee} credits.` }
 }
-export const abandonGalaxyCargo = (source: GalaxyState, linkId: string, chunk: number): GalaxyState => {
+export const abandonGalaxyCargo = (source: GalaxyState, linkId: string, chunk: number, now = Date.now()): GalaxyState => {
   const galaxy = cloneGalaxy(source)
   const cargo = galaxy.cargo.filter(candidate => candidate.contractId)
   if (!cargo.length) return galaxy
   galaxy.cargo = galaxy.cargo.filter(candidate => !candidate.contractId)
   for (const contract of galaxy.contracts) if (cargo.some(candidate => candidate.contractId === contract.id)) contract.status = 'failed'
-  galaxy.routeCaches.push({ id: `cache:${linkId}:${chunk}:${Date.now()}`, linkId, chunk, cargo, recovered: false })
-  appendEvent(galaxy, { id: `event:${galaxy.seed}:cache:${linkId}:${Date.now()}`, at: Date.now(), kind: 'loss', headline: 'Contract cargo abandoned', detail: 'A recoverable route cache marks the last known position of the cargo.' })
+  galaxy.routeCaches.push({ id: `cache:${linkId}:${chunk}:${now}`, linkId, chunk, cargo, recovered: false })
+  appendEvent(galaxy, { id: `event:${galaxy.seed}:cache:${linkId}:${now}`, at: now, kind: 'loss', headline: 'Contract cargo abandoned', detail: 'A recoverable route cache marks the last known position of the cargo.' })
   return galaxy
 }
 export const recoverGalaxyRouteCaches = (source: GalaxyState, linkId: string): { galaxy: GalaxyState; message: string } => {
