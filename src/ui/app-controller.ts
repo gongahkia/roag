@@ -440,6 +440,20 @@ export const startApp = (app: HTMLElement) => {
           render();
         }
       },
+      onTick(clock) {
+        if (onlineClient !== client || !room?.game || room.code !== clock.roomCode || state.status !== clock.status) return;
+        state.hazardElapsedMs = clock.hazardElapsedMs;
+        if (clock.turnSecondsLeft !== undefined) state.turn.secondsLeft = clock.turnSecondsLeft;
+        if (state.die && clock.die) {
+          state.die.secondsLeft = clock.die.secondsLeft;
+          if (state.die.roll && clock.die.rollSecondsLeft !== undefined) state.die.roll.secondsLeft = clock.die.rollSecondsLeft;
+          if (state.die.revealed && clock.die.revealedSecondsLeft !== undefined) state.die.revealed.secondsLeft = clock.die.revealedSecondsLeft;
+          if (state.die.rerollPot && clock.die.rerollPotSecondsLeft !== undefined) state.die.rerollPot.secondsLeft = clock.die.rerollPotSecondsLeft;
+        }
+        lastOnlineHazardSyncAt = performance.now();
+        const timer = app.querySelector<HTMLElement>('#die-timer');
+        if (timer && state.die) timer.textContent = state.die.phase === 'revealed' ? 'course commits when the reveal clock expires' : `${state.players.filter((player) => state.die?.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${state.die.secondsLeft.toFixed(0)}s`;
+      },
       onJoined(playerId, reconnectToken) {
         if (onlineClient !== client) return;
         onlinePlayerId = playerId;
