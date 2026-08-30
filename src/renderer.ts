@@ -351,7 +351,7 @@ export class TerminalRenderer {
     const title = biomeTransition ? 'COLONY COMPLETE' : 'PREPARING LANDING'
     const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'JOMON VOYAGER'
     const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'LOADING MISSION FILE'
-    const duration = biomeTransition ? 650 : 2000
+    const duration = biomeTransition ? 1400 : 1800
     const progress = Math.min(1, Math.max(0, (now - (loading?.startedAt ?? now)) / duration))
     const width = 24
     const filled = Math.round(progress * width)

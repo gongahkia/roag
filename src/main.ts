@@ -340,16 +340,21 @@ function createCourierFromDraft(): void {
     records = courier.records
     campaign = courier.campaign
     heir = nextHeir
+    galaxyForVoyager(seed)
+    courier.campaign = campaign
     inheritedCampaign = undefined
     successorParentId = undefined
     persistCourier(courier, id)
+    const loadingStartedAt = performance.now()
+    loading = { kind: 'trailhead', phase: 'loading', startedAt: loadingStartedAt }
+    redraw()
     window.setTimeout(() => {
       if (!courierCreationPending) return
       courierCreationPending = false
       loading = undefined
       beginTrailhead(seed, openingLore(seed, courier.identity.name), nextHeir)
       redraw()
-    }, Math.max(0, 2000 - (performance.now() - startedAt)))
+    }, 1800)
   }))
 }
 
@@ -358,8 +363,8 @@ function resumeCourier(): void {
   records = activeCourier.records
   campaign = activeCourier.campaign
   hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
-  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); hubPosition = outpostSpawn(); route = { screen: 'hub', biome: campaign.selectedBiome } }
+  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); heir = structuredClone(state.hero); galaxyForVoyager(state.seed); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
+  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); galaxyForVoyager(campaign.galaxy?.seed ?? 1); hubPosition = outpostSpawn(); route = { screen: 'hub', biome: campaign.selectedBiome } }
   const selectedId = activeCourier.identity.id
   recordPersistence('selection', () => selectCourier(selectedId))
 }
@@ -497,7 +502,7 @@ function beginLoadingTransition(nextRoute: ScreenRoute, transition: Omit<Loading
       loading = undefined
       onComplete()
       redraw()
-    }, 650)
+    }, 1400)
   }, 350)
 }
 
@@ -588,6 +593,21 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
   const completed = completedState.area ?? completedState.floor.biome
   heir = structuredClone(completedState.hero)
   campaign = { ...campaign, companions: cloneCompanions(completedState.companions ?? campaign.companions, campaign.rescuedNpcs) }
+  const galaxy = galaxyForVoyager(completedState.seed)
+  const siteId = route.siteId ?? galaxy?.activeSiteId
+  if (galaxy && siteId) {
+    const savedSite = saveGalaxySite(galaxy, siteId, completedState)
+    campaign = { ...campaign, galaxy: discoverLinkedSites(savedSite, siteId) }
+    hub = { ...hub, rescued: campaign.rescuedNpcs }
+    beginVoyagerTransit(completed, undefined, () => {
+      state = undefined
+      saved = undefined
+      hubPosition = outpostSpawn()
+      route = { screen: 'hub', biome: completed }
+      persistActiveCourier()
+    })
+    return 'transitioning'
+  }
   campaign = completeCampaignArea(campaign, completed)
   hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
   const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed, campaign.areaOrder)
@@ -739,8 +759,9 @@ function redraw(): void {
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
   canvas.dataset.notice = hubNotice ?? ''
   const campaignStatus = hubCampaignStatus(campaign.cycle)
-  canvas.setAttribute('aria-label', `Jomon Voyager landing expedition. ${campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
-  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
+  const galaxy = campaign.galaxy
+  canvas.setAttribute('aria-label', `Jomon Voyager living sector. ${galaxy ? `${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; sector day ${galaxy.sectorDay.toFixed(1)}.` : campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
 
@@ -826,9 +847,12 @@ function handleHubInput(key: string, run = false): boolean {
     const interaction = outpostInteraction(hubPosition)
     if (!interaction) { hubNotice = 'No service is within reach.'; return true }
     hubNotice = undefined
-    if (interaction.destination === 'routes' && campaign.cycle.completedCap) hubNotice = 'The Voyager has completed every available route.'
-    else if (interaction.destination === 'routes' && campaignContinuationPending(campaign.cycle)) route = { ...route, hubAction: 'continuation' }
-    else if (interaction.destination === 'routes') route = { ...route, screen: 'area' }
+    if (interaction.destination === 'routes') {
+      const galaxy = galaxyForVoyager(state?.seed ?? campaign.galaxy?.seed ?? 1)
+      const site = galaxy?.sites[galaxy.activeSiteId]
+      if (!galaxy || !site) hubNotice = 'The flight console cannot recover a galaxy route.'
+      else route = { screen: 'sector', biome: site.biome, siteId: site.id }
+    }
     else route = { ...route, hubAction: interaction.destination }
     return true
   }
@@ -847,6 +871,28 @@ function handleHubInput(key: string, run = false): boolean {
     renderer.setHubMoved()
     hubNotice = undefined
   } else if (direction !== 'wait') hubNotice = 'The way is blocked.'
+  return true
+}
+
+function handleSectorInput(key: string): boolean {
+  const galaxy = galaxyForVoyager(state?.seed ?? campaign.galaxy?.seed ?? 1)
+  if (!galaxy) { route = { ...route, screen: 'hub' }; return true }
+  if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, screen: 'hub', siteId: undefined }; return true }
+  const sites = availableGalaxySites(galaxy)
+  if (!sites.length) return true
+  const current = Math.max(0, sites.findIndex(site => site.id === (route.siteId ?? galaxy.activeSiteId)))
+  if (key === 'ArrowUp' || key === 'ArrowLeft' || key === 'ArrowDown' || key === 'ArrowRight') {
+    const delta = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1
+    const next = sites[(current + delta + sites.length) % sites.length]!
+    route = { ...route, biome: next.biome, siteId: next.id }
+    return true
+  }
+  if (key === 'Enter' || key.toLowerCase() === 'e') {
+    const selected = sites[current]!
+    route = { ...route, screen: 'level', biome: selected.biome, siteId: selected.id }
+    start()
+    return true
+  }
   return true
 }
 
