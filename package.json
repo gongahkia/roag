@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/check-bundle-size.mjs",
     "preview": "vite preview",
     "test": "SKIP_CAMPAIGN_MATRIX=1 ./scripts/test-ci.sh",
     "test:ci": "./scripts/test-ci.sh",

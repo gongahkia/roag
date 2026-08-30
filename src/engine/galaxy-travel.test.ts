@@ -52,6 +52,19 @@ describe('galaxy travel and landing conditions', () => {
     expect(state.floor.actors.find(actor => actor.id === `route-patrol:${travel.linkId}:1`)?.health).toBe(1)
   })
 
+  it('materializes a recoverable cache only when its route partition enters the resident window', () => {
+    const hero = newHero({ name: 'Ari' })
+    const travel = { version: 1 as const, fromSiteId: 'sector-00:site-00', toSiteId: 'sector-00:site-01', linkId: 'sector-00:site-00::sector-00:site-01', chunkCount: 5, residentStart: 0, activeChunk: 0, situations: ['quiet', 'quiet', 'quiet', 'quiet', 'quiet'] as const, routeCacheChunks: [4] }
+    const state = newTransitRun(71, 'wilds', hero, travel)
+    const chunkWidth = state.floor.width / 3
+    expect(state.floor.routeCache).toBeUndefined()
+    state.hero.x = chunkWidth * 2
+    expect(advanceTransitWindow(state)).toBe(true)
+    state.hero.x = chunkWidth * 2
+    expect(advanceTransitWindow(state)).toBe(true)
+    expect(state.floor.routeCache).toMatchObject({ linkId: travel.linkId })
+  })
+
   it('turns live territory and ecology into local encounter pressure and landing yield', () => {
     const galaxy = createGalaxy(91, newHero({ name: 'Ari' }), 0)
     const site = galaxy.sites[galaxy.activeSiteId]!

@@ -1,7 +1,5 @@
-import './style.css'
 import { AudioBus } from './audio'
-import { AUTOPLAY_TURN_MS, autoplayDecision, autoplayModeLabel, autoplayPolicyLabel, autoplayTraceFingerprint, createAutoplayContext, nextAutoplayMode, nextAutoplayPolicy, recordAutoplayTransition, type AutoplayContext, type AutoplayDecision } from './autoplay'
-import { autoplayReplayMetadata } from './autoplay-runner'
+import type { AutoplayContext, AutoplayDecision } from './autoplay'
 import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
@@ -52,7 +50,10 @@ let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
 let analysis: RunAnalysis | undefined
 let analysisNext: 'checkpoint' | 'succession' | 'session' | 'victory' | undefined
 let autoplayTimer: number | undefined
-let autoplayContext: AutoplayContext = createAutoplayContext()
+type AutoplayFeature = typeof import('./autoplay-runtime')
+let autoplayFeature: AutoplayFeature | undefined
+let autoplayFeatureLoad: Promise<AutoplayFeature> | undefined
+let autoplayContext: AutoplayContext | undefined
 let autoplayTrace: AutoplayTraceEntry[] = []
 let autoplayLogged = false
 let autoplayDiagnostic: AutoplayDiagnostic | undefined = latestAutoplayDiagnostic()
@@ -60,6 +61,18 @@ let bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
 let persistenceState: 'saved' | 'saving' | 'error' = 'saved'
 let pendingPersistence = 0
 const failedPersistence = new Map<string, { operation: () => Promise<void>; clearKeys: string[] }>()
+
+const loadAutoplayFeature = (): Promise<AutoplayFeature> => {
+  if (autoplayFeature) return Promise.resolve(autoplayFeature)
+  autoplayFeatureLoad ??= import('./autoplay-runtime').then(feature => {
+    autoplayFeature = feature
+    return feature
+  }).catch(error => {
+    autoplayFeatureLoad = undefined
+    throw error
+  })
+  return autoplayFeatureLoad
+}
 
 const showSessionSplash = (): boolean => {
   try {
@@ -659,7 +672,7 @@ function completeArea(): 'finished' | 'returned' | 'transitioning' {
       state = next
       saved = structuredClone(next)
       route = { ...route, screen: 'level', biome: successor }
-      autoplayContext = createAutoplayContext()
+      resetAutoplaySession()
       if (activeCourier) activeCourier.checkpoint = structuredClone(next)
       persistActiveCourier()
     })
@@ -746,27 +759,45 @@ function toggleVisualMode(): void {
 }
 
 function toggleAutoplay(): void {
-  if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'mode toggled off')
-  settings = { ...settings, autoplayMode: nextAutoplayMode(settings.autoplayMode) }
-  if (settings.autoplayMode !== 'off') resetAutoplaySession()
-  saveSettings(settings)
-  if (state) state.messages.unshift(`Autoplay: ${autoplayModeLabel(settings.autoplayMode)} · ${autoplayPolicyLabel(settings.autoplayPolicy)}.`)
-  audio.play([event('menu')])
+  const apply = (feature: AutoplayFeature) => {
+    if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'mode toggled off')
+    settings = { ...settings, autoplayMode: feature.nextAutoplayMode(settings.autoplayMode) }
+    if (settings.autoplayMode !== 'off') resetAutoplaySession()
+    saveSettings(settings)
+    if (state) state.messages.unshift(`Autoplay: ${feature.autoplayModeLabel(settings.autoplayMode)} · ${feature.autoplayPolicyLabel(settings.autoplayPolicy)}.`)
+    audio.play([event('menu')])
+    redraw()
+  }
+  if (autoplayFeature) { apply(autoplayFeature); return }
+  if (state) state.messages.unshift('Loading autoplay systems…')
   redraw()
+  void loadAutoplayFeature().then(apply).catch(() => {
+    if (state) state.messages.unshift('Autoplay systems failed to load. Try again.')
+    redraw()
+  })
 }
 
 function toggleAutoplayPolicy(): void {
-  if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'policy changed')
-  settings = { ...settings, autoplayPolicy: nextAutoplayPolicy(settings.autoplayPolicy) }
-  resetAutoplaySession()
-  saveSettings(settings)
-  if (state) state.messages.unshift(`Autoplay policy: ${autoplayPolicyLabel(settings.autoplayPolicy)}.`)
-  audio.play([event('menu')])
+  const apply = (feature: AutoplayFeature) => {
+    if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'policy changed')
+    settings = { ...settings, autoplayPolicy: feature.nextAutoplayPolicy(settings.autoplayPolicy) }
+    resetAutoplaySession()
+    saveSettings(settings)
+    if (state) state.messages.unshift(`Autoplay policy: ${feature.autoplayPolicyLabel(settings.autoplayPolicy)}.`)
+    audio.play([event('menu')])
+    redraw()
+  }
+  if (autoplayFeature) { apply(autoplayFeature); return }
+  if (state) state.messages.unshift('Loading autoplay systems…')
   redraw()
+  void loadAutoplayFeature().then(apply).catch(() => {
+    if (state) state.messages.unshift('Autoplay systems failed to load. Try again.')
+    redraw()
+  })
 }
 
 function resetAutoplaySession(): void {
-  autoplayContext = createAutoplayContext()
+  autoplayContext = autoplayFeature?.createAutoplayContext()
   autoplayTrace = []
   autoplayLogged = false
 }
@@ -788,6 +819,19 @@ function syncAutoplay(): void {
   if (!canAutoplay()) {
     if (autoplayTimer !== undefined) window.clearTimeout(autoplayTimer)
     autoplayTimer = undefined
+    return
+  }
+  if (!autoplayFeature) {
+    void loadAutoplayFeature().then(() => {
+      if (!canAutoplay()) return
+      resetAutoplaySession()
+      redraw()
+    }).catch(() => {
+      settings = { ...settings, autoplayMode: 'off' }
+      saveSettings(settings)
+      if (state) state.messages.unshift('Autoplay systems failed to load.')
+      redraw()
+    })
     return
   }
   if (autoplayTimer !== undefined) return
@@ -818,9 +862,10 @@ function syncAutoplay(): void {
       return
     }
     if (!state) return
-    const decision = autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, autoplayContext)
+    const context = autoplayContext ??= autoplayFeature.createAutoplayContext()
+    const decision = autoplayFeature.autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, context)
     if (!decision) {
-      const reason = autoplayContext.lastReason ?? 'no legal progress action'
+      const reason = context.lastReason ?? 'no legal progress action'
       const unsupported = reason === 'unsupported direct companion control'
       finalizeAutoplay(unsupported ? 'unsupported' : 'stalled', reason)
       settings = { ...settings, autoplayMode: 'off' }
@@ -830,7 +875,7 @@ function syncAutoplay(): void {
       return
     }
     executeGameplayCommand(decision.command, { autoplay: decision })
-  }, AUTOPLAY_TURN_MS)
+  }, autoplayFeature.AUTOPLAY_TURN_MS)
 }
 
 function redraw(): void {
@@ -1066,7 +1111,7 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (!state || route.screen !== 'level' || state.status !== 'playing') return
   const game = state
   const autoplayBefore = options.autoplay ? structuredClone(game) : undefined
-  const autoplayFingerprint = options.autoplay ? autoplayTraceFingerprint(game) : undefined
+  const autoplayFingerprint = options.autoplay && autoplayFeature ? autoplayFeature.autoplayTraceFingerprint(game) : undefined
   const previousX = game.hero.x
   const previousY = game.hero.y
   const previousLevel = game.hero.level
@@ -1085,17 +1130,17 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (game.hero.level > previousLevel) events.push(event('level'))
   if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
   if (!rebased && (game.hero.x !== previousX || game.hero.y !== previousY)) renderer.recenterCamera()
-  if (options.autoplay && autoplayBefore && autoplayFingerprint) {
-    recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
+  if (options.autoplay && autoplayBefore && autoplayFingerprint && autoplayFeature && autoplayContext) {
+    autoplayFeature.recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
     autoplayTrace.push({
       turn: autoplayBefore.turn,
-      replay: autoplayReplayMetadata(autoplayBefore),
+      replay: autoplayFeature.autoplayReplayMetadata(autoplayBefore),
       fingerprint: autoplayFingerprint,
       command,
       reason: options.autoplay.reason,
       candidates: options.autoplay.candidates,
       events: events.map(entry => entry.type),
-      nextFingerprint: autoplayTraceFingerprint(game),
+      nextFingerprint: autoplayFeature.autoplayTraceFingerprint(game),
       before: { x: autoplayBefore.hero.x, y: autoplayBefore.hero.y, health: autoplayBefore.hero.health, focus: autoplayBefore.hero.focus, bombs: autoplayBefore.hero.bombs, ropes: autoplayBefore.hero.ropes, objective: autoplayBefore.floor.objective.status },
       after: { x: game.hero.x, y: game.hero.y, health: game.hero.health, focus: game.hero.focus, bombs: game.hero.bombs, ropes: game.hero.ropes, objective: game.floor.objective.status, ...(game.modal ? { modal: game.modal.kind } : {}) }
     })

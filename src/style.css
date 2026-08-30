@@ -4,6 +4,9 @@
 body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: #06070b; }
 main { display: grid; width: 100vw; height: 100dvh; place-items: center; }
 #game { display: block; width: min(100vw,133.3333dvh); height: min(100dvh,75vw); image-rendering: pixelated; outline: none; }
+.boot-activate { position: fixed; right: max(18px,calc((100vw - min(100vw,133.3333dvh))/2 + 18px)); bottom: max(18px,calc((100dvh - min(100dvh,75vw))/2 + 18px)); z-index: 2; padding: 10px 13px; border: 1px solid #607896; color: #d6dce8; background: #111a28; font: 12px BigBlueTerm, monospace; cursor: pointer; }
+.boot-activate:focus-visible { outline: 2px solid #f4d26a; outline-offset: 3px; }
+.boot-activate:disabled { cursor: wait; color: #8da0b8; }
 
 body.atlas-page { display: block; overflow: auto; background: #0a0d13; }
 body.atlas-page main { display: block; width: auto; height: auto; min-height: 100dvh; }
