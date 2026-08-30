@@ -350,10 +350,19 @@ export class TerminalRenderer {
     const title = biomeTransition ? 'COLONY COMPLETE' : 'PREPARING LANDING'
     const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'JOMON VOYAGER'
     const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'LOADING MISSION FILE'
+    const duration = biomeTransition ? 650 : 2000
+    const progress = Math.min(1, Math.max(0, (now - (loading?.startedAt ?? now)) / duration))
+    const width = 24
+    const filled = Math.round(progress * width)
+    const bar = `[${'▓'.repeat(filled)}${'░'.repeat(width - filled)}]`
+    const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'][Math.floor(now / 80) % 10]!
+    const indicator = `${spinner} ${bar} ${String(Math.round(progress * 100)).padStart(3, ' ')}%`
+    const status = biomeTransition ? 'CALIBRATING APPROACH VECTOR' : 'SYNCING LANDING PACKAGE'
     this.box(27, 13, 42, 25, title)
-    this.text(48 - Math.floor(message.length / 2), 24, message, colors.text)
-    this.text(48 - Math.floor((biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.').length / 2), 27, biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.', colors.dim)
-    this.text(48 - Math.floor('Please stand by.'.length / 2), 30, 'Please stand by.', colors.dim)
+    this.text(48 - Math.floor(message.length / 2), 22, message, colors.text)
+    this.text(48 - Math.floor((biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.').length / 2), 25, biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.', colors.dim)
+    this.text(48 - Math.floor(indicator.length / 2), 29, indicator, colors.gold)
+    this.text(48 - Math.floor(status.length / 2), 32, status, colors.dim)
   }
 
   private transit(transit: TransitState, now: number): void {
