@@ -74,6 +74,7 @@ test('uses the Route Board to compare travel, returns to Kestrel, physically lan
   await openRouteBoard(page, moveOutpost(outpostSpawn(), 'w').position)
   await expect(game).toHaveAttribute('data-current-destination', 'destination:kestrel')
   await expect(game).toHaveAttribute('data-route-board-selection', 'destination:kestrel')
+  await expect(game).not.toHaveAttribute('aria-label', /Voyager|New Edo/)
   await page.keyboard.press('ArrowRight')
   await expect(game).toHaveAttribute('data-route-board-selection', 'destination:orison')
   await page.keyboard.press('ArrowRight')

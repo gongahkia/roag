@@ -43,7 +43,7 @@ export const hubCarryoverSummary = (hero: Hero, companions: readonly Companion[]
   const tools = (hero.traversalTools ?? []).map(id => toolFor(id).name)
   const injuries = roster.filter(entry => !entry.permanentlyLost && entry.injury !== 'healthy').map(entry => `${entry.name} (${entry.status})`)
   const losses = roster.filter(entry => entry.permanentlyLost).map(entry => entry.name)
-  return { currency: hero.gold, items, tools, roster, injuries, losses, accessibleLabel: `Voyager refits are retained: ${hero.gold} cash; items: ${items.join(', ') || 'none'}; tools: ${tools.join(', ') || 'none'}; roster: ${roster.map(entry => `${entry.name} ${entry.status}`).join(', ') || 'none'}; injuries: ${injuries.join(', ') || 'none'}; losses: ${losses.join(', ') || 'none'}.` }
+  return { currency: hero.gold, items, tools, roster, injuries, losses, accessibleLabel: `Jomon refits are retained: ${hero.gold} cash; items: ${items.join(', ') || 'none'}; tools: ${tools.join(', ') || 'none'}; roster: ${roster.map(entry => `${entry.name} ${entry.status}`).join(', ') || 'none'}; injuries: ${injuries.join(', ') || 'none'}; losses: ${losses.join(', ') || 'none'}.` }
 }
 
 export const createHubState = (seed: number): HubState => ({ season: streamSeed(seed, 'generation', 'hub-season') % 4, supplies: ['tonic', 'ropeBundle', 'rock'], rescued: [], unlockedAreas: ['mine'], completedAreas: [] })
