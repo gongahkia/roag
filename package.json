@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "test:autoplay:tasks": "tsx scripts/autoplay-tasks.ts",
+    "test:route-reckoning:soak": "tsx scripts/route-reckoning-soak.ts",
     "test:verify": "npm run test:ci && npm run test:e2e && npm run build",
     "smoke:autoplay": "tsx scripts/autoplay-smoke.ts",
     "smoke:autoplay:strict": "AUTOPLAY_REQUIRE_COMPLETION=1 tsx scripts/autoplay-smoke.ts",

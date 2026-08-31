@@ -1,0 +1,73 @@
+__vite_ssr_exportName__("createHero", () => { try { return createHero } catch {} });
+__vite_ssr_exportName__("createEnemy", () => { try { return createEnemy } catch {} });
+__vite_ssr_exportName__("createGate", () => { try { return createGate } catch {} });
+__vite_ssr_exportName__("createLegacy", () => { try { return createLegacy } catch {} });
+__vite_ssr_exportName__("createFloor", () => { try { return createFloor } catch {} });
+__vite_ssr_exportName__("createRun", () => { try { return createRun } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/types.ts", {"importedNames":["MAP_HEIGHT","MAP_WIDTH","indexOf"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/objectives.ts", {"importedNames":["objectiveForFloor"]});
+
+
+const tiles = () => Array.from({ length: __vite_ssr_import_0__.MAP_WIDTH * __vite_ssr_import_0__.MAP_HEIGHT }, () => ({ kind: "floor", explored: true, visible: true }));
+const createHero = (overrides = {}) => ({
+  name: "Test Courier",
+  origin: "mineborn",
+  calling: "trailguard",
+  deathMode: "checkpoint",
+  x: 1,
+  y: 1,
+  health: 22,
+  maxHealth: 22,
+  focus: 8,
+  maxFocus: 8,
+  gold: 0,
+  bombs: 0,
+  ropes: 0,
+  keys: 0,
+  xp: 0,
+  level: 1,
+  stats: { strength: 2, agility: 2, vitality: 2, intellect: 2 },
+  skills: [],
+  inventory: [],
+  equipment: {},
+  conditions: [],
+  cooldowns: {},
+  traversalTools: [],
+  boons: {},
+  safePositions: [],
+  ...overrides
+});
+const createEnemy = (overrides = {}) => ({
+  id: "enemy-1",
+  role: "monster",
+  kind: "rat",
+  name: "Test Rat",
+  x: 3,
+  y: 1,
+  health: 5,
+  maxHealth: 5,
+  attack: 2,
+  defense: 8,
+  speed: 100,
+  energy: 0,
+  glyph: "r",
+  color: "#ffffff",
+  hostile: true,
+  ai: "chase",
+  conditions: [],
+  ...overrides
+});
+const createGate = (overrides = {}) => ({ id: "gate-1", biome: "mine", state: "locked", requirements: ["key"], ...overrides });
+const createLegacy = (overrides = {}) => ({ id: "legacy-1", heirName: "Ari", biome: "mine", floor: 0, seed: 1, ...overrides });
+const createFloor = (overrides = {}) => {
+  const start = { x: 1, y: 1 };
+  const exit = { x: __vite_ssr_import_0__.MAP_WIDTH - 2, y: __vite_ssr_import_0__.MAP_HEIGHT - 2 };
+  const floorTiles = tiles();
+  floorTiles[(0,__vite_ssr_import_0__.indexOf)(exit.x, exit.y)] = { kind: "exit", explored: true, visible: true };
+  return { index: 0, biome: "mine", seed: 1, width: __vite_ssr_import_0__.MAP_WIDTH, height: __vite_ssr_import_0__.MAP_HEIGHT, layoutId: "fixture", tiles: floorTiles, actors: [], items: [], props: [], milestones: [], start, exit, guardianDefeated: true, objective: (0,__vite_ssr_import_1__.objectiveForFloor)(0), telegraphs: [], ...overrides };
+};
+const createRun = (overrides = {}) => ({ version: 4, seed: 1, floor: createFloor(), hero: createHero(), messages: [], status: "playing", turn: 0, ...overrides });
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7Ozs7O0FBQUE7QUFDQTs7O0FBSUEsTUFBTSxRQUFRLE1BQWMsTUFBTSxLQUFLLEVBQUUsUUFBUSxrQ0FBWSxpQ0FBVyxHQUFHLE9BQU8sRUFBRSxNQUFNLFNBQVMsVUFBVSxNQUFNLFNBQVMsS0FBSyxFQUFFO0FBRTVILE1BQU0sYUFBYSxDQUFDLFlBQTJCLENBQUMsT0FBYTtBQUFBLEVBQ2xFLE1BQU07QUFBQSxFQUFnQixRQUFRO0FBQUEsRUFBWSxTQUFTO0FBQUEsRUFBYyxXQUFXO0FBQUEsRUFDNUUsR0FBRztBQUFBLEVBQUcsR0FBRztBQUFBLEVBQUcsUUFBUTtBQUFBLEVBQUksV0FBVztBQUFBLEVBQUksT0FBTztBQUFBLEVBQUcsVUFBVTtBQUFBLEVBQUcsTUFBTTtBQUFBLEVBQUcsT0FBTztBQUFBLEVBQUcsT0FBTztBQUFBLEVBQUcsTUFBTTtBQUFBLEVBQUcsSUFBSTtBQUFBLEVBQUcsT0FBTztBQUFBLEVBQ2xILE9BQU8sRUFBRSxVQUFVLEdBQUcsU0FBUyxHQUFHLFVBQVUsR0FBRyxXQUFXLEVBQUU7QUFBQSxFQUFHLFFBQVEsQ0FBQztBQUFBLEVBQUcsV0FBVyxDQUFDO0FBQUEsRUFBRyxXQUFXLENBQUM7QUFBQSxFQUFHLFlBQVksQ0FBQztBQUFBLEVBQUcsV0FBVyxDQUFDO0FBQUEsRUFBRyxnQkFBZ0IsQ0FBQztBQUFBLEVBQUcsT0FBTyxDQUFDO0FBQUEsRUFBRyxlQUFlLENBQUM7QUFBQSxFQUFHLEdBQUc7QUFDL0w7QUFFTyxNQUFNLGNBQWMsQ0FBQyxZQUE0QixDQUFDLE9BQWM7QUFBQSxFQUNyRSxJQUFJO0FBQUEsRUFBVyxNQUFNO0FBQUEsRUFBVyxNQUFNO0FBQUEsRUFBTyxNQUFNO0FBQUEsRUFBWSxHQUFHO0FBQUEsRUFBRyxHQUFHO0FBQUEsRUFBRyxRQUFRO0FBQUEsRUFBRyxXQUFXO0FBQUEsRUFBRyxRQUFRO0FBQUEsRUFBRyxTQUFTO0FBQUEsRUFBRyxPQUFPO0FBQUEsRUFBSyxRQUFRO0FBQUEsRUFBRyxPQUFPO0FBQUEsRUFBSyxPQUFPO0FBQUEsRUFBVyxTQUFTO0FBQUEsRUFBTSxJQUFJO0FBQUEsRUFBUyxZQUFZLENBQUM7QUFBQSxFQUFHLEdBQUc7QUFDak87QUFFTyxNQUFNLGFBQWEsQ0FBQyxZQUFrQyxDQUFDLE9BQW9CLEVBQUUsSUFBSSxVQUFVLE9BQU8sUUFBUSxPQUFPLFVBQVUsY0FBYyxDQUFDLEtBQUssR0FBRyxHQUFHLFVBQVU7QUFFL0osTUFBTSxlQUFlLENBQUMsWUFBbUMsQ0FBQyxPQUFxQixFQUFFLElBQUksWUFBWSxVQUFVLE9BQU8sT0FBTyxRQUFRLE9BQU8sR0FBRyxNQUFNLEdBQUcsR0FBRyxVQUFVO0FBRWpLLE1BQU0sY0FBYyxDQUFDLFlBQTRCLENBQUMsTUFBYTtBQUNwRSxRQUFNLFFBQVEsRUFBRSxHQUFHLEdBQUcsR0FBRyxFQUFFO0FBQzNCLFFBQU0sT0FBTyxFQUFFLEdBQUcsa0NBQVksR0FBRyxHQUFHLG1DQUFhLEVBQUU7QUFDbkQsUUFBTSxhQUFhLE1BQU07QUFDekIsZ0JBQVcsK0JBQVEsS0FBSyxHQUFHLEtBQUssQ0FBQyxDQUFDLElBQUksRUFBRSxNQUFNLFFBQVEsVUFBVSxNQUFNLFNBQVMsS0FBSztBQUNwRixTQUFPLEVBQUUsT0FBTyxHQUFHLE9BQU8sUUFBUSxNQUFNLEdBQUcsT0FBTyxpQ0FBVyxRQUFRLGtDQUFZLFVBQVUsV0FBVyxPQUFPLFlBQVksUUFBUSxDQUFDLEdBQUcsT0FBTyxDQUFDLEdBQUcsT0FBTyxDQUFDLEdBQUcsWUFBWSxDQUFDLEdBQUcsT0FBTyxNQUFNLGtCQUFrQixNQUFNLGNBQVcseUNBQWtCLENBQUMsR0FBRyxZQUFZLENBQUMsR0FBRyxHQUFHLFVBQVU7QUFDaFI7QUFFTyxNQUFNLFlBQVksQ0FBQyxZQUErQixDQUFDLE9BQWlCLEVBQUUsU0FBUyxHQUFHLE1BQU0sR0FBRyxPQUFPLFlBQVksR0FBRyxNQUFNLFdBQVcsR0FBRyxVQUFVLENBQUMsR0FBRyxRQUFRLFdBQVcsTUFBTSxHQUFHLEdBQUcsVUFBVSIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiZmFjdG9yaWVzLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE1BUF9IRUlHSFQsIE1BUF9XSURUSCwgaW5kZXhPZiwgdHlwZSBBY3RvciwgdHlwZSBCaW9tZSwgdHlwZSBGbG9vciwgdHlwZSBIZXJvLCB0eXBlIExlZ2FjeVJlY29yZCwgdHlwZSBSdW5TdGF0ZSwgdHlwZSBUaWxlIH0gZnJvbSAnLi4vdHlwZXMnXG5pbXBvcnQgeyBvYmplY3RpdmVGb3JGbG9vciB9IGZyb20gJy4uL29iamVjdGl2ZXMnXG5cbmV4cG9ydCBpbnRlcmZhY2UgR2F0ZUZpeHR1cmUgeyBpZDogc3RyaW5nOyBiaW9tZTogQmlvbWU7IHN0YXRlOiAnbG9ja2VkJyB8ICdvcGVuJzsgcmVxdWlyZW1lbnRzOiBzdHJpbmdbXSB9XG5cbmNvbnN0IHRpbGVzID0gKCk6IFRpbGVbXSA9PiBBcnJheS5mcm9tKHsgbGVuZ3RoOiBNQVBfV0lEVEggKiBNQVBfSEVJR0hUIH0sICgpID0+ICh7IGtpbmQ6ICdmbG9vcicsIGV4cGxvcmVkOiB0cnVlLCB2aXNpYmxlOiB0cnVlIH0pKVxuXG5leHBvcnQgY29uc3QgY3JlYXRlSGVybyA9IChvdmVycmlkZXM6IFBhcnRpYWw8SGVybz4gPSB7fSk6IEhlcm8gPT4gKHtcbiAgbmFtZTogJ1Rlc3QgQ291cmllcicsIG9yaWdpbjogJ21pbmVib3JuJywgY2FsbGluZzogJ3RyYWlsZ3VhcmQnLCBkZWF0aE1vZGU6ICdjaGVja3BvaW50JyxcbiAgeDogMSwgeTogMSwgaGVhbHRoOiAyMiwgbWF4SGVhbHRoOiAyMiwgZm9jdXM6IDgsIG1heEZvY3VzOiA4LCBnb2xkOiAwLCBib21iczogMCwgcm9wZXM6IDAsIGtleXM6IDAsIHhwOiAwLCBsZXZlbDogMSxcbiAgc3RhdHM6IHsgc3RyZW5ndGg6IDIsIGFnaWxpdHk6IDIsIHZpdGFsaXR5OiAyLCBpbnRlbGxlY3Q6IDIgfSwgc2tpbGxzOiBbXSwgaW52ZW50b3J5OiBbXSwgZXF1aXBtZW50OiB7fSwgY29uZGl0aW9uczogW10sIGNvb2xkb3duczoge30sIHRyYXZlcnNhbFRvb2xzOiBbXSwgYm9vbnM6IHt9LCBzYWZlUG9zaXRpb25zOiBbXSwgLi4ub3ZlcnJpZGVzXG59KVxuXG5leHBvcnQgY29uc3QgY3JlYXRlRW5lbXkgPSAob3ZlcnJpZGVzOiBQYXJ0aWFsPEFjdG9yPiA9IHt9KTogQWN0b3IgPT4gKHtcbiAgaWQ6ICdlbmVteS0xJywgcm9sZTogJ21vbnN0ZXInLCBraW5kOiAncmF0JywgbmFtZTogJ1Rlc3QgUmF0JywgeDogMywgeTogMSwgaGVhbHRoOiA1LCBtYXhIZWFsdGg6IDUsIGF0dGFjazogMiwgZGVmZW5zZTogOCwgc3BlZWQ6IDEwMCwgZW5lcmd5OiAwLCBnbHlwaDogJ3InLCBjb2xvcjogJyNmZmZmZmYnLCBob3N0aWxlOiB0cnVlLCBhaTogJ2NoYXNlJywgY29uZGl0aW9uczogW10sIC4uLm92ZXJyaWRlc1xufSlcblxuZXhwb3J0IGNvbnN0IGNyZWF0ZUdhdGUgPSAob3ZlcnJpZGVzOiBQYXJ0aWFsPEdhdGVGaXh0dXJlPiA9IHt9KTogR2F0ZUZpeHR1cmUgPT4gKHsgaWQ6ICdnYXRlLTEnLCBiaW9tZTogJ21pbmUnLCBzdGF0ZTogJ2xvY2tlZCcsIHJlcXVpcmVtZW50czogWydrZXknXSwgLi4ub3ZlcnJpZGVzIH0pXG5cbmV4cG9ydCBjb25zdCBjcmVhdGVMZWdhY3kgPSAob3ZlcnJpZGVzOiBQYXJ0aWFsPExlZ2FjeVJlY29yZD4gPSB7fSk6IExlZ2FjeVJlY29yZCA9PiAoeyBpZDogJ2xlZ2FjeS0xJywgaGVpck5hbWU6ICdBcmknLCBiaW9tZTogJ21pbmUnLCBmbG9vcjogMCwgc2VlZDogMSwgLi4ub3ZlcnJpZGVzIH0pXG5cbmV4cG9ydCBjb25zdCBjcmVhdGVGbG9vciA9IChvdmVycmlkZXM6IFBhcnRpYWw8Rmxvb3I+ID0ge30pOiBGbG9vciA9PiB7XG4gIGNvbnN0IHN0YXJ0ID0geyB4OiAxLCB5OiAxIH1cbiAgY29uc3QgZXhpdCA9IHsgeDogTUFQX1dJRFRIIC0gMiwgeTogTUFQX0hFSUdIVCAtIDIgfVxuICBjb25zdCBmbG9vclRpbGVzID0gdGlsZXMoKVxuICBmbG9vclRpbGVzW2luZGV4T2YoZXhpdC54LCBleGl0LnkpXSA9IHsga2luZDogJ2V4aXQnLCBleHBsb3JlZDogdHJ1ZSwgdmlzaWJsZTogdHJ1ZSB9XG4gIHJldHVybiB7IGluZGV4OiAwLCBiaW9tZTogJ21pbmUnLCBzZWVkOiAxLCB3aWR0aDogTUFQX1dJRFRILCBoZWlnaHQ6IE1BUF9IRUlHSFQsIGxheW91dElkOiAnZml4dHVyZScsIHRpbGVzOiBmbG9vclRpbGVzLCBhY3RvcnM6IFtdLCBpdGVtczogW10sIHByb3BzOiBbXSwgbWlsZXN0b25lczogW10sIHN0YXJ0LCBleGl0LCBndWFyZGlhbkRlZmVhdGVkOiB0cnVlLCBvYmplY3RpdmU6IG9iamVjdGl2ZUZvckZsb29yKDApLCB0ZWxlZ3JhcGhzOiBbXSwgLi4ub3ZlcnJpZGVzIH1cbn1cblxuZXhwb3J0IGNvbnN0IGNyZWF0ZVJ1biA9IChvdmVycmlkZXM6IFBhcnRpYWw8UnVuU3RhdGU+ID0ge30pOiBSdW5TdGF0ZSA9PiAoeyB2ZXJzaW9uOiA0LCBzZWVkOiAxLCBmbG9vcjogY3JlYXRlRmxvb3IoKSwgaGVybzogY3JlYXRlSGVybygpLCBtZXNzYWdlczogW10sIHN0YXR1czogJ3BsYXlpbmcnLCB0dXJuOiAwLCAuLi5vdmVycmlkZXMgfSlcbiJdLCJmaWxlIjoiL3NyYy90ZXN0L2ZhY3Rvcmllcy50cyJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvdGVzdC9mYWN0b3JpZXMudHMiLCIvc3JjL3Rlc3QvZmFjdG9yaWVzLnRzIixbXV0=

@@ -1,0 +1,81 @@
+__vite_ssr_exportName__("RELICS", () => { try { return RELICS } catch {} });
+__vite_ssr_exportName__("relicAlignment", () => { try { return relicAlignment } catch {} });
+__vite_ssr_exportName__("relicFor", () => { try { return relicFor } catch {} });
+__vite_ssr_exportName__("hasRelic", () => { try { return hasRelic } catch {} });
+__vite_ssr_exportName__("relicChoices", () => { try { return relicChoices } catch {} });
+__vite_ssr_exportName__("armRelicMove", () => { try { return armRelicMove } catch {} });
+__vite_ssr_exportName__("armRelicTraversal", () => { try { return armRelicTraversal } catch {} });
+__vite_ssr_exportName__("armRelicWaterCrossing", () => { try { return armRelicWaterCrossing } catch {} });
+__vite_ssr_exportName__("armRelicMirror", () => { try { return armRelicMirror } catch {} });
+__vite_ssr_exportName__("armRelicIce", () => { try { return armRelicIce } catch {} });
+__vite_ssr_exportName__("consumeRelicSpell", () => { try { return consumeRelicSpell } catch {} });
+__vite_ssr_exportName__("consumeRelicTool", () => { try { return consumeRelicTool } catch {} });
+__vite_ssr_exportName__("consumeRelicWinterGuard", () => { try { return consumeRelicWinterGuard } catch {} });
+__vite_ssr_exportName__("consumeRelicPrismStrike", () => { try { return consumeRelicPrismStrike } catch {} });
+__vite_ssr_exportName__("markbreakerDamage", () => { try { return markbreakerDamage } catch {} });
+__vite_ssr_exportName__("resolveKillRelics", () => { try { return resolveKillRelics } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/rng.ts", {"importedNames":["rngFor"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/engine/conditions.ts", {"importedNames":["addCondition","hasCondition"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/engine/shared.ts", {"importedNames":["log"]});
+
+
+
+const RELICS = [
+  { id: "ashCircuit", name: "Ash Circuit", glyph: "ϟ", text: "Tool use arms your next Charm: -1 focus, then +2 focus.", priority: 28 },
+  { id: "markbreakerSeal", name: "Markbreaker Seal", glyph: "◇", text: "First hit marks; hit a marked foe to consume it for +5 damage.", priority: 32 },
+  { id: "cairnCoil", name: "Cairn Coil", glyph: "◌", text: "Move first, then kill: restore 3 focus.", priority: 25 },
+  { id: "tideFetter", name: "Tide Fetter", glyph: "⚓", text: "Cross water/current, then your next tool restores 3 HP.", priority: 22 },
+  { id: "prismRelay", name: "Prism Relay", glyph: "◇", text: "Cross a salt mirror, then your next strike gains +4 damage and marks.", priority: 30 },
+  { id: "winterSeal", name: "Winter Seal", glyph: "❄", text: "Cross ice, then the next damage you take is reduced by 3.", priority: 27 }
+];
+const byId = Object.fromEntries(RELICS.map((relic) => [relic.id, relic]));
+const KAMI_RELICS = /* @__PURE__ */ new Set(["ashCircuit", "cairnCoil", "prismRelay", "winterSeal"]);
+const relicAlignment = (id) => KAMI_RELICS.has(id) ? "kami" : "villagePact";
+const relicFor = (id) => byId[id];
+const hasRelic = (state, id) => Boolean(state.hero.relics?.includes(id));
+const relicChoices = (state, milestone) => {
+  const owned = new Set(state.hero.relics ?? []);
+  return (0,__vite_ssr_import_0__.rngFor)(state.seed, "progression", state.floor.index, milestone.id, "relic").shuffle(RELICS.filter((relic) => !owned.has(relic.id))).slice(0, 3);
+};
+const arm = (state, id) => {
+  if (hasRelic(state, id)) (state.hero.relicCharges ??= {})[id] = 1;
+};
+const consume = (state, id) => {
+  if (!state.hero.relicCharges?.[id]) return false;
+  delete state.hero.relicCharges[id];
+  return true;
+};
+const armRelicMove = (state) => arm(state, "cairnCoil");
+const armRelicTraversal = (state) => arm(state, "ashCircuit");
+const armRelicWaterCrossing = (state) => arm(state, "tideFetter");
+const armRelicMirror = (state) => arm(state, "prismRelay");
+const armRelicIce = (state) => arm(state, "winterSeal");
+const consumeRelicSpell = (state) => consume(state, "ashCircuit");
+const consumeRelicTool = (state) => consume(state, "tideFetter");
+const consumeRelicWinterGuard = (state) => consume(state, "winterSeal");
+const consumeRelicPrismStrike = (state, target) => {
+  if (!consume(state, "prismRelay")) return 0;
+  (0,__vite_ssr_import_1__.addCondition)(target, { kind: "marked", duration: 2, potency: 1 });
+  (0,__vite_ssr_import_2__.log)(state, "Prism Relay refracts the strike.");
+  return 4;
+};
+const markbreakerDamage = (state, target) => {
+  if (!hasRelic(state, "markbreakerSeal")) return 0;
+  if ((0,__vite_ssr_import_1__.hasCondition)(target, "marked")) {
+    target.conditions = target.conditions?.filter((condition) => condition.kind !== "marked");
+    (0,__vite_ssr_import_2__.log)(state, "Markbreaker Seal ruptures the mark.");
+    return 5;
+  };
+  (0,__vite_ssr_import_1__.addCondition)(target, { kind: "marked", duration: 2, potency: 1 });
+  (0,__vite_ssr_import_2__.log)(state, "Markbreaker Seal marks the target.");
+  return 0;
+};
+const resolveKillRelics = (state) => {
+  if (!consume(state, "cairnCoil")) return;
+  state.hero.focus = Math.min(state.hero.maxFocus, state.hero.focus + 3);
+  (0,__vite_ssr_import_2__.log)(state, "Cairn Coil returns focus for the moving kill.");
+};
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,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aUIsV0FBMEI7QUFDM0UsTUFBSSxDQUFDLFNBQVMsT0FBTyxpQkFBaUIsRUFBRyxRQUFPO0FBQ2hELFNBQUksb0NBQWEsUUFBUSxRQUFRLEdBQUc7QUFDbEMsV0FBTyxhQUFhLE9BQU8sWUFBWSxPQUFPLGVBQWEsVUFBVSxTQUFTLFFBQVE7QUFDdEYsa0NBQUksT0FBTyxxQ0FBcUM7QUFDaEQsV0FBTztBQUFBLEVBQ1Q7QUFDQSx5Q0FBYSxRQUFRLEVBQUUsTUFBTSxVQUFVLFVBQVUsR0FBRyxTQUFTLEVBQUUsQ0FBQztBQUNoRSxnQ0FBSSxPQUFPLG9DQUFvQztBQUMvQyxTQUFPO0FBQ1Q7QUFFTyxNQUFNLG9CQUFvQixDQUFDLFVBQTBCO0FBQzFELE1BQUksQ0FBQyxRQUFRLE9BQU8sV0FBVyxFQUFHO0FBQ2xDLFFBQU0sS0FBSyxRQUFRLEtBQUssSUFBSSxNQUFNLEtBQUssVUFBVSxNQUFNLEtBQUssUUFBUSxDQUFDO0FBQ3JFLGdDQUFJLE9BQU8sK0NBQStDO0FBQzVEIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJyZWxpY3MudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgcm5nRm9yIH0gZnJvbSAnLi4vcm5nJ1xuaW1wb3J0IHR5cGUgeyBBY3RvciwgQWxpZ25tZW50LCBGbG9vck1pbGVzdG9uZSwgUmVsaWNJZCwgUnVuU3RhdGUgfSBmcm9tICcuLi90eXBlcydcbmltcG9ydCB7IGFkZENvbmRpdGlvbiwgaGFzQ29uZGl0aW9uIH0gZnJvbSAnLi9jb25kaXRpb25zJ1xuaW1wb3J0IHsgbG9nIH0gZnJvbSAnLi9zaGFyZWQnXG5cbmV4cG9ydCBpbnRlcmZhY2UgUmVsaWMgeyBpZDogUmVsaWNJZDsgbmFtZTogc3RyaW5nOyBnbHlwaDogc3RyaW5nOyB0ZXh0OiBzdHJpbmc7IHByaW9yaXR5OiBudW1iZXIgfVxuXG5leHBvcnQgY29uc3QgUkVMSUNTOiByZWFkb25seSBSZWxpY1tdID0gW1xuICB7IGlkOiAnYXNoQ2lyY3VpdCcsIG5hbWU6ICdBc2ggQ2lyY3VpdCcsIGdseXBoOiAnz58nLCB0ZXh0OiAnVG9vbCB1c2UgYXJtcyB5b3VyIG5leHQgQ2hhcm06IC0xIGZvY3VzLCB0aGVuICsyIGZvY3VzLicsIHByaW9yaXR5OiAyOCB9LFxuICB7IGlkOiAnbWFya2JyZWFrZXJTZWFsJywgbmFtZTogJ01hcmticmVha2VyIFNlYWwnLCBnbHlwaDogJ+KXhycsIHRleHQ6ICdGaXJzdCBoaXQgbWFya3M7IGhpdCBhIG1hcmtlZCBmb2UgdG8gY29uc3VtZSBpdCBmb3IgKzUgZGFtYWdlLicsIHByaW9yaXR5OiAzMiB9LFxuICB7IGlkOiAnY2Fpcm5Db2lsJywgbmFtZTogJ0NhaXJuIENvaWwnLCBnbHlwaDogJ+KXjCcsIHRleHQ6ICdNb3ZlIGZpcnN0LCB0aGVuIGtpbGw6IHJlc3RvcmUgMyBmb2N1cy4nLCBwcmlvcml0eTogMjUgfSxcbiAgeyBpZDogJ3RpZGVGZXR0ZXInLCBuYW1lOiAnVGlkZSBGZXR0ZXInLCBnbHlwaDogJ+KakycsIHRleHQ6ICdDcm9zcyB3YXRlci9jdXJyZW50LCB0aGVuIHlvdXIgbmV4dCB0b29sIHJlc3RvcmVzIDMgSFAuJywgcHJpb3JpdHk6IDIyIH0sXG4gIHsgaWQ6ICdwcmlzbVJlbGF5JywgbmFtZTogJ1ByaXNtIFJlbGF5JywgZ2x5cGg6ICfil4cnLCB0ZXh0OiAnQ3Jvc3MgYSBzYWx0IG1pcnJvciwgdGhlbiB5b3VyIG5leHQgc3RyaWtlIGdhaW5zICs0IGRhbWFnZSBhbmQgbWFya3MuJywgcHJpb3JpdHk6IDMwIH0sXG4gIHsgaWQ6ICd3aW50ZXJTZWFsJywgbmFtZTogJ1dpbnRlciBTZWFsJywgZ2x5cGg6ICfinYQnLCB0ZXh0OiAnQ3Jvc3MgaWNlLCB0aGVuIHRoZSBuZXh0IGRhbWFnZSB5b3UgdGFrZSBpcyByZWR1Y2VkIGJ5IDMuJywgcHJpb3JpdHk6IDI3IH1cbl1cblxuY29uc3QgYnlJZCA9IE9iamVjdC5mcm9tRW50cmllcyhSRUxJQ1MubWFwKHJlbGljID0+IFtyZWxpYy5pZCwgcmVsaWNdKSkgYXMgUmVjb3JkPFJlbGljSWQsIFJlbGljPlxuY29uc3QgS0FNSV9SRUxJQ1MgPSBuZXcgU2V0PFJlbGljSWQ+KFsnYXNoQ2lyY3VpdCcsICdjYWlybkNvaWwnLCAncHJpc21SZWxheScsICd3aW50ZXJTZWFsJ10pXG5leHBvcnQgY29uc3QgcmVsaWNBbGlnbm1lbnQgPSAoaWQ6IFJlbGljSWQpOiBBbGlnbm1lbnQgPT4gS0FNSV9SRUxJQ1MuaGFzKGlkKSA/ICdrYW1pJyA6ICd2aWxsYWdlUGFjdCdcbmV4cG9ydCBjb25zdCByZWxpY0ZvciA9IChpZDogUmVsaWNJZCk6IFJlbGljID0+IGJ5SWRbaWRdXG5leHBvcnQgY29uc3QgaGFzUmVsaWMgPSAoc3RhdGU6IFJ1blN0YXRlLCBpZDogUmVsaWNJZCk6IGJvb2xlYW4gPT4gQm9vbGVhbihzdGF0ZS5oZXJvLnJlbGljcz8uaW5jbHVkZXMoaWQpKVxuZXhwb3J0IGNvbnN0IHJlbGljQ2hvaWNlcyA9IChzdGF0ZTogUnVuU3RhdGUsIG1pbGVzdG9uZTogRmxvb3JNaWxlc3RvbmUpOiBSZWxpY1tdID0+IHtcbiAgY29uc3Qgb3duZWQgPSBuZXcgU2V0KHN0YXRlLmhlcm8ucmVsaWNzID8/IFtdKVxuICByZXR1cm4gcm5nRm9yKHN0YXRlLnNlZWQsICdwcm9ncmVzc2lvbicsIHN0YXRlLmZsb29yLmluZGV4LCBtaWxlc3RvbmUuaWQsICdyZWxpYycpLnNodWZmbGUoUkVMSUNTLmZpbHRlcihyZWxpYyA9PiAhb3duZWQuaGFzKHJlbGljLmlkKSkpLnNsaWNlKDAsIDMpXG59XG5cbmNvbnN0IGFybSA9IChzdGF0ZTogUnVuU3RhdGUsIGlkOiBSZWxpY0lkKTogdm9pZCA9PiB7IGlmIChoYXNSZWxpYyhzdGF0ZSwgaWQpKSAoc3RhdGUuaGVyby5yZWxpY0NoYXJnZXMgPz89IHt9KVtpZF0gPSAxIH1cbmNvbnN0IGNvbnN1bWUgPSAoc3RhdGU6IFJ1blN0YXRlLCBpZDogUmVsaWNJZCk6IGJvb2xlYW4gPT4ge1xuICBpZiAoIXN0YXRlLmhlcm8ucmVsaWNDaGFyZ2VzPy5baWRdKSByZXR1cm4gZmFsc2VcbiAgZGVsZXRlIHN0YXRlLmhlcm8ucmVsaWNDaGFyZ2VzW2lkXVxuICByZXR1cm4gdHJ1ZVxufVxuXG5leHBvcnQgY29uc3QgYXJtUmVsaWNNb3ZlID0gKHN0YXRlOiBSdW5TdGF0ZSk6IHZvaWQgPT4gYXJtKHN0YXRlLCAnY2Fpcm5Db2lsJylcbmV4cG9ydCBjb25zdCBhcm1SZWxpY1RyYXZlcnNhbCA9IChzdGF0ZTogUnVuU3RhdGUpOiB2b2lkID0+IGFybShzdGF0ZSwgJ2FzaENpcmN1aXQnKVxuZXhwb3J0IGNvbnN0IGFybVJlbGljV2F0ZXJDcm9zc2luZyA9IChzdGF0ZTogUnVuU3RhdGUpOiB2b2lkID0+IGFybShzdGF0ZSwgJ3RpZGVGZXR0ZXInKVxuZXhwb3J0IGNvbnN0IGFybVJlbGljTWlycm9yID0gKHN0YXRlOiBSdW5TdGF0ZSk6IHZvaWQgPT4gYXJtKHN0YXRlLCAncHJpc21SZWxheScpXG5leHBvcnQgY29uc3QgYXJtUmVsaWNJY2UgPSAoc3RhdGU6IFJ1blN0YXRlKTogdm9pZCA9PiBhcm0oc3RhdGUsICd3aW50ZXJTZWFsJylcbmV4cG9ydCBjb25zdCBjb25zdW1lUmVsaWNTcGVsbCA9IChzdGF0ZTogUnVuU3RhdGUpOiBib29sZWFuID0+IGNvbnN1bWUoc3RhdGUsICdhc2hDaXJjdWl0JylcbmV4cG9ydCBjb25zdCBjb25zdW1lUmVsaWNUb29sID0gKHN0YXRlOiBSdW5TdGF0ZSk6IGJvb2xlYW4gPT4gY29uc3VtZShzdGF0ZSwgJ3RpZGVGZXR0ZXInKVxuZXhwb3J0IGNvbnN0IGNvbnN1bWVSZWxpY1dpbnRlckd1YXJkID0gKHN0YXRlOiBSdW5TdGF0ZSk6IGJvb2xlYW4gPT4gY29uc3VtZShzdGF0ZSwgJ3dpbnRlclNlYWwnKVxuXG5leHBvcnQgY29uc3QgY29uc3VtZVJlbGljUHJpc21TdHJpa2UgPSAoc3RhdGU6IFJ1blN0YXRlLCB0YXJnZXQ6IEFjdG9yKTogbnVtYmVyID0+IHtcbiAgaWYgKCFjb25zdW1lKHN0YXRlLCAncHJpc21SZWxheScpKSByZXR1cm4gMFxuICBhZGRDb25kaXRpb24odGFyZ2V0LCB7IGtpbmQ6ICdtYXJrZWQnLCBkdXJhdGlvbjogMiwgcG90ZW5jeTogMSB9KVxuICBsb2coc3RhdGUsICdQcmlzbSBSZWxheSByZWZyYWN0cyB0aGUgc3RyaWtlLicpXG4gIHJldHVybiA0XG59XG5cbmV4cG9ydCBjb25zdCBtYXJrYnJlYWtlckRhbWFnZSA9IChzdGF0ZTogUnVuU3RhdGUsIHRhcmdldDogQWN0b3IpOiBudW1iZXIgPT4ge1xuICBpZiAoIWhhc1JlbGljKHN0YXRlLCAnbWFya2JyZWFrZXJTZWFsJykpIHJldHVybiAwXG4gIGlmIChoYXNDb25kaXRpb24odGFyZ2V0LCAnbWFya2VkJykpIHtcbiAgICB0YXJnZXQuY29uZGl0aW9ucyA9IHRhcmdldC5jb25kaXRpb25zPy5maWx0ZXIoY29uZGl0aW9uID0+IGNvbmRpdGlvbi5raW5kICE9PSAnbWFya2VkJylcbiAgICBsb2coc3RhdGUsICdNYXJrYnJlYWtlciBTZWFsIHJ1cHR1cmVzIHRoZSBtYXJrLicpXG4gICAgcmV0dXJuIDVcbiAgfVxuICBhZGRDb25kaXRpb24odGFyZ2V0LCB7IGtpbmQ6ICdtYXJrZWQnLCBkdXJhdGlvbjogMiwgcG90ZW5jeTogMSB9KVxuICBsb2coc3RhdGUsICdNYXJrYnJlYWtlciBTZWFsIG1hcmtzIHRoZSB0YXJnZXQuJylcbiAgcmV0dXJuIDBcbn1cblxuZXhwb3J0IGNvbnN0IHJlc29sdmVLaWxsUmVsaWNzID0gKHN0YXRlOiBSdW5TdGF0ZSk6IHZvaWQgPT4ge1xuICBpZiAoIWNvbnN1bWUoc3RhdGUsICdjYWlybkNvaWwnKSkgcmV0dXJuXG4gIHN0YXRlLmhlcm8uZm9jdXMgPSBNYXRoLm1pbihzdGF0ZS5oZXJvLm1heEZvY3VzLCBzdGF0ZS5oZXJvLmZvY3VzICsgMylcbiAgbG9nKHN0YXRlLCAnQ2Fpcm4gQ29pbCByZXR1cm5zIGZvY3VzIGZvciB0aGUgbW92aW5nIGtpbGwuJylcbn1cbiJdLCJmaWxlIjoiL3NyYy9lbmdpbmUvcmVsaWNzLnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL3JlbGljcy50cyIsIi9zcmMvZW5naW5lL3JlbGljcy50cyIsW11d

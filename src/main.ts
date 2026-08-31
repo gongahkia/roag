@@ -4,7 +4,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceTransitWindow, applyGalaxySiteConditions, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, equipHubItem, event, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectSealedPackage, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectSealedPackage, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -16,6 +16,7 @@ import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetr
 import { type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type GalaxyState, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
 import { getTile } from './world'
 import { nextVisualMode, normalizeVisualMode } from './visual-mode'
+import { ActiveSessionRouteClock } from './route-reckoning-runtime'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const renderer = new TerminalRenderer(canvas)
@@ -61,6 +62,8 @@ let bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
 let persistenceState: 'saved' | 'saving' | 'error' = 'saved'
 let pendingPersistence = 0
 const failedPersistence = new Map<string, { operation: () => Promise<void>; clearKeys: string[] }>()
+const routeClock = new ActiveSessionRouteClock()
+let lastRouteClockPersistence = 0
 
 const loadAutoplayFeature = (): Promise<AutoplayFeature> => {
   if (autoplayFeature) return Promise.resolve(autoplayFeature)
@@ -115,6 +118,7 @@ canvas.addEventListener('pointerup', mouseEvent => {
 })
 
 void bootstrapCouriers()
+window.requestAnimationFrame(tickRouteReckoning)
 
 window.addEventListener('keydown', keyboardEvent => {
   if (keyboardEvent.ctrlKey && route.screen === 'level' && state?.status === 'playing') {
@@ -231,8 +235,45 @@ function retryFailedPersistence(): void {
 }
 
 const flushCourierPersistence = (): void => { void flushCourierWrites() }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCourierPersistence() })
-window.addEventListener('pagehide', flushCourierPersistence)
+document.addEventListener('visibilitychange', () => {
+  routeClock.reset(performance.now())
+  if (document.visibilityState === 'hidden') {
+    persistActiveCourier()
+    flushCourierPersistence()
+  }
+})
+window.addEventListener('blur', () => routeClock.reset(performance.now()))
+window.addEventListener('focus', () => routeClock.reset(performance.now()))
+window.addEventListener('pagehide', () => {
+  routeClock.reset(performance.now())
+  persistActiveCourier()
+  flushCourierPersistence()
+})
+
+function routeReckoningCanAdvance(): boolean {
+  if (bootstrapState !== 'ready' || !activeCourier || !campaign.galaxy || !heir) return false
+  if (document.visibilityState !== 'visible' || !document.hasFocus()) return false
+  if (loading || transit || story) return false
+  if (route.screen === 'hub') return !route.hubAction
+  if (route.screen === 'sector') return true
+  return route.screen === 'level' && state?.status === 'playing' && !state.modal
+}
+
+function tickRouteReckoning(runtimeMs: number): void {
+  const steps = routeClock.requestSteps(runtimeMs, routeReckoningCanAdvance())
+  if (steps && campaign.galaxy) {
+    const previous = campaign.galaxy
+    const galaxy = advanceGalaxyRouteReckoning(previous, steps)
+    campaign = { ...campaign, galaxy }
+    const historyChanged = galaxy.generalManifest.entries.length !== previous.generalManifest.entries.length
+    if (historyChanged || galaxy.routeReckoning - lastRouteClockPersistence >= 10) {
+      lastRouteClockPersistence = galaxy.routeReckoning
+      persistActiveCourier()
+    }
+    redraw()
+  }
+  window.requestAnimationFrame(tickRouteReckoning)
+}
 
 function activateCourier(id: string | undefined, persistSelection = true): void {
   selectedCourierId = id
@@ -521,8 +562,8 @@ function attachGalaxyAirlocks(game: RunState, galaxy: GalaxyState, siteId: strin
 }
 
 function galaxyForVoyager(seed: number): GalaxyState | undefined {
-  if (!heir) return campaign.galaxy ? reconcileGalaxy(campaign.galaxy) : undefined
-  const galaxy = reconcileGalaxy(campaign.galaxy ?? createGalaxy(seed, heir))
+  if (!heir) return campaign.galaxy
+  const galaxy = campaign.galaxy ?? createGalaxy(seed, heir)
   campaign = { ...campaign, galaxy }
   return galaxy
 }
@@ -690,12 +731,13 @@ function beginConnectorTravel(galaxy: GalaxyState, originId: string, destination
   if (!origin || !destination || !heir) return
   const savedOrigin = state ? saveGalaxySite(galaxy, originId, state) : galaxy
   const accepted = acceptGalaxyContract(savedOrigin, origin.id, destination.id)
-  campaign = { ...campaign, galaxy: accepted.galaxy }
   const linkId = [origin.id, destination.id].sort().join('::')
   const chunkCount = galaxyRouteLength(accepted.galaxy, origin.id, destination.id)
   const situations = Array.from({ length: chunkCount }, (_, chunk) => galaxyRouteSituation(accepted.galaxy, origin.id, destination.id, chunk))
-  const routeCacheChunks = accepted.galaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered).map(cache => cache.chunk)
-  const travel = newTransitRun(accepted.galaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations, ...(routeCacheChunks.length ? { routeCacheChunks } : {}) }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
+  const routedGalaxy = recordGalaxyRouteSituations(accepted.galaxy, linkId, situations)
+  campaign = { ...campaign, galaxy: routedGalaxy }
+  const routeCacheChunks = routedGalaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered).map(cache => cache.chunk)
+  const travel = newTransitRun(routedGalaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations, ...(routeCacheChunks.length ? { routeCacheChunks } : {}) }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
   if (routeCacheChunks.length) {
     travel.messages.unshift('A recoverable cargo cache is marked in this route window. Operate beside it to retrieve its contents.')
   }
@@ -714,9 +756,11 @@ function beginConnectorTravel(galaxy: GalaxyState, originId: string, destination
 
 function completeConnector(): void {
   if (!state?.travel) return
-  const destination = state.travel.toSiteId
+  const travel = state.travel
+  const destination = travel.toSiteId
   heir = structuredClone(state.hero)
   if (activeCourier) activeCourier.heir = structuredClone(heir)
+  if (campaign.galaxy) campaign = { ...campaign, galaxy: resolveGalaxyRouteSituations(campaign.galaxy, travel.linkId, travel.situations) }
   state = undefined
   saved = undefined
   route = { screen: 'level', biome: campaign.galaxy?.sites[destination]?.biome ?? route.biome, siteId: destination }
@@ -882,12 +926,15 @@ function redraw(): void {
   canvas.dataset.status = state?.status ?? 'none'
   canvas.dataset.autoplay = settings.autoplayMode
   canvas.dataset.autoplayPolicy = settings.autoplayPolicy
+  canvas.dataset.hubAction = route.hubAction ?? ''
   canvas.dataset.notice = hubNotice ?? ''
   const campaignStatus = hubCampaignStatus(campaign.cycle)
   const galaxy = campaign.galaxy
   const sealedContract = galaxy?.sealedPackageContracts[0]
+  const manifestEntry = route.hubAction === 'manifest' ? galaxy?.generalManifest.entries.at(-1) : undefined
   canvas.dataset.sealedPackage = sealedContract?.status ?? 'none'
-  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; sector day ${galaxy.sectorDay.toFixed(1)}.` : campaignStatus.accessibleLabel}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  canvas.dataset.routeReckoning = galaxy ? String(galaxy.routeReckoning) : ''
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -895,6 +942,10 @@ function redraw(): void {
 function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
+    if (action === 'manifest') {
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key.toLowerCase() === 'm' || key === 'Enter') route = { ...route, hubAction: undefined }
+      return true
+    }
     if (action === 'custody') {
       const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
       const contract = galaxy?.sealedPackageContracts[0]
@@ -1037,6 +1088,12 @@ function handleHubInput(key: string, run = false): boolean {
     if (!result) { hubNotice = 'That service cannot complete this action.'; return true }
     hubNotice = result.message
     if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
+    return true
+  }
+  if (key.toLowerCase() === 'm') {
+    if (!campaign.galaxy) { hubNotice = 'The Jomon General Manifest is unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'manifest' }
+    hubNotice = undefined
     return true
   }
   if (key.toLowerCase() === 'c' || key === 'Enter') {

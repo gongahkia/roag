@@ -1,0 +1,42 @@
+__vite_ssr_exportName__("hasCondition", () => { try { return hasCondition } catch {} });
+__vite_ssr_exportName__("addCondition", () => { try { return addCondition } catch {} });
+__vite_ssr_exportName__("tickConditions", () => { try { return tickConditions } catch {} });
+__vite_ssr_exportName__("conditionSpeed", () => { try { return conditionSpeed } catch {} });
+__vite_ssr_exportName__("modifyIncomingDamage", () => { try { return modifyIncomingDamage } catch {} });
+const hasCondition = (target, kind) => Boolean(target.conditions?.some((condition) => condition.kind === kind));
+const addCondition = (target, condition) => {
+  if (!Number.isInteger(condition.duration) || condition.duration < 1 || !Number.isFinite(condition.potency) || condition.potency < 1) throw new Error(`invalid condition: ${condition.kind}`);
+  const existing = target.conditions?.find((current) => current.kind === condition.kind);
+  if (existing) {
+    existing.duration = Math.max(existing.duration, condition.duration);
+    existing.potency = Math.max(existing.potency, condition.potency);
+    return;
+  };
+  target.conditions = [...target.conditions ?? [], { ...condition }];
+};
+const tickConditions = (target) => {
+  let burningDamage = 0;
+  const expired = [];
+  const remaining = [];
+  for (const condition of target.conditions ?? []) {
+    if (condition.kind === "burning") burningDamage += condition.potency;
+    const next = { ...condition, duration: condition.duration - 1 };
+    if (next.duration > 0) remaining.push(next);
+    else expired.push(condition.kind);
+  };
+  target.conditions = remaining;
+  return { burningDamage, expired };
+};
+const conditionSpeed = (target, speed) => {
+  const slow = target.conditions?.filter((condition) => condition.kind === "slowed").reduce((total, condition) => total + condition.potency, 0) ?? 0;
+  return Math.max(1, speed - slow * 20);
+};
+const modifyIncomingDamage = (target, amount) => {
+  const shield = target.conditions?.filter((condition) => condition.kind === "shielded").reduce((total, condition) => total + condition.potency, 0) ?? 0;
+  const mark = target.conditions?.filter((condition) => condition.kind === "marked").reduce((total, condition) => total + condition.potency, 0) ?? 0;
+  return Math.max(1, amount - shield + mark);
+};
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7Ozs7QUFLTyxNQUFNLGVBQWUsQ0FBQyxRQUF5QixTQUFpQyxRQUFRLE9BQU8sWUFBWSxLQUFLLGVBQWEsVUFBVSxTQUFTLElBQUksQ0FBQztBQUVySixNQUFNLGVBQWUsQ0FBQyxRQUF5QixjQUFvQztBQUN4RixNQUFJLENBQUMsT0FBTyxVQUFVLFVBQVUsUUFBUSxLQUFLLFVBQVUsV0FBVyxLQUFLLENBQUMsT0FBTyxTQUFTLFVBQVUsT0FBTyxLQUFLLFVBQVUsVUFBVSxFQUFHLE9BQU0sSUFBSSxNQUFNLHNCQUFzQixVQUFVLElBQUksRUFBRTtBQUMzTCxRQUFNLFdBQVcsT0FBTyxZQUFZLEtBQUssYUFBVyxRQUFRLFNBQVMsVUFBVSxJQUFJO0FBQ25GLE1BQUksVUFBVTtBQUFFLGFBQVMsV0FBVyxLQUFLLElBQUksU0FBUyxVQUFVLFVBQVUsUUFBUTtBQUFHLGFBQVMsVUFBVSxLQUFLLElBQUksU0FBUyxTQUFTLFVBQVUsT0FBTztBQUFHO0FBQUEsRUFBTztBQUM5SixTQUFPLGFBQWEsQ0FBQyxHQUFJLE9BQU8sY0FBYyxDQUFDLEdBQUksRUFBRSxHQUFHLFVBQVUsQ0FBQztBQUNyRTtBQUVPLE1BQU0saUJBQWlCLENBQUMsV0FBMkM7QUFDeEUsTUFBSSxnQkFBZ0I7QUFDcEIsUUFBTSxVQUEyQixDQUFDO0FBQ2xDLFFBQU0sWUFBOEIsQ0FBQztBQUNyQyxhQUFXLGFBQWEsT0FBTyxjQUFjLENBQUMsR0FBRztBQUMvQyxRQUFJLFVBQVUsU0FBUyxVQUFXLGtCQUFpQixVQUFVO0FBQzdELFVBQU0sT0FBTyxFQUFFLEdBQUcsV0FBVyxVQUFVLFVBQVUsV0FBVyxFQUFFO0FBQzlELFFBQUksS0FBSyxXQUFXLEVBQUcsV0FBVSxLQUFLLElBQUk7QUFBQSxRQUNyQyxTQUFRLEtBQUssVUFBVSxJQUFJO0FBQUEsRUFDbEM7QUFDQSxTQUFPLGFBQWE7QUFDcEIsU0FBTyxFQUFFLGVBQWUsUUFBUTtBQUNsQztBQUVPLE1BQU0saUJBQWlCLENBQUMsUUFBeUIsVUFBMEI7QUFDaEYsUUFBTSxPQUFPLE9BQU8sWUFBWSxPQUFPLGVBQWEsVUFBVSxTQUFTLFFBQVEsRUFBRSxPQUFPLENBQUMsT0FBTyxjQUFjLFFBQVEsVUFBVSxTQUFTLENBQUMsS0FBSztBQUMvSSxTQUFPLEtBQUssSUFBSSxHQUFHLFFBQVEsT0FBTyxFQUFFO0FBQ3RDO0FBRU8sTUFBTSx1QkFBdUIsQ0FBQyxRQUF5QixXQUEyQjtBQUN2RixRQUFNLFNBQVMsT0FBTyxZQUFZLE9BQU8sZUFBYSxVQUFVLFNBQVMsVUFBVSxFQUFFLE9BQU8sQ0FBQyxPQUFPLGNBQWMsUUFBUSxVQUFVLFNBQVMsQ0FBQyxLQUFLO0FBQ25KLFFBQU0sT0FBTyxPQUFPLFlBQVksT0FBTyxlQUFhLFVBQVUsU0FBUyxRQUFRLEVBQUUsT0FBTyxDQUFDLE9BQU8sY0FBYyxRQUFRLFVBQVUsU0FBUyxDQUFDLEtBQUs7QUFDL0ksU0FBTyxLQUFLLElBQUksR0FBRyxTQUFTLFNBQVMsSUFBSTtBQUMzQyIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiY29uZGl0aW9ucy50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgdHlwZSB7IENvbmRpdGlvbktpbmQsIENvbmRpdGlvblN0YXRlIH0gZnJvbSAnLi4vdHlwZXMnXG5cbmV4cG9ydCBpbnRlcmZhY2UgQ29uZGl0aW9uVGFyZ2V0IHsgY29uZGl0aW9ucz86IENvbmRpdGlvblN0YXRlW10gfVxuZXhwb3J0IGludGVyZmFjZSBDb25kaXRpb25UaWNrIHsgYnVybmluZ0RhbWFnZTogbnVtYmVyOyBleHBpcmVkOiBDb25kaXRpb25LaW5kW10gfVxuXG5leHBvcnQgY29uc3QgaGFzQ29uZGl0aW9uID0gKHRhcmdldDogQ29uZGl0aW9uVGFyZ2V0LCBraW5kOiBDb25kaXRpb25LaW5kKTogYm9vbGVhbiA9PiBCb29sZWFuKHRhcmdldC5jb25kaXRpb25zPy5zb21lKGNvbmRpdGlvbiA9PiBjb25kaXRpb24ua2luZCA9PT0ga2luZCkpXG5cbmV4cG9ydCBjb25zdCBhZGRDb25kaXRpb24gPSAodGFyZ2V0OiBDb25kaXRpb25UYXJnZXQsIGNvbmRpdGlvbjogQ29uZGl0aW9uU3RhdGUpOiB2b2lkID0+IHtcbiAgaWYgKCFOdW1iZXIuaXNJbnRlZ2VyKGNvbmRpdGlvbi5kdXJhdGlvbikgfHwgY29uZGl0aW9uLmR1cmF0aW9uIDwgMSB8fCAhTnVtYmVyLmlzRmluaXRlKGNvbmRpdGlvbi5wb3RlbmN5KSB8fCBjb25kaXRpb24ucG90ZW5jeSA8IDEpIHRocm93IG5ldyBFcnJvcihgaW52YWxpZCBjb25kaXRpb246ICR7Y29uZGl0aW9uLmtpbmR9YClcbiAgY29uc3QgZXhpc3RpbmcgPSB0YXJnZXQuY29uZGl0aW9ucz8uZmluZChjdXJyZW50ID0+IGN1cnJlbnQua2luZCA9PT0gY29uZGl0aW9uLmtpbmQpXG4gIGlmIChleGlzdGluZykgeyBleGlzdGluZy5kdXJhdGlvbiA9IE1hdGgubWF4KGV4aXN0aW5nLmR1cmF0aW9uLCBjb25kaXRpb24uZHVyYXRpb24pOyBleGlzdGluZy5wb3RlbmN5ID0gTWF0aC5tYXgoZXhpc3RpbmcucG90ZW5jeSwgY29uZGl0aW9uLnBvdGVuY3kpOyByZXR1cm4gfVxuICB0YXJnZXQuY29uZGl0aW9ucyA9IFsuLi4odGFyZ2V0LmNvbmRpdGlvbnMgPz8gW10pLCB7IC4uLmNvbmRpdGlvbiB9XVxufVxuXG5leHBvcnQgY29uc3QgdGlja0NvbmRpdGlvbnMgPSAodGFyZ2V0OiBDb25kaXRpb25UYXJnZXQpOiBDb25kaXRpb25UaWNrID0+IHtcbiAgbGV0IGJ1cm5pbmdEYW1hZ2UgPSAwXG4gIGNvbnN0IGV4cGlyZWQ6IENvbmRpdGlvbktpbmRbXSA9IFtdXG4gIGNvbnN0IHJlbWFpbmluZzogQ29uZGl0aW9uU3RhdGVbXSA9IFtdXG4gIGZvciAoY29uc3QgY29uZGl0aW9uIG9mIHRhcmdldC5jb25kaXRpb25zID8/IFtdKSB7XG4gICAgaWYgKGNvbmRpdGlvbi5raW5kID09PSAnYnVybmluZycpIGJ1cm5pbmdEYW1hZ2UgKz0gY29uZGl0aW9uLnBvdGVuY3lcbiAgICBjb25zdCBuZXh0ID0geyAuLi5jb25kaXRpb24sIGR1cmF0aW9uOiBjb25kaXRpb24uZHVyYXRpb24gLSAxIH1cbiAgICBpZiAobmV4dC5kdXJhdGlvbiA+IDApIHJlbWFpbmluZy5wdXNoKG5leHQpXG4gICAgZWxzZSBleHBpcmVkLnB1c2goY29uZGl0aW9uLmtpbmQpXG4gIH1cbiAgdGFyZ2V0LmNvbmRpdGlvbnMgPSByZW1haW5pbmdcbiAgcmV0dXJuIHsgYnVybmluZ0RhbWFnZSwgZXhwaXJlZCB9XG59XG5cbmV4cG9ydCBjb25zdCBjb25kaXRpb25TcGVlZCA9ICh0YXJnZXQ6IENvbmRpdGlvblRhcmdldCwgc3BlZWQ6IG51bWJlcik6IG51bWJlciA9PiB7XG4gIGNvbnN0IHNsb3cgPSB0YXJnZXQuY29uZGl0aW9ucz8uZmlsdGVyKGNvbmRpdGlvbiA9PiBjb25kaXRpb24ua2luZCA9PT0gJ3Nsb3dlZCcpLnJlZHVjZSgodG90YWwsIGNvbmRpdGlvbikgPT4gdG90YWwgKyBjb25kaXRpb24ucG90ZW5jeSwgMCkgPz8gMFxuICByZXR1cm4gTWF0aC5tYXgoMSwgc3BlZWQgLSBzbG93ICogMjApXG59XG5cbmV4cG9ydCBjb25zdCBtb2RpZnlJbmNvbWluZ0RhbWFnZSA9ICh0YXJnZXQ6IENvbmRpdGlvblRhcmdldCwgYW1vdW50OiBudW1iZXIpOiBudW1iZXIgPT4ge1xuICBjb25zdCBzaGllbGQgPSB0YXJnZXQuY29uZGl0aW9ucz8uZmlsdGVyKGNvbmRpdGlvbiA9PiBjb25kaXRpb24ua2luZCA9PT0gJ3NoaWVsZGVkJykucmVkdWNlKCh0b3RhbCwgY29uZGl0aW9uKSA9PiB0b3RhbCArIGNvbmRpdGlvbi5wb3RlbmN5LCAwKSA/PyAwXG4gIGNvbnN0IG1hcmsgPSB0YXJnZXQuY29uZGl0aW9ucz8uZmlsdGVyKGNvbmRpdGlvbiA9PiBjb25kaXRpb24ua2luZCA9PT0gJ21hcmtlZCcpLnJlZHVjZSgodG90YWwsIGNvbmRpdGlvbikgPT4gdG90YWwgKyBjb25kaXRpb24ucG90ZW5jeSwgMCkgPz8gMFxuICByZXR1cm4gTWF0aC5tYXgoMSwgYW1vdW50IC0gc2hpZWxkICsgbWFyaylcbn1cbiJdLCJmaWxlIjoiL3NyYy9lbmdpbmUvY29uZGl0aW9ucy50cyJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL2NvbmRpdGlvbnMudHMiLCIvc3JjL2VuZ2luZS9jb25kaXRpb25zLnRzIixbXV0=

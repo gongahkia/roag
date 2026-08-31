@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createGalaxy, loseGalaxyCourier, migrateGalaxy } from './galaxy'
+import { advanceGalaxyRouteReckoning, createGalaxy, loseGalaxyCourier, migrateGalaxy } from './galaxy'
+import { ROUTE_RECKONING_NEAR_EXPIRY_UNITS } from './route-reckoning'
 import { newHero } from './run'
 import { acceptSealedPackageContract, declineSealedPackageContract, deliverSealedPackage, expireSealedPackageContracts, inspectSealedPackage, loseSealedPackagesForCourier, markSealedPackageDestinationReached, recoverSealedPackageRouteCaches, sealedPackageExteriorForContract, sealedPackageForContract, violateSealedPackageSeal } from './sealed-packages'
 
@@ -72,10 +73,63 @@ describe('sealed package custody', () => {
     expect(declined.galaxy.generalManifest.entries.at(-1)).toMatchObject({ kind: 'contractDeclined' })
 
     const expiring = acceptedGalaxy()
-    expiring.sectorDay = offer(expiring).terms.deadlineDay + 1
-    const expired = expireSealedPackageContracts(expiring)
+    const expired = expireSealedPackageContracts(expiring, offer(expiring).terms.deadlineReckoning + 1)
     expect(expired.galaxy.sealedPackageContracts[0]!.status).toBe('expired')
     expect(expired.galaxy.generalManifest.entries.slice(-2).map(entry => entry.kind)).toEqual(['contractExpired', 'deliveryFailed'])
+  })
+
+  it('records one Route Reckoning warning and one expiry while preserving intact or route-cache package state', () => {
+    const accepted = acceptedGalaxy()
+    const contract = offer(accepted)
+    const warningMarks = contract.terms.deadlineReckoning - ROUTE_RECKONING_NEAR_EXPIRY_UNITS
+    const warned = advanceGalaxyRouteReckoning(accepted, warningMarks)
+    const warnedAgain = advanceGalaxyRouteReckoning(warned, 1)
+    expect(warned.generalManifest.entries.filter(entry => entry.kind === 'contractNearingExpiry')).toHaveLength(1)
+    expect(warnedAgain.generalManifest.entries.filter(entry => entry.kind === 'contractNearingExpiry')).toHaveLength(1)
+
+    const expired = advanceGalaxyRouteReckoning(warnedAgain, contract.terms.deadlineReckoning - warnedAgain.routeReckoning + 1)
+    const expiredTwice = advanceGalaxyRouteReckoning(expired, 20)
+    expect(expired.sealedPackageContracts[0]!.status).toBe('expired')
+    expect(sealedPackageForContract(expired, contract.id)).toMatchObject({ sealState: 'intact', custody: 'assignedToCourier' })
+    expect(expiredTwice.generalManifest.entries.filter(entry => entry.kind === 'contractExpired')).toHaveLength(1)
+    expect(expiredTwice.generalManifest.entries.filter(entry => entry.kind === 'deliveryFailed')).toHaveLength(1)
+
+    const cached = loseSealedPackagesForCourier(warnedAgain, warnedAgain.activeCourierId, 'kestrel-connector', 1)
+    const cachedAfterDeadline = advanceGalaxyRouteReckoning(cached, contract.terms.deadlineReckoning - cached.routeReckoning + 1)
+    expect(cachedAfterDeadline.sealedPackageContracts[0]!.status).toBe('failed')
+    expect(sealedPackageForContract(cachedAfterDeadline, contract.id)).toMatchObject({ sealState: 'intact', custody: 'routeCache' })
+    expect(cachedAfterDeadline.generalManifest.entries.filter(entry => entry.kind === 'contractExpired')).toHaveLength(0)
+  })
+
+  it('expires offered and tampered packages through the same single Route Reckoning lifecycle', () => {
+    const offered = offeredGalaxy(617)
+    const offeredContract = offer(offered)
+    const expiredOffer = advanceGalaxyRouteReckoning(offered, offeredContract.terms.deadlineReckoning + 1)
+    expect(expiredOffer.sealedPackageContracts[0]).toMatchObject({ status: 'expired' })
+    expect(expiredOffer.sealedPackageContracts[0]!.packageId).toBeUndefined()
+
+    const tampered = acceptedGalaxy()
+    const tamperedContract = offer(tampered)
+    const opened = violateSealedPackageSeal(tampered, tamperedContract.id)
+    const expiredTampered = advanceGalaxyRouteReckoning(opened.galaxy, tamperedContract.terms.deadlineReckoning + 1)
+    expect(sealedPackageForContract(expiredTampered, tamperedContract.id)).toMatchObject({ sealState: 'opened', custody: 'assignedToCourier' })
+    expect(expiredTampered.generalManifest.entries.filter(entry => entry.kind === 'contractExpired')).toHaveLength(1)
+
+    const reachedLate = markSealedPackageDestinationReached(expiredTampered, tamperedContract.terms.destinationSiteId)
+    const hero = newHero({ name: 'Ari' })
+    expect(deliverSealedPackage(reachedLate, tamperedContract.id, hero).changed).toBe(false)
+  })
+
+  it('resolves the same scheduled expiry after a save/load boundary', () => {
+    const accepted = acceptedGalaxy()
+    const contract = offer(accepted)
+    const justBeforeExpiry = advanceGalaxyRouteReckoning(accepted, contract.terms.deadlineReckoning)
+    const reloaded = migrateGalaxy(JSON.parse(JSON.stringify(justBeforeExpiry)))!
+    const uninterrupted = advanceGalaxyRouteReckoning(justBeforeExpiry, 1)
+    const resumed = advanceGalaxyRouteReckoning(reloaded, 1)
+
+    expect(resumed.sealedPackageContracts[0]!.status).toBe('expired')
+    expect(resumed.generalManifest.entries).toEqual(uninterrupted.generalManifest.entries)
   })
 
   it('caches an assigned package on courier loss and lets a later courier recover its intact state', () => {
@@ -99,6 +153,9 @@ describe('sealed package custody', () => {
   it('migrates representative legacy galaxy data additively without reinterpreting generic cargo', () => {
     const current = offeredGalaxy()
     const legacy = structuredClone(current) as unknown as Record<string, unknown>
+    legacy.version = 1
+    delete legacy.routeReckoning
+    delete legacy.lastWorldTick
     delete legacy.sealedPackageContracts
     delete legacy.sealedPackages
     delete legacy.generalManifest
@@ -110,7 +167,9 @@ describe('sealed package custody', () => {
     expect(migrated!.contracts).toEqual(current.contracts)
     expect(migrated!.sealedPackageContracts).toEqual([])
     expect(migrated!.sealedPackages).toEqual([])
-    expect(migrated!.generalManifest).toEqual({ version: 1, nextSequence: 0, entries: [] })
+    expect(migrated!.version).toBe(2)
+    expect(migrated!.routeReckoning).toBe(0)
+    expect(migrated!.generalManifest).toEqual({ version: 2, nextSequence: 0, entries: [] })
     expect(migrated!.routeCaches.every(cache => Array.isArray(cache.packages))).toBe(true)
   })
 })

@@ -11,7 +11,8 @@ if ! awk -v one_minute_load="$load_1m" -v cores="$cpu_count" 'BEGIN { exit !(one
   exit 2
 fi
 
-vitest=(npx vitest run --maxWorkers=1 --no-file-parallelism)
+# Playwright owns browser specs; Vitest must not import its `test()` registrations.
+vitest=(npx vitest run --maxWorkers=1 --no-file-parallelism --exclude 'e2e/**')
 campaign_tests=(
   'replays the Mine tactical reference run without an engine error'
   'clears the pressure-detour regression seed'

@@ -1,0 +1,32 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/engine/input.ts", {"importedNames":["perform"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/engine/readout.ts", {"importedNames":["fieldReadout"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/engine/telegraphs.ts", {"importedNames":["announceTelegraph"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/test/factories.ts", {"importedNames":["createEnemy","createRun"]});
+
+
+
+
+
+(0,__vite_ssr_import_0__.describe)("field readout", () => {
+  (0,__vite_ssr_import_0__.it)("exposes visible intents, timed danger, and local options without advancing time", () => {
+    const state = (0,__vite_ssr_import_4__.createRun)();
+    const foe = (0,__vite_ssr_import_4__.createEnemy)({ id: "watcher", name: "Watch Rat", ai: "ranged", x: 5, y: 1 });
+    state.floor.actors = [foe];
+    state.floor.items = [{ id: "tonic", x: 1, y: 1, count: 1 }];
+    (0,__vite_ssr_import_3__.announceTelegraph)(state, { id: "watcher-shot", sourceId: foe.id, actionId: "enemy-shot", cells: [{ x: 1, y: 1 }], danger: "major", windup: 2 });
+    const readout = (0,__vite_ssr_import_2__.fieldReadout)(state);
+    (0,__vite_ssr_import_0__.expect)(readout.brief).toContain("T-2 MAJ SHOT PATH Watch Rat");
+    (0,__vite_ssr_import_0__.expect)(readout.lines).toContain("INTENT: Watch Rat — Shot (clear line at range 4; pursuer: use terrain or reach to control approach)");
+    (0,__vite_ssr_import_0__.expect)(readout.lines).toContain("OPTION G: take Vital Tonic");
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.perform)(state, "z")).toEqual([{ type: "menu" }]);
+    (0,__vite_ssr_import_0__.expect)(state.modal).toEqual({ kind: "readout" });
+    (0,__vite_ssr_import_0__.expect)(state.turn).toBe(0);
+    (0,__vite_ssr_import_1__.perform)(state, "Escape");
+    (0,__vite_ssr_import_0__.expect)(state.modal).toBeUndefined();
+  });
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTs7Ozs7O0dBRUEsZ0NBQVMsaUJBQWlCLE1BQU07QUFDOUIsK0JBQUcsbUZBQW1GLE1BQU07QUFDMUYsVUFBTSxXQUFRLGlDQUFVO0FBQ3hCLFVBQU0sU0FBTSxtQ0FBWSxFQUFFLElBQUksV0FBVyxNQUFNLGFBQWEsSUFBSSxVQUFVLEdBQUcsR0FBRyxHQUFHLEVBQUUsQ0FBQztBQUN0RixVQUFNLE1BQU0sU0FBUyxDQUFDLEdBQUc7QUFDekIsVUFBTSxNQUFNLFFBQVEsQ0FBQyxFQUFFLElBQUksU0FBUyxHQUFHLEdBQUcsR0FBRyxHQUFHLE9BQU8sRUFBRSxDQUFDO0FBQzFELGdEQUFrQixPQUFPLEVBQUUsSUFBSSxnQkFBZ0IsVUFBVSxJQUFJLElBQUksVUFBVSxjQUFjLE9BQU8sQ0FBQyxFQUFFLEdBQUcsR0FBRyxHQUFHLEVBQUUsQ0FBQyxHQUFHLFFBQVEsU0FBUyxRQUFRLEVBQUUsQ0FBQztBQUM5SSxVQUFNLGFBQVUsb0NBQWEsS0FBSztBQUNsQyxxQ0FBTyxRQUFRLEtBQUssRUFBRSxVQUFVLDZCQUE2QjtBQUM3RCxxQ0FBTyxRQUFRLEtBQUssRUFBRSxVQUFVLHFHQUFxRztBQUNySSxxQ0FBTyxRQUFRLEtBQUssRUFBRSxVQUFVLDRCQUE0QjtBQUM1RCx3Q0FBTywrQkFBUSxPQUFPLEdBQUcsQ0FBQyxFQUFFLFFBQVEsQ0FBQyxFQUFFLE1BQU0sT0FBTyxDQUFDLENBQUM7QUFDdEQscUNBQU8sTUFBTSxLQUFLLEVBQUUsUUFBUSxFQUFFLE1BQU0sVUFBVSxDQUFDO0FBQy9DLHFDQUFPLE1BQU0sSUFBSSxFQUFFLEtBQUssQ0FBQztBQUN6QixzQ0FBUSxPQUFPLFFBQVE7QUFDdkIscUNBQU8sTUFBTSxLQUFLLEVBQUUsY0FBYztBQUFBLEVBQ3BDLENBQUM7QUFDSCxDQUFDIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJyZWFkb3V0LnRlc3QudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgZGVzY3JpYmUsIGV4cGVjdCwgaXQgfSBmcm9tICd2aXRlc3QnXG5pbXBvcnQgeyBwZXJmb3JtIH0gZnJvbSAnLi9pbnB1dCdcbmltcG9ydCB7IGZpZWxkUmVhZG91dCB9IGZyb20gJy4vcmVhZG91dCdcbmltcG9ydCB7IGFubm91bmNlVGVsZWdyYXBoIH0gZnJvbSAnLi90ZWxlZ3JhcGhzJ1xuaW1wb3J0IHsgY3JlYXRlRW5lbXksIGNyZWF0ZVJ1biB9IGZyb20gJy4uL3Rlc3QvZmFjdG9yaWVzJ1xuXG5kZXNjcmliZSgnZmllbGQgcmVhZG91dCcsICgpID0+IHtcbiAgaXQoJ2V4cG9zZXMgdmlzaWJsZSBpbnRlbnRzLCB0aW1lZCBkYW5nZXIsIGFuZCBsb2NhbCBvcHRpb25zIHdpdGhvdXQgYWR2YW5jaW5nIHRpbWUnLCAoKSA9PiB7XG4gICAgY29uc3Qgc3RhdGUgPSBjcmVhdGVSdW4oKVxuICAgIGNvbnN0IGZvZSA9IGNyZWF0ZUVuZW15KHsgaWQ6ICd3YXRjaGVyJywgbmFtZTogJ1dhdGNoIFJhdCcsIGFpOiAncmFuZ2VkJywgeDogNSwgeTogMSB9KVxuICAgIHN0YXRlLmZsb29yLmFjdG9ycyA9IFtmb2VdXG4gICAgc3RhdGUuZmxvb3IuaXRlbXMgPSBbeyBpZDogJ3RvbmljJywgeDogMSwgeTogMSwgY291bnQ6IDEgfV1cbiAgICBhbm5vdW5jZVRlbGVncmFwaChzdGF0ZSwgeyBpZDogJ3dhdGNoZXItc2hvdCcsIHNvdXJjZUlkOiBmb2UuaWQsIGFjdGlvbklkOiAnZW5lbXktc2hvdCcsIGNlbGxzOiBbeyB4OiAxLCB5OiAxIH1dLCBkYW5nZXI6ICdtYWpvcicsIHdpbmR1cDogMiB9KVxuICAgIGNvbnN0IHJlYWRvdXQgPSBmaWVsZFJlYWRvdXQoc3RhdGUpXG4gICAgZXhwZWN0KHJlYWRvdXQuYnJpZWYpLnRvQ29udGFpbignVC0yIE1BSiBTSE9UIFBBVEggV2F0Y2ggUmF0JylcbiAgICBleHBlY3QocmVhZG91dC5saW5lcykudG9Db250YWluKCdJTlRFTlQ6IFdhdGNoIFJhdCDigJQgU2hvdCAoY2xlYXIgbGluZSBhdCByYW5nZSA0OyBwdXJzdWVyOiB1c2UgdGVycmFpbiBvciByZWFjaCB0byBjb250cm9sIGFwcHJvYWNoKScpXG4gICAgZXhwZWN0KHJlYWRvdXQubGluZXMpLnRvQ29udGFpbignT1BUSU9OIEc6IHRha2UgVml0YWwgVG9uaWMnKVxuICAgIGV4cGVjdChwZXJmb3JtKHN0YXRlLCAneicpKS50b0VxdWFsKFt7IHR5cGU6ICdtZW51JyB9XSlcbiAgICBleHBlY3Qoc3RhdGUubW9kYWwpLnRvRXF1YWwoeyBraW5kOiAncmVhZG91dCcgfSlcbiAgICBleHBlY3Qoc3RhdGUudHVybikudG9CZSgwKVxuICAgIHBlcmZvcm0oc3RhdGUsICdFc2NhcGUnKVxuICAgIGV4cGVjdChzdGF0ZS5tb2RhbCkudG9CZVVuZGVmaW5lZCgpXG4gIH0pXG59KVxuIl0sImZpbGUiOiIvc3JjL2VuZ2luZS9yZWFkb3V0LnRlc3QudHMifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL3JlYWRvdXQudGVzdC50cyIsIi9zcmMvZW5naW5lL3JlYWRvdXQudGVzdC50cyIsW11d

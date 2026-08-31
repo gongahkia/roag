@@ -1,0 +1,12 @@
+__vite_ssr_exportName__("recordRescue", () => { try { return recordRescue } catch {} });
+const recordRescue = (state, actor) => {
+  const biome = state.area ?? state.floor.biome;
+  const npc = { id: `rescue:${biome}:${state.floor.index}:${actor?.id ?? `${state.hero.x},${state.hero.y}`}`, name: actor?.name ?? "Stranded Traveler", biome, floor: state.areaFloor ?? state.floor.index % 4 };
+  const roster = state.rescuedNpcs ??= [];
+  if (!roster.some((existing) => existing.id === npc.id)) roster.push(npc);
+  return npc;
+};
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUVPLE1BQU0sZUFBZSxDQUFDLE9BQWlCLFVBQXlDO0FBQ3JGLFFBQU0sUUFBUSxNQUFNLFFBQVEsTUFBTSxNQUFNO0FBQ3hDLFFBQU0sTUFBa0IsRUFBRSxJQUFJLFVBQVUsS0FBSyxJQUFJLE1BQU0sTUFBTSxLQUFLLElBQUksT0FBTyxNQUFNLEdBQUcsTUFBTSxLQUFLLENBQUMsSUFBSSxNQUFNLEtBQUssQ0FBQyxFQUFFLElBQUksTUFBTSxPQUFPLFFBQVEscUJBQXFCLE9BQU8sT0FBTyxNQUFNLGFBQWEsTUFBTSxNQUFNLFFBQVEsRUFBRTtBQUN6TixRQUFNLFNBQVMsTUFBTSxnQkFBZ0IsQ0FBQztBQUN0QyxNQUFJLENBQUMsT0FBTyxLQUFLLGNBQVksU0FBUyxPQUFPLElBQUksRUFBRSxFQUFHLFFBQU8sS0FBSyxHQUFHO0FBQ3JFLFNBQU87QUFDVCIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsicmVzY3VlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB0eXBlIHsgQWN0b3IsIFJlc2N1ZWROcGMsIFJ1blN0YXRlIH0gZnJvbSAnLi4vdHlwZXMnXG5cbmV4cG9ydCBjb25zdCByZWNvcmRSZXNjdWUgPSAoc3RhdGU6IFJ1blN0YXRlLCBhY3RvcjogQWN0b3IgfCB1bmRlZmluZWQpOiBSZXNjdWVkTnBjID0+IHtcbiAgY29uc3QgYmlvbWUgPSBzdGF0ZS5hcmVhID8/IHN0YXRlLmZsb29yLmJpb21lXG4gIGNvbnN0IG5wYzogUmVzY3VlZE5wYyA9IHsgaWQ6IGByZXNjdWU6JHtiaW9tZX06JHtzdGF0ZS5mbG9vci5pbmRleH06JHthY3Rvcj8uaWQgPz8gYCR7c3RhdGUuaGVyby54fSwke3N0YXRlLmhlcm8ueX1gfWAsIG5hbWU6IGFjdG9yPy5uYW1lID8/ICdTdHJhbmRlZCBUcmF2ZWxlcicsIGJpb21lLCBmbG9vcjogc3RhdGUuYXJlYUZsb29yID8/IHN0YXRlLmZsb29yLmluZGV4ICUgNCB9XG4gIGNvbnN0IHJvc3RlciA9IHN0YXRlLnJlc2N1ZWROcGNzID8/PSBbXVxuICBpZiAoIXJvc3Rlci5zb21lKGV4aXN0aW5nID0+IGV4aXN0aW5nLmlkID09PSBucGMuaWQpKSByb3N0ZXIucHVzaChucGMpXG4gIHJldHVybiBucGNcbn1cbiJdLCJmaWxlIjoiL3NyYy9lbmdpbmUvcmVzY3VlLnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL3Jlc2N1ZS50cyIsIi9zcmMvZW5naW5lL3Jlc2N1ZS50cyIsW11d

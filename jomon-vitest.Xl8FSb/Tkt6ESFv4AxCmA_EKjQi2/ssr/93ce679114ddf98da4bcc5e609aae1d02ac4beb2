@@ -1,0 +1,13 @@
+__vite_ssr_exportName__("agilityMoveDistance", () => { try { return agilityMoveDistance } catch {} });
+__vite_ssr_exportName__("agilityReachBonus", () => { try { return agilityReachBonus } catch {} });
+__vite_ssr_exportName__("agilityEvasion", () => { try { return agilityEvasion } catch {} });
+__vite_ssr_exportName__("agilityTelegraphAvoidance", () => { try { return agilityTelegraphAvoidance } catch {} });
+const has = (hero, skill) => hero.skills.includes(skill);
+const agilityMoveDistance = (hero) => 1 + (has(hero, "agi1") ? 1 : 0) + (has(hero, "agi5") ? 1 : 0);
+const agilityReachBonus = (hero) => has(hero, "agi2") ? 1 : 0;
+const agilityEvasion = (hero) => has(hero, "agi4") ? 3 : 0;
+const agilityTelegraphAvoidance = (hero) => (has(hero, "agi3") ? 20 : 0) + (has(hero, "agi6") ? 35 : 0);
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7OztBQUVBLE1BQU0sTUFBTSxDQUFDLE1BQVksVUFBMkIsS0FBSyxPQUFPLFNBQVMsS0FBSztBQUN2RSxNQUFNLHNCQUFzQixDQUFDLFNBQXVCLEtBQUssSUFBSSxNQUFNLE1BQU0sSUFBSSxJQUFJLE1BQU0sSUFBSSxNQUFNLE1BQU0sSUFBSSxJQUFJO0FBQy9HLE1BQU0sb0JBQW9CLENBQUMsU0FBdUIsSUFBSSxNQUFNLE1BQU0sSUFBSSxJQUFJO0FBQzFFLE1BQU0saUJBQWlCLENBQUMsU0FBdUIsSUFBSSxNQUFNLE1BQU0sSUFBSSxJQUFJO0FBQ3ZFLE1BQU0sNEJBQTRCLENBQUMsVUFBd0IsSUFBSSxNQUFNLE1BQU0sSUFBSSxLQUFLLE1BQU0sSUFBSSxNQUFNLE1BQU0sSUFBSSxLQUFLIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJhZ2lsaXR5LnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB0eXBlIHsgSGVybyB9IGZyb20gJy4uL3R5cGVzJ1xuXG5jb25zdCBoYXMgPSAoaGVybzogSGVybywgc2tpbGw6IHN0cmluZyk6IGJvb2xlYW4gPT4gaGVyby5za2lsbHMuaW5jbHVkZXMoc2tpbGwpXG5leHBvcnQgY29uc3QgYWdpbGl0eU1vdmVEaXN0YW5jZSA9IChoZXJvOiBIZXJvKTogbnVtYmVyID0+IDEgKyAoaGFzKGhlcm8sICdhZ2kxJykgPyAxIDogMCkgKyAoaGFzKGhlcm8sICdhZ2k1JykgPyAxIDogMClcbmV4cG9ydCBjb25zdCBhZ2lsaXR5UmVhY2hCb251cyA9IChoZXJvOiBIZXJvKTogbnVtYmVyID0+IGhhcyhoZXJvLCAnYWdpMicpID8gMSA6IDBcbmV4cG9ydCBjb25zdCBhZ2lsaXR5RXZhc2lvbiA9IChoZXJvOiBIZXJvKTogbnVtYmVyID0+IGhhcyhoZXJvLCAnYWdpNCcpID8gMyA6IDBcbmV4cG9ydCBjb25zdCBhZ2lsaXR5VGVsZWdyYXBoQXZvaWRhbmNlID0gKGhlcm86IEhlcm8pOiBudW1iZXIgPT4gKGhhcyhoZXJvLCAnYWdpMycpID8gMjAgOiAwKSArIChoYXMoaGVybywgJ2FnaTYnKSA/IDM1IDogMClcbiJdLCJmaWxlIjoiL3NyYy9lbmdpbmUvYWdpbGl0eS50cyJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL2FnaWxpdHkudHMiLCIvc3JjL2VuZ2luZS9hZ2lsaXR5LnRzIixbXV0=

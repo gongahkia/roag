@@ -1,0 +1,35 @@
+__vite_ssr_exportName__("isVerdantSpell", () => { try { return isVerdantSpell } catch {} });
+__vite_ssr_exportName__("castVerdant", () => { try { return castVerdant } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/world.ts", {"importedNames":["actorAt","getTile"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/engine/conditions.ts", {"importedNames":["addCondition"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/engine/shared.ts", {"importedNames":["log"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/engine/terrain.ts", {"importedNames":["resolveTerrainReactions"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/engine/props.ts", {"importedNames":["applyPropEffects"]});
+
+
+
+
+
+const spells = ["mend", "root", "water", "lull"];
+const isVerdantSpell = (spell) => Boolean(spell && spells.includes(spell));
+const castVerdant = (state, spell, point) => {
+  if (spell === "mend") state.hero.health = Math.min(state.hero.maxHealth, state.hero.health + 7 + state.hero.stats.intellect);
+  const target = (0,__vite_ssr_import_0__.actorAt)(state.floor, point.x, point.y);
+  if (spell === "root" && target?.hostile) (0,__vite_ssr_import_1__.addCondition)(target, { kind: "rooted", duration: 3, potency: 1 });
+  if (spell === "lull" && target?.hostile) (0,__vite_ssr_import_1__.addCondition)(target, { kind: "staggered", duration: 3, potency: 1 });
+  if (spell === "root") {
+    (0,__vite_ssr_import_4__.applyPropEffects)(state, [point], ["root"]);
+    return;
+  };
+  if (spell !== "water") return;
+  const tile = (0,__vite_ssr_import_0__.getTile)(state.floor, point.x, point.y);
+  if (!tile) return;
+  const reactions = (0,__vite_ssr_import_3__.resolveTerrainReactions)(state.floor, [point], ["water"]);
+  (0,__vite_ssr_import_4__.applyPropEffects)(state, [point], ["water"]);
+  for (const reaction of reactions) (0,__vite_ssr_import_2__.log)(state, `Terrain reaction: ${reaction.reaction}.`);
+  if (!reactions.length && tile.kind === "floor") tile.kind = "water";
+};
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOzs7Ozs7QUFJQSxNQUFNLFNBQWtDLENBQUMsUUFBUSxRQUFRLFNBQVMsTUFBTTtBQUVqRSxNQUFNLGlCQUFpQixDQUFDLFVBQXFELFFBQVEsU0FBUyxPQUFPLFNBQVMsS0FBcUIsQ0FBQztBQUVwSSxNQUFNLGNBQWMsQ0FBQyxPQUFpQixPQUFxQixVQUF1QjtBQUN2RixNQUFJLFVBQVUsT0FBUSxPQUFNLEtBQUssU0FBUyxLQUFLLElBQUksTUFBTSxLQUFLLFdBQVcsTUFBTSxLQUFLLFNBQVMsSUFBSSxNQUFNLEtBQUssTUFBTSxTQUFTO0FBQzNILFFBQU0sWUFBUywrQkFBUSxNQUFNLE9BQU8sTUFBTSxHQUFHLE1BQU0sQ0FBQztBQUNwRCxNQUFJLFVBQVUsVUFBVSxRQUFRLFFBQVMsd0NBQWEsUUFBUSxFQUFFLE1BQU0sVUFBVSxVQUFVLEdBQUcsU0FBUyxFQUFFLENBQUM7QUFDekcsTUFBSSxVQUFVLFVBQVUsUUFBUSxRQUFTLHdDQUFhLFFBQVEsRUFBRSxNQUFNLGFBQWEsVUFBVSxHQUFHLFNBQVMsRUFBRSxDQUFDO0FBQzVHLE1BQUksVUFBVSxRQUFRO0FBQUUsK0NBQWlCLE9BQU8sQ0FBQyxLQUFLLEdBQUcsQ0FBQyxNQUFNLENBQUM7QUFBRztBQUFBLEVBQU87QUFDM0UsTUFBSSxVQUFVLFFBQVM7QUFDdkIsUUFBTSxVQUFPLCtCQUFRLE1BQU0sT0FBTyxNQUFNLEdBQUcsTUFBTSxDQUFDO0FBQ2xELE1BQUksQ0FBQyxLQUFNO0FBQ1gsUUFBTSxlQUFZLCtDQUF3QixNQUFNLE9BQU8sQ0FBQyxLQUFLLEdBQUcsQ0FBQyxPQUFPLENBQUM7QUFDekUsNkNBQWlCLE9BQU8sQ0FBQyxLQUFLLEdBQUcsQ0FBQyxPQUFPLENBQUM7QUFDMUMsYUFBVyxZQUFZLFVBQVcsK0JBQUksT0FBTyxxQkFBcUIsU0FBUyxRQUFRLEdBQUc7QUFDdEYsTUFBSSxDQUFDLFVBQVUsVUFBVSxLQUFLLFNBQVMsUUFBUyxNQUFLLE9BQU87QUFDOUQiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbInZlcmRhbnQudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHR5cGUgeyBQb2ludCwgUnVuU3RhdGUgfSBmcm9tICcuLi90eXBlcydcbmltcG9ydCB7IGFjdG9yQXQsIGdldFRpbGUgfSBmcm9tICcuLi93b3JsZCdcbmltcG9ydCB7IGFkZENvbmRpdGlvbiB9IGZyb20gJy4vY29uZGl0aW9ucydcbmltcG9ydCB7IGxvZyB9IGZyb20gJy4vc2hhcmVkJ1xuaW1wb3J0IHsgcmVzb2x2ZVRlcnJhaW5SZWFjdGlvbnMgfSBmcm9tICcuL3RlcnJhaW4nXG5pbXBvcnQgeyBhcHBseVByb3BFZmZlY3RzIH0gZnJvbSAnLi9wcm9wcydcblxudHlwZSBWZXJkYW50U3BlbGwgPSAnbWVuZCcgfCAncm9vdCcgfCAnd2F0ZXInIHwgJ2x1bGwnXG5cbmNvbnN0IHNwZWxsczogcmVhZG9ubHkgVmVyZGFudFNwZWxsW10gPSBbJ21lbmQnLCAncm9vdCcsICd3YXRlcicsICdsdWxsJ11cblxuZXhwb3J0IGNvbnN0IGlzVmVyZGFudFNwZWxsID0gKHNwZWxsOiBzdHJpbmcgfCB1bmRlZmluZWQpOiBzcGVsbCBpcyBWZXJkYW50U3BlbGwgPT4gQm9vbGVhbihzcGVsbCAmJiBzcGVsbHMuaW5jbHVkZXMoc3BlbGwgYXMgVmVyZGFudFNwZWxsKSlcblxuZXhwb3J0IGNvbnN0IGNhc3RWZXJkYW50ID0gKHN0YXRlOiBSdW5TdGF0ZSwgc3BlbGw6IFZlcmRhbnRTcGVsbCwgcG9pbnQ6IFBvaW50KTogdm9pZCA9PiB7XG4gIGlmIChzcGVsbCA9PT0gJ21lbmQnKSBzdGF0ZS5oZXJvLmhlYWx0aCA9IE1hdGgubWluKHN0YXRlLmhlcm8ubWF4SGVhbHRoLCBzdGF0ZS5oZXJvLmhlYWx0aCArIDcgKyBzdGF0ZS5oZXJvLnN0YXRzLmludGVsbGVjdClcbiAgY29uc3QgdGFyZ2V0ID0gYWN0b3JBdChzdGF0ZS5mbG9vciwgcG9pbnQueCwgcG9pbnQueSlcbiAgaWYgKHNwZWxsID09PSAncm9vdCcgJiYgdGFyZ2V0Py5ob3N0aWxlKSBhZGRDb25kaXRpb24odGFyZ2V0LCB7IGtpbmQ6ICdyb290ZWQnLCBkdXJhdGlvbjogMywgcG90ZW5jeTogMSB9KVxuICBpZiAoc3BlbGwgPT09ICdsdWxsJyAmJiB0YXJnZXQ/Lmhvc3RpbGUpIGFkZENvbmRpdGlvbih0YXJnZXQsIHsga2luZDogJ3N0YWdnZXJlZCcsIGR1cmF0aW9uOiAzLCBwb3RlbmN5OiAxIH0pXG4gIGlmIChzcGVsbCA9PT0gJ3Jvb3QnKSB7IGFwcGx5UHJvcEVmZmVjdHMoc3RhdGUsIFtwb2ludF0sIFsncm9vdCddKTsgcmV0dXJuIH1cbiAgaWYgKHNwZWxsICE9PSAnd2F0ZXInKSByZXR1cm5cbiAgY29uc3QgdGlsZSA9IGdldFRpbGUoc3RhdGUuZmxvb3IsIHBvaW50LngsIHBvaW50LnkpXG4gIGlmICghdGlsZSkgcmV0dXJuXG4gIGNvbnN0IHJlYWN0aW9ucyA9IHJlc29sdmVUZXJyYWluUmVhY3Rpb25zKHN0YXRlLmZsb29yLCBbcG9pbnRdLCBbJ3dhdGVyJ10pXG4gIGFwcGx5UHJvcEVmZmVjdHMoc3RhdGUsIFtwb2ludF0sIFsnd2F0ZXInXSlcbiAgZm9yIChjb25zdCByZWFjdGlvbiBvZiByZWFjdGlvbnMpIGxvZyhzdGF0ZSwgYFRlcnJhaW4gcmVhY3Rpb246ICR7cmVhY3Rpb24ucmVhY3Rpb259LmApXG4gIGlmICghcmVhY3Rpb25zLmxlbmd0aCAmJiB0aWxlLmtpbmQgPT09ICdmbG9vcicpIHRpbGUua2luZCA9ICd3YXRlcidcbn1cbiJdLCJmaWxlIjoiL3NyYy9lbmdpbmUvdmVyZGFudC50cyJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL3ZlcmRhbnQudHMiLCIvc3JjL2VuZ2luZS92ZXJkYW50LnRzIixbXV0=

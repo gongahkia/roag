@@ -1,0 +1,31 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/objectives.ts", {"importedNames":["objectiveForFloor"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/types.ts", {"importedNames":["indexOf"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/test/factories.ts", {"importedNames":["createEnemy","createFloor","createRun"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/engine/inventory.ts", {"importedNames":["operate"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/engine/rescue.ts", {"importedNames":["recordRescue"]});
+
+
+
+
+
+
+(0,__vite_ssr_import_0__.describe)("rescued NPC roster", () => {
+  (0,__vite_ssr_import_0__.it)("records each scout once and removes its map actor", () => {
+    const scout = (0,__vite_ssr_import_3__.createEnemy)({ id: "scout-1", role: "ally", kind: "ally", name: "lost scout", hostile: false, x: 1, y: 1 });
+    const state = (0,__vite_ssr_import_3__.createRun)({ area: "wilds", areaFloor: 1, floor: (0,__vite_ssr_import_3__.createFloor)({ index: 5, biome: "wilds", actors: [scout], objective: (0,__vite_ssr_import_1__.objectiveForFloor)(5) }) });
+    state.floor.tiles[(0,__vite_ssr_import_2__.indexOf)(1, 1)].kind = "rescue";
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_4__.operate)(state)).toContainEqual({ type: "rescue" });
+    (0,__vite_ssr_import_0__.expect)(state.rescuedNpcs).toEqual([{ id: "rescue:wilds:5:scout-1", name: "lost scout", biome: "wilds", floor: 1 }]);
+    (0,__vite_ssr_import_0__.expect)(state.floor.objective.status).toBe("complete");
+    (0,__vite_ssr_import_0__.expect)(state.floor.actors).toEqual([]);
+    (0,__vite_ssr_import_0__.expect)(state.alignment).toEqual({ kami: 0, villagePact: 1 });
+    (0,__vite_ssr_import_0__.expect)(state.messages[0]).toBe("You tend toward the village pact.");
+    (0,__vite_ssr_import_5__.recordRescue)(state, scout);
+    (0,__vite_ssr_import_0__.expect)(state.rescuedNpcs).toHaveLength(1);
+  });
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBOzs7Ozs7O0dBRUEsZ0NBQVMsc0JBQXNCLE1BQU07QUFDbkMsK0JBQUcscURBQXFELE1BQU07QUFDNUQsVUFBTSxXQUFRLG1DQUFZLEVBQUUsSUFBSSxXQUFXLE1BQU0sUUFBUSxNQUFNLFFBQVEsTUFBTSxjQUFjLFNBQVMsT0FBTyxHQUFHLEdBQUcsR0FBRyxFQUFFLENBQUM7QUFDdkgsVUFBTSxXQUFRLGlDQUFVLEVBQUUsTUFBTSxTQUFTLFdBQVcsR0FBRyxVQUFPLG1DQUFZLEVBQUUsT0FBTyxHQUFHLE9BQU8sU0FBUyxRQUFRLENBQUMsS0FBSyxHQUFHLGNBQVcseUNBQWtCLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FBQztBQUMzSixVQUFNLE1BQU0sU0FBTSwrQkFBUSxHQUFHLENBQUMsQ0FBQyxFQUFFLE9BQU87QUFFeEMsd0NBQU8sK0JBQVEsS0FBSyxDQUFDLEVBQUUsZUFBZSxFQUFFLE1BQU0sU0FBUyxDQUFDO0FBQ3hELHFDQUFPLE1BQU0sV0FBVyxFQUFFLFFBQVEsQ0FBQyxFQUFFLElBQUksMEJBQTBCLE1BQU0sY0FBYyxPQUFPLFNBQVMsT0FBTyxFQUFFLENBQUMsQ0FBQztBQUNsSCxxQ0FBTyxNQUFNLE1BQU0sVUFBVSxNQUFNLEVBQUUsS0FBSyxVQUFVO0FBQ3BELHFDQUFPLE1BQU0sTUFBTSxNQUFNLEVBQUUsUUFBUSxDQUFDLENBQUM7QUFDckMscUNBQU8sTUFBTSxTQUFTLEVBQUUsUUFBUSxFQUFFLE1BQU0sR0FBRyxhQUFhLEVBQUUsQ0FBQztBQUMzRCxxQ0FBTyxNQUFNLFNBQVMsQ0FBQyxDQUFDLEVBQUUsS0FBSyxtQ0FBbUM7QUFDbEUsMkNBQWEsT0FBTyxLQUFLO0FBQ3pCLHFDQUFPLE1BQU0sV0FBVyxFQUFFLGFBQWEsQ0FBQztBQUFBLEVBQzFDLENBQUM7QUFDSCxDQUFDIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJyZXNjdWUudGVzdC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBkZXNjcmliZSwgZXhwZWN0LCBpdCB9IGZyb20gJ3ZpdGVzdCdcbmltcG9ydCB7IG9iamVjdGl2ZUZvckZsb29yIH0gZnJvbSAnLi4vb2JqZWN0aXZlcydcbmltcG9ydCB7IGluZGV4T2YgfSBmcm9tICcuLi90eXBlcydcbmltcG9ydCB7IGNyZWF0ZUVuZW15LCBjcmVhdGVGbG9vciwgY3JlYXRlUnVuIH0gZnJvbSAnLi4vdGVzdC9mYWN0b3JpZXMnXG5pbXBvcnQgeyBvcGVyYXRlIH0gZnJvbSAnLi9pbnZlbnRvcnknXG5pbXBvcnQgeyByZWNvcmRSZXNjdWUgfSBmcm9tICcuL3Jlc2N1ZSdcblxuZGVzY3JpYmUoJ3Jlc2N1ZWQgTlBDIHJvc3RlcicsICgpID0+IHtcbiAgaXQoJ3JlY29yZHMgZWFjaCBzY291dCBvbmNlIGFuZCByZW1vdmVzIGl0cyBtYXAgYWN0b3InLCAoKSA9PiB7XG4gICAgY29uc3Qgc2NvdXQgPSBjcmVhdGVFbmVteSh7IGlkOiAnc2NvdXQtMScsIHJvbGU6ICdhbGx5Jywga2luZDogJ2FsbHknLCBuYW1lOiAnbG9zdCBzY291dCcsIGhvc3RpbGU6IGZhbHNlLCB4OiAxLCB5OiAxIH0pXG4gICAgY29uc3Qgc3RhdGUgPSBjcmVhdGVSdW4oeyBhcmVhOiAnd2lsZHMnLCBhcmVhRmxvb3I6IDEsIGZsb29yOiBjcmVhdGVGbG9vcih7IGluZGV4OiA1LCBiaW9tZTogJ3dpbGRzJywgYWN0b3JzOiBbc2NvdXRdLCBvYmplY3RpdmU6IG9iamVjdGl2ZUZvckZsb29yKDUpIH0pIH0pXG4gICAgc3RhdGUuZmxvb3IudGlsZXNbaW5kZXhPZigxLCAxKV0ua2luZCA9ICdyZXNjdWUnXG5cbiAgICBleHBlY3Qob3BlcmF0ZShzdGF0ZSkpLnRvQ29udGFpbkVxdWFsKHsgdHlwZTogJ3Jlc2N1ZScgfSlcbiAgICBleHBlY3Qoc3RhdGUucmVzY3VlZE5wY3MpLnRvRXF1YWwoW3sgaWQ6ICdyZXNjdWU6d2lsZHM6NTpzY291dC0xJywgbmFtZTogJ2xvc3Qgc2NvdXQnLCBiaW9tZTogJ3dpbGRzJywgZmxvb3I6IDEgfV0pXG4gICAgZXhwZWN0KHN0YXRlLmZsb29yLm9iamVjdGl2ZS5zdGF0dXMpLnRvQmUoJ2NvbXBsZXRlJylcbiAgICBleHBlY3Qoc3RhdGUuZmxvb3IuYWN0b3JzKS50b0VxdWFsKFtdKVxuICAgIGV4cGVjdChzdGF0ZS5hbGlnbm1lbnQpLnRvRXF1YWwoeyBrYW1pOiAwLCB2aWxsYWdlUGFjdDogMSB9KVxuICAgIGV4cGVjdChzdGF0ZS5tZXNzYWdlc1swXSkudG9CZSgnWW91IHRlbmQgdG93YXJkIHRoZSB2aWxsYWdlIHBhY3QuJylcbiAgICByZWNvcmRSZXNjdWUoc3RhdGUsIHNjb3V0KVxuICAgIGV4cGVjdChzdGF0ZS5yZXNjdWVkTnBjcykudG9IYXZlTGVuZ3RoKDEpXG4gIH0pXG59KVxuIl0sImZpbGUiOiIvc3JjL2VuZ2luZS9yZXNjdWUudGVzdC50cyJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL3Jlc2N1ZS50ZXN0LnRzIiwiL3NyYy9lbmdpbmUvcmVzY3VlLnRlc3QudHMiLFtdXQ==

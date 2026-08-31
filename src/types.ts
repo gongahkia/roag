@@ -410,11 +410,12 @@ export type GalaxyFactionId = 'voyager' | 'salvagers' | 'relayGuild' | 'voidborn
 export type CargoKind = 'provisions' | 'components' | 'salvage' | 'biosamples'
 export interface GalaxyMarket { stock: Record<CargoKind, number>; demand: Record<CargoKind, number>; prices: Record<CargoKind, number> }
 export interface GalaxyCargo { kind: CargoKind; units: number; contractId?: string }
-export interface GalaxyContract { id: string; sourceSiteId: string; destinationSiteId: string; cargo: GalaxyCargo; fee: number; deadlineDay: number; factionId: GalaxyFactionId; status: 'open' | 'active' | 'completed' | 'failed'; collateral: number }
+export interface GalaxyContract { id: string; sourceSiteId: string; destinationSiteId: string; cargo: GalaxyCargo; fee: number; deadlineDay: number; deadlineReckoning: number; factionId: GalaxyFactionId; status: 'open' | 'active' | 'completed' | 'failed'; collateral: number }
 export type SealedPackageContractStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'failed' | 'expired'
 export type PackageSealState = 'intact' | 'opened'
 export type PackageCustodyState = 'atJomon' | 'assignedToCourier' | 'routeCache' | 'recipient' | 'abandoned'
-export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired'
+export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'courierStatusChanged'
+export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route'
 export interface PackageExteriorReadout { sealMark: string; temperature: string; powerDraw: string; balance: string; shielding: string; handlingMark: string }
 export interface PackageTerms {
   sender: string
@@ -423,6 +424,7 @@ export interface PackageTerms {
   destinationSiteId: string
   destinationLabel: string
   deadlineDay: number
+  deadlineReckoning: number
   declaredMassKg: number
   holdUnits: number
   handlingClass: string
@@ -436,20 +438,25 @@ export interface PackageTerms {
 }
 export interface RevealedPackageContents { id: string; label: string; materialBenefit: string; danger: string; knowledge: string }
 export interface SealedPackageContract {
-  version: 1
+  version: 1 | 2
   id: string
   definitionId: string
   status: SealedPackageContractStatus
   offeredAtSectorDay: number
+  offeredAtRouteReckoning?: number
   acceptedAtSectorDay?: number
+  acceptedAtRouteReckoning?: number
   destinationReachedAtSectorDay?: number
+  destinationReachedAtRouteReckoning?: number
   resolvedAtSectorDay?: number
+  resolvedAtRouteReckoning?: number
+  nearingExpiryNotifiedAtRouteReckoning?: number
   packageId?: string
   assignedCourierId?: string
   terms: PackageTerms
 }
 export interface SealedPackage {
-  version: 1
+  version: 1 | 2
   id: string
   contractId: string
   definitionId: string
@@ -464,18 +471,23 @@ export interface SealedPackage {
   revealedContents?: RevealedPackageContents
 }
 export interface GeneralManifestEvent {
-  version: 1
+  version: 1 | 2
   id: string
   sequence: number
   kind: GeneralManifestEventKind
   sectorDay: number
+  routeReckoning?: number
+  affectedEntityIds?: string[]
+  source?: GeneralManifestSource
+  payload?: Record<string, string | number | boolean | null>
   contractId?: string
   packageId?: string
   courierId?: string
   routeCacheId?: string
+  siteId?: string
   detail: string
 }
-export interface GeneralManifest { version: 1; nextSequence: number; entries: GeneralManifestEvent[] }
+export interface GeneralManifest { version: 1 | 2; nextSequence: number; entries: GeneralManifestEvent[] }
 export interface GalaxyRouteCache { id: string; linkId: string; chunk: number; cargo: GalaxyCargo[]; packages: string[]; recovered: boolean }
 export type GalaxyEventKind = 'territory' | 'ecology' | 'rivalry' | 'construction' | 'loss' | 'discovery' | 'trade'
 export interface GalaxyCourier {
@@ -513,14 +525,20 @@ export interface GalaxySite {
   lastChangedAt: number
 }
 export interface GalaxySector { id: string; name: string; x: number; y: number; discovered: boolean; siteIds: string[] }
-export interface GalaxyEvent { id: string; at: number; kind: GalaxyEventKind; siteId?: string; courierId?: string; headline: string; detail: string }
+export interface GalaxyEvent { id: string; at: number; routeReckoning?: number; kind: GalaxyEventKind; siteId?: string; courierId?: string; headline: string; detail: string }
 export interface GalaxySiteSnapshot { version: 1; run: RunState; savedAt: number }
 export interface GalaxyState {
-  version: 1
+  version: 1 | 2
   seed: number
-  createdAt: number
-  lastSimulatedAt: number
-  lastClockAt: number
+  /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
+  createdAt?: number
+  /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
+  lastSimulatedAt?: number
+  /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
+  lastClockAt?: number
+  routeReckoning: number
+  lastWorldTick: number
+  /** @deprecated Compatibility display mirror derived from routeReckoning. */
   sectorDay: number
   activeSiteId: string
   activeCourierId: string

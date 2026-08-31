@@ -1,0 +1,56 @@
+__vite_ssr_exportName__("MAX_GOLD", () => { try { return MAX_GOLD } catch {} });
+__vite_ssr_exportName__("MIN_ITEM_PRICE", () => { try { return MIN_ITEM_PRICE } catch {} });
+__vite_ssr_exportName__("MAX_ITEM_PRICE", () => { try { return MAX_ITEM_PRICE } catch {} });
+__vite_ssr_exportName__("MAX_BOMBS", () => { try { return MAX_BOMBS } catch {} });
+__vite_ssr_exportName__("MAX_ROPES", () => { try { return MAX_ROPES } catch {} });
+__vite_ssr_exportName__("validateItemPrice", () => { try { return validateItemPrice } catch {} });
+__vite_ssr_exportName__("grantGold", () => { try { return grantGold } catch {} });
+__vite_ssr_exportName__("spendGold", () => { try { return spendGold } catch {} });
+__vite_ssr_exportName__("purchaseBlocker", () => { try { return purchaseBlocker } catch {} });
+__vite_ssr_exportName__("restoreBombs", () => { try { return restoreBombs } catch {} });
+__vite_ssr_exportName__("restoreRopes", () => { try { return restoreRopes } catch {} });
+const MAX_GOLD = 500;
+const MIN_ITEM_PRICE = 5;
+const MAX_ITEM_PRICE = 300;
+const MAX_BOMBS = 8;
+const MAX_ROPES = 8;
+const carryCaps = { tonic: 3, focusTonic: 3, bombPack: 1, ropeBundle: 1 };
+const validateItemPrice = (value) => {
+  if (!Number.isInteger(value) || value < MIN_ITEM_PRICE || value > MAX_ITEM_PRICE) throw new Error(`invalid item price: ${value}`);
+};
+const grantGold = (state, amount) => {
+  if (!Number.isInteger(amount) || amount < 0) throw new Error(`invalid gold grant: ${amount}`);
+  amount = Math.round(amount * (state.floor.difficulty?.rewardMultiplier ?? 1));
+  if (state.hero.curse && (state.hero.boons?.cursedInvestment ?? 0) > 0) amount *= 1 + (state.hero.boons?.cursedInvestment ?? 0);
+  state.hero.gold = Math.max(0, Math.min(MAX_GOLD, state.hero.gold));
+  const gained = Math.min(amount, MAX_GOLD - state.hero.gold);
+  state.hero.gold += gained;
+  return gained;
+};
+const spendGold = (state, amount) => {
+  if (!Number.isInteger(amount) || amount < 0) throw new Error(`invalid gold cost: ${amount}`);
+  if (state.hero.gold < amount) return false;
+  state.hero.gold -= amount;
+  return true;
+};
+const purchaseBlocker = (hero, id) => {
+  const cap = carryCaps[id];
+  if (cap !== void 0 && hero.inventory.filter((item) => item === id).length >= cap) return `${id} reserve is full.`;
+  if (id === "bombPack" && hero.bombs >= MAX_BOMBS - 2) return "Bomb reserve is full.";
+  if (id === "ropeBundle" && hero.ropes >= MAX_ROPES - 2) return "Rope reserve is full.";
+  return void 0;
+};
+const restoreBombs = (hero, amount) => {
+  const restored = Math.max(0, Math.min(amount, MAX_BOMBS - hero.bombs));
+  hero.bombs += restored;
+  return restored;
+};
+const restoreRopes = (hero, amount) => {
+  const restored = Math.max(0, Math.min(amount, MAX_ROPES - hero.ropes));
+  hero.ropes += restored;
+  return restored;
+};
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7Ozs7Ozs7Ozs7QUFFTyxNQUFNLFdBQVc7QUFDakIsTUFBTSxpQkFBaUI7QUFDdkIsTUFBTSxpQkFBaUI7QUFDdkIsTUFBTSxZQUFZO0FBQ2xCLE1BQU0sWUFBWTtBQUV6QixNQUFNLFlBQTZDLEVBQUUsT0FBTyxHQUFHLFlBQVksR0FBRyxVQUFVLEdBQUcsWUFBWSxFQUFFO0FBRWxHLE1BQU0sb0JBQW9CLENBQUMsVUFBd0I7QUFDeEQsTUFBSSxDQUFDLE9BQU8sVUFBVSxLQUFLLEtBQUssUUFBUSxrQkFBa0IsUUFBUSxlQUFnQixPQUFNLElBQUksTUFBTSx1QkFBdUIsS0FBSyxFQUFFO0FBQ2xJO0FBQ08sTUFBTSxZQUFZLENBQUMsT0FBaUIsV0FBMkI7QUFDcEUsTUFBSSxDQUFDLE9BQU8sVUFBVSxNQUFNLEtBQUssU0FBUyxFQUFHLE9BQU0sSUFBSSxNQUFNLHVCQUF1QixNQUFNLEVBQUU7QUFDNUYsV0FBUyxLQUFLLE1BQU0sVUFBVSxNQUFNLE1BQU0sWUFBWSxvQkFBb0IsRUFBRTtBQUM1RSxNQUFJLE1BQU0sS0FBSyxVQUFVLE1BQU0sS0FBSyxPQUFPLG9CQUFvQixLQUFLLEVBQUcsV0FBVSxLQUFLLE1BQU0sS0FBSyxPQUFPLG9CQUFvQjtBQUM1SCxRQUFNLEtBQUssT0FBTyxLQUFLLElBQUksR0FBRyxLQUFLLElBQUksVUFBVSxNQUFNLEtBQUssSUFBSSxDQUFDO0FBQ2pFLFFBQU0sU0FBUyxLQUFLLElBQUksUUFBUSxXQUFXLE1BQU0sS0FBSyxJQUFJO0FBQzFELFFBQU0sS0FBSyxRQUFRO0FBQ25CLFNBQU87QUFDVDtBQUNPLE1BQU0sWUFBWSxDQUFDLE9BQWlCLFdBQTRCO0FBQ3JFLE1BQUksQ0FBQyxPQUFPLFVBQVUsTUFBTSxLQUFLLFNBQVMsRUFBRyxPQUFNLElBQUksTUFBTSxzQkFBc0IsTUFBTSxFQUFFO0FBQzNGLE1BQUksTUFBTSxLQUFLLE9BQU8sT0FBUSxRQUFPO0FBQ3JDLFFBQU0sS0FBSyxRQUFRO0FBQ25CLFNBQU87QUFDVDtBQUNPLE1BQU0sa0JBQWtCLENBQUMsTUFBWSxPQUFtQztBQUM3RSxRQUFNLE1BQU0sVUFBVSxFQUFFO0FBQ3hCLE1BQUksUUFBUSxVQUFhLEtBQUssVUFBVSxPQUFPLFVBQVEsU0FBUyxFQUFFLEVBQUUsVUFBVSxJQUFLLFFBQU8sR0FBRyxFQUFFO0FBQy9GLE1BQUksT0FBTyxjQUFjLEtBQUssU0FBUyxZQUFZLEVBQUcsUUFBTztBQUM3RCxNQUFJLE9BQU8sZ0JBQWdCLEtBQUssU0FBUyxZQUFZLEVBQUcsUUFBTztBQUMvRCxTQUFPO0FBQ1Q7QUFDTyxNQUFNLGVBQWUsQ0FBQyxNQUFZLFdBQTJCO0FBQ2xFLFFBQU0sV0FBVyxLQUFLLElBQUksR0FBRyxLQUFLLElBQUksUUFBUSxZQUFZLEtBQUssS0FBSyxDQUFDO0FBQ3JFLE9BQUssU0FBUztBQUNkLFNBQU87QUFDVDtBQUNPLE1BQU0sZUFBZSxDQUFDLE1BQVksV0FBMkI7QUFDbEUsUUFBTSxXQUFXLEtBQUssSUFBSSxHQUFHLEtBQUssSUFBSSxRQUFRLFlBQVksS0FBSyxLQUFLLENBQUM7QUFDckUsT0FBSyxTQUFTO0FBQ2QsU0FBTztBQUNUIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJlY29ub215LnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB0eXBlIHsgSGVybywgSXRlbUlkLCBSdW5TdGF0ZSB9IGZyb20gJy4uL3R5cGVzJ1xuXG5leHBvcnQgY29uc3QgTUFYX0dPTEQgPSA1MDBcbmV4cG9ydCBjb25zdCBNSU5fSVRFTV9QUklDRSA9IDVcbmV4cG9ydCBjb25zdCBNQVhfSVRFTV9QUklDRSA9IDMwMFxuZXhwb3J0IGNvbnN0IE1BWF9CT01CUyA9IDhcbmV4cG9ydCBjb25zdCBNQVhfUk9QRVMgPSA4XG5cbmNvbnN0IGNhcnJ5Q2FwczogUGFydGlhbDxSZWNvcmQ8SXRlbUlkLCBudW1iZXI+PiA9IHsgdG9uaWM6IDMsIGZvY3VzVG9uaWM6IDMsIGJvbWJQYWNrOiAxLCByb3BlQnVuZGxlOiAxIH1cblxuZXhwb3J0IGNvbnN0IHZhbGlkYXRlSXRlbVByaWNlID0gKHZhbHVlOiBudW1iZXIpOiB2b2lkID0+IHtcbiAgaWYgKCFOdW1iZXIuaXNJbnRlZ2VyKHZhbHVlKSB8fCB2YWx1ZSA8IE1JTl9JVEVNX1BSSUNFIHx8IHZhbHVlID4gTUFYX0lURU1fUFJJQ0UpIHRocm93IG5ldyBFcnJvcihgaW52YWxpZCBpdGVtIHByaWNlOiAke3ZhbHVlfWApXG59XG5leHBvcnQgY29uc3QgZ3JhbnRHb2xkID0gKHN0YXRlOiBSdW5TdGF0ZSwgYW1vdW50OiBudW1iZXIpOiBudW1iZXIgPT4ge1xuICBpZiAoIU51bWJlci5pc0ludGVnZXIoYW1vdW50KSB8fCBhbW91bnQgPCAwKSB0aHJvdyBuZXcgRXJyb3IoYGludmFsaWQgZ29sZCBncmFudDogJHthbW91bnR9YClcbiAgYW1vdW50ID0gTWF0aC5yb3VuZChhbW91bnQgKiAoc3RhdGUuZmxvb3IuZGlmZmljdWx0eT8ucmV3YXJkTXVsdGlwbGllciA/PyAxKSlcbiAgaWYgKHN0YXRlLmhlcm8uY3Vyc2UgJiYgKHN0YXRlLmhlcm8uYm9vbnM/LmN1cnNlZEludmVzdG1lbnQgPz8gMCkgPiAwKSBhbW91bnQgKj0gMSArIChzdGF0ZS5oZXJvLmJvb25zPy5jdXJzZWRJbnZlc3RtZW50ID8/IDApXG4gIHN0YXRlLmhlcm8uZ29sZCA9IE1hdGgubWF4KDAsIE1hdGgubWluKE1BWF9HT0xELCBzdGF0ZS5oZXJvLmdvbGQpKVxuICBjb25zdCBnYWluZWQgPSBNYXRoLm1pbihhbW91bnQsIE1BWF9HT0xEIC0gc3RhdGUuaGVyby5nb2xkKVxuICBzdGF0ZS5oZXJvLmdvbGQgKz0gZ2FpbmVkXG4gIHJldHVybiBnYWluZWRcbn1cbmV4cG9ydCBjb25zdCBzcGVuZEdvbGQgPSAoc3RhdGU6IFJ1blN0YXRlLCBhbW91bnQ6IG51bWJlcik6IGJvb2xlYW4gPT4ge1xuICBpZiAoIU51bWJlci5pc0ludGVnZXIoYW1vdW50KSB8fCBhbW91bnQgPCAwKSB0aHJvdyBuZXcgRXJyb3IoYGludmFsaWQgZ29sZCBjb3N0OiAke2Ftb3VudH1gKVxuICBpZiAoc3RhdGUuaGVyby5nb2xkIDwgYW1vdW50KSByZXR1cm4gZmFsc2VcbiAgc3RhdGUuaGVyby5nb2xkIC09IGFtb3VudFxuICByZXR1cm4gdHJ1ZVxufVxuZXhwb3J0IGNvbnN0IHB1cmNoYXNlQmxvY2tlciA9IChoZXJvOiBIZXJvLCBpZDogSXRlbUlkKTogc3RyaW5nIHwgdW5kZWZpbmVkID0+IHtcbiAgY29uc3QgY2FwID0gY2FycnlDYXBzW2lkXVxuICBpZiAoY2FwICE9PSB1bmRlZmluZWQgJiYgaGVyby5pbnZlbnRvcnkuZmlsdGVyKGl0ZW0gPT4gaXRlbSA9PT0gaWQpLmxlbmd0aCA+PSBjYXApIHJldHVybiBgJHtpZH0gcmVzZXJ2ZSBpcyBmdWxsLmBcbiAgaWYgKGlkID09PSAnYm9tYlBhY2snICYmIGhlcm8uYm9tYnMgPj0gTUFYX0JPTUJTIC0gMikgcmV0dXJuICdCb21iIHJlc2VydmUgaXMgZnVsbC4nXG4gIGlmIChpZCA9PT0gJ3JvcGVCdW5kbGUnICYmIGhlcm8ucm9wZXMgPj0gTUFYX1JPUEVTIC0gMikgcmV0dXJuICdSb3BlIHJlc2VydmUgaXMgZnVsbC4nXG4gIHJldHVybiB1bmRlZmluZWRcbn1cbmV4cG9ydCBjb25zdCByZXN0b3JlQm9tYnMgPSAoaGVybzogSGVybywgYW1vdW50OiBudW1iZXIpOiBudW1iZXIgPT4ge1xuICBjb25zdCByZXN0b3JlZCA9IE1hdGgubWF4KDAsIE1hdGgubWluKGFtb3VudCwgTUFYX0JPTUJTIC0gaGVyby5ib21icykpXG4gIGhlcm8uYm9tYnMgKz0gcmVzdG9yZWRcbiAgcmV0dXJuIHJlc3RvcmVkXG59XG5leHBvcnQgY29uc3QgcmVzdG9yZVJvcGVzID0gKGhlcm86IEhlcm8sIGFtb3VudDogbnVtYmVyKTogbnVtYmVyID0+IHtcbiAgY29uc3QgcmVzdG9yZWQgPSBNYXRoLm1heCgwLCBNYXRoLm1pbihhbW91bnQsIE1BWF9ST1BFUyAtIGhlcm8ucm9wZXMpKVxuICBoZXJvLnJvcGVzICs9IHJlc3RvcmVkXG4gIHJldHVybiByZXN0b3JlZFxufVxuIl0sImZpbGUiOiIvc3JjL2VuZ2luZS9lY29ub215LnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZX0sIi9ob21lL2dvbmdhaGtpYS9EZXNrdG9wL2NvZGluZy9wcm9qZWN0cy9qb21vbi9zcmMvZW5naW5lL2Vjb25vbXkudHMiLCIvc3JjL2VuZ2luZS9lY29ub215LnRzIixbXV0=
