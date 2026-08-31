@@ -39,12 +39,11 @@ $ npm run preview
 
 ```console
 $ npm run test:autoplay:tasks
-$ npm run test:route-reckoning:soak
 $ npm run test:e2e:install
 $ npm run test:e2e
 ```
 
-`test:autoplay:tasks` runs the deterministic task queue against the headless engine. It verifies tactical play plus Jomon route discovery, connector residency, cargo delivery and recovery, landing conditions, and sector simulation. `test:route-reckoning:soak` verifies deterministic long-session Route Reckoning state. `test:e2e` exercises the browser entry and input path with Playwright.
+`test:autoplay:tasks` runs the deterministic task queue against the headless engine. It verifies tactical play plus Voyager discovery, connector residency, cargo delivery and recovery, landing conditions, and sector simulation. `test:e2e` exercises the browser entry and input path with Playwright.
 
 ## Controls
 
@@ -59,7 +58,6 @@ $ npm run test:e2e
 | `C` `Q` `X` | Operate, descend, swap |
 | `Y` / `W` | Choose traversal tool / spend Time Knot rewind |
 | `H` `J` `F1` | Help, journal, settings |
-| `M` | Open the General Manifest in the Jomon hub (pauses Route Reckoning) |
 | `V` | Cycle ASCII and runes |
 | `F` / `Shift` + `F` | Toggle autoplay / change autoplay policy |
 | `+` `-` `0` or mouse wheel | Change / reset board zoom |

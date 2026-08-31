@@ -6,7 +6,7 @@ export interface AuthoredSealedPackageDefinition {
   title: string
   hiddenContentsId: string
   exterior: PackageExteriorReadout
-  terms: Omit<PackageTerms, 'destinationSiteId' | 'destinationLabel' | 'deadlineDay' | 'deadlineReckoning'>
+  terms: Omit<PackageTerms, 'destinationSiteId' | 'destinationLabel' | 'deadlineDay'>
   contents: RevealedPackageContents
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { advanceCampaignTier, changeCampaignCompanionControlMode, completeCampaignTier, createGalaxy, hubCampaignStatus, initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
+import { advanceCampaignTier, changeCampaignCompanionControlMode, completeCampaignTier, hubCampaignStatus, initialCampaignCycle, initialCampaignRoute, newHero, newRun } from './engine'
 import { deleteCourier, flushCourierWrites, loadCouriers, migrateCampaignRoute, migrateRunRecord, saveCourier, selectCourier } from './storage'
 import type { CourierSave, Records } from './types'
 
@@ -243,21 +243,6 @@ describe('run persistence migration', () => {
     expect(migrateCampaignRoute({ version: 1, completedAreas: ['mine'], unlockedAreas: [], selectedBiome: 'wilds' })).toEqual({ version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', rescuedNpcs: [], companions: [], companionControlMode: 'autonomous', companionControlHistory: [{ sequence: 0, mode: 'autonomous', source: 'creation' }], carryoverDiagnostics: [], lineageEvents: [], legacyRecords: [], alignment: { kami: 0, villagePact: 0 }, reputation: { trailfolk: 0, kami: 0 }, cycle: initialCampaignCycle() })
     const order = ['furnace', 'mine', 'wilds', 'caverns', 'ruins', 'floodedRuins'] as const
     expect(migrateCampaignRoute({ version: 3, areaOrder: order, completedAreas: [], unlockedAreas: ['furnace'], selectedBiome: 'furnace' })).toMatchObject({ version: 5, areaOrder: order, selectedBiome: 'furnace' })
-  })
-
-  it('migrates legacy galaxy clock data without applying closed-session elapsed time', () => {
-    const legacyGalaxy = structuredClone(createGalaxy(501, newHero({ name: 'Ari' }), 99)) as unknown as Record<string, unknown>
-    legacyGalaxy.version = 1
-    legacyGalaxy.sectorDay = 3.25
-    delete legacyGalaxy.routeReckoning
-    delete legacyGalaxy.lastWorldTick
-    for (const contract of legacyGalaxy.sealedPackageContracts as Array<Record<string, unknown>>) delete (contract.terms as Record<string, unknown>).deadlineReckoning
-    const source = { version: 5, areaOrder: ['mine', 'wilds', 'caverns', 'ruins'], completedAreas: [], unlockedAreas: ['mine'], selectedBiome: 'mine', galaxy: legacyGalaxy }
-    const first = migrateCampaignRoute(source)
-    const reopened = migrateCampaignRoute(JSON.parse(JSON.stringify(first)))
-
-    expect(first.galaxy).toMatchObject({ version: 2, routeReckoning: 4_680, lastWorldTick: 13, sealedPackageContracts: [{ status: 'offered', terms: { deadlineReckoning: 5_760 } }] })
-    expect(reopened.galaxy).toEqual(first.galaxy)
   })
 
   it('migrates v1 death records to the journal schema', () => {

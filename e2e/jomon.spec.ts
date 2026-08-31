@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 import { autoplayTaskCatalog } from '../src/autoplay-task-catalog'
 
 const loadGame = async (page: Page): Promise<void> => {
-  await page.addInitScript(() => { Math.random = () => 7 / 0x7fffffff })
   await page.goto('/')
   await expect(page.locator('#game')).toHaveAttribute('data-route', /splash|title/)
 }
@@ -14,7 +13,7 @@ const enterCarrier = async (page: Page): Promise<void> => {
   await expect(page.locator('#game')).toHaveAttribute('data-route', 'createCourier')
   await page.keyboard.type('Kestrel')
   await page.keyboard.press('Enter')
-  await expect(page.locator('#game')).toHaveAttribute('data-route', 'approach', { timeout: 30_000 })
+  await expect(page.locator('#game')).toHaveAttribute('data-route', 'approach', { timeout: 10_000 })
   await page.keyboard.press('Space')
   await expect(page.locator('#game')).toHaveAttribute('data-route', 'hub')
 }
@@ -64,37 +63,6 @@ test('accepts a sealed package at Jomon, makes a physical Kestrel landing, retur
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-sealed-package', 'completed')
   await expect(game).toHaveAttribute('aria-label', /Sealed package .* is completed/)
-})
-
-test('advances Route Reckoning only during an active scene, exposes the Manifest, and does not reconcile on reload', async ({ page }) => {
-  await enterCarrier(page)
-  const game = page.locator('#game')
-  await page.clock.install({ time: new Date('2026-08-31T00:00:00.000Z') })
-  const before = Number(await game.getAttribute('data-route-reckoning'))
-  await page.clock.runFor(1_200)
-  await expect.poll(async () => Number(await game.getAttribute('data-route-reckoning'))).toBeGreaterThan(before)
-  const active = Number(await game.getAttribute('data-route-reckoning'))
-
-  await page.keyboard.press('m')
-  await expect(game).toHaveAttribute('data-hub-action', 'manifest')
-  await page.clock.runFor(1_000)
-  await expect(game).toHaveAttribute('data-route-reckoning', String(active))
-  await page.keyboard.press('m')
-  await expect(game).toHaveAttribute('data-hub-action', '')
-  await page.clock.runFor((720 - active + 1) * 100)
-  await expect.poll(async () => Number(await game.getAttribute('data-route-reckoning'))).toBeGreaterThanOrEqual(720)
-  const scheduled = Number(await game.getAttribute('data-route-reckoning'))
-  await page.keyboard.press('m')
-  await expect(game).toHaveAttribute('data-hub-action', 'manifest')
-  await expect(game).toHaveAttribute('aria-label', /General Manifest: .*controlled/)
-  await page.keyboard.press('m')
-  await page.clock.setSystemTime(new Date('2036-08-31T00:00:00.000Z'))
-  await page.reload()
-  await expect(game).toHaveAttribute('data-route', /splash|title/)
-  await game.click()
-  await page.keyboard.press('l')
-  await expect(game).toHaveAttribute('data-route', 'hub')
-  await expect(game).toHaveAttribute('data-route-reckoning', String(scheduled))
 })
 
 test('keeps every headless task associated with a browser coverage id', () => {

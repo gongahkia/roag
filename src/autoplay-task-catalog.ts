@@ -1,5 +1,5 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, ROUTE_RECKONING_WORLD_TICK_UNITS, violateSealedPackageSeal } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceTransitWindow, applyGalaxySiteConditions, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, reconcileGalaxy, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, violateSealedPackageSeal } from './engine'
 
 export const AUTOPLAY_TASK_CATALOG_VERSION = 1
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
@@ -151,9 +151,9 @@ const landingTask = (): AutoplayTaskExecution => {
 
 const sectorClockTask = (): AutoplayTaskExecution => {
   const galaxy = createGalaxy(37, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
-  const advanced = advanceGalaxyRouteReckoning(galaxy, 2 * ROUTE_RECKONING_WORLD_TICK_UNITS)
-  const passed = advanced.routeReckoning === 2 * ROUTE_RECKONING_WORLD_TICK_UNITS && advanced.lastWorldTick === 2 && advanced.events.length >= galaxy.events.length
-  return { actions: ['wait:route-reckoning'], events: advanced.events.map(event => event.kind), passed, summary: { routeReckoning: advanced.routeReckoning, worldTick: advanced.lastWorldTick, eventCount: advanced.events.length }, ...(passed ? {} : { reason: 'Route Reckoning did not advance deterministically' }) }
+  const advanced = reconcileGalaxy(galaxy, AUTOPLAY_TASK_FIXTURE_TIME + 12 * 60 * 60 * 1_000)
+  const passed = advanced.sectorDay === 12 && advanced.events.length > galaxy.events.length
+  return { actions: ['wait:sector-clock'], events: advanced.events.map(event => event.kind), passed, summary: { sectorDay: advanced.sectorDay, eventCount: advanced.events.length }, ...(passed ? {} : { reason: 'sector simulation did not advance deterministically' }) }
 }
 
 export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
