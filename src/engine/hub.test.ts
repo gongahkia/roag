@@ -37,7 +37,7 @@ describe('hub state', () => {
   it('explains declined purchases and equipment changes', () => {
     const hero = newHero({ name: 'Mika', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' })
     expect(buyHubItem(hero, 'cap')).toEqual({ changed: false, message: 'Need 55 more cash.' })
-    expect(equipHubItem(hero, 'cap')).toEqual({ changed: false, message: 'Bark Cap is not in your pack.' })
+    expect(equipHubItem(hero, 'cap')).toEqual({ changed: false, message: 'Composite Cap is not in your pack.' })
   })
 
   it('projects fixed tier history and read-only carryover for the campaign UI', () => {
@@ -54,7 +54,7 @@ describe('hub state', () => {
     const carryover = hubCarryoverSummary(hero, [injured, lost])
     const view = hubView('Ari', createHubState(42), { hero, cycle: plus, carryover })
     expect(view.campaign).toMatchObject({ tier: 'ngPlus', tierLabel: 'NG+', completedTiers: ['base'], completedLabel: 'BASE', historyLabel: 'BASE ✓ → NG+ ACTIVE', packageName: 'New Game+', difficultyLines: ['HP ×1.15 · ATK +1 · DEF +1', 'THREAT +3 · ELITE +8 · GUARD 1', 'HAZARD ×1.15 · REWARDS ×1.10'], nextLabel: 'NEXT: finish NG+ to unlock NG++.', continuationPending: false, terminal: false })
-    expect(view.carryover).toMatchObject({ currency: 88, items: ['Vital Tonic', 'Vital Tonic', 'Bark Cap'], tools: ['Stone Wedge'], roster: [{ name: 'Mika', status: 'INJURED' }, { name: 'Bo', status: 'LOST' }], injuries: ['Mika (INJURED)'], losses: ['Bo'] })
+    expect(view.carryover).toMatchObject({ currency: 88, items: ['Vital Gel', 'Vital Gel', 'Composite Cap'], tools: ['Stone Wedge'], roster: [{ name: 'Mika', status: 'INJURED' }, { name: 'Bo', status: 'LOST' }], injuries: ['Mika (INJURED)'], losses: ['Bo'] })
     expect(hubCampaignStatus(terminal)).toMatchObject({ tier: 'ngPlusPlus', completedTiers: ['base', 'ngPlus', 'ngPlusPlus'], terminal: true, continuationPending: false, nextLabel: 'TERMINAL: NG++ complete — no next tier.' })
   })
 })

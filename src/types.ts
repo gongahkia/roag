@@ -414,8 +414,8 @@ export interface GalaxyContract { id: string; sourceSiteId: string; destinationS
 export type SealedPackageContractStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'failed' | 'expired'
 export type PackageSealState = 'intact' | 'opened'
 export type PackageCustodyState = 'atJomon' | 'assignedToCourier' | 'routeCache' | 'recipient' | 'abandoned'
-export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged'
-export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route'
+export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged' | 'destinationReportReceived' | 'destinationIntervention' | 'destinationDevelopmentResolved'
+export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route' | 'destination'
 export interface PackageExteriorReadout { sealMark: string; temperature: string; powerDraw: string; balance: string; shielding: string; handlingMark: string }
 export interface PackageTerms {
   sender: string
@@ -537,8 +537,20 @@ export interface RouteBoardTransitConsequence { kind: 'none' | 'navigationDelay'
 export interface RouteBoardTransit { version: 1; id: string; connectionId: string; fromDestinationId: string; toDestinationId: string; committedAtRouteReckoning: number; durationMarks: number; consequence: RouteBoardTransitConsequence }
 export interface RouteBoardHistoryEntry { version: 1; id: string; connectionId: string; transitId: string; fromDestinationId: string; toDestinationId: string; departedAtRouteReckoning: number; arrivedAtRouteReckoning: number; consequence: RouteBoardTransitConsequence }
 export interface RouteBoardState { version: 1; networkId: string; currentDestinationId: string; knownDestinationIds: string[]; unavailableConnectionIds: string[]; selectedConnectionId?: string; transit?: RouteBoardTransit; history: RouteBoardHistoryEntry[]; nextTransitSequence: number }
+export type DestinationPartitionId = 'destination:kestrel' | 'destination:orison' | 'destination:halcyon' | 'destination:nerida' | 'destination:borealis'
+export type DestinationCondition = 'calibration-queue' | 'approach-inspection' | 'relay-balanced' | 'relay-overheated' | 'relay-throttled' | 'tender-cycle' | 'dock-congested' | 'pump-watch' | 'cavitation-restriction' | 'bypass-stabilizing' | 'pump-stabilized' | 'kiln-nominal' | 'kiln-backlog' | 'kiln-cooldown'
+export type DestinationDevelopmentKind = 'kestrel-inspection-audit' | 'orison-relay-thermal-load' | 'orison-throttle-window' | 'halcyon-tender-backlog' | 'nerida-pump-cavitation' | 'nerida-bypass-verification' | 'borealis-kiln-debt' | 'borealis-controlled-cooldown'
+export type DestinationReportSource = 'initial-chart' | 'arrival' | 'local-inspection'
+export interface DestinationPressure { id: string; label: string; value: number; limit: number }
+export interface DestinationScheduledDevelopment { id: string; kind: DestinationDevelopmentKind; dueAtRouteReckoning: number }
+export interface DestinationConsequence { id: string; kind: 'route-modifier' | 'local-operation'; createdAtRouteReckoning: number; active: boolean }
+export interface DestinationIntervention { id: string; kind: 'nerida-bypass-installation'; startedAtRouteReckoning: number; completedAtRouteReckoning: number; costMarks: number }
+export interface DestinationHistoryEntry { id: string; atRouteReckoning: number; kind: 'development' | 'intervention' | 'resolution'; condition: DestinationCondition }
+export interface DestinationPartition { version: 1; id: DestinationPartitionId; contentRevision: 1; lastProcessedRouteReckoning: number; condition: DestinationCondition; pressure: DestinationPressure; scheduledDevelopments: DestinationScheduledDevelopment[]; resolvedDevelopmentIds: string[]; consequences: DestinationConsequence[]; interventions: DestinationIntervention[]; history: DestinationHistoryEntry[] }
+export interface DestinationKnownReport { version: 1; destinationId: DestinationPartitionId; reportedCondition: DestinationCondition; source: DestinationReportSource; observedAtRouteReckoning: number; receivedAtRouteReckoning: number; confidence: 'confirmed' | 'estimated'; knownConsequenceId?: string }
+export interface DestinationWorldState { version: 1; partitions: Record<DestinationPartitionId, DestinationPartition>; reports: Record<DestinationPartitionId, DestinationKnownReport> }
 export interface GalaxyState {
-  version: 1 | 2 | 3
+  version: 1 | 2 | 3 | 4
   seed: number
   /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
   createdAt?: number
@@ -566,6 +578,7 @@ export interface GalaxyState {
   generalManifest: GeneralManifest
   routeCaches: GalaxyRouteCache[]
   routeBoard: RouteBoardState
+  destinationWorld: DestinationWorldState
 }
 
 export type Modal =
