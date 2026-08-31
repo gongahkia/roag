@@ -1,7 +1,8 @@
-import { activePlayer, addMessage, cloneGameState, tickDie } from './game-state';
+import { activePlayer, addMessage, cloneGameState, recordInstrumentation, tickDie } from './game-state';
 import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
+import { rulesetFor } from './rulesets';
 import { awardHoleCash, openShop, tickShop } from './shop';
 import { consumePuttAttachments, hasAttachment, tickRoundAttachments } from './strategy';
 import type { Ball, GameState, ShotCommand } from './types';
@@ -13,6 +14,8 @@ const advanceLegacyCoursePhase = (state: GameState) => {
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
   const player = state.players[playerIndex]!;
+  const ruleset = rulesetFor(state.config);
+  const handLimit = ruleset.id === 'party' ? ruleset.cards.handLimit : undefined;
   const effectiveShot = player.forcedChip || hasAttachment(player, 'forced chip') ? { ...shot, kind: 'chip' as const } : shot;
   const modifiersFor = (candidate: typeof player): BallPhysicsModifiers => {
     const base = physicsModifiersFor(candidate, state.holeRules);
@@ -30,9 +33,10 @@ const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCom
     collisions: state.holeRules.collisions,
     hazardElapsedMs: state.hazardElapsedMs,
     phaseCount: state.holeRules.hazardPhaseCount,
-    collectItems: (state.holeRules.powerUps && canStorePowerUp(player)) || state.course.itemPads.some((pad) => pad.kind === 'cash' && !pad.collected),
+    collectItems: (state.holeRules.powerUps && canStorePowerUp(player, handLimit)) || state.course.itemPads.some((pad) => pad.kind === 'cash' && !pad.collected),
     gadgets: state.gadgets ?? [],
     reality: state.activeReality,
+    frozenHazardId: player.frozenObstacleId,
   });
   if (player.ballForm !== 'quantum' && state.activeReality !== 'two is one') return simulate(effectiveShot);
   const branch = Math.PI / 24;
@@ -84,6 +88,7 @@ const finishHole = (state: GameState) => {
   for (const player of state.players) {
     const strokes = player.ball.complete ? player.ball.strokes : state.holeRules.strokeCap;
     player.total += Math.max(1, Math.round(strokes * state.holeRules.scoreMultiplier));
+    recordInstrumentation(state, { type: 'hole-complete', hole: state.hole, playerId: player.id, detail: 'strokes', value: strokes });
   }
   if (state.hole >= state.config.holeCount) {
     state.status = 'finished';
@@ -149,7 +154,15 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.springPolished = undefined;
   player.bumperWaxed = undefined;
   player.cushionMapped = undefined;
+  player.frozenObstacleId = undefined;
   applySimulation(state, playerIndex, result);
+  recordInstrumentation(state, { type: 'shot', hole: state.hole, playerId: player.id, detail: shot.kind ?? 'putt', value: shot.power });
+  result.collidedOtherIndexes.forEach((otherIndex) => {
+    const target = state.players.filter((_, index) => index !== playerIndex)[otherIndex];
+    if (!target) return;
+    recordInstrumentation(state, { type: 'collision', hole: state.hole, playerId: player.id, detail: target.id });
+    addMessage(state, `${player.name} banks into ${target.name}`);
+  });
   if (hasAttachment(player, 'mulligan relay')) player.twoPuttsArmed = true;
   consumePuttAttachments(player);
   if (result.reset && player.redTee) {
@@ -165,7 +178,10 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   if (forcedChip) addMessage(state, `${player.name}'s airhorn forces a chip`);
   if (affectedControls) addMessage(state, `${player.name} shakes off the temporal control glitch`);
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
-  else if (result.reset) addMessage(state, `${player.name} falls into the void`);
+  else if (result.reset) {
+    recordInstrumentation(state, { type: 'recovery', hole: state.hole, playerId: player.id, detail: 'out-of-bounds' });
+    addMessage(state, `${player.name} falls into the void — automatic recovery returns the ball`);
+  }
   else addMessage(state, `${player.name} rolls to safety`);
   if (result.holed && player.holeFinishOrder === undefined) player.holeFinishOrder = state.holeFinishSequence++;
   const pad = result.itemPadIds.map((id) => state.course.itemPads.find((candidate) => candidate.id === id)).find(Boolean);

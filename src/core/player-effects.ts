@@ -91,7 +91,7 @@ export const pocketsFor = (player: Player) => {
   return player.pockets;
 };
 
-export const pocketCapacity = (player: Player) => 1 + caddyCount(player, 'scavenger');
+export const pocketCapacity = (player: Player, fixedLimit?: number) => fixedLimit ?? (1 + caddyCount(player, 'scavenger'));
 
 export const adjustedShotFor = (player: Player, shot: ShotCommand, rules?: HoleRules): ShotCommand => {
   const multiplier = (player.turboArmed || hasAttachment(player, 'tailwind') ? 1.55 : 1)
@@ -154,6 +154,7 @@ export const resetPlayerForCourse = (player: Player, course: Course, _rules?: Ho
   player.secondWindAvailable = hasCaddy(player, 'second wind');
   player.turboArmed = false;
   player.frozenTurns = undefined;
+  player.frozenObstacleId = undefined;
   player.hazardShield = hasCaddy(player, 'hazard shield');
   player.cupMagnetArmed = undefined;
   player.slipstreamArmed = undefined;
@@ -171,10 +172,10 @@ export const resetPlayerForCourse = (player: Player, course: Course, _rules?: Ho
   player.holeFinishOrder = undefined;
 };
 
-export const canStorePowerUp = (player: Player) => pocketsFor(player).length < pocketCapacity(player);
+export const canStorePowerUp = (player: Player, maximum?: number) => pocketsFor(player).length < pocketCapacity(player, maximum);
 
-export const storePowerUp = (player: Player, powerUp: PowerUp, source: PocketCard['source'] = 'pad') => {
-  if (!canStorePowerUp(player)) return false;
+export const storePowerUp = (player: Player, powerUp: PowerUp, source: PocketCard['source'] = 'pad', maximum?: number) => {
+  if (!canStorePowerUp(player, maximum)) return false;
   const pockets = pocketsFor(player);
   pockets.push({ id: powerUp, source, instanceId: `${source}:${powerUp}:${pockets.length}` });
   syncPocketMirrors(player);

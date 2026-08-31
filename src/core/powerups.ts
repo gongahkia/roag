@@ -1,7 +1,8 @@
-import { activePlayer, addMessage } from './game-state';
+import { activePlayer, addMessage, recordInstrumentation } from './game-state';
 import { BALL_RADIUS, MAX_SETTLE_SECONDS, floorHeightAt, simulateImpulse, tileAt } from './physics';
 import { CHAOS_POWER_UPS, GADGET_POWER_UPS, RECOVERY_POWER_UPS, caddyCount, canStorePowerUp, hasCaddy, isBallForm, physicsModifiersFor, pocketsFor, storePowerUp, syncPocketMirrors, takePocketCard } from './player-effects';
 import { Random } from './random';
+import { isPartyRules, rulesetFor } from './rulesets';
 import { attachStrategyCard, isPlayerTargetedCard } from './strategy';
 import type { ChronoCard, Course, GadgetKind, GameState, ItemPadKind, Player, Point, PowerUp } from './types';
 
@@ -9,6 +10,7 @@ const portalExitExists = (course: Course, id: string | undefined) => Boolean(id 
 
 export const powerUpFor = (state: GameState, player: Player, kind: ItemPadKind, source: string): PowerUp => {
   const random = new Random(`${state.course.seed}:${source}:${player.id}:${state.coursePhase}:${player.ball.strokes}`);
+  if (isPartyRules(state.config)) return random.pick(rulesetFor(state.config).cards.allowed);
   const leaderScore = Math.min(...state.players.map((candidate) => candidate.total + candidate.ball.strokes));
   const deficit = player.total + player.ball.strokes - leaderScore;
   if (deficit >= 2 && random.chance(Math.max(.2, state.holeRules.recoveryBias))) return random.pick(RECOVERY_POWER_UPS);
@@ -17,9 +19,10 @@ export const powerUpFor = (state: GameState, player: Player, kind: ItemPadKind, 
 };
 
 export const awardPowerUp = (state: GameState, player: Player, kind: ItemPadKind, source: string, message: string) => {
-  if (!state.holeRules.powerUps || !canStorePowerUp(player)) return false;
+  const handLimit = rulesetFor(state.config).id === 'party' ? rulesetFor(state.config).cards.handLimit : undefined;
+  if (!state.holeRules.powerUps || !canStorePowerUp(player, handLimit)) return false;
   const powerUp = powerUpFor(state, player, kind, source);
-  storePowerUp(player, powerUp);
+  storePowerUp(player, powerUp, 'pad', handLimit);
   addMessage(state, message.replace('{powerUp}', powerUp));
   return true;
 };
@@ -68,14 +71,18 @@ const routePointAfter = (state: GameState, player: Player) => {
 const chronoCards: readonly ChronoCard[] = ['undo drive', 'second chance', 'echo putt', 'future sight', 'time theft', 'frozen frame', 'parallel parking', 'grandfather clause'];
 const isChrono = (value: PowerUp | ChronoCard): value is ChronoCard => chronoCards.includes(value as ChronoCard);
 
-export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targetId?: string, portalExitId?: string, placement?: Point, cardId?: string) => {
+export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targetId?: string, hazardId?: string, portalExitId?: string, placement?: Point, cardId?: string) => {
   const player = activePlayer(state);
   if (state.turn.cardPlayed) return;
+  const partyRules = isPartyRules(state.config);
+  if (partyRules && (!rulesetFor(state.config).cards.allowed.includes(powerUp as PowerUp) || (powerUp !== 'turbo' && powerUp !== 'shield' && powerUp !== 'heavy' && powerUp !== 'airhorn' && powerUp !== 'freeze' && powerUp !== 'popper pad' && powerUp !== 'rescue drone' && powerUp !== 'glider'))) return;
   const card = pocketsFor(player).find((candidate) => candidate.id === powerUp && (!cardId || candidate.instanceId === cardId));
   if (!card) return;
   const target = state.players.find((candidate) => candidate.id === targetId && !candidate.ball.complete);
   if (targetId && !target) return;
   const recipient = target ?? player;
+  if (partyRules && ['turbo', 'shield', 'heavy', 'rescue drone', 'glider'].includes(powerUp) && recipient.id !== player.id) return;
+  if (partyRules && powerUp === 'airhorn' && (!target || target.id === player.id)) return;
   if (isPlayerTargetedCard(card)) {
     if (!target) return;
     if (powerUp === 'relay fund' && player.cash < 2) return;
@@ -133,10 +140,18 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
     addMessage(state, `${player.name} bombs ${target.name}`);
     used = true;
   }
-  if (powerUp === 'freeze' && target) {
-    target.frozenTurns = 1;
-    addMessage(state, `${player.name} freezes ${target.name}`);
-    used = true;
+  if (powerUp === 'freeze') {
+    if (partyRules) {
+      const obstacle = state.course.hazards.find((hazard) => hazard.id === hazardId && (hazard.kind === 'sweeper' || hazard.kind === 'gate'));
+      if (!obstacle) return;
+      player.frozenObstacleId = obstacle.id;
+      addMessage(state, `${player.name} freezes ${obstacle.id} for this shot`);
+      used = true;
+    } else if (target) {
+      target.frozenTurns = 1;
+      addMessage(state, `${player.name} freezes ${target.name}`);
+      used = true;
+    }
   }
   if (powerUp === 'swap' && target) {
     const playerPosition = { x: player.ball.x, y: player.ball.y, z: player.ball.z };
@@ -277,7 +292,8 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   if (!used) return;
   takePocketCard(player, powerUp, cardId);
   state.turn.cardPlayed = true;
-  if (!isChrono(powerUp) && state.holeRules.powerUps && hasCaddy(player, 'chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(1 - .35 ** caddyCount(player, 'chaos magnet'))) {
+  recordInstrumentation(state, { type: 'card', hole: state.hole, playerId: player.id, detail: powerUp });
+  if (!partyRules && !isChrono(powerUp) && state.holeRules.powerUps && hasCaddy(player, 'chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(1 - .35 ** caddyCount(player, 'chaos magnet'))) {
     awardPowerUp(state, player, 'chaos', 'chaos-magnet', `${player.name}'s chaos magnet pulls {powerUp}`);
   }
 };

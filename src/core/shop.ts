@@ -1,11 +1,10 @@
 import { CADDIES, CONTENT, definitionFor } from './catalog';
-import { addMessage, beginCourseTransition } from './game-state';
+import { addMessage, beginCourseTransition, recordInstrumentation } from './game-state';
 import { addCaddy, caddyCount, pocketCapacity, pocketsFor, removeCaddy, syncPocketMirrors } from './player-effects';
 import { Random } from './random';
+import { PARTY_TRICK_CARDS, rulesetFor } from './rulesets';
 import { resolveHoleAttachments } from './strategy';
 import type { CaddyId, ContentCategory, ContentId, GameState, RealityCard, ShopOffer } from './types';
-
-const SHOP_SECONDS = 20;
 
 const contentFor = (categories: readonly ContentCategory[]) => CONTENT.filter((definition) => categories.includes(definition.category));
 const durationFor = (state: GameState, contentId: ContentId, source: string) => {
@@ -30,6 +29,15 @@ const pick = (random: Random, categories: readonly ContentCategory[], selected: 
 const shelfFor = (state: GameState, visit: number, reroll = 0) => {
   const random = new Random(`${state.config.seed}:shop:${visit}:reroll:${reroll}`);
   const selected = new Set<ContentId>();
+  const ruleset = rulesetFor(state.config);
+  if (ruleset.id === 'party') {
+    const ids: ContentId[] = [];
+    while (ids.length < ruleset.shop.offerCount) {
+      const candidate = random.pick(PARTY_TRICK_CARDS);
+      if (!ids.includes(candidate)) ids.push(candidate);
+    }
+    return ids.map((id, index) => offer(state, id, index, `${visit}:${reroll}:${index}`));
+  }
   const ids = [
     pick(random, ['caddy'], selected), pick(random, ['caddy'], selected), pick(random, ['caddy'], selected),
     pick(random, ['pocket', 'form', 'gadget'], selected), pick(random, ['pocket', 'form', 'gadget'], selected),
@@ -48,8 +56,9 @@ const buyerOrderFor = (state: GameState, opening: boolean) => {
 export const activeShopper = (state: GameState) => state.shop ? state.players.find((player) => player.id === state.shop!.buyerOrder[state.shop!.buyerIndex]) : undefined;
 
 export const openShop = (state: GameState, opening = false) => {
+  const ruleset = rulesetFor(state.config);
   const visit = (state.shop?.visit ?? 0) + 1;
-  state.shop = { visit, opening, shelf: shelfFor(state, visit), buyerOrder: buyerOrderFor(state, opening), buyerIndex: 0, completedBuyerIds: [], rerollVotes: {}, rerollResolved: false, rerolled: false, secondsLeft: SHOP_SECONDS };
+  state.shop = { visit, opening, shelf: shelfFor(state, visit), buyerOrder: buyerOrderFor(state, opening), buyerIndex: 0, completedBuyerIds: [], rerollVotes: {}, rerollResolved: !ruleset.shop.allowsRerollVote, rerolled: false, secondsLeft: ruleset.shop.seconds };
   state.status = 'shopping';
   state.paused = false;
   addMessage(state, opening ? 'the clubhouse merchant opens before tee-off' : 'hole scored — the clubhouse merchant opens');
@@ -88,7 +97,7 @@ const completeBuyer = (state: GameState) => {
   const buyer = activeShopper(state);
   if (buyer) shop.completedBuyerIds.push(buyer.id);
   shop.buyerIndex += 1;
-  shop.secondsLeft = SHOP_SECONDS;
+  shop.secondsLeft = rulesetFor(state.config).shop.seconds;
   if (shop.buyerIndex < shop.buyerOrder.length) return;
   const opening = shop.opening;
   state.shop = undefined;
@@ -134,6 +143,7 @@ export const chooseBotShopOffer = (state: GameState, player: GameState['players'
   const shop = state.shop;
   if (!shop) return undefined;
   const random = new Random(`${state.config.seed}:shop-bot:${shop.visit}:${shop.rerolled ? 1 : 0}:${player.id}`);
+  const ruleset = rulesetFor(state.config);
   const pocketCount = Math.max(player.pockets.length, Number(Boolean(player.inventory)) + Number(Boolean(player.spareInventory)));
   const categoryValue: Record<ContentCategory, number> = { caddy: 14, reality: 13, chrono: 11, pocket: 10, form: 10, gadget: 10 };
   return shop.shelf
@@ -143,7 +153,7 @@ export const chooseBotShopOffer = (state: GameState, player: GameState['players'
         const duplicate = player.caddies.some((caddy) => caddy.id === shopOffer.contentId);
         return duplicate || player.caddies.length < 3;
       }
-      return shopOffer.category === 'reality' || pocketCount < pocketCapacity(player);
+      return shopOffer.category === 'reality' || pocketCount < pocketCapacity(player, ruleset.id === 'party' ? ruleset.cards.handLimit : undefined);
     })
     .map((shopOffer) => {
       const duplicateCaddy = shopOffer.category === 'caddy' && player.caddies.some((caddy) => caddy.id === shopOffer.contentId);
@@ -154,16 +164,22 @@ export const chooseBotShopOffer = (state: GameState, player: GameState['players'
     .sort((left, right) => right.score - left.score || left.shopOffer.id.localeCompare(right.shopOffer.id))[0]?.shopOffer;
 };
 
-const storePocket = (state: GameState, playerId: string, contentId: ContentId, duration?: ShopOffer['duration']) => {
+const storePocket = (state: GameState, playerId: string, contentId: ContentId, duration?: ShopOffer['duration'], replaceCardId?: string) => {
   const player = state.players.find((candidate) => candidate.id === playerId)!;
   const pockets = pocketsFor(player);
-  if (pockets.length >= pocketCapacity(player)) return false;
+  const ruleset = rulesetFor(state.config);
+  const capacity = pocketCapacity(player, ruleset.id === 'party' ? ruleset.cards.handLimit : undefined);
+  if (pockets.length >= capacity) {
+    const replacement = replaceCardId ? pockets.findIndex((card) => card.instanceId === replaceCardId) : -1;
+    if (replacement < 0) return false;
+    pockets.splice(replacement, 1);
+  }
   pockets.push({ id: contentId as never, source: 'shop', instanceId: `shop-card-${++state.cardSequence}`, duration: duration ? { ...duration } : undefined });
   syncPocketMirrors(player);
   return true;
 };
 
-export const buyShopOffer = (state: GameState, playerId: string, offerId: string, replaceCaddyId?: CaddyId) => {
+export const buyShopOffer = (state: GameState, playerId: string, offerId: string, replaceCaddyId?: CaddyId, replaceCardId?: string) => {
   if (state.status !== 'shopping' || !state.shop || !state.shop.rerollResolved || activeShopper(state)?.id !== playerId) return;
   const shopOffer = state.shop.shelf.find((candidate) => candidate.id === offerId && !candidate.sold);
   const player = state.players.find((candidate) => candidate.id === playerId);
@@ -180,7 +196,7 @@ export const buyShopOffer = (state: GameState, playerId: string, offerId: string
     addCaddy(player, caddyId);
   } else if (shopOffer.category === 'reality') {
     state.queuedReality = shopOffer.contentId as RealityCard;
-  } else if (!storePocket(state, playerId, shopOffer.contentId, shopOffer.duration)) return;
+  } else if (!storePocket(state, playerId, shopOffer.contentId, shopOffer.duration, replaceCardId)) return;
   player.cash -= cost;
   shopOffer.sold = true;
   if (caddyCount(player, 'black market caddy') && ['pocket', 'form', 'gadget'].includes(shopOffer.category)) {
@@ -189,6 +205,7 @@ export const buyShopOffer = (state: GameState, playerId: string, offerId: string
     storePocket(state, player.id, bonus, durationFor(state, bonus, `black-market:${player.id}:${shopOffer.id}`));
   }
   addMessage(state, `${player.name} buys ${shopOffer.contentId} for $${cost}`);
+  recordInstrumentation(state, { type: 'shop', hole: state.hole, playerId, detail: shopOffer.contentId });
   completeBuyer(state);
 };
 

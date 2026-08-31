@@ -45,7 +45,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     return state;
   }
   if (command.type === 'use-power-up' && state.status === 'playing') {
-    usePowerUp(state, command.powerUp, command.targetId, command.portalExitId, command.placement, command.cardId);
+    usePowerUp(state, command.powerUp, command.targetId, command.hazardId, command.portalExitId, command.placement, command.cardId);
     return state;
   }
   if (command.type === 'arm-second-wind' && state.status === 'playing') {
@@ -57,7 +57,7 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
     return state;
   }
   if (command.type === 'shop-buy') {
-    buyShopOffer(state, command.playerId, command.offerId, command.replaceCaddyId);
+    buyShopOffer(state, command.playerId, command.offerId, command.replaceCaddyId, command.replaceCardId);
     return state;
   }
   if (command.type === 'shop-sell-caddy') {

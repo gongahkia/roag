@@ -24,7 +24,7 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
 };
 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
-  let game = createGame({ ...defaultConfig(), seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options });
+  let game = createGame({ ...defaultConfig(), ruleset: 'custom', seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options });
   while (game.status === 'rolling') {
     if (game.die && (game.die.phase === 'wagering' || game.die.phase === 'reroll-wagering')) for (const player of game.players) game = applyCommand(game, { type: 'ready-slot-spin', playerId: player.id });
     game = tickTurn(game, 10);

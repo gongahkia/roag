@@ -1,7 +1,7 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
 import { closedGateAt, COURSE_PHASES, elapsedMsForPhase } from './hazards';
 import { Random } from './random';
-import type { Course, CourseArchetype, CoursePackage, CourseScore, CourseSizeProfile, CourseTheme, HoleRules, Point, ShotCommand, Surface, TerrainSettings, Tile } from './types';
+import type { Course, CourseArchetype, CoursePackage, CourseScore, CourseSizeProfile, CourseTheme, HoleRules, Point, RouteRoleAssignment, ShotCommand, Surface, TerrainSettings, Tile } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
 
 const directions = [
@@ -256,6 +256,50 @@ const reachable = (course: Course, phase = 0, phaseCount = COURSE_PHASES): boole
   return false;
 };
 
+const markerFor = (course: Course, fraction: number) => course.route[Math.min(course.route.length - 2, Math.max(1, Math.round((course.route.length - 1) * fraction)))]!;
+
+/**
+ * These roles are generation grammar annotations, not a second unbounded route
+ * solver. They remain legible even when a Ribbon intentionally shares much of
+ * its path: safe is broad and stable, skill calls out a timed/elevated section,
+ * and conflict points at the shared contest space.
+ */
+const routeRolesFor = (course: Course): RouteRoleAssignment[] => {
+  const safe = markerFor(course, .22);
+  const skill = markerFor(course, .5);
+  const conflict = markerFor(course, .72);
+  return [
+    { role: 'safe', label: 'safe line', marker: { ...safe }, points: course.route.slice(0, Math.max(2, Math.round(course.route.length * .56))).map((point) => ({ ...point })) },
+    { role: 'skill', label: 'skill line', marker: { ...skill }, points: course.route.slice(Math.max(1, Math.round(course.route.length * .24)), Math.max(3, Math.round(course.route.length * .82))).map((point) => ({ ...point })) },
+    { role: 'conflict', label: 'conflict line', marker: { ...conflict }, points: course.route.slice(Math.max(1, Math.round(course.route.length * .48))).map((point) => ({ ...point })) },
+  ];
+};
+
+export interface CourseValidation {
+  valid: boolean;
+  failures: string[];
+}
+
+/** Validates the bounded authored grammar after terrain and hazard decoration. */
+export const validateCourse = (course: Course, phaseCount = COURSE_PHASES): CourseValidation => {
+  const failures: string[] = [];
+  const tee = tileAt(course, course.tee.x + .5, course.tee.y + .5);
+  const cup = tileAt(course, course.cup.x + .5, course.cup.y + .5);
+  if (!tee || tee.surface === 'void' || tee.surface === 'wall' || tee.surface === 'bumper') failures.push('tee obstructed');
+  if (!cup || cup.surface === 'void' || cup.surface === 'wall' || cup.surface === 'bumper') failures.push('cup obstructed');
+  if (!course.route.length || !course.route.every((point) => {
+    const tile = tileAt(course, point.x + .5, point.y + .5);
+    return tile && tile.surface !== 'void' && tile.surface !== 'wall' && tile.surface !== 'bumper';
+  })) failures.push('safe route obstructed');
+  if (!Array.from({ length: phaseCount }, (_, phase) => reachable(course, phase, phaseCount)).every(Boolean)) failures.push('tee-to-cup route blocked by hazards');
+  const roles = course.routeRoles ?? [];
+  if (new Set(roles.map((assignment) => assignment.role)).size !== 3) failures.push('route roles missing');
+  if (!roles.every((assignment) => assignment.points.length && tileAt(course, assignment.marker.x + .5, assignment.marker.y + .5)?.surface !== 'void')) failures.push('route role marker invalid');
+  const chaosBudget = course.hazards.length + (course.features ?? []).length + course.tiles.filter((tile) => tile.surface === 'bumper' || tile.surface === 'spring').length;
+  if (chaosBudget > 28) failures.push('chaos budget exceeded');
+  return { valid: failures.length === 0, failures };
+};
+
 const solve = (course: Course, phase: number, phaseCount = COURSE_PHASES): ShotCommand[] => {
   const ball = newBall(course);
   const cup = { x: course.cup.x + 0.5, y: course.cup.y + 0.5 };
@@ -281,7 +325,8 @@ const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   const needsSingleShotProof = directShotDistance <= 28;
   const solverShots = needsSingleShotProof ? solve(course, 0, phaseCount) : [];
   const reachableAcrossPhases = Array.from({ length: phaseCount }, (_, phase) => reachable(course, phase, phaseCount)).every(Boolean);
-  const playable = reachableAcrossPhases && (!needsSingleShotProof || (solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
+  const validation = validateCourse(course, phaseCount);
+  const playable = validation.valid && reachableAcrossPhases && (!needsSingleShotProof || (solverShots.length > 0 && Array.from({ length: phaseCount }, (_, phase) => {
     const result = simulateShot(course, newBall(course), solverShots[0]!, undefined, { phase, phaseCount });
     return result.holed && result.settled;
   }).every(Boolean)));
@@ -289,7 +334,7 @@ const scoreCourse = (course: Course, phaseCount: number): CourseScore => {
   const routes = Math.max(1, Math.min(4, Math.round(branches / 12) + 1));
   const novelty = Math.min(100, Math.round(hazards * 2.2 + elevation * 3.5 + routes * 12));
   const total = playable ? Math.round(55 + novelty * 0.25 + Math.min(20, estimatedStrokes * 4) + routes * 5) : 0;
-  return { playable, estimatedStrokes, hazards, elevation, routes, novelty, total, solverShots, rejection: playable ? undefined : 'shot solver found no safe cup line' };
+  return { playable, estimatedStrokes, hazards, elevation, routes, novelty, total, solverShots, rejection: playable ? undefined : validation.failures[0] ?? 'shot solver found no safe cup line' };
 };
 
 const addHazard = (course: Course, random: Random, index: number, kind: 'sweeper' | 'gate' | 'updraft' | 'low-bar', phaseCount: number) => {
@@ -521,8 +566,33 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
   const course: Course = { id: `course-${seed}`, seed, theme: settings.theme, archetype: settings.archetype, sizeProfile: settings.sizeProfile, width: settings.width, height: settings.height, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   decorate(course, random, settings, phaseCount);
   smoothRampHeights(course);
+  course.routeRoles = routeRolesFor(course);
   course.score = scoreCourse(course, phaseCount);
   return course;
+};
+
+/** Stable, compact hash of the materialized structure rather than the generator seed alone. */
+export const courseHashFor = (course: Course) => {
+  const material = JSON.stringify({
+    seed: course.seed,
+    theme: course.theme,
+    archetype: course.archetype,
+    sizeProfile: course.sizeProfile,
+    width: course.width,
+    height: course.height,
+    tee: course.tee,
+    cup: course.cup,
+    route: course.route,
+    routeRoles: course.routeRoles,
+    tiles: course.tiles.map((tile) => [tile.surface, Number(tile.height.toFixed(6)), tile.corners?.map((height) => Number(height.toFixed(6))), tile.direction]),
+    hazards: course.hazards,
+    features: course.features,
+    portals: course.portals,
+    itemPads: course.itemPads,
+  });
+  let hash = 2_166_136_261;
+  for (let index = 0; index < material.length; index += 1) hash = Math.imul(hash ^ material.charCodeAt(index), 16_777_619);
+  return `gwye-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 };
 
 export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES): Course => {
@@ -606,6 +676,7 @@ const guaranteedFallbackCourse = (seed: string, phaseCount: number, dimensions: 
   tiles[indexOf({ width: dimensions.width }, cup)] = { surface: 'cup', height: 0 };
   const route = Array.from({ length: cup.x - tee.x + 1 }, (_, index) => ({ x: tee.x + index, y: tee.y }));
   const course: Course = { id: `fallback-${seed}`, seed, theme: 'balanced', archetype: 'ribbon', sizeProfile: 'full', width: dimensions.width, height: dimensions.height, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
+  course.routeRoles = routeRolesFor(course);
   course.score = scoreCourse(course, phaseCount);
   return course;
 };

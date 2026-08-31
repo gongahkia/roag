@@ -9,6 +9,7 @@ export interface LobbyConfig {
   courseWidth: number;
   courseHeight: number;
   skipDieBets: boolean;
+  ruleset: NonNullable<GameConfig['ruleset']>;
 }
 
 export interface LobbyMember {

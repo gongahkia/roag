@@ -723,9 +723,10 @@ export const startApp = (app: HTMLElement) => {
     const selectedTarget = app.querySelector<HTMLSelectElement>('#powerup-target')?.value;
     const target = state.players.find((player) => player.id === selectedTarget && !player.ball.complete)
       ?? current();
+    const hazardId = app.querySelector<HTMLSelectElement>('#hazard-target')?.value || undefined;
     const portalExitId = app.querySelector<HTMLSelectElement>('#portal-exit')?.value || undefined;
     playEffect(530, .08);
-    dispatch({ type: 'use-power-up', powerUp, cardId, targetId: target.id, portalExitId });
+    dispatch({ type: 'use-power-up', powerUp, cardId, targetId: target.id, hazardId, portalExitId });
   };
   const confirmPlacement = () => {
     if (!placement || !placement.point || !placement.valid || state.status !== 'playing' || state.paused || current().id !== placement.ownerId || !canControlCurrent()) return;
@@ -1126,7 +1127,8 @@ export const startApp = (app: HTMLElement) => {
     if (offerId && state.shop) {
       const buyerId = state.shop.buyerOrder[state.shop.buyerIndex];
       const replaceCaddyId = app.querySelector<HTMLSelectElement>('#replace-caddy')?.value;
-      if (buyerId) dispatch({ type: 'shop-buy', playerId: buyerId, offerId, replaceCaddyId: replaceCaddyId as never });
+      const replaceCardId = app.querySelector<HTMLSelectElement>('#replace-card')?.value || undefined;
+      if (buyerId) dispatch({ type: 'shop-buy', playerId: buyerId, offerId, replaceCaddyId: replaceCaddyId as never, replaceCardId });
       return;
     }
     const sellCaddy = element.dataset.shopSell;

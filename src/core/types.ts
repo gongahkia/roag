@@ -10,6 +10,8 @@ export type Upgrade = CaddyId;
 export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' | 'gravity is sideways' | 'cup walks' | 'everybody is ghost' | 'two is one' | 'portals are plenty' | 'turns are backwards' | 'gates are open' | 'cups are many' | 'ball is cup' | 'bank holiday' | 'spring fling' | 'high winds' | 'cushion league';
 export type ChronoCard = 'undo drive' | 'second chance' | 'echo putt' | 'future sight' | 'time theft' | 'frozen frame' | 'parallel parking' | 'grandfather clause';
 export type ContentId = CaddyId | PowerUp | RealityCard | ChronoCard;
+export type RulesetId = 'party' | 'custom';
+export type RouteRole = 'safe' | 'skill' | 'conflict';
 export type ContentCategory = 'caddy' | 'pocket' | 'form' | 'gadget' | 'reality' | 'chrono';
 export type CardTiming = 'immediate' | 'putt' | 'round' | 'hole';
 export type CardPolarity = 'boon' | 'curse' | 'neutral';
@@ -214,6 +216,17 @@ export interface HoleRules {
 export interface HoleRecipe {
   terrain: TerrainSettings;
   rules: HoleRules;
+  /** Materialized inputs make a replay resilient to later generator changes. */
+  metadata?: RecipeMetadata;
+}
+
+export interface RecipeMetadata {
+  schemaVersion: number;
+  generatorVersion: string;
+  seed: string;
+  resolvedReels: { biome: string; layout: string; rules: string; chaos?: ChaosModifier };
+  contentIds: string[];
+  courseHash?: string;
 }
 
 /** A complete generated course package used by the generator and legacy saves. */
@@ -261,6 +274,8 @@ export interface SlotWager {
   addedStops: number;
   /** Paid duplicate-ticket additions keyed by reel stop. */
   augmentations: Record<string, number>;
+  /** The Party Rules ceremony permits one influence choice, then a ready action. */
+  influenceActions: number;
   ready: boolean;
 }
 
@@ -310,12 +325,21 @@ export interface Course {
   tee: Point;
   cup: Point;
   route: Point[];
+  /** Player-facing markers for the generated safe, skill, and conflict lines. */
+  routeRoles?: RouteRoleAssignment[];
   hazards: CourseHazard[];
   features: CourseFeature[];
   /** portal overlays remain optional so saved pre-portal courses stay readable. */
   portals?: PortalPair[];
   itemPads: ItemPad[];
   score: CourseScore;
+}
+
+export interface RouteRoleAssignment {
+  role: RouteRole;
+  label: string;
+  marker: Point;
+  points: Point[];
 }
 
 export interface CourseScore {
@@ -372,6 +396,8 @@ export interface Player {
   secondWindAvailable?: boolean;
   turboArmed?: boolean;
   frozenTurns?: number;
+  /** Party Rules Freeze pauses this one moving obstacle for the owner's next shot. */
+  frozenObstacleId?: string;
   hazardShield?: boolean;
   cupMagnetArmed?: boolean;
   slipstreamArmed?: boolean;
@@ -461,6 +487,8 @@ export interface GameConfig {
   courseHeight?: number;
   /** Skip the shared die window and use seed-selected automatic rolls. */
   skipDieBets?: boolean;
+  /** Party Rules is the ordinary, deliberately constrained local campaign. */
+  ruleset?: RulesetId;
 }
 
 export interface TurnState {
@@ -504,6 +532,21 @@ export interface GameState {
   paused: boolean;
   status: 'rolling' | 'shopping' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
+  instrumentation?: GameInstrumentation;
+}
+
+export interface InstrumentationEvent {
+  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete';
+  hole: number;
+  playerId?: string;
+  detail: string;
+  value?: number;
+}
+
+export interface GameInstrumentation {
+  events: InstrumentationEvent[];
+  turnStartedAt?: number;
+  holeStartedAt?: number;
 }
 
 export type GameCommand =
@@ -515,10 +558,10 @@ export type GameCommand =
   | { type: 'ready-slot-spin'; playerId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
-  | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; portalExitId?: string; placement?: Point }
+  | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; hazardId?: string; portalExitId?: string; placement?: Point }
   | { type: 'arm-second-wind' }
   | { type: 'shop-vote-reroll'; playerId: string; approve: boolean }
-  | { type: 'shop-buy'; playerId: string; offerId: string; replaceCaddyId?: CaddyId }
+  | { type: 'shop-buy'; playerId: string; offerId: string; replaceCaddyId?: CaddyId; replaceCardId?: string }
   | { type: 'shop-sell-caddy'; playerId: string; caddyId: CaddyId }
   | { type: 'shop-skip'; playerId: string }
   | { type: 'emote'; playerId: string; emote: Emote };
