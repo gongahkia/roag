@@ -26,6 +26,8 @@ describe('course slot machine markup', () => {
     expect(markup).not.toContain('id="local-seed"');
     expect(markup).not.toContain('local-multiplayer');
     expect(markup).not.toContain('id="online-seed"');
+    const settings = renderHomeMarkup({ panel: 'settings', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
+    expect(settings).toContain('data-preference="showPartyDiagnostics"');
   });
 
   it('uses one local setup for solo play and pass-and-play', () => {
