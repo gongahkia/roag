@@ -1163,10 +1163,11 @@ function handleSectorInput(key: string): boolean {
   const current = Math.max(0, destinations.findIndex(destination => destination.siteId === (route.siteId ?? currentDestination.siteId)))
   if (route.routeBoardConfirmation) {
     if (key === 'Escape' || key.toLowerCase() === 'c') {
-      const cleared = route.routeBoardConfirmation === 'transit' ? clearRouteBoardConnectionSelection(galaxy) : undefined
+      const confirmation = route.routeBoardConfirmation
+      const cleared = confirmation === 'transit' ? clearRouteBoardConnectionSelection(galaxy) : undefined
       if (cleared?.changed) { campaign = { ...campaign, galaxy: cleared.galaxy }; persistActiveCourier() }
       route = { ...route, routeBoardConfirmation: undefined }
-      hubNotice = route.routeBoardConfirmation === 'transit' ? 'Transit confirmation cancelled. Jomon remains docked.' : 'Landing confirmation cancelled.'
+      hubNotice = confirmation === 'transit' ? 'Transit confirmation cancelled. Jomon remains docked.' : 'Landing confirmation cancelled.'
       return true
     }
     if (key !== 'Enter' && key.toLowerCase() !== 'e') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
