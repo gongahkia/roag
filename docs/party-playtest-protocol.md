@@ -16,7 +16,7 @@ npm run parity:party
 
 Use Party Rules, standard slot flow, a nine-hole campaign, and no explanation beyond reading interface text aloud if asked. Let participants skip the guide if they choose; record that choice.
 
-Before the match, open settings and enable **show local Party Rules diagnostics**. This is off by default and does not change gameplay. At the final table, select **download anonymous playtest telemetry**; the browser saves a `party-*.json` file in its configured Downloads directory. Record the filename and seed in the evidence record. The file uses `P1`, `P2`, and so on rather than player display names.
+Before the match, open the home-screen settings, choose **reset Party Rules guide**, then enable **show local Party Rules diagnostics**. Diagnostics are off by default and do not change gameplay. At the final table, select **download anonymous playtest telemetry**; the browser saves a `party-*.json` file in its configured Downloads directory. Record the filename and seed in the evidence record. The file uses `P1`, `P2`, and so on rather than player display names.
 
 ## Moderator prompts
 
