@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { DESTINATION_PARTITION_CONSEQUENCE_LIMIT, DESTINATION_PARTITION_HISTORY_LIMIT, DESTINATION_PARTITION_IDS, DESTINATION_PARTITION_INTERVENTION_LIMIT, DESTINATION_PARTITION_RESOLVED_LIMIT, DESTINATION_PARTITION_SCHEDULE_LIMIT, NERIDA_BYPASS_COST_MARKS, advanceDestinationWorld, cloneDestinationWorld, createDestinationWorld, destinationConditionDetail, destinationReportFreshness } from './destination-partitions'
+import { DESTINATION_PARTITION_CONSEQUENCE_LIMIT, DESTINATION_PARTITION_HISTORY_LIMIT, DESTINATION_PARTITION_IDS, DESTINATION_PARTITION_INTERVENTION_LIMIT, DESTINATION_PARTITION_RESOLVED_LIMIT, DESTINATION_PARTITION_SCHEDULE_LIMIT, NERIDA_BYPASS_COST_MARKS, advanceDestinationWorld, cloneDestinationWorld, createDestinationWorld, destinationReportFreshness } from './destination-partitions'
+import { destinationConditionDetail } from './destination-readout'
 import { advanceGalaxyRouteReckoning, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, inspectGalaxyDestination, installGalaxyNeridaBypass, migrateGalaxy, reconcileGalaxy, resolveRouteBoardTransit, routeBoardConnectionForGalaxy, selectRouteBoardConnection } from './galaxy'
 import { routeBoardConnection } from './route-board'
 import { newHero } from './run'

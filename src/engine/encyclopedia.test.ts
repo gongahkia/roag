@@ -12,11 +12,11 @@ describe('encyclopedia', () => {
     hydrateEncyclopediaLegacy(state, [createLegacy({ heirName: 'Ari' })])
     refreshFov(state)
     announceTelegraph(state, { id: 'shot-1', sourceId: 'fusewarden-1', actionId: 'enemy-shot', cells: [{ x: 1, y: 1 }], danger: 'major', windup: 1 })
-    expect(encyclopediaEntries(state, 'enemies')).toContain('Fire Keeper — mine, telegraph, cover, explosive')
+    expect(encyclopediaEntries(state, 'enemies')).toContain('Kestrel Thermal Keeper — mine, telegraph, cover, explosive')
     expect(encyclopediaEntries(state, 'telegraphs')).toContain('Shot — ranged, telegraphed')
     expect(encyclopediaEntries(state, 'tags')).toContain('#explosive')
-    expect(encyclopediaEntries(state, 'gates')[0]).toContain('Obsidian Mine → Cedar Wilds')
-    expect(encyclopediaEntries(state, 'legacy')).toContain('Ari fell in Obsidian Mine 1')
+    expect(encyclopediaEntries(state, 'gates')[0]).toContain('Kestrel Colony → Verdant Colony')
+    expect(encyclopediaEntries(state, 'legacy')).toContain('Ari fell in Kestrel Colony 1')
   })
 
   it('opens and navigates the encyclopedia modal without advancing time', () => {

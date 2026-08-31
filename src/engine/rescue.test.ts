@@ -16,7 +16,7 @@ describe('rescued NPC roster', () => {
     expect(state.floor.objective.status).toBe('complete')
     expect(state.floor.actors).toEqual([])
     expect(state.alignment).toEqual({ kami: 0, villagePact: 1 })
-    expect(state.messages[0]).toBe('You tend toward the village pact.')
+    expect(state.messages[0]).toBe('Your report favors pragmatism.')
     recordRescue(state, scout)
     expect(state.rescuedNpcs).toHaveLength(1)
   })

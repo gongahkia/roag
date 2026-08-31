@@ -60,7 +60,7 @@ describe('Ceremonial Ruins generation contract', () => {
   }, 30_000)
 
   it('names and audits a ceremonial precinct with central arcs and hidden inner chambers', () => {
-    expect(biomeName.ruins).toBe('Ceremonial Precinct')
+    expect(biomeName.ruins).toBe('Orison Colony')
     for (let areaFloor = 0; areaFloor < 4; areaFloor++) {
       const floor = generateAreaFloor(91, 'ruins', areaFloor, 3)
       const layout = floor.ritualLayout!

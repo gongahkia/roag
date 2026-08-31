@@ -10,44 +10,10 @@ export const DESTINATION_PARTITION_INTERVENTION_LIMIT = 8
 export const NERIDA_BYPASS_COST_MARKS = 60
 export const NERIDA_BYPASS_VERIFICATION_MARKS = 180
 
-const conditionLabels: Record<DestinationCondition, string> = {
-  'calibration-queue': 'calibration queue',
-  'approach-inspection': 'approach inspection',
-  'relay-balanced': 'relay balanced',
-  'relay-overheated': 'relay overheated',
-  'relay-throttled': 'relay throttled',
-  'tender-cycle': 'tender cycle',
-  'dock-congested': 'dock congestion',
-  'pump-watch': 'pump watch',
-  'cavitation-restriction': 'cavitation restriction',
-  'bypass-stabilizing': 'bypass stabilizing',
-  'pump-stabilized': 'pump stabilized',
-  'kiln-nominal': 'kiln nominal',
-  'kiln-backlog': 'kiln backlog',
-  'kiln-cooldown': 'kiln cooldown'
-}
-
-const conditionDetails: Record<DestinationCondition, string> = {
-  'calibration-queue': 'Instrumentation clerks are clearing a bounded calibration queue.',
-  'approach-inspection': 'Approach instruments are under an inspection hold.',
-  'relay-balanced': 'Relay crews report balanced thermal load.',
-  'relay-overheated': 'Relay heat exchangers are carrying more load than planned.',
-  'relay-throttled': 'Relay staff have imposed a controlled transfer window.',
-  'tender-cycle': 'Salvage tenders are cycling through ordinary drydock work.',
-  'dock-congested': 'Tender berths are congested and local dock work is delayed.',
-  'pump-watch': 'Pump Bank Four is on watch for wear in the pressure chain.',
-  'cavitation-restriction': 'Pump cavitation has narrowed the safe transfer approaches.',
-  'bypass-stabilizing': 'A temporary bypass is carrying load while the pump chain is verified.',
-  'pump-stabilized': 'Pump crews have stabilized the bypass, but the repair remains provisional.',
-  'kiln-nominal': 'Ceramic kilns are operating inside their planned thermal envelope.',
-  'kiln-backlog': 'Ceramic orders are accumulating behind maintenance work.',
-  'kiln-cooldown': 'Glassworks crews are using a controlled cooldown to protect the kilns.'
-}
-
 const developmentKinds = new Set<DestinationDevelopmentKind>([
   'kestrel-inspection-audit', 'orison-relay-thermal-load', 'orison-throttle-window', 'halcyon-tender-backlog', 'nerida-pump-cavitation', 'nerida-bypass-verification', 'borealis-kiln-debt', 'borealis-controlled-cooldown'
 ])
-const conditions = new Set<DestinationCondition>(Object.keys(conditionLabels) as DestinationCondition[])
+const conditions = new Set<DestinationCondition>(['calibration-queue', 'approach-inspection', 'relay-balanced', 'relay-overheated', 'relay-throttled', 'tender-cycle', 'dock-congested', 'pump-watch', 'cavitation-restriction', 'bypass-stabilizing', 'pump-stabilized', 'kiln-nominal', 'kiln-backlog', 'kiln-cooldown'])
 
 const clamp = (value: number, min = 0, max = 100): number => Math.max(min, Math.min(max, Math.round(value)))
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -158,8 +124,7 @@ export const destinationReportFreshness = (report: DestinationKnownReport, route
   const age = Math.max(0, routeReckoning - report.observedAtRouteReckoning)
   return age > 360 ? 'stale' : age > 120 ? 'aging' : 'current'
 }
-export const destinationConditionLabel = (condition: DestinationCondition): string => conditionLabels[condition]
-export const destinationConditionDetail = (condition: DestinationCondition): string => conditionDetails[condition]
+export const destinationConditionLabel = (condition: DestinationCondition): string => condition.replaceAll('-', ' ')
 export const destinationInterventionAvailable = (partition: DestinationPartition): boolean => partition.id === 'destination:nerida' && partition.condition === 'cavitation-restriction' && !partition.interventions.some(intervention => intervention.kind === 'nerida-bypass-installation')
 
 export interface DestinationDevelopmentResolution { id: string; destinationId: DestinationPartitionId; kind: DestinationDevelopmentKind; condition: DestinationCondition; atRouteReckoning: number }
@@ -195,6 +160,7 @@ const resolveDevelopment = (seed: number, partition: DestinationPartition, devel
     partition.pressure.value = clamp(partition.pressure.value - 24 - variation)
     deactivateConsequence(partition, 'consequence:nerida:cavitation-restriction')
     deactivateConsequence(partition, 'consequence:nerida:bypass-operation')
+    deactivateConsequence(partition, 'consequence:nerida:bypass-stabilizing')
   } else if (development.kind === 'borealis-kiln-debt') {
     partition.condition = 'kiln-backlog'
     partition.pressure.value = clamp(partition.pressure.value + 13 + variation)

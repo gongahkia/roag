@@ -13,7 +13,7 @@ describe('Voyager carrier deck', () => {
   })
 
   it('exposes every physical destination by adjacency', () => {
-    expect(outpostMap.interactables.map(interactable => interactable.destination)).toEqual(['routes', 'shop', 'outfitter', 'roster'])
+    expect(outpostMap.interactables.map(interactable => interactable.destination)).toEqual(['routes', 'shop', 'outfitter', 'roster', 'crew', 'custody'])
     expect(outpostTileAt({ x: 7, y: 15 })).toBe('flightConsole')
     expect(outpostInteraction({ x: 7, y: 16 })?.destination).toBe('routes')
     expect(outpostInteraction({ x: 17, y: 18 })?.destination).toBe('shop')

@@ -14,7 +14,7 @@ describe('field readout', () => {
     const readout = fieldReadout(state)
     expect(readout.brief).toContain('T-2 MAJ SHOT PATH Watch Rat')
     expect(readout.lines).toContain('INTENT: Watch Rat — Shot (clear line at range 4; pursuer: use terrain or reach to control approach)')
-    expect(readout.lines).toContain('OPTION G: take Vital Tonic')
+    expect(readout.lines).toContain('OPTION G: take Vital Gel')
     expect(perform(state, 'z')).toEqual([{ type: 'menu' }])
     expect(state.modal).toEqual({ kind: 'readout' })
     expect(state.turn).toBe(0)
