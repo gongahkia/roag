@@ -1,5 +1,5 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, advanceTransitWindow, applyGalaxySiteConditions, createGalaxy, deliverGalaxyContracts, discoverLinkedSites, newHero, newRun, newTransitRun, reconcileGalaxy, recordGalaxyLanding, recoverGalaxyRouteCaches } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceTransitWindow, applyGalaxySiteConditions, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, reconcileGalaxy, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, violateSealedPackageSeal } from './engine'
 
 export const AUTOPLAY_TASK_CATALOG_VERSION = 1
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
@@ -83,6 +83,46 @@ const cargoRecoveryTask = (): AutoplayTaskExecution => {
   return { actions: ['abandon:cargo', 'operate:route-cache'], events: recovered.galaxy.events.map(event => event.kind), passed, summary: { caches: recovered.galaxy.routeCaches.map(cache => ({ id: cache.id, recovered: cache.recovered })), cargo: recovered.galaxy.cargo }, ...(passed ? {} : { reason: 'recoverable cargo cache was not restored' }) }
 }
 
+const sealedPackageIntactTask = (): AutoplayTaskExecution => {
+  const galaxy = createGalaxy(43, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = galaxy.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M1 package offer is missing' }
+  const accepted = acceptSealedPackageContract(galaxy, contract.id, galaxy.activeCourierId)
+  const courier = hero()
+  const arrived = markSealedPackageDestinationReached(accepted.galaxy, contract.terms.destinationSiteId)
+  const delivered = deliverSealedPackage(arrived, contract.id, courier)
+  const packageRecord = delivered.galaxy.sealedPackages.find(candidate => candidate.contractId === contract.id)
+  const passed = delivered.changed && delivered.galaxy.sealedPackageContracts[0]?.status === 'completed' && packageRecord?.sealState === 'intact' && packageRecord.custody === 'recipient' && courier.gold === contract.terms.payment
+  return { actions: ['inspect:exterior', 'accept:assigned-courier', 'land:Kestrel', 'settle:intact'], events: delivered.galaxy.generalManifest.entries.map(entry => entry.kind), passed, summary: { contractStatus: delivered.galaxy.sealedPackageContracts[0]?.status, seal: packageRecord?.sealState, custody: packageRecord?.custody, gold: courier.gold }, ...(passed ? {} : { reason: 'intact sealed package did not require explicit settlement' }) }
+}
+
+const sealedPackageTamperedTask = (): AutoplayTaskExecution => {
+  const galaxy = createGalaxy(47, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = galaxy.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M1 package offer is missing' }
+  const accepted = acceptSealedPackageContract(galaxy, contract.id, galaxy.activeCourierId)
+  const opened = violateSealedPackageSeal(accepted.galaxy, contract.id)
+  const courier = hero()
+  const delivered = deliverSealedPackage(markSealedPackageDestinationReached(opened.galaxy, contract.terms.destinationSiteId), contract.id, courier)
+  const packageRecord = delivered.galaxy.sealedPackages.find(candidate => candidate.contractId === contract.id)
+  const expectedPayment = contract.terms.payment - contract.terms.collateral
+  const passed = delivered.changed && packageRecord?.sealState === 'opened' && packageRecord.revealedContents !== undefined && courier.gold === expectedPayment
+  return { actions: ['accept:assigned-courier', 'confirm:open-seal', 'land:Kestrel', 'settle:tampered'], events: delivered.galaxy.generalManifest.entries.map(entry => entry.kind), passed, summary: { seal: packageRecord?.sealState, revealed: packageRecord?.revealedContents?.id, gold: courier.gold, expectedPayment }, ...(passed ? {} : { reason: 'tampered package did not disclose contents and apply collateral settlement' }) }
+}
+
+const sealedPackageRecoveryTask = (): AutoplayTaskExecution => {
+  const galaxy = createGalaxy(53, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = galaxy.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M1 package offer is missing' }
+  const accepted = acceptSealedPackageContract(galaxy, contract.id, galaxy.activeCourierId)
+  const cached = loseSealedPackagesForCourier(accepted.galaxy, accepted.galaxy.activeCourierId, 'M1-Kestrel-connector', 1)
+  const afterDeath = loseGalaxyCourier(cached, cached.activeCourierId, 'task fixture courier loss', AUTOPLAY_TASK_FIXTURE_TIME + 1)
+  const recovered = recoverSealedPackageRouteCaches(afterDeath, 'M1-Kestrel-connector')
+  const packageRecord = recovered.galaxy.sealedPackages.find(candidate => candidate.contractId === contract.id)
+  const passed = recovered.changed && recovered.galaxy.sealedPackageContracts[0]?.status === 'failed' && packageRecord?.custody === 'atJomon' && packageRecord.sealState === 'intact' && recovered.galaxy.generalManifest.entries.some(entry => entry.kind === 'packageRecovered')
+  return { actions: ['accept:assigned-courier', 'death:connector', 'select:replacement-courier', 'operate:route-cache'], events: recovered.galaxy.generalManifest.entries.map(entry => entry.kind), passed, summary: { contractStatus: recovered.galaxy.sealedPackageContracts[0]?.status, seal: packageRecord?.sealState, custody: packageRecord?.custody }, ...(passed ? {} : { reason: 'courier loss did not preserve an intact recoverable sealed package' }) }
+}
+
 const ecologyTask = (): AutoplayTaskExecution => {
   const galaxy = createGalaxy(29, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
   const site = galaxy.sites[galaxy.activeSiteId]!
@@ -122,6 +162,9 @@ export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('voyager.transit-window', 'voyager', 85, 'ui.transit', transitTask, ['voyager.site-discovery']),
   task('voyager.contract-delivery', 'economy', 80, 'ui.contract-delivery', cargoDeliveryTask, ['voyager.site-discovery']),
   task('voyager.cargo-recovery', 'economy', 75, 'ui.cargo-recovery', cargoRecoveryTask, ['voyager.contract-delivery']),
+  task('voyager.sealed-package-intact', 'economy', 74, 'ui.sealed-package-intact', sealedPackageIntactTask, ['voyager.site-discovery']),
+  task('voyager.sealed-package-tampered', 'economy', 73, 'ui.sealed-package-tampered', sealedPackageTamperedTask, ['voyager.sealed-package-intact']),
+  task('voyager.sealed-package-recovery', 'lifecycle', 72, 'ui.sealed-package-recovery', sealedPackageRecoveryTask, ['voyager.sealed-package-tampered']),
   task('voyager.landing-conditions', 'ecology', 70, 'ui.landing-conditions', ecologyTask, ['voyager.site-discovery']),
   task('voyager.landing-settlement', 'lifecycle', 65, 'ui.landing-settlement', landingTask, ['voyager.landing-conditions']),
   task('voyager.sector-clock', 'lifecycle', 60, 'ui.sector-clock', sectorClockTask, ['voyager.landing-settlement'])
