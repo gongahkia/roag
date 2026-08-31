@@ -5,6 +5,8 @@
 
 [ASCII](https://en.wikipedia.org/wiki/ASCII)-art based [procedurally-generated](https://en.wikipedia.org/wiki/Procedural_generation) space-exploration [roguelike](https://en.wikipedia.org/wiki/Roguelike) that lives in the browser. 
 
+See [LORE.md](LORE.md) for the canonical world and content reference.
+
 ## Stack
 
 * Scripting: [TypeScript](https://www.typescriptlang.org/), [Canvas 2D API](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D), [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
