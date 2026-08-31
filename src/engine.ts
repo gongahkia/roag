@@ -10,6 +10,7 @@ export { chooseEncounter, encounterOptions, encounterTitle, openEncounter } from
 export type { EncounterOption } from './engine/encounters'
 export { advanceTransitWindow, newHero, newRun, newSeededCampaignRun, newTransitRun } from './engine/run'
 export { abandonGalaxyCargo, acceptGalaxyContract, applyGalaxySiteConditions, availableGalaxySites, createGalaxy, deliverGalaxyContracts, discoverLinkedSites, galaxyChronicle, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, loseGalaxyCourier, reconcileGalaxy, recordGalaxyLanding, recoverGalaxyRouteCaches, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, setCourierRoutine } from './engine/galaxy'
+export { abandonSealedPackage, acceptSealedPackageContract, addKestrelSealedPackageOffer, declineSealedPackageContract, deliverSealedPackage, expireSealedPackageContracts, inspectSealedPackage, loseSealedPackagesForCourier, markSealedPackageDestinationReached, offeredSealedPackageContract, recoverSealedPackageRouteCaches, refuseSealedPackage, sealedPackageCustodyLabel, sealedPackageExteriorForContract, sealedPackageForContract, sealedPackageHoldUsed, violateSealedPackageSeal } from './engine/sealed-packages'
 export type { ActionResult, GameEvent, GameEventType } from './engine/shared'
 export { event, hasEvent } from './engine/shared'
 export { initialRoute, navigate } from './engine/routing'

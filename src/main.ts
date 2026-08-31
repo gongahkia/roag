@@ -4,7 +4,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { abandonGalaxyCargo, acceptGalaxyContract, addCompanionLeads, advanceTransitWindow, applyGalaxySiteConditions, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, deliverGalaxyContracts, discoverLinkedSites, equipHubItem, event, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, loseGalaxyCourier, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recoverGalaxyRouteCaches, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceTransitWindow, applyGalaxySiteConditions, availableGalaxySites, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, cloneCompanions, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, equipHubItem, event, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectSealedPackage, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, reconcileGalaxy, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, saveGalaxySite, selectGalaxyCourier, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -475,7 +475,8 @@ function start(): void {
   if (campaign.cycle.completedCap) { hubNotice = 'NG++ is complete. No further escalation is available.'; route = { ...route, screen: 'hub' }; return }
   if (campaignContinuationPending(campaign.cycle)) { hubNotice = 'Confirm the next campaign tier at the route board first.'; route = { ...route, screen: 'hub' }; return }
   const biome = site?.biome ?? route.biome
-  campaign = { ...campaign, selectedBiome: biome, ...(galaxy && siteId ? { galaxy: setActiveGalaxySite(galaxy, siteId) } : {}) }
+  const activatedGalaxy = galaxy && siteId ? markSealedPackageDestinationReached(setActiveGalaxySite(galaxy, siteId), siteId) : undefined
+  campaign = { ...campaign, selectedBiome: biome, ...(activatedGalaxy ? { galaxy: activatedGalaxy } : {}) }
   hubNotice = undefined
   const snapshot = campaign.galaxy && siteId ? galaxySnapshot(campaign.galaxy, siteId) : undefined
   state = snapshot ?? newRun(route.heirSeed, biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier.identity.companionDeathMode)
@@ -509,9 +510,10 @@ function attachGalaxyAirlocks(game: RunState, galaxy: GalaxyState, siteId: strin
   if (!site || game.floor.airlocks?.length) return
   const destinations = site.links.filter(id => galaxy.sites[id]?.discovered)
   const candidates = game.floor.tiles.flatMap((tile, index) => tile.kind === 'floor' && Math.max(Math.abs(index % game.floor.width - game.floor.start.x), Math.abs(Math.floor(index / game.floor.width) - game.floor.start.y)) <= 8 ? [{ x: index % game.floor.width, y: Math.floor(index / game.floor.width) }] : [])
+  const returnPoint = candidates.find(point => Math.max(Math.abs(point.x - game.floor.start.x), Math.abs(point.y - game.floor.start.y)) === 1)
   const targets = [...destinations, 'voyager']
   game.floor.airlocks = targets.flatMap((destination, index) => {
-    const point = candidates[index * 2 + 1]
+    const point = destination === 'voyager' ? returnPoint : candidates[index * 2 + 1]
     if (!point) return []
     game.floor.tiles[point.y * game.floor.width + point.x]!.kind = 'airlock'
     return [{ id: `airlock:${siteId}:${destination}`, x: point.x, y: point.y, ...(destination === 'voyager' ? {} : { destinationSiteId: destination }), label: destination === 'voyager' ? 'Jomon Voyager return airlock' : `Route airlock to ${galaxy.sites[destination]!.name}` }]
@@ -887,7 +889,9 @@ function redraw(): void {
   canvas.dataset.notice = hubNotice ?? ''
   const campaignStatus = hubCampaignStatus(campaign.cycle)
   const galaxy = campaign.galaxy
-  canvas.setAttribute('aria-label', `Jomon Voyager living sector. ${galaxy ? `${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; sector day ${galaxy.sectorDay.toFixed(1)}.` : campaignStatus.accessibleLabel}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  const sealedContract = galaxy?.sealedPackageContracts[0]
+  canvas.dataset.sealedPackage = sealedContract?.status ?? 'none'
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; sector day ${galaxy.sectorDay.toFixed(1)}.` : campaignStatus.accessibleLabel}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -895,6 +899,60 @@ function redraw(): void {
 function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
+    if (action === 'custody') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const contract = galaxy?.sealedPackageContracts[0]
+      const close = () => { route = { ...route, hubAction: undefined, sealedPackageAction: undefined } }
+      if (!galaxy || !contract) { hubNotice = 'The Jomon custody terminal has no sealed package record.'; close(); return true }
+      const pending = route.sealedPackageAction
+      if (pending) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, sealedPackageAction: undefined }; hubNotice = 'Custody action cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms this custody action. C / ESC cancels.'; return true }
+        const result = pending === 'open'
+          ? violateSealedPackageSeal(galaxy, contract.id)
+          : pending === 'deliver'
+            ? heir ? deliverSealedPackage(galaxy, contract.id, heir) : { galaxy, changed: false, message: 'A courier record is required for settlement.' }
+            : pending === 'refuse'
+              ? refuseSealedPackage(galaxy, contract.id)
+              : abandonSealedPackage(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        route = { ...route, sealedPackageAction: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c') { close(); return true }
+      const command = key.toLowerCase()
+      if (command === 'i') {
+        const result = inspectSealedPackage(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'a') {
+        const result = acceptSealedPackageContract(galaxy, contract.id, galaxy.activeCourierId)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'd') {
+        const result = declineSealedPackageContract(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'o' || command === 'e' || command === 'r' || command === 'b') {
+        const sealedPackageAction = command === 'o' ? 'open' : command === 'e' ? 'deliver' : command === 'r' ? 'refuse' : 'abandon'
+        route = { ...route, sealedPackageAction }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'I inspect · A accept · D decline · O/E/R/B choose a custody action.'
+      return true
+    }
     if (action === 'crew') {
       if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
       const index = Number(key) - 1
@@ -1062,7 +1120,10 @@ function finish(won: boolean): void {
   if (!won && !checkpointDeath) {
     campaign = recordDeath(campaign, state, state.hero.name)
     if (campaign.galaxy) {
-      const abandoned = state.travel ? abandonGalaxyCargo(campaign.galaxy, state.travel.linkId, Math.max(0, Math.floor(state.hero.x / Math.max(1, state.floor.width / state.travel.chunkCount)))) : campaign.galaxy
+      const linkId = state.travel?.linkId ?? `landing:${route.siteId ?? campaign.galaxy.activeSiteId}`
+      const chunk = state.travel ? Math.max(0, Math.floor(state.hero.x / Math.max(1, state.floor.width / state.travel.chunkCount))) : 0
+      const cargoAbandoned = state.travel ? abandonGalaxyCargo(campaign.galaxy, linkId, chunk) : campaign.galaxy
+      const abandoned = loseSealedPackagesForCourier(cargoAbandoned, cargoAbandoned.activeCourierId, linkId, chunk)
       campaign = { ...campaign, galaxy: loseGalaxyCourier(abandoned, abandoned.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`) }
       hubNotice = `${state.hero.name}'s death is recorded. Another Voyager specialist can continue the sector.`
     } else {
@@ -1161,11 +1222,13 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
   if (hasEvent(events, 'connectorComplete')) { completeConnector(); redraw(); return }
   const cache = events.find(entry => entry.type === 'routeCache')
   if (cache?.id && campaign.galaxy) {
-    const recovered = recoverGalaxyRouteCaches(campaign.galaxy, cache.id)
+    const recoveredPackages = recoverSealedPackageRouteCaches(campaign.galaxy, cache.id)
+    const recovered = recoverGalaxyRouteCaches(recoveredPackages.galaxy, cache.id)
     campaign = { ...campaign, galaxy: recovered.galaxy }
     game.floor.routeCache = undefined
     if (game.travel) game.travel = { ...game.travel, routeCacheChunks: [] }
-    game.messages.unshift(recovered.message)
+    if (recovered.message !== 'No recoverable cargo cache is recorded on this route.') game.messages.unshift(recovered.message)
+    if (recoveredPackages.changed) game.messages.unshift(recoveredPackages.message)
   }
   const departure = events.find(entry => entry.type === 'routeDeparture')
   if (departure) {

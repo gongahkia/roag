@@ -2,7 +2,8 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { sealedPackageDefinition } from './package-content'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, visibleMapActor, type MapOverlays } from './renderer/map-overlays'
@@ -402,7 +403,7 @@ export class TerminalRenderer {
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil))
     this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
-    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.companionAction, route.companionControlMode)
+    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.sealedPackageAction, route.companionAction, route.companionControlMode)
     this.hubLog(hub, nearby, routeSteps)
   }
 
@@ -498,7 +499,7 @@ export class TerminalRenderer {
     this.cell(x + hero.x, y + hero.y, specialistGlyph, colors.text)
   }
 
-  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
+  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, sealedPackageAction?: ScreenRoute['sealedPackageAction'], companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
     if (action === 'continuation') {
       const campaign = hub?.campaign
       const carryover = hub?.carryover
@@ -522,6 +523,56 @@ export class TerminalRenderer {
       y++
       text('Dock at New Edo with C / ESC.', colors.dim)
       text('ENTER / E accepts a harder revised route.', colors.green)
+      return
+    }
+    if (action === 'custody') {
+      const galaxy = hub?.galaxy
+      this.box(49, 3, 46, 46, 'JOMON // SEALED PACKAGE CUSTODY')
+      if (!galaxy) { this.text(52, 8, 'Custody records unavailable.', colors.red); return }
+      const contract = galaxy.sealedPackageContracts[0]
+      if (!contract) { this.text(52, 8, 'No sealed package is listed.', colors.dim); this.text(52, 44, 'C / ESC return to carrier deck', colors.green); return }
+      const packageRecord = contract.packageId ? galaxy.sealedPackages.find(candidate => candidate.id === contract.packageId) : undefined
+      const definition = sealedPackageDefinition(contract.definitionId)
+      const exterior = sealedPackageExteriorForContract(galaxy, contract.id)
+      let y = 6
+      const text = (value: string, color = colors.text) => { this.text(52, y++, value.slice(0, 40), color) }
+      const wrapped = (value: string, color = colors.text) => this.wrap(value, 40).forEach(line => text(line, color))
+      text((definition?.title ?? contract.definitionId).toUpperCase(), colors.gold)
+      text(`STATUS: ${contract.status.toUpperCase()} · DAY ${galaxy.sectorDay.toFixed(1)}`, contract.status === 'accepted' ? colors.green : contract.status === 'offered' ? colors.text : colors.dim)
+      wrapped(`SENDER: ${contract.terms.sender}`)
+      wrapped(`INTERMEDIARY: ${contract.terms.intermediary}`, colors.dim)
+      wrapped(`RECIPIENT: ${contract.terms.recipient}`)
+      wrapped(`DESTINATION: ${contract.terms.destinationLabel}`, colors.gold)
+      text(`DEADLINE: DAY ${contract.terms.deadlineDay.toFixed(1)} · ${contract.terms.payment} CR`, colors.gold)
+      text(`MASS: ${contract.terms.declaredMassKg}KG · HOLD ${contract.terms.holdUnits}/12`, colors.text)
+      wrapped(`HANDLING: ${contract.terms.handlingClass}`, colors.dim)
+      wrapped(`PERMITTED: ${contract.terms.permittedInspection}`, colors.dim)
+      wrapped(`PROHIBITED: ${contract.terms.prohibitedActions.join('; ')}`, colors.red)
+      if (exterior) {
+        text('EXTERIOR READOUT', colors.gold)
+        wrapped(`${exterior.sealMark}; ${exterior.temperature}; ${exterior.powerDraw}`, colors.text)
+        wrapped(`${exterior.balance}; ${exterior.shielding}`, colors.dim)
+      }
+      if (packageRecord) {
+        text(`SEAL: ${packageRecord.sealState.toUpperCase()} · ${sealedPackageCustodyLabel(packageRecord.custody).toUpperCase()}`, packageRecord.sealState === 'intact' ? colors.green : colors.red)
+        if (packageRecord.revealedContents) {
+          text(`REVEALED: ${packageRecord.revealedContents.label.toUpperCase()}`, colors.red)
+          wrapped(packageRecord.revealedContents.knowledge, colors.text)
+          wrapped(packageRecord.revealedContents.danger, colors.red)
+        }
+      }
+      const recent = galaxy.generalManifest.entries.filter(entry => entry.contractId === contract.id).slice(-2)
+      if (recent.length) text(`MANIFEST: ${recent.map(entry => entry.kind.replace(/[A-Z]/g, match => ` ${match}`)).join(' / ')}`.slice(0, 40), colors.green)
+      y = Math.max(y + 1, 42)
+      if (sealedPackageAction) {
+        const label = sealedPackageAction === 'open' ? 'BREAK THE SEAL' : sealedPackageAction === 'deliver' ? 'SETTLE DELIVERY' : sealedPackageAction === 'refuse' ? 'REFUSE PACKAGE' : 'ABANDON PACKAGE'
+        text(`CONFIRM ${label}: ENTER`, colors.red)
+        text('C / ESC cancel', colors.dim)
+      } else if (contract.status === 'offered') text('I inspect · A accept & assign · D decline', colors.green)
+      else if (contract.status === 'accepted') {
+        text('I inspect · O open · B abandon · R refuse', colors.green)
+        text(contract.destinationReachedAtSectorDay === undefined ? 'Deliver after a physical Kestrel landing.' : 'E settle delivery at Kestrel.', contract.destinationReachedAtSectorDay === undefined ? colors.dim : colors.gold)
+      } else text('Contract closed. C / ESC return to deck.', colors.dim)
       return
     }
     if (action === 'crew') {

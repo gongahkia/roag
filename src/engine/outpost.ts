@@ -1,7 +1,7 @@
 import { MAP_HEIGHT, MAP_WIDTH, type Direction, type Point } from '../types'
 
 export type OutpostTile = 'space' | 'deck' | 'corridor' | 'bulkhead' | 'viewport' | 'airlock' | 'hull' | 'flightConsole'
-export type OutpostDestination = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter'
+export type OutpostDestination = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter' | 'custody'
 export interface OutpostDecoration { tile: number; x: number; y: number; scale?: number }
 export interface OutpostInteractable { destination: OutpostDestination; name: string; point: Point }
 export interface OutpostMap { width: number; height: number; tiles: OutpostTile[]; blocked: Set<number>; decorations: OutpostDecoration[]; interactables: OutpostInteractable[]; spawn: Point }
@@ -66,7 +66,8 @@ const buildOutpost = (): OutpostMap => {
       { destination: 'shop', name: 'habitat supply locker', point: { x: 17, y: 19 } },
       { destination: 'outfitter', name: 'engineering gear bay', point: { x: 30, y: 24 } },
       { destination: 'roster', name: 'science crew bay', point: { x: 38, y: 18 } },
-      { destination: 'crew', name: 'habitat duty terminal', point: { x: 20, y: 8 } }
+      { destination: 'crew', name: 'habitat duty terminal', point: { x: 20, y: 8 } },
+      { destination: 'custody', name: 'cargo custody terminal', point: { x: 42, y: 20 } }
     ]
   }
 }

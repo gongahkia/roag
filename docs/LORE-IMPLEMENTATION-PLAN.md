@@ -93,6 +93,14 @@ Implement **one sealed-package custody vertical slice on the existing Kestrel ro
 
 This is the smallest milestone that proves the new premise—carrying a sealed object creates durable history—without prematurely committing to faction generation, world streaming, art, or a combat-cadence change. It also exposes the required save-schema and UI requirements early enough to design subsequent phases safely.
 
+### M1 custody transition and migration contract
+
+M1 introduces a separately versioned sealed-package model alongside the existing generic cargo records. It does not reinterpret old `cargo`, `contracts`, or route-cache cargo: those records retain their current meaning and migration behavior. The M1 model contains authored package definitions, generated package-contract and package instances, explicit seal and custody state, and a versioned General Manifest.
+
+The only legal M1 flow is `offered → accepted → completed`, `failed`, or `expired`; `offered → declined` is terminal. Acceptance creates a package at Jomon and immediately records assignment to the active available courier. Exterior inspection is non-destructive and never reveals contents. Seal violation requires confirmation, changes `intact → opened`, records the consequence, and only then reveals the authored content record. A package can move from assigned custody to a route cache on courier death, then to Jomon custody on recovery; recovery does not reopen a failed contract. Delivery is an explicit terminal action at the contract destination, never an arrival side effect, and distinguishes intact from tampered settlement.
+
+Existing version-1 galaxy saves receive empty M1 package collections, an empty version-1 General Manifest, and empty package arrays on pre-existing route caches. This is additive and idempotent. M1 IDs and Manifest sequence numbers are derived from the campaign seed and persistent sequence state; no M1 state transition relies on wall-clock time or random runtime IDs.
+
 ## Required acceptance criteria
 
 - Player-facing carrier text uses Jomon and no final-destination framing.

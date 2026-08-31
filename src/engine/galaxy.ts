@@ -1,6 +1,7 @@
 import { biomeName } from '../content'
 import { rngFor } from '../rng'
 import type { Biome, CargoKind, GalaxyCourier, GalaxyCourierRoutine, GalaxyEvent, GalaxyFaction, GalaxyFactionId, GalaxyMarket, GalaxySite, GalaxySiteSnapshot, GalaxyState, Hero, RunState } from '../types'
+import { addKestrelSealedPackageOffer } from './sealed-packages'
 
 export const OUTER_SECTOR_COUNT = 20
 export const SITES_PER_SECTOR = 10
@@ -94,10 +95,10 @@ export const createGalaxy = (seed: number, primary: Hero, now = Date.now()): Gal
   const activeId = siteId(0, 0)
   const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'voyager specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [], hero: structuredClone(primary) }
   const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), rivalId: index === 1 ? courierId(3) : undefined, personalItems: [], hero: crewHero(primary, template, index) }))]
-  return { version: 1, seed, createdAt: now, lastSimulatedAt: now, lastClockAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [], cargo: [], contracts: [], routeCaches: [] }
+  return addKestrelSealedPackageOffer({ version: 1, seed, createdAt: now, lastSimulatedAt: now, lastClockAt: now, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: now, kind: 'discovery', siteId: activeId, headline: 'Voyager enters Helios Reach', detail: 'The Jomon Voyager has arrived at an uncharted frontier. Only Kestrel is reachable until its landing routes are surveyed.' }], siteSnapshots: {}, sharedStash: [], cargo: [], contracts: [], sealedPackageContracts: [], sealedPackages: [], generalManifest: { version: 1, nextSequence: 0, entries: [] }, routeCaches: [] })
 }
 
-export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, { ...copySite(site), market: structuredClone(site.market) }])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash], cargo: galaxy.cargo.map(cargo => ({ ...cargo })), contracts: galaxy.contracts.map(contract => ({ ...contract, cargo: { ...contract.cargo } })), routeCaches: galaxy.routeCaches.map(cache => ({ ...cache, cargo: cache.cargo.map(cargo => ({ ...cargo })) })) })
+export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, { ...copySite(site), market: structuredClone(site.market) }])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash], cargo: galaxy.cargo.map(cargo => ({ ...cargo })), contracts: galaxy.contracts.map(contract => ({ ...contract, cargo: { ...contract.cargo } })), sealedPackageContracts: galaxy.sealedPackageContracts.map(contract => ({ ...contract, terms: { ...contract.terms, prohibitedActions: [...contract.terms.prohibitedActions] } })), sealedPackages: galaxy.sealedPackages.map(packageRecord => ({ ...packageRecord, exterior: { ...packageRecord.exterior }, ...(packageRecord.revealedContents ? { revealedContents: { ...packageRecord.revealedContents } } : {}) })), generalManifest: { ...galaxy.generalManifest, entries: galaxy.generalManifest.entries.map(entry => ({ ...entry })) }, routeCaches: galaxy.routeCaches.map(cache => ({ ...cache, cargo: cache.cargo.map(cargo => ({ ...cargo })), packages: [...cache.packages] })) })
 
 const appendEvent = (galaxy: GalaxyState, event: GalaxyEvent): void => {
   galaxy.events.unshift(event)
@@ -336,13 +337,13 @@ export const abandonGalaxyCargo = (source: GalaxyState, linkId: string, chunk: n
   if (!cargo.length) return galaxy
   galaxy.cargo = galaxy.cargo.filter(candidate => !candidate.contractId)
   for (const contract of galaxy.contracts) if (cargo.some(candidate => candidate.contractId === contract.id)) contract.status = 'failed'
-  galaxy.routeCaches.push({ id: `cache:${linkId}:${chunk}:${now}`, linkId, chunk, cargo, recovered: false })
+  galaxy.routeCaches.push({ id: `cache:${linkId}:${chunk}:${now}`, linkId, chunk, cargo, packages: [], recovered: false })
   appendEvent(galaxy, { id: `event:${galaxy.seed}:cache:${linkId}:${now}`, at: now, kind: 'loss', headline: 'Contract cargo abandoned', detail: 'A recoverable route cache marks the last known position of the cargo.' })
   return galaxy
 }
 export const recoverGalaxyRouteCaches = (source: GalaxyState, linkId: string): { galaxy: GalaxyState; message: string } => {
   const galaxy = cloneGalaxy(source)
-  const caches = galaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered)
+  const caches = galaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered && cache.cargo.length)
   const cargo = caches.flatMap(cache => cache.cargo)
   const capacity = 12 - galaxy.cargo.reduce((total, entry) => total + entry.units, 0)
   const recovered = cargo.reduce((total, entry) => total + entry.units, 0)
@@ -364,7 +365,11 @@ export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
     const galaxy: GalaxyState = { ...legacy, lastClockAt: typeof (value as Record<string, unknown>).lastClockAt === 'number' ? legacy.lastClockAt : legacy.lastSimulatedAt, sharedStash: Array.isArray((value as Record<string, unknown>).sharedStash) ? [...legacy.sharedStash] : [] }
     galaxy.cargo ??= []
     galaxy.contracts ??= []
+    galaxy.sealedPackageContracts ??= []
+    galaxy.sealedPackages ??= []
+    galaxy.generalManifest ??= { version: 1, nextSequence: 0, entries: [] }
     galaxy.routeCaches ??= []
+    for (const cache of galaxy.routeCaches) cache.packages ??= []
     for (const site of Object.values(galaxy.sites)) {
       site.supplies ??= 45
       site.salvage ??= 45
