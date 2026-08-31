@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { sealedPackageDefinition } from './package-content'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
@@ -418,7 +418,7 @@ export class TerminalRenderer {
     this.wrap(galaxy ? knownSites.map(site => site.name).join(', ') : areaList(hub?.state.unlockedAreas ?? ['mine']), 43).slice(0, 2).forEach((line, index) => this.text(50, 33 + index, line, colors.text))
     if (galaxy) {
       const active = galaxy.couriers.find(courier => courier.id === galaxy.activeCourierId)
-      this.text(50, 36, `SECTOR DAY ${galaxy.sectorDay.toFixed(1)} · ${knownSites.length}/210 SITES KNOWN`, colors.green)
+      this.text(50, 36, `${formatRouteReckoning(galaxy.routeReckoning)} · ${knownSites.length}/210 SITES KNOWN`, colors.green)
       this.text(50, 37, `ACTIVE: ${active?.name ?? 'UNASSIGNED'}`.slice(0, 45), colors.text)
       this.text(50, 38, `CHRONICLE: ${galaxy.events[0]?.headline ?? 'quiet watch'}`.slice(0, 45), colors.gold)
       this.wrap(galaxy.events[0]?.detail ?? 'Walk to the flight console to chart a physical route.', 43).slice(0, 2).forEach((line, index) => this.text(50, 40 + index, line, colors.dim))
@@ -443,7 +443,7 @@ export class TerminalRenderer {
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
     this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
-    this.text(1, 53, 'ACT C interact · 1-6 service · ESC close', colors.dim)
+    this.text(1, 53, 'ACT C interact · M Manifest · 1-6 service', colors.dim)
     this.text(1, 54, `F auto ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F policy`, colors.dim)
     this.text(1, 55, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
   }
@@ -497,6 +497,28 @@ export class TerminalRenderer {
   }
 
   private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, sealedPackageAction?: ScreenRoute['sealedPackageAction'], companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
+    if (action === 'manifest') {
+      const galaxy = hub?.galaxy
+      this.box(49, 3, 46, 46, 'JOMON // GENERAL MANIFEST')
+      if (!galaxy) { this.text(52, 8, 'Manifest records unavailable.', colors.red); return }
+      this.text(52, 6, formatRouteReckoning(galaxy.routeReckoning).slice(0, 40), colors.gold)
+      this.text(52, 8, 'CONFIRMED MATERIAL HISTORY · NEWEST FIRST', colors.dim)
+      let y = 10
+      const entries = galaxy.generalManifest.entries.slice(-7).reverse()
+      if (!entries.length) this.text(52, y, 'No durable route events are recorded.', colors.dim)
+      for (const entry of entries) {
+        const subject = entry.siteId ? galaxy.sites[entry.siteId]?.name ?? entry.siteId : entry.contractId ?? entry.packageId ?? entry.courierId ?? entry.routeCacheId ?? 'Jomon'
+        const timestamp = formatRouteReckoning(entry.routeReckoning ?? galaxy.routeReckoning).replace('ROUTE ', 'R')
+        const lines = this.wrap(`${timestamp} · ${subject} · ${entry.detail}`, 40).slice(0, 3)
+        for (const line of lines) {
+          if (y >= 43) break
+          this.text(52, y++, line, entry.source === 'site' || entry.source === 'contract' ? colors.text : colors.dim)
+        }
+        if (y >= 43) break
+      }
+      this.text(52, 45, 'M / C / ENTER / ESC return to carrier', colors.green)
+      return
+    }
     if (action === 'continuation') {
       const campaign = hub?.campaign
       const carryover = hub?.carryover
@@ -534,13 +556,14 @@ export class TerminalRenderer {
       let y = 6
       const text = (value: string, color = colors.text) => { this.text(52, y++, value.slice(0, 40), color) }
       const wrapped = (value: string, color = colors.text) => this.wrap(value, 40).forEach(line => text(line, color))
+      const routeLabel = (routeReckoning: number) => formatRouteReckoning(routeReckoning).replace('ROUTE ', 'R').replace(' · WATCH ', ' W').replace(' · MARK ', ' M')
       text((definition?.title ?? contract.definitionId).toUpperCase(), colors.gold)
-      text(`STATUS: ${contract.status.toUpperCase()} · DAY ${galaxy.sectorDay.toFixed(1)}`, contract.status === 'accepted' ? colors.green : contract.status === 'offered' ? colors.text : colors.dim)
+      text(`STATUS: ${contract.status.toUpperCase()} · ${routeLabel(galaxy.routeReckoning)}`, contract.status === 'accepted' ? colors.green : contract.status === 'offered' ? colors.text : colors.dim)
       wrapped(`SENDER: ${contract.terms.sender}`)
       wrapped(`INTERMEDIARY: ${contract.terms.intermediary}`, colors.dim)
       wrapped(`RECIPIENT: ${contract.terms.recipient}`)
       wrapped(`DESTINATION: ${contract.terms.destinationLabel}`, colors.gold)
-      text(`DEADLINE: DAY ${contract.terms.deadlineDay.toFixed(1)} · ${contract.terms.payment} CR`, colors.gold)
+      text(`DUE: ${routeLabel(contract.terms.deadlineReckoning)} · ${contract.terms.payment} CR`, colors.gold)
       text(`MASS: ${contract.terms.declaredMassKg}KG · HOLD ${contract.terms.holdUnits}/12`, colors.text)
       wrapped(`HANDLING: ${contract.terms.handlingClass}`, colors.dim)
       wrapped(`PERMITTED: ${contract.terms.permittedInspection}`, colors.dim)
@@ -645,7 +668,7 @@ export class TerminalRenderer {
     const known = Object.values(galaxy.sites).filter(site => site.discovered).sort((left, right) => left.id.localeCompare(right.id))
     const selected = galaxy.sites[route.siteId ?? galaxy.activeSiteId] ?? galaxy.sites[galaxy.activeSiteId]!
     this.box(4, 3, 88, 51, 'JOMON VOYAGER // PHYSICAL ROUTE CHART')
-    this.text(8, 7, `SECTOR DAY ${galaxy.sectorDay.toFixed(1).padStart(5, ' ')} · ${galaxy.sectors.filter(sector => sector.discovered).length}/${galaxy.sectors.length} SECTORS CONTACTED`, colors.gold)
+    this.text(8, 7, `${formatRouteReckoning(galaxy.routeReckoning)} · ${galaxy.sectors.filter(sector => sector.discovered).length}/${galaxy.sectors.length} SECTORS CONTACTED`, colors.gold)
     this.text(8, 10, 'KNOWN APPROACHES', colors.green)
     known.slice(0, 12).forEach((site, index) => {
       const active = site.id === selected.id
