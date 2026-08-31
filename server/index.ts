@@ -95,8 +95,9 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
   const skipDieBets = source.skipDieBets === true || source.skipVoting === true;
+  const ruleset = source.ruleset === 'custom' ? 'custom' : 'party';
   if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
-  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipDieBets };
+  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipDieBets, ruleset };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -117,16 +118,20 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   if (source.type === 'use-power-up' && typeof source.powerUp === 'string' && powerUps.has(source.powerUp as never)) {
     const cardId = typeof source.cardId === 'string' && /^[a-zA-Z0-9:_-]{1,96}$/.test(source.cardId) ? source.cardId : undefined;
     const targetId = typeof source.targetId === 'string' && source.targetId.length <= 24 ? source.targetId : undefined;
+    const hazardId = typeof source.hazardId === 'string' && source.hazardId.length <= 96 ? source.hazardId : undefined;
     const portalExitId = typeof source.portalExitId === 'string' && source.portalExitId.length <= 80 ? source.portalExitId : undefined;
     const rawPlacement = source.placement;
     const placement = rawPlacement && typeof rawPlacement === 'object' && !Array.isArray(rawPlacement)
       && Number.isInteger((rawPlacement as Record<string, unknown>).x) && Number.isInteger((rawPlacement as Record<string, unknown>).y)
       ? { x: Number((rawPlacement as Record<string, unknown>).x), y: Number((rawPlacement as Record<string, unknown>).y) }
       : undefined;
-    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, cardId, targetId, portalExitId, placement };
+    return { type: 'use-power-up', powerUp: source.powerUp as PowerUp, cardId, targetId, hazardId, portalExitId, placement };
   }
   if (source.type === 'shop-vote-reroll' && typeof source.playerId === 'string' && typeof source.approve === 'boolean') return { type: 'shop-vote-reroll', playerId: source.playerId, approve: source.approve };
-  if (source.type === 'shop-buy' && typeof source.playerId === 'string' && typeof source.offerId === 'string' && (source.replaceCaddyId === undefined || (typeof source.replaceCaddyId === 'string' && CONTENT_BY_ID.get(source.replaceCaddyId as never)?.category === 'caddy'))) return { type: 'shop-buy', playerId: source.playerId, offerId: source.offerId, replaceCaddyId: source.replaceCaddyId as CaddyId | undefined };
+  if (source.type === 'shop-buy' && typeof source.playerId === 'string' && typeof source.offerId === 'string' && (source.replaceCaddyId === undefined || (typeof source.replaceCaddyId === 'string' && CONTENT_BY_ID.get(source.replaceCaddyId as never)?.category === 'caddy'))) {
+    const replaceCardId = typeof source.replaceCardId === 'string' && /^[a-zA-Z0-9:_-]{1,96}$/.test(source.replaceCardId) ? source.replaceCardId : undefined;
+    return { type: 'shop-buy', playerId: source.playerId, offerId: source.offerId, replaceCaddyId: source.replaceCaddyId as CaddyId | undefined, replaceCardId };
+  }
   if (source.type === 'shop-sell-caddy' && typeof source.playerId === 'string' && typeof source.caddyId === 'string' && CONTENT_BY_ID.get(source.caddyId as never)?.category === 'caddy') return { type: 'shop-sell-caddy', playerId: source.playerId, caddyId: source.caddyId as CaddyId };
   if (source.type === 'shop-skip' && typeof source.playerId === 'string') return { type: 'shop-skip', playerId: source.playerId };
   return undefined;
@@ -327,7 +332,10 @@ const scheduleAutomation = (room: StoredRoom) => {
     if (!decision) return;
     let next = latest.game;
     if (decision.secondWind) next = applyCommand(next, { type: 'arm-second-wind' });
-    if (decision.powerUp) next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement });
+    if (decision.powerUp) {
+      const hazardId = decision.powerUp.type === 'freeze' ? latest.game.course.hazards.find((hazard) => hazard.kind === 'sweeper' || hazard.kind === 'gate')?.id : undefined;
+      next = applyCommand(next, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, hazardId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement });
+    }
     updateGame(latest, applyCommand(next, { type: 'shoot', shot: decision.shot }));
   }, 650);
 };
@@ -394,7 +402,7 @@ const startRoom = (session: Session) => {
   if (session.playerId !== room.hostId) return report(session, 'only the host can start the room');
   if (room.phase !== 'lobby') return report(session, 'room already started');
   if (room.members.some((member) => ![...sessions].some((candidate) => candidate.roomCode === room.code && candidate.playerId === member.id && candidate.socket.readyState === WebSocket.OPEN))) return report(session, 'wait for every player to reconnect');
-  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipDieBets: room.config.skipDieBets === true });
+  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipDieBets: room.config.skipDieBets === true, ruleset: room.config.ruleset });
   game.players.filter((player) => player.kind === 'human').forEach((player, index) => { player.name = room.members[index]!.name; });
   room.phase = 'game';
   roomTimersFor(room).clockAt = now();
@@ -451,6 +459,7 @@ const loadRooms = () => {
         room.config.courseHeight ??= 14;
         const legacyConfig = room.config as LobbyConfig & { skipVoting?: boolean };
         room.config.skipDieBets ??= legacyConfig.skipVoting === true;
+        room.config.ruleset ??= 'custom';
         delete legacyConfig.skipVoting;
         if (room.game) room.game = normalizeGameState(room.game);
         rooms.set(room.code, room);

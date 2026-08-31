@@ -226,6 +226,7 @@ export interface RecipeMetadata {
   seed: string;
   resolvedReels: { biome: string; layout: string; rules: string; chaos?: ChaosModifier };
   contentIds: string[];
+  routeRoles?: RouteRoleAssignment[];
   courseHash?: string;
 }
 
@@ -304,6 +305,15 @@ export interface DieState {
 
 export interface CourseTransition {
   next: PlannedHole;
+}
+
+export interface HoleConnection {
+  fromHole: number;
+  toHole: number;
+  anchor: Point;
+  offset: Point;
+  rotation: 0 | 1 | 2 | 3;
+  courseHash: string;
 }
 
 export interface ItemPad {
@@ -518,6 +528,8 @@ export interface GameState {
   die?: DieState;
   coursePlan: PlannedHole[];
   transition?: CourseTransition;
+  /** Materialized transforms used to reconstruct the campaign atlas. */
+  connections?: HoleConnection[];
   emotes: EmoteEvent[];
   emoteSequence: number;
   cardSequence: number;
@@ -536,7 +548,7 @@ export interface GameState {
 }
 
 export interface InstrumentationEvent {
-  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete';
+  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete';
   hole: number;
   playerId?: string;
   detail: string;

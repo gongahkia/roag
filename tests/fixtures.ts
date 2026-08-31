@@ -1,4 +1,4 @@
-import { applyCommand, createGame, defaultConfig, tickTurn } from '../src/core/game';
+import { createGame, defaultConfig } from '../src/core/game';
 import { newBall } from '../src/core/physics';
 import type { Course, GameConfig, Surface, Tile } from '../src/core/types';
 
@@ -24,12 +24,17 @@ export const createLane = (surface: Surface = 'fairway', width = 80): Course => 
 };
 
 export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
-  let game = createGame({ ...defaultConfig(), ruleset: 'custom', seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options });
-  while (game.status === 'rolling') {
-    if (game.die && (game.die.phase === 'wagering' || game.die.phase === 'reroll-wagering')) for (const player of game.players) game = applyCommand(game, { type: 'ready-slot-spin', playerId: player.id });
-    game = tickTurn(game, 10);
-  }
+  const requestedRuleset = options.ruleset ?? 'custom';
+  // Arena fixtures overwrite the materialized course immediately. Use the
+  // bounded Party generator for that discarded setup, then restore the
+  // requested ruleset for the behavior the fixture is exercising.
+  const game = createGame({ ...defaultConfig(), seed: course.seed, holeCount: 1, humanCount: 1, botCount: 1, ...options, ruleset: requestedRuleset === 'custom' ? 'party' : requestedRuleset });
   game.course = course;
+  game.config.ruleset = requestedRuleset;
+  game.coursePlan = [];
+  game.die = undefined;
+  game.status = 'playing';
+  game.turn = { playerIndex: 0, secondsLeft: game.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
   game.players.forEach((player) => { player.ball = newBall(course); });
   return game;
 };

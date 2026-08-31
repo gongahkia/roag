@@ -25,6 +25,16 @@ Run the verification suite with `npm run check`.
 
 Capture a randomly seeded comparison set with `npm run capture:levels -- --count 25`. The command writes PNGs and a seed manifest under `output/levels/`; set `BROWSER_BIN` when Chromium is not available as `chromium-browser`.
 
+## Party Rules vertical slice
+
+Ordinary local play now starts in the `Party Rules` preset: a deliberately constrained nine-hole hot-seat campaign built to test the core social loop—**the slot creates the problem, the player creates the outcome, and the group creates the story**. Existing content remains available through the programmatic `custom` ruleset for experiments and legacy saves.
+
+Party Rules uses three representative biomes—Speedway, Quarry, and Carnival—and three authored course grammars—Ribbon, Fork, and Courtyard. Every generated hole marks a safe line, a skill line, and a conflict line. The slot machine gives each golfer one influence choice before they ready the lever, permits at most one chaos reel, and reveals a concise player-facing course headline rather than raw terrain parameters.
+
+The default Trick Card pool is exactly: Turbo, Shield, Heavy, Airhorn, Freeze, Popper Pad, Rescue Drone, and Glider. Players hold at most two cards and use one per shot. Effects expire on that shot or at the end of the hole; Freeze selects a moving gate or sweeper for the owner’s next shot. Between holes, the clubhouse offers exactly three Trick Cards, supports replacing a held card, and lets players pass immediately.
+
+Each resolved hole records a versioned materialized recipe containing the generator version, seed, stopped reel IDs, chaos modifier, content identifiers, route-role assignments, and a stable course hash. Completed holes remain visibly stitched into the final course, while Party Rules keeps gameplay systems active only on the current hole. The in-game intel drawer exposes the compact recipe hash and local development instrumentation records recipes, slot actions, shot types, card use, collisions, recoveries, and per-hole strokes.
+
 ## Game flow and modes
 
 The clubhouse is the main page. A couch campaign supports one or more people passing a single device, with AI able to fill unused seats. Local multiplayer requires at least two human golfers on that same shared screen; play remains turn-based, so it uses one active-ball camera rather than split-screen. The clubhouse can also create and join an online lobby. A lobby displays the shareable six-character room code, player presence, selected seed/rules, AI settings, and the host-only start action. New online rooms require a host-chosen passphrase; only a salted passphrase hash and reconnect-token hashes are persisted. Once a room starts, the WebSocket server is authoritative for player commands, slot timers and wagers, bots, course transitions, pause state, and scores. Clients reconnect automatically with their browser-session token. Inactive rooms are removed after seven days; spectators and mid-game joins are intentionally unsupported.

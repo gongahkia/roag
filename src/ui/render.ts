@@ -354,6 +354,29 @@ const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, off
   }
 };
 
+const routeRoleColor: Record<NonNullable<Course['routeRoles']>[number]['role'], string> = { safe: '#69c779', skill: '#f0b34d', conflict: '#e76c72' };
+
+/** Small on-course labels expose the route choice without making players inspect recipe values. */
+const drawRouteRoles = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
+  if (!course.routeRoles?.length) return;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.font = `${Math.max(8, metrics.tileWidth * .14)}px Inter, ui-sans-serif, system-ui, sans-serif`;
+  course.routeRoles.forEach((assignment) => {
+    const point = assignment.marker;
+    const center = withOffset(project(point.x + .5, point.y + .5, floorHeightAt(course, point.x + .5, point.y + .5) + .14, metrics), offset);
+    const text = assignment.role.toUpperCase();
+    const width = context.measureText(text).width + 8;
+    context.fillStyle = '#172419d9';
+    context.fillRect(center.x - width / 2, center.y - 7, width, 13);
+    context.strokeStyle = routeRoleColor[assignment.role];
+    context.lineWidth = 1;
+    context.strokeRect(center.x - width / 2, center.y - 7, width, 13);
+    context.fillStyle = '#ffffff';
+    context.fillText(text, center.x, center.y);
+  });
+};
+
 const heightAt = (course: Course, point: Point) => floorHeightAt(course, point.x + .5, point.y + .5);
 
 export interface AimPathPoint { x: number; y: number; z: number; }
@@ -563,16 +586,24 @@ const drawCourseFeatures = (context: CanvasRenderingContext2D, course: Course, o
 const gadgetGlyph: Record<GadgetKind, string> = { 'popper pad': '↑', 'snare patch': '⌁', 'blast mine': '✹', 'slick patch': '≋', 'sky spring': '⌃', 'gravity well': '◉', 'mirror plate': '◇', 'toll booth': '$', 'control inverter': '↻', 'portal gun': '◉' };
 const gadgetColor: Record<GadgetKind, string> = { 'popper pad': '#e7a64f', 'snare patch': '#6b75c9', 'blast mine': '#d8615d', 'slick patch': '#74cdd5', 'sky spring': '#a987ec', 'gravity well': '#745ac4', 'mirror plate': '#9ab5c9', 'toll booth': '#d1a447', 'control inverter': '#ca526f', 'portal gun': '#5bb1be' };
 
-const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets: readonly Gadget[], offset: Point, metrics: ProjectionMetrics) => {
+const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets: readonly Gadget[], players: readonly Player[], offset: Point, metrics: ProjectionMetrics) => {
   gadgets.forEach((gadget) => {
     const center = withOffset(project(gadget.point.x + .5, gadget.point.y + .5, heightAt(course, gadget.point) + .08, metrics), offset);
     const radius = metrics.tileWidth * .15;
+    const ownerColor = players.find((player) => player.id === gadget.ownerId)?.color ?? '#ffffff';
+    context.beginPath();
+    context.arc(center.x, center.y, radius * 1.8, 0, Math.PI * 2);
+    context.strokeStyle = `${ownerColor}b3`;
+    context.lineWidth = 1.2;
+    context.setLineDash([3, 2]);
+    context.stroke();
+    context.setLineDash([]);
     context.beginPath();
     context.arc(center.x, center.y, radius, 0, Math.PI * 2);
     context.fillStyle = gadgetColor[gadget.kind];
     context.fill();
-    context.strokeStyle = '#ffffff';
-    context.lineWidth = 1.3;
+    context.strokeStyle = ownerColor;
+    context.lineWidth = 2;
     context.stroke();
     context.font = `${Math.max(8, metrics.tileWidth * .17)}px Inter, ui-sans-serif, system-ui, sans-serif`;
     context.fillStyle = '#18221b';
@@ -776,10 +807,11 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.globalAlpha = worldOpacity;
     tiles.forEach((tile) => drawSurfaceMarker(context, tile, offset, metrics));
     drawRouteMarkers(context, course, offset, metrics);
+    drawRouteRoles(context, course, offset, metrics);
     drawPortals(context, course, offset, metrics);
     drawCourseFeatures(context, course, offset, metrics);
     if (showItems) drawItemPads(context, course, offset, metrics);
-    drawGadgets(context, course, gadgets, offset, metrics);
+    drawGadgets(context, course, gadgets, players, offset, metrics);
     if (placement) drawPlacement(context, course, placement, offset, metrics);
     drawHazards(context, course, hazardElapsedMs, offset, metrics, phaseCount);
     if (aim) {

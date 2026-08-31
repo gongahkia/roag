@@ -265,10 +265,11 @@ describe('clubhouse economy and reality cards', () => {
     const course = arena('reality-wall');
     course.tiles[course.tee.y * course.width + (course.tee.x + 1)] = { surface: 'wall', height: 0 };
     expect(simulateShot(course, newBall(course), { angle: 0, power: 2 }, 3, { reality: 'wall is cup' }).holed).toBe(true);
-    const player = gameOn(course, { botCount: 0 }).players[0]!;
+    const game = gameOn(course, { botCount: 0 });
+    const player = game.players[0]!;
     player.controlInverted = 1;
     expect(physicsModifiersFor(player).mass).toBeGreaterThan(0);
-    const reversed = previewShot({ ...gameOn(course, { botCount: 0 }), players: [player], turn: { playerIndex: 0, secondsLeft: 24, shotInFlight: false } }, { angle: 0, power: 2 });
+    const reversed = previewShot({ ...game, players: [player], turn: { playerIndex: 0, secondsLeft: 24, shotInFlight: false } }, { angle: 0, power: 2 });
     expect(reversed?.at(-1)?.[0].x).toBeLessThan(player.ball.x);
   });
 });
@@ -329,6 +330,8 @@ describe('public voting flow', () => {
     expect(game.status).toBe('shopping');
     game = resolveShop(game);
     expect(game.status).toBe('rolling');
+    // The assertion is about reset semantics, not full-catalog decoration.
+    game.config.ruleset = 'party';
     game = resolveDie(game);
     expect(game.status).toBe('transitioning');
     expect(game.transition?.next.id).toBe(second.id);
@@ -372,7 +375,7 @@ describe('shared course slot flow', () => {
   });
 
   it('loads generated stops and duplicate tickets before every shared spin', () => {
-    let game = createGame({ ...defaultConfig(), seed: 'weighted-die', holeCount: 1, humanCount: 1, botCount: 0 });
+    let game = createGame({ ...defaultConfig(), ruleset: 'custom', seed: 'weighted-die', holeCount: 1, humanCount: 1, botCount: 0 });
     game.players[0]!.cash = 40;
     const reelId = game.die!.reels[0]!.id;
     const stopId = game.die!.reels[0]!.stops[0]!.id;
@@ -449,12 +452,16 @@ describe('shared course slot flow', () => {
     game.players[0]!.cash = 20;
     game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
     game = tickTurn(game, 2);
+    // This fixture tests Custom Rules' permissive reroll funding, without
+    // spending the test budget materializing an unrelated full-catalog hole.
+    game.config.ruleset = 'custom';
     game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
     game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
     game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
     expect(game.die?.phase).toBe('reroll-wagering');
     game = applyCommand(game, { type: 'add-chaos-reel', playerId: 'human-0' });
     expect(game.die?.reels.filter((reel) => reel.kind === 'chaos')).toHaveLength(1);
+    game.config.ruleset = 'party';
     game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
     game = tickTurn(game, 2);
     expect(game.die?.revealed?.plan.label).toContain('·');

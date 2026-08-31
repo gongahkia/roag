@@ -1,10 +1,10 @@
-import { courseHashFor, defaultHoleRules, defaultTerrainSettings, generateCourse, generateCoursePackages } from './generator';
+import { courseHashFor, defaultHoleRules, defaultTerrainSettings, generateCourse, generateCoursePackages, validateCourse } from './generator';
 import { expandCourseAtCup, type CourseExpansion } from './campaign';
 import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
-import { GENERATOR_VERSION, RECIPE_SCHEMA_VERSION, rulesetFor } from './rulesets';
+import { GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, rulesetFor } from './rulesets';
 import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type CoursePackage, type DieState, type GameConfig, type GameState, type PlannedHole, type Player, type SlotReel, type SlotReelKind, type SlotStop, type SlotWager } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
@@ -125,6 +125,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     player.upgrades = player.caddies.map((caddy) => caddy.id);
   });
   state.coursePlan ??= [];
+  state.connections ??= [];
   if (hadLegacyVotingConfig && !state.config.skipDieBets) state.coursePlan = state.coursePlan.slice(0, state.hole);
   state.coursePlan.forEach((plan) => normalizeTerrain(plan.recipe.terrain));
   if (state.status !== 'rolling' && state.coursePlan.length < state.hole) {
@@ -151,7 +152,7 @@ const clonePlan = (plan: PlannedHole): PlannedHole => ({
   recipe: {
     terrain: { ...plan.recipe.terrain },
     rules: { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] },
-    metadata: plan.recipe.metadata ? { ...plan.recipe.metadata, resolvedReels: { ...plan.recipe.metadata.resolvedReels }, contentIds: [...plan.recipe.metadata.contentIds] } : undefined,
+    metadata: plan.recipe.metadata ? { ...plan.recipe.metadata, resolvedReels: { ...plan.recipe.metadata.resolvedReels }, contentIds: [...plan.recipe.metadata.contentIds], routeRoles: plan.recipe.metadata.routeRoles?.map((assignment) => ({ ...assignment, marker: { ...assignment.marker }, points: assignment.points.map((point) => ({ ...point })) })) } : undefined,
   },
 });
 
@@ -190,6 +191,23 @@ const activateExpansion = (state: GameState, plan: PlannedHole) => {
   const expansion = expansionForTransition(state);
   if (!expansion) return;
   state.course = expansion.course;
+  if (rulesetFor(state.config).id === 'party') {
+    // The campaign atlas remains visible, while only the newly attached hole
+    // continues simulating hazards, pads, portals, and biome interactions.
+    const currentPrefix = `hole-${plan.id}:`;
+    state.course.hazards = state.course.hazards.filter((hazard) => hazard.id.startsWith(currentPrefix));
+    state.course.features = state.course.features.filter((feature) => feature.id.startsWith(currentPrefix));
+    state.course.portals = state.course.portals?.filter((portal) => portal.id.startsWith(currentPrefix));
+    state.course.itemPads = state.course.itemPads.filter((pad) => pad.id.startsWith(currentPrefix));
+  }
+  state.connections = [...(state.connections ?? []), {
+    fromHole: state.hole - 1,
+    toHole: state.hole,
+    anchor: { ...expansion.anchor },
+    offset: { ...expansion.offset },
+    rotation: expansion.rotation,
+    courseHash: courseHashFor(expansion.course),
+  }];
   state.activeReality = state.queuedReality;
   state.queuedReality = undefined;
   state.holeRules = { ...plan.recipe.rules, sharedBoons: [...plan.recipe.rules.sharedBoons] };
@@ -355,11 +373,17 @@ const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined 
         generatorVersion: GENERATOR_VERSION,
         seed: courseSeed,
         resolvedReels: { biome: biome.id, layout: layout.id, rules: rules.id, chaos: chaos[0]?.chaos },
-        contentIds: [],
+        contentIds: rulesetFor(state.config).id === 'party' ? [...PARTY_TRICK_CARDS] : [],
       },
     },
   };
-  planned.recipe.metadata!.courseHash = courseHashFor(courseForPlan(planned));
+  const materializedCourse = courseForPlan(planned);
+  const validation = validateCourse(materializedCourse, holeRules.hazardPhaseCount);
+  if (!validation.valid) {
+    recordInstrumentation(state, { type: 'generation-failure', hole: state.hole, detail: validation.failures.join('; ') });
+  }
+  planned.recipe.metadata!.routeRoles = materializedCourse.routeRoles?.map((assignment) => ({ ...assignment, marker: { ...assignment.marker }, points: assignment.points.map((point) => ({ ...point })) }));
+  planned.recipe.metadata!.courseHash = courseHashFor(materializedCourse);
   return planned;
 };
 
@@ -392,6 +416,7 @@ export const createGameState = (config: GameConfig): GameState => {
     coursePhase: 0,
     die,
     coursePlan,
+    connections: [],
     emotes: [],
     emoteSequence: 0,
     cardSequence: 0,
@@ -420,6 +445,7 @@ export const cloneGameState = (state: GameState): GameState => ({
   } : undefined,
   coursePlan: (state.coursePlan ?? []).map(clonePlan),
   transition: state.transition ? { next: clonePlan(state.transition.next) } : undefined,
+  connections: state.connections?.map((connection) => ({ ...connection, anchor: { ...connection.anchor }, offset: { ...connection.offset } })),
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })),
   gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),

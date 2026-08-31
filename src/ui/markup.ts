@@ -92,8 +92,9 @@ export const renderControlsMarkup = (view: ViewModel) => {
   const heldItems = heldCards.map((card) => card.id) as (PowerUp | ChronoCard)[];
   const tileCards = new Set<PowerUp | ChronoCard>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun', 'bunker buster']);
   const targets = state.players.filter((candidate) => !candidate.ball.complete);
-  const targetSelector = heldItems.some((powerUp) => !tileCards.has(powerUp) && powerUp !== 'freeze' && (ruleset.id !== 'party' || !['turbo', 'shield', 'heavy', 'rescue drone', 'glider'].includes(powerUp))) && targets.length
-    ? `<label>play on <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targets.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}${candidate.id === player.id ? ' (self)' : ''}</option>`).join('')}</select></label>`
+  const targetCandidates = ruleset.id === 'party' ? targets.filter((candidate) => candidate.id !== player.id) : targets;
+  const targetSelector = heldItems.some((powerUp) => !tileCards.has(powerUp) && powerUp !== 'freeze' && (ruleset.id !== 'party' || !['turbo', 'shield', 'heavy', 'rescue drone', 'glider'].includes(powerUp))) && targetCandidates.length
+    ? `<label>play on <select id="powerup-target" ${disabled ? 'disabled' : ''}>${targetCandidates.map((candidate) => `<option value="${candidate.id}">${escapeHtml(candidate.name)}${candidate.id === player.id ? ' (self)' : ''}</option>`).join('')}</select></label>`
     : '';
   const freezeSelector = heldItems.includes('freeze') && state.course.hazards.some((hazard) => hazard.kind === 'sweeper' || hazard.kind === 'gate')
     ? `<label>freeze obstacle <select id="hazard-target" ${disabled ? 'disabled' : ''}>${state.course.hazards.filter((hazard) => hazard.kind === 'sweeper' || hazard.kind === 'gate').map((hazard) => `<option value="${hazard.id}">${escapeHtml(hazard.kind)} ${escapeHtml(hazard.id)}</option>`).join('')}</select></label>`
@@ -106,10 +107,12 @@ export const renderControlsMarkup = (view: ViewModel) => {
     ${targetSelector}${freezeSelector}
     ${heldCards.length ? heldCards.map((card) => {
       const definition = definitionFor(card.id as never);
-      const partyDetail = ruleset.id === 'party' && card.id in trickCardDetails ? trickCardDetails[card.id as keyof typeof trickCardDetails];
+      const partyDetail = ruleset.id === 'party' && card.id in trickCardDetails ? trickCardDetails[card.id as keyof typeof trickCardDetails] : undefined;
       const detail = partyDetail ? `${partyDetail.target} · ${partyDetail.duration}` : card.duration ? `${card.duration.amount} ${card.duration.unit}${card.duration.amount === 1 ? '' : 's'}` : definition?.timing === 'putt' ? 'next putt' : definition?.timing === 'immediate' ? 'instant' : 'item';
       const role = definition?.polarity && definition.polarity !== 'neutral' ? `${definition.polarity} · ` : '';
-      return `<button data-use-powerup="${escapeHtml(card.id)}" data-card-id="${escapeHtml(card.instanceId ?? '')}" ${cardDisabled ? 'disabled' : ''}>use ${escapeHtml(card.id)} <small>${role}${detail}</small>${card.id === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`;
+      const unavailable = (card.id === 'freeze' && !state.course.hazards.some((hazard) => hazard.kind === 'sweeper' || hazard.kind === 'gate'))
+        || (ruleset.id === 'party' && card.id === 'airhorn' && !targets.some((candidate) => candidate.id !== player.id));
+      return `<button data-use-powerup="${escapeHtml(card.id)}" data-card-id="${escapeHtml(card.instanceId ?? '')}" ${(cardDisabled || unavailable) ? 'disabled' : ''}>use ${escapeHtml(card.id)} <small>${role}${detail}</small>${card.id === player.inventory ? ` <kbd>${keyLabel(bindingFor(preferences, 'usePowerUp'))}</kbd>` : ''}</button>`;
     }).join('') : ''}
     ${placement ? `<p class="placement-status ${placement.valid ? 'valid' : 'invalid'}">${powerUpIcon[placement.kind]} ${escapeHtml(placement.kind)} · ${placement.point ? placement.valid ? placement.confirmed ? 'click again or press Enter to place' : 'click this tile to lock the preview' : 'choose an open playable tile' : 'click a tile to preview'} <button data-cancel-placement>cancel</button></p>` : ''}
     ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}

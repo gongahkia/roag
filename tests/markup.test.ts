@@ -72,7 +72,7 @@ describe('course slot machine markup', () => {
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(local).toContain('data-quick-start-local');
     expect(local).toContain('class="home-actions"');
-    expect(local).toContain('start campaign');
+    expect(local).toContain('start local game');
     expect(local).toContain('seeded automatic slot results');
     expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
     expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
@@ -122,7 +122,10 @@ describe('course slot machine markup', () => {
   });
 
   it('renders visible player targets, instance durations, and attached strategy cards without blocking the putt', () => {
+    // The old catalog is only needed for this rendering fixture. Build the fast
+    // Party Rules course, then expose the legacy card controls under test.
     const state = createGame({ ...defaultConfig(), seed: 'strategy-markup', humanCount: 1, botCount: 1 });
+    state.config.ruleset = 'custom';
     state.status = 'playing';
     state.players[0]!.pockets = [{ id: 'tailwind', source: 'shop', instanceId: 'tailwind-1' }];
     state.players[1]!.attachments = [{ id: 'effect-1', cardId: 'windbreak', effect: 'windbreak', casterId: state.players[0]!.id, polarity: 'boon', unit: 'round', remaining: 2 }];
@@ -138,7 +141,7 @@ describe('course slot machine markup', () => {
   });
 
   it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipDieBets: true });
+    const state = createGame({ ...defaultConfig(), ruleset: 'custom', seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipDieBets: true });
     openShop(state);
     state.players[0]!.caddies = [{ id: 'heavy ball', stacks: 2 }];
     state.players[0]!.pockets = [{ id: 'future sight', source: 'shop', instanceId: 'future-sight-1', duration: { unit: 'round', amount: 2 } }];

@@ -90,6 +90,7 @@ const finishHole = (state: GameState) => {
     player.total += Math.max(1, Math.round(strokes * state.holeRules.scoreMultiplier));
     recordInstrumentation(state, { type: 'hole-complete', hole: state.hole, playerId: player.id, detail: 'strokes', value: strokes });
   }
+  recordInstrumentation(state, { type: 'hole-duration', hole: state.hole, detail: 'active seconds', value: state.hazardElapsedMs / 1_000 });
   if (state.hole >= state.config.holeCount) {
     state.status = 'finished';
     addMessage(state, 'nine holes scored — campaign complete');
@@ -128,9 +129,11 @@ const advanceTurn = (state: GameState) => {
 export const resolveShot = (state: GameState, shot: ShotCommand) => {
   if (state.status !== 'playing' || state.paused || state.turn.shotInFlight) return;
   const player = activePlayer(state);
+  const turnSeconds = Math.max(0, state.holeRules.timerSeconds - state.turn.secondsLeft);
   if (player.frozenTurns) {
     player.frozenTurns -= 1;
     player.twoPuttsArmed = undefined;
+    recordInstrumentation(state, { type: 'turn-duration', hole: state.hole, playerId: player.id, detail: 'frozen', value: turnSeconds });
     addMessage(state, `${player.name} is frozen solid`);
     advanceLegacyCoursePhase(state);
     advanceTurn(state);
@@ -156,7 +159,12 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   player.cushionMapped = undefined;
   player.frozenObstacleId = undefined;
   applySimulation(state, playerIndex, result);
-  recordInstrumentation(state, { type: 'shot', hole: state.hole, playerId: player.id, detail: shot.kind ?? 'putt', value: shot.power });
+  const routeRole = state.course.routeRoles?.reduce<{ role: string; distance: number } | undefined>((closest, assignment) => {
+    const distance = Math.hypot(before.x - (assignment.marker.x + .5), before.y - (assignment.marker.y + .5));
+    return !closest || distance < closest.distance ? { role: assignment.role, distance } : closest;
+  }, undefined)?.role ?? 'unknown';
+  recordInstrumentation(state, { type: 'turn-duration', hole: state.hole, playerId: player.id, detail: 'shot', value: turnSeconds });
+  recordInstrumentation(state, { type: 'shot', hole: state.hole, playerId: player.id, detail: `${shot.kind ?? 'putt'}:${routeRole}`, value: shot.power });
   result.collidedOtherIndexes.forEach((otherIndex) => {
     const target = state.players.filter((_, index) => index !== playerIndex)[otherIndex];
     if (!target) return;
@@ -231,6 +239,7 @@ export const tickTurn = (current: GameState, elapsedSeconds: number): GameState 
   if (state.turn.secondsLeft === 0) {
     const player = activePlayer(state);
     player.twoPuttsArmed = undefined;
+    recordInstrumentation(state, { type: 'turn-duration', hole: state.hole, playerId: player.id, detail: 'timeout', value: state.holeRules.timerSeconds });
     addMessage(state, `${player.name} timed out`);
     advanceLegacyCoursePhase(state);
     advanceTurn(state);

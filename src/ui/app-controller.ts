@@ -353,6 +353,7 @@ export const startApp = (app: HTMLElement) => {
   const readConfig = (prefix: 'local' | 'online'): LobbyConfig => {
     const fallback = lobbyConfigFromGame(config);
     const rawSkill = app.querySelector<HTMLSelectElement>(`#${prefix}-skill`)?.value;
+    const ruleset = app.querySelector<HTMLSelectElement>(`#${prefix}-ruleset`)?.value === 'custom' ? 'custom' : 'party';
     return {
       seed: readText(app, `${prefix}-seed`, fallback.seed),
       holeCount: readNumber(app, `${prefix}-holes`, fallback.holeCount),
@@ -362,6 +363,7 @@ export const startApp = (app: HTMLElement) => {
       botCount: readNumber(app, `${prefix}-bots`, fallback.botCount),
       botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, `${prefix}-skill`, typeof fallback.botSkill === 'number' ? fallback.botSkill : 5),
       skipDieBets: false,
+      ruleset,
     };
   };
   const launchLocalMatch = (quickStart: boolean) => {
@@ -397,7 +399,7 @@ export const startApp = (app: HTMLElement) => {
     onlinePlayerId = undefined;
     pendingReconnectToken = undefined;
     onlineConnected = false;
-    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipDieBets: selected.skipDieBets };
+    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipDieBets: selected.skipDieBets, ruleset: selected.ruleset };
     drawer = undefined;
     overlay = undefined;
     liveEmotes = [];
@@ -808,7 +810,10 @@ export const startApp = (app: HTMLElement) => {
       const decision = botMove(state);
       if (!decision) return;
       if (decision.secondWind) setState(applyCommand(state, { type: 'arm-second-wind' }));
-      if (decision.powerUp) setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement }));
+      if (decision.powerUp) {
+        const hazardId = decision.powerUp.type === 'freeze' ? state.course.hazards.find((hazard) => hazard.kind === 'sweeper' || hazard.kind === 'gate')?.id : undefined;
+        setState(applyCommand(state, { type: 'use-power-up', powerUp: decision.powerUp.type, cardId: decision.powerUp.cardId, targetId: decision.powerUp.targetId, hazardId, portalExitId: decision.powerUp.portalExitId, placement: decision.powerUp.placement }));
+      }
       playShot((decision.secondWind || decision.powerUp ? botMove(state)?.shot : undefined) ?? decision.shot);
     }, preferences.reducedMotion ? 180 : 650);
   };
