@@ -338,7 +338,7 @@ function createCourierFromDraft(): void {
   courierCreationPending = true
   courierDraft = undefined
   route = { screen: 'loading', biome: campaign.selectedBiome }
-  loading = { kind: 'trailhead', phase: 'loading', startedAt }
+  loading = { kind: 'trailhead', startedAt }
   audio.play([event('menu')])
   redraw()
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
@@ -359,7 +359,7 @@ function createCourierFromDraft(): void {
     successorParentId = undefined
     persistCourier(courier, id)
     const loadingStartedAt = performance.now()
-    loading = { kind: 'trailhead', phase: 'loading', startedAt: loadingStartedAt }
+    loading = { kind: 'trailhead', startedAt: loadingStartedAt }
     redraw()
     window.setTimeout(() => {
       if (!courierCreationPending) return
@@ -536,21 +536,17 @@ function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | Re
   storyExit = 'hub'
 }
 
-function beginLoadingTransition(nextRoute: ScreenRoute, transition: Omit<LoadingState, 'phase' | 'startedAt'>, onComplete: () => void): void {
+function beginLoadingTransition(nextRoute: ScreenRoute, transition: Omit<LoadingState, 'startedAt'>, onComplete: () => void): void {
   route = nextRoute
-  loading = { ...transition, phase: 'fade', startedAt: performance.now() }
+  const startedAt = performance.now()
+  loading = { ...transition, startedAt }
   redraw()
   window.setTimeout(() => {
-    if (loading?.phase !== 'fade') return
-    loading = { ...transition, phase: 'loading', startedAt: performance.now() }
+    if (loading?.startedAt !== startedAt) return
+    loading = undefined
+    onComplete()
     redraw()
-    window.setTimeout(() => {
-      if (loading?.phase !== 'loading') return
-      loading = undefined
-      onComplete()
-      redraw()
-    }, 1400)
-  }, 350)
+  }, 1750)
 }
 
 function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {

@@ -187,7 +187,7 @@ export class TerminalRenderer {
     else if (route.screen === 'hub') this.hub(route, hub, now)
     else if (route.screen === 'sector') this.sector(route, hub)
     else if (route.screen === 'area') this.area(route)
-    else if (route.screen === 'loading') this.loading(state, loading, now)
+    else if (route.screen === 'loading') this.loading(loading, now)
     else if (route.screen === 'transit' && transit) this.transit(transit, now)
     else if (route.screen === 'analysis' && analysis) this.analysis(analysis)
     else if (!state || state.status === 'title') this.title()
@@ -294,10 +294,14 @@ export class TerminalRenderer {
     this.wrap(calling.description, 43).slice(0, 4).forEach((line, index) => this.text(40, 30 + index, line, colors.text))
     this.text(40, 35, 'KIT', colors.gold)
     calling.kit.forEach((item, index) => this.text(40, 36 + index, `· ${item.name} — ${item.effect}`, colors.text))
-    this.text(40, 41, death[1], colors.text)
-    this.creatorField(40, 43, 'COMPANION LOSS', draft.companionDeathMode === 'permadeath' ? 'PERMADEATH' : 'RECOVERABLE', draft.focus === 5)
-    this.text(40, 49, draft.companionDeathMode === 'permadeath' ? 'Loss is irreversible after creation.' : 'Loss uses Lodge injury recovery.', draft.focus === 5 ? colors.green : colors.text)
-    this.text(40, 51, draft.companionDeathMode === 'permadeath' ? draft.companionDeathConfirmed ? 'ENTER again: confirm permanent loss.' : 'ENTER: arm irreversible confirmation.' : 'This choice cannot change after creation.', draft.companionDeathMode === 'permadeath' ? colors.red : colors.dim)
+    this.wrap(death[1], 50).slice(0, 2).forEach((line, index) => this.text(40, 41 + index, line, colors.text))
+    this.creatorField(40, 44, 'COMPANION LOSS', draft.companionDeathMode === 'permadeath' ? 'PERMADEATH' : 'RECOVERABLE', draft.focus === 5)
+    const companionNotice = draft.companionDeathMode === 'permadeath' ? 'Loss is irreversible after creation.' : 'Loss uses Lodge injury recovery.'
+    const companionConfirmation = draft.companionDeathMode === 'permadeath'
+      ? draft.companionDeathConfirmed ? 'ENTER again: confirm permanent loss.' : 'ENTER: arm irreversible confirmation.'
+      : 'This choice cannot change after creation.'
+    this.wrap(companionNotice, 50).slice(0, 2).forEach((line, index) => this.text(40, 48 + index, line, draft.focus === 5 ? colors.green : colors.text))
+    this.wrap(companionConfirmation, 50).slice(0, 2).forEach((line, index) => this.text(40, 51 + index, line, draft.companionDeathMode === 'permadeath' ? colors.red : colors.dim))
     this.text(10, 54, '↑↓ field · ←→ choose · TAB next · A-Z/DEL name · ENTER create · ESC cancel', colors.dim)
   }
 
@@ -338,38 +342,31 @@ export class TerminalRenderer {
     this.text(x + 5, 54, `${storyControls} · V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x`, colors.green)
   }
 
-  private loading(state: RunState | undefined, loading: LoadingState | undefined, now: number): void {
-    if (loading?.phase === 'fade' && state) {
-      this.stage(state)
-      this.sidebar(state)
-      this.log(state)
-      if (state.status !== 'playing') this.end(state, false)
-      this.ctx.save()
-      this.ctx.globalAlpha = Math.min(1, Math.max(0, (now - loading.startedAt) / 350))
-      this.ctx.fillStyle = '#05070b'
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-      this.ctx.restore()
-      return
-    }
+  private loading(loading: LoadingState | undefined, now: number): void {
+    const elapsed = Math.max(0, now - (loading?.startedAt ?? now))
+    const frame = Math.floor(elapsed / 90)
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    const biomeTransition = loading?.kind === 'biome'
-    const title = biomeTransition ? 'COLONY COMPLETE' : 'PREPARING LANDING'
-    const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'JOMON VOYAGER'
-    const message = biomeTransition ? `${biomeName[loading?.fromBiome ?? 'mine']}  →  ${destination}` : 'LOADING MISSION FILE'
-    const duration = biomeTransition ? 1400 : 1800
-    const progress = Math.min(1, Math.max(0, (now - (loading?.startedAt ?? now)) / duration))
-    const width = 24
-    const filled = Math.round(progress * width)
-    const bar = `[${'▓'.repeat(filled)}${'░'.repeat(width - filled)}]`
-    const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'][Math.floor(now / 80) % 10]!
-    const indicator = `${spinner} ${bar} ${String(Math.round(progress * 100)).padStart(3, ' ')}%`
-    const status = biomeTransition ? 'CALIBRATING APPROACH VECTOR' : 'SYNCING LANDING PACKAGE'
-    this.box(27, 13, 42, 25, title)
-    this.text(48 - Math.floor(message.length / 2), 22, message, colors.text)
-    this.text(48 - Math.floor((biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.').length / 2), 25, biomeTransition ? 'THE VOYAGER MOVES ON.' : 'The carrier prepares supplies.', colors.dim)
-    this.text(48 - Math.floor(indicator.length / 2), 29, indicator, colors.gold)
-    this.text(48 - Math.floor(status.length / 2), 32, status, colors.dim)
+    for (let index = 0; index < 64; index++) {
+      const x = (index * 29 + frame * ((index % 3) + 1)) % TERMINAL_WIDTH
+      const y = 2 + (index * 17 + frame * ((index % 2) + 1)) % (TERMINAL_HEIGHT - 4)
+      this.text(x, y, index % 11 === 0 ? '*' : '.', index % 11 === 0 ? colors.gold : colors.dim)
+    }
+    const ship = [
+      '       .--------[ JOMON ]--------.',
+      '  ----/______/__________\\______\\----',
+      '          \\_____/  \\_____/'
+    ]
+    const shipWidth = Math.max(...ship.map(line => line.length))
+    const shipX = 48 - Math.floor(shipWidth / 2) + Math.round(Math.sin(elapsed / 600) * 2)
+    ship.forEach((line, index) => this.text(shipX, 27 + index, line, index === 0 ? colors.green : colors.text))
+    const destination = loading?.toBiome ? biomeName[loading.toBiome] : 'LANDING FILE'
+    const route = loading?.kind === 'biome' ? `${biomeName[loading.fromBiome ?? 'mine']} -> ${destination}` : 'JOMON -> LANDING FILE'
+    const signal = ['|', '/', '-', '\\'][frame % 4]!
+    const telemetry = ['RECEIVING TERRAIN ECHO', 'ALIGNING AIRLOCK', 'HOLDING DESCENT WINDOW', 'CHECKING SEALED CARGO'][frame % 4]!
+    this.text(48 - Math.floor(route.length / 2), 38, route, colors.gold)
+    const status = `${signal} ${telemetry} ${signal}`
+    this.text(48 - Math.floor(status.length / 2), 42, status, colors.dim)
   }
 
   private transit(transit: TransitState, now: number): void {

@@ -9,7 +9,6 @@ export type LoreVignette = 'opening' | 'succession' | 'ending'
 export interface LoreScene { title: string; pages: string[]; vignette: LoreVignette }
 export interface StoryState { scene: LoreScene; page: number; pageStartedAt: number; complete?: boolean }
 export interface LoadingState {
-  phase: 'fade' | 'loading'
   startedAt: number
   kind: 'trailhead' | 'biome'
   fromBiome?: Biome
