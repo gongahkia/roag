@@ -101,6 +101,12 @@ The only legal M1 flow is `offered → accepted → completed`, `failed`, or `ex
 
 Existing version-1 galaxy saves receive empty M1 package collections, an empty version-1 General Manifest, and empty package arrays on pre-existing route caches. This is additive and idempotent. M1 IDs and Manifest sequence numbers are derived from the campaign seed and persistent sequence state; no M1 state transition relies on wall-clock time or random runtime IDs.
 
+#### M1 implementation checkpoint
+
+The first implementation is one authored Kestrel calibration case. Its terminal exposes the sender, intermediary, recipient, destination, deadline, declared mass, hold use, handling class, permitted exterior inspection, prohibited actions, payment/collateral, seal state, custody, and relevant Manifest entries. It supports decline, acceptance with the current available courier, non-destructive inspection before or after acceptance, confirmed opening, explicit intact or tampered settlement after a physical Kestrel landing, refusal, abandonment, deadline expiry through an explicit lifecycle transition, and courier-loss cache recovery.
+
+M1 deliberately leaves generic unit cargo and its existing automatic prototype path intact for compatibility; package decisions do not use it. Phase 1’s active-session simulation clock must become the only caller that advances M1 deadlines; it must not adopt the existing wall-clock reconciliation. A future phase must replace that legacy cargo path after the clock and broader operations board are ready. The single M1 package definition is a content-boundary example, not a taxonomy for later package classes, settlement contracts, or institutions.
+
 ## Required acceptance criteria
 
 - Player-facing carrier text uses Jomon and no final-destination framing.

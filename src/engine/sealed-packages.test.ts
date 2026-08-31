@@ -98,7 +98,7 @@ describe('sealed package custody', () => {
 
   it('migrates representative legacy galaxy data additively without reinterpreting generic cargo', () => {
     const current = offeredGalaxy()
-    const legacy = structuredClone(current) as Record<string, unknown>
+    const legacy = structuredClone(current) as unknown as Record<string, unknown>
     delete legacy.sealedPackageContracts
     delete legacy.sealedPackages
     delete legacy.generalManifest
