@@ -414,7 +414,7 @@ export interface GalaxyContract { id: string; sourceSiteId: string; destinationS
 export type SealedPackageContractStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'failed' | 'expired'
 export type PackageSealState = 'intact' | 'opened'
 export type PackageCustodyState = 'atJomon' | 'assignedToCourier' | 'routeCache' | 'recipient' | 'abandoned'
-export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'courierStatusChanged'
+export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged'
 export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route'
 export interface PackageExteriorReadout { sealMark: string; temperature: string; powerDraw: string; balance: string; shielding: string; handlingMark: string }
 export interface PackageTerms {
@@ -485,6 +485,8 @@ export interface GeneralManifestEvent {
   courierId?: string
   routeCacheId?: string
   siteId?: string
+  routeId?: string
+  transitId?: string
   detail: string
 }
 export interface GeneralManifest { version: 1 | 2; nextSequence: number; entries: GeneralManifestEvent[] }
@@ -527,8 +529,16 @@ export interface GalaxySite {
 export interface GalaxySector { id: string; name: string; x: number; y: number; discovered: boolean; siteIds: string[] }
 export interface GalaxyEvent { id: string; at: number; routeReckoning?: number; kind: GalaxyEventKind; siteId?: string; courierId?: string; headline: string; detail: string }
 export interface GalaxySiteSnapshot { version: 1; run: RunState; savedAt: number }
+export type RouteBoardRisk = 'low' | 'elevated' | 'high'
+export type RouteBoardConfidence = 'reported' | 'estimated' | 'stale'
+export interface RouteBoardDestination { id: string; siteId: string; label: string; summary: string; x: number; y: number }
+export interface RouteBoardConnection { id: string; fromDestinationId: string; toDestinationId: string; durationMarks: number; risk: RouteBoardRisk; opportunity: string; warning: string; confidence: RouteBoardConfidence; status: 'open' | 'unavailable'; unavailableReason?: string; consequenceProfile?: 'possibleDelay' }
+export interface RouteBoardTransitConsequence { kind: 'none' | 'navigationDelay'; additionalMarks: number; detail: string }
+export interface RouteBoardTransit { version: 1; id: string; connectionId: string; fromDestinationId: string; toDestinationId: string; committedAtRouteReckoning: number; durationMarks: number; consequence: RouteBoardTransitConsequence }
+export interface RouteBoardHistoryEntry { version: 1; id: string; connectionId: string; transitId: string; fromDestinationId: string; toDestinationId: string; departedAtRouteReckoning: number; arrivedAtRouteReckoning: number; consequence: RouteBoardTransitConsequence }
+export interface RouteBoardState { version: 1; networkId: string; currentDestinationId: string; knownDestinationIds: string[]; unavailableConnectionIds: string[]; selectedConnectionId?: string; transit?: RouteBoardTransit; history: RouteBoardHistoryEntry[]; nextTransitSequence: number }
 export interface GalaxyState {
-  version: 1 | 2
+  version: 1 | 2 | 3
   seed: number
   /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
   createdAt?: number
@@ -555,6 +565,7 @@ export interface GalaxyState {
   sealedPackages: SealedPackage[]
   generalManifest: GeneralManifest
   routeCaches: GalaxyRouteCache[]
+  routeBoard: RouteBoardState
 }
 
 export type Modal =

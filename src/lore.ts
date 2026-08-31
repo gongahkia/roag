@@ -18,6 +18,8 @@ export interface TransitState {
   fromBiome: Biome
   toBiome?: Biome
   startedAt: number
+  fromLabel?: string
+  toLabel?: string
 }
 
 const pick = <T>(seed: number, scope: string, values: readonly T[]): T => values[streamSeed(seed, 'generation', scope) % values.length]

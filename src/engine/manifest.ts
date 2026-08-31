@@ -9,6 +9,8 @@ export interface ManifestReferences {
   courierId?: string
   routeCacheId?: string
   siteId?: string
+  routeId?: string
+  transitId?: string
 }
 
 export interface ManifestEntryInput extends ManifestReferences {
@@ -18,7 +20,7 @@ export interface ManifestEntryInput extends ManifestReferences {
   payload?: Record<string, string | number | boolean | null>
 }
 
-const affectedEntityIds = (references: ManifestReferences): string[] => [references.contractId, references.packageId, references.courierId, references.routeCacheId, references.siteId].filter((value): value is string => Boolean(value))
+const affectedEntityIds = (references: ManifestReferences): string[] => [references.contractId, references.packageId, references.courierId, references.routeCacheId, references.siteId, references.routeId, references.transitId].filter((value): value is string => Boolean(value))
 
 export const appendGeneralManifest = (galaxy: GalaxyState, input: ManifestEntryInput): number => {
   const sequence = galaxy.generalManifest.nextSequence
@@ -40,6 +42,8 @@ export const appendGeneralManifest = (galaxy: GalaxyState, input: ManifestEntryI
     ...(input.courierId ? { courierId: input.courierId } : {}),
     ...(input.routeCacheId ? { routeCacheId: input.routeCacheId } : {}),
     ...(input.siteId ? { siteId: input.siteId } : {}),
+    ...(input.routeId ? { routeId: input.routeId } : {}),
+    ...(input.transitId ? { transitId: input.transitId } : {}),
     detail: input.detail
   }
   galaxy.generalManifest.entries.push(entry)
@@ -55,7 +59,7 @@ export const normalizeGeneralManifest = (galaxy: GalaxyState): void => {
     const sequence = Number.isInteger(raw.sequence) ? raw.sequence : index
     const existingReckoning = raw.routeReckoning
     const routeReckoning = typeof existingReckoning === 'number' && Number.isInteger(existingReckoning) ? Math.max(0, existingReckoning) : Math.round((raw.sectorDay ?? 0) * 1_440)
-    const references: ManifestReferences = { contractId: raw.contractId, packageId: raw.packageId, courierId: raw.courierId, routeCacheId: raw.routeCacheId, siteId: raw.siteId }
+    const references: ManifestReferences = { contractId: raw.contractId, packageId: raw.packageId, courierId: raw.courierId, routeCacheId: raw.routeCacheId, siteId: raw.siteId, routeId: raw.routeId, transitId: raw.transitId }
     const entry: GeneralManifestEvent = {
       ...raw,
       version: 2,

@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { sealedPackageDefinition } from './package-content'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
@@ -371,7 +371,7 @@ export class TerminalRenderer {
 
   private transit(transit: TransitState, now: number): void {
     const elapsed = now - transit.startedAt
-    const destination = transit.toBiome ? biomeName[transit.toBiome] : 'NEW EDO'
+    const destination = transit.toLabel ?? (transit.toBiome ? biomeName[transit.toBiome] : 'NEXT LANDING')
     const progress = Math.min(1, elapsed / 3400)
     this.ctx.fillStyle = '#05070b'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
@@ -381,9 +381,9 @@ export class TerminalRenderer {
       this.text(x, y, index % 7 === 0 ? '✦' : '·', index % 7 === 0 ? colors.gold : colors.dim)
     }
     const shipX = Math.max(5, Math.min(76, Math.floor(5 + progress * 71)))
-    this.text(shipX, 28, '<==[ JOMON VOYAGER ]==>', colors.green)
+    this.text(shipX, 28, '<==[ JOMON ]==>', colors.green)
     this.box(20, 10, 56, 10, 'CARRIER TRANSIT')
-    const route = `${biomeName[transit.fromBiome]}  →  ${destination}`
+    const route = `${transit.fromLabel ?? biomeName[transit.fromBiome]}  →  ${destination}`
     this.text(48 - Math.floor(route.length / 2), 14, route, colors.text)
     const phase = progress < .33 ? 'DEPARTURE BURN' : progress < .77 ? 'CRUISING BETWEEN STARS' : 'APPROACH WINDOW CONFIRMED'
     this.text(48 - Math.floor(phase.length / 2), 17, phase, colors.gold)
@@ -664,26 +664,58 @@ export class TerminalRenderer {
 
   private sector(route: ScreenRoute, hub?: HubView): void {
     const galaxy = hub?.galaxy
-    if (!galaxy) { this.box(22, 18, 52, 20, 'SECTOR NAVIGATION'); this.text(27, 26, 'Galaxy telemetry is unavailable.', colors.red); this.text(27, 32, 'ESC return to the Voyager', colors.dim); return }
-    const known = Object.values(galaxy.sites).filter(site => site.discovered).sort((left, right) => left.id.localeCompare(right.id))
-    const selected = galaxy.sites[route.siteId ?? galaxy.activeSiteId] ?? galaxy.sites[galaxy.activeSiteId]!
-    this.box(4, 3, 88, 51, 'JOMON VOYAGER // PHYSICAL ROUTE CHART')
-    this.text(8, 7, `${formatRouteReckoning(galaxy.routeReckoning)} · ${galaxy.sectors.filter(sector => sector.discovered).length}/${galaxy.sectors.length} SECTORS CONTACTED`, colors.gold)
-    this.text(8, 10, 'KNOWN APPROACHES', colors.green)
-    known.slice(0, 12).forEach((site, index) => {
-      const active = site.id === selected.id
-      const marker = active ? '>' : site.completed ? '✓' : '·'
-      const control = site.control === 'voyager' ? 'VOYAGER' : site.control.replace(/([A-Z])/g, ' $1').toUpperCase()
-      this.text(8, 12 + index * 2, `${marker} ${site.name.slice(0, 34).padEnd(34)} ${control.slice(0, 12).padEnd(12)} ${site.completed ? 'SURVEYED' : 'OPEN'}`, active ? colors.gold : site.completed ? colors.green : colors.text)
+    if (!galaxy) { this.box(22, 18, 52, 20, 'JOMON // ROUTE BOARD'); this.text(27, 26, 'Route telemetry is unavailable.', colors.red); this.text(27, 32, 'ESC return to carrier deck', colors.dim); return }
+    const current = routeBoardDestination(galaxy.routeBoard.currentDestinationId)
+    if (!current) { this.box(22, 18, 52, 20, 'JOMON // ROUTE BOARD'); this.text(27, 26, 'Current carrier location is invalid.', colors.red); return }
+    const selected = routeBoardDestinations().find(destination => destination.siteId === (route.siteId ?? current.siteId)) ?? current
+    const connection = routeBoardConnectionsFor(current.id).find(candidate => routeBoardOtherDestination(candidate, current.id)?.id === selected.id)
+    const contract = galaxy.sealedPackageContracts.find(candidate => candidate.status === 'offered' || candidate.status === 'accepted')
+    const activeContract = contract?.status === 'accepted' ? contract : undefined
+    const projectedMarks = galaxy.routeReckoning + (connection?.durationMarks ?? 0)
+    const contractRelevant = contract && contract.terms.destinationSiteId === selected.siteId
+    this.box(4, 3, 88, 51, 'JOMON // ROUTE BOARD')
+    this.text(8, 6, `${formatRouteReckoning(galaxy.routeReckoning)} · DOCKED AT ${current.label.toUpperCase()}`, colors.gold)
+    this.text(8, 8, 'REPORTED TOPOLOGY · RISK AND AVAILABILITY ARE WRITTEN, NOT COLOUR-ONLY', colors.dim)
+    routeBoardConnections().slice(0, 6).forEach((candidate, index) => {
+      const from = routeBoardDestination(candidate.fromDestinationId)?.label ?? candidate.fromDestinationId
+      const to = routeBoardDestination(candidate.toDestinationId)?.label ?? candidate.toDestinationId
+      const status = routeBoardConnectionAvailable(galaxy.routeBoard, candidate) ? 'OPEN' : `UNAVAILABLE: ${candidate.unavailableReason ?? 'record withheld'}`
+      const line = `${from} -> ${to} · ${candidate.durationMarks}M · ${candidate.risk.toUpperCase()} · ${status}`
+      this.wrap(line, 45).slice(0, 2).forEach((part, wrapped) => this.text(8, 11 + index * 4 + wrapped, part, status.startsWith('OPEN') ? colors.text : colors.dim))
     })
-    this.box(54, 31, 34, 17, 'SELECTED LANDING')
-    this.wrap(selected.name, 29).slice(0, 2).forEach((line, index) => this.text(57, 34 + index, line, colors.gold))
-    this.text(57, 38, `integrity ${String(selected.integrity).padStart(3)} · ecology ${String(selected.ecology).padStart(3)}`, colors.text)
-    this.text(57, 40, `control: ${selected.control.toUpperCase()}`, colors.text)
-    this.text(57, 42, `supply ${String(selected.supplies).padStart(3)} · salvage ${String(selected.salvage).padStart(3)}`, colors.text)
-    this.text(57, 44, `cargo: P${selected.market.prices.provisions} C${selected.market.prices.components} S${selected.market.prices.salvage} B${selected.market.prices.biosamples}`, colors.dim)
-    this.text(57, 46, `${selected.links.filter(id => galaxy.sites[id]?.discovered).length} physical link${selected.links.filter(id => galaxy.sites[id]?.discovered).length === 1 ? '' : 's'} charted`, colors.dim)
-    this.text(8, 51, 'ARROWS inspect routes · ENTER deploy at current landing · ESC bridge', colors.green)
+    this.box(55, 10, 34, 35, 'ROUTE INSPECTION')
+    const text = (y: number, value: string, color = colors.text) => this.text(58, y, value.slice(0, 28), color)
+    text(13, `${selected.id === current.id ? '[HERE]' : 'TARGET'} ${selected.label.toUpperCase()}`, selected.id === current.id ? colors.green : colors.gold)
+    this.wrap(selected.summary, 28).slice(0, 2).forEach((line, index) => text(15 + index, line, colors.dim))
+    if (connection) {
+      const available = routeBoardConnectionAvailable(galaxy.routeBoard, connection)
+      text(18, `DURATION: ${connection.durationMarks} MARKS`)
+      text(19, `DANGER: ${connection.risk.toUpperCase()} (${connection.confidence})`, connection.risk === 'low' ? colors.green : connection.risk === 'high' ? colors.red : colors.gold)
+      this.wrap(`OPPORTUNITY: ${connection.opportunity}`, 28).slice(0, 2).forEach((line, index) => text(21 + index, line))
+      this.wrap(`WARNING: ${connection.warning}`, 28).slice(0, 2).forEach((line, index) => text(24 + index, line, colors.dim))
+      if (!available) this.wrap(`BLOCKED: ${connection.unavailableReason ?? 'route unavailable'}`, 28).slice(0, 2).forEach((line, index) => text(27 + index, line, colors.red))
+      if (activeContract) {
+        const remaining = activeContract.terms.deadlineReckoning - galaxy.routeReckoning
+        text(30, `ACTIVE SEALED: ${activeContract.terms.destinationLabel.toUpperCase()}`, colors.gold)
+        text(31, `SEALED DELIVERY: ${remaining}M LEFT`, remaining < connection.durationMarks ? colors.red : colors.gold)
+        text(32, projectedMarks > activeContract.terms.deadlineReckoning ? 'EXPECTED ARRIVAL: AFTER DEADLINE' : 'EXPECTED ARRIVAL: BEFORE DEADLINE', projectedMarks > activeContract.terms.deadlineReckoning ? colors.red : colors.green)
+      }
+    } else {
+      text(18, 'PHYSICAL LANDING AVAILABLE', colors.green)
+      if (contractRelevant) text(20, contract?.status === 'accepted' ? 'SEALED DELIVERY: LAND, THEN SETTLE' : 'SEALED OFFER: LAND TO ACCEPT', colors.gold)
+    }
+    if (route.routeBoardConfirmation === 'transit' && connection) {
+      this.box(55, 37, 34, 11, 'CONFIRM TRANSIT')
+      text(40, `COMMIT JOMON TO ${selected.label.toUpperCase()}`, colors.gold)
+      text(42, `${connection.durationMarks} CANONICAL MARKS`)
+      text(45, 'ENTER CONFIRMS · C / ESC CANCELS', colors.green)
+    } else if (route.routeBoardConfirmation === 'landing') {
+      this.box(55, 37, 34, 11, 'CONFIRM LANDING')
+      text(40, `LAND AT ${current.label.toUpperCase()}`, colors.gold)
+      text(42, 'PHYSICAL EXPEDITION REQUIRED')
+      text(45, 'ENTER CONFIRMS · C / ESC CANCELS', colors.green)
+    }
+    this.text(8, 51, 'ARROWS inspect · E / ENTER select · C / ESC return or cancel', colors.green)
   }
 
   private stage(state: RunState): void {

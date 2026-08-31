@@ -1,7 +1,7 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, ROUTE_RECKONING_WORLD_TICK_UNITS, violateSealedPackageSeal } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
 
-export const AUTOPLAY_TASK_CATALOG_VERSION = 1
+export const AUTOPLAY_TASK_CATALOG_VERSION = 2
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
 
 export type AutoplayTaskCategory = 'tactical' | 'voyager' | 'economy' | 'ecology' | 'lifecycle'
@@ -56,6 +56,57 @@ const transitTask = (): AutoplayTaskExecution => {
   const advanced = advanceTransitWindow(state)
   const passed = advanced && state.travel?.residentStart === 1 && state.travel.situations.length === 5
   return { actions: ['walk:connector-window'], events: state.floor.actors.map(actor => actor.id).filter(id => id.startsWith('route-')).sort(), passed, summary: { residentStart: state.travel?.residentStart, situations: state.travel?.situations }, ...(passed ? {} : { reason: 'resident transit window did not advance' }) }
+}
+
+const routeBoardTask = (): AutoplayTaskExecution => {
+  const initial = createGalaxy(61, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const origin = routeBoardDestination(initial.routeBoard.currentDestinationId)
+  if (!origin) return { actions: [], events: [], passed: false, summary: {}, reason: 'Route Board has no current destination' }
+  const routes = routeBoardConnectionsFor(origin.id)
+  const openRoutes = routes.filter(route => routeBoardConnectionAvailable(initial.routeBoard, route))
+  const safe = openRoutes.find(route => route.risk === 'low')
+  const elevated = openRoutes.find(route => route.risk === 'elevated')
+  if (!safe || !elevated) return { actions: [], events: [], passed: false, summary: { routes: openRoutes.map(route => route.id) }, reason: 'Kestrel lacks the required safe/elevated branch' }
+  const preview = selectRouteBoardConnection(initial, safe.id)
+  const cancelled = clearRouteBoardConnectionSelection(preview.galaxy)
+  const committed = commitRouteBoardTransit(selectRouteBoardConnection(cancelled.galaxy, safe.id).galaxy)
+  const transit = committed.galaxy.routeBoard.transit
+  if (!committed.changed || !transit) return { actions: [], events: [], passed: false, summary: { committed: committed.changed }, reason: committed.message }
+  const arrived = resolveRouteBoardTransit(committed.galaxy)
+
+  const expiringInitial = createGalaxy(67, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = expiringInitial.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M1 package offer is missing' }
+  const accepted = acceptSealedPackageContract(expiringInitial, contract.id, expiringInitial.activeCourierId).galaxy
+  accepted.sealedPackageContracts[0]!.terms.deadlineReckoning = safe.durationMarks - 1
+  const expiredArrival = resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(accepted, safe.id).galaxy).galaxy)
+  const manifestKinds = [...arrived.galaxy.generalManifest.entries, ...expiredArrival.galaxy.generalManifest.entries].map(entry => entry.kind)
+  const destination = routeBoardDestination(transit.toDestinationId)
+  const passed = preview.changed
+    && cancelled.galaxy.routeReckoning === initial.routeReckoning
+    && cancelled.galaxy.routeBoard.selectedConnectionId === undefined
+    && arrived.changed
+    && destination !== undefined
+    && arrived.galaxy.routeBoard.currentDestinationId === destination.id
+    && arrived.galaxy.routeReckoning === transit.durationMarks + transit.consequence.additionalMarks
+    && manifestKinds.includes('routeCommitted')
+    && manifestKinds.includes('routeArrived')
+    && expiredArrival.galaxy.sealedPackageContracts[0]?.status === 'expired'
+    && expiredArrival.galaxy.generalManifest.entries.filter(entry => entry.kind === 'contractExpired').length === 1
+  return {
+    actions: ['open:route-board', `inspect:${safe.id}`, `inspect:${elevated.id}`, 'cancel:route-preview', `confirm:${safe.id}`, 'resolve:transit', 'observe:deadline-expiry'],
+    events: [...new Set(manifestKinds)].sort(),
+    passed,
+    summary: {
+      origin: origin.id,
+      comparedRoutes: [safe.id, elevated.id],
+      arrivedAt: arrived.galaxy.routeBoard.currentDestinationId,
+      routeReckoning: arrived.galaxy.routeReckoning,
+      transitId: transit.id,
+      deadlineStatus: expiredArrival.galaxy.sealedPackageContracts[0]?.status
+    },
+    ...(passed ? {} : { reason: 'Route Board did not preserve cancellation, arrival, or deadline consequences' })
+  }
 }
 
 const cargoDeliveryTask = (): AutoplayTaskExecution => {
@@ -159,6 +210,7 @@ const sectorClockTask = (): AutoplayTaskExecution => {
 export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('tactical.core-loop', 'tactical', 100, 'ui.core-loop', tacticalTask),
   task('voyager.site-discovery', 'voyager', 90, 'ui.sector-navigation', discoveryTask, ['tactical.core-loop']),
+  task('voyager.route-board', 'voyager', 88, 'ui.route-board', routeBoardTask, ['voyager.site-discovery']),
   task('voyager.transit-window', 'voyager', 85, 'ui.transit', transitTask, ['voyager.site-discovery']),
   task('voyager.contract-delivery', 'economy', 80, 'ui.contract-delivery', cargoDeliveryTask, ['voyager.site-discovery']),
   task('voyager.cargo-recovery', 'economy', 75, 'ui.cargo-recovery', cargoRecoveryTask, ['voyager.contract-delivery']),
