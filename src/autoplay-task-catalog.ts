@@ -1,7 +1,7 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, decideGalaxyInstitutionRequest, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, inspectGalaxyDestination, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, migrateGalaxy, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectGalaxyCourier, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
+import { announceDeliveryHazard, abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginDeliveryExpedition, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, decideGalaxyInstitutionRequest, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, inspectGalaxyDestination, installCourierModification, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, materializeNeridaIntakeExpedition, migrateGalaxy, newHero, newRun, newTransitRun, recordGalaxyLanding, recordGalaxyNeridaTacticalConsequence, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveDeliveryHazard, resolveRouteBoardTransit, resolveTelegraphs, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectDeliveryOffer, selectGalaxyCourier, selectRouteBoardConnection, stabilizeNeridaIntake, synchronizeDeliveryExpedition, violateSealedPackageSeal } from './engine'
 
-export const AUTOPLAY_TASK_CATALOG_VERSION = 4
+export const AUTOPLAY_TASK_CATALOG_VERSION = 5
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
 
 export type AutoplayTaskCategory = 'tactical' | 'voyager' | 'economy' | 'ecology' | 'lifecycle'
@@ -277,6 +277,65 @@ const institutionsRivalTask = (): AutoplayTaskExecution => {
   }
 }
 
+const deliveryBuildcraftTask = (): AutoplayTaskExecution => {
+  const initial = createGalaxy(62_120, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = initial.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M6 fixture has no sealed delivery' }
+  let galaxy = acceptSealedPackageContract(initial, contract.id, initial.activeCourierId).galaxy
+  const requisition = galaxy.deliveryRun?.offers.find(offer => offer.state === 'pending')
+  if (!requisition) return { actions: [], events: [], passed: false, summary: {}, reason: 'delivery acceptance did not create a requisition offer' }
+  if (!selectDeliveryOffer(galaxy, requisition.id, requisition.choices[0]).changed) return { actions: [], events: [], passed: false, summary: {}, reason: 'initial delivery offer could not be selected' }
+  const travel = (source: typeof galaxy, connectionId: string) => resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(source, connectionId).galaxy).galaxy).galaxy
+  galaxy = travel(galaxy, 'route:kestrel-orison')
+  const firstTransit = galaxy.deliveryRun?.offers.find(offer => offer.state === 'pending')
+  if (!firstTransit?.choices.includes('routeCurrentCapacitor') || !selectDeliveryOffer(galaxy, firstTransit.id, 'routeCurrentCapacitor').changed) return { actions: [], events: [], passed: false, summary: {}, reason: 'first transit capacitor selection was unavailable' }
+  galaxy = travel(galaxy, 'route:orison-nerida')
+  const secondTransit = galaxy.deliveryRun?.offers.find(offer => offer.state === 'pending')
+  if (!secondTransit?.choices.includes('routeCurrentCapacitor') || !selectDeliveryOffer(galaxy, secondTransit.id, 'routeCurrentCapacitor').changed) return { actions: [], events: [], passed: false, summary: {}, reason: 'second transit capacitor stack was unavailable' }
+  galaxy = migrateGalaxy(JSON.parse(JSON.stringify(galaxy)))!
+  const run = beginDeliveryExpedition(galaxy, 'destination:nerida')
+  const courier = galaxy.couriers.find(candidate => candidate.id === galaxy.activeCourierId)
+  if (!run || !courier) return { actions: [], events: [], passed: false, summary: {}, reason: 'Nerida expedition did not retain its active courier' }
+  courier.hero.inventory.push('tonic')
+  const modification = installCourierModification(galaxy, 'pressure-baffles')
+  const state = newRun(galaxy.seed, galaxy.sites[galaxy.activeSiteId]!.biome, 0, structuredClone(courier.hero))
+  if (!materializeNeridaIntakeExpedition(state, galaxy, run)) return { actions: [], events: [], passed: false, summary: {}, reason: 'Nerida intake did not materialize' }
+  state.turn = 2
+  const intent = announceDeliveryHazard(state)
+  const safe = intent && [{ x: state.hero.x, y: state.hero.y - 1 }, { x: state.hero.x + 1, y: state.hero.y }, { x: state.hero.x, y: state.hero.y + 1 }, { x: state.hero.x - 1, y: state.hero.y }].find(point => state.floor.tiles[point.y * state.floor.width + point.x]?.kind === 'floor' && !intent.cells.some(cell => cell.x === point.x && cell.y === point.y))
+  if (!intent || !safe) return { actions: [], events: [], passed: false, summary: {}, reason: 'delivery hazard had no readable positional response' }
+  state.hero.x = safe.x
+  state.hero.y = safe.y
+  const evaded = resolveDeliveryHazard(state, intent)
+  state.turn = intent.resolveTurn
+  resolveTelegraphs(state)
+  const elite = state.floor.actors.find(actor => actor.deliveryElite)
+  if (!elite) return { actions: [], events: [], passed: false, summary: {}, reason: 'Nerida intake did not materialize an elite' }
+  elite.health = 0
+  state.hero.x = state.floor.deliveryExpedition!.console.x
+  state.hero.y = state.floor.deliveryExpedition!.console.y
+  const stabilized = stabilizeNeridaIntake(state)
+  const synchronized = synchronizeDeliveryExpedition(galaxy, state)
+  const consequence = recordGalaxyNeridaTacticalConsequence(galaxy, run.id)
+  const stackedCapacitors = galaxy.deliveryRun?.equipment.find(stack => stack.itemId === 'routeCurrentCapacitor')?.count ?? 0
+  const manifestKinds = consequence.galaxy.generalManifest.entries.map(entry => entry.kind)
+  const passed = modification.changed
+    && evaded?.damage === 0
+    && stabilized
+    && synchronized
+    && consequence.changed
+    && stackedCapacitors === 2
+    && manifestKinds.includes('deliveryEliteResolved')
+    && manifestKinds.includes('institutionalTacticalConsequence')
+  return {
+    actions: ['accept:sealed-delivery', 'open:delivery-build-file', 'select:requisition', 'travel:orison', 'select:transit-capacitor', 'travel:nerida', 'stack:transit-capacitor', 'install:pressure-baffles', 'enter:nerida-intake', 'read:pressure-vent-telegraph', 'move:clear-lane', 'disable:intake-warden', 'stabilize:intake-console', 'inspect:manifest'],
+    events: [...new Set(manifestKinds)].sort(),
+    passed,
+    summary: { pressureTier: galaxy.deliveryRun?.pressureTier, stackedCapacitors, modification: modification.changed, evadedDamage: evaded?.damage, expedition: state.floor.deliveryExpedition?.status, tacticalConsequence: consequence.changed },
+    ...(passed ? {} : { reason: 'delivery buildcraft route did not preserve stack, hazard, elite, or downstream consequence state' })
+  }
+}
+
 export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('tactical.core-loop', 'tactical', 100, 'ui.core-loop', tacticalTask),
   task('voyager.site-discovery', 'voyager', 90, 'ui.sector-navigation', discoveryTask, ['tactical.core-loop']),
@@ -291,6 +350,7 @@ export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('voyager.landing-settlement', 'lifecycle', 65, 'ui.landing-settlement', landingTask, ['voyager.landing-conditions']),
   task('voyager.living-destinations', 'ecology', 64, 'ui.living-destinations', livingDestinationsTask, ['voyager.route-board']),
   task('voyager.institutions-rival', 'voyager', 63, 'ui.institutions-rival', institutionsRivalTask, ['voyager.living-destinations', 'voyager.sealed-package-tampered']),
+  task('voyager.delivery-buildcraft', 'tactical', 62, 'ui.delivery-buildcraft', deliveryBuildcraftTask, ['voyager.institutions-rival', 'voyager.sealed-package-recovery']),
   task('voyager.sector-clock', 'lifecycle', 60, 'ui.sector-clock', sectorClockTask, ['voyager.landing-settlement', 'voyager.living-destinations'])
 ]
 

@@ -11,6 +11,7 @@ import { secretInteractionHint, secretShortcutReport } from '../secrets'
 import { assessCompanionAbility } from './companion-abilities'
 import { companionRoleContract } from './companion-roles'
 import { activeCompanionRoster, isCompanionActor } from './party'
+import { deliveryEliteLabel } from './delivery-tactics'
 
 export interface FieldReadout { brief: string; lines: string[] }
 
@@ -37,6 +38,7 @@ export const fieldReadout = (state: RunState): FieldReadout => {
     `OBJECTIVE: ${state.floor.objective.status === 'complete' ? 'DONE — ' : ''}${state.floor.objective.label}`,
     state.companionDeathMode === 'permadeath' ? 'COMPANION LOSS: PERMANENT — no Lodge recovery.' : 'COMPANION LOSS: RECOVERABLE — Lodge treatment is available.'
   ]
+  if (state.deliveryContext) lines.push(`DELIVERY PRESSURE: ${state.deliveryContext.pressureTier.toUpperCase()} · ${state.deliveryContext.elapsedMarks} MARKS${state.deliveryContext.nextThresholdMark === undefined ? '' : ` · NEXT ${state.deliveryContext.nextThresholdMark}`}`)
   for (const companion of activeCompanionRoster(state.companions ?? []).slice(0, 3)) {
     const actor = state.floor.actors.find(candidate => isCompanionActor(candidate) && companionIdForActor(candidate) === companion.id)
     if (!actor) { lines.push(`COMPANION: ${companion.name} — unavailable on this floor.`); continue }
@@ -52,6 +54,8 @@ export const fieldReadout = (state: RunState): FieldReadout => {
     lines.push(`THREAT: ${telegraphLabel(state, telegraph.id)}`)
   }
   for (const foe of foes.slice(0, 3)) {
+    const elite = deliveryEliteLabel(foe)
+    if (elite) lines.push(`ELITE: ${elite} — interrupt its relay or leave its marked lane.`)
     const intent = planEnemyIntent(state, foe)
     lines.push(`INTENT: ${foe.name} — ${intent.action.name} (${intent.reason}; ${intent.role}: ${intent.counterplay})`)
   }

@@ -3,6 +3,7 @@ import type { GalaxyState, Hero, PackageCustodyState, SealedPackage, SealedPacka
 import { appendGeneralManifest, type ManifestReferences } from './manifest'
 import { reconcileInstitutionalManifest } from './institutions'
 import { ROUTE_RECKONING_NEAR_EXPIRY_UNITS, ROUTE_RECKONING_UNITS_PER_CYCLE, sectorDayFromRouteReckoning } from './route-reckoning'
+import { archiveDeliveryRun, createDeliveryRun } from './delivery-buildcraft'
 
 const PACKAGE_HOLD_CAPACITY = 12
 
@@ -88,6 +89,7 @@ export const acceptSealedPackageContract = (source: GalaxyState, contractId: str
   contract.acceptedAtSectorDay = galaxy.sectorDay
   contract.acceptedAtRouteReckoning = galaxy.routeReckoning
   galaxy.sealedPackages.push(packageRecord)
+  createDeliveryRun(galaxy, contract.id, courier.id)
   manifestEntry(galaxy, 'contractAccepted', `${definition.title} accepted under seal.`, { contractId: contract.id, packageId, courierId: courier.id })
   manifestEntry(galaxy, 'custodyTransferred', `${definition.title} transferred from Jomon custody to ${courier.name}.`, { contractId: contract.id, packageId, courierId: courier.id })
   return { galaxy, changed: true, message: `${definition.title} assigned to ${courier.name}.` }
@@ -162,6 +164,7 @@ export const deliverSealedPackage = (source: GalaxyState, contractId: string, he
   contract.status = 'completed'
   contract.resolvedAtSectorDay = galaxy.sectorDay
   contract.resolvedAtRouteReckoning = galaxy.routeReckoning
+  archiveDeliveryRun(galaxy, 'completed', hero)
   hero.gold += payment
   manifestEntry(galaxy, 'custodyTransferred', `${sealedPackageDefinition(contract.definitionId)?.title ?? packageRecord.id} transferred to ${contract.terms.recipient}.`, { contractId: contract.id, packageId: packageRecord.id, courierId: packageRecord.assignedCourierId })
   manifestEntry(galaxy, 'deliveryCompleted', `${intact ? 'Intact' : 'Tampered'} delivery settled for ${payment} credits (${intact ? contract.terms.intactSettlement : contract.terms.tamperedSettlement}).`, { contractId: contract.id, packageId: packageRecord.id, courierId: packageRecord.assignedCourierId })
@@ -179,6 +182,7 @@ export const refuseSealedPackage = (source: GalaxyState, contractId: string): Pa
   contract.status = 'failed'
   contract.resolvedAtSectorDay = galaxy.sectorDay
   contract.resolvedAtRouteReckoning = galaxy.routeReckoning
+  archiveDeliveryRun(galaxy, 'refused')
   manifestEntry(galaxy, 'deliveryFailed', `Delivery refused for ${sealedPackageDefinition(contract.definitionId)?.title ?? packageRecord.id}.`, { contractId: contract.id, packageId: packageRecord.id, courierId: packageRecord.assignedCourierId })
   reconcileInstitutionalManifest(galaxy)
   return { galaxy, changed: true, message: 'Package refused. The contract is closed and the custody failure is recorded.' }
@@ -194,6 +198,7 @@ export const abandonSealedPackage = (source: GalaxyState, contractId: string): P
   contract.status = 'failed'
   contract.resolvedAtSectorDay = galaxy.sectorDay
   contract.resolvedAtRouteReckoning = galaxy.routeReckoning
+  archiveDeliveryRun(galaxy, 'abandoned')
   manifestEntry(galaxy, 'custodyTransferred', `${sealedPackageDefinition(contract.definitionId)?.title ?? packageRecord.id} abandoned from ${custodyLabel('assignedToCourier')}.`, { contractId: contract.id, packageId: packageRecord.id, courierId: packageRecord.assignedCourierId })
   manifestEntry(galaxy, 'deliveryFailed', `Abandonment closed ${sealedPackageDefinition(contract.definitionId)?.title ?? packageRecord.id}.`, { contractId: contract.id, packageId: packageRecord.id, courierId: packageRecord.assignedCourierId })
   reconcileInstitutionalManifest(galaxy)
@@ -226,6 +231,7 @@ export const expireSealedPackageContracts = (source: GalaxyState, routeReckoning
   galaxy.routeReckoning = Math.max(galaxy.routeReckoning, Math.floor(routeReckoning))
   galaxy.sectorDay = sectorDayFromRouteReckoning(galaxy.routeReckoning)
   const changed = applySealedPackageDeadlineTransitions(galaxy)
+  if (galaxy.deliveryRun && galaxy.sealedPackageContracts.find(contract => contract.id === galaxy.deliveryRun!.contractId)?.status === 'expired') archiveDeliveryRun(galaxy, 'expired')
   if (changed) reconcileInstitutionalManifest(galaxy)
   const expired = galaxy.sealedPackageContracts.filter(contract => contract.status === 'expired').length - source.sealedPackageContracts.filter(contract => contract.status === 'expired').length
   return { galaxy, changed: changed > 0, message: expired ? `${expired} sealed-package contract${expired === 1 ? '' : 's'} expired.` : 'No sealed-package deadline has expired.' }
@@ -250,6 +256,7 @@ export const loseSealedPackagesForCourier = (source: GalaxyState, courierId: str
       contract.resolvedAtSectorDay = galaxy.sectorDay
       contract.resolvedAtRouteReckoning = galaxy.routeReckoning
     }
+    if (contract?.id === galaxy.deliveryRun?.contractId) archiveDeliveryRun(galaxy, 'courier-loss')
     manifestEntry(galaxy, 'packageLost', `${sealedPackageDefinition(packageRecord.definitionId)?.title ?? packageRecord.id} lost with ${courierId}; cache ${cache.id} marks the last custody record.`, { contractId: contract?.id, packageId: packageRecord.id, courierId, routeCacheId: cache.id })
     manifestEntry(galaxy, 'deliveryFailed', `Courier loss closed ${sealedPackageDefinition(packageRecord.definitionId)?.title ?? packageRecord.id}.`, { contractId: contract?.id, packageId: packageRecord.id, courierId, routeCacheId: cache.id })
   }

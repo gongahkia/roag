@@ -3,7 +3,7 @@ import { DIRECTIONS, type Actor, type Biome, type Direction, type ItemId, type R
 import { actorAt, getTile, isPassable, preservesAdjacentExitAccess, preservesExitPath } from '../world'
 import { gainXp, monsterXp } from './progression'
 import { event, distance, equipmentDefense, log, turnRng, type ActionResult } from './shared'
-import { announceTelegraph, resolveTelegraphs } from './telegraphs'
+import { announceTelegraph, cancelTelegraphs, resolveTelegraphs } from './telegraphs'
 import { refreshFov } from './visibility'
 import { addCondition, conditionSpeed, hasCondition, modifyIncomingDamage, tickConditions } from './conditions'
 import { resolveTerrainReactions, type TerrainTag } from './terrain'
@@ -30,6 +30,7 @@ import { advanceEcology } from '../ecology'
 import { activeCompanionRoster, isCompanionActor } from './party'
 import { injureCompanion, loseCompanion } from './companions'
 import { resolveAutonomousCompanions, tickCompanionCooldowns } from './companion-autonomy'
+import { announceDeliveryHazard, announceEliteSweep, applyDeliveryPersistentInjury, deliveryEliteDamageCap, resolveDeliveryHazard } from './delivery-tactics'
 
 export function moveHero(state: RunState, direction: Direction): ActionResult {
   const delta = DIRECTIONS[direction]
@@ -153,6 +154,14 @@ export function advance(state: RunState, events: ActionResult): ActionResult {
 export const resolveTurnAfterParty = (state: RunState, events: ActionResult): ActionResult => {
   const resolvedTelegraphs = resolveMonolithTelegraphs(state, revalidateProjectileTelegraphs(state, resolveTelegraphs(state)))
   for (const telegraph of resolvedTelegraphs) {
+    const deliveryHazard = resolveDeliveryHazard(state, telegraph)
+    if (deliveryHazard) {
+      if (deliveryHazard.damage) {
+        events.push(...damageHero(state, deliveryHazard.damage, deliveryHazard.source, true))
+        if (deliveryHazard.risksInjury && state.status === 'playing') applyDeliveryPersistentInjury(state)
+      }
+      continue
+    }
     const propEffects = telegraph.actionId === 'enemy-fire' ? ['fire', 'hazard'] as const : telegraph.actionId === 'enemy-root' ? ['root', 'hazard'] as const : telegraph.actionId === 'enemy-pull' ? ['force', 'hazard'] as const : ['hazard'] as const
     applyPropEffects(state, telegraph.cells, propEffects)
     if (telegraph.actionId !== 'enemy-shot' && telegraph.actionId !== 'guardian-slam' && telegraph.actionId !== 'enemy-root' && telegraph.actionId !== 'enemy-web' && telegraph.actionId !== 'enemy-fire' && telegraph.actionId !== 'enemy-pull' && telegraph.actionId !== 'enemy-dart' && telegraph.actionId !== 'enemy-ritual' && telegraph.actionId !== 'foreman-cavein' && telegraph.actionId !== 'heartwood-charge' && telegraph.actionId !== 'geode-fissure' && telegraph.actionId !== 'regent-decree' && telegraph.actionId !== 'regent-judgment') continue
@@ -248,6 +257,7 @@ export const resolveTurnAfterParty = (state: RunState, events: ActionResult): Ac
       events.push(...actorTurn(state, actor))
     }
   }
+  announceDeliveryHazard(state)
   resolveFlows(state, events)
   tickEnvironment(state, events)
   tickConditionEffects(state, events)
@@ -361,6 +371,7 @@ export function explode(state: RunState, x: number, y: number, damage: number, t
 
 export function resolveDefeatedActors(state: RunState): void {
   for (const actor of state.floor.actors.filter(actor => actor.health <= 0)) {
+    cancelTelegraphs(state, telegraph => telegraph.sourceKind === 'actor' && telegraph.sourceId === actor.id, `${actor.name} is no longer able to execute it`)
     if (actor.hostile) recordTelemetryKill(state, actor.kind)
     log(state, `${actor.name} falls.`)
     dropLoot(state, actor)
@@ -396,7 +407,8 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
     const markedDamage = target.conditions?.some(condition => condition.kind === 'marked') ? boonRank(state, 'glassEdge') : 0
     const frozenDamage = target.conditions?.some(condition => condition.kind === 'marked' || condition.kind === 'slowed') ? boonRank(state, 'shatterMark') : 0
     const duelDamage = target.role === 'guardian' || target.status?.includes('elite') ? boonRank(state, 'duelistOath') * 2 : 0
-    const damage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + consumeRelicPrismStrike(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + stormwake + marked + lowHealth + mirrorDamage + markedDamage + frozenDamage + duelDamage + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const calculatedDamage = modifyIncomingDamage(target, Math.max(1, baseDamage + markbreakerDamage(state, target) + consumeRelicPrismStrike(state, target) + state.hero.stats.strength + strengthMeleeBonus(state.hero) + stormwake + marked + lowHealth + mirrorDamage + markedDamage + frozenDamage + duelDamage + rng.int(0, 3) - Math.floor(target.defense / 8)))
+    const damage = Math.min(calculatedDamage, deliveryEliteDamageCap(state, target) ?? Number.POSITIVE_INFINITY)
     target.health -= damage
     log(state, `You strike ${target.name} for ${damage}.`)
     if (target.health > 0 && canKnockback(state.hero) && resolveDisplacement(state, state.hero, target, 'knockback').moved) addCondition(target, { kind: 'staggered', duration: 1, potency: 1 })
@@ -410,6 +422,7 @@ function heroAttack(state: RunState, targets: Actor[], weaponId: string | undefi
 function actorTurn(state: RunState, actor: Actor): ActionResult {
   if (hasCondition(actor, 'staggered')) return []
   advanceGuardianPhase(state, actor)
+  if (announceEliteSweep(state, actor)) return [event('danger')]
   const intent = planEnemyIntent(state, actor)
   log(state, `${actor.name}: ${intent.action.name} (${intent.reason}).`)
   if (hasCondition(actor, 'rooted') && (intent.action.id === 'enemy-approach' || intent.action.id === 'enemy-reposition')) { log(state, `${actor.name} is rooted.`); return [] }
@@ -597,4 +610,5 @@ function dropLoot(state: RunState, actor: Actor): void {
     mine: ['rock', 'tonic', 'bombPack', 'key'], wilds: ['tonic', 'ropeBundle', 'machete', 'focusTonic', 'root', 'waterScript', 'lull'], caverns: ['focusTonic', 'ember', 'mend', 'sight', 'blink', 'pull', 'spear'], ruins: ['mapScroll', 'ward', 'wardScript', 'gate', 'blinkRune'], furnace: ['cinderTonic', 'sootFilter', 'breachCharge', 'boreGel', 'cinderHammer', 'smokeKnife'], floodedRuins: ['floodSalt', 'anchorSpool', 'wingfoil', 'currentRune', 'anchorBlade', 'tideCutter'], cliffs: ['cliffSpool', 'thunderJar', 'skyMap', 'windhook', 'galeMantle'], burial: ['graveSalt', 'ancestorToken', 'tombKey', 'graveSickle', 'mourningBell'], saltFlats: ['tonic', 'focusTonic', 'fireJar', 'blink', 'pull', 'mapScroll', 'bridgeKit', 'reedGlider'], frostReliquary: ['tonic', 'focusTonic', 'ward', 'mend', 'sight', 'blink', 'grappleLine', 'mail']
   }
   if (actor.role === 'guardian' || actor.status?.includes('elite') || rng.chance(28)) state.floor.items.push({ id: rng.pick(tables[state.floor.biome]), x: actor.x, y: actor.y, count: 1 })
+  if (actor.deliveryElite && !state.floor.items.some(item => item.x === actor.x && item.y === actor.y && item.id === actor.deliveryElite!.rewardItemId)) state.floor.items.push({ id: actor.deliveryElite.rewardItemId, x: actor.x, y: actor.y, count: 1, visibleInFog: true })
 }

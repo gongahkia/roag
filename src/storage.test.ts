@@ -157,7 +157,7 @@ describe('run persistence migration', () => {
       delete legacy.floor.props
       delete legacy.floor.objective
       const migrated = migrateRunRecord(legacy)
-    expect(migrated).toMatchObject({ version: 5, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], milestones: expect.any(Array), objective: { status: 'active' } } })
+    expect(migrated).toMatchObject({ version: 6, area: 'mine', areaFloor: 0, hero: { name: 'Existing Courier', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint' }, floor: { props: [], milestones: expect.any(Array), objective: { status: 'active' } } })
     }
   })
 
@@ -256,7 +256,7 @@ describe('run persistence migration', () => {
     const first = migrateCampaignRoute(source)
     const reopened = migrateCampaignRoute(JSON.parse(JSON.stringify(first)))
 
-    expect(first.galaxy).toMatchObject({ version: 5, routeReckoning: 4_680, lastWorldTick: 13, sealedPackageContracts: [{ status: 'offered', terms: { deadlineReckoning: 5_760 } }], routeBoard: { version: 1, currentDestinationId: 'destination:kestrel', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 4_680 } } }, institutionWorld: { operations: [], causalEvents: [] } })
+    expect(first.galaxy).toMatchObject({ version: 6, routeReckoning: 4_680, lastWorldTick: 13, sealedPackageContracts: [{ status: 'offered', terms: { deadlineReckoning: 5_760 } }], routeBoard: { version: 1, currentDestinationId: 'destination:kestrel', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 4_680 } } }, institutionWorld: { operations: [], causalEvents: [] } })
     expect(reopened.galaxy).toEqual(first.galaxy)
   })
 

@@ -404,6 +404,55 @@ export const reconcileInstitutionalManifest = (galaxy: GalaxyState): void => {
   world.lastProcessedManifestSequence = galaxy.generalManifest.nextSequence - 1
 }
 
+/** Records a direct, known Nerida intake outcome once without exposing hidden operations. */
+export const recordNeridaTacticalConsequence = (galaxy: GalaxyState, deliveryRunId: string, courierId: string): boolean => {
+  const world = galaxy.institutionWorld
+  const id = `causal:${galaxy.seed}:nerida-intake:${deliveryRunId}`
+  if (causalFor(world, id)) return false
+  const causal = appendCausal(galaxy, {
+    id,
+    atRouteReckoning: galaxy.routeReckoning,
+    kind: 'tactical-consequence',
+    parentIds: [],
+    institutionId: 'institution:blue-intake-board',
+    actorId: 'actor:iren-vos',
+    destinationId: currentDestination,
+    courierId,
+    knownToJomon: true,
+    learnedThrough: 'direct-encounter',
+    summary: 'Jomon stabilized the Nerida intake diagnostic under field pressure.',
+    effects: { deliveryRunId, outcome: 'intake-stabilized' }
+  })
+  changeStanding(galaxy, 'institution:closure-eight', causal, `standing:${causal.id}:closure-intake-stabilized`, { trust: 1, obligation: 1 })
+  remember(galaxy, 'actor:iren-vos', causal, 'tactical-intervention', 'Iren Vos recorded that Jomon altered a documented intake-control condition.', true, courierId)
+  appendReport(world, {
+    version: 1,
+    id: `report:${causal.id}`,
+    institutionId: 'institution:blue-intake-board',
+    actorId: 'actor:mera-lio',
+    destinationId: currentDestination,
+    causalEventId: causal.id,
+    source: 'direct-encounter',
+    reportAtRouteReckoning: galaxy.routeReckoning,
+    confidence: 'confirmed',
+    summary: 'Blue Intake diagnostic readback confirms a Jomon field stabilization.'
+  })
+  appendGeneralManifest(galaxy, {
+    kind: 'institutionalTacticalConsequence',
+    detail: 'Nerida intake stabilization entered the known institutional record.',
+    source: 'delivery',
+    institutionId: 'institution:blue-intake-board',
+    actorId: 'actor:iren-vos',
+    courierId,
+    deliveryRunId,
+    encounterId: `nerida-intake:${deliveryRunId}`,
+    causalEventId: causal.id,
+    siteId: 'sector-00:site-03',
+    payload: { outcome: 'intake-stabilized' }
+  })
+  return true
+}
+
 const scheduleConditionOperations = (galaxy: GalaxyState): void => {
   const world = galaxy.institutionWorld
   const nerida = galaxy.destinationWorld.partitions[currentDestination]

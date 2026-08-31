@@ -10,6 +10,7 @@ import { tend } from './alignment'
 import { chooseAugment, chooseBoon, chooseRelic, chooseTool, chooseToolUse, openTools, useTimeKnot, useTool } from './buildcraft'
 import { chooseEncounter } from './encounters'
 import { performDirectCompanionCommand } from './companion-direct'
+import { useDeliveryActiveEquipment } from './delivery-tactics'
 
 export function perform(state: RunState, command: string): ActionResult {
   if (state.status !== 'playing') return []
@@ -18,6 +19,7 @@ export function perform(state: RunState, command: string): ActionResult {
   if (command === 'settings') { state.modal = { kind: 'settings' }; return [event('menu')] }
   const lower = command.toLowerCase()
   if (lower === 'h') { state.modal = { kind: 'help' }; return [event('menu')] }
+  if (lower === 'm' && useDeliveryActiveEquipment(state)) return advance(state, [event('terrain', 'delivery-active')])
   if (lower === 'z') { state.modal = { kind: 'readout' }; return [event('menu')] }
   if (lower === 'j') { state.modal = { kind: 'encyclopedia', section: 'enemies' }; return [event('menu')] }
   if (lower === 'u') { state.modal = { kind: 'inventory', mode: 'use' }; return [event('menu')] }

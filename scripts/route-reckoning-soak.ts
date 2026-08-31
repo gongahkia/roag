@@ -56,9 +56,11 @@ const simulate = (): { galaxy: GalaxyState; elapsedMs: number; routeTransits: nu
   let remainingMarks = marks
   let routeTransits = 0
   while (remainingMarks >= 720) {
-    galaxy = resolveRoute(galaxy, 'route:kestrel-orison')
-    galaxy = resolveRoute(galaxy, 'route:kestrel-orison')
-    remainingMarks -= 720
+    const routed = resolveRoute(resolveRoute(galaxy, 'route:kestrel-orison'), 'route:kestrel-orison')
+    const routedMarks = routed.routeReckoning - galaxy.routeReckoning
+    if (routedMarks > remainingMarks) break
+    galaxy = routed
+    remainingMarks -= routedMarks
     routeTransits += 2
   }
   galaxy = advanceGalaxyRouteReckoning(galaxy, remainingMarks)

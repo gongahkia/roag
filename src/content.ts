@@ -1,4 +1,4 @@
-import type { Biome, EquipmentSlot, ItemId, MonsterRole, StatName, TileKind } from './types'
+import type { Biome, DeliveryItemDefinition, EquipmentSlot, ItemId, MonsterRole, StatName, TileKind } from './types'
 import type { ActionShape } from './engine/actions'
 import { validateEquipmentEffects, type EquipmentEffect } from './effects'
 import { validateItemPrice } from './engine/economy'
@@ -23,13 +23,14 @@ export interface ItemDefinition {
   findable?: boolean
   tags?: string[]
   effects?: readonly EquipmentEffect[]
+  delivery?: DeliveryItemDefinition
 }
 
 export interface MonsterDefinition { id: string; name: string; glyph: string; color: string; health: number; attack: number; defense: number; speed: number; ai: 'chase' | 'ranged' | 'wander' | 'guardian'; xp: number; biome: Biome; role?: MonsterRole; tags?: string[]; terrainAffinity?: TileKind[]; spawn?: 'ambient' | 'triggered' }
 export interface SkillDefinition { id: string; name: string; stat: StatName; level: number; text: string; tags: string[]; prerequisites: string[] }
 export interface ContentRegistry { items: readonly ItemDefinition[]; monsters: readonly MonsterDefinition[]; skills: readonly SkillDefinition[]; scripts: readonly ScriptDefinition[]; tags: readonly string[]; shopStock: Readonly<Record<Biome, readonly ItemId[]>> }
 
-export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch', 'wind', 'climb', 'grave', 'spirit', 'echo', 'curse', 'salt', 'mirror', 'brine', 'frost', 'ice', 'duel', 'ambush', 'guardian'] as const
+export const CONTENT_TAGS = ['strength', 'agility', 'vitality', 'intellect', 'mine', 'wilds', 'caverns', 'ruins', 'furnace', 'floodedRuins', 'cliffs', 'burial', 'saltFlats', 'frostReliquary', 'rail', 'telegraph', 'cover', 'explosive', 'root', 'water', 'web', 'mobility', 'snare', 'fire', 'gas', 'light', 'displacement', 'darkness', 'counterplay', 'ward', 'dart', 'lock', 'ritual', 'cordmark', 'reedstep', 'smoke', 'lift', 'anchor', 'current', 'breakwall', 'flow', 'heat', 'guard', 'hook', 'blade', 'hammer', 'tide', 'salvage', 'force', 'grapple', 'bridge', 'dash', 'winch', 'wind', 'climb', 'grave', 'spirit', 'echo', 'curse', 'salt', 'mirror', 'brine', 'frost', 'ice', 'duel', 'ambush', 'guardian', 'delivery', 'pressure', 'custody', 'relay', 'intake', 'orphan', 'injury'] as const
 
 export const ITEMS: ItemDefinition[] = [
   { id: 'whip', name: 'Courier Cord', glyph: '/', color: '#e7c680', slot: 'mainHand', weapon: { damage: 4, reach: 2, shape: 'line', cooldown: 0, tags: ['flexible', 'reach'] }, value: 45, effects: [{ id: 'surveying-strike', kind: 'action', actionId: 'player-strike', requires: ['reach'], add: { damage: 1 } }] },
@@ -110,7 +111,16 @@ export const ITEMS: ItemDefinition[] = [
   { id: 'cursedMirror', name: 'Cursed Mirror', glyph: '☠', color: '#d9a3c6', value: 240, findable: false, tags: ['curse'] },
   { id: 'graveFleece', name: 'Grave Fleece', glyph: '☠', color: '#9d8baf', value: 180, findable: false, tags: ['curse'] },
   { id: 'stormIdol', name: 'Storm Idol', glyph: '☠', color: '#9ebfec', value: 180, findable: false, tags: ['curse'] },
-  { id: 'oathShard', name: 'Oath Shard', glyph: '☠', color: '#e7c680', value: 200, findable: false, tags: ['curse'] }
+  { id: 'oathShard', name: 'Oath Shard', glyph: '☠', color: '#e7c680', value: 200, findable: false, tags: ['curse'] },
+  { id: 'pressureWeaveLiner', name: 'Pressure-Weave Liner', glyph: '[', color: '#8eb8bd', value: 140, findable: false, tags: ['delivery', 'pressure'], delivery: { sourcePool: 'requisition', description: 'Layered pressure cloth. Each stack reduces major industrial hazard harm; later layers have diminishing returns.', rarityWeight: 10, stackLimit: 3, persistence: 'run-bound', tags: ['pressure', 'defense'] } },
+  { id: 'routeCurrentCapacitor', name: 'Route-Current Capacitor', glyph: 'o', color: '#b3d9ec', value: 155, findable: false, tags: ['delivery', 'relay'], delivery: { sourcePool: 'transit-salvage', description: 'Stores grounded relay charge. Stacks raise its safe charge ceiling and improve the next hazard response.', rarityWeight: 8, stackLimit: 4, persistence: 'run-bound', tags: ['relay', 'charge'] } },
+  { id: 'custodySealMesh', name: 'Custody Seal Mesh', glyph: '#', color: '#d7bd7b', value: 175, findable: false, tags: ['delivery', 'custody'], delivery: { sourcePool: 'requisition', description: 'A non-invasive seal sheath. Intact custody improves later delivery offers and limits known custody pressure.', rarityWeight: 7, stackLimit: 2, persistence: 'run-bound', tags: ['custody', 'seal'] } },
+  { id: 'vectorSkates', name: 'Vector Skates', glyph: ';', color: '#9dcbdd', value: 165, findable: false, tags: ['delivery', 'mobility'], delivery: { sourcePool: 'transit-salvage', description: 'Magnetic skates provide one extra response step after a major intent, but movement trackers can read repeated routes.', rarityWeight: 6, stackLimit: 1, persistence: 'run-bound', tags: ['mobility', 'response'] } },
+  { id: 'tissueStitchPatch', name: 'Tissue-Stitch Patch', glyph: '!', color: '#c9a4ad', value: 150, findable: false, tags: ['delivery', 'injury'], delivery: { sourcePool: 'requisition', description: 'A sealed repair patch. It consumes itself to prevent one pressure scar; each stack is a separate emergency layer.', rarityWeight: 8, stackLimit: 2, persistence: 'run-bound', tags: ['injury', 'repair'] } },
+  { id: 'archiveTether', name: 'Archive Tether', glyph: '~', color: '#b6b9dc', value: 160, findable: false, tags: ['delivery', 'custody'], delivery: { sourcePool: 'nerida-intake', description: 'Records an intact handoff under field interference. It makes custody choices and recovery history inspectable.', rarityWeight: 5, stackLimit: 1, persistence: 'run-bound', tags: ['custody', 'archive'] } },
+  { id: 'groundingSpindle', name: 'Grounding Spindle', glyph: 'T', color: '#c8d875', value: 170, findable: false, tags: ['delivery', 'relay'], delivery: { sourcePool: 'transit-salvage', description: 'A hand-held discharge path. Ground a relay intent to cancel it and feed a Route-Current Capacitor.', rarityWeight: 7, stackLimit: 1, persistence: 'run-bound', tags: ['relay', 'ground'] } },
+  { id: 'pulseReverser', name: 'Pulse Reverser', glyph: '↺', color: '#e7c578', value: 190, findable: false, tags: ['delivery', 'intake'], delivery: { sourcePool: 'nerida-intake', description: 'Reverses one declared intake shear or relay pulse. Six turns are required to rebuild its charge.', rarityWeight: 4, stackLimit: 1, persistence: 'run-bound', tags: ['active', 'interrupt'], active: { cooldownTurns: 6, response: 'interrupt' } } },
+  { id: 'orphanPhaseSample', name: 'Orphan Phase Sample', glyph: '◇', color: '#cf9dd6', value: 240, findable: false, tags: ['delivery', 'orphan'], delivery: { sourcePool: 'nerida-intake', description: 'An anomalous industrial sample. It doubles grounded charge, but an overfull conductor releases a painful corrective pulse.', rarityWeight: 2, stackLimit: 1, persistence: 'run-bound', tags: ['orphan', 'risk', 'charge'] } }
 ]
 
 const voyagerTerms: ReadonlyArray<readonly [string, string]> = [

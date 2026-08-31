@@ -4,6 +4,8 @@ import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
 import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, destinationConditionDetail, destinationConditionLabel, destinationInterventionAvailable, destinationReportFreshness, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, INSTITUTION_DEFINITIONS, institutionDefinition, institutionReportFreshness, institutionStandingLabel, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { sealedPackageDefinition } from './package-content'
+import { deliveryItemDescription, deliveryNextThreshold, deliveryPressureLabel } from './engine/delivery-buildcraft'
+import { deliveryEliteLabel } from './engine/delivery-tactics'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
 import { mapCellIndex, mapOverlays, visibleMapActor, type MapOverlays } from './renderer/map-overlays'
@@ -248,7 +250,7 @@ export class TerminalRenderer {
     })
     if (entries.length) {
       const selected = entries.find(entry => entry.id === menu?.selectedId) ?? entries[0]
-      const status = selected.floor ? `landing ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'aboard the Jomon Voyager'
+      const status = selected.floor ? `landing ${String(selected.floor).padStart(2, '0')} · turn ${selected.turn ?? 0}` : 'aboard Jomon'
       this.text(18, 43, `${selected.name} waits at ${selected.area ? biomeName[selected.area] : 'the carrier'} · ${status}.`, colors.dim)
     }
     const controls = entries.length
@@ -443,7 +445,7 @@ export class TerminalRenderer {
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
     this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
-    this.text(1, 53, 'ACT C interact · D destination · N institutions · M Manifest', colors.dim)
+    this.text(1, 53, 'ACT C interact · P delivery · D destination · N institutions · M Manifest', colors.dim)
     this.text(1, 54, `F auto ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F policy`, colors.dim)
     this.text(1, 55, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
   }
@@ -497,6 +499,45 @@ export class TerminalRenderer {
   }
 
   private hubService(route: ScreenRoute, action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, sealedPackageAction?: ScreenRoute['sealedPackageAction'], companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
+    if (action === 'delivery') {
+      const galaxy = hub?.galaxy
+      const run = galaxy?.deliveryRun
+      this.box(49, 3, 46, 46, 'JOMON // DELIVERY BUILD FILE')
+      if (!galaxy || !run || run.resolution) { this.text(52, 8, 'No active sealed-delivery build exists.', colors.dim); this.text(52, 44, 'C / ESC return to carrier deck', colors.green); return }
+      const courier = galaxy.couriers.find(candidate => candidate.id === run.courierId)
+      const text = (y: number, value: string, color = colors.text) => this.text(52, y, value.slice(0, 40), color)
+      const wrapped = (y: number, value: string, color = colors.text) => this.wrap(value, 40).slice(0, 2).forEach((line, index) => text(y + index, line, color))
+      const pending = run.offers.find(offer => offer.state === 'pending')
+      const next = deliveryNextThreshold(run)
+      let y = 6
+      text(y++, `COURIER: ${courier?.name ?? run.courierId}`.toUpperCase(), colors.gold)
+      text(y++, `PRESSURE: ${deliveryPressureLabel(run.pressureTier).toUpperCase()} · ${run.elapsedMarks} MARKS`, run.pressureTier === 'working-load' ? colors.text : colors.red)
+      text(y++, next === undefined ? 'NEXT: PRESSURE CAP REACHED' : `NEXT: ${next} MARKS · +${Math.max(0, next - run.elapsedMarks)} REMAINING`, colors.dim)
+      const stacks = run.equipment.map(stack => `${ITEM[stack.itemId]?.glyph ?? '*'} ${ITEM[stack.itemId]?.name ?? stack.itemId} ×${stack.count}`).join(' · ')
+      wrapped(y, `RUN GEAR: ${stacks || 'none acquired'}`, stacks ? colors.green : colors.dim); y += stacks ? 3 : 2
+      text(y++, 'PERSISTENT COURIER RECORD', colors.gold)
+      wrapped(y, `MODS: ${courier?.hero.deliveryModifications?.map(modification => modification.id.replaceAll('-', ' ')).join(', ') || 'none'} · INJURY: ${courier?.hero.deliveryInjuries?.map(injury => injury.id.replaceAll('-', ' ')).join(', ') || 'none'}`, colors.text); y += 3
+      if (route.deliveryModification) {
+        const conduit = route.deliveryModification === 'relay-marrow-conduit'
+        text(y++, `CONFIRM ${route.deliveryModification.replaceAll('-', ' ').toUpperCase()}`, colors.red)
+        wrapped(y, conduit ? 'Benefit: improved relay grounding. Risk: Orphan exposure becomes less stable.' : 'Benefit: reduces industrial hazard harm. Cost: later recovery restores less health.', colors.text)
+        text(42, 'COST: ONE VITAL GEL · ENTER INSTALLS', colors.gold)
+        text(44, 'C / ESC cancels', colors.green)
+        return
+      }
+      if (pending) {
+        text(y++, `${pending.source.replaceAll('-', ' ').toUpperCase()} OFFER`, colors.gold)
+        pending.choices.forEach((itemId, index) => {
+          const item = ITEM[itemId]
+          text(y++, `${index + 1}. ${item?.glyph ?? '*'} ${item?.name ?? itemId}`.toUpperCase(), item?.color ?? colors.text)
+          wrapped(y, deliveryItemDescription(itemId) ?? 'No field description recorded.', colors.dim); y += 2
+        })
+        text(42, '1-3 SELECT · D DECLINE', colors.green)
+      } else text(y++, 'NO PENDING FIELD REQUISITION', colors.dim)
+      text(44, 'B pressure baffles · R relay-marrow', colors.green)
+      text(46, 'C / ESC return to carrier deck', colors.dim)
+      return
+    }
     if (action === 'manifest') {
       const galaxy = hub?.galaxy
       this.box(49, 3, 46, 46, 'JOMON // GENERAL MANIFEST')
@@ -619,7 +660,7 @@ export class TerminalRenderer {
       wrapped(`INJURIES: ${carryover?.injuries.join(', ') || 'none'}`)
       wrapped(`LOSSES: ${carryover?.losses.join(', ') || 'none'}`)
       y++
-      text('Dock at New Edo with C / ESC.', colors.dim)
+      text('Return to Jomon with C / ESC.', colors.dim)
       text('ENTER / E accepts a harder revised route.', colors.green)
       return
     }
@@ -997,7 +1038,8 @@ export class TerminalRenderer {
     this.text(50, 1, 'DELIVERY', colors.gold)
     this.text(50, 2, `${String((state.areaFloor ?? state.floor.index % 4) + 1).padStart(2, '0')}/04 ${biomeName[biome]}`, colors.text)
     this.ruleHorizontal(50, 3, 45)
-    this.text(50, 4, visualIdentitySnapshot(biome, identityState).line, colors.dim)
+    const pressure = state.deliveryContext
+    this.text(50, 4, pressure ? `PRESSURE ${pressure.pressureTier.toUpperCase()} ${pressure.elapsedMarks}M${pressure.nextThresholdMark === undefined ? '' : ` →${pressure.nextThresholdMark}M`}` : visualIdentitySnapshot(biome, identityState).line, pressure && pressure.pressureTier !== 'working-load' ? colors.red : colors.dim)
     this.courierSheet(hero)
     const ground = state.floor.items.filter(item => item.x === hero.x && item.y === hero.y)
     this.text(50, 32, 'ON GROUND', colors.gold)
@@ -1007,7 +1049,8 @@ export class TerminalRenderer {
     const foes = state.floor.actors.filter(actor => actor.hostile && getTile(state.floor, actor.x, actor.y)?.visible).sort((a, b) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y) - Math.abs(b.x - hero.x) - Math.abs(b.y - hero.y)).slice(0, 3)
     foes.forEach((foe, i) => {
       const y = 38 + i
-      this.text(50, y, `${foe.glyph} ${foe.name.slice(0, 18).padEnd(18)}`, foe.color)
+      const elite = deliveryEliteLabel(foe)
+      this.text(50, y, `${foe.glyph} ${(elite ? `ELITE ${elite}` : foe.name).slice(0, 35)}`, elite ? colors.gold : foe.color)
       this.meter(71, y, 24, foe.health, foe.maxHealth, foe.color)
     })
     const telegraphs = (state.floor.telegraphs ?? []).filter(telegraph => isTelegraphVisible(state.floor, telegraph)).slice(0, Math.max(0, 3 - foes.length))
@@ -1045,10 +1088,15 @@ export class TerminalRenderer {
       this.text(50, 14 + i, `${SLOT_NAMES[slot].padEnd(9)} ${label}`, id ? ITEM[id].color : colors.dim)
     }
     this.text(50, 21, 'INVENTORY', colors.gold)
-    const inventory = hero.inventory.slice(0, 8)
+    const inventory = [...new Set(hero.inventory)].slice(0, 8)
     if (!inventory.length) this.text(50, 22, 'pack empty', colors.dim)
-    inventory.forEach((id, index) => this.text(50, 22 + index, `${index + 1}. ${ITEM[id].glyph} ${ITEM[id].name}`, ITEM[id].color))
+    inventory.forEach((id, index) => {
+      const count = hero.inventory.filter(candidate => candidate === id).length
+      this.text(50, 22 + index, `${index + 1}. ${ITEM[id].glyph} ${ITEM[id].name}${count > 1 ? ` ×${count}` : ''}`, ITEM[id].color)
+    })
     if (hero.inventory.length > inventory.length) this.text(50, 30, `+${hero.inventory.length - inventory.length} more · U/D/T/E`, colors.dim)
+    const deliveryCooldown = hero.cooldowns?.['delivery:pulseReverser']
+    if (hero.inventory.includes('pulseReverser') || deliveryCooldown) this.text(72, 30, `M PULSE ${deliveryCooldown ? `${deliveryCooldown}T` : 'READY'}`, deliveryCooldown ? colors.dim : colors.green)
     const tools = hero.traversalTools ?? []
     this.text(72, 21, 'RITUAL TOOLS', colors.gold)
     if (!tools.length) this.text(72, 22, 'none · find Waycache', colors.dim)
@@ -1100,7 +1148,7 @@ export class TerminalRenderer {
     this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
     this.text(1, 53, 'ACT G/U/D/T/E · A skills · S charm · C act', colors.dim)
     this.text(1, 54, 'B bomb · R rope · Y tools · W rewind · Q exit', colors.dim)
-    this.text(1, 55, `F ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)}`, colors.dim)
+    this.text(1, 55, `M delivery device · F ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F ${autoplayPolicyLabel(this.settings.autoplayPolicy)} · V ${visualModeLabel(this.visualMode)}`, colors.dim)
   }
 
   private modal(state: RunState, modal: Modal): void {

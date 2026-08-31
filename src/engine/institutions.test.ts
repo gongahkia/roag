@@ -173,7 +173,7 @@ describe('Nerida institutions and recurring rivals', () => {
     delete legacy.institutionWorld
     const migrated = migrateGalaxy(legacy)!
     const reloaded = migrateGalaxy(JSON.parse(JSON.stringify(migrated)))!
-    expect(migrated).toMatchObject({ version: 5, routeReckoning: 900, institutionWorld: { operations: [], causalEvents: [], lastProcessedManifestSequence: migrated.generalManifest.nextSequence - 1 } })
+    expect(migrated).toMatchObject({ version: 6, routeReckoning: 900, institutionWorld: { operations: [], causalEvents: [], lastProcessedManifestSequence: migrated.generalManifest.nextSequence - 1 } })
     expect(reloaded).toEqual(migrated)
   })
 

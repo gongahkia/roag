@@ -14,7 +14,7 @@ describe('Jomon Route Board', () => {
     const routes = routeBoardConnectionsFor(current.id)
 
     expect(first.routeBoard).toEqual(second.routeBoard)
-    expect(first.version).toBe(5)
+    expect(first.version).toBe(6)
     expect(current).toMatchObject({ id: 'destination:kestrel', label: 'Kestrel Landing', siteId: first.activeSiteId })
     expect(routes.filter(route => route.status === 'open').map(route => [route.id, route.durationMarks, route.risk])).toEqual([
       ['route:kestrel-orison', 360, 'low'],
@@ -121,10 +121,24 @@ describe('Jomon Route Board', () => {
     const directArrival = resolveRouteBoardTransit(committed)
     const resumedArrival = resolveRouteBoardTransit(resumed)
 
-    expect(migrated).toMatchObject({ version: 5, routeReckoning: 0, activeSiteId: 'sector-00:site-03', routeBoard: { currentDestinationId: 'destination:halcyon', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 0 } } }, institutionWorld: { operations: [], causalEvents: [] } })
+    expect(migrated).toMatchObject({ version: 6, routeReckoning: 0, activeSiteId: 'sector-00:site-03', routeBoard: { currentDestinationId: 'destination:halcyon', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 0 } } }, institutionWorld: { operations: [], causalEvents: [] } })
     expect(migrateGalaxy(JSON.parse(JSON.stringify(migrated)))!).toEqual(migrated)
     expect(resumed.routeBoard.transit).toEqual(committed.routeBoard.transit)
     expect(resumedArrival.galaxy).toEqual(directArrival.galaxy)
     expect(routeBoardOtherDestination(routeBoardConnection('route:kestrel-orison')!, 'destination:kestrel')?.id).toBe('destination:orison')
+  })
+
+  it('migrates a v5 accepted delivery without inventing a run, offer, elapsed time, or tactical history', () => {
+    const initial = galaxy(313)
+    const accepted = acceptSealedPackageContract(initial, initial.sealedPackageContracts[0]!.id, initial.activeCourierId).galaxy
+    const legacy = structuredClone(accepted) as unknown as Record<string, unknown>
+    legacy.version = 5
+    delete legacy.deliveryRun
+    const migrated = migrateGalaxy(legacy)!
+    const reopened = migrateGalaxy(JSON.parse(JSON.stringify(migrated)))!
+
+    expect(migrated).toMatchObject({ version: 6, routeReckoning: 0, sealedPackageContracts: [{ status: 'accepted' }] })
+    expect(migrated.deliveryRun).toBeUndefined()
+    expect(reopened).toEqual(migrated)
   })
 })

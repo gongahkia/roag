@@ -41,6 +41,6 @@ describe('release validation suite', () => {
     const legacy = structuredClone(newRun(77124)) as unknown as { version: number; floor: Record<string, unknown> }
     legacy.version = 2
     delete legacy.floor.props
-    expect(migrateRunRecord(legacy)).toMatchObject({ version: 5, floor: { props: [] } })
+    expect(migrateRunRecord(legacy)).toMatchObject({ version: 6, floor: { props: [] } })
   })
 })

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { autoplayTaskCatalog } from '../src/autoplay-task-catalog'
+import { ITEM } from '../src/content'
 import { moveOutpost, outpostInteraction, outpostSpawn } from '../src/engine'
 import { outpostAutoplayCommand } from '../src/outpost-autoplay'
 import type { Direction, Point } from '../src/types'
@@ -246,6 +247,80 @@ test('records an Iren Vos rival file, shows known institutional context, and car
   await page.keyboard.press('m')
   await expect(game).toHaveAttribute('data-hub-action', 'manifest')
   await expect(game).toHaveAttribute('aria-label', /General Manifest: The Port Office removed Iren Vos/)
+})
+
+test('carries an accepted delivery through the build file, a Nerida telegraph, and a return-airlock escape', async ({ page }) => {
+  await enterCarrier(page)
+  const game = page.locator('#game')
+  await page.clock.install({ time: new Date('2026-08-31T00:00:00.000Z') })
+
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('c')
+  await page.keyboard.press('i')
+  await page.keyboard.press('a')
+  await expect(game).toHaveAttribute('data-sealed-package', 'accepted')
+  await expect(game).toHaveAttribute('data-delivery-run', /delivery-run:/)
+  await expect(game).toHaveAttribute('data-delivery-pressure', 'working-load')
+  await page.keyboard.press('c')
+  await page.keyboard.press('p')
+  await expect(game).toHaveAttribute('data-hub-action', 'delivery')
+  await expect(game).toHaveAttribute('data-delivery-offer', /delivery-offer:/)
+  await expect(game).toHaveAttribute('aria-label', /Delivery pressure: working-load.*Field offer:/)
+  const selectedId = (await game.getAttribute('data-delivery-offer-choices'))!.split(',')[0]!
+  const stackRule = ITEM[selectedId]?.delivery?.description
+  expect(stackRule).toBeDefined()
+  await page.keyboard.press('1')
+  await expect(game).toHaveAttribute('data-delivery-offer', '')
+  await expect(game).toHaveAttribute('data-delivery-loadout', /.+/)
+  expect(await game.getAttribute('aria-label')).toContain(stackRule!)
+  await page.keyboard.press('c')
+
+  await openRouteBoard(page, moveOutpost(outpostSpawn(), 'w').position)
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route-board-confirmation', 'transit')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'transit')
+  await page.clock.runFor(3_500)
+  await expect(game).toHaveAttribute('data-current-destination', 'destination:orison')
+  await expect(game).toHaveAttribute('data-delivery-pressure', 'compression')
+  await page.keyboard.press('p')
+  await expect(game).toHaveAttribute('data-delivery-offer', /delivery-offer:/)
+  await page.keyboard.press('1')
+  await page.keyboard.press('c')
+
+  await openRouteBoard(page)
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await expect(game).toHaveAttribute('data-route-board-selection', 'destination:nerida')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'transit')
+  await page.clock.runFor(3_500)
+  await expect(game).toHaveAttribute('data-current-destination', 'destination:nerida')
+  await expect(game).toHaveAttribute('data-delivery-pressure', 'compression')
+  await page.keyboard.press('p')
+  await expect(game).toHaveAttribute('data-delivery-offer', /delivery-offer:/)
+  await page.keyboard.press('1')
+  await page.keyboard.press('c')
+
+  await openRouteBoard(page)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route-board-confirmation', 'landing')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'level')
+  await expect(game).toHaveAttribute('data-delivery-expedition', /nerida-intake:/)
+  await expect(game).toHaveAttribute('data-delivery-elite', /delivery-elite:/)
+  await expect(game).toHaveAttribute('data-delivery-elite-traits', /.+/)
+
+  await page.keyboard.press('i')
+  await page.keyboard.press('l')
+  await expect(game).toHaveAttribute('data-tactical-intent', /.+/)
+  await expect(game).toHaveAttribute('data-tactical-intent-category', 'pressureVent')
+  await expect(game).toHaveAttribute('aria-label', /Declared tactical intent: pressureVent/)
+  await page.keyboard.press('c')
+  await expect(game).toHaveAttribute('data-route', 'hub')
+  await expect(game).toHaveAttribute('data-current-destination', 'destination:nerida')
 })
 
 test('advances Route Reckoning only during an active scene, exposes the Manifest, and does not reconcile on reload', async ({ page }) => {

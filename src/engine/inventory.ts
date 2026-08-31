@@ -34,6 +34,7 @@ import { openEncounter } from './encounters'
 import { revealSecretClues } from './secret-discovery'
 import { claimSecretReward, secretResolutionMessage } from '../secrets'
 import { takeSecretShortcut } from './shortcuts'
+import { stabilizeNeridaIntake } from './delivery-tactics'
 
 const resolveSecretPickup = (state: RunState, item: GroundItem): void => {
   if (!item.secretId) return
@@ -81,6 +82,7 @@ export function operate(state: RunState): ActionResult {
   if (routeCache && Math.max(Math.abs(routeCache.x - state.hero.x), Math.abs(routeCache.y - state.hero.y)) <= 1) { log(state, 'A marked Voyager cargo cache is ready for recovery.'); return [event('routeCache', routeCache.linkId)] }
   const airlock = state.floor.airlocks?.find(candidate => Math.max(Math.abs(candidate.x - state.hero.x), Math.abs(candidate.y - state.hero.y)) <= 1)
   if (airlock) { log(state, `${airlock.label} ready.`); return [event('routeDeparture', airlock.destinationSiteId ?? 'voyager')] }
+  if (stabilizeNeridaIntake(state)) return advance(state, [event('terrain', 'delivery-intake')])
   const friend = state.floor.actors.find(actor => !actor.hostile && distance(actor, state.hero) <= 1)
   const altar = tile?.kind === 'altar' ? tile : friend && getTile(state.floor, friend.x, friend.y)?.kind === 'altar' ? getTile(state.floor, friend.x, friend.y) : undefined
   const container = nearbyContainer(state)

@@ -4,7 +4,9 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, decideGalaxyInstitutionRequest, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, decideGalaxyInstitutionRequest, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyNeridaTacticalConsequence, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { beginDeliveryExpedition, courierModificationChoices, deliveryItemDescription, deliveryRunContext, installCourierModification, selectDeliveryOffer, synchronizeDeliveryExpedition, synchronizeDeliveryRunEquipment } from './engine/delivery-buildcraft'
+import { materializeNeridaIntakeExpedition } from './engine/delivery-tactics'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -265,6 +267,7 @@ function tickRouteReckoning(runtimeMs: number): void {
     const previous = campaign.galaxy
     const galaxy = advanceGalaxyRouteReckoning(previous, steps)
     campaign = { ...campaign, galaxy }
+    synchronizeDeliveryContext()
     const historyChanged = galaxy.generalManifest.entries.length !== previous.generalManifest.entries.length
     if (historyChanged || galaxy.routeReckoning - lastRouteClockPersistence >= 10) {
       lastRouteClockPersistence = galaxy.routeReckoning
@@ -417,7 +420,7 @@ function resumeCourier(): void {
   records = activeCourier.records
   campaign = activeCourier.campaign
   hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
-  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); heir = structuredClone(state.hero); galaxyForVoyager(state.seed); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
+  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); heir = structuredClone(state.hero); galaxyForVoyager(state.seed); synchronizeDeliveryContext(); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
   else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); galaxyForVoyager(campaign.galaxy?.seed ?? 1); hubPosition = outpostSpawn(); route = { screen: 'hub', biome: campaign.selectedBiome } }
   if (!activeCourier.run && campaign.galaxy?.routeBoard.transit) beginRouteBoardTransitPresentation(campaign.galaxy)
   const selectedId = activeCourier.identity.id
@@ -439,19 +442,40 @@ function persistActiveCourier(restoreCheckpoint = false): void {
   persistCourier(activeCourier, selectedCourierId)
 }
 
+function stripArchivedDeliveryEquipment(hero: Hero, galaxy: GalaxyState): Hero {
+  const run = galaxy.deliveryRun
+  if (!run?.resolution || run.courierId !== galaxy.activeCourierId) return hero
+  const inventory = [...hero.inventory]
+  for (const stack of run.equipment) {
+    let remaining = stack.count
+    for (let index = inventory.length - 1; index >= 0 && remaining > 0; index--) if (inventory[index] === stack.itemId) { inventory.splice(index, 1); remaining-- }
+  }
+  return { ...hero, inventory }
+}
+
 function synchronizeActiveGalaxyCourier(): void {
   const galaxy = campaign.galaxy
-  const currentHero = state?.status === 'playing' ? state.hero : heir
+  let currentHero = state?.status === 'playing' ? state.hero : heir
   if (!galaxy || !currentHero) return
   const current = galaxy.couriers.find(courier => courier.id === galaxy.activeCourierId)
   if (!current) return
-  campaign = {
-    ...campaign,
-    galaxy: {
-      ...galaxy,
-      couriers: galaxy.couriers.map(courier => courier.id === current.id ? { ...courier, name: currentHero.name, origin: currentHero.origin, calling: currentHero.calling, hero: structuredClone(currentHero), personalItems: [...courier.personalItems] } : courier)
-    }
+  currentHero = stripArchivedDeliveryEquipment(currentHero, galaxy)
+  if (state?.status === 'playing') state.hero = currentHero
+  else heir = currentHero
+  const nextGalaxy = {
+    ...galaxy,
+    couriers: galaxy.couriers.map(courier => courier.id === current.id ? { ...courier, name: currentHero.name, origin: currentHero.origin, calling: currentHero.calling, hero: structuredClone(currentHero), personalItems: [...courier.personalItems] } : courier),
+    ...(galaxy.deliveryRun ? { deliveryRun: structuredClone(galaxy.deliveryRun) } : {})
   }
+  synchronizeDeliveryRunEquipment(nextGalaxy)
+  campaign = { ...campaign, galaxy: nextGalaxy }
+}
+
+function synchronizeDeliveryContext(): void {
+  if (!state || state.status !== 'playing') return
+  const context = deliveryRunContext(campaign.galaxy?.deliveryRun, campaign.galaxy?.routeReckoning)
+  if (context) state.deliveryContext = context
+  else delete state.deliveryContext
 }
 
 function checkpointActiveCourier(): void {
@@ -535,6 +559,13 @@ function start(): void {
   state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
   if (!snapshot && site) applyGalaxySiteConditions(state, site)
   if (site && galaxy) attachGalaxyAirlocks(state, galaxy, site.id)
+  if (campaign.galaxy?.routeBoard.currentDestinationId === 'destination:nerida') {
+    const expeditionGalaxy = structuredClone(campaign.galaxy)
+    const deliveryRun = beginDeliveryExpedition(expeditionGalaxy, 'destination:nerida')
+    campaign = { ...campaign, galaxy: expeditionGalaxy }
+    if (deliveryRun) materializeNeridaIntakeExpedition(state, expeditionGalaxy, deliveryRun)
+  }
+  synchronizeDeliveryContext()
   renderer.setHeroFacingLeft(false)
   heir = state.hero
   activeCourier.heir = structuredClone(state.hero)
@@ -558,7 +589,7 @@ function attachGalaxyAirlocks(game: RunState, galaxy: GalaxyState, siteId: strin
     const point = destination === 'voyager' ? returnPoint : candidates[index * 2 + 1]
     if (!point) return []
     game.floor.tiles[point.y * game.floor.width + point.x]!.kind = 'airlock'
-    return [{ id: `airlock:${siteId}:${destination}`, x: point.x, y: point.y, ...(destination === 'voyager' ? {} : { destinationSiteId: destination }), label: destination === 'voyager' ? 'Jomon Voyager return airlock' : `Route airlock to ${galaxy.sites[destination]!.name}` }]
+    return [{ id: `airlock:${siteId}:${destination}`, x: point.x, y: point.y, ...(destination === 'voyager' ? {} : { destinationSiteId: destination }), label: destination === 'voyager' ? 'Jomon return airlock' : `Route airlock to ${galaxy.sites[destination]!.name}` }]
   })
 }
 
@@ -956,6 +987,12 @@ function redraw(): void {
   const routeBoardSelection = galaxy && route.screen === 'sector' ? routeBoardDestinationForSite(route.siteId ?? currentDestination?.siteId ?? '') ?? currentDestination : undefined
   const routeBoardReport = galaxy && routeBoardSelection ? galaxy.destinationWorld.reports[routeBoardSelection.id as keyof typeof galaxy.destinationWorld.reports] : undefined
   const manifestEntry = route.hubAction === 'manifest' ? galaxy?.generalManifest.entries.at(-1) : undefined
+  const deliveryRun = galaxy?.deliveryRun
+  const deliveryOffer = deliveryRun?.offers.find(offer => offer.state === 'pending')
+  const deliveryLoadout = deliveryRun?.equipment.map(stack => `${ITEM[stack.itemId]?.name ?? stack.itemId} ×${stack.count}: ${deliveryItemDescription(stack.itemId) ?? 'field behavior unavailable'}`).join(' ') ?? ''
+  const deliveryExpedition = state?.floor.deliveryExpedition
+  const deliveryElite = state?.floor.actors.find(actor => actor.deliveryElite && actor.hostile && actor.health > 0)
+  const tacticalIntent = state?.floor.telegraphs?.find(telegraph => (telegraph.state ?? 'pending') === 'pending')
   const rival = galaxy?.institutionWorld.rival
   const rivalActor = rival && galaxy ? galaxy.institutionWorld.actors.find(actor => actor.id === rival.actorId) : undefined
   const rivalMemory = rivalActor?.memories.at(-1)
@@ -976,7 +1013,17 @@ function redraw(): void {
   canvas.dataset.institutionDecision = route.institutionDecision ?? ''
   canvas.dataset.routeBoardReport = routeBoardReport?.reportedCondition ?? ''
   canvas.dataset.routeBoardReportFreshness = routeBoardReport && galaxy ? destinationReportFreshness(routeBoardReport, galaxy.routeReckoning) : ''
-  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${route.hubAction === 'institutions' && galaxy ? ` Institutions: ${rival && rivalActor ? `${rivalActor.name}, ${rival.status}. Known file: ${rivalMemory?.summary ?? 'no recorded personal cause'}` : 'no known rival.'}` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  canvas.dataset.deliveryRun = deliveryRun?.id ?? ''
+  canvas.dataset.deliveryPressure = deliveryRun?.pressureTier ?? ''
+  canvas.dataset.deliveryOffer = deliveryOffer?.id ?? ''
+  canvas.dataset.deliveryOfferChoices = deliveryOffer?.choices.join(',') ?? ''
+  canvas.dataset.deliveryLoadout = deliveryLoadout
+  canvas.dataset.deliveryExpedition = deliveryExpedition?.id ?? ''
+  canvas.dataset.deliveryElite = deliveryElite?.deliveryElite?.id ?? ''
+  canvas.dataset.deliveryEliteTraits = deliveryElite?.deliveryElite?.traitIds.join(',') ?? ''
+  canvas.dataset.tacticalIntent = tacticalIntent?.id ?? ''
+  canvas.dataset.tacticalIntentCategory = tacticalIntent?.category ?? ''
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${route.hubAction === 'institutions' && galaxy ? ` Institutions: ${rival && rivalActor ? `${rivalActor.name}, ${rival.status}. Known file: ${rivalMemory?.summary ?? 'no recorded personal cause'}` : 'no known rival.'}` : ''}${deliveryRun && !deliveryRun.resolution ? ` Delivery pressure: ${deliveryRun.pressureTier}, ${deliveryRun.elapsedMarks} marks.${deliveryOffer ? ` Field offer: ${deliveryOffer.choices.join(', ')}.` : ''}${deliveryLoadout ? ` Field equipment: ${deliveryLoadout}` : ''}` : ''}${deliveryExpedition ? ` Nerida expedition: ${deliveryExpedition.status}.` : ''}${tacticalIntent ? ` Declared tactical intent: ${tacticalIntent.category ?? tacticalIntent.actionId}.` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -984,6 +1031,57 @@ function redraw(): void {
 function handleHubInput(key: string, run = false): boolean {
   const action = route.hubAction
   if (action) {
+    if (action === 'delivery') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, deliveryModification: undefined } }
+      const run = galaxy?.deliveryRun
+      const currentHero = run && galaxy ? galaxy.couriers.find(courier => courier.id === run.courierId)?.hero : undefined
+      if (!galaxy || !run || !currentHero || run.resolution) { hubNotice = 'No active sealed delivery has a field-build record.'; close(); return true }
+      if (route.deliveryModification) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, deliveryModification: undefined }; hubNotice = 'Courier modification review cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER installs the stated permanent modification using one Vital Gel treatment. C / ESC cancels.'; return true }
+        const edited = structuredClone(galaxy)
+        const result = installCourierModification(edited, route.deliveryModification)
+        campaign = { ...campaign, galaxy: edited }
+        const courier = edited.couriers.find(candidate => candidate.id === edited.activeCourierId)
+        if (courier) { heir = structuredClone(courier.hero); if (activeCourier) activeCourier.heir = structuredClone(courier.hero) }
+        route = { ...route, deliveryModification: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { close(); return true }
+      const offer = run.offers.find(candidate => candidate.state === 'pending')
+      const command = key.toLowerCase()
+      const index = Number(key) - 1
+      if (offer && Number.isInteger(index) && index >= 0 && index < offer.choices.length) {
+        const edited = structuredClone(galaxy)
+        const result = selectDeliveryOffer(edited, offer.id, offer.choices[index])
+        campaign = { ...campaign, galaxy: edited }
+        const courier = edited.couriers.find(candidate => candidate.id === edited.activeCourierId)
+        if (courier) { heir = structuredClone(courier.hero); if (activeCourier) activeCourier.heir = structuredClone(courier.hero) }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (offer && command === 'd') {
+        const edited = structuredClone(galaxy)
+        const result = selectDeliveryOffer(edited, offer.id, undefined)
+        campaign = { ...campaign, galaxy: edited }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'b' || command === 'r') {
+        const modification = command === 'b' ? 'pressure-baffles' : 'relay-marrow-conduit'
+        if (!courierModificationChoices(currentHero).includes(modification)) { hubNotice = 'That modification is incompatible with this courier’s current field record.'; return true }
+        route = { ...route, deliveryModification: modification }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = offer ? '1-3 requisition field equipment · D decline · B/R review a permanent modification.' : 'B/R review a permanent modification. C / ESC returns to carrier duties.'
+      return true
+    }
     if (action === 'manifest') {
       if (key === 'Escape' || key.toLowerCase() === 'c' || key.toLowerCase() === 'm' || key === 'Enter') route = { ...route, hubAction: undefined }
       return true
@@ -1132,7 +1230,7 @@ function handleHubInput(key: string, run = false): boolean {
         persistActiveCourier()
         return true
       }
-      hubNotice = 'ENTER / E accepts the revised route. C / ESC docks at New Edo.'
+      hubNotice = 'ENTER / E accepts the revised route. C / ESC returns to the carrier deck.'
       return true
     }
     if (action === 'roster') {
@@ -1191,6 +1289,12 @@ function handleHubInput(key: string, run = false): boolean {
   if (key.toLowerCase() === 'm') {
     if (!campaign.galaxy) { hubNotice = 'The Jomon General Manifest is unavailable until a route is loaded.'; return true }
     route = { ...route, hubAction: 'manifest' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'p') {
+    if (!campaign.galaxy?.deliveryRun || campaign.galaxy.deliveryRun.resolution) { hubNotice = 'No active sealed delivery has a field-build record.'; return true }
+    route = { ...route, hubAction: 'delivery' }
     hubNotice = undefined
     return true
   }
@@ -1318,11 +1422,17 @@ function finish(won: boolean): void {
   if (!won && !checkpointDeath) {
     campaign = recordDeath(campaign, state, state.hero.name)
     if (campaign.galaxy) {
-      const linkId = state.travel?.linkId ?? `landing:${route.siteId ?? campaign.galaxy.activeSiteId}`
+      const liveGalaxy = structuredClone(campaign.galaxy)
+      const liveCourier = liveGalaxy.couriers.find(courier => courier.id === liveGalaxy.activeCourierId)
+      if (liveCourier) liveCourier.hero = structuredClone(state.hero)
+      synchronizeDeliveryRunEquipment(liveGalaxy)
+      const linkId = state.travel?.linkId ?? `landing:${liveGalaxy.activeSiteId}`
       const chunk = state.travel ? Math.max(0, Math.floor(state.hero.x / Math.max(1, state.floor.width / state.travel.chunkCount))) : 0
-      const cargoAbandoned = state.travel ? abandonGalaxyCargo(campaign.galaxy, linkId, chunk) : campaign.galaxy
+      const cargoAbandoned = state.travel ? abandonGalaxyCargo(liveGalaxy, linkId, chunk) : liveGalaxy
       const abandoned = loseSealedPackagesForCourier(cargoAbandoned, cargoAbandoned.activeCourierId, linkId, chunk)
-      campaign = { ...campaign, galaxy: loseGalaxyCourier(abandoned, abandoned.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`) }
+      const lostGalaxy = loseGalaxyCourier(abandoned, abandoned.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`)
+      heir = structuredClone(lostGalaxy.couriers.find(courier => courier.id === lostGalaxy.activeCourierId)?.hero ?? state.hero)
+      campaign = { ...campaign, galaxy: lostGalaxy }
       hubNotice = `${state.hero.name}'s death is recorded. Another Voyager specialist can continue the sector.`
     } else {
       const record = campaign.legacyRecords.at(-1)
@@ -1385,6 +1495,18 @@ function executeGameplayCommand(command: string, options: GameplayCommandOptions
     }
   } else if (options.run && !game.modal) events = run(game, command)
   else events = performTracked(game, command)
+  if (campaign.galaxy) {
+    const deliveryGalaxy = structuredClone(campaign.galaxy)
+    if (synchronizeDeliveryExpedition(deliveryGalaxy, game)) campaign = { ...campaign, galaxy: deliveryGalaxy }
+    const deliveryRunId = (campaign.galaxy ?? deliveryGalaxy).deliveryRun?.id
+    if (deliveryRunId) {
+      const consequence = recordGalaxyNeridaTacticalConsequence(campaign.galaxy ?? deliveryGalaxy, deliveryRunId)
+      if (consequence.changed) {
+        campaign = { ...campaign, galaxy: consequence.galaxy }
+        game.messages.unshift(consequence.message)
+      }
+    }
+  }
   const rebased = advanceTransitWindow(game)
   if (rebased) renderer.shiftCameraWindow(game.hero.x - previousX, game.hero.y - previousY)
   if (game.hero.level > previousLevel) events.push(event('level'))

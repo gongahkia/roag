@@ -34,7 +34,7 @@ export type EquipmentSlot = 'mainHand' | 'offHand' | 'head' | 'body' | 'boots' |
 export type ItemId = string
 export type ConditionKind = 'burning' | 'rooted' | 'staggered' | 'shielded' | 'marked' | 'slowed'
 export type GuardianPhase = 'opening' | 'pressure' | 'cataclysm'
-export type ObjectiveKind = 'recoverSupplies' | 'rescueScout' | 'invokeAltar' | 'defeatGuardian'
+export type ObjectiveKind = 'recoverSupplies' | 'rescueScout' | 'invokeAltar' | 'defeatGuardian' | 'stabilizeIntake'
 export type ObjectiveStatus = 'active' | 'complete'
 export type PropId =
   | 'mine.oreVein' | 'mine.lanternPost' | 'mine.brokenCart' | 'mine.warningMarker' | 'mine.skullMarker' | 'mine.discardedParcel'
@@ -93,6 +93,7 @@ export interface Actor {
   status?: string[]
   conditions?: ConditionState[]
   guardianPhase?: GuardianPhase
+  deliveryElite?: DeliveryElite
 }
 
 export interface GroundItem { id: ItemId; x: number; y: number; count: number; visibleInFog?: boolean; tool?: TraversalToolId; secretId?: string }
@@ -184,7 +185,30 @@ export interface EcologyEvent {
   warned?: boolean
 }
 export type TelegraphDanger = 'minor' | 'major'
-export interface Telegraph { id: string; sourceId: string; actionId: string; cells: Point[]; danger: TelegraphDanger; resolveTurn: number; collision?: { point: Point; by: string }; cover?: boolean }
+export type TacticalIntentSourceKind = 'actor' | 'hazard'
+export type TacticalIntentCategory = 'enemyAttack' | 'pressureVent' | 'relayDischarge' | 'intakeShear'
+export type TacticalIntentResponse = 'move' | 'interrupt' | 'ground' | 'block'
+export type TacticalIntentState = 'pending' | 'resolved' | 'cancelled'
+export interface Telegraph {
+  id: string
+  sourceId: string
+  actionId: string
+  cells: Point[]
+  danger: TelegraphDanger
+  resolveTurn: number
+  /** M6 intent metadata is mechanical state, shared by ASCII and detailed renderers. */
+  declaredTurn?: number
+  sourceKind?: TacticalIntentSourceKind
+  category?: TacticalIntentCategory
+  responses?: TacticalIntentResponse[]
+  state?: TacticalIntentState
+  collision?: { point: Point; by: string }
+  cover?: boolean
+}
+export interface TacticalIntentHistory { id: string; state: Exclude<TacticalIntentState, 'pending'>; turn: number }
+export type DeliveryEliteTraitId = 'relay-bound' | 'sweep-marshal' | 'intake-tracker' | 'custody-clamp'
+export interface DeliveryElite { version: 1; id: string; epithet: string; traitIds: DeliveryEliteTraitId[]; rewardItemId: ItemId; encounterId: string }
+export interface DeliveryExpeditionFloor { version: 1; id: string; kind: 'nerida-intake'; runId: string; objective: 'stabilize-intake'; status: 'active' | 'completed' | 'escaped'; console: Point; hazardIds: string[]; modificationAvailable: boolean; relayActivated: boolean; lastHeroPosition?: Point; repeatedHeading?: string; repeatedHeadingCount?: number; techniqueGranted?: boolean }
 export interface Floor {
   index: number
   biome: Biome
@@ -219,6 +243,8 @@ export interface Floor {
   ecology?: EcologyEvent[]
   transientTerrain?: TransientTerrain[]
   telegraphs?: Telegraph[]
+  tacticalIntentHistory?: TacticalIntentHistory[]
+  deliveryExpedition?: DeliveryExpeditionFloor
   puzzleIds?: string[]
   climbLinks?: ClimbLink[]
   difficulty?: DifficultyContext
@@ -265,6 +291,9 @@ export interface Hero {
   safePositions?: Point[]
   oaths?: OathState[]
   curse?: CurseState
+  deliveryModifications?: CourierModification[]
+  deliveryInjuries?: CourierInjury[]
+  learnedDeliveryTechniques?: CourierTechniqueId[]
 }
 
 export interface CourierIdentity { id: string; name: string; origin: CourierOrigin; calling: CourierCalling; deathMode: DeathMode; companionControlMode: CompanionControlMode; companionDeathMode: CompanionDeathMode; createdAt: string; parentId?: string }
@@ -377,7 +406,7 @@ export interface RunAnalysis { seed: number; biome: Biome; floor: number; outcom
 export interface ShortcutReturn { version: 1; routeId: string; floor: Floor; areaFloor: number; arrival: Point }
 
 export interface RunState {
-  version: 4 | 5
+  version: 4 | 5 | 6
   seed: number
   floor: Floor
   hero: Hero
@@ -402,6 +431,7 @@ export interface RunState {
   replayHero?: Hero
   companions?: Companion[]
   companionDeathMode?: CompanionDeathMode
+  deliveryContext?: DeliveryRunContext
 }
 
 export type GalaxyCourierRoutine = 'recover' | 'maintain' | 'research' | 'scout' | 'socialize' | 'trade'
@@ -414,8 +444,54 @@ export interface GalaxyContract { id: string; sourceSiteId: string; destinationS
 export type SealedPackageContractStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'failed' | 'expired'
 export type PackageSealState = 'intact' | 'opened'
 export type PackageCustodyState = 'atJomon' | 'assignedToCourier' | 'routeCache' | 'recipient' | 'abandoned'
-export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged' | 'destinationReportReceived' | 'destinationIntervention' | 'destinationDevelopmentResolved' | 'institutionNotice' | 'institutionDecision' | 'rivalEmergence' | 'rivalEncounter' | 'institutionOperationKnown' | 'institutionRelationshipChanged' | 'institutionActorStatusChanged' | 'institutionSuccession'
-export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route' | 'destination' | 'institution'
+export type DeliveryPressureTier = 'working-load' | 'compression' | 'cavitation' | 'cascade'
+export type DeliveryOfferSource = 'requisition' | 'transit-salvage' | 'nerida-intake'
+export type DeliveryOfferState = 'pending' | 'selected' | 'declined'
+export type DeliveryRunResolution = 'completed' | 'failed' | 'refused' | 'abandoned' | 'expired' | 'courier-loss'
+export type DeliveryItemPersistence = 'run-bound'
+export type CourierModificationId = 'pressure-baffles' | 'relay-marrow-conduit'
+export type CourierInjuryId = 'pressure-scarring'
+export type CourierTechniqueId = 'intake-routing'
+export interface CourierModification { id: CourierModificationId; installedAtRouteReckoning: number; runId: string }
+export interface CourierInjury { id: CourierInjuryId; acquiredAtRouteReckoning: number; runId: string }
+export interface DeliveryItemDefinition {
+  sourcePool: 'requisition' | 'transit-salvage' | 'nerida-intake'
+  description: string
+  rarityWeight: number
+  stackLimit: number
+  persistence: DeliveryItemPersistence
+  tags: string[]
+  active?: { cooldownTurns: number; response: TacticalIntentResponse }
+  incompatibilities?: ItemId[]
+}
+export interface DeliveryEquipmentStack { itemId: ItemId; count: number }
+export interface DeliveryEquipmentOffer { version: 1; id: string; source: DeliveryOfferSource; createdAtRouteReckoning: number; choices: ItemId[]; state: DeliveryOfferState; selectedItemId?: ItemId; resolvedAtRouteReckoning?: number }
+export interface DeliveryExpeditionHistory { id: string; destinationId: DestinationPartitionId; createdAtRouteReckoning: number; outcome: 'active' | 'completed' | 'escaped'; feedbackRecorded?: boolean }
+export interface DeliveryEliteHistory { id: string; traitIds: DeliveryEliteTraitId[]; outcome: 'active' | 'defeated' | 'escaped'; encounteredAtRouteReckoning: number }
+/** A materialized read-only view of the authoritative GalaxyState delivery run. */
+export interface DeliveryRunContext { version: 1; runId: string; pressureTier: DeliveryPressureTier; elapsedMarks: number; atRouteReckoning: number; nextThresholdMark?: number }
+export interface DeliveryRunState {
+  version: 1
+  id: string
+  contractId: string
+  courierId: string
+  acceptedAtRouteReckoning: number
+  runSeed: number
+  elapsedMarks: number
+  pressureTier: DeliveryPressureTier
+  crossedThresholdIds: string[]
+  equipment: DeliveryEquipmentStack[]
+  offers: DeliveryEquipmentOffer[]
+  resolvedOfferIds: string[]
+  activeEquipmentCooldowns: Record<string, number>
+  expeditionHistory: DeliveryExpeditionHistory[]
+  eliteHistory: DeliveryEliteHistory[]
+  manifestEventIds: string[]
+  resolution?: DeliveryRunResolution
+  resolvedAtRouteReckoning?: number
+}
+export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged' | 'destinationReportReceived' | 'destinationIntervention' | 'destinationDevelopmentResolved' | 'institutionNotice' | 'institutionDecision' | 'rivalEmergence' | 'rivalEncounter' | 'institutionOperationKnown' | 'institutionRelationshipChanged' | 'institutionActorStatusChanged' | 'institutionSuccession' | 'deliveryPressureEscalated' | 'deliveryEquipmentAcquired' | 'deliveryEquipmentArchived' | 'courierModificationInstalled' | 'courierPersistentInjury' | 'courierTechniqueLearned' | 'deliveryEliteResolved' | 'institutionalTacticalConsequence'
+export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route' | 'destination' | 'institution' | 'delivery'
 export interface PackageExteriorReadout { sealMark: string; temperature: string; powerDraw: string; balance: string; shielding: string; handlingMark: string }
 export interface PackageTerms {
   sender: string
@@ -490,6 +566,9 @@ export interface GeneralManifestEvent {
   institutionId?: string
   actorId?: string
   causalEventId?: string
+  deliveryRunId?: string
+  itemId?: string
+  encounterId?: string
   detail: string
 }
 export interface GeneralManifest { version: 1 | 2; nextSequence: number; entries: GeneralManifestEvent[] }
@@ -557,12 +636,12 @@ export type InstitutionCivilization = 'human' | 'taal' | 'mixed'
 export type InstitutionOperationKind = 'port-requisition' | 'port-access-audit' | 'closure-pump-repair' | 'blue-intake-relief' | 'iren-evidence-inspection' | 'iren-bypass-custody-audit' | 'actor-reassignment'
 export type InstitutionOperationStatus = 'scheduled' | 'resolved' | 'cancelled'
 export type InstitutionActorStatus = 'active' | 'reassigned' | 'injured' | 'disgraced' | 'missing' | 'detained' | 'dead' | 'retired' | 'replaced'
-export type InstitutionCausalKind = 'manifest-observed' | 'rival-emerged' | 'standing-changed' | 'institution-operation' | 'institution-decision' | 'actor-status' | 'courier-continuity'
+export type InstitutionCausalKind = 'manifest-observed' | 'rival-emerged' | 'standing-changed' | 'institution-operation' | 'institution-decision' | 'actor-status' | 'courier-continuity' | 'tactical-consequence'
 export type InstitutionReportSource = 'institution-notice' | 'arrival-observation' | 'direct-encounter' | 'route-report'
 export interface InstitutionStanding { trust: number; scrutiny: number; obligation: number; grievance: number; influence: number }
 export interface InstitutionCampaignState { version: 1; id: InstitutionId; capacity: number; currentConcern: string; standing: InstitutionStanding; relations: Partial<Record<InstitutionId, number>> }
 export interface InstitutionOperation { version: 1; id: string; institutionId: InstitutionId; actorId?: string; destinationId: DestinationPartitionId; kind: InstitutionOperationKind; initiatedAtRouteReckoning: number; dueAtRouteReckoning: number; purpose: string; status: InstitutionOperationStatus; visibility: 'hidden' | 'known'; parentEventIds: string[]; resolvedAtRouteReckoning?: number; effectId?: string }
-export interface InstitutionActorMemory { version: 1; id: string; causalEventId: string; kind: 'seal-breach' | 'bypass-interference' | 'refusal' | 'compliance' | 'assistance' | 'courier-loss' | 'courier-replacement' | 'briefing'; atRouteReckoning: number; witnessed: boolean; courierId?: string; summary: string }
+export interface InstitutionActorMemory { version: 1; id: string; causalEventId: string; kind: 'seal-breach' | 'bypass-interference' | 'refusal' | 'compliance' | 'assistance' | 'tactical-intervention' | 'courier-loss' | 'courier-replacement' | 'briefing'; atRouteReckoning: number; witnessed: boolean; courierId?: string; summary: string }
 export interface InstitutionActor { version: 1; id: string; name: string; civilization: InstitutionCivilization; affiliationId: InstitutionId; role: string; rank: string; destinationId: DestinationPartitionId; status: InstitutionActorStatus; methods: string[]; jomonGrievance: number; memories: InstitutionActorMemory[]; operationalHistory: string[] }
 export interface InstitutionCausalEvent { version: 1; id: string; sequence: number; atRouteReckoning: number; kind: InstitutionCausalKind; parentIds: string[]; institutionId?: InstitutionId; actorId?: string; destinationId?: DestinationPartitionId; courierId?: string; manifestId?: string; knownToJomon: boolean; learnedThrough: InstitutionReportSource | 'manifest'; summary: string; effects: Record<string, string | number | boolean> }
 export interface InstitutionReport { version: 1; id: string; institutionId: InstitutionId; actorId?: string; destinationId: DestinationPartitionId; causalEventId: string; source: InstitutionReportSource; reportAtRouteReckoning: number; confidence: 'confirmed' | 'partial' | 'contested'; bias?: string; summary: string }
@@ -570,7 +649,7 @@ export interface InstitutionRouteModifier { version: 1; id: string; destinationI
 export interface InstitutionRival { version: 1; id: 'rival:iren-vos'; actorId: string; institutionId: InstitutionId; status: 'active' | 'reassigned' | 'replaced' | 'closed'; emergedAtRouteReckoning: number; emergenceCausalEventId: string; originalCourierId?: string; successorActorId?: string }
 export interface InstitutionWorldState { version: 1; contentRevision: 1; states: Record<InstitutionId, InstitutionCampaignState>; actors: InstitutionActor[]; operations: InstitutionOperation[]; resolvedOperationIds: string[]; relationshipEffectIds: string[]; causalEvents: InstitutionCausalEvent[]; reports: InstitutionReport[]; knownRouteModifiers: InstitutionRouteModifier[]; rival?: InstitutionRival; lastProcessedManifestSequence: number; nextCausalSequence: number; completedDecisionIds: string[]; successorCounts: Partial<Record<InstitutionId, number>> }
 export interface GalaxyState {
-  version: 1 | 2 | 3 | 4 | 5
+  version: 1 | 2 | 3 | 4 | 5 | 6
   seed: number
   /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
   createdAt?: number
@@ -600,6 +679,7 @@ export interface GalaxyState {
   routeBoard: RouteBoardState
   destinationWorld: DestinationWorldState
   institutionWorld: InstitutionWorldState
+  deliveryRun?: DeliveryRunState
 }
 
 export type Modal =
