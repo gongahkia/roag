@@ -548,10 +548,12 @@ export class TerminalRenderer {
       wrapped(`HANDLING: ${contract.terms.handlingClass}`, colors.dim)
       wrapped(`PERMITTED: ${contract.terms.permittedInspection}`, colors.dim)
       wrapped(`PROHIBITED: ${contract.terms.prohibitedActions.join('; ')}`, colors.red)
+      wrapped(`FAILURE: ${contract.terms.failureRule}`, colors.red)
       if (exterior) {
         text('EXTERIOR READOUT', colors.gold)
         wrapped(`${exterior.sealMark}; ${exterior.temperature}; ${exterior.powerDraw}`, colors.text)
         wrapped(`${exterior.balance}; ${exterior.shielding}`, colors.dim)
+        wrapped(exterior.handlingMark, colors.gold)
       }
       if (packageRecord) {
         text(`SEAL: ${packageRecord.sealState.toUpperCase()} · ${sealedPackageCustodyLabel(packageRecord.custody).toUpperCase()}`, packageRecord.sealState === 'intact' ? colors.green : colors.red)
