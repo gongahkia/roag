@@ -292,7 +292,9 @@ export const usePowerUp = (state: GameState, powerUp: PowerUp | ChronoCard, targ
   if (!used) return;
   takePocketCard(player, powerUp, cardId);
   state.turn.cardPlayed = true;
-  recordInstrumentation(state, { type: 'card', hole: state.hole, playerId: player.id, detail: powerUp });
+  const receiptTarget = target?.id ?? (partyRules && powerUp === 'freeze' && hazardId ? `hazard:${hazardId}` : recipient.id);
+  recordInstrumentation(state, { type: 'card', hole: state.hole, playerId: player.id, targetId: receiptTarget, detail: powerUp });
+  recordInstrumentation(state, { type: 'cause', hole: state.hole, playerId: player.id, targetId: receiptTarget, detail: `${player.name} committed ${powerUp}${target && target.id !== player.id ? ` against ${target.name}` : ''}` });
   if (!partyRules && !isChrono(powerUp) && state.holeRules.powerUps && hasCaddy(player, 'chaos magnet') && new Random(`${state.course.seed}:${player.id}:${player.ball.strokes}:${powerUp}`).chance(1 - .35 ** caddyCount(player, 'chaos magnet'))) {
     awardPowerUp(state, player, 'chaos', 'chaos-magnet', `${player.name}'s chaos magnet pulls {powerUp}`);
   }

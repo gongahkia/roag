@@ -11,7 +11,7 @@ import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, type HomeMode, type HomePanel } from './home-markup';
-import { escapeHtml, type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
+import { escapeHtml, partyGuidePanelFor, type Callout, type Drawer, type LedgerEntry, type Overlay, type ViewModel, renderAppMarkup, renderCallouts, renderControlsMarkup, renderStatus } from './markup';
 import { createRenderer } from './render';
 
 interface TimedCallout extends Callout { expiresAt: number; }
@@ -135,6 +135,8 @@ export const startApp = (app: HTMLElement) => {
   let quickStartTimeout: number | undefined;
   let launchFrame: number | undefined;
   let launch = { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
+  let briefingHole: number | undefined;
+  let handoff: ViewModel['handoff'];
 
   const online = () => Boolean(onlineClient && room?.phase === 'game');
   const hazardElapsedForDraw = () => {
@@ -156,6 +158,8 @@ export const startApp = (app: HTMLElement) => {
     shotInFlight: Boolean(shotAnimation),
     ledger,
     callouts,
+    briefingHole,
+    handoff,
     multiplayer: { online: online(), connected: onlineConnected, roomCode: room?.code, playerId: onlinePlayerId, host: room?.hostId === onlinePlayerId, controllerName },
   });
   const applyPreferences = () => {
@@ -308,7 +312,14 @@ export const startApp = (app: HTMLElement) => {
     if (switchingPlayers) cameraGlideFrom = { ...state.players[state.turn.playerIndex]!.ball };
     const enteringTransition = state.status !== 'transitioning' && next.status === 'transitioning';
     const enteringFinished = state.status !== 'finished' && next.status === 'finished';
+    const localHandoff = !online() && state.config.humanCount > 1 && switchingPlayers && next.players[next.turn.playerIndex]?.kind === 'human';
     state = next;
+    if (introducingCourse && state.config.ruleset !== 'custom') briefingHole = state.hole;
+    if (state.status !== 'playing') handoff = undefined;
+    if (localHandoff) {
+      const player = state.players[state.turn.playerIndex]!;
+      handoff = { playerName: player.name, color: player.color, hole: state.hole };
+    }
     if (placement && (state.status !== 'playing' || !state.players.find((player) => player.id === placement!.ownerId && (player.inventory === placement!.kind || player.spareInventory === placement!.kind)))) placement = undefined;
     if (enteringTransition) {
       transitionProgress = 0;
@@ -598,8 +609,9 @@ export const startApp = (app: HTMLElement) => {
     camera = { ...camera, pan: { x: camera.pan.x + x, y: camera.pan.y + y } };
     drawBoard();
   };
+  const guideIsBlocking = () => Boolean(partyGuidePanelFor(state, preferences));
   const playShot = (shot: ShotCommand) => {
-    if (state.status !== 'playing' || state.paused || shotAnimation || !canControlCurrent()) return;
+    if (state.status !== 'playing' || state.paused || shotAnimation || handoff || guideIsBlocking() || !canControlCurrent()) return;
     if (online()) { vibrate(); playEffect(240, .09); dispatch({ type: 'shoot', shot }); return; }
     const player = current();
     const frames = previewShot(state, shot);
@@ -713,7 +725,7 @@ export const startApp = (app: HTMLElement) => {
     }, { passive: false });
   };
   const useHeldPowerUp = (powerUp: PowerUp | ChronoCard, cardId?: string) => {
-    if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || !canControlCurrent()) return;
+    if (state.status !== 'playing' || state.paused || current().kind !== 'human' || shotAnimation || handoff || guideIsBlocking() || !canControlCurrent()) return;
     const gadgets = new Set<PowerUp>(['popper pad', 'snare patch', 'blast mine', 'slick patch', 'sky spring', 'gravity well', 'mirror plate', 'toll booth', 'control inverter', 'portal gun']);
     if (gadgets.has(powerUp as PowerUp)) {
       placement = { kind: powerUp as GadgetKind, cardId, ownerId: current().id, valid: false, confirmed: false };
@@ -857,6 +869,26 @@ export const startApp = (app: HTMLElement) => {
     preferences = { ...preferences, ...partial };
     savePreferences(preferences);
     applyPreferences();
+    render();
+  };
+  const advancePartyGuide = () => {
+    preferences = { ...preferences, partyGuideStep: Math.min(8, preferences.partyGuideStep + 1) };
+    savePreferences(preferences);
+    render();
+  };
+  const skipPartyGuide = () => {
+    preferences = { ...preferences, partyGuideStep: 8 };
+    savePreferences(preferences);
+    render();
+  };
+  const copyReplayRecipe = async () => {
+    const payload = JSON.stringify({ seed: state.config.seed, ruleset: state.config.ruleset ?? 'party', recipes: state.coursePlan.map((plan) => plan.recipe.metadata), connections: state.connections }, null, 2);
+    try {
+      await navigator.clipboard.writeText(payload);
+      notice = 'replay recipe copied';
+    } catch {
+      notice = 'clipboard unavailable; replay seed is shown in the top bar';
+    }
     render();
   };
   const controllerNavigationIsActive = () => Boolean(controllerTextEntry) || screen !== 'game' || controllerNavigationMode || Boolean(overlay) || Boolean(drawer) || state.paused || state.status !== 'playing';
@@ -1103,6 +1135,12 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-leave-lobby')) { cancelReconnect(); onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
     if (element.hasAttribute('data-restart-run')) { if (online()) { cancelReconnect(); screen = 'home'; onlineClient?.disconnect(); onlineClient = undefined; room = undefined; render(); } else setupGame(); return; }
     if (element.hasAttribute('data-toggle-pause')) { togglePause(); return; }
+    if (element.hasAttribute('data-next-party-guide')) { advancePartyGuide(); return; }
+    if (element.hasAttribute('data-skip-party-guide')) { skipPartyGuide(); return; }
+    if (element.hasAttribute('data-reset-party-guide')) { preferences = { ...preferences, partyGuideStep: 0 }; savePreferences(preferences); overlay = undefined; render(); return; }
+    if (element.hasAttribute('data-dismiss-briefing')) { briefingHole = undefined; render(); return; }
+    if (element.hasAttribute('data-ready-handoff')) { handoff = undefined; render(); return; }
+    if (element.hasAttribute('data-copy-replay')) { void copyReplayRecipe(); return; }
     if (element.hasAttribute('data-camera-mode')) { toggleCameraMode(); return; }
     const cameraZoom = element.dataset.cameraZoom;
     if (cameraZoom === 'in' || cameraZoom === 'out') { adjustCameraZoom(cameraZoom === 'in' ? CAMERA_ZOOM_STEP : -CAMERA_ZOOM_STEP); return; }
@@ -1159,7 +1197,7 @@ export const startApp = (app: HTMLElement) => {
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const preference = target.dataset.preference as keyof typeof preferences | undefined;
-    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration' || preference === 'showMerchantHoldings') updatePreferences({ [preference]: (target as HTMLInputElement).checked });
+    if (preference === 'reducedMotion' || preference === 'highContrast' || preference === 'controllerVibration' || preference === 'showMerchantHoldings' || preference === 'showPartyDiagnostics') updatePreferences({ [preference]: (target as HTMLInputElement).checked });
     const range = target.dataset.preferenceRange as keyof typeof preferences | undefined;
     if (range === 'masterVolume' || range === 'effectsVolume' || range === 'controllerDeadzone' || range === 'controllerAimSensitivity') updatePreferences({ [range]: Number(target.value) });
     const selection = target.dataset.preferenceSelect as keyof typeof preferences | undefined;

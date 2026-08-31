@@ -73,7 +73,8 @@ const main = async () => {
         '--disable-gpu',
         '--hide-scrollbars',
         '--run-all-compositor-stages-before-draw',
-        '--virtual-time-budget=900',
+        // Party Rules now materializes a course and its first-run presentation before paint.
+        '--virtual-time-budget=3000',
         '--window-size=1440,900',
         `--user-data-dir=${profileDirectory}`,
         `--screenshot=${file}`,

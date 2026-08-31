@@ -27,7 +27,7 @@ export const addMessage = (state: GameState, message: string) => {
 
 export const recordInstrumentation = (state: GameState, event: NonNullable<GameState['instrumentation']>['events'][number]) => {
   state.instrumentation ??= { events: [] };
-  state.instrumentation.events = [...state.instrumentation.events, event].slice(-256);
+  state.instrumentation.events = [...state.instrumentation.events, event].slice(-512);
 };
 
 export const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;
@@ -512,6 +512,7 @@ const resolveDieRoll = (state: GameState) => {
   die.revealed = { plan: planned, secondsLeft: rulesetFor(state.config).slot.revealSeconds };
   die.rerollPot = die.rerolls < REROLL_TARGETS.length ? { target: REROLL_TARGETS[die.rerolls]!, contributions: {}, secondsLeft: rulesetFor(state.config).slot.revealSeconds } : undefined;
   recordInstrumentation(state, { type: 'recipe', hole: state.hole, detail: planned.recipe.metadata?.courseHash ?? planned.courseSeed });
+  recordInstrumentation(state, { type: 'reveal', hole: state.hole, detail: planned.label });
   addMessage(state, `${planned.label} is on the payline`);
 };
 

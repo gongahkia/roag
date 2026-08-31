@@ -5,6 +5,7 @@ import { simulateShot } from '../src/core/physics';
 import { PARTY_BIOMES, PARTY_LAYOUTS, PARTY_TRICK_CARDS } from '../src/core/rulesets';
 import { openShop } from '../src/core/shop';
 import { normalizeGameState } from '../src/core/game-state';
+import { partyAwardsFor, partyPacingFor, partyReceiptsFor } from '../src/core/party-insights';
 import { createArena as arena } from './fixtures';
 
 const partyConfig = (seed: string) => ({ ...defaultConfig(), seed, ruleset: 'party' as const, humanCount: 2, botCount: 0, holeCount: 1 });
@@ -92,5 +93,21 @@ describe('Party Rules vertical slice', () => {
     const target = { ...active, x: 3.5 };
     const result = simulateShot(course, active, { angle: 0, power: 4 }, 3, { collisions: true, otherBalls: [{ ball: target }] });
     expect(result.collidedOtherIndexes).toContain(0);
+  });
+
+  it('turns structured Party Rules telemetry into bounded social receipts and factual awards', () => {
+    const game = createGame({ ...partyConfig('party-receipts'), humanCount: 3 });
+    game.instrumentation = { events: [
+      { type: 'collision', hole: 1, playerId: 'human-0', targetId: 'human-1', detail: 'ball collision' },
+      { type: 'card', hole: 1, playerId: 'human-2', targetId: 'human-0', detail: 'airhorn' },
+      { type: 'slot-action', hole: 1, playerId: 'human-1', detail: 'hold:biome:ticket' },
+      { type: 'turn-duration', hole: 1, playerId: 'human-0', detail: 'shot', value: 9 },
+      { type: 'turn-duration', hole: 1, playerId: 'human-1', detail: 'shot', value: 14 },
+      { type: 'turn-duration', hole: 1, playerId: 'human-1', detail: 'shot', value: 21 },
+      { type: 'hole-duration', hole: 1, detail: 'active seconds', value: 118 },
+    ] };
+    expect(partyReceiptsFor(game).map((receipt) => receipt.text)).toEqual(['golfer-3 played airhorn on golfer-1', 'golfer-1 banked into golfer-2']);
+    expect(partyAwardsFor(game)).toHaveLength(3);
+    expect(partyPacingFor(game)).toMatchObject({ measuredTurns: 3, medianTurnSeconds: 14, p90TurnSeconds: 21, medianHoleSeconds: 118, withinTurnBudget: false, withinHoleBudget: true });
   });
 });

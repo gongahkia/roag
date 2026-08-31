@@ -548,9 +548,11 @@ export interface GameState {
 }
 
 export interface InstrumentationEvent {
-  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete';
+  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete' | 'reveal' | 'cause' | 'pacing' | 'final-overview';
   hole: number;
   playerId?: string;
+  /** Actor or system target makes social cause chains inspectable without parsing prose. */
+  targetId?: string;
   detail: string;
   value?: number;
 }

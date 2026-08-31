@@ -168,7 +168,8 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   result.collidedOtherIndexes.forEach((otherIndex) => {
     const target = state.players.filter((_, index) => index !== playerIndex)[otherIndex];
     if (!target) return;
-    recordInstrumentation(state, { type: 'collision', hole: state.hole, playerId: player.id, detail: target.id });
+    recordInstrumentation(state, { type: 'collision', hole: state.hole, playerId: player.id, targetId: target.id, detail: 'ball collision' });
+    recordInstrumentation(state, { type: 'cause', hole: state.hole, playerId: player.id, targetId: target.id, detail: `${player.name} sent ${target.name} off their line with a ball collision` });
     addMessage(state, `${player.name} banks into ${target.name}`);
   });
   if (hasAttachment(player, 'mulligan relay')) player.twoPuttsArmed = true;
@@ -188,6 +189,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   if (result.holed) addMessage(state, `${player.name} sinks it in ${player.ball.strokes}`);
   else if (result.reset) {
     recordInstrumentation(state, { type: 'recovery', hole: state.hole, playerId: player.id, detail: 'out-of-bounds' });
+    recordInstrumentation(state, { type: 'cause', hole: state.hole, playerId: player.id, detail: `${player.name} fell out of bounds; the course returned the ball` });
     addMessage(state, `${player.name} falls into the void — automatic recovery returns the ball`);
   }
   else addMessage(state, `${player.name} rolls to safety`);

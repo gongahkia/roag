@@ -32,4 +32,10 @@ describe('game preferences', () => {
     expect(preferences.showMerchantHoldings).toBe(false);
     expect(bindingFor(preferences, 'pause')).toBe('Escape');
   });
+
+  it('keeps Party Rules guide progress local and bounded for resettable onboarding', () => {
+    expect(defaultPreferences().partyGuideStep).toBe(0);
+    expect(normalizePreferences({ partyGuideStep: 99, showPartyDiagnostics: true })).toMatchObject({ partyGuideStep: 8, showPartyDiagnostics: true });
+    expect(normalizePreferences({ partyGuideStep: -2 }).partyGuideStep).toBe(0);
+  });
 });

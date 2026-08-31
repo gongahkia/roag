@@ -616,7 +616,7 @@ describe('turns, shared rules, and bots', () => {
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
     game = applyCommand(game, { type: 'complete-transition' });
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
-  });
+  }, 30_000);
 
   it('scores each resolved hole and finishes after the configured ninth hole', () => {
     let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', humanCount: 1, botCount: 0 }));

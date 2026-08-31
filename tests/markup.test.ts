@@ -214,7 +214,27 @@ describe('course slot machine markup', () => {
     expect(markup).not.toContain('app-shell rolling');
   }, 15_000);
 
-  it('presents a winner, last place, podium, and final standings after the campaign', () => {
+  it('shows only the current contextual Party Rules guide step and supports a clean opt-out', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'party-guide', humanCount: 2, botCount: 0 });
+    const guided = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    const optedOut = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(guided).toContain('Build the problem together.');
+    expect(guided).toContain('data-skip-party-guide');
+    expect(optedOut).not.toContain('class="party-guide"');
+  });
+
+  it('renders a skippable course briefing and local handoff without changing shared rules', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'party-briefing', humanCount: 2, botCount: 0, skipDieBets: true });
+    const briefing = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, briefingHole: 1, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    const handoff = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, handoff: { playerName: 'golfer-2', color: '#ffffff', hole: 1 }, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(briefing).toContain('COURSE REVEAL');
+    expect(briefing).toContain('data-dismiss-briefing');
+    expect(briefing).toContain('safe line');
+    expect(handoff).toContain('PASS THE DEVICE');
+    expect(handoff).toContain('data-ready-handoff');
+  }, 30_000);
+
+  it('presents a winner, factual completion summary, podium, and final standings after the campaign', () => {
     const state = createGame({ ...defaultConfig(), seed: 'results-markup', humanCount: 1, botCount: 2 });
     state.status = 'finished';
     state.players[0]!.total = 17;
@@ -225,7 +245,8 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('Clubhouse champion');
     expect(markup).toContain('class="podium-card podium-place-1"');
     expect(markup).toContain('full standings');
-    expect(markup).toContain('last place');
+    expect(markup).toContain('complete the route');
+    expect(markup).toContain('data-copy-replay');
     expect(markup).toContain('data-restart-run');
     expect(markup).toContain('app-shell finished');
     expect(markup).toContain('complete course route remains visible');

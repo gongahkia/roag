@@ -1,5 +1,6 @@
 import { EMOTES, type ChronoCard, type CoursePackage, type GadgetKind, type GameConfig, type GameState, type HoleRules, type Point, type PowerUp, type ShotCommand } from '../core/types';
 import { definitionFor } from '../core/catalog';
+import { partyAwardsFor, partyPacingFor, partyReceiptsFor } from '../core/party-insights';
 import { rulesetFor, trickCardDetails } from '../core/rulesets';
 import { bindingFor, type GamePreferences, type ShortcutId } from '../preferences';
 
@@ -24,6 +25,8 @@ export interface ViewModel {
   multiplayer: MultiplayerView;
   ledger: readonly LedgerEntry[];
   callouts: readonly Callout[];
+  briefingHole?: number;
+  handoff?: { playerName: string; color: string; hole: number };
 }
 
 export const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!);
@@ -117,10 +120,44 @@ export const renderControlsMarkup = (view: ViewModel) => {
     ${placement ? `<p class="placement-status ${placement.valid ? 'valid' : 'invalid'}">${powerUpIcon[placement.kind]} ${escapeHtml(placement.kind)} · ${placement.point ? placement.valid ? placement.confirmed ? 'click again or press Enter to place' : 'click this tile to lock the preview' : 'choose an open playable tile' : 'click a tile to preview'} <button data-cancel-placement>cancel</button></p>` : ''}
     ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}
     ${state.turn.cardPlayed ? '<p class="control-status">one card committed this turn</p>' : ''}
-    ${state.players.some((candidate) => candidate.attachments?.length) ? `<div class="card-effects"><strong>table cards</strong>${state.players.filter((candidate) => candidate.attachments?.length).map((candidate) => `<p><i style="background:${candidate.color}"></i>${escapeHtml(candidate.name)} · ${candidate.attachments!.map((attachment) => `${escapeHtml(attachment.cardId)} (${attachment.remaining} ${attachment.unit}${attachment.remaining === 1 ? '' : 's'})`).join(', ')}</p>`).join('')}</div>` : ''}`;
+    ${state.players.some((candidate) => candidate.attachments?.length) ? `<div class="card-effects"><strong>table cards</strong>${state.players.filter((candidate) => candidate.attachments?.length).map((candidate) => `<p><i style="background:${candidate.color}"></i>${escapeHtml(candidate.name)} · ${candidate.attachments!.map((attachment) => `${escapeHtml(attachment.cardId)} (${attachment.remaining} ${attachment.unit}${attachment.remaining === 1 ? '' : 's'})`).join(', ')}</p>`).join('')}</div>` : ''}
+    ${ruleset.id === 'party' ? renderSocialReceipts(state) : ''}
+    ${preferences.showPartyDiagnostics && ruleset.id === 'party' ? (() => { const pacing = partyPacingFor(state); return `<p class="party-diagnostics">diagnostics · ${pacing.measuredTurns ? `${pacing.measuredTurns} measured turns · p90 ${pacing.p90TurnSeconds?.toFixed(1)}s` : 'waiting for completed decisions'} · active-hole median ${pacing.medianHoleSeconds?.toFixed(1) ?? '—'}s</p>`; })() : ''}`;
 };
 
 const playerCash = (state: GameState, id: string) => state.players.find((player) => player.id === id)?.cash ?? 0;
+
+interface PartyGuidePanel { step: number; eyebrow: string; title: string; body: string; }
+
+/** One contextual instruction at a time; it is local preference state, never match state. */
+export const partyGuidePanelFor = (state: GameState, preferences: GamePreferences): PartyGuidePanel | undefined => {
+  if (state.config.ruleset === 'custom' || preferences.partyGuideStep >= 8) return undefined;
+  const step = preferences.partyGuideStep;
+  const panels: Record<number, PartyGuidePanel> = {
+    0: { step, eyebrow: 'WELCOME TO PARTY RULES', title: 'Build the problem together.', body: 'The table shapes every hole, then plays the physical result. Your choices are public, so the group can remember who made the course strange.' },
+    1: { step, eyebrow: 'COURSE SLOTS', title: state.config.skipDieBets ? 'Quick Start chose the first problem.' : 'Take one public slot action.', body: state.config.skipDieBets ? 'Standard games let each golfer influence one reel before the lever is pulled. This quick campaign uses the same seeded recipes without the wager window.' : 'Hold a visible ticket or add one wild stop, then mark yourself ready. The stopped reels become the hole.' },
+    2: { step, eyebrow: 'COURSE BRIEFING', title: 'Read the three route roles.', body: 'Safe is wide and steady. Skill rewards timing or a clean chip. Conflict passes through contested space where balls and gadgets can matter.' },
+    3: { step, eyebrow: 'YOUR SHOT', title: 'Pull, aim, commit.', body: 'Left-drag makes a grounded putt. Right-drag makes a chip. The line and strength meter are a preview—not a random accuracy roll.' },
+    4: { step, eyebrow: 'TRICK CARDS', title: 'One visible trick per shot.', body: 'Cards say who or what they affect and when they expire. Self cards improve your line; attack cards must name a target or obstacle.' },
+    5: { step, eyebrow: 'SOCIAL RECEIPTS', title: 'Make chaos attributable.', body: 'Ball hits, cards, gadgets, and recoveries leave short receipts. If another golfer changes your line, the game names the cause.' },
+    6: { step, eyebrow: 'THE CLUBHOUSE', title: 'Choose one card or pass.', body: 'The shared shelf is deliberately small. Watch the table’s choices, then keep only the trick you want to carry forward.' },
+    7: { step, eyebrow: 'CONNECTED COURSE', title: 'The disaster keeps growing.', body: 'Each cup becomes the next tee. Earlier holes stay visible as an atlas, while only the current hole’s hazards stay active.' },
+  };
+  const panel = panels[step];
+  if (!panel) return undefined;
+  if (step === 0 && state.status !== 'finished') return panel;
+  if (step === 1 && (state.status === 'rolling' || state.config.skipDieBets)) return panel;
+  if (step >= 2 && step <= 5 && state.status === 'playing') return panel;
+  if (step === 6 && state.status === 'shopping') return panel;
+  if (step === 7 && (state.status === 'transitioning' || state.hole > 1 || state.status === 'finished')) return panel;
+  return undefined;
+};
+
+const renderSocialReceipts = (state: GameState) => {
+  const receipts = partyReceiptsFor(state);
+  if (!receipts.length) return '<section class="social-receipts"><strong>social receipts</strong><p>Clean shot so far. Ball contact, cards, and recoveries are named here.</p></section>';
+  return `<section class="social-receipts" aria-live="polite"><strong>social receipts</strong><ol>${receipts.map((receipt) => `<li class="${receipt.kind}">${escapeHtml(receipt.text)}</li>`).join('')}</ol></section>`;
+};
 
 const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | undefined, interactive = false) => ['shoot', 'powerDown', 'powerUp', 'usePowerUp', 'pause', 'help', 'settings'].map((id) => {
   const shortcutId = id as ShortcutId;
@@ -129,10 +166,12 @@ const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | unde
   return `<dt>${label}</dt><dd>${interactive ? `<button data-bind="${shortcutId}" class="key-button ${rebinding === shortcutId ? 'selected' : ''}">${key}</button>` : `<kbd>${key}</kbd>`}</dd>`;
 }).join('');
 
-const renderOverlay = ({ overlay, preferences, rebinding }: ViewModel) => {
-  if (!overlay) return '';
-  if (overlay === 'help') return `<section class="overlay" role="dialog" aria-modal="true" aria-label="shortcut help"><div class="overlay-card"><button class="close" data-close-overlay aria-label="close help">×</button><p class="eyebrow">MOUSE FIRST · KEYS READY</p><h2>quick commands</h2><dl class="shortcut-list">${shortcutRows(preferences, rebinding)}</dl><p class="hint">Controller menus use D-pad or left stick to navigate, A to select, and B to go back. On the course, left stick aims, A shoots, B uses the held item, Y toggles putt / chip, View opens game controls, and Menu/Start pauses. Before each hole, everyone may spend cash to add course-package reel stops or weight a preferred stop before the shared spin.</p></div></section>`;
-  return `<section class="overlay" role="dialog" aria-modal="true" aria-label="game settings"><div class="overlay-card settings-card"><button class="close" data-close-overlay aria-label="close settings">×</button><p class="eyebrow">LOCAL PREFERENCES</p><h2>settings</h2><label class="setting-toggle"><input data-preference="reducedMotion" type="checkbox" ${preferences.reducedMotion ? 'checked' : ''}> reduced motion and flash</label><label class="setting-toggle"><input data-preference="highContrast" type="checkbox" ${preferences.highContrast ? 'checked' : ''}> high-contrast palette</label><label class="setting-toggle"><input data-preference="controllerVibration" type="checkbox" ${preferences.controllerVibration ? 'checked' : ''}> controller vibration</label><label class="setting-toggle"><input data-preference="showMerchantHoldings" type="checkbox" ${preferences.showMerchantHoldings ? 'checked' : ''}> show table cards and boons in merchant</label><p class="setting-note">mouse shots: left-drag to putt or right-drag to chip, then release to strike</p><label>master volume <input data-preference-range="masterVolume" type="range" min="0" max="1" step="0.05" value="${preferences.masterVolume}"></label><label>effects volume <input data-preference-range="effectsVolume" type="range" min="0" max="1" step="0.05" value="${preferences.effectsVolume}"></label><label>controller deadzone <input data-preference-range="controllerDeadzone" type="range" min="0.05" max="0.5" step="0.01" value="${preferences.controllerDeadzone}"></label><label>controller aim sensitivity <input data-preference-range="controllerAimSensitivity" type="range" min="0.5" max="2" step="0.05" value="${preferences.controllerAimSensitivity}"></label><h3>shortcuts</h3><dl class="shortcut-list">${shortcutRows(preferences, rebinding, true)}</dl><p class="hint">${rebinding ? `press a key for ${escapeHtml(rebinding)} · Esc cancels` : 'select a key to rebind it'}</p></div></section>`;
+const renderOverlay = (view: ViewModel) => {
+  const { overlay, preferences, rebinding } = view;
+  const partyLayers = `${renderCourseBriefing(view)}${renderHandoff(view)}${renderPartyGuide(view)}`;
+  if (!overlay) return partyLayers;
+  if (overlay === 'help') return `${partyLayers}<section class="overlay" role="dialog" aria-modal="true" aria-label="shortcut help"><div class="overlay-card"><button class="close" data-close-overlay aria-label="close help">×</button><p class="eyebrow">MOUSE FIRST · KEYS READY</p><h2>quick commands</h2><dl class="shortcut-list">${shortcutRows(preferences, rebinding)}</dl><p class="hint">Controller menus use D-pad or left stick to navigate, A to select, and B goes back. On the course, left stick aims, A shoots, B uses the held item, Y toggles putt / chip, View opens game controls, and Menu/Start pauses.</p></div></section>`;
+  return `${partyLayers}<section class="overlay" role="dialog" aria-modal="true" aria-label="game settings"><div class="overlay-card settings-card"><button class="close" data-close-overlay aria-label="close settings">×</button><p class="eyebrow">LOCAL PREFERENCES</p><h2>settings</h2><label class="setting-toggle"><input data-preference="reducedMotion" type="checkbox" ${preferences.reducedMotion ? 'checked' : ''}> reduced motion and flash</label><label class="setting-toggle"><input data-preference="highContrast" type="checkbox" ${preferences.highContrast ? 'checked' : ''}> high-contrast palette</label><label class="setting-toggle"><input data-preference="controllerVibration" type="checkbox" ${preferences.controllerVibration ? 'checked' : ''}> controller vibration</label><label class="setting-toggle"><input data-preference="showMerchantHoldings" type="checkbox" ${preferences.showMerchantHoldings ? 'checked' : ''}> show table cards and boons in merchant</label><label class="setting-toggle"><input data-preference="showPartyDiagnostics" type="checkbox" ${preferences.showPartyDiagnostics ? 'checked' : ''}> show local Party Rules diagnostics</label><p class="setting-note">mouse shots: left-drag to putt or right-drag to chip, then release to strike</p><label>master volume <input data-preference-range="masterVolume" type="range" min="0" max="1" step="0.05" value="${preferences.masterVolume}"></label><label>effects volume <input data-preference-range="effectsVolume" type="range" min="0" max="1" step="0.05" value="${preferences.effectsVolume}"></label><label>controller deadzone <input data-preference-range="controllerDeadzone" type="range" min="0.05" max="0.5" step="0.01" value="${preferences.controllerDeadzone}"></label><label>controller aim sensitivity <input data-preference-range="controllerAimSensitivity" type="range" min="0.5" max="2" step="0.05" value="${preferences.controllerAimSensitivity}"></label><section class="developer-controls"><strong>developer</strong><p>Replay the contextual Party Rules guide on this device.</p><button data-reset-party-guide>reset Party Rules guide</button></section><h3>shortcuts</h3><dl class="shortcut-list">${shortcutRows(preferences, rebinding, true)}</dl><p class="hint">${rebinding ? `press a key for ${escapeHtml(rebinding)} · Esc cancels` : 'select a key to rebind it'}</p></div></section>`;
 };
 
 const renderRunDrawer = ({ state, config }: ViewModel) => {
@@ -244,6 +283,8 @@ const renderResultsOverlay = ({ state }: ViewModel) => {
   const champions = standings.filter((player) => player.total === leadingScore);
   const trailingScore = standings.at(-1)!.total;
   const trailers = standings.filter((player) => player.total === trailingScore);
+  const awards = partyAwardsFor(state);
+  const pacing = partyPacingFor(state);
   const podium = standings.slice(0, 3);
   const podiumCard = (player: typeof standings[number], position: number) => {
     const rank = standings.findIndex((candidate) => candidate.total === player.total) + 1;
@@ -254,8 +295,8 @@ const renderResultsOverlay = ({ state }: ViewModel) => {
   const standingRows = standings.map((player) => {
     const rank = standings.findIndex((candidate) => candidate.total === player.total) + 1;
     const gap = player.total - leadingScore;
-    const outcome = rank === 1 ? champions.length > 1 ? 'co-champion' : 'winner' : player.total === trailingScore && trailers.length < standings.length ? 'last place' : `+${gap}`;
-    return `<li class="${rank === 1 ? 'winner' : player.total === trailingScore && trailers.length < standings.length ? 'last' : ''}"><span>${ordinal(rank)}</span><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><em>${outcome}</em><b>${player.total}</b></li>`;
+    const outcome = rank === 1 ? champions.length > 1 ? 'co-champion' : 'winner' : `+${gap}`;
+    return `<li class="${rank === 1 ? 'winner' : ''}"><span>${ordinal(rank)}</span><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><em>${outcome}</em><b>${player.total}</b></li>`;
   }).join('');
   const championNames = champions.map((player) => escapeHtml(player.name)).join(' + ');
   const trailingNames = trailers.map((player) => escapeHtml(player.name)).join(' + ');
@@ -263,8 +304,10 @@ const renderResultsOverlay = ({ state }: ViewModel) => {
   const summary = champions.length > 1
     ? `${championNames} finish level on ${leadingScore} strokes.`
     : `${championNames} claims the trophy with ${leadingScore} strokes.`;
-  const finalCallout = trailers.length === standings.length ? 'everyone finishes level.' : `${trailingNames} ${trailers.length > 1 ? 'share' : 'takes'} last place at ${trailingScore}.`;
-  return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p><small class="campaign-atlas-note">the complete course route remains visible behind the final table</small></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section><footer class="results-actions"><button class="primary" data-restart-run>play again</button><span>same lineup · replay this seed</span></footer></div></section>`;
+  const finalCallout = trailers.length === standings.length ? 'everyone finishes level.' : `${trailingNames} complete the route on ${trailingScore} strokes.`;
+  const awardRows = awards.length ? `<section class="party-awards" aria-label="factual course awards"><h2>course receipts</h2><ol>${awards.map((award) => `<li><strong>${escapeHtml(award.title)}</strong><span>${escapeHtml(award.detail)}</span></li>`).join('')}</ol></section>` : '';
+  const pacingNote = pacing.measuredTurns ? `<small class="pacing-note">local pacing: median ${pacing.medianTurnSeconds?.toFixed(1)}s · p90 ${pacing.p90TurnSeconds?.toFixed(1)}s</small>` : '';
+  return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p><small class="campaign-atlas-note">the complete course route remains visible behind the final table</small></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section>${awardRows}<footer class="results-actions"><button class="primary" data-restart-run>play again</button><button data-copy-replay>copy replay recipe</button><span>same lineup · replay this seed</span>${pacingNote}</footer></div></section>`;
 };
 
 const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {
@@ -273,11 +316,32 @@ const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {
   return `<section class="pause-overlay" role="dialog" aria-modal="true" aria-label="match paused"><div class="pause-card"><p class="eyebrow">${multiplayer.online ? 'ONLINE ROOM PAUSED' : 'LOCAL MATCH PAUSED'}</p><h2>take a breather</h2><p>${canResume ? 'Timers, bot turns, and gameplay input are frozen.' : 'Only the room host can resume this match.'}</p><button class="primary" data-toggle-pause ${canResume ? '' : 'disabled'}>resume match</button><button data-open-overlay="settings">settings</button></div></section>`;
 };
 
+const renderCourseBriefing = (view: ViewModel) => {
+  const { state, briefingHole, preferences } = view;
+  if (briefingHole !== state.hole || partyGuidePanelFor(state, preferences) || view.handoff) return '';
+  const metadata = state.coursePlan[state.hole - 1]?.recipe.metadata;
+  const chaos = metadata?.resolvedReels.chaos;
+  const roles = state.course.routeRoles?.map((role) => `<li class="route-${role.role}"><strong>${escapeHtml(role.label)}</strong><span>${role.role === 'safe' ? 'wide and steady' : role.role === 'skill' ? 'timing, banks, or air' : 'contested space'}</span></li>`).join('') ?? '';
+  return `<section class="party-briefing" role="dialog" aria-modal="true" aria-label="hole ${state.hole} course briefing"><div><p class="eyebrow">HOLE ${state.hole} · COURSE REVEAL</p><h2>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</h2><p>${escapeHtml(state.course.archetype ?? 'ribbon')} layout · ${chaos ? `headline: ${escapeHtml(chaos)}` : 'no extra chaos modifier'}</p><ol>${roles}</ol><footer><span>the slot built the problem; the group now owns the result</span><button class="primary" data-dismiss-briefing>tee off</button></footer></div></section>`;
+};
+
+const renderHandoff = (view: ViewModel) => {
+  const handoff = view.handoff;
+  if (!handoff || partyGuidePanelFor(view.state, view.preferences)) return '';
+  return `<section class="party-handoff" role="dialog" aria-modal="true" aria-label="pass device to ${escapeHtml(handoff.playerName)}"><div><p class="eyebrow">PASS THE DEVICE</p><i style="background:${handoff.color}"></i><h2>${escapeHtml(handoff.playerName)}, you are on the tee.</h2><p>Hole ${handoff.hole}. Your ball, cards, and route preview are now highlighted.</p><button class="primary" data-ready-handoff>ready to shoot</button></div></section>`;
+};
+
+const renderPartyGuide = (view: ViewModel) => {
+  const panel = partyGuidePanelFor(view.state, view.preferences);
+  if (!panel) return '';
+  return `<section class="party-guide" role="dialog" aria-modal="true" aria-label="Party Rules guide"><div><p class="eyebrow">${escapeHtml(panel.eyebrow)}</p><h2>${escapeHtml(panel.title)}</h2><p>${escapeHtml(panel.body)}</p><footer><button data-skip-party-guide>skip guide</button><button class="primary" data-next-party-guide>${panel.step === 7 ? 'finish guide' : 'got it'}</button></footer></div></section>`;
+};
+
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
   if (state.status === 'rolling') return `${renderLedger(view.ledger)}<p class="hint">Every player may add a complete wild reel stop or pay to weight a visible stop before the shared course slot machine locks in.</p>`;
-  if (state.status === 'shopping') return `${renderLedger(view.ledger)}<p class="hint">The clubhouse merchant sells persistent Caddies, contraband, Reality Cards, and Chrono Cards.</p>`;
-  if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">The completed cup becomes the next tee while the arena expands into open terrain. Previous fairways stay playable.</p>`;
+  if (state.status === 'shopping') return `${renderLedger(view.ledger)}<p class="hint">${state.config.ruleset === 'party' ? 'Three visible Trick Cards are shared. Each golfer chooses one or passes.' : 'The clubhouse merchant sells persistent Caddies, contraband, Reality Cards, and Chrono Cards.'}</p>`;
+  if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">${state.config.ruleset === 'party' ? 'The cup becomes the next tee. Earlier holes remain visible in the campaign atlas while only the newest hole stays active.' : 'The completed cup becomes the next tee while the arena expands into open terrain. Previous fairways stay playable.'}</p>`;
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : feature.kind === 'pulse' ? '⌁ pulse launch' : feature.kind === 'gust' ? '〰 gust lane' : '◯ air ring boost').join(' · ') || 'none';
   const player = current(state);
   const ruleset = rulesetFor(state.config);
