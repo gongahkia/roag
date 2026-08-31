@@ -1,7 +1,7 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, inspectGalaxyDestination, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, migrateGalaxy, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
 
-export const AUTOPLAY_TASK_CATALOG_VERSION = 2
+export const AUTOPLAY_TASK_CATALOG_VERSION = 3
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
 
 export type AutoplayTaskCategory = 'tactical' | 'voyager' | 'economy' | 'ecology' | 'lifecycle'
@@ -207,6 +207,36 @@ const sectorClockTask = (): AutoplayTaskExecution => {
   return { actions: ['wait:route-reckoning'], events: advanced.events.map(event => event.kind), passed, summary: { routeReckoning: advanced.routeReckoning, worldTick: advanced.lastWorldTick, eventCount: advanced.events.length }, ...(passed ? {} : { reason: 'Route Reckoning did not advance deterministically' }) }
 }
 
+const livingDestinationsTask = (): AutoplayTaskExecution => {
+  const initial = createGalaxy(59, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const stale = advanceGalaxyRouteReckoning(initial, 480)
+  const staleReport = stale.destinationWorld.reports['destination:nerida']
+  const atOrison = resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(stale, 'route:kestrel-orison').galaxy).galaxy).galaxy
+  const atNerida = resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(atOrison, 'route:orison-nerida').galaxy).galaxy).galaxy
+  const inspected = inspectGalaxyDestination(atNerida)
+  const installed = installGalaxyNeridaBypass(inspected.galaxy)
+  const reloaded = migrateGalaxy(JSON.parse(JSON.stringify(installed.galaxy)))!
+  const verified = inspectGalaxyDestination(advanceGalaxyRouteReckoning(reloaded, 180))
+  const route = routeBoardConnectionForGalaxy(verified.galaxy, routeBoardConnectionsFor('destination:nerida').find(connection => connection.id === 'route:orison-nerida')!)
+  const manifestKinds = verified.galaxy.generalManifest.entries.map(entry => entry.kind)
+  const passed = stale.destinationWorld.partitions['destination:nerida'].condition === 'cavitation-restriction'
+    && staleReport.reportedCondition === 'pump-watch'
+    && destinationReportFreshness(staleReport, stale.routeReckoning) === 'stale'
+    && atNerida.destinationWorld.reports['destination:nerida'].reportedCondition === 'cavitation-restriction'
+    && installed.changed
+    && verified.galaxy.destinationWorld.reports['destination:nerida'].reportedCondition === 'pump-stabilized'
+    && route.durationMarks < 360
+    && manifestKinds.filter(kind => kind === 'destinationIntervention').length === 1
+    && manifestKinds.filter(kind => kind === 'destinationDevelopmentResolved').length === 1
+  return {
+    actions: ['inspect:destination-report', 'leave:kestrel', 'observe:stale-nerida-report', 'travel:orison', 'travel:nerida', 'inspect:local-condition', 'confirm:nerida-bypass', 'save-reload', 'advance:verification', 'inspect:stabilized-condition'],
+    events: [...new Set(manifestKinds)].sort(),
+    passed,
+    summary: { staleCondition: staleReport.reportedCondition, arrivedCondition: atNerida.destinationWorld.reports['destination:nerida'].reportedCondition, finalCondition: verified.galaxy.destinationWorld.reports['destination:nerida'].reportedCondition, routeMarksAfterVerification: route.durationMarks, routeReckoning: verified.galaxy.routeReckoning },
+    ...(passed ? {} : { reason: 'living destination reports, intervention, or persisted resolution did not complete' })
+  }
+}
+
 export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('tactical.core-loop', 'tactical', 100, 'ui.core-loop', tacticalTask),
   task('voyager.site-discovery', 'voyager', 90, 'ui.sector-navigation', discoveryTask, ['tactical.core-loop']),
@@ -219,7 +249,8 @@ export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('voyager.sealed-package-recovery', 'lifecycle', 72, 'ui.sealed-package-recovery', sealedPackageRecoveryTask, ['voyager.sealed-package-tampered']),
   task('voyager.landing-conditions', 'ecology', 70, 'ui.landing-conditions', ecologyTask, ['voyager.site-discovery']),
   task('voyager.landing-settlement', 'lifecycle', 65, 'ui.landing-settlement', landingTask, ['voyager.landing-conditions']),
-  task('voyager.sector-clock', 'lifecycle', 60, 'ui.sector-clock', sectorClockTask, ['voyager.landing-settlement'])
+  task('voyager.living-destinations', 'ecology', 64, 'ui.living-destinations', livingDestinationsTask, ['voyager.route-board']),
+  task('voyager.sector-clock', 'lifecycle', 60, 'ui.sector-clock', sectorClockTask, ['voyager.landing-settlement', 'voyager.living-destinations'])
 ]
 
 export const assertAutoplayTaskCatalog = (catalog: readonly AutoplayTask[] = autoplayTaskCatalog()): void => {

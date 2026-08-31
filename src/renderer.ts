@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, destinationConditionDetail, destinationConditionLabel, destinationInterventionAvailable, destinationReportFreshness, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { sealedPackageDefinition } from './package-content'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
@@ -400,7 +400,7 @@ export class TerminalRenderer {
     this.drawOutpostViewport(0, 0, position, () => this.drawOutpostScene(0, 0, position, undefined, 0, now < this.hubAnimationUntil))
     this.ruleVertical(MAP_WIDTH, 0, TERMINAL_HEIGHT)
     this.hubSidebar(hub, nearby, routeSteps)
-    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route.hubAction, hub, route.sealedPackageAction, route.companionAction, route.companionControlMode)
+    if (route.hubAction && route.hubAction !== 'routes') this.hubService(route, route.hubAction, hub, route.sealedPackageAction, route.companionAction, route.companionControlMode)
     this.hubLog(hub, nearby, routeSteps)
   }
 
@@ -410,7 +410,7 @@ export class TerminalRenderer {
     const galaxy = hub?.galaxy
     const knownSites = galaxy ? Object.values(galaxy.sites).filter(site => site.discovered) : []
     this.text(50, 1, 'CARRIER HUB', colors.gold)
-    this.text(50, 2, 'JOMON VOYAGER', colors.text)
+    this.text(50, 2, 'JOMON CARRIER', colors.text)
     this.ruleHorizontal(50, 3, 45)
     if (hero) this.courierSheet(hero)
     else this.text(50, 6, 'Specialist record unavailable.', colors.red)
@@ -443,7 +443,7 @@ export class TerminalRenderer {
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
     this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
-    this.text(1, 53, 'ACT C interact · M Manifest · 1-6 service', colors.dim)
+    this.text(1, 53, 'ACT C interact · D destination · M Manifest · 1-6 service', colors.dim)
     this.text(1, 54, `F auto ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F policy`, colors.dim)
     this.text(1, 55, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
   }
@@ -481,7 +481,7 @@ export class TerminalRenderer {
       const [ascii, rune, color] = outpostDecorationGlyph[decoration.tile] ?? ['*', '✧', colors.text]
       this.cell(x + decoration.x, y + decoration.y, this.runeMode ? rune : ascii, color)
     })
-    this.text(x + 12, y + 1, '[ JOMON VOYAGER // CARRIER DECK ]', colors.gold)
+    this.text(x + 12, y + 1, '[ JOMON // CARRIER DECK ]', colors.gold)
     this.text(x + 6, y + 11, 'BRIDGE', colors.dim)
     this.text(x + 15, y + 10, 'HABITAT', colors.dim)
     this.text(x + 22, y + 12, 'CARGO', colors.dim)
@@ -496,7 +496,7 @@ export class TerminalRenderer {
     this.cell(x + hero.x, y + hero.y, specialistGlyph, colors.text)
   }
 
-  private hubService(action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, sealedPackageAction?: ScreenRoute['sealedPackageAction'], companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
+  private hubService(route: ScreenRoute, action: Exclude<NonNullable<ScreenRoute['hubAction']>, 'routes'>, hub?: HubView, sealedPackageAction?: ScreenRoute['sealedPackageAction'], companionAction?: ScreenRoute['companionAction'], companionControlMode?: ScreenRoute['companionControlMode']): void {
     if (action === 'manifest') {
       const galaxy = hub?.galaxy
       this.box(49, 3, 46, 46, 'JOMON // GENERAL MANIFEST')
@@ -517,6 +517,42 @@ export class TerminalRenderer {
         if (y >= 43) break
       }
       this.text(52, 45, 'M / C / ENTER / ESC return to carrier', colors.green)
+      return
+    }
+    if (action === 'destination') {
+      const galaxy = hub?.galaxy
+      this.box(49, 3, 46, 46, 'JOMON // DESTINATION STATUS')
+      if (!galaxy) { this.text(52, 8, 'Destination telemetry unavailable.', colors.red); return }
+      const destination = routeBoardDestination(galaxy.routeBoard.currentDestinationId)
+      const partition = destination ? galaxy.destinationWorld.partitions[destination.id as keyof typeof galaxy.destinationWorld.partitions] : undefined
+      const report = destination ? galaxy.destinationWorld.reports[destination.id as keyof typeof galaxy.destinationWorld.reports] : undefined
+      if (!destination || !partition || !report) { this.text(52, 8, 'No persistent status is available at this berth.', colors.red); return }
+      let y = 6
+      const text = (value: string, color = colors.text) => { this.text(52, y++, value.slice(0, 40), color) }
+      const wrapped = (value: string, color = colors.text) => this.wrap(value, 40).forEach(line => text(line, color))
+      const freshness = destinationReportFreshness(report, galaxy.routeReckoning)
+      text(destination.label.toUpperCase(), colors.gold)
+      text(`CONFIRMED: ${destinationConditionLabel(partition.condition).toUpperCase()}`, colors.green)
+      text(`PRESSURE: ${partition.pressure.label.toUpperCase()} ${partition.pressure.value}/${partition.pressure.limit}`, colors.text)
+      text(`REPORT: ${report.source.toUpperCase()} · ${freshness.toUpperCase()}`, freshness === 'stale' ? colors.gold : colors.dim)
+      wrapped(destinationConditionDetail(partition.condition), colors.dim)
+      const active = partition.consequences.filter(consequence => consequence.active)
+      if (active.length) text(`KNOWN EFFECT: ${active.map(consequence => consequence.kind.replace('-', ' ')).join(', ').toUpperCase()}`, colors.gold)
+      y = Math.max(y + 1, 27)
+      if (route.destinationIntervention === 'nerida-bypass') {
+        text('CONFIRM PUMP BYPASS INSTALLATION', colors.red)
+        text('COST: 60 ROUTE RECKONING MARKS', colors.gold)
+        text('INTENT: HOLD FLOW FOR LATER VERIFICATION.', colors.text)
+        text('ENTER confirms · C / ESC cancels', colors.green)
+      } else if (destinationInterventionAvailable(partition)) {
+        text('LOCAL OPERATION AVAILABLE', colors.gold)
+        text('B: INSTALL TEMPORARY PUMP BYPASS', colors.green)
+        text('COST: 60 MARKS · LATER VERIFICATION', colors.text)
+        text('I inspect · C / ESC return to carrier', colors.green)
+      } else {
+        text('I inspect local instruments', colors.green)
+        text('C / ESC / ENTER return to carrier', colors.dim)
+      }
       return
     }
     if (action === 'continuation') {
@@ -669,45 +705,53 @@ export class TerminalRenderer {
     if (!current) { this.box(22, 18, 52, 20, 'JOMON // ROUTE BOARD'); this.text(27, 26, 'Current carrier location is invalid.', colors.red); return }
     const selected = routeBoardDestinations().find(destination => destination.siteId === (route.siteId ?? current.siteId)) ?? current
     const connection = routeBoardConnectionsFor(current.id).find(candidate => routeBoardOtherDestination(candidate, current.id)?.id === selected.id)
+    const knownConnection = connection ? routeBoardConnectionForGalaxy(galaxy, connection) : undefined
+    const selectedReport = galaxy.destinationWorld.reports[selected.id as keyof typeof galaxy.destinationWorld.reports]
     const contract = galaxy.sealedPackageContracts.find(candidate => candidate.status === 'offered' || candidate.status === 'accepted')
     const activeContract = contract?.status === 'accepted' ? contract : undefined
-    const projectedMarks = galaxy.routeReckoning + (connection?.durationMarks ?? 0)
+    const projectedMarks = galaxy.routeReckoning + (knownConnection?.durationMarks ?? 0)
     const contractRelevant = contract && contract.terms.destinationSiteId === selected.siteId
     this.box(4, 3, 88, 51, 'JOMON // ROUTE BOARD')
     this.text(8, 6, `${formatRouteReckoning(galaxy.routeReckoning)} · DOCKED AT ${current.label.toUpperCase()}`, colors.gold)
     this.text(8, 8, 'REPORTED TOPOLOGY · RISK AND AVAILABILITY ARE WRITTEN, NOT COLOUR-ONLY', colors.dim)
     routeBoardConnections().slice(0, 6).forEach((candidate, index) => {
+      const known = routeBoardConnectionForGalaxy(galaxy, candidate)
       const from = routeBoardDestination(candidate.fromDestinationId)?.label ?? candidate.fromDestinationId
       const to = routeBoardDestination(candidate.toDestinationId)?.label ?? candidate.toDestinationId
-      const status = routeBoardConnectionAvailable(galaxy.routeBoard, candidate) ? 'OPEN' : `UNAVAILABLE: ${candidate.unavailableReason ?? 'record withheld'}`
-      const line = `${from} -> ${to} · ${candidate.durationMarks}M · ${candidate.risk.toUpperCase()} · ${status}`
+      const status = routeBoardConnectionAvailable(galaxy.routeBoard, known) ? 'OPEN' : `UNAVAILABLE: ${known.unavailableReason ?? 'record withheld'}`
+      const line = `${from} -> ${to} · ${known.durationMarks}M · ${known.risk.toUpperCase()} · ${status}`
       this.wrap(line, 45).slice(0, 2).forEach((part, wrapped) => this.text(8, 11 + index * 4 + wrapped, part, status.startsWith('OPEN') ? colors.text : colors.dim))
     })
     this.box(55, 10, 34, 35, 'ROUTE INSPECTION')
     const text = (y: number, value: string, color = colors.text) => this.text(58, y, value.slice(0, 28), color)
     text(13, `${selected.id === current.id ? '[HERE]' : 'TARGET'} ${selected.label.toUpperCase()}`, selected.id === current.id ? colors.green : colors.gold)
     this.wrap(selected.summary, 28).slice(0, 2).forEach((line, index) => text(15 + index, line, colors.dim))
-    if (connection) {
-      const available = routeBoardConnectionAvailable(galaxy.routeBoard, connection)
-      text(18, `DURATION: ${connection.durationMarks} MARKS`)
-      text(19, `DANGER: ${connection.risk.toUpperCase()} (${connection.confidence})`, connection.risk === 'low' ? colors.green : connection.risk === 'high' ? colors.red : colors.gold)
-      this.wrap(`OPPORTUNITY: ${connection.opportunity}`, 28).slice(0, 2).forEach((line, index) => text(21 + index, line))
-      this.wrap(`WARNING: ${connection.warning}`, 28).slice(0, 2).forEach((line, index) => text(24 + index, line, colors.dim))
-      if (!available) this.wrap(`BLOCKED: ${connection.unavailableReason ?? 'route unavailable'}`, 28).slice(0, 2).forEach((line, index) => text(27 + index, line, colors.red))
+    if (knownConnection) {
+      const available = routeBoardConnectionAvailable(galaxy.routeBoard, knownConnection)
+      if (selectedReport) {
+        const freshness = destinationReportFreshness(selectedReport, galaxy.routeReckoning)
+        text(18, `REPORT: ${destinationConditionLabel(selectedReport.reportedCondition).toUpperCase()}`, freshness === 'stale' ? colors.gold : colors.text)
+        text(19, `REPORT AGE: ${freshness.toUpperCase()} · ${selectedReport.confidence.toUpperCase()}`, colors.dim)
+      }
+      text(21, `DURATION: ${knownConnection.durationMarks} MARKS`)
+      text(22, `DANGER: ${knownConnection.risk.toUpperCase()} (${knownConnection.confidence})`, knownConnection.risk === 'low' ? colors.green : knownConnection.risk === 'high' ? colors.red : colors.gold)
+      this.wrap(`OPPORTUNITY: ${knownConnection.opportunity}`, 28).slice(0, 2).forEach((line, index) => text(24 + index, line))
+      this.wrap(`WARNING: ${knownConnection.warning}`, 28).slice(0, 2).forEach((line, index) => text(27 + index, line, colors.dim))
+      if (!available) this.wrap(`BLOCKED: ${knownConnection.unavailableReason ?? 'route unavailable'}`, 28).slice(0, 2).forEach((line, index) => text(30 + index, line, colors.red))
       if (activeContract) {
         const remaining = activeContract.terms.deadlineReckoning - galaxy.routeReckoning
-        text(30, `ACTIVE SEALED: ${activeContract.terms.destinationLabel.toUpperCase()}`, colors.gold)
-        text(31, `SEALED DELIVERY: ${remaining}M LEFT`, remaining < connection.durationMarks ? colors.red : colors.gold)
-        text(32, projectedMarks > activeContract.terms.deadlineReckoning ? 'EXPECTED ARRIVAL: AFTER DEADLINE' : 'EXPECTED ARRIVAL: BEFORE DEADLINE', projectedMarks > activeContract.terms.deadlineReckoning ? colors.red : colors.green)
+        text(33, `ACTIVE SEALED: ${activeContract.terms.destinationLabel.toUpperCase()}`, colors.gold)
+        text(34, `SEALED DELIVERY: ${remaining}M LEFT`, remaining < knownConnection.durationMarks ? colors.red : colors.gold)
+        text(35, projectedMarks > activeContract.terms.deadlineReckoning ? 'EXPECTED ARRIVAL: AFTER DEADLINE' : 'EXPECTED ARRIVAL: BEFORE DEADLINE', projectedMarks > activeContract.terms.deadlineReckoning ? colors.red : colors.green)
       }
     } else {
       text(18, 'PHYSICAL LANDING AVAILABLE', colors.green)
       if (contractRelevant) text(20, contract?.status === 'accepted' ? 'SEALED DELIVERY: LAND, THEN SETTLE' : 'SEALED OFFER: LAND TO ACCEPT', colors.gold)
     }
-    if (route.routeBoardConfirmation === 'transit' && connection) {
+    if (route.routeBoardConfirmation === 'transit' && knownConnection) {
       this.box(55, 37, 34, 11, 'CONFIRM TRANSIT')
       text(40, `COMMIT JOMON TO ${selected.label.toUpperCase()}`, colors.gold)
-      text(42, `${connection.durationMarks} CANONICAL MARKS`)
+      text(42, `${knownConnection.durationMarks} CANONICAL MARKS`)
       text(45, 'ENTER CONFIRMS · C / ESC CANCELS', colors.green)
     } else if (route.routeBoardConfirmation === 'landing') {
       this.box(55, 37, 34, 11, 'CONFIRM LANDING')

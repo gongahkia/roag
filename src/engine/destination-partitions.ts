@@ -48,12 +48,10 @@ const developmentKinds = new Set<DestinationDevelopmentKind>([
   'kestrel-inspection-audit', 'orison-relay-thermal-load', 'orison-throttle-window', 'halcyon-tender-backlog', 'nerida-pump-cavitation', 'nerida-bypass-verification', 'borealis-kiln-debt', 'borealis-controlled-cooldown'
 ])
 const conditions = new Set<DestinationCondition>(Object.keys(conditionLabels) as DestinationCondition[])
-const partitionIds = new Set<DestinationPartitionId>(DESTINATION_PARTITION_IDS)
 
 const clamp = (value: number, min = 0, max = 100): number => Math.max(min, Math.min(max, Math.round(value)))
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const isNonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0
-const isPartitionId = (value: unknown): value is DestinationPartitionId => typeof value === 'string' && partitionIds.has(value as DestinationPartitionId)
 const isCondition = (value: unknown): value is DestinationCondition => typeof value === 'string' && conditions.has(value as DestinationCondition)
 const sortDevelopments = (developments: readonly DestinationScheduledDevelopment[]): DestinationScheduledDevelopment[] => [...developments].sort((left, right) => left.dueAtRouteReckoning - right.dueAtRouteReckoning || left.id.localeCompare(right.id))
 
@@ -167,7 +165,7 @@ export const destinationInterventionAvailable = (partition: DestinationPartition
 export interface DestinationDevelopmentResolution { id: string; destinationId: DestinationPartitionId; kind: DestinationDevelopmentKind; condition: DestinationCondition; atRouteReckoning: number }
 
 const resolveDevelopment = (seed: number, partition: DestinationPartition, development: DestinationScheduledDevelopment): DestinationDevelopmentResolution => {
-  const variation = rngFor(seed, 'destination-partition', partition.id, development.id).int(0, 5)
+  const variation = rngFor(seed, 'galaxy', 'destination-partition', partition.id, development.id).int(0, 5)
   const atRouteReckoning = development.dueAtRouteReckoning
   if (development.kind === 'kestrel-inspection-audit') {
     partition.condition = 'approach-inspection'
@@ -274,8 +272,11 @@ const normalizeReport = (value: unknown, fallback: DestinationKnownReport, desti
 /** Normalizes v4 state without simulating elapsed historical or offline time. */
 export const normalizeDestinationWorld = (value: unknown, seed: number, currentRouteReckoning: number): DestinationWorldState => {
   const fallback = createDestinationWorld(seed, currentRouteReckoning)
-  if (!isRecord(value) || value.version !== 1 || !isRecord(value.partitions) || !isRecord(value.reports)) return fallback
-  const partitions = Object.fromEntries(DESTINATION_PARTITION_IDS.map(id => [id, normalizePartition(value.partitions[id], fallback.partitions[id], currentRouteReckoning)])) as DestinationWorldState['partitions']
-  const reports = Object.fromEntries(DESTINATION_PARTITION_IDS.map(id => [id, normalizeReport(value.reports[id], fallback.reports[id], id, currentRouteReckoning)])) as DestinationWorldState['reports']
+  if (!isRecord(value) || value.version !== 1) return fallback
+  const rawPartitions = value.partitions
+  const rawReports = value.reports
+  if (!isRecord(rawPartitions) || !isRecord(rawReports)) return fallback
+  const partitions = Object.fromEntries(DESTINATION_PARTITION_IDS.map(id => [id, normalizePartition(rawPartitions[id], fallback.partitions[id], currentRouteReckoning)])) as DestinationWorldState['partitions']
+  const reports = Object.fromEntries(DESTINATION_PARTITION_IDS.map(id => [id, normalizeReport(rawReports[id], fallback.reports[id], id, currentRouteReckoning)])) as DestinationWorldState['reports']
   return { version: 1, partitions, reports }
 }

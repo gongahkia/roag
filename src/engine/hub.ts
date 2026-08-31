@@ -5,7 +5,7 @@ import type { Biome, CampaignCycle, CampaignTier, Companion, CompanionControlMod
 import { toolFor } from './buildcraft'
 import { purchaseBlocker } from './economy'
 
-export type HubAction = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter' | 'custody' | 'manifest' | 'continuation'
+export type HubAction = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter' | 'custody' | 'manifest' | 'destination' | 'continuation'
 export interface HubCampaignStatus { tier: CampaignTier; tierLabel: string; completedTiers: CampaignTier[]; completedLabel: string; historyLabel: string; packageName: string; packageRationale: string; difficultyLines: string[]; nextLabel: string; continuationPending: boolean; terminal: boolean; accessibleLabel: string }
 export interface HubCarryoverRosterEntry { name: string; status: string; injury: string; permanentlyLost: boolean }
 export interface HubCarryoverSummary { currency: number; items: string[]; tools: string[]; roster: HubCarryoverRosterEntry[]; injuries: string[]; losses: string[]; accessibleLabel: string }
@@ -33,7 +33,7 @@ export const hubCampaignStatus = (cycle: CampaignCycle): HubCampaignStatus => {
     `THREAT +${current.modifiers.threat} · ELITE +${current.modifiers.eliteChance} · GUARD ${current.modifiers.guardianPattern}`,
     `HAZARD ×${numberLabel(current.modifiers.hazardMultiplier)} · REWARDS ×${numberLabel(current.modifiers.rewardMultiplier)}`
   ]
-  const nextLabel = terminal ? 'TERMINAL: every Voyager route is complete.' : continuationPending ? `NEXT: ${tierLabel(next!)} revised route ready at the flight console.` : next ? `NEXT: finish ${tierLabel(cycle.currentTier)} to unlock ${tierLabel(next)}.` : 'NEXT: finish NG++ to complete the final route.'
+  const nextLabel = terminal ? 'TERMINAL: NG++ complete — no next tier.' : continuationPending ? `NEXT: ${tierLabel(next!)} revised route ready at the flight console.` : next ? `NEXT: finish ${tierLabel(cycle.currentTier)} to unlock ${tierLabel(next)}.` : 'NEXT: finish NG++ to complete the final route.'
   return { tier: cycle.currentTier, tierLabel: tierLabel(cycle.currentTier), completedTiers, completedLabel, historyLabel, packageName: current.name, packageRationale: current.rationale, difficultyLines, nextLabel, continuationPending, terminal, accessibleLabel: `Voyager route tier ${tierLabel(cycle.currentTier)}. Completed tiers: ${completedLabel}. Fixed difficulty package ${current.name}: ${difficultyLines.join('; ')}. ${nextLabel}` }
 }
 

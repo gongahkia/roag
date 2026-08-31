@@ -14,7 +14,7 @@ describe('Jomon Route Board', () => {
     const routes = routeBoardConnectionsFor(current.id)
 
     expect(first.routeBoard).toEqual(second.routeBoard)
-    expect(first.version).toBe(3)
+    expect(first.version).toBe(4)
     expect(current).toMatchObject({ id: 'destination:kestrel', label: 'Kestrel Landing', siteId: first.activeSiteId })
     expect(routes.filter(route => route.status === 'open').map(route => [route.id, route.durationMarks, route.risk])).toEqual([
       ['route:kestrel-orison', 360, 'low'],
@@ -121,7 +121,7 @@ describe('Jomon Route Board', () => {
     const directArrival = resolveRouteBoardTransit(committed)
     const resumedArrival = resolveRouteBoardTransit(resumed)
 
-    expect(migrated).toMatchObject({ version: 3, routeReckoning: 0, activeSiteId: 'sector-00:site-03', routeBoard: { currentDestinationId: 'destination:halcyon', networkId: 'helios-intake-v1' } })
+    expect(migrated).toMatchObject({ version: 4, routeReckoning: 0, activeSiteId: 'sector-00:site-03', routeBoard: { currentDestinationId: 'destination:halcyon', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 0 } } } })
     expect(migrateGalaxy(JSON.parse(JSON.stringify(migrated)))!).toEqual(migrated)
     expect(resumed.routeBoard.transit).toEqual(committed.routeBoard.transit)
     expect(resumedArrival.galaxy).toEqual(directArrival.galaxy)

@@ -167,7 +167,7 @@ describe('sealed package custody', () => {
     expect(migrated!.contracts).toEqual(current.contracts)
     expect(migrated!.sealedPackageContracts).toEqual([])
     expect(migrated!.sealedPackages).toEqual([])
-    expect(migrated!.version).toBe(3)
+    expect(migrated!.version).toBe(4)
     expect(migrated!.routeReckoning).toBe(0)
     expect(migrated!.generalManifest).toEqual({ version: 2, nextSequence: 0, entries: [] })
     expect(migrated!.routeCaches.every(cache => Array.isArray(cache.packages))).toBe(true)

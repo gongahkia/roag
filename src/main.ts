@@ -4,7 +4,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectSealedPackage, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -952,7 +952,9 @@ function redraw(): void {
   const galaxy = campaign.galaxy
   const sealedContract = galaxy?.sealedPackageContracts[0]
   const currentDestination = galaxy ? routeBoardDestination(galaxy.routeBoard.currentDestinationId) : undefined
+  const destinationReport = galaxy && currentDestination ? galaxy.destinationWorld.reports[currentDestination.id as keyof typeof galaxy.destinationWorld.reports] : undefined
   const routeBoardSelection = galaxy && route.screen === 'sector' ? routeBoardDestinationForSite(route.siteId ?? currentDestination?.siteId ?? '') ?? currentDestination : undefined
+  const routeBoardReport = galaxy && routeBoardSelection ? galaxy.destinationWorld.reports[routeBoardSelection.id as keyof typeof galaxy.destinationWorld.reports] : undefined
   const manifestEntry = route.hubAction === 'manifest' ? galaxy?.generalManifest.entries.at(-1) : undefined
   canvas.dataset.sealedPackage = sealedContract?.status ?? 'none'
   canvas.dataset.routeReckoning = galaxy ? String(galaxy.routeReckoning) : ''
@@ -960,7 +962,12 @@ function redraw(): void {
   canvas.dataset.routeBoardSelection = routeBoardSelection?.id ?? ''
   canvas.dataset.routeTransit = galaxy?.routeBoard.transit?.id ?? ''
   canvas.dataset.routeBoardConfirmation = route.routeBoardConfirmation ?? ''
-  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  canvas.dataset.destinationStatus = route.hubAction === 'destination' ? destinationReport?.reportedCondition ?? '' : ''
+  canvas.dataset.destinationReportFreshness = destinationReport ? String(Math.max(0, (galaxy?.routeReckoning ?? 0) - destinationReport.observedAtRouteReckoning)) : ''
+  canvas.dataset.destinationIntervention = route.destinationIntervention ?? ''
+  canvas.dataset.routeBoardReport = routeBoardReport?.reportedCondition ?? ''
+  canvas.dataset.routeBoardReportFreshness = routeBoardReport && galaxy ? destinationReportFreshness(routeBoardReport, galaxy.routeReckoning) : ''
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -970,6 +977,37 @@ function handleHubInput(key: string, run = false): boolean {
   if (action) {
     if (action === 'manifest') {
       if (key === 'Escape' || key.toLowerCase() === 'c' || key.toLowerCase() === 'm' || key === 'Enter') route = { ...route, hubAction: undefined }
+      return true
+    }
+    if (action === 'destination') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, destinationIntervention: undefined } }
+      if (!galaxy) { hubNotice = 'No destination partition is available while Jomon has no active route record.'; close(); return true }
+      if (route.destinationIntervention) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, destinationIntervention: undefined }; hubNotice = 'Nerida bypass installation cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms the sixty-mark Nerida bypass installation. C / ESC cancels.'; return true }
+        const result = installGalaxyNeridaBypass(galaxy)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        route = { ...route, destinationIntervention: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { close(); return true }
+      if (key.toLowerCase() === 'i') {
+        const result = inspectGalaxyDestination(galaxy)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key.toLowerCase() === 'b') {
+        if (galaxy.routeBoard.currentDestinationId !== 'destination:nerida' || galaxy.destinationWorld.partitions['destination:nerida'].condition !== 'cavitation-restriction') { hubNotice = 'No physical intervention is currently available at this destination.'; return true }
+        route = { ...route, destinationIntervention: 'nerida-bypass' }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'I inspect local instruments. B prepares the Nerida bypass when available.'
       return true
     }
     if (action === 'custody') {
@@ -1119,6 +1157,12 @@ function handleHubInput(key: string, run = false): boolean {
   if (key.toLowerCase() === 'm') {
     if (!campaign.galaxy) { hubNotice = 'The Jomon General Manifest is unavailable until a route is loaded.'; return true }
     route = { ...route, hubAction: 'manifest' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'd') {
+    if (!campaign.galaxy) { hubNotice = 'The Jomon destination status is unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'destination' }
     hubNotice = undefined
     return true
   }
