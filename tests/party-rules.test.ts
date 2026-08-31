@@ -5,7 +5,7 @@ import { simulateShot } from '../src/core/physics';
 import { PARTY_BIOMES, PARTY_LAYOUTS, PARTY_TRICK_CARDS } from '../src/core/rulesets';
 import { openShop } from '../src/core/shop';
 import { normalizeGameState } from '../src/core/game-state';
-import { partyAwardsFor, partyPacingFor, partyReceiptsFor } from '../src/core/party-insights';
+import { partyAwardsFor, partyPacingFor, partyReceiptsFor, partyTelemetryReportFor } from '../src/core/party-insights';
 import { createArena as arena } from './fixtures';
 
 const partyConfig = (seed: string) => ({ ...defaultConfig(), seed, ruleset: 'party' as const, humanCount: 2, botCount: 0, holeCount: 1 });
@@ -109,5 +109,14 @@ describe('Party Rules vertical slice', () => {
     expect(partyReceiptsFor(game).map((receipt) => receipt.text)).toEqual(['golfer-3 played airhorn on golfer-1', 'golfer-1 banked into golfer-2']);
     expect(partyAwardsFor(game)).toHaveLength(3);
     expect(partyPacingFor(game)).toMatchObject({ measuredTurns: 3, medianTurnSeconds: 14, p90TurnSeconds: 21, medianHoleSeconds: 118, withinTurnBudget: false, withinHoleBudget: true });
+  });
+
+  it('exports a shareable telemetry report without player display names', () => {
+    const game = createGame(partyConfig('anonymous-telemetry'));
+    game.players[0]!.name = 'private person';
+    game.instrumentation = { events: [{ type: 'collision', hole: 1, playerId: game.players[0]!.id, targetId: game.players[1]!.id, detail: 'ball contact' }] };
+    const report = partyTelemetryReportFor(game, 'party-session-01', '2026-08-31T00:00:00.000Z');
+    expect(report).toMatchObject({ schemaVersion: 1, sessionId: 'party-session-01', players: [{ id: 'P1' }, { id: 'P2' }], events: [{ playerId: 'P1', targetId: 'P2' }] });
+    expect(JSON.stringify(report)).not.toContain('private person');
   });
 });

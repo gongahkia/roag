@@ -25,6 +25,20 @@ export interface PartyPacingSummary {
   withinHoleBudget: boolean;
 }
 
+/** A shareable local-playtest record. Player display names are deliberately excluded. */
+export interface PartyTelemetryReport {
+  schemaVersion: 1;
+  sessionId: string;
+  exportedAt: string;
+  config: Pick<GameState['config'], 'seed' | 'holeCount' | 'humanCount' | 'botCount' | 'ruleset'>;
+  progress: { status: GameState['status']; currentHole: number; completedHoles: number };
+  players: Array<{ id: string; seat: number; kind: GameState['players'][number]['kind']; totalStrokes: number; currentHoleStrokes: number; completed: boolean }>;
+  recipes: GameState['coursePlan'][number]['recipe']['metadata'][];
+  connections: GameState['connections'];
+  events: InstrumentationEvent[];
+  pacing: PartyPacingSummary;
+}
+
 const playerName = (state: GameState, id: string | undefined) => state.players.find((player) => player.id === id)?.name ?? id ?? 'the course';
 const currentEvents = (state: GameState, hole?: number) => (state.instrumentation?.events ?? []).filter((event) => hole === undefined || event.hole === hole);
 const countByPlayer = (events: readonly InstrumentationEvent[], type: InstrumentationEvent['type']) => events
@@ -88,6 +102,44 @@ export const partyPacingFor = (state: GameState): PartyPacingSummary => {
     medianHoleSeconds,
     withinTurnBudget: p90TurnSeconds === undefined || p90TurnSeconds <= 20,
     withinHoleBudget: medianHoleSeconds === undefined || medianHoleSeconds <= 240,
+  };
+};
+
+/**
+ * Produces evidence that can be shared with the repository without participant
+ * names. The caller owns download/storage; this function only transforms state.
+ */
+export const partyTelemetryReportFor = (state: GameState, sessionId: string, exportedAt: string): PartyTelemetryReport => {
+  const labels = new Map(state.players.map((player, index) => [player.id, `P${index + 1}`]));
+  const anonymousId = (id: string | undefined) => id ? labels.get(id) ?? 'unknown' : undefined;
+  return {
+    schemaVersion: 1,
+    sessionId,
+    exportedAt,
+    config: {
+      seed: state.config.seed,
+      holeCount: state.config.holeCount,
+      humanCount: state.config.humanCount,
+      botCount: state.config.botCount,
+      ruleset: state.config.ruleset ?? 'party',
+    },
+    progress: {
+      status: state.status,
+      currentHole: state.hole,
+      completedHoles: state.status === 'finished' ? state.config.holeCount : Math.max(0, state.hole - 1),
+    },
+    players: state.players.map((player, index) => ({
+      id: labels.get(player.id)!,
+      seat: index + 1,
+      kind: player.kind,
+      totalStrokes: player.total,
+      currentHoleStrokes: player.ball.strokes,
+      completed: player.ball.complete,
+    })),
+    recipes: state.coursePlan.map((plan) => plan.recipe.metadata),
+    connections: state.connections ? [...state.connections] : undefined,
+    events: (state.instrumentation?.events ?? []).map((event) => ({ ...event, playerId: anonymousId(event.playerId), targetId: anonymousId(event.targetId) })),
+    pacing: partyPacingFor(state),
   };
 };
 

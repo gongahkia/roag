@@ -276,7 +276,7 @@ const renderShopOverlay = (view: ViewModel) => {
 
 const ordinal = (rank: number) => `${rank}${rank % 100 >= 11 && rank % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[rank % 10] ?? 'th'}`;
 
-const renderResultsOverlay = ({ state }: ViewModel) => {
+const renderResultsOverlay = ({ state, preferences }: ViewModel) => {
   if (state.status !== 'finished') return '';
   const standings = [...state.players].sort((left, right) => left.total - right.total || left.name.localeCompare(right.name));
   const leadingScore = standings[0]!.total;
@@ -307,7 +307,8 @@ const renderResultsOverlay = ({ state }: ViewModel) => {
   const finalCallout = trailers.length === standings.length ? 'everyone finishes level.' : `${trailingNames} complete the route on ${trailingScore} strokes.`;
   const awardRows = awards.length ? `<section class="party-awards" aria-label="factual course awards"><h2>course receipts</h2><ol>${awards.map((award) => `<li><strong>${escapeHtml(award.title)}</strong><span>${escapeHtml(award.detail)}</span></li>`).join('')}</ol></section>` : '';
   const pacingNote = pacing.measuredTurns ? `<small class="pacing-note">local pacing: median ${pacing.medianTurnSeconds?.toFixed(1)}s · p90 ${pacing.p90TurnSeconds?.toFixed(1)}s</small>` : '';
-  return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p><small class="campaign-atlas-note">the complete course route remains visible behind the final table</small></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section>${awardRows}<footer class="results-actions"><button class="primary" data-restart-run>play again</button><button data-copy-replay>copy replay recipe</button><span>same lineup · replay this seed</span>${pacingNote}</footer></div></section>`;
+  const telemetryExport = state.config.ruleset !== 'custom' && preferences.showPartyDiagnostics ? '<button data-export-party-telemetry>download anonymous playtest telemetry</button>' : '';
+  return `<section class="results-overlay" role="dialog" aria-modal="true" aria-label="campaign results"><div class="results-panel"><header class="results-header"><p class="eyebrow">NINE HOLES COMPLETE · FINAL CLUBHOUSE TABLE</p><h1>${headline}</h1><p>${summary} ${finalCallout}</p><small class="campaign-atlas-note">the complete course route remains visible behind the final table</small></header><section class="podium" aria-label="top three podium">${podium.map(podiumCard).join('')}</section><section class="final-standings" aria-label="final standings"><div><h2>full standings</h2><p>lowest aggregate strokes wins</p></div><ol>${standingRows}</ol></section>${awardRows}<footer class="results-actions"><button class="primary" data-restart-run>play again</button><button data-copy-replay>copy replay recipe</button>${telemetryExport}<span>same lineup · replay this seed</span>${pacingNote}</footer></div></section>`;
 };
 
 const renderPauseOverlay = ({ state, multiplayer }: ViewModel) => {

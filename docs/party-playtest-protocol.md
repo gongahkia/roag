@@ -16,6 +16,8 @@ npm run parity:party
 
 Use Party Rules, standard slot flow, a nine-hole campaign, and no explanation beyond reading interface text aloud if asked. Let participants skip the guide if they choose; record that choice.
 
+Before the match, open settings and enable **show local Party Rules diagnostics**. This is off by default and does not change gameplay. At the final table, select **download anonymous playtest telemetry**; the browser saves a `party-*.json` file in its configured Downloads directory. Record the filename and seed in the evidence record. The file uses `P1`, `P2`, and so on rather than player display names.
+
 ## Moderator prompts
 
 Ask these at the indicated moments without suggesting an answer:
@@ -39,7 +41,7 @@ For every hole, capture:
 - any confusion, dead time, accessibility issue, or player-to-player attribution dispute;
 - seam/reveal/final overview cost and whether older hazards are mistakenly assumed to remain active.
 
-Export the local simulator report and, where available, the in-game diagnostic summary. Keep raw participant notes separate from generated telemetry.
+Export the local simulator report and the in-game anonymous telemetry file. Keep raw participant notes separate from generated telemetry.
 
 ## Exit questions
 

@@ -247,6 +247,9 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('full standings');
     expect(markup).toContain('complete the route');
     expect(markup).toContain('data-copy-replay');
+    expect(markup).not.toContain('data-export-party-telemetry');
+    const diagnosticsMarkup = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), showPartyDiagnostics: true }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
+    expect(diagnosticsMarkup).toContain('data-export-party-telemetry');
     expect(markup).toContain('data-restart-run');
     expect(markup).toContain('app-shell finished');
     expect(markup).toContain('complete course route remains visible');

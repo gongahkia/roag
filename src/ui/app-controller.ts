@@ -7,6 +7,7 @@ import { tileAt } from '../core/physics';
 import { canPlaceGadget } from '../core/powerups';
 import { chooseBotShopOffer } from '../core/shop';
 import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
+import { partyTelemetryReportFor } from '../core/party-insights';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
 import { isEditableElement, loadPreferences, savePreferences, setShortcut, shortcutForKey, type ShortcutId } from '../preferences';
@@ -76,6 +77,7 @@ const validServerUrl = (value: string) => {
 const tokenKey = (roomCode: string) => `golf-with-your-enemies-room-token:${roomCode.toUpperCase()}`;
 const getStoredToken = (roomCode: string) => { try { return sessionStorage.getItem(tokenKey(roomCode)); } catch { return null; } };
 const storeToken = (roomCode: string, token: string) => { try { sessionStorage.setItem(tokenKey(roomCode), token); } catch { } };
+const partySessionIdFor = () => `party-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 15)}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const startApp = (app: HTMLElement) => {
   const query = new URLSearchParams(window.location.search);
@@ -83,6 +85,7 @@ export const startApp = (app: HTMLElement) => {
   const captureMode = query.get('capture') === '1';
   let config: GameConfig = { ...defaultConfig(), ...(requestedSeed ? { seed: requestedSeed } : {}) };
   let state = createGame(config);
+  let partySessionId = partySessionIdFor();
   let aim: ShotCommand = { angle: 0, power: 4, kind: 'putt' };
   let camera: CameraState = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
   let renderer: ReturnType<typeof createRenderer> | undefined;
@@ -411,6 +414,7 @@ export const startApp = (app: HTMLElement) => {
     pendingReconnectToken = undefined;
     onlineConnected = false;
     config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipDieBets: selected.skipDieBets, ruleset: selected.ruleset };
+    partySessionId = partySessionIdFor();
     drawer = undefined;
     overlay = undefined;
     liveEmotes = [];
@@ -425,6 +429,7 @@ export const startApp = (app: HTMLElement) => {
     const rawSkill = app.querySelector<HTMLSelectElement>('#skill')?.value;
     config = { ...config, seed, humanCount, botCount, botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, 'skill', typeof config.botSkill === 'number' ? config.botSkill : 5) };
     if (config.humanCount + config.botCount > 12 || config.botCount > 4 || config.humanCount < 1) return;
+    partySessionId = partySessionIdFor();
     liveEmotes = [];
     seenEmoteIds = new Set();
     camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
@@ -891,6 +896,19 @@ export const startApp = (app: HTMLElement) => {
     }
     render();
   };
+  const exportPartyTelemetry = () => {
+    if (state.config.ruleset === 'custom') return;
+    const report = partyTelemetryReportFor(state, partySessionId, new Date().toISOString());
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${partySessionId}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    notice = `anonymous telemetry downloaded · ${partySessionId}`;
+    render();
+  };
   const controllerNavigationIsActive = () => Boolean(controllerTextEntry) || screen !== 'game' || controllerNavigationMode || Boolean(overlay) || Boolean(drawer) || state.paused || state.status !== 'playing';
   const controllerFocusableElements = () => {
     const selector = 'button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled)';
@@ -1141,6 +1159,7 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-dismiss-briefing')) { briefingHole = undefined; render(); return; }
     if (element.hasAttribute('data-ready-handoff')) { handoff = undefined; render(); return; }
     if (element.hasAttribute('data-copy-replay')) { void copyReplayRecipe(); return; }
+    if (element.hasAttribute('data-export-party-telemetry')) { exportPartyTelemetry(); return; }
     if (element.hasAttribute('data-camera-mode')) { toggleCameraMode(); return; }
     const cameraZoom = element.dataset.cameraZoom;
     if (cameraZoom === 'in' || cameraZoom === 'out') { adjustCameraZoom(cameraZoom === 'in' ? CAMERA_ZOOM_STEP : -CAMERA_ZOOM_STEP); return; }
