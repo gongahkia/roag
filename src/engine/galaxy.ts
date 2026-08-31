@@ -2,6 +2,7 @@ import { biomeName } from '../content'
 import { rngFor } from '../rng'
 import type { Biome, CargoKind, DestinationPartitionId, GalaxyCourier, GalaxyCourierRoutine, GalaxyEvent, GalaxyFaction, GalaxyFactionId, GalaxyMarket, GalaxySite, GalaxySiteSnapshot, GalaxyState, Hero, RouteBoardConnection, RouteBoardState, RouteBoardTransitConsequence, RunState } from '../types'
 import { advanceDestinationWorld, cloneDestinationWorld, createDestinationWorld, destinationConditionLabel, destinationReportFreshness, installNeridaBypass, normalizeDestinationWorld, refreshDestinationReport, NERIDA_BYPASS_COST_MARKS } from './destination-partitions'
+import { advanceInstitutionWorld, cloneInstitutionWorld, createInstitutionWorld, decideNeridaInstitutionRequest, type InstitutionDecision, normalizeInstitutionWorld, reconcileInstitutionalManifest, recordInstitutionCourierReplacement } from './institutions'
 import { appendGeneralManifest, normalizeGeneralManifest } from './manifest'
 import { ROUTE_BOARD_HISTORY_LIMIT, cloneRouteBoardState, createRouteBoardState, routeBoardConnection, routeBoardConnectionAvailable, routeBoardDestination, routeBoardDestinationForSite, routeBoardDestinations, routeBoardOtherDestination, routeBoardTransitConsequence } from './route-board'
 import { addKestrelSealedPackageOffer, applySealedPackageDeadlineTransitions } from './sealed-packages'
@@ -107,10 +108,10 @@ export const createGalaxy = (seed: number, primary: Hero, legacyCreatedAt = 0): 
   for (const destination of routeBoardDestinations()) if (sites[destination.siteId]) sites[destination.siteId]!.name = destination.label
   const primaryCourier: GalaxyCourier = { id: courierId(0), name: primary.name, role: 'Jomon specialist', origin: primary.origin, calling: primary.calling, routine: 'socialize', status: 'available', affinity: 12, siteId: activeId, personalItems: [], hero: structuredClone(primary) }
   const couriers = [primaryCourier, ...crewTemplates.map((template, index): GalaxyCourier => ({ id: courierId(index + 1), ...template, status: 'available', affinity: (index % 2 ? -4 : 7), ...(index === 1 ? { rivalId: courierId(3) } : {}), personalItems: [], hero: crewHero(primary, template, index) }))]
-  return addKestrelSealedPackageOffer({ version: 4, seed, ...(legacyCreatedAt ? { createdAt: legacyCreatedAt } : {}), routeReckoning: 0, lastWorldTick: 0, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: 0, routeReckoning: 0, kind: 'discovery', siteId: activeId, headline: 'Jomon enters Helios Reach', detail: 'Jomon is docked at Kestrel Landing. Orison Relay and Halcyon Dock have open approach records.' }], siteSnapshots: {}, sharedStash: [], cargo: [], contracts: [], sealedPackageContracts: [], sealedPackages: [], generalManifest: { version: 2, nextSequence: 0, entries: [] }, routeCaches: [], routeBoard: createRouteBoardState(activeId), destinationWorld: createDestinationWorld(seed) })
+  return addKestrelSealedPackageOffer({ version: 5, seed, ...(legacyCreatedAt ? { createdAt: legacyCreatedAt } : {}), routeReckoning: 0, lastWorldTick: 0, sectorDay: 0, activeSiteId: activeId, activeCourierId: primaryCourier.id, sectors, sites, couriers, factions: factions(), events: [{ id: `event:${seed}:arrival`, at: 0, routeReckoning: 0, kind: 'discovery', siteId: activeId, headline: 'Jomon enters Helios Reach', detail: 'Jomon is docked at Kestrel Landing. Orison Relay and Halcyon Dock have open approach records.' }], siteSnapshots: {}, sharedStash: [], cargo: [], contracts: [], sealedPackageContracts: [], sealedPackages: [], generalManifest: { version: 2, nextSequence: 0, entries: [] }, routeCaches: [], routeBoard: createRouteBoardState(activeId), destinationWorld: createDestinationWorld(seed), institutionWorld: createInstitutionWorld(seed) })
 }
 
-export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, { ...copySite(site), market: structuredClone(site.market) }])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash], cargo: galaxy.cargo.map(cargo => ({ ...cargo })), contracts: galaxy.contracts.map(contract => ({ ...contract, cargo: { ...contract.cargo } })), sealedPackageContracts: galaxy.sealedPackageContracts.map(contract => ({ ...contract, terms: { ...contract.terms, prohibitedActions: [...contract.terms.prohibitedActions] } })), sealedPackages: galaxy.sealedPackages.map(packageRecord => ({ ...packageRecord, exterior: { ...packageRecord.exterior }, ...(packageRecord.revealedContents ? { revealedContents: { ...packageRecord.revealedContents } } : {}) })), generalManifest: { ...galaxy.generalManifest, entries: galaxy.generalManifest.entries.map(entry => ({ ...entry })) }, routeCaches: galaxy.routeCaches.map(cache => ({ ...cache, cargo: cache.cargo.map(cargo => ({ ...cargo })), packages: [...cache.packages] })), routeBoard: cloneRouteBoardState(galaxy.routeBoard), destinationWorld: cloneDestinationWorld(galaxy.destinationWorld) })
+export const cloneGalaxy = (galaxy: GalaxyState): GalaxyState => ({ ...galaxy, sectors: galaxy.sectors.map(sector => ({ ...sector, siteIds: [...sector.siteIds] })), sites: Object.fromEntries(Object.entries(galaxy.sites).map(([id, site]) => [id, { ...copySite(site), market: structuredClone(site.market) }])), couriers: galaxy.couriers.map(courier => ({ ...courier, personalItems: [...courier.personalItems], hero: structuredClone(courier.hero) })), factions: galaxy.factions.map(faction => ({ ...faction })), events: galaxy.events.map(copyEvent), siteSnapshots: Object.fromEntries(Object.entries(galaxy.siteSnapshots).map(([id, snapshot]) => [id, copySnapshot(snapshot)])), sharedStash: [...galaxy.sharedStash], cargo: galaxy.cargo.map(cargo => ({ ...cargo })), contracts: galaxy.contracts.map(contract => ({ ...contract, cargo: { ...contract.cargo } })), sealedPackageContracts: galaxy.sealedPackageContracts.map(contract => ({ ...contract, terms: { ...contract.terms, prohibitedActions: [...contract.terms.prohibitedActions] } })), sealedPackages: galaxy.sealedPackages.map(packageRecord => ({ ...packageRecord, exterior: { ...packageRecord.exterior }, ...(packageRecord.revealedContents ? { revealedContents: { ...packageRecord.revealedContents } } : {}) })), generalManifest: { ...galaxy.generalManifest, entries: galaxy.generalManifest.entries.map(entry => ({ ...entry })) }, routeCaches: galaxy.routeCaches.map(cache => ({ ...cache, cargo: cache.cargo.map(cargo => ({ ...cargo })), packages: [...cache.packages] })), routeBoard: cloneRouteBoardState(galaxy.routeBoard), destinationWorld: cloneDestinationWorld(galaxy.destinationWorld), institutionWorld: cloneInstitutionWorld(galaxy.institutionWorld) })
 
 const appendEvent = (galaxy: GalaxyState, event: GalaxyEvent): void => {
   if (galaxy.events.some(candidate => candidate.id === event.id)) return
@@ -206,6 +207,10 @@ export const advanceGalaxyRouteReckoning = (source: GalaxyState, marks: number):
     galaxy.sectorDay = sectorDayFromRouteReckoning(galaxy.routeReckoning)
     applySealedPackageDeadlineTransitions(galaxy)
     advanceGenericContractDeadlines(galaxy)
+    if (galaxy.routeReckoning % 60 === 0) {
+      galaxy.destinationWorld = advanceDestinationWorld(galaxy.destinationWorld, galaxy.seed, galaxy.routeReckoning).world
+      advanceInstitutionWorld(galaxy)
+    }
     if (galaxy.routeReckoning % ROUTE_RECKONING_WORLD_TICK_UNITS !== 0) continue
     const tick = routeWorldTickFor(galaxy.routeReckoning)
     if (tick <= galaxy.lastWorldTick) continue
@@ -215,7 +220,10 @@ export const advanceGalaxyRouteReckoning = (source: GalaxyState, marks: number):
     if (site) shiftSite(galaxy, site, tick)
     evolveCouriers(galaxy, tick)
   }
-  galaxy.destinationWorld = advanceDestinationWorld(galaxy.destinationWorld, galaxy.seed, galaxy.routeReckoning).world
+  if (steps > 0 && galaxy.routeReckoning % 60 !== 0) {
+    galaxy.destinationWorld = advanceDestinationWorld(galaxy.destinationWorld, galaxy.seed, galaxy.routeReckoning).world
+    advanceInstitutionWorld(galaxy)
+  }
   return galaxy
 }
 
@@ -266,6 +274,10 @@ export const routeBoardConnectionForGalaxy = (galaxy: GalaxyState, connection: R
   if (reportedCondition === 'cavitation-restriction' || reportedCondition === 'bypass-stabilizing') return { ...connection, durationMarks: connection.durationMarks + 60, risk: 'high', warning: 'known Nerida pump-chain restriction requires a managed transfer window', confidence: freshness }
   if (reportedCondition === 'relay-throttled') return { ...connection, durationMarks: connection.durationMarks + 60, risk: 'high', warning: 'known Orison relay throttle limits the transfer window', confidence: freshness }
   if (reportedCondition === 'relay-overheated') return { ...connection, durationMarks: connection.durationMarks + 30, risk: 'elevated', warning: 'known Orison thermal load may delay relay alignment', confidence: freshness }
+  const knownModifier = galaxy.institutionWorld.knownRouteModifiers
+    .filter(modifier => modifier.destinationId === connection.fromDestinationId || modifier.destinationId === connection.toDestinationId)
+    .sort((left, right) => right.durationMarks - left.durationMarks || right.knownAtRouteReckoning - left.knownAtRouteReckoning || left.id.localeCompare(right.id))[0]
+  if (knownModifier) return { ...connection, durationMarks: connection.durationMarks + knownModifier.durationMarks, risk: knownModifier.risk, warning: knownModifier.warning, confidence: freshness }
   return { ...connection, confidence: freshness }
 }
 const routeBoardConnectionIsReachable = (galaxy: GalaxyState, connectionId: string): boolean => {
@@ -375,8 +387,16 @@ export const installGalaxyNeridaBypass = (source: GalaxyState): RouteBoardMutati
   if (!installed.changed) return { galaxy, changed: false, message: installed.message }
   galaxy.destinationWorld = installed.world
   appendGeneralManifest(galaxy, { kind: 'destinationIntervention', detail: 'Jomon authorized a temporary Nerida pump bypass; verification remains pending.', source: 'destination', siteId: routeBoardDestination('destination:nerida')?.siteId, payload: { destinationId: 'destination:nerida', interventionId: installed.intervention!.id, costMarks: installed.intervention!.costMarks } })
+  reconcileInstitutionalManifest(galaxy)
   refreshGalaxyDestinationReport(galaxy, 'destination:nerida', 'local-inspection')
   return { galaxy, changed: true, message: installed.message }
+}
+
+/** Files one explicit Nerida institutional response. Closure assistance spends the stated sixty Route Reckoning marks. */
+export const decideGalaxyInstitutionRequest = (source: GalaxyState, action: InstitutionDecision): RouteBoardMutation => {
+  const galaxy = action === 'assist' ? advanceGalaxyRouteReckoning(source, NERIDA_BYPASS_COST_MARKS) : cloneGalaxy(source)
+  const result = decideNeridaInstitutionRequest(galaxy, action)
+  return { galaxy, changed: result.changed, message: result.message }
 }
 export const setCourierRoutine = (source: GalaxyState, courierId: string, routine: GalaxyCourierRoutine): GalaxyState => {
   const galaxy = cloneGalaxy(source)
@@ -386,10 +406,12 @@ export const setCourierRoutine = (source: GalaxyState, courierId: string, routin
 }
 export const selectGalaxyCourier = (source: GalaxyState, courierId: string): { galaxy: GalaxyState; hero?: Hero } => {
   const galaxy = cloneGalaxy(source)
+  const priorCourierId = galaxy.activeCourierId
   const courier = galaxy.couriers.find(candidate => candidate.id === courierId)
   if (!courier || courier.status !== 'available') return { galaxy }
   galaxy.activeCourierId = courier.id
   appendEvent(galaxy, { id: `event:${galaxy.seed}:handoff:${courier.id}:${galaxy.routeReckoning}:${galaxy.generalManifest.nextSequence}`, at: galaxy.routeReckoning, routeReckoning: galaxy.routeReckoning, kind: 'discovery', courierId: courier.id, headline: `${courier.name} takes the landing watch`, detail: `${courier.role} has been assigned as Jomon's active specialist.` })
+  if (priorCourierId !== courier.id) recordInstitutionCourierReplacement(galaxy, priorCourierId, courier.id)
   return { galaxy, hero: structuredClone(courier.hero) }
 }
 export const loseGalaxyCourier = (source: GalaxyState, courierId: string, detail: string, _legacyNow?: number): GalaxyState => {
@@ -399,6 +421,7 @@ export const loseGalaxyCourier = (source: GalaxyState, courierId: string, detail
   courier.status = 'dead'
   appendEvent(galaxy, { id: `event:${galaxy.seed}:loss:${courier.id}:${galaxy.routeReckoning}:${galaxy.generalManifest.nextSequence}`, at: galaxy.routeReckoning, routeReckoning: galaxy.routeReckoning, kind: 'loss', courierId: courier.id, headline: `${courier.name} is lost`, detail })
   appendGeneralManifest(galaxy, { kind: 'courierStatusChanged', detail: `${courier.name} is lost.`, source: 'courier', courierId: courier.id, payload: { status: 'dead' } })
+  reconcileInstitutionalManifest(galaxy)
   return galaxy
 }
 export const saveGalaxySite = (source: GalaxyState, siteIdValue: string, run: RunState, _legacyNow?: number): GalaxyState => {
@@ -573,18 +596,19 @@ const normalizeRouteBoard = (value: unknown, activeSiteId: string): RouteBoardSt
   return { version: 1, networkId: value.networkId === 'helios-intake-v1' ? value.networkId : fallback.networkId, currentDestinationId: current.id, knownDestinationIds, unavailableConnectionIds, ...(selectedConnectionId ? { selectedConnectionId } : {}), ...(transit ? { transit } : {}), history: history.slice(-ROUTE_BOARD_HISTORY_LIMIT), nextTransitSequence: isNonNegativeInteger(value.nextTransitSequence) ? value.nextTransitSequence : history.length }
 }
 export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
-  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4) || typeof value.seed !== 'number' || !Array.isArray(value.sectors) || !isRecord(value.sites) || !Array.isArray(value.couriers) || !Array.isArray(value.factions) || !Array.isArray(value.events) || !isRecord(value.siteSnapshots)) return undefined
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5) || typeof value.seed !== 'number' || !Array.isArray(value.sectors) || !isRecord(value.sites) || !Array.isArray(value.couriers) || !Array.isArray(value.factions) || !Array.isArray(value.events) || !isRecord(value.siteSnapshots)) return undefined
   try {
     const legacy = structuredClone(value) as unknown as GalaxyState
     const legacyDay = typeof legacy.sectorDay === 'number' && Number.isFinite(legacy.sectorDay) ? legacy.sectorDay : 0
     const routeReckoning = Number.isInteger(legacy.routeReckoning) && legacy.routeReckoning >= 0 ? legacy.routeReckoning : routeReckoningFromLegacyDay(legacyDay)
     const galaxy: GalaxyState = {
       ...legacy,
-      version: 4,
+      version: 5,
       routeReckoning,
       lastWorldTick: Number.isInteger(legacy.lastWorldTick) && legacy.lastWorldTick >= 0 ? Math.min(legacy.lastWorldTick, routeWorldTickFor(routeReckoning)) : routeWorldTickFor(routeReckoning),
       sectorDay: sectorDayFromRouteReckoning(routeReckoning),
-      sharedStash: Array.isArray((value as Record<string, unknown>).sharedStash) ? [...legacy.sharedStash] : []
+      sharedStash: Array.isArray((value as Record<string, unknown>).sharedStash) ? [...legacy.sharedStash] : [],
+      institutionWorld: createInstitutionWorld(legacy.seed, routeReckoning)
     }
     galaxy.cargo ??= []
     galaxy.contracts ??= []
@@ -598,7 +622,7 @@ export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
     if (!routeDestination || !galaxy.sites[routeDestination.siteId]) return undefined
     galaxy.activeSiteId = routeDestination.siteId
     galaxy.sites[routeDestination.siteId]!.discovered = true
-    galaxy.destinationWorld = normalizeDestinationWorld(value.version === 4 ? (value as Record<string, unknown>).destinationWorld : undefined, galaxy.seed, routeReckoning)
+    galaxy.destinationWorld = normalizeDestinationWorld(value.version === 4 || value.version === 5 ? (value as Record<string, unknown>).destinationWorld : undefined, galaxy.seed, routeReckoning)
     for (const courier of galaxy.couriers) if (courier.rivalId === undefined) delete courier.rivalId
     for (const sector of galaxy.sectors) {
       if (Object.is(sector.x, -0)) sector.x = 0
@@ -611,9 +635,9 @@ export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
     for (const contract of galaxy.sealedPackageContracts) {
       contract.version = 2
       contract.offeredAtRouteReckoning ??= routeReckoningFromLegacyDay(contract.offeredAtSectorDay)
-      contract.acceptedAtRouteReckoning ??= contract.acceptedAtSectorDay === undefined ? undefined : routeReckoningFromLegacyDay(contract.acceptedAtSectorDay)
-      contract.destinationReachedAtRouteReckoning ??= contract.destinationReachedAtSectorDay === undefined ? undefined : routeReckoningFromLegacyDay(contract.destinationReachedAtSectorDay)
-      contract.resolvedAtRouteReckoning ??= contract.resolvedAtSectorDay === undefined ? undefined : routeReckoningFromLegacyDay(contract.resolvedAtSectorDay)
+      if (contract.acceptedAtRouteReckoning === undefined && contract.acceptedAtSectorDay !== undefined) contract.acceptedAtRouteReckoning = routeReckoningFromLegacyDay(contract.acceptedAtSectorDay)
+      if (contract.destinationReachedAtRouteReckoning === undefined && contract.destinationReachedAtSectorDay !== undefined) contract.destinationReachedAtRouteReckoning = routeReckoningFromLegacyDay(contract.destinationReachedAtSectorDay)
+      if (contract.resolvedAtRouteReckoning === undefined && contract.resolvedAtSectorDay !== undefined) contract.resolvedAtRouteReckoning = routeReckoningFromLegacyDay(contract.resolvedAtSectorDay)
       contract.terms.deadlineReckoning ??= routeReckoningFromLegacyDay(contract.terms.deadlineDay)
       contract.terms.deadlineDay = sectorDayFromRouteReckoning(contract.terms.deadlineReckoning)
     }
@@ -633,6 +657,7 @@ export const migrateGalaxy = (value: unknown): GalaxyState | undefined => {
     }
     for (const snapshot of Object.values(galaxy.siteSnapshots)) snapshot.savedAt = Number.isInteger(snapshot.savedAt) && snapshot.savedAt >= 0 && snapshot.savedAt <= routeReckoning ? snapshot.savedAt : routeReckoning
     normalizeGeneralManifest(galaxy)
+    galaxy.institutionWorld = normalizeInstitutionWorld(value.version === 5 ? (value as Record<string, unknown>).institutionWorld : undefined, galaxy.seed, routeReckoning, galaxy.generalManifest.nextSequence - 1, galaxy.generalManifest.entries.flatMap(entry => entry.causalEventId ? [entry.causalEventId] : []))
     if (!galaxy.sites[galaxy.activeSiteId] || !galaxy.couriers.some(courier => courier.id === galaxy.activeCourierId)) return undefined
     return cloneGalaxy(galaxy)
   } catch { return undefined }

@@ -4,7 +4,7 @@ import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log
 import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
 import { ITEM, biomeName } from './content'
 import { nextCourierSelection } from './courier-menu'
-import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, decideGalaxyInstitutionRequest, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
 import { shouldPreventKeyboardDefault } from './input-policy'
 import { outpostAutoplayCommand } from './outpost-autoplay'
 import { TerminalRenderer } from './renderer'
@@ -956,6 +956,9 @@ function redraw(): void {
   const routeBoardSelection = galaxy && route.screen === 'sector' ? routeBoardDestinationForSite(route.siteId ?? currentDestination?.siteId ?? '') ?? currentDestination : undefined
   const routeBoardReport = galaxy && routeBoardSelection ? galaxy.destinationWorld.reports[routeBoardSelection.id as keyof typeof galaxy.destinationWorld.reports] : undefined
   const manifestEntry = route.hubAction === 'manifest' ? galaxy?.generalManifest.entries.at(-1) : undefined
+  const rival = galaxy?.institutionWorld.rival
+  const rivalActor = rival && galaxy ? galaxy.institutionWorld.actors.find(actor => actor.id === rival.actorId) : undefined
+  const rivalMemory = rivalActor?.memories.at(-1)
   canvas.dataset.sealedPackage = sealedContract?.status ?? 'none'
   canvas.dataset.routeReckoning = galaxy ? String(galaxy.routeReckoning) : ''
   canvas.dataset.currentDestination = currentDestination?.id ?? ''
@@ -965,9 +968,15 @@ function redraw(): void {
   canvas.dataset.destinationStatus = route.hubAction === 'destination' ? destinationReport?.reportedCondition ?? '' : ''
   canvas.dataset.destinationReportFreshness = destinationReport ? String(Math.max(0, (galaxy?.routeReckoning ?? 0) - destinationReport.observedAtRouteReckoning)) : ''
   canvas.dataset.destinationIntervention = route.destinationIntervention ?? ''
+  canvas.dataset.institutionCount = galaxy ? String(Object.keys(galaxy.institutionWorld.states).length) : '0'
+  canvas.dataset.rivalId = rival?.id ?? ''
+  canvas.dataset.rivalStatus = rival?.status ?? ''
+  canvas.dataset.rivalName = rivalActor?.name ?? ''
+  canvas.dataset.rivalMemory = rivalMemory?.kind ?? ''
+  canvas.dataset.institutionDecision = route.institutionDecision ?? ''
   canvas.dataset.routeBoardReport = routeBoardReport?.reportedCondition ?? ''
   canvas.dataset.routeBoardReportFreshness = routeBoardReport && galaxy ? destinationReportFreshness(routeBoardReport, galaxy.routeReckoning) : ''
-  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${route.hubAction === 'institutions' && galaxy ? ` Institutions: ${rival && rivalActor ? `${rivalActor.name}, ${rival.status}. Known file: ${rivalMemory?.summary ?? 'no recorded personal cause'}` : 'no known rival.'}` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
   renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
   syncAutoplay()
 }
@@ -1008,6 +1017,31 @@ function handleHubInput(key: string, run = false): boolean {
         return true
       }
       hubNotice = 'I inspect local instruments. B prepares the Nerida bypass when available.'
+      return true
+    }
+    if (action === 'institutions') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, institutionDecision: undefined } }
+      if (!galaxy) { hubNotice = 'Institutional records are unavailable while Jomon has no active route record.'; close(); return true }
+      if (route.institutionDecision) {
+        if (key === 'Escape') { route = { ...route, institutionDecision: undefined }; hubNotice = 'Institutional response cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER files the selected response. ESC cancels.'; return true }
+        const result = decideGalaxyInstitutionRequest(galaxy, route.institutionDecision)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        route = { ...route, institutionDecision: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'n' || key === 'Enter') { close(); return true }
+      const command = key.toLowerCase()
+      if (command === 'e') { hubNotice = 'At Nerida: C complies, R refuses, or A authorizes Closure Eight assistance (sixty marks). Choose a response, then ENTER confirms.'; return true }
+      if (command === 'c' || command === 'r' || command === 'a') {
+        route = { ...route, institutionDecision: command === 'c' ? 'comply' : command === 'r' ? 'refuse' : 'assist' }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'E lists the known Nerida response. C comply · R refuse · A assist Closure Eight.'
       return true
     }
     if (action === 'custody') {
@@ -1163,6 +1197,12 @@ function handleHubInput(key: string, run = false): boolean {
   if (key.toLowerCase() === 'd') {
     if (!campaign.galaxy) { hubNotice = 'The Jomon destination status is unavailable until a route is loaded.'; return true }
     route = { ...route, hubAction: 'destination' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'n') {
+    if (!campaign.galaxy) { hubNotice = 'Institutional records are unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'institutions' }
     hubNotice = undefined
     return true
   }

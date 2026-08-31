@@ -2,7 +2,7 @@ import { ITEM, biomeName } from './content'
 import { autoplayModeLabel, autoplayPolicyLabel } from './autoplay-controls'
 import jomonMastheadSource from '../asset/reference/JOMON.md?raw'
 import { merchantStock } from './engine/rewards'
-import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, destinationConditionDetail, destinationConditionLabel, destinationInterventionAvailable, destinationReportFreshness, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
+import { assessCompanionAbility, augmentChoices, boonChoices, boonFor, boonRank, destinationConditionDetail, destinationConditionLabel, destinationInterventionAvailable, destinationReportFreshness, encounterOptions, encounterTitle, encyclopediaEntries, fieldReadout, formatRouteReckoning, gateForRun, gateModalLines, gateSacrificeCandidates, gateSacrificeConsequence, INSTITUTION_DEFINITIONS, institutionDefinition, institutionReportFreshness, institutionStandingLabel, outpostInteraction, outpostMap, outpostSpawn, partyHud, relicChoices, relicFor, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnections, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinations, routeBoardOtherDestination, sealedPackageCustodyLabel, sealedPackageExteriorForContract, skillChoices, targetPreview, toolChoices, toolCooldown, toolFor, trailcraftChoices, type ActionResult, type HubView, type ScreenRoute } from './engine'
 import { sealedPackageDefinition } from './package-content'
 import { TerminalEffects } from './renderer/effects'
 import { isItemVisible } from './renderer/fog'
@@ -443,7 +443,7 @@ export class TerminalRenderer {
     lines.flatMap((line, lineIndex) => this.wrap(line, 46).map(value => ({ value, color: lineIndex === 0 ? colors.text : colors.dim }))).slice(0, 14).forEach((entry, index) => this.text(1, 36 + index, entry.value, entry.color))
     this.ruleHorizontal(0, 50, MAP_WIDTH)
     this.text(1, 52, 'MOVE arrows/IOP K ; , . / numpad · Shift run', colors.dim)
-    this.text(1, 53, 'ACT C interact · D destination · M Manifest · 1-6 service', colors.dim)
+    this.text(1, 53, 'ACT C interact · D destination · N institutions · M Manifest', colors.dim)
     this.text(1, 54, `F auto ${autoplayModeLabel(this.lastAutoplayMode)} · Shift+F policy`, colors.dim)
     this.text(1, 55, `V ${visualModeLabel(this.visualMode)} · +/- ${this.boardZoom.toFixed(2)}x · F1 settings`, colors.dim)
   }
@@ -553,6 +553,49 @@ export class TerminalRenderer {
         text('I inspect local instruments', colors.green)
         text('C / ESC / ENTER return to carrier', colors.dim)
       }
+      return
+    }
+    if (action === 'institutions') {
+      const galaxy = hub?.galaxy
+      this.box(49, 3, 46, 46, 'JOMON // INSTITUTIONS & CONTACTS')
+      if (!galaxy) { this.text(52, 8, 'Institutional records unavailable.', colors.red); return }
+      const world = galaxy.institutionWorld
+      const text = (y: number, value: string, color = colors.text) => this.text(52, y, value.slice(0, 40), color)
+      let y = 6
+      text(y++, 'KNOWN NERIDA JURISDICTIONS', colors.gold)
+      for (const definition of INSTITUTION_DEFINITIONS) {
+        const state = world.states[definition.id]
+        text(y++, definition.name.toUpperCase(), colors.text)
+        text(y++, `${institutionStandingLabel(state.standing)} · ${definition.civilization.toUpperCase()}`, state.standing.grievance >= 3 || state.standing.scrutiny >= 3 ? colors.gold : colors.dim)
+      }
+      const rival = world.rival
+      const rivalActor = rival ? world.actors.find(actor => actor.id === rival.actorId) : undefined
+      y++
+      if (rival && rivalActor) {
+        text(y++, `RIVAL: ${rivalActor.name.toUpperCase()} · ${rival.status.toUpperCase()}`, colors.red)
+        text(y++, `${rivalActor.rank.toUpperCase()} · ${institutionDefinition(rival.institutionId).name.toUpperCase()}`, colors.dim)
+        const memory = rivalActor.memories.at(-1)
+        if (memory) this.wrap(`FILE: ${memory.summary}`, 40).slice(0, 2).forEach(line => text(y++, line, colors.text))
+      } else text(y++, 'RIVAL FILE: NO KNOWN NAMED PURSUER', colors.dim)
+      const reports = world.reports.slice(-2).reverse()
+      if (reports.length) {
+        text(y++, 'RECENT KNOWN NOTICES', colors.gold)
+        for (const report of reports) {
+          const freshness = institutionReportFreshness(report, galaxy.routeReckoning)
+          this.wrap(`${freshness.toUpperCase()} · ${report.summary}`, 40).slice(0, 2).forEach(line => text(y++, line, freshness === 'stale' ? colors.gold : colors.dim))
+        }
+      }
+      y = Math.max(y + 1, 38)
+      if (route.institutionDecision) {
+        const label = route.institutionDecision === 'comply' ? 'COMPLY WITH PORT REQUEST' : route.institutionDecision === 'refuse' ? 'REFUSE PORT REQUEST' : 'ASSIST CLOSURE EIGHT'
+        text(y++, `CONFIRM: ${label}`, colors.gold)
+        text(y++, route.institutionDecision === 'assist' ? 'KNOWN COST: 60 ROUTE MARKS' : 'KNOWN TERM: CUSTODY RESPONSE FILED', colors.text)
+        text(y++, 'ENTER confirms · ESC cancels', colors.green)
+      } else if (galaxy.routeBoard.currentDestinationId === 'destination:nerida') {
+        text(y++, 'E: NERIDA CONTINUITY REQUEST', colors.green)
+        text(y++, 'C comply · R refuse · A assist Closure Eight', colors.text)
+        text(y++, 'Choice requires ENTER confirmation.', colors.dim)
+      } else text(y++, 'N / ENTER / ESC return to carrier deck', colors.green)
       return
     }
     if (action === 'continuation') {

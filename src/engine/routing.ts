@@ -3,7 +3,7 @@ import type { HubAction } from './hub'
 import type { CompanionLodgeAction } from './companions'
 
 export type Screen = 'title' | 'splash' | 'codex' | 'createCourier' | 'approach' | 'hub' | 'sector' | 'area' | 'level' | 'loading' | 'transit' | 'analysis'
-export interface ScreenRoute { screen: Screen; biome: Biome; siteId?: string; heirSeed?: number; hubAction?: HubAction; sealedPackageAction?: 'open' | 'deliver' | 'refuse' | 'abandon'; destinationIntervention?: 'nerida-bypass'; companionAction?: { id: string; action: CompanionLodgeAction }; companionControlMode?: CompanionControlMode; routeBoardConfirmation?: 'transit' | 'landing'; codexPage?: number }
+export interface ScreenRoute { screen: Screen; biome: Biome; siteId?: string; heirSeed?: number; hubAction?: HubAction; sealedPackageAction?: 'open' | 'deliver' | 'refuse' | 'abandon'; destinationIntervention?: 'nerida-bypass'; institutionDecision?: 'comply' | 'refuse' | 'assist'; companionAction?: { id: string; action: CompanionLodgeAction }; companionControlMode?: CompanionControlMode; routeBoardConfirmation?: 'transit' | 'landing'; codexPage?: number }
 
 export const initialRoute = (): ScreenRoute => ({ screen: 'title', biome: 'mine' })
 

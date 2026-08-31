@@ -5,7 +5,7 @@ import type { Biome, CampaignCycle, CampaignTier, Companion, CompanionControlMod
 import { toolFor } from './buildcraft'
 import { purchaseBlocker } from './economy'
 
-export type HubAction = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter' | 'custody' | 'manifest' | 'destination' | 'continuation'
+export type HubAction = 'routes' | 'roster' | 'crew' | 'shop' | 'outfitter' | 'custody' | 'manifest' | 'destination' | 'institutions' | 'continuation'
 export interface HubCampaignStatus { tier: CampaignTier; tierLabel: string; completedTiers: CampaignTier[]; completedLabel: string; historyLabel: string; packageName: string; packageRationale: string; difficultyLines: string[]; nextLabel: string; continuationPending: boolean; terminal: boolean; accessibleLabel: string }
 export interface HubCarryoverRosterEntry { name: string; status: string; injury: string; permanentlyLost: boolean }
 export interface HubCarryoverSummary { currency: number; items: string[]; tools: string[]; roster: HubCarryoverRosterEntry[]; injuries: string[]; losses: string[]; accessibleLabel: string }

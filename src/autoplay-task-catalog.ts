@@ -1,7 +1,7 @@
 import { runAutoplay } from './autoplay-runner'
-import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, inspectGalaxyDestination, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, migrateGalaxy, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
+import { abandonGalaxyCargo, acceptGalaxyContract, acceptSealedPackageContract, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, clearRouteBoardConnectionSelection, commitRouteBoardTransit, createGalaxy, decideGalaxyInstitutionRequest, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, inspectGalaxyDestination, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, migrateGalaxy, newHero, newRun, newTransitRun, recordGalaxyLanding, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionForGalaxy, routeBoardConnectionsFor, routeBoardDestination, ROUTE_RECKONING_WORLD_TICK_UNITS, selectGalaxyCourier, selectRouteBoardConnection, violateSealedPackageSeal } from './engine'
 
-export const AUTOPLAY_TASK_CATALOG_VERSION = 3
+export const AUTOPLAY_TASK_CATALOG_VERSION = 4
 export const AUTOPLAY_TASK_FIXTURE_TIME = 1_735_689_600_000
 
 export type AutoplayTaskCategory = 'tactical' | 'voyager' | 'economy' | 'ecology' | 'lifecycle'
@@ -237,6 +237,46 @@ const livingDestinationsTask = (): AutoplayTaskExecution => {
   }
 }
 
+const institutionsRivalTask = (): AutoplayTaskExecution => {
+  const initial = createGalaxy(61_905, hero(), AUTOPLAY_TASK_FIXTURE_TIME)
+  const contract = initial.sealedPackageContracts[0]
+  if (!contract) return { actions: [], events: [], passed: false, summary: {}, reason: 'M1 package offer is missing' }
+  const accepted = acceptSealedPackageContract(initial, contract.id, initial.activeCourierId).galaxy
+  const breached = violateSealedPackageSeal(accepted, contract.id).galaxy
+  const observed = advanceGalaxyRouteReckoning(breached, 240)
+  const atOrison = resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(observed, 'route:kestrel-orison').galaxy).galaxy).galaxy
+  const atNerida = resolveRouteBoardTransit(commitRouteBoardTransit(selectRouteBoardConnection(atOrison, 'route:orison-nerida').galaxy).galaxy).galaxy
+  const assisted = decideGalaxyInstitutionRequest(atNerida, 'assist')
+  const repaired = advanceGalaxyRouteReckoning(assisted.galaxy, 180)
+  const succeeded = advanceGalaxyRouteReckoning(repaired, 240)
+  const lost = loseGalaxyCourier(succeeded, succeeded.activeCourierId, 'autoplay institutional continuity fixture')
+  const replacement = lost.couriers.find(courier => courier.id !== lost.activeCourierId && courier.status === 'available')
+  if (!replacement) return { actions: [], events: [], passed: false, summary: {}, reason: 'no replacement courier is available' }
+  const continued = selectGalaxyCourier(lost, replacement.id).galaxy
+  const reloaded = migrateGalaxy(JSON.parse(JSON.stringify(continued)))!
+  const rival = reloaded.institutionWorld.rival
+  const rivalActor = rival ? reloaded.institutionWorld.actors.find(actor => actor.id === rival.actorId) : undefined
+  const manifestKinds = reloaded.generalManifest.entries.map(entry => entry.kind)
+  const passed = Boolean(breached.institutionWorld.rival)
+    && observed.institutionWorld.knownRouteModifiers.length > 0
+    && assisted.changed
+    && rival?.status === 'replaced'
+    && rivalActor?.memories.some(memory => memory.kind === 'courier-replacement') === true
+    && reloaded.couriers.find(courier => courier.id === initial.activeCourierId)?.status === 'dead'
+    && reloaded.activeCourierId === replacement.id
+    && manifestKinds.includes('institutionDecision')
+    && manifestKinds.includes('rivalEmergence')
+    && manifestKinds.includes('institutionSuccession')
+    && manifestKinds.includes('rivalEncounter')
+  return {
+    actions: ['accept:sealed-package', 'break:seal', 'observe:iren-vos', 'travel:orison', 'travel:nerida', 'open:institutions', 'confirm:closure-eight-assistance', 'observe:repair', 'replace:courier', 'save-reload'],
+    events: [...new Set(manifestKinds)].sort(),
+    passed,
+    summary: { rival: rival ? { id: rival.id, actorId: rival.actorId, status: rival.status } : undefined, replacementCourierId: reloaded.activeCourierId, routeReckoning: reloaded.routeReckoning, knownRouteModifiers: reloaded.institutionWorld.knownRouteModifiers.length },
+    ...(passed ? {} : { reason: 'institutional rival continuity, decision, succession, or replacement did not complete' })
+  }
+}
+
 export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('tactical.core-loop', 'tactical', 100, 'ui.core-loop', tacticalTask),
   task('voyager.site-discovery', 'voyager', 90, 'ui.sector-navigation', discoveryTask, ['tactical.core-loop']),
@@ -250,6 +290,7 @@ export const autoplayTaskCatalog = (): readonly AutoplayTask[] => [
   task('voyager.landing-conditions', 'ecology', 70, 'ui.landing-conditions', ecologyTask, ['voyager.site-discovery']),
   task('voyager.landing-settlement', 'lifecycle', 65, 'ui.landing-settlement', landingTask, ['voyager.landing-conditions']),
   task('voyager.living-destinations', 'ecology', 64, 'ui.living-destinations', livingDestinationsTask, ['voyager.route-board']),
+  task('voyager.institutions-rival', 'voyager', 63, 'ui.institutions-rival', institutionsRivalTask, ['voyager.living-destinations', 'voyager.sealed-package-tampered']),
   task('voyager.sector-clock', 'lifecycle', 60, 'ui.sector-clock', sectorClockTask, ['voyager.landing-settlement', 'voyager.living-destinations'])
 ]
 

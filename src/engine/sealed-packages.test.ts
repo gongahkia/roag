@@ -62,7 +62,7 @@ describe('sealed package custody', () => {
     const tamperedHero = newHero({ name: 'Ari' })
     const tampered = deliverSealedPackage(markSealedPackageDestinationReached(opened.galaxy, tamperedContract.terms.destinationSiteId), tamperedContract.id, tamperedHero)
     expect(tamperedHero.gold).toBe(tamperedContract.terms.payment - tamperedContract.terms.collateral)
-    expect(tampered.galaxy.generalManifest.entries.at(-1)).toMatchObject({ kind: 'deliveryCompleted', detail: expect.stringContaining('Tampered') })
+    expect(tampered.galaxy.generalManifest.entries.find(entry => entry.kind === 'deliveryCompleted')).toMatchObject({ kind: 'deliveryCompleted', detail: expect.stringContaining('Tampered') })
   })
 
   it('keeps decline and explicit deadline expiry distinct terminal outcomes', () => {
@@ -70,12 +70,12 @@ describe('sealed package custody', () => {
     const declined = declineSealedPackageContract(declinedBase, offer(declinedBase).id)
     expect(declined.galaxy.sealedPackageContracts[0]!.status).toBe('declined')
     expect(declined.galaxy.sealedPackages).toEqual([])
-    expect(declined.galaxy.generalManifest.entries.at(-1)).toMatchObject({ kind: 'contractDeclined' })
+    expect(declined.galaxy.generalManifest.entries.find(entry => entry.kind === 'contractDeclined')).toMatchObject({ kind: 'contractDeclined' })
 
     const expiring = acceptedGalaxy()
     const expired = expireSealedPackageContracts(expiring, offer(expiring).terms.deadlineReckoning + 1)
     expect(expired.galaxy.sealedPackageContracts[0]!.status).toBe('expired')
-    expect(expired.galaxy.generalManifest.entries.slice(-2).map(entry => entry.kind)).toEqual(['contractExpired', 'deliveryFailed'])
+    expect(expired.galaxy.generalManifest.entries.filter(entry => entry.kind === 'contractExpired' || entry.kind === 'deliveryFailed').slice(-2).map(entry => entry.kind)).toEqual(['contractExpired', 'deliveryFailed'])
   })
 
   it('records one Route Reckoning warning and one expiry while preserving intact or route-cache package state', () => {
@@ -167,7 +167,7 @@ describe('sealed package custody', () => {
     expect(migrated!.contracts).toEqual(current.contracts)
     expect(migrated!.sealedPackageContracts).toEqual([])
     expect(migrated!.sealedPackages).toEqual([])
-    expect(migrated!.version).toBe(4)
+    expect(migrated!.version).toBe(5)
     expect(migrated!.routeReckoning).toBe(0)
     expect(migrated!.generalManifest).toEqual({ version: 2, nextSequence: 0, entries: [] })
     expect(migrated!.routeCaches.every(cache => Array.isArray(cache.packages))).toBe(true)

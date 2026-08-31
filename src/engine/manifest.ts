@@ -11,6 +11,9 @@ export interface ManifestReferences {
   siteId?: string
   routeId?: string
   transitId?: string
+  institutionId?: string
+  actorId?: string
+  causalEventId?: string
 }
 
 export interface ManifestEntryInput extends ManifestReferences {
@@ -20,7 +23,7 @@ export interface ManifestEntryInput extends ManifestReferences {
   payload?: Record<string, string | number | boolean | null>
 }
 
-const affectedEntityIds = (references: ManifestReferences): string[] => [references.contractId, references.packageId, references.courierId, references.routeCacheId, references.siteId, references.routeId, references.transitId].filter((value): value is string => Boolean(value))
+const affectedEntityIds = (references: ManifestReferences): string[] => [references.contractId, references.packageId, references.courierId, references.routeCacheId, references.siteId, references.routeId, references.transitId, references.institutionId, references.actorId, references.causalEventId].filter((value): value is string => Boolean(value))
 
 export const appendGeneralManifest = (galaxy: GalaxyState, input: ManifestEntryInput): number => {
   const sequence = galaxy.generalManifest.nextSequence
@@ -44,6 +47,9 @@ export const appendGeneralManifest = (galaxy: GalaxyState, input: ManifestEntryI
     ...(input.siteId ? { siteId: input.siteId } : {}),
     ...(input.routeId ? { routeId: input.routeId } : {}),
     ...(input.transitId ? { transitId: input.transitId } : {}),
+    ...(input.institutionId ? { institutionId: input.institutionId } : {}),
+    ...(input.actorId ? { actorId: input.actorId } : {}),
+    ...(input.causalEventId ? { causalEventId: input.causalEventId } : {}),
     detail: input.detail
   }
   galaxy.generalManifest.entries.push(entry)
@@ -59,7 +65,7 @@ export const normalizeGeneralManifest = (galaxy: GalaxyState): void => {
     const sequence = Number.isInteger(raw.sequence) ? raw.sequence : index
     const existingReckoning = raw.routeReckoning
     const routeReckoning = typeof existingReckoning === 'number' && Number.isInteger(existingReckoning) ? Math.max(0, existingReckoning) : Math.round((raw.sectorDay ?? 0) * 1_440)
-    const references: ManifestReferences = { contractId: raw.contractId, packageId: raw.packageId, courierId: raw.courierId, routeCacheId: raw.routeCacheId, siteId: raw.siteId, routeId: raw.routeId, transitId: raw.transitId }
+    const references: ManifestReferences = { contractId: raw.contractId, packageId: raw.packageId, courierId: raw.courierId, routeCacheId: raw.routeCacheId, siteId: raw.siteId, routeId: raw.routeId, transitId: raw.transitId, institutionId: raw.institutionId, actorId: raw.actorId, causalEventId: raw.causalEventId }
     const entry: GeneralManifestEvent = {
       ...raw,
       version: 2,

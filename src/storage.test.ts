@@ -256,7 +256,7 @@ describe('run persistence migration', () => {
     const first = migrateCampaignRoute(source)
     const reopened = migrateCampaignRoute(JSON.parse(JSON.stringify(first)))
 
-    expect(first.galaxy).toMatchObject({ version: 4, routeReckoning: 4_680, lastWorldTick: 13, sealedPackageContracts: [{ status: 'offered', terms: { deadlineReckoning: 5_760 } }], routeBoard: { version: 1, currentDestinationId: 'destination:kestrel', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 4_680 } } } })
+    expect(first.galaxy).toMatchObject({ version: 5, routeReckoning: 4_680, lastWorldTick: 13, sealedPackageContracts: [{ status: 'offered', terms: { deadlineReckoning: 5_760 } }], routeBoard: { version: 1, currentDestinationId: 'destination:kestrel', networkId: 'helios-intake-v1' }, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 4_680 } } }, institutionWorld: { operations: [], causalEvents: [] } })
     expect(reopened.galaxy).toEqual(first.galaxy)
   })
 

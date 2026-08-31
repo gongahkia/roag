@@ -115,7 +115,7 @@ describe('persistent destination partitions', () => {
     const first = migrateGalaxy(legacy)!
     const reopened = migrateGalaxy(JSON.parse(JSON.stringify(first)))!
 
-    expect(first).toMatchObject({ version: 4, routeReckoning: 900, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 900, scheduledDevelopments: [{ id: 'development:nerida:pump-cavitation', dueAtRouteReckoning: 1_380 }] } } } })
+    expect(first).toMatchObject({ version: 5, routeReckoning: 900, destinationWorld: { partitions: { 'destination:nerida': { condition: 'pump-watch', lastProcessedRouteReckoning: 900, scheduledDevelopments: [{ id: 'development:nerida:pump-cavitation', dueAtRouteReckoning: 1_380 }] } } }, institutionWorld: { operations: [], causalEvents: [] } })
     expect(reopened).toEqual(first)
   })
 

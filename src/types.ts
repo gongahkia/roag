@@ -414,8 +414,8 @@ export interface GalaxyContract { id: string; sourceSiteId: string; destinationS
 export type SealedPackageContractStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'failed' | 'expired'
 export type PackageSealState = 'intact' | 'opened'
 export type PackageCustodyState = 'atJomon' | 'assignedToCourier' | 'routeCache' | 'recipient' | 'abandoned'
-export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged' | 'destinationReportReceived' | 'destinationIntervention' | 'destinationDevelopmentResolved'
-export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route' | 'destination'
+export type GeneralManifestEventKind = 'contractOffered' | 'contractAccepted' | 'contractDeclined' | 'packageInspected' | 'sealViolated' | 'custodyTransferred' | 'packageLost' | 'packageRecovered' | 'deliveryCompleted' | 'deliveryFailed' | 'contractExpired' | 'contractNearingExpiry' | 'siteSupplyCrisis' | 'siteSupplyRecovery' | 'siteIntegrityDegraded' | 'siteIntegrityRecovered' | 'siteEcologyShift' | 'siteConstructionCompleted' | 'siteConstructionLost' | 'siteControlChanged' | 'routeSituationActivated' | 'routeSituationResolved' | 'routeCommitted' | 'routeDeparted' | 'routeTransitDelayed' | 'routeArrived' | 'courierStatusChanged' | 'destinationReportReceived' | 'destinationIntervention' | 'destinationDevelopmentResolved' | 'institutionNotice' | 'institutionDecision' | 'rivalEmergence' | 'rivalEncounter' | 'institutionOperationKnown' | 'institutionRelationshipChanged' | 'institutionActorStatusChanged' | 'institutionSuccession'
+export type GeneralManifestSource = 'custody' | 'contract' | 'site' | 'courier' | 'route' | 'destination' | 'institution'
 export interface PackageExteriorReadout { sealMark: string; temperature: string; powerDraw: string; balance: string; shielding: string; handlingMark: string }
 export interface PackageTerms {
   sender: string
@@ -487,6 +487,9 @@ export interface GeneralManifestEvent {
   siteId?: string
   routeId?: string
   transitId?: string
+  institutionId?: string
+  actorId?: string
+  causalEventId?: string
   detail: string
 }
 export interface GeneralManifest { version: 1 | 2; nextSequence: number; entries: GeneralManifestEvent[] }
@@ -549,8 +552,25 @@ export interface DestinationHistoryEntry { id: string; atRouteReckoning: number;
 export interface DestinationPartition { version: 1; id: DestinationPartitionId; contentRevision: 1; lastProcessedRouteReckoning: number; condition: DestinationCondition; pressure: DestinationPressure; scheduledDevelopments: DestinationScheduledDevelopment[]; resolvedDevelopmentIds: string[]; consequences: DestinationConsequence[]; interventions: DestinationIntervention[]; history: DestinationHistoryEntry[] }
 export interface DestinationKnownReport { version: 1; destinationId: DestinationPartitionId; reportedCondition: DestinationCondition; source: DestinationReportSource; observedAtRouteReckoning: number; receivedAtRouteReckoning: number; confidence: 'confirmed' | 'estimated'; knownConsequenceId?: string }
 export interface DestinationWorldState { version: 1; partitions: Record<DestinationPartitionId, DestinationPartition>; reports: Record<DestinationPartitionId, DestinationKnownReport> }
+export type InstitutionId = 'institution:nerida-port-continuity' | 'institution:closure-eight' | 'institution:blue-intake-board'
+export type InstitutionCivilization = 'human' | 'taal' | 'mixed'
+export type InstitutionOperationKind = 'port-requisition' | 'port-access-audit' | 'closure-pump-repair' | 'blue-intake-relief' | 'iren-evidence-inspection' | 'iren-bypass-custody-audit' | 'actor-reassignment'
+export type InstitutionOperationStatus = 'scheduled' | 'resolved' | 'cancelled'
+export type InstitutionActorStatus = 'active' | 'reassigned' | 'injured' | 'disgraced' | 'missing' | 'detained' | 'dead' | 'retired' | 'replaced'
+export type InstitutionCausalKind = 'manifest-observed' | 'rival-emerged' | 'standing-changed' | 'institution-operation' | 'institution-decision' | 'actor-status' | 'courier-continuity'
+export type InstitutionReportSource = 'institution-notice' | 'arrival-observation' | 'direct-encounter' | 'route-report'
+export interface InstitutionStanding { trust: number; scrutiny: number; obligation: number; grievance: number; influence: number }
+export interface InstitutionCampaignState { version: 1; id: InstitutionId; capacity: number; currentConcern: string; standing: InstitutionStanding; relations: Partial<Record<InstitutionId, number>> }
+export interface InstitutionOperation { version: 1; id: string; institutionId: InstitutionId; actorId?: string; destinationId: DestinationPartitionId; kind: InstitutionOperationKind; initiatedAtRouteReckoning: number; dueAtRouteReckoning: number; purpose: string; status: InstitutionOperationStatus; visibility: 'hidden' | 'known'; parentEventIds: string[]; resolvedAtRouteReckoning?: number; effectId?: string }
+export interface InstitutionActorMemory { version: 1; id: string; causalEventId: string; kind: 'seal-breach' | 'bypass-interference' | 'refusal' | 'compliance' | 'assistance' | 'courier-loss' | 'courier-replacement' | 'briefing'; atRouteReckoning: number; witnessed: boolean; courierId?: string; summary: string }
+export interface InstitutionActor { version: 1; id: string; name: string; civilization: InstitutionCivilization; affiliationId: InstitutionId; role: string; rank: string; destinationId: DestinationPartitionId; status: InstitutionActorStatus; methods: string[]; jomonGrievance: number; memories: InstitutionActorMemory[]; operationalHistory: string[] }
+export interface InstitutionCausalEvent { version: 1; id: string; sequence: number; atRouteReckoning: number; kind: InstitutionCausalKind; parentIds: string[]; institutionId?: InstitutionId; actorId?: string; destinationId?: DestinationPartitionId; courierId?: string; manifestId?: string; knownToJomon: boolean; learnedThrough: InstitutionReportSource | 'manifest'; summary: string; effects: Record<string, string | number | boolean> }
+export interface InstitutionReport { version: 1; id: string; institutionId: InstitutionId; actorId?: string; destinationId: DestinationPartitionId; causalEventId: string; source: InstitutionReportSource; reportAtRouteReckoning: number; confidence: 'confirmed' | 'partial' | 'contested'; bias?: string; summary: string }
+export interface InstitutionRouteModifier { version: 1; id: string; destinationId: DestinationPartitionId; operationId: string; warning: string; durationMarks: number; risk: RouteBoardRisk; knownAtRouteReckoning: number }
+export interface InstitutionRival { version: 1; id: 'rival:iren-vos'; actorId: string; institutionId: InstitutionId; status: 'active' | 'reassigned' | 'replaced' | 'closed'; emergedAtRouteReckoning: number; emergenceCausalEventId: string; originalCourierId?: string; successorActorId?: string }
+export interface InstitutionWorldState { version: 1; contentRevision: 1; states: Record<InstitutionId, InstitutionCampaignState>; actors: InstitutionActor[]; operations: InstitutionOperation[]; resolvedOperationIds: string[]; relationshipEffectIds: string[]; causalEvents: InstitutionCausalEvent[]; reports: InstitutionReport[]; knownRouteModifiers: InstitutionRouteModifier[]; rival?: InstitutionRival; lastProcessedManifestSequence: number; nextCausalSequence: number; completedDecisionIds: string[]; successorCounts: Partial<Record<InstitutionId, number>> }
 export interface GalaxyState {
-  version: 1 | 2 | 3 | 4
+  version: 1 | 2 | 3 | 4 | 5
   seed: number
   /** @deprecated Wall-clock migration metadata. Never use for canonical simulation. */
   createdAt?: number
@@ -579,6 +599,7 @@ export interface GalaxyState {
   routeCaches: GalaxyRouteCache[]
   routeBoard: RouteBoardState
   destinationWorld: DestinationWorldState
+  institutionWorld: InstitutionWorldState
 }
 
 export type Modal =
