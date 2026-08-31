@@ -43,6 +43,17 @@ Replace the implicit mix of campaign records, chronicle events, cargo state, and
 
 Introduce a seeded, inspectable simulation clock that advances only during active gameplay through actions, rest, travel, and scheduled simulation ticks. Migrate existing galaxy/site/cache/courier state; define corrupt-save handling, reset behavior, and deterministic replay expectations before changing persisted schemas.
 
+#### M2 Route Reckoning decision record
+
+`docs/ROUTE-RECKONING.md` records the implementation contract for this phase:
+Route Reckoning is an integer, persisted active-session clock; a browser
+monotonic clock requests fixed steps but never becomes canonical state; hidden,
+unfocused, closed, restoring, and blocking-terminal time is discarded; legacy
+wall-clock reconciliation is migration-only; and meaningful site/contract
+changes are represented by bounded, structured General Manifest entries. M1
+sealed-package deadlines migrate to the same clock without changing their legal
+custody lifecycle.
+
 ### Phase 2 — Sealed package vertical slice
 
 Replace one automatic cargo contract with one player-operated sealed package flow: inspect exterior symptoms and declared contract clauses; accept or decline; assign a courier; establish custody; carry it through a route; deliver, refuse, abandon, lose, return, or breach the seal; then write the result to the General Manifest.
