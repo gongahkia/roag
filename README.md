@@ -35,21 +35,23 @@ The default Trick Card pool is exactly: Turbo, Shield, Heavy, Airhorn, Freeze, P
 
 Each resolved hole records a versioned materialized recipe containing the generator version, seed, stopped reel IDs, chaos modifier, content identifiers, route-role assignments, and a stable course hash. Completed holes remain visibly stitched into the final course, while Party Rules keeps gameplay systems active only on the current hole. The in-game intel drawer exposes the compact recipe hash and local development instrumentation records recipes, slot actions, shot types, card use, collisions, recoveries, and per-hole strokes.
 
-## Party Rules playtest build
+## Party Rules developer validation
 
-The first-time guide is contextual, skippable, and stored only on the local device. It introduces the shared objective, one slot decision, course-route roles, putt/chip input, visible Trick Card targets and expiries, social receipts, the three-card shop, and connected-course memory. Settings includes a developer-only reset for the guide.
+The first-time guide is contextual, skippable, and stored only on the local device. It introduces the shared objective, one slot decision, course-route roles, putt/chip input, visible Trick Card targets and expiries, social receipts, the three-card shop, and connected-course memory. Settings includes a local reset for the guide.
 
 Every reveal now opens a short, skippable briefing with the biome, layout, one headline modifier, and safe/skill/conflict route roles. Local games with two or more human golfers show a pass-the-device handoff before a new human turn. Ball collisions, cards, and recoveries create structured receipts and the finale gives at most three factual, non-punitive awards. The result screen can copy the materialized replay recipe.
 
-Use the reproducible verification helpers for playtest preparation:
+The project owner is the sole subjective gameplay validator. Automated tests, deterministic simulations, visual audits, telemetry, generator stress, and authoritative client/server parity validate implementation correctness but do not independently prove fun or audience reception. External playtesting may be performed voluntarily later, but it is not a development gate.
+
+Use the reproducible verification helpers for developer validation:
 
 ```sh
-npm run simulate:party -- --seed party-playtest --players 4 --holes 9 --out output/playtests/party-playtest.json
+npm run simulate:party -- --seed party-validation --players 4 --holes 9 --out output/simulations/party-validation.json
 npm run parity:party
 npm run stress:party -- --count 100 --out output/stress/party-100.json
 ```
 
-`stress:party` accepts up to 10,000 seeded courses; use a smaller count for a quick local smoke test. See [the moderated playtest protocol](docs/party-playtest-protocol.md) for setup, observer prompts, and exit questions. The Party Rules description above is authoritative for ordinary play. Broad catalog, two-chaos-reel, and seven-card-shop references below describe the retained `custom`/legacy experimentation path, not the Party Rules default.
+`stress:party` accepts up to 10,000 seeded courses; use a smaller count for a quick local smoke test. The Party Rules description above is authoritative for ordinary play. Broad catalog, two-chaos-reel, and seven-card-shop references below describe the retained `custom`/legacy experimentation path, not the Party Rules default.
 
 ## Game flow and modes
 

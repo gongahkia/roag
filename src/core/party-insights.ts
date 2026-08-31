@@ -25,8 +25,8 @@ export interface PartyPacingSummary {
   withinHoleBudget: boolean;
 }
 
-/** A shareable local-playtest record. Player display names are deliberately excluded. */
-export interface PartyTelemetryReport {
+/** A local developer-diagnostics record. Player display names are deliberately excluded. */
+export interface PartyDiagnosticsReport {
   schemaVersion: 1;
   sessionId: string;
   exportedAt: string;
@@ -106,10 +106,10 @@ export const partyPacingFor = (state: GameState): PartyPacingSummary => {
 };
 
 /**
- * Produces evidence that can be shared with the repository without participant
- * names. The caller owns download/storage; this function only transforms state.
+ * Produces local developer diagnostics without player display names. The caller
+ * owns download/storage; this function only transforms state.
  */
-export const partyTelemetryReportFor = (state: GameState, sessionId: string, exportedAt: string): PartyTelemetryReport => {
+export const partyDiagnosticsReportFor = (state: GameState, sessionId: string, exportedAt: string): PartyDiagnosticsReport => {
   const labels = new Map(state.players.map((player, index) => [player.id, `P${index + 1}`]));
   const anonymousId = (id: string | undefined) => id ? labels.get(id) ?? 'unknown' : undefined;
   return {

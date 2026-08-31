@@ -20,7 +20,7 @@ export interface GamePreferences {
   showMerchantHoldings: boolean;
   /** The Party Rules guide is deliberately local: it never changes a shared match. */
   partyGuideStep: number;
-  /** Exposes only local diagnostic summaries for moderated playtests. */
+  /** Exposes only local Party Rules diagnostic summaries. */
   showPartyDiagnostics: boolean;
   onlineServerUrl: string;
   bindings: Partial<Record<ShortcutId, string>>;

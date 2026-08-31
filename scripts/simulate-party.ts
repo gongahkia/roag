@@ -17,7 +17,7 @@ const options = (): Options => {
   const players = Number(argument('--players') ?? 4);
   const holes = Number(argument('--holes') ?? 9);
   if (!Number.isInteger(players) || players < 2 || players > 4 || !Number.isInteger(holes) || holes < 1 || holes > 9) throw new Error(usage);
-  return { seed: argument('--seed') ?? 'party-playtest', players, holes, out: argument('--out') ?? path.join('output', 'playtests', 'party-simulation.json') };
+  return { seed: argument('--seed') ?? 'party-simulation', players, holes, out: argument('--out') ?? path.join('output', 'simulations', 'party-simulation.json') };
 };
 
 const readyEveryPlayer = (state: GameState) => state.players.reduce((next, player) => next.die?.wagers[player.id]?.ready
@@ -112,7 +112,7 @@ const run = (options: Options) => {
   if (state.status !== 'finished') throw new Error(`simulation did not finish after ${steps} steps`);
   return {
     schemaVersion: 1,
-    mode: 'deterministic-party-playtest',
+    mode: 'deterministic-party-simulation',
     seed: options.seed,
     players: options.players,
     holes: options.holes,
