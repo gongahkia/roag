@@ -490,7 +490,7 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
     if (connection.id !== `${commitment.id}:connection` || connection.initialRouteId !== commitment.anchor.routeId || connection.initialWaterwayId !== commitment.anchor.waterwayId || (connection.kind === 'initial-world-link' && connection.parentRegionId !== undefined) || (connection.kind === 'parent-region-link' && (!parent || parent.commitment.generationOrder >= commitment.generationOrder))) issues.push(issue(connection.id, 'frontier.invalid-connection'))
     if (region.status === 'ungenerated' && (regionFacts(region).length !== 0 || regionPeople(region).length !== 0)) issues.push(issue(commitment.id, 'frontier.invalid-state'))
 
-    for (const fact of regionFacts(region)) {
+    for (const fact of [...regionFacts(region)].sort((left, right) => comparison(left.id, right.id))) {
       const sourceRecordIsKnown = initialIds.has(fact.source.sourceRecordId) || allKnownFactIds.has(fact.source.sourceRecordId)
       const expectedSubject = fact.kind === 'region-name' ? commitment.id
         : fact.kind === 'site-name' ? siteIdFor(commitment.id)
@@ -506,7 +506,7 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
       factsByKey.set(factKey(fact), fact.value)
     }
 
-    for (const person of regionPeople(region)) {
+    for (const person of [...regionPeople(region)].sort((left, right) => comparison(left.id, right.id))) {
       const sourceFact = byId(regionFacts(region), person.sourceFactId)
       if (person.regionId !== commitment.id || person.id !== namedPersonIdFor(state, commitment.id, person.revelationKey) || person.futurePersonId !== futurePersonIdFor(state, commitment.id, person.revelationKey) || !has(commitment.anonymousInstitutions, person.institutionCommitmentId) || sourceFact?.kind !== 'person-name' || sourceFact.subjectId !== person.id || sourceFact.value !== person.name || person.instantiationTrigger !== 'region-materialized') issues.push(issue(person.id, 'frontier.invalid-named-person'))
     }
@@ -521,7 +521,7 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
     }
   }
 
-  for (const id of allRecordIds(state)) {
+  for (const id of [...allRecordIds(state)].sort(comparison)) {
     if (seenIds.has(id)) issues.push(issue(id, 'frontier.duplicate-id'))
     seenIds.add(id)
   }
@@ -677,7 +677,7 @@ export const materializeFrontierRegion = (context: FrontierGenerationContext, st
   if (region.status === 'materialized') return state
   const parentId = region.commitment.connection.parentRegionId
   if (parentId !== undefined && state.regions.find(candidate => candidate.commitment.id === parentId)?.status !== 'materialized') throw new FrontierContractError([issue(regionId, 'frontier.invalid-connection')])
-  const rng = new SeededRng(streamSeedFor(context, region.commitment.coordinate, `materialization:${materializedAtWorldTime}`))
+  const rng = new SeededRng(streamSeedFor(context, region.commitment.coordinate, 'materialization'))
   const regionName = region.revealedFacts.find(fact => fact.kind === 'region-name')?.value ?? regionNameFor(context, region.commitment.coordinate, 'materialized-name')
   const siteName = region.revealedFacts.find(fact => fact.kind === 'site-name')?.value ?? `${regionName} Landing`
   const materialization: FrontierMaterializationPlan = {
