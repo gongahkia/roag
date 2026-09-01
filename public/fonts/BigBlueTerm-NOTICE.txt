@@ -1,0 +1,17 @@
+BigBlue Terminal 437 Nerd Font Mono
+
+This project bundles the unmodified `BigBlueTerm437NerdFontMono-Regular.ttf`
+font as its medieval interface font.
+
+Original BigBlue Terminal font: VileR
+Source: https://int10h.org/blog/2015/12/bigblue-terminal-oldschool-fixed-width-font/
+Nerd Fonts patch distribution: https://github.com/ryanoasis/nerd-fonts
+
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+License text: BigBlueTerm-LICENSE.txt
+License URL: https://creativecommons.org/licenses/by-sa/4.0/
+
+The font file is unmodified. Any distribution of the font must retain this
+attribution and the accompanying CC BY-SA 4.0 license text. If the font is
+modified, the adaptation must be identified and distributed under CC BY-SA 4.0
+or a compatible license.

@@ -10,12 +10,50 @@ const width = 800
 const height = 630
 const left = 38
 const lineHeight = 22
+const contentWidth = width - left * 2
+const terminalFont = '18px "BigBlueTerm", monospace'
 
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : 'Unknown local storage error'
 
 const row = (context: CanvasRenderingContext2D, line: number, text: string, color: string = colors.text): void => {
   context.fillStyle = color
   context.fillText(text, left, 78 + line * lineHeight)
+}
+
+const wrapText = (context: CanvasRenderingContext2D, text: string): readonly string[] => {
+  const words = text.trim().split(/\s+/u).filter(Boolean)
+  if (!words.length) return ['']
+
+  const splitLongWord = (word: string): readonly string[] => {
+    const pieces: string[] = []
+    let piece = ''
+    for (const character of word) {
+      if (!piece || context.measureText(`${piece}${character}`).width <= contentWidth) piece += character
+      else { pieces.push(piece); piece = character }
+    }
+    if (piece) pieces.push(piece)
+    return pieces
+  }
+
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (context.measureText(next).width <= contentWidth) { current = next; continue }
+    if (current) { lines.push(current); current = '' }
+    if (context.measureText(word).width <= contentWidth) { current = word; continue }
+    const pieces = splitLongWord(word)
+    lines.push(...pieces.slice(0, -1))
+    current = pieces.at(-1) ?? ''
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
+const wrappedRows = (context: CanvasRenderingContext2D, line: number, text: string, color: string = colors.text): number => {
+  const lines = wrapText(context, text)
+  lines.forEach((wrapped, index) => row(context, line + index, wrapped, color))
+  return line + lines.length
 }
 
 const rule = (context: CanvasRenderingContext2D, line: number): void => {
@@ -49,6 +87,7 @@ export class MedievalApp {
     canvas.height = height
     canvas.addEventListener('pointerdown', () => canvas.focus())
     window.addEventListener('keydown', event => this.handleKey(event))
+    if ('fonts' in document) void document.fonts.load(terminalFont, 'JOMON').then(() => this.render()).catch(() => undefined)
   }
 
   async start(): Promise<void> {
@@ -215,7 +254,7 @@ export class MedievalApp {
     context.fillRect(20, 20, width - 40, height - 40)
     context.strokeStyle = colors.line
     context.strokeRect(20.5, 20.5, width - 41, height - 41)
-    context.font = '18px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+    context.font = terminalFont
     context.textBaseline = 'top'
     context.fillStyle = colors.gold
     context.fillText('JOMON', left, 38)
@@ -230,16 +269,16 @@ export class MedievalApp {
       this.canvas.dataset.worldId = this.world.id
       this.canvas.dataset.crewCount = String(this.world.crew.length)
     }
-    if (this.route === 'worlds') this.renderWorlds(context)
-    else if (this.route === 'create-world') this.renderCreateWorld(context)
-    else if (this.route === 'choose-courier') this.renderCourierChoice(context)
-    else if (this.route === 'world') this.renderWorld(context)
-    else if (this.route === 'chronicles') this.renderChronicles(context)
-    else this.renderChronicle(context)
-    if (this.error) row(context, 22, `LOCAL STORAGE: ${this.error}`, colors.red)
+    const nextLine = this.route === 'worlds' ? this.renderWorlds(context)
+      : this.route === 'create-world' ? this.renderCreateWorld(context)
+        : this.route === 'choose-courier' ? this.renderCourierChoice(context)
+          : this.route === 'world' ? this.renderWorld(context)
+            : this.route === 'chronicles' ? this.renderChronicles(context)
+              : this.renderChronicle(context)
+    if (this.error) wrappedRows(context, Math.min(24, nextLine + 1), `LOCAL STORAGE: ${this.error}`, colors.red)
   }
 
-  private renderWorlds(context: CanvasRenderingContext2D): void {
+  private renderWorlds(context: CanvasRenderingContext2D): number {
     this.canvas.setAttribute('aria-label', `Jomon worlds. ${this.index.activeWorlds.length} active world${this.index.activeWorlds.length === 1 ? '' : 's'} and ${this.index.chronicles.length} finalized chronicle${this.index.chronicles.length === 1 ? '' : 's'}.`)
     row(context, 2, 'LOCAL WORLDS', colors.gold)
     if (!this.index.activeWorlds.length) row(context, 4, 'No active worlds. Create a seeded river world to begin.', colors.dim)
@@ -247,66 +286,71 @@ export class MedievalApp {
     rule(context, 14)
     row(context, 16, 'N  create world     ENTER  resume selected world', colors.green)
     row(context, 17, 'C  inspect finalized chronicles', colors.green)
-    row(context, 19, 'Foundation only: seeded crew and local persistence are ready.', colors.dim)
-    row(context, 20, 'The walkable deck, trade, travel, simulation, and combat follow the roadmap.', colors.dim)
+    let line = wrappedRows(context, 19, 'Foundation only: seeded crew and local persistence are ready.', colors.dim)
+    line = wrappedRows(context, line, 'The walkable deck, trade, travel, simulation, and combat follow the roadmap.', colors.dim)
+    return line
   }
 
-  private renderCreateWorld(context: CanvasRenderingContext2D): void {
+  private renderCreateWorld(context: CanvasRenderingContext2D): number {
     this.canvas.setAttribute('aria-label', `Create a seeded Jomon world. Current seed ${this.seed}.`)
     row(context, 2, 'CREATE SEEDED WORLD', colors.gold)
     row(context, 4, 'Seed', colors.dim)
-    row(context, 5, `> ${this.seed}_`, colors.green)
-    row(context, 8, 'Enter creates the deterministic foundation world.', colors.text)
-    row(context, 9, 'Changing seed or generation settings changes the household; no individual rerolls.', colors.dim)
-    row(context, 11, 'Esc returns without changing local worlds.', colors.dim)
+    let line = wrappedRows(context, 5, `> ${this.seed}_`, colors.green)
+    line = Math.max(8, line + 1)
+    line = wrappedRows(context, line, 'Enter creates the deterministic foundation world.', colors.text)
+    line = wrappedRows(context, line, 'Changing seed or generation settings changes the household; no individual rerolls.', colors.dim)
+    line = Math.max(line + 1, 11)
+    return wrappedRows(context, line, 'Esc returns without changing local worlds.', colors.dim)
   }
 
-  private renderCourierChoice(context: CanvasRenderingContext2D): void {
+  private renderCourierChoice(context: CanvasRenderingContext2D): number {
     const world = this.world
-    if (!world) { this.route = 'worlds'; this.render(); return }
+    if (!world) { this.route = 'worlds'; this.render(); return 0 }
     this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.label}. ${world.crew.length} generated crew members are eligible.`)
     row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.label.toUpperCase()}`, colors.gold)
     row(context, 3, `SEED ${world.manifest.seed} // time remains 0`, colors.dim)
+    let line = 5
     world.crew.filter(member => member.eligible).forEach((member, index) => {
       const color = index === this.selectedRow ? colors.green : colors.text
-      row(context, 5 + index * 2, `${index === this.selectedRow ? '>' : ' '} ${member.name.toUpperCase()} // ${member.role.toUpperCase()} // CONVERSATION ${member.conversation}`, color)
-      row(context, 6 + index * 2, `   ${member.history}.`, colors.dim)
+      line = wrappedRows(context, line, `${index === this.selectedRow ? '>' : ' '} ${member.name.toUpperCase()} // ${member.role.toUpperCase()} // CONVERSATION ${member.conversation}`, color)
+      line = wrappedRows(context, line, `   ${member.history}.`, colors.dim)
     })
-    row(context, 19, 'Arrow keys choose. Enter confirms. Esc returns to local worlds.', colors.green)
+    return wrappedRows(context, Math.max(19, line + 1), 'Arrow keys choose. Enter confirms. Esc returns to local worlds.', colors.green)
   }
 
-  private renderWorld(context: CanvasRenderingContext2D): void {
+  private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
-    if (!world) { this.route = 'worlds'; this.render(); return }
+    if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const courier = activeCourier(world)
     this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.label}, active courier ${courier?.name ?? 'unassigned'}.`)
     row(context, 2, `${world.manifest.label.toUpperCase()} // FOUNDATION WORLD`, colors.gold)
     row(context, 4, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, colors.green)
     row(context, 5, `SEED  ${world.manifest.seed} // WORLD TIME ${world.worldTime}`, colors.text)
-    row(context, 7, 'The household exists. Time has not advanced and no map has been generated yet.', colors.dim)
-    row(context, 8, 'This is the clean persistence boundary before the walkable Jomon foundation.', colors.dim)
+    let line = wrappedRows(context, 7, 'The household exists. Time has not advanced and no map has been generated yet.', colors.dim)
+    line = wrappedRows(context, line, 'This is the clean persistence boundary before the walkable Jomon foundation.', colors.dim)
     rule(context, 14)
-    row(context, 16, 'Esc returns to local worlds. All gameplay actions are still roadmap work.', colors.green)
+    return wrappedRows(context, Math.max(16, line + 1), 'Esc returns to local worlds. All gameplay actions are still roadmap work.', colors.green)
   }
 
-  private renderChronicles(context: CanvasRenderingContext2D): void {
+  private renderChronicles(context: CanvasRenderingContext2D): number {
     this.canvas.setAttribute('aria-label', `${this.index.chronicles.length} finalized Jomon chronicles.`)
     row(context, 2, 'FINALIZED CHRONICLES', colors.gold)
     if (!this.index.chronicles.length) row(context, 4, 'No finalized chronicles are stored locally.', colors.dim)
     this.index.chronicles.forEach((entry, index) => row(context, 4 + index, `${index === this.selectedRow ? '>' : ' '} ${entry.label} // ${entry.reason.toUpperCase()}`, index === this.selectedRow ? colors.green : colors.text))
     rule(context, 14)
-    row(context, 16, 'Arrow keys choose. Enter inspects. Esc returns to local worlds.', colors.green)
+    return wrappedRows(context, 16, 'Arrow keys choose. Enter inspects. Esc returns to local worlds.', colors.green)
   }
 
-  private renderChronicle(context: CanvasRenderingContext2D): void {
+  private renderChronicle(context: CanvasRenderingContext2D): number {
     const chronicle = this.chronicle
-    if (!chronicle) { this.route = 'chronicles'; this.render(); return }
+    if (!chronicle) { this.route = 'chronicles'; this.render(); return 0 }
     this.canvas.setAttribute('aria-label', `Read-only Jomon chronicle ${chronicle.world.manifest.label}, finalized by ${chronicle.reason}.`)
     row(context, 2, `${chronicle.world.manifest.label.toUpperCase()} // READ-ONLY CHRONICLE`, colors.gold)
     row(context, 4, `FINAL REASON  ${chronicle.reason.toUpperCase()}`, colors.red)
     row(context, 5, `SEED  ${chronicle.world.manifest.seed} // WORLD TIME ${chronicle.world.worldTime}`, colors.text)
-    chronicle.world.causalHistory.forEach((record, index) => row(context, 7 + index, `${record.sequence}. ${record.detail}`, colors.dim))
+    let line = 7
+    chronicle.world.causalHistory.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, colors.dim) })
     rule(context, 14)
-    row(context, 16, 'E exports JSON. Esc returns to finalized chronicles.', colors.green)
+    return wrappedRows(context, Math.max(16, line + 1), 'E exports JSON. Esc returns to finalized chronicles.', colors.green)
   }
 }

@@ -1,4 +1,5 @@
-:root { color: #d9dfcb; background: #080a0b; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+@font-face { font-family: BigBlueTerm; src: url('/fonts/BigBlueTerm437NerdFontMono-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+:root { color: #d9dfcb; background: #080a0b; font-family: BigBlueTerm, monospace; }
 * { box-sizing: border-box; }
 body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: #080a0b; }
 main { display: grid; width: 100vw; height: 100dvh; place-items: center; }
