@@ -122,6 +122,15 @@ Implementation design for this slice:
 - Do not share `src/main.ts`, `src/renderer.ts`, `src/storage.ts`, `src/types.ts`, prototype content, prototype game state, or prototype save keys with the new domain. A small generic browser canvas or DOM shell may be rebuilt from first principles; no UI surface may expose prototype language.
 - Verify this slice with new unit tests for manifests, generated crew, initial selection, catalog isolation, and save ownership; browser coverage for the keyboard creation/select/resume flow; `npm run build`; and `git diff --check`. Record any temporarily skipped legacy browser coverage plainly rather than treating it as medieval evidence.
 
+#### 1.1.a Prototype reuse and disposition audit `[x]`
+
+- [x] Classify every prototype foundation before reuse. Reuse only neutral tooling and the bare browser mount; rebuild all game-facing systems in `src/medieval/` from first principles.
+- [x] Retain the Vite, TypeScript, Vitest, Playwright, package-lock, and generic `index.html` canvas-mount infrastructure. These provide build, type-check, test, and local browser boot capabilities only; they confer no medieval gameplay or visual requirements.
+- [x] Do not reuse the prototype’s `src/main.ts`, `src/renderer.ts`, `src/storage.ts`, `src/types.ts`, `src/rng.ts`, `src/engine/**`, `src/world.ts`, `src/content.ts`, `src/props.ts`, autoplay/telemetry/campaign code, legacy browser flows, save keys, migrations, source art, sprite atlases, audio, CSS, or font. Some contain space-era meaning; the rest are coupled to it or would impose hidden legacy constraints.
+- [x] Isolate the legacy browser application behind `?prototype` so existing prototype browser tests can remain diagnostic without making it the ordinary product path. New browser coverage must open `/` and exercise only the medieval application.
+
+Verification: manual import/dependency audit on 2026-09-01. `src/medieval/` has no prototype domain imports; `src/entry.ts` selects the medieval bootstrap by default and legacy bootstrap only with `?prototype`.
+
 #### 1.2 Deterministic world generation and configuration
 
 - [ ] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules.

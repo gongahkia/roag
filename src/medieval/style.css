@@ -1,0 +1,5 @@
+:root { color: #d9dfcb; background: #080a0b; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: #080a0b; }
+main { display: grid; width: 100vw; height: 100dvh; place-items: center; }
+#game { display: block; width: min(100vw, 126.9841dvh); height: min(100dvh, 78.75vw); outline: none; }

@@ -1,11 +1,11 @@
-import type { FoundationWorld, WorldChronicle, WorldIndex } from './types'
+import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationWorld, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
 const CHRONICLE_STORE = 'chronicles'
 const INDEX_KEY = 'world-index'
 const DATABASE_VERSION = 1
-const databaseName = 'jomon-medieval-worlds-v1'
+const databaseName = MEDIEVAL_DATABASE_NAME
 
 export const emptyWorldIndex = (): WorldIndex => ({ version: 1, activeWorlds: [], chronicles: [] })
 
@@ -24,12 +24,25 @@ export const addChronicleToIndex = (index: WorldIndex, chronicle: WorldChronicle
 })
 
 const clone = <T>(value: T): T => structuredClone(value)
+const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
+const nonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
+const crewRole = (value: unknown): boolean => ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard'].includes(String(value))
 
-const isWorldIndex = (value: unknown): value is WorldIndex => {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<WorldIndex>
-  return candidate.version === 1 && Array.isArray(candidate.activeWorlds) && Array.isArray(candidate.chronicles)
+const isManifest = (value: unknown): value is WorldManifest => record(value) && value.version === 1 && string(value.seed) && record(value.configuration) && value.configuration.version === 1 && value.configuration.profile === 'foundation' && value.generatorVersion === 'foundation-1' && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
+const isCrewMember = (value: unknown): value is FoundationCrewMember => record(value) && string(value.id) && string(value.name) && crewRole(value.role) && nonNegativeInteger(value.conversation) && Array.isArray(value.equipment) && value.equipment.every(string) && string(value.history) && typeof value.eligible === 'boolean' && Array.isArray(value.relationships) && value.relationships.every(relationship => record(relationship) && string(relationship.personId) && [-2, -1, 0, 1, 2].includes(Number(relationship.standing)) && ['kinship', 'work', 'debt', 'friendship', 'rivalry'].includes(String(relationship.basis)))
+const isFoundationWorld = (value: unknown): value is FoundationWorld => {
+  if (!record(value) || value.version !== 1 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || value.worldTime !== 0 || !Array.isArray(value.causalHistory) || !value.causalHistory.every(event => record(event) && nonNegativeInteger(event.sequence) && event.atWorldTime === 0 && (event.kind === 'world-created' || event.kind === 'initial-courier-selected') && string(event.detail))) return false
+
+  const manifest = value.manifest
+  const crew = value.crew as FoundationCrewMember[]
+  return manifest.initialCourierId === undefined || crew.some(member => member.id === manifest.initialCourierId && member.eligible)
 }
+const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 1 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
+const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
+const isChronicleIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && chronicleReason(value.reason)
+const isWorldIndex = (value: unknown): value is WorldIndex => record(value) && value.version === 1 && Array.isArray(value.activeWorlds) && value.activeWorlds.every(isActiveWorldIndexEntry) && Array.isArray(value.chronicles) && value.chronicles.every(isChronicleIndexEntry)
 
 const requestResult = <T>(request: IDBRequest<T>): Promise<T> => new Promise((resolve, reject) => {
   request.onsuccess = () => resolve(request.result)
@@ -76,7 +89,7 @@ export class MedievalWorldRepository {
     const transaction = database.transaction(WORLD_STORE, 'readonly')
     const value = await requestResult(transaction.objectStore(WORLD_STORE).get(id))
     await transactionDone(transaction)
-    return value === undefined ? undefined : clone(value as FoundationWorld)
+    return isFoundationWorld(value) ? clone(value) : undefined
   }
 
   async loadChronicle(id: string): Promise<WorldChronicle | undefined> {
@@ -84,7 +97,7 @@ export class MedievalWorldRepository {
     const transaction = database.transaction(CHRONICLE_STORE, 'readonly')
     const value = await requestResult(transaction.objectStore(CHRONICLE_STORE).get(id))
     await transactionDone(transaction)
-    return value === undefined ? undefined : clone(value as WorldChronicle)
+    return isChronicle(value) ? clone(value) : undefined
   }
 
   async saveWorld(world: FoundationWorld): Promise<void> {
